@@ -9,8 +9,8 @@ import sys
 import os
 
 # Add tit directory to path
-project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'tit')
+project_root = os.path.join(os.path.dirname(__file__), "..")
+ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
 from core.calc import (
@@ -25,10 +25,8 @@ class TestGetTIVectors:
     def test_parallel_equal_magnitude_vectors(self):
         """Test TI vectors for parallel equal magnitude E-fields"""
         # Two parallel vectors of equal magnitude
-        E1 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
-        E2 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
+        E1 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        E2 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 
         TI_vectors = get_TI_vectors(E1, E2)
 
@@ -116,14 +114,10 @@ class TestGetMTIVectors:
     def test_basic_mti_calculation(self):
         """Test basic mTI vectors calculation with four channels"""
         # Create simple parallel fields for all four channels
-        E1 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
-        E2 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
-        E3 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
-        E4 = np.array([[1.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0]])
+        E1 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        E2 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        E3 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        E4 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 
         mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
 
@@ -208,17 +202,19 @@ class TestGetMTIVectors:
 
         # mTI magnitude should be reasonable (typically < 2x max input)
         mti_magnitudes = np.linalg.norm(mTI_vectors, axis=1)
-        max_input_mag = np.max([
-            np.linalg.norm(E1, axis=1).max(),
-            np.linalg.norm(E2, axis=1).max(),
-            np.linalg.norm(E3, axis=1).max(),
-            np.linalg.norm(E4, axis=1).max()
-        ])
+        max_input_mag = np.max(
+            [
+                np.linalg.norm(E1, axis=1).max(),
+                np.linalg.norm(E2, axis=1).max(),
+                np.linalg.norm(E3, axis=1).max(),
+                np.linalg.norm(E4, axis=1).max(),
+            ]
+        )
 
         # mTI should be bounded
         assert np.all(mti_magnitudes < 4 * max_input_mag)
         assert np.all(mti_magnitudes >= 0)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

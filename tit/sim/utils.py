@@ -42,7 +42,9 @@ def ensure_montage_file(project_dir: str) -> str:
     os.makedirs(config_dir, exist_ok=True)
 
     # Best-effort permissive perms (matches GUI expectations in containers)
-    _chmod_best_effort(os.path.join(project_dir, const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX), 0o777)
+    _chmod_best_effort(
+        os.path.join(project_dir, const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX), 0o777
+    )
     _chmod_best_effort(config_dir, 0o777)
 
     path = montage_list_path(project_dir)
@@ -134,8 +136,10 @@ def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> List[str
     if not isinstance(net_montages, dict):
         return []
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
-    names = list((net_montages.get(key) or {}).keys()) if isinstance(net_montages.get(key), dict) else []
+    names = (
+        list((net_montages.get(key) or {}).keys())
+        if isinstance(net_montages.get(key), dict)
+        else []
+    )
     names.sort()
     return names
-
-

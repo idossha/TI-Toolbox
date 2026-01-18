@@ -14,9 +14,14 @@ import sys
 from .visualizer import NilearnVisualizer
 
 
-def create_glass_brain_entry_point(subject_id: str, simulation_name: str,
-                                 min_cutoff: float = 0.3, max_cutoff: float = None,
-                                 cmap: str = 'hot', output_callback=None):
+def create_glass_brain_entry_point(
+    subject_id: str,
+    simulation_name: str,
+    min_cutoff: float = 0.3,
+    max_cutoff: float = None,
+    cmap: str = "hot",
+    output_callback=None,
+):
     """
     Entry point for glass brain visualization creation.
 
@@ -38,11 +43,13 @@ def create_glass_brain_entry_point(subject_id: str, simulation_name: str,
         captured_output = io.StringIO()
         with redirect_stdout(captured_output):
             visualizer = NilearnVisualizer()
-            result = visualizer.create_glass_brain_visualization(subject_id, simulation_name, min_cutoff, max_cutoff, cmap)
+            result = visualizer.create_glass_brain_visualization(
+                subject_id, simulation_name, min_cutoff, max_cutoff, cmap
+            )
 
         # Send captured output to callback line by line
         output_text = captured_output.getvalue()
-        for line in output_text.split('\n'):
+        for line in output_text.split("\n"):
             if line.strip():
                 output_callback(line)
 
@@ -55,7 +62,9 @@ def create_glass_brain_entry_point(subject_id: str, simulation_name: str,
     else:
         # Normal operation - print to stdout
         visualizer = NilearnVisualizer()
-        result = visualizer.create_glass_brain_visualization(subject_id, simulation_name, min_cutoff, max_cutoff, cmap)
+        result = visualizer.create_glass_brain_visualization(
+            subject_id, simulation_name, min_cutoff, max_cutoff, cmap
+        )
         if result:
             print(f"\n✓ Glass brain visualization completed: {result}")
             return result
@@ -64,9 +73,15 @@ def create_glass_brain_entry_point(subject_id: str, simulation_name: str,
             return None
 
 
-def create_glass_brain_entry_point_group(averaged_img, base_filename: str, output_dir: str,
-                                       min_cutoff: float = 0.3, max_cutoff: float = None,
-                                       cmap: str = 'hot', output_callback=None):
+def create_glass_brain_entry_point_group(
+    averaged_img,
+    base_filename: str,
+    output_dir: str,
+    min_cutoff: float = 0.3,
+    max_cutoff: float = None,
+    cmap: str = "hot",
+    output_callback=None,
+):
     """
     Entry point for glass brain visualization creation with pre-averaged nifti data.
 
@@ -128,7 +143,7 @@ def create_glass_brain_entry_point_group(averaged_img, base_filename: str, outpu
                 symmetric_cbar=False,
                 display_mode="lyrz",
                 title=f"Electric Field - Group Average\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
-                output_file=pdf_filepath
+                output_file=pdf_filepath,
             )
 
             print(f"✓ Saved glass brain visualization: {pdf_filepath}")
@@ -136,7 +151,7 @@ def create_glass_brain_entry_point_group(averaged_img, base_filename: str, outpu
 
         # Send captured output to callback line by line
         output_text = captured_output.getvalue()
-        for line in output_text.split('\n'):
+        for line in output_text.split("\n"):
             if line.strip():
                 output_callback(line)
 
@@ -184,7 +199,7 @@ def create_glass_brain_entry_point_group(averaged_img, base_filename: str, outpu
             symmetric_cbar=False,
             display_mode="lyrz",
             title=f"Electric Field - Group Average\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
-            output_file=pdf_filepath
+            output_file=pdf_filepath,
         )
 
         print(f"✓ Saved glass brain visualization: {pdf_filepath}")
@@ -210,25 +225,40 @@ Examples:
 
   # Use custom cutoffs and colormap
   python img_glass.py --subject 001 --simulation montage1 --min-cutoff 0.5 --max-cutoff 10.0 --cmap plasma
-        """
+        """,
     )
 
-    parser.add_argument('--subject', '-s', required=True,
-                       help='Subject ID (e.g., 001, 101)')
-    parser.add_argument('--simulation', '-sim', required=True,
-                       help='Simulation name')
-    parser.add_argument('--min-cutoff', '-c', type=float, default=0.3,
-                       help='Minimum cutoff for visualization (V/m, default: 0.3)')
-    parser.add_argument('--max-cutoff', '-mc', type=float, default=None,
-                       help='Maximum cutoff for visualization (V/m, default: 99.9th percentile)')
-    parser.add_argument('--cmap', default='hot',
-                       choices=['hot', 'plasma', 'inferno', 'viridis', 'cividis', 'coolwarm'],
-                       help='Colormap for visualization (default: hot)')
+    parser.add_argument(
+        "--subject", "-s", required=True, help="Subject ID (e.g., 001, 101)"
+    )
+    parser.add_argument("--simulation", "-sim", required=True, help="Simulation name")
+    parser.add_argument(
+        "--min-cutoff",
+        "-c",
+        type=float,
+        default=0.3,
+        help="Minimum cutoff for visualization (V/m, default: 0.3)",
+    )
+    parser.add_argument(
+        "--max-cutoff",
+        "-mc",
+        type=float,
+        default=None,
+        help="Maximum cutoff for visualization (V/m, default: 99.9th percentile)",
+    )
+    parser.add_argument(
+        "--cmap",
+        default="hot",
+        choices=["hot", "plasma", "inferno", "viridis", "cividis", "coolwarm"],
+        help="Colormap for visualization (default: hot)",
+    )
 
     args = parser.parse_args()
 
     # Run the glass brain visualization
-    return create_glass_brain_entry_point(args.subject, args.simulation, args.min_cutoff, args.max_cutoff, args.cmap)
+    return create_glass_brain_entry_point(
+        args.subject, args.simulation, args.min_cutoff, args.max_cutoff, args.cmap
+    )
 
 
 if __name__ == "__main__":

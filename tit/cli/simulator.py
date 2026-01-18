@@ -57,7 +57,9 @@ def _resolve_eeg_cap_filename(subject_id: str, eeg_net_arg: str) -> str:
     # Case-insensitive hit.
     wanted = {c.lower() for c in candidates}
     for p in eeg_dir.glob("*.csv"):
-        if p.name.lower() in wanted or p.stem.lower() in {Path(c).stem.lower() for c in candidates}:
+        if p.name.lower() in wanted or p.stem.lower() in {
+            Path(c).stem.lower() for c in candidates
+        }:
             return p.name
 
     # Not found: return the most reasonable normalized name.
@@ -68,40 +70,163 @@ class SimulatorCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Run TI/mTI simulations (delegates to tit.sim.simulator).")
 
-        self.add_argument(ArgumentDefinition(name="list_subjects", type=bool, help="List subjects", default=False))
-        self.add_argument(ArgumentDefinition(name="list_eeg_caps", type=bool, help="List EEG caps for --subject", default=False))
+        self.add_argument(
+            ArgumentDefinition(
+                name="list_subjects", type=bool, help="List subjects", default=False
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="list_eeg_caps",
+                type=bool,
+                help="List EEG caps for --subject",
+                default=False,
+            )
+        )
         # Accept common singular typo too (--list-montage)
-        self.add_argument(ArgumentDefinition(name="list_montages", type=bool, help="List montages for --eeg (and flex-search runs if --sub is provided)", default=False, flags=["--list-montages", "--list-montage"]))
+        self.add_argument(
+            ArgumentDefinition(
+                name="list_montages",
+                type=bool,
+                help="List montages for --eeg (and flex-search runs if --sub is provided)",
+                default=False,
+                flags=["--list-montages", "--list-montage"],
+            )
+        )
 
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=False, flags=["--subject", "--sub"]))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename", default="GSN-HydroCel-185.csv", flags=["--eeg-net", "--eeg"]))
-        self.add_argument(ArgumentDefinition(name="framework", type=str, choices=["montage", "flex"], default="montage"))
+        self.add_argument(
+            ArgumentDefinition(
+                name="subject",
+                type=str,
+                help="Subject ID",
+                required=False,
+                flags=["--subject", "--sub"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="eeg_net",
+                type=str,
+                help="EEG cap CSV filename",
+                default="GSN-HydroCel-185.csv",
+                flags=["--eeg-net", "--eeg"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="framework",
+                type=str,
+                choices=["montage", "flex"],
+                default="montage",
+            )
+        )
         # Ergonomic aliases that avoid argparse abbreviation confusion (BaseCLI sets allow_abbrev=False)
-        self.add_argument(ArgumentDefinition(name="montage", type=bool, help="Shorthand for --framework montage", default=False))
-        self.add_argument(ArgumentDefinition(name="flex", type=bool, help="Shorthand for --framework flex", default=False))
-        self.add_argument(ArgumentDefinition(name="mode", type=str, choices=["U", "M"], default="U", help="U (TI) or M (mTI)"))
-        self.add_argument(ArgumentDefinition(name="montages", type=str, nargs="+", help="One or more montage names (supports comma-separated values too).", required=False))
-        self.add_argument(ArgumentDefinition(name="create_montage", type=bool, help="Create montage if missing (interactive-like)", default=False))
+        self.add_argument(
+            ArgumentDefinition(
+                name="montage",
+                type=bool,
+                help="Shorthand for --framework montage",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="flex",
+                type=bool,
+                help="Shorthand for --framework flex",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="mode",
+                type=str,
+                choices=["U", "M"],
+                default="U",
+                help="U (TI) or M (mTI)",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="montages",
+                type=str,
+                nargs="+",
+                help="One or more montage names (supports comma-separated values too).",
+                required=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="create_montage",
+                type=bool,
+                help="Create montage if missing (interactive-like)",
+                default=False,
+            )
+        )
 
-        self.add_argument(ArgumentDefinition(name="conductivity", type=str, choices=["scalar", "vn", "dir", "mc"], default="scalar"))
-        self.add_argument(ArgumentDefinition(name="intensity", type=str, help="Intensity (mA). For mTI use format 'a,b,c,d' if supported.", default="2.0"))
-        self.add_argument(ArgumentDefinition(name="electrode_shape", type=str, choices=["rect", "ellipse"], help="rect|ellipse", default="ellipse"))
-        self.add_argument(ArgumentDefinition(name="dimensions", type=str, help="e.g. 8,8", default="8,8"))
-        self.add_argument(ArgumentDefinition(name="thickness", type=float, help="mm", default=4.0))
+        self.add_argument(
+            ArgumentDefinition(
+                name="conductivity",
+                type=str,
+                choices=["scalar", "vn", "dir", "mc"],
+                default="scalar",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="intensity",
+                type=str,
+                help="Intensity (mA). For mTI use format 'a,b,c,d' if supported.",
+                default="2.0",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="electrode_shape",
+                type=str,
+                choices=["rect", "ellipse"],
+                help="rect|ellipse",
+                default="ellipse",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="dimensions", type=str, help="e.g. 8,8", default="8,8"
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(name="thickness", type=float, help="mm", default=4.0)
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
 
         utils.echo_header("Simulator (interactive)")
-        subject_id = self.select_one(prompt_text="Select subject", options=pm.list_subjects(), help_text="Choose a subject")
+        subject_id = self.select_one(
+            prompt_text="Select subject",
+            options=pm.list_subjects(),
+            help_text="Choose a subject",
+        )
 
         framework = self._prompt_for_value(
-            InteractivePrompt(name="framework", prompt_text="Framework", choices=["montage", "flex"], default="montage", help_text="montage = predefined montage_list.json; flex = from flex-search outputs")
+            InteractivePrompt(
+                name="framework",
+                prompt_text="Framework",
+                choices=["montage", "flex"],
+                default="montage",
+                help_text="montage = predefined montage_list.json; flex = from flex-search outputs",
+            )
         )
         mode = "U"
         if framework == "montage":
             mode = self._prompt_for_value(
-                InteractivePrompt(name="mode", prompt_text="Simulation mode", choices=["U", "M"], default="U", help_text="U = TI (2-pair), M = mTI (4-pair)")
+                InteractivePrompt(
+                    name="mode",
+                    prompt_text="Simulation mode",
+                    choices=["U", "M"],
+                    default="U",
+                    help_text="U = TI (2-pair), M = mTI (4-pair)",
+                )
             )
         eeg_net = ""
 
@@ -118,19 +243,27 @@ class SimulatorCLI(BaseCLI):
                 help_text="Choose an EEG cap CSV filename",
             )
 
-            available = list_montage_names(pm.project_dir, eeg_net, mode=mode) if pm.project_dir else []
+            available = (
+                list_montage_names(pm.project_dir, eeg_net, mode=mode)
+                if pm.project_dir
+                else []
+            )
             if not available:
                 utils.echo_warning("No montages found for this EEG cap / mode.")
                 if utils.ask_bool("Create a new montage now?", default=True):
                     name = utils.ask_required("Montage name")
                     n_pairs = 2 if mode == "U" else 4
                     pairs: List[List[str]] = []
-                    eeg_pos_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
+                    eeg_pos_dir = pm.path_optional(
+                        "eeg_positions", subject_id=subject_id
+                    )
                     labels: List[str] = []
                     if eeg_pos_dir:
                         labels = utils.load_eeg_cap_labels(Path(eeg_pos_dir) / eeg_net)
                     if not labels:
-                        raise RuntimeError("Could not load electrode labels from EEG cap; cannot create montage interactively.")
+                        raise RuntimeError(
+                            "Could not load electrode labels from EEG cap; cannot create montage interactively."
+                        )
 
                     # Show electrode labels in a compact multi-column view (max 10 rows/column)
                     utils.echo_info("Available electrodes (use labels, e.g. FC1, FC3):")
@@ -139,13 +272,20 @@ class SimulatorCLI(BaseCLI):
                     # Map for case-insensitive matching to canonical labels
                     canon = {lab.strip().upper(): lab for lab in labels}
 
-                    utils.echo_info(f"Create montage '{name}': enter pair 1, then pair 2{' (and more)' if n_pairs > 2 else ''}.")
+                    utils.echo_info(
+                        f"Create montage '{name}': enter pair 1, then pair 2{' (and more)' if n_pairs > 2 else ''}."
+                    )
                     for i in range(n_pairs):
                         while True:
-                            raw = utils.ask_required(f"Please enter two electrodes for pair {i+1}", default=None)
+                            raw = utils.ask_required(
+                                f"Please enter two electrodes for pair {i+1}",
+                                default=None,
+                            )
                             parts = [p.strip() for p in raw.split(",") if p.strip()]
                             if len(parts) != 2:
-                                utils.echo_error("Please enter exactly two electrode labels separated by a comma (e.g. FC1, FC3).")
+                                utils.echo_error(
+                                    "Please enter exactly two electrode labels separated by a comma (e.g. FC1, FC3)."
+                                )
                                 continue
                             a_raw, b_raw = parts[0].upper(), parts[1].upper()
                             if a_raw == b_raw:
@@ -154,24 +294,38 @@ class SimulatorCLI(BaseCLI):
                             a = canon.get(a_raw)
                             b = canon.get(b_raw)
                             if not a or not b:
-                                utils.echo_error("One or both electrode labels were not recognized. Please use the labels shown above.")
+                                utils.echo_error(
+                                    "One or both electrode labels were not recognized. Please use the labels shown above."
+                                )
                                 continue
                             pairs.append([a, b])
                             break
 
-                    sim_utils.upsert_montage(project_dir=pm.project_dir, eeg_net=eeg_net, montage_name=name, electrode_pairs=pairs, mode=mode)
+                    sim_utils.upsert_montage(
+                        project_dir=pm.project_dir,
+                        eeg_net=eeg_net,
+                        montage_name=name,
+                        electrode_pairs=pairs,
+                        mode=mode,
+                    )
                     available = list_montage_names(pm.project_dir, eeg_net, mode=mode)
                 else:
                     raise RuntimeError("No montages available.")
 
-            selected = self.select_many(prompt_text="Select montages", options=available, help_text="Choose one or more montages")
+            selected = self.select_many(
+                prompt_text="Select montages",
+                options=available,
+                help_text="Choose one or more montages",
+            )
             montage_names = ",".join(selected)
         else:
             # flex: discover flex-search outputs in standard locations (same as GUI)
             searches = pm.list_flex_search_runs(subject_id)
 
             if not searches:
-                utils.echo_warning("No flex-search outputs found for this subject (missing flex-search/*/electrode_positions.json).")
+                utils.echo_warning(
+                    "No flex-search outputs found for this subject (missing flex-search/*/electrode_positions.json)."
+                )
                 montage_names = ""
             else:
                 selected_searches = self.select_many(
@@ -179,24 +333,42 @@ class SimulatorCLI(BaseCLI):
                     options=searches,
                     help_text="Choose one or more flex-search output folders to simulate.",
                 )
-                flex_use_optimized = utils.ask_bool("Simulate optimized electrodes (XYZ coordinates)?", default=True)
-                flex_use_mapped = utils.ask_bool("Simulate mapped electrodes (EEG-net labels)?", default=True)
+                flex_use_optimized = utils.ask_bool(
+                    "Simulate optimized electrodes (XYZ coordinates)?", default=True
+                )
+                flex_use_mapped = utils.ask_bool(
+                    "Simulate mapped electrodes (EEG-net labels)?", default=True
+                )
                 if flex_use_mapped:
                     eeg_net = self.select_one(
                         prompt_text="Select EEG cap",
-                        options=(pm.list_eeg_caps(subject_id) or [self._default_eeg_cap()]),
+                        options=(
+                            pm.list_eeg_caps(subject_id) or [self._default_eeg_cap()]
+                        ),
                         help_text="Choose an EEG cap CSV filename",
                     )
                 if not flex_use_mapped and not flex_use_optimized:
-                    raise RuntimeError("Must select at least one electrode type (mapped or optimized).")
+                    raise RuntimeError(
+                        "Must select at least one electrode type (mapped or optimized)."
+                    )
                 montage_names = ",".join(selected_searches)
 
         conductivity = self._prompt_for_value(
-            InteractivePrompt(name="conductivity", prompt_text="Conductivity", choices=["scalar", "vn", "dir", "mc"], default="scalar")
+            InteractivePrompt(
+                name="conductivity",
+                prompt_text="Conductivity",
+                choices=["scalar", "vn", "dir", "mc"],
+                default="scalar",
+            )
         )
         intensity = utils.ask_required("Intensity (mA)", default="2.0")
         shape = self._prompt_for_value(
-            InteractivePrompt(name="shape", prompt_text="Electrode shape", choices=["ellipse", "rect"], default="ellipse")
+            InteractivePrompt(
+                name="shape",
+                prompt_text="Electrode shape",
+                choices=["ellipse", "rect"],
+                default="ellipse",
+            )
         )
         dims = utils.ask_required("Dimensions (mm) e.g. 8,8", default="8,8")
         thickness = utils.ask_float("Thickness (mm)", default="4.0")
@@ -208,14 +380,27 @@ class SimulatorCLI(BaseCLI):
                 ("Framework", framework),
                 ("Mode", mode),
                 ("EEG cap", eeg_net if eeg_net else "-"),
-                ("Montages", montage_names if montage_names else ("ALL (flex)" if framework == "flex" else "-")),
+                (
+                    "Montages",
+                    (
+                        montage_names
+                        if montage_names
+                        else ("ALL (flex)" if framework == "flex" else "-")
+                    ),
+                ),
                 ("Conductivity", conductivity),
                 ("Intensity", intensity),
                 ("Electrode shape", shape),
                 ("Dimensions", dims),
                 ("Thickness (mm)", str(thickness)),
-                ("Mapped electrodes", "yes" if (framework == "flex" and flex_use_mapped) else "no"),
-                ("Optimized electrodes", "yes" if (framework == "flex" and flex_use_optimized) else "no"),
+                (
+                    "Mapped electrodes",
+                    "yes" if (framework == "flex" and flex_use_mapped) else "no",
+                ),
+                (
+                    "Optimized electrodes",
+                    "yes" if (framework == "flex" and flex_use_optimized) else "no",
+                ),
             ],
             default_yes=True,
         ):
@@ -246,7 +431,9 @@ class SimulatorCLI(BaseCLI):
     def execute(self, args: Dict[str, Any]) -> int:
         pm = get_path_manager()
         if not pm.project_dir:
-            raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
+            raise RuntimeError(
+                "Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker."
+            )
 
         if args.get("list_subjects"):
             subs = pm.list_subjects()
@@ -267,15 +454,23 @@ class SimulatorCLI(BaseCLI):
             eeg_net_arg = str(args.get("eeg_net") or self._default_eeg_cap())
             # If a subject is provided, normalize EEG cap name against eeg_positions.
             sid = args.get("subject")
-            eeg_net = _resolve_eeg_cap_filename(str(sid), eeg_net_arg) if sid else eeg_net_arg
+            eeg_net = (
+                _resolve_eeg_cap_filename(str(sid), eeg_net_arg) if sid else eeg_net_arg
+            )
             from tit.sim.montage_loader import list_montage_names as _list_names
 
             # montage_list.json keys usually include ".csv". If user passed a stem, also try the ".csv" key.
             u_names = _list_names(str(pm.project_dir), eeg_net, mode="U")
             m_names = _list_names(str(pm.project_dir), eeg_net, mode="M")
             if not eeg_net.lower().endswith(".csv"):
-                u_names = sorted(set(u_names) | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="U")))
-                m_names = sorted(set(m_names) | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="M")))
+                u_names = sorted(
+                    set(u_names)
+                    | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="U"))
+                )
+                m_names = sorted(
+                    set(m_names)
+                    | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="M"))
+                )
             utils.echo_header(f"Montages (eeg-net: {eeg_net})")
             utils.echo_section("U mode (TI / 2 pairs)")
             utils.display_table(u_names)
@@ -332,7 +527,11 @@ class SimulatorCLI(BaseCLI):
             raise RuntimeError("--montages is required for framework=montage")
 
         # Build configs
-        dims = [float(x.strip()) for x in str(args.get("dimensions") or "8,8").split(",") if x.strip()]
+        dims = [
+            float(x.strip())
+            for x in str(args.get("dimensions") or "8,8").split(",")
+            if x.strip()
+        ]
         electrode = ElectrodeConfig(
             shape=str(args.get("electrode_shape") or "ellipse"),
             dimensions=dims,
@@ -343,7 +542,9 @@ class SimulatorCLI(BaseCLI):
         config = SimulationConfig(
             subject_id=str(sid),
             project_dir=str(pm.project_dir),
-            conductivity_type=ConductivityType(str(args.get("conductivity") or "scalar")),
+            conductivity_type=ConductivityType(
+                str(args.get("conductivity") or "scalar")
+            ),
             intensities=intensities,
             electrode=electrode,
             eeg_net=("flex_mode" if framework == "flex" else eeg_net),
@@ -357,7 +558,12 @@ class SimulatorCLI(BaseCLI):
             from tit.sim.montage_loader import list_montage_names as _list_names
             from tit.sim import utils as sim_utils
 
-            montages = _load_regular(montage_names=montage_names, project_dir=str(pm.project_dir), eeg_net=eeg_net, include_flex=False)
+            montages = _load_regular(
+                montage_names=montage_names,
+                project_dir=str(pm.project_dir),
+                eeg_net=eeg_net,
+                include_flex=False,
+            )
 
             # If missing and user asked to create, prompt for montage definitions now.
             if (not montages) and bool(args.get("create_montage")):
@@ -368,7 +574,9 @@ class SimulatorCLI(BaseCLI):
                     if cap_path.is_file():
                         available_labels = utils.load_eeg_cap_labels(cap_path)
                 if not available_labels:
-                    raise RuntimeError(f"Could not load electrode labels for EEG cap '{eeg_net}'. Ensure it exists under eeg_positions for sub {sid}.")
+                    raise RuntimeError(
+                        f"Could not load electrode labels for EEG cap '{eeg_net}'. Ensure it exists under eeg_positions for sub {sid}."
+                    )
 
                 utils.echo_header("Create montage(s)")
                 utils.echo_info(f"EEG cap: {eeg_net}")
@@ -382,10 +590,15 @@ class SimulatorCLI(BaseCLI):
                     utils.echo_section(f"Montage: {name} ({mode})")
                     for i in range(n_pairs):
                         while True:
-                            raw = utils.ask_required(f"Enter two electrodes for pair {i+1} (comma-separated)", default=None)
+                            raw = utils.ask_required(
+                                f"Enter two electrodes for pair {i+1} (comma-separated)",
+                                default=None,
+                            )
                             parts = [p.strip() for p in raw.split(",") if p.strip()]
                             if len(parts) != 2:
-                                utils.echo_error("Please enter exactly two electrode labels separated by a comma (e.g. FC1, FC3).")
+                                utils.echo_error(
+                                    "Please enter exactly two electrode labels separated by a comma (e.g. FC1, FC3)."
+                                )
                                 continue
                             a_raw, b_raw = parts[0].upper(), parts[1].upper()
                             if a_raw == b_raw:
@@ -394,15 +607,28 @@ class SimulatorCLI(BaseCLI):
                             a = canon.get(a_raw)
                             b = canon.get(b_raw)
                             if not a or not b:
-                                utils.echo_error("One or both electrode labels were not recognized. Please use labels from the EEG cap.")
+                                utils.echo_error(
+                                    "One or both electrode labels were not recognized. Please use labels from the EEG cap."
+                                )
                                 continue
                             pairs.append([a, b])
                             break
-                    sim_utils.upsert_montage(project_dir=str(pm.project_dir), eeg_net=eeg_net, montage_name=name, electrode_pairs=pairs, mode=mode)
+                    sim_utils.upsert_montage(
+                        project_dir=str(pm.project_dir),
+                        eeg_net=eeg_net,
+                        montage_name=name,
+                        electrode_pairs=pairs,
+                        mode=mode,
+                    )
                     utils.echo_success(f"Saved montage '{name}' to montage_list.json")
 
                 # Reload after creation
-                montages = _load_regular(montage_names=montage_names, project_dir=str(pm.project_dir), eeg_net=eeg_net, include_flex=False)
+                montages = _load_regular(
+                    montage_names=montage_names,
+                    project_dir=str(pm.project_dir),
+                    eeg_net=eeg_net,
+                    include_flex=False,
+                )
 
             if not montages:
                 available = _list_names(str(pm.project_dir), eeg_net, mode=mode)
@@ -469,13 +695,24 @@ class SimulatorCLI(BaseCLI):
                             if "_" in goal_postproc:
                                 goal_parts = goal_postproc.split("_")
                                 region = goal_parts[0]
-                                goal = goal_parts[1] if len(goal_parts) > 1 else "optimization"
-                                post_proc = "_".join(goal_parts[2:]) if len(goal_parts) > 2 else "maxTI"
+                                goal = (
+                                    goal_parts[1]
+                                    if len(goal_parts) > 1
+                                    else "optimization"
+                                )
+                                post_proc = (
+                                    "_".join(goal_parts[2:])
+                                    if len(goal_parts) > 2
+                                    else "maxTI"
+                                )
                             else:
                                 goal = goal_postproc
                                 post_proc = "maxTI"
                             return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-                    if search_name.startswith("subcortical_") and len(search_name.split("_")) == 4:
+                    if (
+                        search_name.startswith("subcortical_")
+                        and len(search_name.split("_")) == 4
+                    ):
                         parts = search_name.split("_")
                         hemisphere = "subcortical"
                         atlas = parts[1]
@@ -504,14 +741,19 @@ class SimulatorCLI(BaseCLI):
                     positions_data = json.load(f)
 
                 if use_optimized:
-                    optimized_positions = positions_data.get("optimized_positions") or []
+                    optimized_positions = (
+                        positions_data.get("optimized_positions") or []
+                    )
                     if len(optimized_positions) >= 4:
                         positions_for_ti = optimized_positions[:4]
                         name = _parse_flex_search_name(search_name, "optimized")
                         montages.append(
                             MontageConfig(
                                 name=name,
-                                electrode_pairs=[(positions_for_ti[0], positions_for_ti[1]), (positions_for_ti[2], positions_for_ti[3])],
+                                electrode_pairs=[
+                                    (positions_for_ti[0], positions_for_ti[1]),
+                                    (positions_for_ti[2], positions_for_ti[3]),
+                                ],
                                 is_xyz=True,
                                 eeg_net="flex_mode",
                             )
@@ -522,16 +764,30 @@ class SimulatorCLI(BaseCLI):
                     eeg_net_path = eeg_dir / eeg_net
                     if not eeg_net_path.is_file():
                         continue
-                    mapping_file = search_dir / f"electrode_mapping_{eeg_net.replace('.csv', '')}.json"
+                    mapping_file = (
+                        search_dir
+                        / f"electrode_mapping_{eeg_net.replace('.csv', '')}.json"
+                    )
                     if mapping_file.is_file():
                         with mapping_file.open() as f:
                             mapping_data = json.load(f)
                     else:
                         # Create mapping on demand (same behavior as GUI)
-                        opt_positions, channel_array_indices = map_tool.load_electrode_positions_json(str(positions_file))
-                        net_positions, net_labels = map_tool.read_csv_positions(str(eeg_net_path))
-                        mapping_data = map_tool.map_electrodes_to_net(opt_positions, net_positions, net_labels, channel_array_indices)
-                        map_tool.save_mapping_result(mapping_data, str(mapping_file), eeg_net_name=eeg_net)
+                        opt_positions, channel_array_indices = (
+                            map_tool.load_electrode_positions_json(str(positions_file))
+                        )
+                        net_positions, net_labels = map_tool.read_csv_positions(
+                            str(eeg_net_path)
+                        )
+                        mapping_data = map_tool.map_electrodes_to_net(
+                            opt_positions,
+                            net_positions,
+                            net_labels,
+                            channel_array_indices,
+                        )
+                        map_tool.save_mapping_result(
+                            mapping_data, str(mapping_file), eeg_net_name=eeg_net
+                        )
 
                     mapped_labels = mapping_data.get("mapped_labels") or []
                     if len(mapped_labels) >= 4:
@@ -540,14 +796,19 @@ class SimulatorCLI(BaseCLI):
                         montages.append(
                             MontageConfig(
                                 name=name,
-                                electrode_pairs=[(electrodes_for_ti[0], electrodes_for_ti[1]), (electrodes_for_ti[2], electrodes_for_ti[3])],
+                                electrode_pairs=[
+                                    (electrodes_for_ti[0], electrodes_for_ti[1]),
+                                    (electrodes_for_ti[2], electrodes_for_ti[3]),
+                                ],
                                 is_xyz=False,
                                 eeg_net=eeg_net,
                             )
                         )
 
             if not montages:
-                raise RuntimeError("No flex-search montages constructed from selected outputs.")
+                raise RuntimeError(
+                    "No flex-search montages constructed from selected outputs."
+                )
 
         # Console logger (CLI should print output like other CLI commands)
         logger = logging.getLogger("TI-Simulator")
@@ -578,7 +839,9 @@ class SimulatorCLI(BaseCLI):
         failed = [r for r in results if r.get("status") != "completed"]
         for r in completed:
             out_mesh = r.get("output_mesh") or "-"
-            utils.echo_success(f"{r.get('montage_name', 'unknown')}: completed (output_mesh: {out_mesh})")
+            utils.echo_success(
+                f"{r.get('montage_name', 'unknown')}: completed (output_mesh: {out_mesh})"
+            )
         for r in failed:
             err = r.get("error") or "unknown error"
             utils.echo_error(f"{r.get('montage_name', 'unknown')}: failed ({err})")
@@ -589,5 +852,3 @@ class SimulatorCLI(BaseCLI):
 
 if __name__ == "__main__":
     raise SystemExit(SimulatorCLI().run())
-
-

@@ -4,6 +4,7 @@ Core mesh utilities for TI-toolbox.
 This module contains shared mesh-related functionality used across the toolbox.
 """
 
+
 def create_mesh_opt_file(mesh_path, field_info=None):
     """
     Create a .opt file for Gmsh visualization of mesh fields.
@@ -21,9 +22,9 @@ def create_mesh_opt_file(mesh_path, field_info=None):
     if field_info is None:
         field_info = {}
 
-    fields = field_info.get('fields', [])
-    max_values = field_info.get('max_values', {})
-    field_type = field_info.get('field_type', 'node')
+    fields = field_info.get("fields", [])
+    max_values = field_info.get("max_values", {})
+    field_type = field_info.get("field_type", "node")
 
     # Default visualization settings
     opt_content = """// Gmsh visualization settings for mesh fields
@@ -57,11 +58,13 @@ def create_mesh_opt_file(mesh_path, field_info=None):
     opt_content += "// Field information:\n"
     for i, field_name in enumerate(fields):
         max_value = max_values.get(field_name, 1.0)
-        opt_content += f"// View[{i + 1}]: {field_name} field (max value: {max_value:.6f})\n"
+        opt_content += (
+            f"// View[{i + 1}]: {field_name} field (max value: {max_value:.6f})\n"
+        )
 
     # Write the .opt file
     opt_path = f"{mesh_path}.opt"
-    with open(opt_path, 'w') as f:
+    with open(opt_path, "w") as f:
         f.write(opt_content)
 
     return opt_path

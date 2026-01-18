@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 # Simulation Config Reader
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_simulation_config(subject_id: str, simulation_name: str) -> Optional[Dict[str, Any]]:
+
+def load_simulation_config(
+    subject_id: str, simulation_name: str
+) -> Optional[Dict[str, Any]]:
     """Load simulation configuration from config.json file.
 
     This function reads the config.json file created during simulation
@@ -40,27 +43,33 @@ def load_simulation_config(subject_id: str, simulation_name: str) -> Optional[Di
     Returns:
         Dictionary with simulation configuration, or None if not found
     """
-   
+
     import json
     from tit.core import get_path_manager
 
     pm = get_path_manager()
 
     # Construct path to config file
-    sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
+    sim_dir = pm.path_optional(
+        "simulation", subject_id=subject_id, simulation_name=simulation_name
+    )
     if not sim_dir:
-        logger.warning(f"Simulation directory not found for {subject_id}/{simulation_name}")
+        logger.warning(
+            f"Simulation directory not found for {subject_id}/{simulation_name}"
+        )
         return None
 
     config_file = os.path.join(sim_dir, "documentation", "config.json")
 
     if not os.path.exists(config_file):
         logger.warning(f"Config file not found: {config_file}")
-        logger.info("This simulation may have been run before config.json feature was added")
+        logger.info(
+            "This simulation may have been run before config.json feature was added"
+        )
         return None
 
     # Read config file
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = json.load(f)
 
     logger.info(f"Loaded simulation config from: {config_file}")
@@ -69,8 +78,9 @@ def load_simulation_config(subject_id: str, simulation_name: str) -> Optional[Di
     return config
 
 
-
-def get_montage_from_config(subject_id: str, simulation_name: str) -> Optional[List[Tuple[str, str]]]:
+def get_montage_from_config(
+    subject_id: str, simulation_name: str
+) -> Optional[List[Tuple[str, str]]]:
     """Extract electrode montage/pairs from simulation config.
 
     Args:
@@ -85,14 +95,18 @@ def get_montage_from_config(subject_id: str, simulation_name: str) -> Optional[L
     if not config:
         return None
 
-    electrode_pairs = config.get('electrode_pairs', [])
+    electrode_pairs = config.get("electrode_pairs", [])
     if not electrode_pairs:
-        logger.warning(f"No electrode pairs found in config for {subject_id}/{simulation_name}")
+        logger.warning(
+            f"No electrode pairs found in config for {subject_id}/{simulation_name}"
+        )
         return None
 
     # Convert to list of tuples if needed
     if isinstance(electrode_pairs, list):
-        return [tuple(pair) if isinstance(pair, list) else pair for pair in electrode_pairs]
+        return [
+            tuple(pair) if isinstance(pair, list) else pair for pair in electrode_pairs
+        ]
 
     return None
 
@@ -111,10 +125,15 @@ def get_eeg_net_from_config(subject_id: str, simulation_name: str) -> Optional[s
     if not config:
         return None
 
-    return config.get('eeg_net')
+    return config.get("eeg_net")
 
 
-def write_binary_stl(vertices: np.ndarray, faces: np.ndarray, output_path: str, header_text: str = "TI-Toolbox Mesh"):
+def write_binary_stl(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    output_path: str,
+    header_text: str = "TI-Toolbox Mesh",
+):
     """Write binary STL file from vertices and faces.
 
     Args:
@@ -125,14 +144,14 @@ def write_binary_stl(vertices: np.ndarray, faces: np.ndarray, output_path: str, 
     """
     n_faces = len(faces)
 
-    with open(output_path, 'wb') as f:
+    with open(output_path, "wb") as f:
         # Write 80-byte header
-        header = header_text.encode('ascii')
-        header = header.ljust(80, b'\x00')
+        header = header_text.encode("ascii")
+        header = header.ljust(80, b"\x00")
         f.write(header)
 
         # Write number of triangles (4 bytes, little-endian)
-        f.write(struct.pack('<I', n_faces))
+        f.write(struct.pack("<I", n_faces))
 
         # Write each triangle
         for face in faces:
@@ -153,18 +172,20 @@ def write_binary_stl(vertices: np.ndarray, faces: np.ndarray, output_path: str, 
                 normal = np.array([0.0, 0.0, 1.0])  # Default normal
 
             # Write normal (3 floats, little-endian)
-            f.write(struct.pack('<fff', normal[0], normal[1], normal[2]))
+            f.write(struct.pack("<fff", normal[0], normal[1], normal[2]))
 
             # Write vertices (9 floats, little-endian)
-            f.write(struct.pack('<fff', v0[0], v0[1], v0[2]))
-            f.write(struct.pack('<fff', v1[0], v1[1], v1[2]))
-            f.write(struct.pack('<fff', v2[0], v2[1], v2[2]))
+            f.write(struct.pack("<fff", v0[0], v0[1], v0[2]))
+            f.write(struct.pack("<fff", v1[0], v1[1], v1[2]))
+            f.write(struct.pack("<fff", v2[0], v2[1], v2[2]))
 
             # Write attribute byte count (2 bytes, little-endian)
-            f.write(struct.pack('<H', 0))
+            f.write(struct.pack("<H", 0))
 
 
-def create_roi_mesh(surface_mesh, roi_mask, field_values, field_name, region_name, temp_dir):
+def create_roi_mesh(
+    surface_mesh, roi_mask, field_values, field_name, region_name, temp_dir
+):
     """
     Create a ROI mesh with preserved field values for the specified region.
 
@@ -210,16 +231,18 @@ def create_roi_mesh(surface_mesh, roi_mask, field_values, field_name, region_nam
         max_value = 1.0
 
     field_info = {
-        'fields': [field_name],
-        'max_values': {field_name: max_value},
-        'field_type': 'node'
+        "fields": [field_name],
+        "max_values": {field_name: max_value},
+        "field_type": "node",
     }
     create_mesh_opt_file(temp_mesh_path, field_info)
 
     return temp_mesh_path
 
 
-def extract_roi_region_no_zeros(mesh, roi_values, min_triangles=10, return_field_values=False):
+def extract_roi_region_no_zeros(
+    mesh, roi_values, min_triangles=10, return_field_values=False
+):
     """Extract ROI region by removing only zero values (no threshold).
 
     Args:
@@ -244,7 +267,9 @@ def extract_roi_region_no_zeros(mesh, roi_values, min_triangles=10, return_field
     # Get triangular elements
     triangular_elements = mesh.elm.elm_type == 2
     triangle_indices = np.where(triangular_elements)[0]
-    triangle_nodes = mesh.elm.node_number_list[triangular_elements] - 1  # Convert to 0-based
+    triangle_nodes = (
+        mesh.elm.node_number_list[triangular_elements] - 1
+    )  # Convert to 0-based
 
     # Find triangles where at least 2 out of 3 vertices are in the ROI
     triangles_in_roi = []
@@ -266,13 +291,17 @@ def extract_roi_region_no_zeros(mesh, roi_values, min_triangles=10, return_field
     unique_vertices = np.unique(roi_triangles.flatten())
 
     # Create vertex mapping (old index -> new index)
-    vertex_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertices)}
+    vertex_mapping = {
+        old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertices)
+    }
 
     # Remap triangle indices to new vertex indices
-    remapped_triangles = np.array([
-        [vertex_mapping[face[0]], vertex_mapping[face[1]], vertex_mapping[face[2]]]
-        for face in roi_triangles
-    ])
+    remapped_triangles = np.array(
+        [
+            [vertex_mapping[face[0]], vertex_mapping[face[1]], vertex_mapping[face[2]]]
+            for face in roi_triangles
+        ]
+    )
 
     # Extract vertex coordinates
     vertices = mesh.nodes.node_coord[unique_vertices]
@@ -300,7 +329,7 @@ def parse_electrode_csv(csv_path: str) -> List[Tuple[str, float, float, float]]:
 
     electrodes = []
     for t, coord, n in zip(type_, coordinates, name):
-        if t in ['Electrode', 'ReferenceElectrode']:
+        if t in ["Electrode", "ReferenceElectrode"]:
             label = n if n else "Electrode"
             x, y, z = coord
             electrodes.append((label, x, y, z))
@@ -371,12 +400,12 @@ def find_electrode_csv(subject_dir: str, simulation_name: str) -> str:
     montage_dir = os.path.join(sim_dir, "montage")
     if os.path.exists(montage_dir):
         for file in os.listdir(montage_dir):
-            if file.endswith('.csv'):
+            if file.endswith(".csv"):
                 return os.path.join(montage_dir, file)
 
     # Fallback: look for any CSV in simulation directory
     for file in os.listdir(sim_dir):
-        if file.endswith('.csv'):
+        if file.endswith(".csv"):
             return os.path.join(sim_dir, file)
 
     raise FileNotFoundError(f"Electrode CSV not found for simulation {simulation_name}")
@@ -400,26 +429,27 @@ def get_simulation_electrodes(subject_dir: str, simulation_name: str) -> List[st
 
     if os.path.exists(montage_dir):
         for file in os.listdir(montage_dir):
-            if file.endswith('.json'):
+            if file.endswith(".json"):
                 montage_file = os.path.join(montage_dir, file)
                 break
 
     if not montage_file:
         # Look for montage file in main simulation directory
         for file in os.listdir(sim_dir):
-            if file.endswith('.json') and 'montage' in file.lower():
+            if file.endswith(".json") and "montage" in file.lower():
                 montage_file = os.path.join(sim_dir, file)
                 break
 
     if montage_file:
         try:
             import json
-            with open(montage_file, 'r') as f:
+
+            with open(montage_file, "r") as f:
                 montage_data = json.load(f)
 
             # Extract electrode names from montage
             used_electrodes = set()
-            for pair in montage_data.get('pairs', []):
+            for pair in montage_data.get("pairs", []):
                 used_electrodes.add(pair[0])
                 used_electrodes.add(pair[1])
 
@@ -432,9 +462,14 @@ def get_simulation_electrodes(subject_dir: str, simulation_name: str) -> List[st
     return []
 
 
-def create_electrode_geometry(x: float, y: float, z: float,
-                             radius: float = 4.0, height: float = 8.0,
-                             segments: int = 8) -> Tuple[List[List[float]], List[List[int]]]:
+def create_electrode_geometry(
+    x: float,
+    y: float,
+    z: float,
+    radius: float = 4.0,
+    height: float = 8.0,
+    segments: int = 8,
+) -> Tuple[List[List[float]], List[List[int]]]:
     """Create simple cylinder geometry for an electrode.
 
     Args:
@@ -505,8 +540,14 @@ def create_electrode_geometry(x: float, y: float, z: float,
 # PLY File I/O
 # ─────────────────────────────────────────────────────────────────────────────
 
-def write_ply_with_colors(vertices: np.ndarray, faces: np.ndarray, colors: np.ndarray,
-                          output_path: str, field_name: str = "TI_max") -> None:
+
+def write_ply_with_colors(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    colors: np.ndarray,
+    output_path: str,
+    field_name: str = "TI_max",
+) -> None:
     """Write PLY file with vertex colors (ASCII format).
 
     Args:
@@ -519,7 +560,7 @@ def write_ply_with_colors(vertices: np.ndarray, faces: np.ndarray, colors: np.nd
     n_vertices = len(vertices)
     n_faces = len(faces)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
         f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
@@ -543,8 +584,13 @@ def write_ply_with_colors(vertices: np.ndarray, faces: np.ndarray, colors: np.nd
             f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
 
 
-def write_ply_with_scalars(vertices: np.ndarray, faces: np.ndarray, scalars: np.ndarray,
-                           output_path: str, field_name: str = "TI_max") -> None:
+def write_ply_with_scalars(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    scalars: np.ndarray,
+    output_path: str,
+    field_name: str = "TI_max",
+) -> None:
     """Write PLY file with scalar field data (ASCII format).
 
     Args:
@@ -557,7 +603,7 @@ def write_ply_with_scalars(vertices: np.ndarray, faces: np.ndarray, scalars: np.
     n_vertices = len(vertices)
     n_faces = len(faces)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
         f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
@@ -583,8 +629,10 @@ def write_ply_with_scalars(vertices: np.ndarray, faces: np.ndarray, scalars: np.
 # Color Mapping Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
-def simple_colormap(field_values: np.ndarray, vmin: Optional[float] = None,
-                   vmax: Optional[float] = None) -> np.ndarray:
+
+def simple_colormap(
+    field_values: np.ndarray, vmin: Optional[float] = None, vmax: Optional[float] = None
+) -> np.ndarray:
     """Create simple blue-red colormap for field values.
 
     Args:
@@ -615,8 +663,12 @@ def simple_colormap(field_values: np.ndarray, vmin: Optional[float] = None,
     return colors
 
 
-def field_to_colormap(field_values: np.ndarray, colormap: str = 'viridis',
-                     vmin: Optional[float] = None, vmax: Optional[float] = None) -> np.ndarray:
+def field_to_colormap(
+    field_values: np.ndarray,
+    colormap: str = "viridis",
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+) -> np.ndarray:
     """Apply matplotlib colormap to field values.
 
     Args:
@@ -656,7 +708,10 @@ def field_to_colormap(field_values: np.ndarray, colormap: str = 'viridis',
 # Mesh Extraction Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
-def extract_scalp_from_msh(msh_path: str, skin_tag: int = 1005) -> Tuple[np.ndarray, np.ndarray]:
+
+def extract_scalp_from_msh(
+    msh_path: str, skin_tag: int = 1005
+) -> Tuple[np.ndarray, np.ndarray]:
     """Extract scalp surface from SimNIBS .msh file.
 
     Args:
@@ -708,8 +763,15 @@ def extract_scalp_from_msh(msh_path: str, skin_tag: int = 1005) -> Tuple[np.ndar
 # Mesh Processing Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
-def export_mesh_to_ply(mesh, ply_path: str, field_name: str, use_colors: bool = True,
-                      colormap: str = 'viridis', field_range: Optional[Tuple[float, float]] = None) -> bool:
+
+def export_mesh_to_ply(
+    mesh,
+    ply_path: str,
+    field_name: str,
+    use_colors: bool = True,
+    colormap: str = "viridis",
+    field_range: Optional[Tuple[float, float]] = None,
+) -> bool:
     """Export SimNIBS mesh to PLY format with optional field coloring.
 
     Args:
@@ -751,7 +813,9 @@ def export_mesh_to_ply(mesh, ply_path: str, field_name: str, use_colors: bool = 
     return True
 
 
-def mesh_vertices_faces_and_field(mesh, field_name: str = "TI_max") -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+def mesh_vertices_faces_and_field(
+    mesh, field_name: str = "TI_max"
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     """Extract vertices, faces, and field data from SimNIBS mesh.
 
     Args:
@@ -768,7 +832,7 @@ def mesh_vertices_faces_and_field(mesh, field_name: str = "TI_max") -> Tuple[Opt
         return None, None, None
 
     # Extract triangle nodes
-    if hasattr(triangles, 'node_number_list'):
+    if hasattr(triangles, "node_number_list"):
         triangle_nodes = triangles.node_number_list[:, :3] - 1  # Convert to 0-indexed
     else:
         triangle_nodes = triangles[:, :3] - 1
@@ -781,14 +845,16 @@ def mesh_vertices_faces_and_field(mesh, field_name: str = "TI_max") -> Tuple[Opt
     vertices = mesh.nodes.node_coord[unique_nodes]
 
     # Remap faces
-    faces = np.array([[node_map[idx] for idx in tri] for tri in triangle_nodes], dtype=np.int32)
+    faces = np.array(
+        [[node_map[idx] for idx in tri] for tri in triangle_nodes], dtype=np.int32
+    )
 
     # Extract field data
     field_data = None
-    if hasattr(mesh, 'nodedata') and len(mesh.nodedata) > 0:
+    if hasattr(mesh, "nodedata") and len(mesh.nodedata) > 0:
         field_idx = None
         for i, nd in enumerate(mesh.nodedata):
-            if hasattr(nd, 'field_name') and nd.field_name == field_name:
+            if hasattr(nd, "field_name") and nd.field_name == field_name:
                 field_idx = i
                 break
 
@@ -797,7 +863,7 @@ def mesh_vertices_faces_and_field(mesh, field_name: str = "TI_max") -> Tuple[Opt
             field_data = field_full[unique_nodes]
 
     # Also check mesh.field if nodedata not found
-    if field_data is None and hasattr(mesh, 'field') and field_name in mesh.field:
+    if field_data is None and hasattr(mesh, "field") and field_name in mesh.field:
         field_full = mesh.field[field_name].value
         field_data = field_full[unique_nodes]
 

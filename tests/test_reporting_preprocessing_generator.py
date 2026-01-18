@@ -19,7 +19,9 @@ import pytest
 
 @pytest.mark.unit
 def test_preprocessing_report_scans_project_and_generates_html(tmp_path: Path):
-    from tit.reporting.preprocessing_report_generator import PreprocessingReportGenerator
+    from tit.reporting.preprocessing_report_generator import (
+        PreprocessingReportGenerator,
+    )
 
     # Fake subprocess outputs (freesurfer/simnibs_python/dcm2niix)
     def fake_run(cmd, capture_output, text, timeout):
@@ -87,5 +89,3 @@ def test_preprocessing_report_scans_project_and_generates_html(tmp_path: Path):
     text = out.read_text(encoding="utf-8")
     assert "<html" in text.lower()
     assert "TI-Toolbox Preprocessing Report" in text
-
-

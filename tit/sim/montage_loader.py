@@ -80,19 +80,19 @@ def load_flex_montages(flex_file: Optional[str] = None) -> List[Dict]:
         List of flex montage configurations
     """
     if not flex_file:
-        flex_file = os.environ.get('FLEX_MONTAGES_FILE')
+        flex_file = os.environ.get("FLEX_MONTAGES_FILE")
 
     if not flex_file or not os.path.exists(flex_file):
         return []
 
-    with open(flex_file, 'r') as f:
+    with open(flex_file, "r") as f:
         flex_config = json.load(f)
 
     # Handle different flex config formats
     if isinstance(flex_config, list):
         return flex_config
-    elif 'montage' in flex_config:
-        return [flex_config['montage']]
+    elif "montage" in flex_config:
+        return [flex_config["montage"]]
     else:
         return [flex_config]
 
@@ -107,34 +107,29 @@ def parse_flex_montage(flex_data: Dict) -> MontageConfig:
     Returns:
         MontageConfig object
     """
-    montage_name = flex_data['name']
-    montage_type = flex_data['type']
+    montage_name = flex_data["name"]
+    montage_type = flex_data["type"]
 
-    if montage_type == 'flex_mapped':
+    if montage_type == "flex_mapped":
         # Electrode names from EEG cap
-        pairs_data = flex_data['pairs']
+        pairs_data = flex_data["pairs"]
         electrode_pairs = [
             (pairs_data[0][0], pairs_data[0][1]),
-            (pairs_data[1][0], pairs_data[1][1])
+            (pairs_data[1][0], pairs_data[1][1]),
         ]
         return MontageConfig(
             name=montage_name,
             electrode_pairs=electrode_pairs,
             is_xyz=False,
-            eeg_net=flex_data.get('eeg_net')
+            eeg_net=flex_data.get("eeg_net"),
         )
 
-    elif montage_type in ['flex_optimized', 'freehand_xyz']:
+    elif montage_type in ["flex_optimized", "freehand_xyz"]:
         # XYZ coordinates
-        ep = flex_data['electrode_positions']
-        electrode_pairs = [
-            (ep[0], ep[1]),
-            (ep[2], ep[3])
-        ]
+        ep = flex_data["electrode_positions"]
+        electrode_pairs = [(ep[0], ep[1]), (ep[2], ep[3])]
         return MontageConfig(
-            name=montage_name,
-            electrode_pairs=electrode_pairs,
-            is_xyz=True
+            name=montage_name, electrode_pairs=electrode_pairs, is_xyz=True
         )
 
     else:
@@ -142,10 +137,7 @@ def parse_flex_montage(flex_data: Dict) -> MontageConfig:
 
 
 def load_montages(
-    montage_names: List[str],
-    project_dir: str,
-    eeg_net: str,
-    include_flex: bool = True
+    montage_names: List[str], project_dir: str, eeg_net: str, include_flex: bool = True
 ) -> List[MontageConfig]:
     """
     Load all montages (regular + flex).
@@ -166,20 +158,22 @@ def load_montages(
 
     for name in montage_names:
         # Try multi_polar first, then uni_polar
-        montage_data = net_montages.get('multi_polar_montages', {}).get(name)
+        montage_data = net_montages.get("multi_polar_montages", {}).get(name)
         if not montage_data:
-            montage_data = net_montages.get('uni_polar_montages', {}).get(name)
+            montage_data = net_montages.get("uni_polar_montages", {}).get(name)
 
         if montage_data:
             # Determine if freehand mode (XYZ coordinates)
             is_xyz = eeg_net in ["freehand", "flex_mode"]
 
-            montages.append(MontageConfig(
-                name=name,
-                electrode_pairs=montage_data,
-                is_xyz=is_xyz,
-                eeg_net=eeg_net
-            ))
+            montages.append(
+                MontageConfig(
+                    name=name,
+                    electrode_pairs=montage_data,
+                    is_xyz=is_xyz,
+                    eeg_net=eeg_net,
+                )
+            )
 
     # Load flex montages
     if include_flex:

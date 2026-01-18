@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 # Ensure repo root is on sys.path so `import tit` resolves to local sources.
 from pathlib import Path
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -28,7 +29,7 @@ from tit.sim.config import (
     IntensityConfig,
     MontageConfig,
     ParallelConfig,
-    SimulationConfig
+    SimulationConfig,
 )
 
 
@@ -89,10 +90,7 @@ class TestElectrodeConfig:
     def test_custom_values(self):
         """Test ElectrodeConfig with custom values."""
         config = ElectrodeConfig(
-            shape="rect",
-            dimensions=[10.0, 12.0],
-            thickness=5.0,
-            sponge_thickness=3.0
+            shape="rect", dimensions=[10.0, 12.0], thickness=5.0, sponge_thickness=3.0
         )
 
         assert config.shape == "rect"
@@ -133,12 +131,7 @@ class TestIntensityConfig:
 
     def test_custom_values(self):
         """Test IntensityConfig with custom values."""
-        config = IntensityConfig(
-            pair1=2.0,
-            pair2=1.5,
-            pair3=1.0,
-            pair4=0.5
-        )
+        config = IntensityConfig(pair1=2.0, pair2=1.5, pair3=1.0, pair4=0.5)
 
         assert config.pair1 == 2.0
         assert config.pair2 == 1.5
@@ -222,8 +215,7 @@ class TestMontageConfig:
     def test_basic_creation(self):
         """Test basic MontageConfig creation."""
         montage = MontageConfig(
-            name="test_montage",
-            electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
+            name="test_montage", electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
         )
 
         assert montage.name == "test_montage"
@@ -234,8 +226,7 @@ class TestMontageConfig:
     def test_simulation_mode_ti(self):
         """Test simulation_mode property returns TI for 2 pairs."""
         montage = MontageConfig(
-            name="ti_montage",
-            electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
+            name="ti_montage", electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
         )
 
         assert montage.simulation_mode == SimulationMode.TI
@@ -244,12 +235,7 @@ class TestMontageConfig:
         """Test simulation_mode property returns MTI for 4 pairs."""
         montage = MontageConfig(
             name="mti_montage",
-            electrode_pairs=[
-                ("Cz", "Oz"),
-                ("C3", "C4"),
-                ("F3", "F4"),
-                ("P3", "P4")
-            ]
+            electrode_pairs=[("Cz", "Oz"), ("C3", "C4"), ("F3", "F4"), ("P3", "P4")],
         )
 
         assert montage.simulation_mode == SimulationMode.MTI
@@ -263,18 +249,15 @@ class TestMontageConfig:
                 ("C3", "C4"),
                 ("F3", "F4"),
                 ("P3", "P4"),
-                ("T7", "T8")
-            ]
+                ("T7", "T8"),
+            ],
         )
 
         assert montage.simulation_mode == SimulationMode.MTI
 
     def test_simulation_mode_invalid_one_pair(self):
         """Test that 1 pair raises ValueError."""
-        montage = MontageConfig(
-            name="invalid_montage",
-            electrode_pairs=[("Cz", "Oz")]
-        )
+        montage = MontageConfig(name="invalid_montage", electrode_pairs=[("Cz", "Oz")])
 
         with pytest.raises(ValueError, match="Invalid number of electrode pairs"):
             _ = montage.simulation_mode
@@ -282,19 +265,13 @@ class TestMontageConfig:
     def test_num_pairs_property(self):
         """Test num_pairs property returns correct count."""
         montage_2 = MontageConfig(
-            name="montage_2",
-            electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
+            name="montage_2", electrode_pairs=[("Cz", "Oz"), ("C3", "C4")]
         )
         assert montage_2.num_pairs == 2
 
         montage_4 = MontageConfig(
             name="montage_4",
-            electrode_pairs=[
-                ("Cz", "Oz"),
-                ("C3", "C4"),
-                ("F3", "F4"),
-                ("P3", "P4")
-            ]
+            electrode_pairs=[("Cz", "Oz"), ("C3", "C4"), ("F3", "F4"), ("P3", "P4")],
         )
         assert montage_4.num_pairs == 4
 
@@ -304,9 +281,9 @@ class TestMontageConfig:
             name="xyz_montage",
             electrode_pairs=[
                 ([0.0, 0.0, 100.0], [0.0, 0.0, -100.0]),
-                ([50.0, 0.0, 0.0], [-50.0, 0.0, 0.0])
+                ([50.0, 0.0, 0.0], [-50.0, 0.0, 0.0]),
             ],
-            is_xyz=True
+            is_xyz=True,
         )
 
         assert montage.is_xyz is True
@@ -317,7 +294,7 @@ class TestMontageConfig:
         montage = MontageConfig(
             name="flex_montage",
             electrode_pairs=[("Cz", "Oz"), ("C3", "C4")],
-            eeg_net="custom_cap.csv"
+            eeg_net="custom_cap.csv",
         )
 
         assert montage.eeg_net == "custom_cap.csv"
@@ -338,7 +315,7 @@ class TestParallelConfig:
 
         assert config.enabled is True
 
-    @patch('os.cpu_count', return_value=8)
+    @patch("os.cpu_count", return_value=8)
     def test_auto_detect_max_workers(self, mock_cpu_count):
         """Test max_workers auto-detection uses half of CPU count."""
         config = ParallelConfig(max_workers=0)
@@ -346,7 +323,7 @@ class TestParallelConfig:
         # cpu_count = 8, so max_workers should be min(4, 8//2) = 4
         assert config.max_workers == 4
 
-    @patch('os.cpu_count', return_value=4)
+    @patch("os.cpu_count", return_value=4)
     def test_auto_detect_low_cpu_count(self, mock_cpu_count):
         """Test max_workers auto-detection with low CPU count."""
         config = ParallelConfig(max_workers=0)
@@ -354,7 +331,7 @@ class TestParallelConfig:
         # cpu_count = 4, so max_workers should be min(4, 4//2) = 2
         assert config.max_workers == 2
 
-    @patch('os.cpu_count', return_value=16)
+    @patch("os.cpu_count", return_value=16)
     def test_auto_detect_limits_to_four(self, mock_cpu_count):
         """Test max_workers auto-detection limits to 4."""
         config = ParallelConfig(max_workers=0)
@@ -362,7 +339,7 @@ class TestParallelConfig:
         # cpu_count = 16, so max_workers should be min(4, 16//2) = 4
         assert config.max_workers == 4
 
-    @patch('os.cpu_count', return_value=2)
+    @patch("os.cpu_count", return_value=2)
     def test_auto_detect_minimum_one(self, mock_cpu_count):
         """Test max_workers auto-detection minimum is 1."""
         config = ParallelConfig(max_workers=0)
@@ -370,7 +347,7 @@ class TestParallelConfig:
         # cpu_count = 2, so max_workers should be min(4, max(1, 2//2)) = 1
         assert config.max_workers == 1
 
-    @patch('os.cpu_count', return_value=None)
+    @patch("os.cpu_count", return_value=None)
     def test_auto_detect_fallback(self, mock_cpu_count):
         """Test max_workers auto-detection fallback when cpu_count is None."""
         config = ParallelConfig(max_workers=0)
@@ -386,7 +363,7 @@ class TestParallelConfig:
 
     def test_negative_max_workers_triggers_auto(self):
         """Test negative max_workers triggers auto-detection."""
-        with patch('os.cpu_count', return_value=8):
+        with patch("os.cpu_count", return_value=8):
             config = ParallelConfig(max_workers=-1)
 
             # Should auto-detect to 4
@@ -430,7 +407,7 @@ class TestSimulationConfig:
             project_dir="/path/to/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(),
-            electrode=ElectrodeConfig()
+            electrode=ElectrodeConfig(),
         )
 
         assert config.subject_id == "001"
@@ -446,7 +423,7 @@ class TestSimulationConfig:
             project_dir="/path/to/project",
             conductivity_type="scalar",
             intensities=IntensityConfig(),
-            electrode=ElectrodeConfig()
+            electrode=ElectrodeConfig(),
         )
 
         assert isinstance(config.conductivity_type, ConductivityType)
@@ -459,7 +436,7 @@ class TestSimulationConfig:
             project_dir="/path/to/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(),
-            electrode=ElectrodeConfig()
+            electrode=ElectrodeConfig(),
         )
 
         assert config.map_to_surf is True
@@ -477,7 +454,7 @@ class TestSimulationConfig:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(),
             electrode=ElectrodeConfig(),
-            eeg_net="custom_template.csv"
+            eeg_net="custom_template.csv",
         )
 
         assert config.eeg_net == "custom_template.csv"
@@ -489,7 +466,7 @@ class TestSimulationConfig:
             project_dir="/path/to/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(),
-            electrode=ElectrodeConfig()
+            electrode=ElectrodeConfig(),
         )
 
         assert isinstance(config.parallel, ParallelConfig)
@@ -503,7 +480,7 @@ class TestSimulationConfig:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(),
             electrode=ElectrodeConfig(),
-            parallel={'enabled': True, 'max_workers': 2}
+            parallel={"enabled": True, "max_workers": 2},
         )
 
         assert isinstance(config.parallel, ParallelConfig)

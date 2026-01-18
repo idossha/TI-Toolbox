@@ -6,6 +6,7 @@ Used by optimization tools
 
 import numpy as np
 
+
 def get_TI_vectors(E1_org, E2_org):
     """
     Calculate the temporal interference (TI) modulation amplitude vectors.

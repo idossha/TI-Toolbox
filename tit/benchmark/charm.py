@@ -17,38 +17,47 @@ from datetime import datetime
 import argparse
 
 from tit.benchmark.core import (
-    BenchmarkTimer, print_hardware_info, print_benchmark_result, save_benchmark_result
+    BenchmarkTimer,
+    print_hardware_info,
+    print_benchmark_result,
+    save_benchmark_result,
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
 from tit.pre.charm import run_charm
 
 
-def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id: str, logger):
+def setup_project(
+    project_dir: Path, t1_image: Path, t2_image: Path, subject_id: str, logger
+):
     """Set up BIDS project structure (no file copying needed)."""
     bids_subject_id = f"sub-{subject_id}"
-    
+
     # Detect container and set paths
     if os.path.exists("/mnt"):
         mnt_project_dir = Path("/mnt") / project_dir.name
         subject_dir = mnt_project_dir / bids_subject_id
     else:
         subject_dir = project_dir / bids_subject_id
-    
+
     # Verify input files exist
     if not t1_image.exists():
         raise FileNotFoundError(f"T1 image not found: {t1_image}")
     if t2_image and not t2_image.exists():
         raise FileNotFoundError(f"T2 image not found: {t2_image}")
-    
+
     # Create output directory structure
-    (subject_dir.parent / "derivatives" / "SimNIBS" / bids_subject_id).mkdir(parents=True, exist_ok=True)
-    
+    (subject_dir.parent / "derivatives" / "SimNIBS" / bids_subject_id).mkdir(
+        parents=True, exist_ok=True
+    )
+
     # Create dataset_description.json
     dataset_desc = subject_dir.parent / "dataset_description.json"
     if not dataset_desc.exists():
-        dataset_desc.write_text('{"Name": "TI-Toolbox Benchmark", "BIDSVersion": "1.6.0"}')
-    
+        dataset_desc.write_text(
+            '{"Name": "TI-Toolbox Benchmark", "BIDSVersion": "1.6.0"}'
+        )
+
     logger.info(f"Using existing files - T1: {t1_image}")
     if t2_image:
         logger.info(f"Using existing files - T2: {t2_image}")
@@ -74,7 +83,13 @@ def run_charm_benchmark(subject_dir: Path, charm_script: Path, logger, debug_mod
 
         result = timer.stop(success=True)
 
-        m2m_dir = subject_dir.parent / "derivatives" / "SimNIBS" / subject_dir.name / f"m2m_{subject_id}"
+        m2m_dir = (
+            subject_dir.parent
+            / "derivatives"
+            / "SimNIBS"
+            / subject_dir.name
+            / f"m2m_{subject_id}"
+        )
         result.metadata["m2m_output"] = str(m2m_dir)
         return result
 
@@ -95,60 +110,63 @@ def main():
     parser.add_argument("--charm-script", type=Path)
     parser.add_argument("--clean", action="store_true")
     parser.add_argument("--no-debug", action="store_true")
-    
+
     args = parser.parse_args()
-    
+
     # Load and merge configuration
     config = BenchmarkConfig(args.config)
-    merged = merge_config_with_args(config, args, 'charm')
-    
+    merged = merge_config_with_args(config, args, "charm")
+
     # Extract configuration
-    project_dir = Path(merged['project_dir'])
-    output_dir = Path(merged['output_dir'])
-    t1_image = Path(merged['t1_image'])
-    t2_image_str = merged.get('t2_image')
+    project_dir = Path(merged["project_dir"])
+    output_dir = Path(merged["output_dir"])
+    t1_image = Path(merged["t1_image"])
+    t2_image_str = merged.get("t2_image")
     t2_image = Path(t2_image_str) if t2_image_str else None
-    charm_script = Path(merged['charm_script'])
-    subject_id = merged.get('subject_id', 'subject')
-    debug_mode = merged.get('debug_mode', True)
-    
+    charm_script = Path(merged["charm_script"])
+    subject_id = merged.get("subject_id", "subject")
+    debug_mode = merged.get("debug_mode", True)
+
     if not t1_image.exists():
         print(f"Error: T1 image not found: {t1_image}")
         sys.exit(1)
     if not charm_script.exists():
         print(f"Error: charm.py not found: {charm_script}")
         sys.exit(1)
-    
+
     # Setup logging
     log_file = create_benchmark_log_file("charm", output_dir, subject_id)
     logger = BenchmarkLogger("charm_benchmark", log_file, debug_mode, True)
-    
+
     logger.header("CHARM BENCHMARK")
     logger.info(f"T1: {t1_image}")
     logger.info(f"T2: {t2_image if t2_image else 'Not provided'}")
-    
+
     try:
-        subject_dir, subject_id = setup_project(project_dir, t1_image, t2_image, subject_id, logger)
-        
+        subject_dir, subject_id = setup_project(
+            project_dir, t1_image, t2_image, subject_id, logger
+        )
+
         result = run_charm_benchmark(subject_dir, charm_script, logger, debug_mode)
-        
+
         print_benchmark_result(result)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         result_file = output_dir / f"charm_benchmark_{subject_id}_{timestamp}.json"
         save_benchmark_result(result, result_file)
-        
+
         latest_file = output_dir / f"charm_benchmark_{subject_id}_latest.json"
         save_benchmark_result(result, latest_file)
-        
+
         logger.info(f"Results saved: {result_file}")
-        
+
     except KeyboardInterrupt:
         logger.warning("Benchmark interrupted")
         sys.exit(130)
     except Exception as e:
         logger.error(f"Benchmark failed: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         sys.exit(1)
 

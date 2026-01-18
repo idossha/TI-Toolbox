@@ -26,42 +26,42 @@ from typing import Any, Dict, List, Optional, Tuple
 # Available benchmarks and their main functions
 BENCHMARKS = {
     # Preprocessing & Mesh Generation
-    'dicom': ('tit.benchmark.dicom', 'main'),
-    'charm': ('tit.benchmark.charm', 'main'),
-    'recon': ('tit.benchmark.recon', 'main'),
+    "dicom": ("tit.benchmark.dicom", "main"),
+    "charm": ("tit.benchmark.charm", "main"),
+    "recon": ("tit.benchmark.recon", "main"),
     # Optimization & Simulation
-    'leadfield': ('tit.benchmark.leadfield', 'main'),
-    'flex': ('tit.benchmark.flex', 'main'),
-    'ex_search': ('tit.benchmark.ex_search', 'main'),
-    'simulator': ('tit.benchmark.simulator', 'main'),
+    "leadfield": ("tit.benchmark.leadfield", "main"),
+    "flex": ("tit.benchmark.flex", "main"),
+    "ex_search": ("tit.benchmark.ex_search", "main"),
+    "simulator": ("tit.benchmark.simulator", "main"),
     # Analysis Tools
-    'tissue_analyzer': ('tit.benchmark.tissue_analyzer', 'main'),
-    'mesh_analyzer': ('tit.benchmark.mesh_analyzer', 'main'),
-    'voxel_analyzer': ('tit.benchmark.voxel_analyzer', 'main'),
+    "tissue_analyzer": ("tit.benchmark.tissue_analyzer", "main"),
+    "mesh_analyzer": ("tit.benchmark.mesh_analyzer", "main"),
+    "voxel_analyzer": ("tit.benchmark.voxel_analyzer", "main"),
 }
 
 # Benchmark descriptions for better UX
 BENCHMARK_DESCRIPTIONS = {
     # Preprocessing & Mesh Generation
-    'dicom': 'DICOM to NIfTI conversion',
-    'charm': 'Headreco (charm) mesh generation',
-    'recon': 'FreeSurfer recon-all surface reconstruction',
+    "dicom": "DICOM to NIfTI conversion",
+    "charm": "Headreco (charm) mesh generation",
+    "recon": "FreeSurfer recon-all surface reconstruction",
     # Optimization & Simulation
-    'leadfield': 'Leadfield matrix computation',
-    'flex': 'Flexible electrode position optimization',
-    'ex_search': 'Exhaustive electrode search optimization',
-    'simulator': 'TI/mTI electrode montage simulation',
+    "leadfield": "Leadfield matrix computation",
+    "flex": "Flexible electrode position optimization",
+    "ex_search": "Exhaustive electrode search optimization",
+    "simulator": "TI/mTI electrode montage simulation",
     # Analysis Tools
-    'tissue_analyzer': 'Tissue volume and thickness analysis (CSF, bone, skin)',
-    'mesh_analyzer': 'Surface-based field analysis (mesh)',
-    'voxel_analyzer': 'Volumetric field analysis (NIfTI)',
+    "tissue_analyzer": "Tissue volume and thickness analysis (CSF, bone, skin)",
+    "mesh_analyzer": "Surface-based field analysis (mesh)",
+    "voxel_analyzer": "Volumetric field analysis (NIfTI)",
 }
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load benchmark configuration from YAML file."""
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
         print(f"Error: Configuration file '{config_path}' not found.")
@@ -71,7 +71,9 @@ def load_config(config_path: str) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optional[bool], Optional[str]]:
+def parse_benchmark_result(
+    output_dir: Path, benchmark_name: str
+) -> Tuple[Optional[bool], Optional[str]]:
     """
     Parse the latest benchmark result file to determine actual success status.
 
@@ -85,21 +87,21 @@ def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optio
     """
     try:
         # Find the latest result file for this benchmark
-        if benchmark_name == 'ex_search':
+        if benchmark_name == "ex_search":
             # ex_search saves: ex_search_benchmark_{subject_id}_{leadfield_name}_latest.json
             pattern = "ex_search_benchmark_*_latest.json"
-        elif benchmark_name == 'flex':
+        elif benchmark_name == "flex":
             # flex saves: flex_benchmark_{subject_id}_summary_{timestamp}.json
             # Find the most recent summary file
             pattern = "flex_benchmark_*_summary_*.json"
-        elif benchmark_name == 'tissue_analyzer':
+        elif benchmark_name == "tissue_analyzer":
             # tissue_analyzer saves multiple files per tissue type
             # Look for summary file: tissue_analyzer_benchmark_{subject_id}_summary_{timestamp}.json
             pattern = "tissue_analyzer_benchmark_*_summary_*.json"
-        elif benchmark_name in ['mesh_analyzer', 'voxel_analyzer']:
+        elif benchmark_name in ["mesh_analyzer", "voxel_analyzer"]:
             # These analyzers save: {analyzer}_benchmark_{subject_id}_{analysis_type}_latest.json
             pattern = f"{benchmark_name}_benchmark_*_latest.json"
-        elif benchmark_name in ['dicom', 'charm', 'recon', 'leadfield', 'simulator']:
+        elif benchmark_name in ["dicom", "charm", "recon", "leadfield", "simulator"]:
             # These benchmarks use the standard benchmark result format
             pattern = f"{benchmark_name}_benchmark_*_latest.json"
         else:
@@ -114,31 +116,37 @@ def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optio
         latest_file = max(result_files, key=lambda p: p.stat().st_mtime)
 
         # Parse the result file
-        with open(latest_file, 'r') as f:
+        with open(latest_file, "r") as f:
             result_data = json.load(f)
 
         # Extract success and error info based on benchmark type
-        if benchmark_name == 'flex':
+        if benchmark_name == "flex":
             # For flex, check if any of the results succeeded
-            results = result_data.get('results', [])
-            success = any(r.get('success', False) for r in results)
+            results = result_data.get("results", [])
+            success = any(r.get("success", False) for r in results)
             if not success and results:
                 error_message = "All optimization runs failed"
             else:
                 error_message = None
-        elif benchmark_name == 'tissue_analyzer':
+        elif benchmark_name == "tissue_analyzer":
             # For tissue_analyzer, check if all tissue types succeeded
-            results = result_data.get('results', [])
-            success = all(r.get('success', False) for r in results) if results else False
+            results = result_data.get("results", [])
+            success = (
+                all(r.get("success", False) for r in results) if results else False
+            )
             if not success and results:
-                failed_tissues = [r.get('tissue_type', 'unknown') for r in results if not r.get('success', False)]
+                failed_tissues = [
+                    r.get("tissue_type", "unknown")
+                    for r in results
+                    if not r.get("success", False)
+                ]
                 error_message = f"Failed tissue types: {', '.join(failed_tissues)}"
             else:
                 error_message = None
         else:
             # For other benchmarks, check the top-level success field
-            success = result_data.get('success')
-            error_message = result_data.get('error_message')
+            success = result_data.get("success")
+            error_message = result_data.get("error_message")
 
         return success, error_message
 
@@ -147,7 +155,9 @@ def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optio
         return None, None
 
 
-def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool = False) -> Tuple[bool, float, str]:
+def run_benchmark(
+    benchmark_name: str, output_dir: Path, continue_on_error: bool = False
+) -> Tuple[bool, float, str]:
     """
     Run a single benchmark.
 
@@ -194,7 +204,9 @@ def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool
         elapsed = end_time - start_time
 
         # Check the actual benchmark result from the saved file
-        actual_success, actual_error_msg = parse_benchmark_result(output_dir, benchmark_name)
+        actual_success, actual_error_msg = parse_benchmark_result(
+            output_dir, benchmark_name
+        )
 
         if actual_success is not None:
             # Use the actual result from the benchmark file
@@ -208,7 +220,9 @@ def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool
                     print(f"  Error: {actual_error_msg}")
         else:
             # Fallback to assuming success if no result file found
-            print(f"\n✓ Benchmark '{benchmark_name}' completed (no result file to check)")
+            print(
+                f"\n✓ Benchmark '{benchmark_name}' completed (no result file to check)"
+            )
             success = True
             error_msg = ""
 
@@ -219,7 +233,7 @@ def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool
         print(f"\n✗ Benchmark '{benchmark_name}' interrupted by user")
         raise
     except Exception as e:
-        elapsed = time.time() - start_time if 'start_time' in locals() else 0.0
+        elapsed = time.time() - start_time if "start_time" in locals() else 0.0
         error_msg = str(e)
         print(f"\n✗ Error running benchmark '{benchmark_name}': {error_msg}")
 
@@ -231,38 +245,41 @@ def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool
             return False, elapsed, error_msg
 
 
-def save_results_summary(results: List[Tuple[str, bool, float, str]], 
-                         output_dir: Path, total_time: float):
+def save_results_summary(
+    results: List[Tuple[str, bool, float, str]], output_dir: Path, total_time: float
+):
     """Save benchmark results to JSON file."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     summary = {
         "timestamp": datetime.now().isoformat(),
         "total_duration_seconds": total_time,
         "total_duration_formatted": f"{total_time/60:.2f} minutes",
-        "benchmarks": []
+        "benchmarks": [],
     }
-    
+
     for benchmark_name, success, elapsed, error_msg in results:
-        summary["benchmarks"].append({
-            "name": benchmark_name,
-            "description": BENCHMARK_DESCRIPTIONS.get(benchmark_name, ""),
-            "success": success,
-            "duration_seconds": elapsed,
-            "duration_formatted": f"{elapsed:.2f}s",
-            "error_message": error_msg if error_msg else None
-        })
-    
+        summary["benchmarks"].append(
+            {
+                "name": benchmark_name,
+                "description": BENCHMARK_DESCRIPTIONS.get(benchmark_name, ""),
+                "success": success,
+                "duration_seconds": elapsed,
+                "duration_formatted": f"{elapsed:.2f}s",
+                "error_message": error_msg if error_msg else None,
+            }
+        )
+
     # Save timestamped and latest files
     output_dir.mkdir(parents=True, exist_ok=True)
     results_file = output_dir / f"bench_runner_{timestamp}.json"
     latest_file = output_dir / "bench_runner_latest.json"
-    
-    with open(results_file, 'w') as f:
+
+    with open(results_file, "w") as f:
         json.dump(summary, f, indent=2)
-    
-    with open(latest_file, 'w') as f:
+
+    with open(latest_file, "w") as f:
         json.dump(summary, f, indent=2)
-    
+
     print(f"\nResults saved to: {results_file}")
     return results_file
 
@@ -294,51 +311,52 @@ Available benchmarks:
   Preprocessing: dicom, charm, recon
   Optimization: leadfield, flex, ex_search, simulator
   Analysis: tissue_analyzer, mesh_analyzer, voxel_analyzer
-        """
+        """,
     )
 
     parser.add_argument(
-        '--benchmarks', '-b',
+        "--benchmarks",
+        "-b",
         type=str,
-        help='Comma-separated list of benchmarks to run in order (e.g., "charm,recon,dicom")'
+        help='Comma-separated list of benchmarks to run in order (e.g., "charm,recon,dicom")',
     )
 
     parser.add_argument(
-        '--all', '-a',
-        action='store_true',
-        help='Run all available benchmarks in default order'
+        "--all",
+        "-a",
+        action="store_true",
+        help="Run all available benchmarks in default order",
     )
 
     parser.add_argument(
-        '--config', '-c',
+        "--config",
+        "-c",
         type=str,
-        default='benchmark_config.yaml',
-        help='Path to benchmark configuration file (default: benchmark_config.yaml)'
+        default="benchmark_config.yaml",
+        help="Path to benchmark configuration file (default: benchmark_config.yaml)",
     )
 
     parser.add_argument(
-        '--continue-on-error',
-        action='store_true',
-        help='Continue running remaining benchmarks even if one fails'
+        "--continue-on-error",
+        action="store_true",
+        help="Continue running remaining benchmarks even if one fails",
     )
 
     parser.add_argument(
-        '--list', '-l',
-        action='store_true',
-        help='List available benchmarks and exit'
+        "--list", "-l", action="store_true", help="List available benchmarks and exit"
     )
-    
+
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what benchmarks would run without actually running them'
+        "--dry-run",
+        action="store_true",
+        help="Show what benchmarks would run without actually running them",
     )
-    
+
     parser.add_argument(
-        '--output-dir',
+        "--output-dir",
         type=Path,
         default=Path.cwd() / "benchmark_results",
-        help='Directory to save benchmark results (default: ./benchmark_results)'
+        help="Directory to save benchmark results (default: ./benchmark_results)",
     )
 
     args = parser.parse_args()
@@ -357,7 +375,7 @@ Available benchmarks:
     if args.all:
         benchmark_order = list(BENCHMARKS.keys())
     elif args.benchmarks:
-        benchmark_order = [b.strip() for b in args.benchmarks.split(',')]
+        benchmark_order = [b.strip() for b in args.benchmarks.split(",")]
         # Validate benchmark names
         invalid = [b for b in benchmark_order if b not in BENCHMARKS]
         if invalid:
@@ -401,7 +419,9 @@ Available benchmarks:
 
     try:
         for benchmark in benchmark_order:
-            success, elapsed, error_msg = run_benchmark(benchmark, args.output_dir, args.continue_on_error)
+            success, elapsed, error_msg = run_benchmark(
+                benchmark, args.output_dir, args.continue_on_error
+            )
             results.append((benchmark, success, elapsed, error_msg))
 
             if not success and not args.continue_on_error:
@@ -411,13 +431,13 @@ Available benchmarks:
         print("\n\nBenchmark run interrupted by user.")
         overall_end = time.time()
         total_elapsed = overall_end - overall_start
-        
+
         if results:
             print("\nPartial results:")
             for benchmark, success, elapsed, _ in results:
                 status = "✓ PASSED" if success else "✗ FAILED"
                 print(f"  {benchmark.upper():12} {status} ({elapsed:.2f}s)")
-        
+
         sys.exit(130)
 
     # Print summary
@@ -441,7 +461,7 @@ Available benchmarks:
             success_count += 1
 
     print(f"\nSummary: {success_count}/{len(results)} benchmarks passed")
-    
+
     # Save results to file
     try:
         save_results_summary(results, args.output_dir, total_elapsed)

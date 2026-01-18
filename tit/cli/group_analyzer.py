@@ -33,29 +33,116 @@ class GroupAnalyzerCLI(BaseCLI):
         # Accept either:
         # - comma-separated: --subs 101,102
         # - space-separated: --subs 101 102
-        self.add_argument(ArgumentDefinition(name="subjects", type=str, nargs="+", help="Subject IDs (comma-separated or space-separated). Requires at least 2.", required=True))
-        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True))
-        self.add_argument(ArgumentDefinition(name="space", type=str, choices=["mesh", "voxel"], default="mesh", help="mesh|voxel"))
-        self.add_argument(ArgumentDefinition(name="analysis_type", type=str, choices=["spherical", "cortical"], default="spherical", help="spherical|cortical"))
+        self.add_argument(
+            ArgumentDefinition(
+                name="subjects",
+                type=str,
+                nargs="+",
+                help="Subject IDs (comma-separated or space-separated). Requires at least 2.",
+                required=True,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="simulation", type=str, help="Simulation name", required=True
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="space",
+                type=str,
+                choices=["mesh", "voxel"],
+                default="mesh",
+                help="mesh|voxel",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="analysis_type",
+                type=str,
+                choices=["spherical", "cortical"],
+                default="spherical",
+                help="spherical|cortical",
+            )
+        )
         # This is the *base* directory the group analyzer uses to place each subject's analysis output.
         # The recommended value is the SimNIBS derivatives directory (e.g. .../derivatives/SimNIBS),
         # which matches the GUI behavior and keeps results under each simulation's Analyses/ folder.
-        self.add_argument(ArgumentDefinition(name="output_dir", type=str, help="Base output directory (default: <project>/derivatives/SimNIBS)", required=False))
+        self.add_argument(
+            ArgumentDefinition(
+                name="output_dir",
+                type=str,
+                help="Base output directory (default: <project>/derivatives/SimNIBS)",
+                required=False,
+            )
+        )
 
         # spherical
-        self.add_argument(ArgumentDefinition(name="coordinates", type=str, help="x y z", required=False))
-        self.add_argument(ArgumentDefinition(name="radius", type=float, help="Radius (mm)", required=False))
-        self.add_argument(ArgumentDefinition(name="coordinate_space", type=str, choices=["MNI", "subject"], default="MNI", help="MNI|subject"))
+        self.add_argument(
+            ArgumentDefinition(
+                name="coordinates", type=str, help="x y z", required=False
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="radius", type=float, help="Radius (mm)", required=False
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="coordinate_space",
+                type=str,
+                choices=["MNI", "subject"],
+                default="MNI",
+                help="MNI|subject",
+            )
+        )
 
         # cortical
-        self.add_argument(ArgumentDefinition(name="atlas_name", type=str, help="Atlas name (mesh cortical)", required=False))
-        self.add_argument(ArgumentDefinition(name="atlas_path", type=str, help="Atlas path (voxel cortical)", required=False))
-        self.add_argument(ArgumentDefinition(name="whole_head", type=bool, help="Analyze whole head", default=False))
-        self.add_argument(ArgumentDefinition(name="region", type=str, help="Region name (if not whole head)", required=False))
+        self.add_argument(
+            ArgumentDefinition(
+                name="atlas_name",
+                type=str,
+                help="Atlas name (mesh cortical)",
+                required=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="atlas_path",
+                type=str,
+                help="Atlas path (voxel cortical)",
+                required=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="whole_head", type=bool, help="Analyze whole head", default=False
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="region",
+                type=str,
+                help="Region name (if not whole head)",
+                required=False,
+            )
+        )
 
         # output toggles
-        self.add_argument(ArgumentDefinition(name="quiet", type=bool, help="Quiet mode", default=False))
-        self.add_argument(ArgumentDefinition(name="visualize", type=bool, help="Generate visualizations", default=False))
+        self.add_argument(
+            ArgumentDefinition(
+                name="quiet", type=bool, help="Quiet mode", default=False
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="visualize",
+                type=bool,
+                help="Generate visualizations",
+                default=False,
+            )
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -63,7 +150,11 @@ class GroupAnalyzerCLI(BaseCLI):
         utils.echo_header("Group Analyzer (interactive)")
 
         subjects = pm.list_subjects()
-        selected = self.select_many(prompt_text="Select subjects", options=subjects, help_text="Choose at least 2 subjects")
+        selected = self.select_many(
+            prompt_text="Select subjects",
+            options=subjects,
+            help_text="Choose at least 2 subjects",
+        )
         if len(selected) < 2:
             raise RuntimeError("Group analysis requires at least 2 subjects.")
 
@@ -80,10 +171,20 @@ class GroupAnalyzerCLI(BaseCLI):
             simulation = utils.ask_required("Simulation name")
 
         space = self._prompt_for_value(
-            InteractivePrompt(name="space", prompt_text="Space", choices=["mesh", "voxel"], default="mesh")
+            InteractivePrompt(
+                name="space",
+                prompt_text="Space",
+                choices=["mesh", "voxel"],
+                default="mesh",
+            )
         )
         analysis_type = self._prompt_for_value(
-            InteractivePrompt(name="analysis_type", prompt_text="Analysis type", choices=["spherical", "cortical"], default="spherical")
+            InteractivePrompt(
+                name="analysis_type",
+                prompt_text="Analysis type",
+                choices=["spherical", "cortical"],
+                default="spherical",
+            )
         )
 
         default_out = pm.path("simnibs")
@@ -109,7 +210,12 @@ class GroupAnalyzerCLI(BaseCLI):
             args["coordinates"] = f"{x} {y} {z}"
             args["radius"] = utils.ask_float("Radius (mm)", default="10")
             args["coordinate_space"] = self._prompt_for_value(
-                InteractivePrompt(name="coordinate_space", prompt_text="Coordinate space", choices=["MNI", "subject"], default="MNI")
+                InteractivePrompt(
+                    name="coordinate_space",
+                    prompt_text="Coordinate space",
+                    choices=["MNI", "subject"],
+                    default="MNI",
+                )
             )
         else:
             args["whole_head"] = utils.ask_bool("Analyze whole head?", default=False)
@@ -118,11 +224,19 @@ class GroupAnalyzerCLI(BaseCLI):
             if space == "mesh":
                 args["atlas_name"] = utils.ask_required("Atlas name", default="DK40")
             else:
-                atlas_dir = Path(pm.project_dir) / "resources" / "atlas" if pm.project_dir else None
+                atlas_dir = (
+                    Path(pm.project_dir) / "resources" / "atlas"
+                    if pm.project_dir
+                    else None
+                )
                 atlas_files: List[str] = []
                 if atlas_dir and atlas_dir.is_dir():
                     atlas_files = [str(p) for p in sorted(atlas_dir.glob("*.nii*"))]
-                args["atlas_path"] = utils.choose_or_enter(prompt="Atlas path", options=atlas_files, help_text="Select an atlas file or choose 'Enter manually…'")
+                args["atlas_path"] = utils.choose_or_enter(
+                    prompt="Atlas path",
+                    options=atlas_files,
+                    help_text="Select an atlas file or choose 'Enter manually…'",
+                )
 
         if not utils.review_and_confirm(
             "Review (group analyzer)",
@@ -143,7 +257,9 @@ class GroupAnalyzerCLI(BaseCLI):
     def execute(self, args: Dict[str, Any]) -> int:
         pm = get_path_manager()
         if not pm.project_dir:
-            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
+            raise RuntimeError(
+                "Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists."
+            )
         proj = Path(pm.project_dir)
 
         subject_ids = utils.split_csv_or_tokens(args.get("subjects"))
@@ -151,7 +267,14 @@ class GroupAnalyzerCLI(BaseCLI):
             raise RuntimeError("--subs must contain at least two ids")
 
         output_dir = args.get("output_dir") or pm.path("simnibs")
-        argv: List[str] = ["--space", str(args["space"]), "--analysis_type", str(args["analysis_type"]), "--output_dir", str(output_dir)]
+        argv: List[str] = [
+            "--space",
+            str(args["space"]),
+            "--analysis_type",
+            str(args["analysis_type"]),
+            "--output_dir",
+            str(output_dir),
+        ]
 
         if args.get("quiet"):
             argv.append("--quiet")
@@ -161,7 +284,9 @@ class GroupAnalyzerCLI(BaseCLI):
         if args["analysis_type"] == "spherical":
             xyz = str(args.get("coordinates") or "").split()
             if len(xyz) != 3:
-                raise RuntimeError("--coordinates must be 'x y z' for spherical analysis")
+                raise RuntimeError(
+                    "--coordinates must be 'x y z' for spherical analysis"
+                )
             if args.get("radius") is None:
                 raise RuntimeError("--radius is required for spherical analysis")
             argv += [
@@ -178,7 +303,9 @@ class GroupAnalyzerCLI(BaseCLI):
             if args["space"] == "mesh":
                 atlas_name = args.get("atlas_name")
                 if not atlas_name:
-                    raise RuntimeError("--atlas-name is required for mesh cortical analysis")
+                    raise RuntimeError(
+                        "--atlas-name is required for mesh cortical analysis"
+                    )
                 argv += ["--atlas_name", str(atlas_name)]
             if args.get("whole_head"):
                 argv.append("--whole_head")
@@ -198,11 +325,16 @@ class GroupAnalyzerCLI(BaseCLI):
             else:
                 # For voxel, pass an actual field file path. Prefer the same backend selector used elsewhere.
                 from tit.analyzer.field_selector import select_field_file
-                field, _ = select_field_file(str(m2m), simulation, "voxel", str(args["analysis_type"]))
+
+                field, _ = select_field_file(
+                    str(m2m), simulation, "voxel", str(args["analysis_type"])
+                )
                 if args["analysis_type"] == "cortical":
                     atlas_path = args.get("atlas_path")
                     if not atlas_path:
-                        raise RuntimeError("--atlas-path is required for voxel cortical analysis")
+                        raise RuntimeError(
+                            "--atlas-path is required for voxel cortical analysis"
+                        )
                     argv += ["--subject", sid, str(m2m), str(field), str(atlas_path)]
                 else:
                     argv += ["--subject", sid, str(m2m), str(field)]
@@ -212,5 +344,3 @@ class GroupAnalyzerCLI(BaseCLI):
 
 if __name__ == "__main__":
     raise SystemExit(GroupAnalyzerCLI().run())
-
-

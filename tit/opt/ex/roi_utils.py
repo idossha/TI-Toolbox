@@ -21,15 +21,17 @@ def load_roi_presets() -> Dict[str, Dict]:
     # Try multiple possible locations for the presets file
     possible_paths = [
         Path(__file__).parent.parent / "roi_presets.json",  # tit/opt/roi_presets.json
-        Path(__file__).parent.parent.parent / "resources" / "roi_presets.json",  # resources/roi_presets.json
+        Path(__file__).parent.parent.parent
+        / "resources"
+        / "roi_presets.json",  # resources/roi_presets.json
     ]
 
     for preset_path in possible_paths:
         if preset_path.exists():
             try:
-                with open(preset_path, 'r') as f:
+                with open(preset_path, "r") as f:
                     data = json.load(f)
-                    return data.get('regions', {})
+                    return data.get("regions", {})
             except (json.JSONDecodeError, KeyError):
                 continue
 
@@ -53,7 +55,7 @@ def create_roi_from_preset(
     subject_id: str,
     roi_name: str,
     preset_key: str,
-    presets: Optional[Dict[str, Dict]] = None
+    presets: Optional[Dict[str, Dict]] = None,
 ) -> Tuple[bool, str]:
     """
     Create an ROI from a preset.
@@ -80,16 +82,18 @@ def create_roi_from_preset(
         os.makedirs(roi_dir, exist_ok=True)
 
         # Ensure .csv extension
-        if not roi_name.endswith('.csv'):
-            roi_name += '.csv'
+        if not roi_name.endswith(".csv"):
+            roi_name += ".csv"
 
         roi_file = Path(roi_dir) / roi_name
 
         # Get MNI coordinates from preset
-        mni_coords = presets[preset_key]['mni']
+        mni_coords = presets[preset_key]["mni"]
 
         # Transform to subject space
-        subject_coords = ROICoordinateHelper.transform_mni_to_subject(mni_coords, m2m_dir)
+        subject_coords = ROICoordinateHelper.transform_mni_to_subject(
+            mni_coords, m2m_dir
+        )
         x, y, z = subject_coords[0], subject_coords[1], subject_coords[2]
 
         # Save ROI file
@@ -98,18 +102,17 @@ def create_roi_from_preset(
         # Update roi_list.txt
         _update_roi_list_file(roi_dir, roi_name)
 
-        return True, f"ROI '{roi_name}' created successfully at ({x:.2f}, {y:.2f}, {z:.2f})"
+        return (
+            True,
+            f"ROI '{roi_name}' created successfully at ({x:.2f}, {y:.2f}, {z:.2f})",
+        )
 
     except Exception as e:
         return False, f"Failed to create ROI: {str(e)}"
 
 
 def create_roi_from_coordinates(
-    subject_id: str,
-    roi_name: str,
-    x: float,
-    y: float,
-    z: float
+    subject_id: str, roi_name: str, x: float, y: float, z: float
 ) -> Tuple[bool, str]:
     """
     Create an ROI from custom coordinates.
@@ -129,8 +132,8 @@ def create_roi_from_coordinates(
         os.makedirs(roi_dir, exist_ok=True)
 
         # Ensure .csv extension
-        if not roi_name.endswith('.csv'):
-            roi_name += '.csv'
+        if not roi_name.endswith(".csv"):
+            roi_name += ".csv"
 
         roi_file = Path(roi_dir) / roi_name
 
@@ -140,7 +143,10 @@ def create_roi_from_coordinates(
         # Update roi_list.txt
         _update_roi_list_file(roi_dir, roi_name)
 
-        return True, f"ROI '{roi_name}' created successfully at ({x:.2f}, {y:.2f}, {z:.2f})"
+        return (
+            True,
+            f"ROI '{roi_name}' created successfully at ({x:.2f}, {y:.2f}, {z:.2f})",
+        )
 
     except Exception as e:
         return False, f"Failed to create ROI: {str(e)}"
@@ -163,8 +169,8 @@ def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
         roi_dir = pm.path("m2m_rois", subject_id=subject_id)
 
         # Ensure .csv extension
-        if not roi_name.endswith('.csv'):
-            roi_name += '.csv'
+        if not roi_name.endswith(".csv"):
+            roi_name += ".csv"
 
         roi_file = Path(roi_dir) / roi_name
         roi_list_file = Path(roi_dir) / "roi_list.txt"
@@ -175,13 +181,13 @@ def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
 
         # Update roi_list.txt
         if roi_list_file.exists():
-            with open(roi_list_file, 'r') as f:
+            with open(roi_list_file, "r") as f:
                 existing_rois = [line.strip() for line in f.readlines()]
 
             if roi_name in existing_rois:
                 existing_rois.remove(roi_name)
 
-                with open(roi_list_file, 'w') as f:
+                with open(roi_list_file, "w") as f:
                     for roi in existing_rois:
                         f.write(f"{roi}\n")
 
@@ -191,7 +197,9 @@ def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
         return False, f"Failed to delete ROI: {str(e)}"
 
 
-def get_roi_coordinates(subject_id: str, roi_name: str) -> Optional[Tuple[float, float, float]]:
+def get_roi_coordinates(
+    subject_id: str, roi_name: str
+) -> Optional[Tuple[float, float, float]]:
     """
     Get coordinates for an ROI.
 
@@ -208,8 +216,8 @@ def get_roi_coordinates(subject_id: str, roi_name: str) -> Optional[Tuple[float,
         roi_dir = pm.path("m2m_rois", subject_id=subject_id)
 
         # Ensure .csv extension
-        if not roi_name.endswith('.csv'):
-            roi_name += '.csv'
+        if not roi_name.endswith(".csv"):
+            roi_name += ".csv"
 
         roi_file = Path(roi_dir) / roi_name
 
@@ -230,12 +238,12 @@ def _update_roi_list_file(roi_dir: str, roi_name: str):
     # Read existing ROIs
     existing_rois = []
     if roi_list_file.exists():
-        with open(roi_list_file, 'r') as f:
+        with open(roi_list_file, "r") as f:
             existing_rois = [line.strip() for line in f.readlines()]
 
     # Add new ROI if not already present
     if roi_name not in existing_rois:
-        with open(roi_list_file, 'a') as f:
+        with open(roi_list_file, "a") as f:
             f.write(f"{roi_name}\n")
 
 

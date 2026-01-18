@@ -46,7 +46,9 @@ def test_simulation_report_basic_apis_and_generate(tmp_path: Path):
         intensity_ch2=2.0,
         quiet_mode=True,
     )
-    assert gen.report_data["simulation_parameters"]["simulation_mode_text"] == "Unipolar"
+    assert (
+        gen.report_data["simulation_parameters"]["simulation_mode_text"] == "Unipolar"
+    )
     assert gen.report_data["simulation_parameters"]["intensity_ch1_a"] == 0.002
 
     gen.add_electrode_parameters(shape="rect", dimensions=[10, 20], thickness=4.0)
@@ -55,7 +57,11 @@ def test_simulation_report_basic_apis_and_generate(tmp_path: Path):
     with pytest.raises(ValueError):
         gen.add_montage(montage_name=None, name=None, electrode_pairs=[("A", "B")])
 
-    gen.add_montage(montage_name="m1", electrode_pairs=[("A", "B"), ("C", "D")], montage_type="unipolar")
+    gen.add_montage(
+        montage_name="m1",
+        electrode_pairs=[("A", "B"), ("C", "D")],
+        montage_type="unipolar",
+    )
     assert gen.report_data["montages"][0]["num_pairs"] == 2
 
     # Generate minimal report
@@ -67,5 +73,3 @@ def test_simulation_report_basic_apis_and_generate(tmp_path: Path):
     text = out.read_text(encoding="utf-8")
     assert "<html" in text.lower()
     assert "TI-Toolbox Simulation Report" in text
-
-

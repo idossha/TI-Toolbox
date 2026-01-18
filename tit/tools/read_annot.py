@@ -1,6 +1,7 @@
 import nibabel.freesurfer.io as fsio
 import argparse
 
+
 def read_annot_file(annot_path, vertex_id=None):
     # Load annotation data
     labels, ctab, names = fsio.read_annot(annot_path)
@@ -21,12 +22,13 @@ def read_annot_file(annot_path, vertex_id=None):
             label_val = labels[vertex_id]
             try:
                 index = list(ctab[:, -1]).index(label_val)
-                region_name = names[index].decode('utf-8')
+                region_name = names[index].decode("utf-8")
                 print(f"\nVertex {vertex_id} belongs to region: {region_name}")
             except ValueError:
                 print(f"\nVertex {vertex_id} has an unknown label value: {label_val}")
         else:
             print(f"\nVertex ID {vertex_id} is out of range (0 to {len(labels) - 1})")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Read a FreeSurfer .annot file.")

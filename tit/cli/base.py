@@ -40,7 +40,9 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from tit.cli import utils
 
 
-class _DefaultHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+class _DefaultHelpFormatter(
+    argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter
+):
     """
     Help formatter that shows defaults while preserving newlines in descriptions.
     """
@@ -49,6 +51,7 @@ class _DefaultHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.Raw
 @dataclass
 class ArgumentDefinition:
     """Definition for a command-line argument."""
+
     name: str
     type: type = str
     help: str = ""
@@ -57,7 +60,9 @@ class ArgumentDefinition:
     choices: Optional[List[Any]] = None
     metavar: Optional[str] = None
     nargs: Any = None  # passed through to argparse (e.g. 3, '+', '*')
-    flags: Optional[List[str]] = None  # custom flags / aliases (e.g. ["--subject","-sub","-subject"])
+    flags: Optional[List[str]] = (
+        None  # custom flags / aliases (e.g. ["--subject","-sub","-subject"])
+    )
 
     # For interactive mode
     prompt_text: Optional[str] = None
@@ -69,6 +74,7 @@ class ArgumentDefinition:
 @dataclass
 class InteractivePrompt:
     """Definition for an interactive prompt."""
+
     name: str
     prompt_text: str
     type: type = str
@@ -302,7 +308,10 @@ class BaseCLI(ABC):
             if prompt.choices:
                 utils.echo_section(prompt.prompt_text)
                 utils.print_options([str(c) for c in prompt.choices])
-                raw = utils.ask(f"Select [1-{len(prompt.choices)}]", default=(raw_default if raw_default else None))
+                raw = utils.ask(
+                    f"Select [1-{len(prompt.choices)}]",
+                    default=(raw_default if raw_default else None),
+                )
                 if not raw and prompt.default is not None:
                     value = prompt.default
                 else:
@@ -319,13 +328,17 @@ class BaseCLI(ABC):
                             continue
                         value = raw
             else:
-                raw = utils.ask(prompt.prompt_text, default=(raw_default if raw_default else None))
+                raw = utils.ask(
+                    prompt.prompt_text, default=(raw_default if raw_default else None)
+                )
                 if not raw and prompt.default is not None:
                     value = prompt.default
                 else:
                     value = self._cast(prompt.type, raw)
 
-            if prompt.required and (value is None or (isinstance(value, str) and not value.strip())):
+            if prompt.required and (
+                value is None or (isinstance(value, str) and not value.strip())
+            ):
                 utils.echo_error("Value required.")
                 continue
 

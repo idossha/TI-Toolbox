@@ -35,13 +35,13 @@ class TestBaseVisualizer:
         with tempfile.TemporaryDirectory() as temp_dir:
             viz = analyzer_visualizer.BaseVisualizer(output_dir=temp_dir)
             assert viz.output_dir == temp_dir
-            assert hasattr(viz, 'logger')
+            assert hasattr(viz, "logger")
 
     def test_base_visualizer_default_output_dir(self):
         """Test BaseVisualizer with default output directory."""
         viz = analyzer_visualizer.BaseVisualizer(".")
         assert viz.output_dir == "."
-        assert hasattr(viz, 'logger')
+        assert hasattr(viz, "logger")
 
 
 class TestVisualizer:
@@ -54,9 +54,9 @@ class TestVisualizer:
             assert isinstance(viz, analyzer_visualizer.BaseVisualizer)
             assert viz.output_dir == temp_dir
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.figure')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.figure")
+    @patch("matplotlib.pyplot.close")
     def test_save_plot(self, mock_close, mock_figure, mock_savefig):
         """Test plot saving functionality."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -101,7 +101,7 @@ class TestVoxelVisualizer:
             assert isinstance(viz, analyzer_visualizer.Visualizer)
             assert viz.output_dir == temp_dir
 
-    @patch('nibabel.load')
+    @patch("nibabel.load")
     def test_nifti_data_loading(self, mock_load):
         """Test NIfTI data loading."""
         mock_img = MagicMock()

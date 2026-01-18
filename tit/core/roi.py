@@ -17,7 +17,7 @@ import numpy as np
 def find_roi_element_indices(mesh, roi_coords: Sequence[float], radius: float = 3.0):
     """Return element indices/volumes for elements whose barycenters fall in a sphere."""
     centers = mesh.elements_baricenters()
-    if hasattr(centers, 'value'):
+    if hasattr(centers, "value"):
         centers = centers.value
     centers = np.asarray(centers).reshape(-1, 3)  # Ensure 2D shape (N, 3)
     center = np.asarray(roi_coords, dtype=float)
@@ -25,7 +25,7 @@ def find_roi_element_indices(mesh, roi_coords: Sequence[float], radius: float = 
     d2 = np.sum((centers - center) ** 2, axis=1)
     mask = d2 <= r2
     volumes_areas = mesh.elements_volumes_and_areas()
-    if hasattr(volumes_areas, 'value'):
+    if hasattr(volumes_areas, "value"):
         volumes_areas = volumes_areas.value
     volumes_areas = np.asarray(volumes_areas)
     if volumes_areas.ndim > 1:
@@ -39,7 +39,7 @@ def find_grey_matter_indices(mesh, grey_matter_tags: Iterable[int] = (2,)):
     tags = mesh.elm.tag1
     mask = np.isin(tags, list(grey_matter_tags))
     volumes_areas = mesh.elements_volumes_and_areas()
-    if hasattr(volumes_areas, 'value'):
+    if hasattr(volumes_areas, "value"):
         volumes_areas = volumes_areas.value
     volumes_areas = np.asarray(volumes_areas)
     if volumes_areas.ndim > 1:

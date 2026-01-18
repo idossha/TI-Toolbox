@@ -14,5 +14,4 @@ from .action_buttons import RunStopButtons
 from .base_thread import detect_message_type_from_content
 
 
-__all__ = ['ConsoleWidget', 'RunStopButtons', 'detect_message_type_from_content']
-
+__all__ = ["ConsoleWidget", "RunStopButtons", "detect_message_type_from_content"]

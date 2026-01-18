@@ -14,10 +14,15 @@ import sys
 from .visualizer import NilearnVisualizer
 
 
-def create_pdf_entry_point(subject_id: str, simulation_name: str,
-                          min_cutoff: float = 0.3, max_cutoff: float = None,
-                          atlas_name: str = "harvard_oxford_sub", selected_regions: list = None,
-                          output_callback=None):
+def create_pdf_entry_point(
+    subject_id: str,
+    simulation_name: str,
+    min_cutoff: float = 0.3,
+    max_cutoff: float = None,
+    atlas_name: str = "harvard_oxford_sub",
+    selected_regions: list = None,
+    output_callback=None,
+):
     """
     Entry point for PDF visualization creation.
 
@@ -40,11 +45,18 @@ def create_pdf_entry_point(subject_id: str, simulation_name: str,
         captured_output = io.StringIO()
         with redirect_stdout(captured_output):
             visualizer = NilearnVisualizer()
-            result = visualizer.create_pdf_visualization(subject_id, simulation_name, min_cutoff, max_cutoff, atlas_name, selected_regions)
+            result = visualizer.create_pdf_visualization(
+                subject_id,
+                simulation_name,
+                min_cutoff,
+                max_cutoff,
+                atlas_name,
+                selected_regions,
+            )
 
         # Send captured output to callback line by line
         output_text = captured_output.getvalue()
-        for line in output_text.split('\n'):
+        for line in output_text.split("\n"):
             if line.strip():
                 output_callback(line)
 
@@ -57,7 +69,14 @@ def create_pdf_entry_point(subject_id: str, simulation_name: str,
     else:
         # Normal operation - print to stdout
         visualizer = NilearnVisualizer()
-        result = visualizer.create_pdf_visualization(subject_id, simulation_name, min_cutoff, max_cutoff, atlas_name, selected_regions)
+        result = visualizer.create_pdf_visualization(
+            subject_id,
+            simulation_name,
+            min_cutoff,
+            max_cutoff,
+            atlas_name,
+            selected_regions,
+        )
         if result:
             print(f"\n✓ PDF visualization completed: {result}")
             return result
@@ -66,10 +85,16 @@ def create_pdf_entry_point(subject_id: str, simulation_name: str,
             return None
 
 
-def create_pdf_entry_point_group(averaged_img, base_filename: str, output_dir: str,
-                                min_cutoff: float = 0.3, max_cutoff: float = None,
-                                atlas_name: str = "harvard_oxford_sub", selected_regions: list = None,
-                                output_callback=None):
+def create_pdf_entry_point_group(
+    averaged_img,
+    base_filename: str,
+    output_dir: str,
+    min_cutoff: float = 0.3,
+    max_cutoff: float = None,
+    atlas_name: str = "harvard_oxford_sub",
+    selected_regions: list = None,
+    output_callback=None,
+):
     """
     Entry point for PDF visualization creation with pre-averaged nifti data.
 
@@ -93,11 +118,19 @@ def create_pdf_entry_point_group(averaged_img, base_filename: str, output_dir: s
         captured_output = io.StringIO()
         with redirect_stdout(captured_output):
             visualizer = NilearnVisualizer()
-            result = visualizer.create_pdf_visualization_group(averaged_img, base_filename, output_dir, min_cutoff, max_cutoff, atlas_name, selected_regions)
+            result = visualizer.create_pdf_visualization_group(
+                averaged_img,
+                base_filename,
+                output_dir,
+                min_cutoff,
+                max_cutoff,
+                atlas_name,
+                selected_regions,
+            )
 
         # Send captured output to callback line by line
         output_text = captured_output.getvalue()
-        for line in output_text.split('\n'):
+        for line in output_text.split("\n"):
             if line.strip():
                 output_callback(line)
 
@@ -110,7 +143,15 @@ def create_pdf_entry_point_group(averaged_img, base_filename: str, output_dir: s
     else:
         # Normal operation - print to stdout
         visualizer = NilearnVisualizer()
-        result = visualizer.create_pdf_visualization_group(averaged_img, base_filename, output_dir, min_cutoff, max_cutoff, atlas_name, selected_regions)
+        result = visualizer.create_pdf_visualization_group(
+            averaged_img,
+            base_filename,
+            output_dir,
+            min_cutoff,
+            max_cutoff,
+            atlas_name,
+            selected_regions,
+        )
         if result:
             print(f"\n✓ PDF visualization completed: {result}")
             return result
@@ -134,27 +175,53 @@ Examples:
 
   # Use specific regions from atlas
   python img_slices.py --subject 001 --simulation montage1 --atlas harvard_oxford_sub --regions 1 2 3
-        """
+        """,
     )
 
-    parser.add_argument('--subject', '-s', required=True,
-                       help='Subject ID (e.g., 001, 101)')
-    parser.add_argument('--simulation', '-sim', required=True,
-                       help='Simulation name')
-    parser.add_argument('--min-cutoff', '-c', type=float, default=0.3,
-                       help='Minimum cutoff for visualization (V/m, default: 0.3)')
-    parser.add_argument('--max-cutoff', '-mc', type=float, default=None,
-                       help='Maximum cutoff for visualization (V/m, default: 99.9th percentile)')
-    parser.add_argument('--atlas', '-a', default='harvard_oxford_sub',
-                       choices=['harvard_oxford', 'harvard_oxford_sub', 'aal', 'schaefer_2018'],
-                       help='Atlas for contour overlay (default: harvard_oxford_sub)')
-    parser.add_argument('--regions', '-r', nargs='*', type=int,
-                       help='Region indices to include (0-indexed, space-separated). If not specified, all regions are included.')
+    parser.add_argument(
+        "--subject", "-s", required=True, help="Subject ID (e.g., 001, 101)"
+    )
+    parser.add_argument("--simulation", "-sim", required=True, help="Simulation name")
+    parser.add_argument(
+        "--min-cutoff",
+        "-c",
+        type=float,
+        default=0.3,
+        help="Minimum cutoff for visualization (V/m, default: 0.3)",
+    )
+    parser.add_argument(
+        "--max-cutoff",
+        "-mc",
+        type=float,
+        default=None,
+        help="Maximum cutoff for visualization (V/m, default: 99.9th percentile)",
+    )
+    parser.add_argument(
+        "--atlas",
+        "-a",
+        default="harvard_oxford_sub",
+        choices=["harvard_oxford", "harvard_oxford_sub", "aal", "schaefer_2018"],
+        help="Atlas for contour overlay (default: harvard_oxford_sub)",
+    )
+    parser.add_argument(
+        "--regions",
+        "-r",
+        nargs="*",
+        type=int,
+        help="Region indices to include (0-indexed, space-separated). If not specified, all regions are included.",
+    )
 
     args = parser.parse_args()
 
     # Run the PDF visualization
-    return create_pdf_entry_point(args.subject, args.simulation, args.min_cutoff, args.max_cutoff, args.atlas, args.regions)
+    return create_pdf_entry_point(
+        args.subject,
+        args.simulation,
+        args.min_cutoff,
+        args.max_cutoff,
+        args.atlas,
+        args.regions,
+    )
 
 
 if __name__ == "__main__":

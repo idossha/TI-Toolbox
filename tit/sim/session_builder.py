@@ -9,7 +9,12 @@ import os
 from copy import deepcopy
 from typing import List, Tuple, Union
 
-from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode, IntensityConfig
+from tit.sim.config import (
+    SimulationConfig,
+    MontageConfig,
+    SimulationMode,
+    IntensityConfig,
+)
 from tit.core import get_path_manager
 
 
@@ -32,9 +37,7 @@ class SessionBuilder:
         self.tensor_file = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
 
     def build_session(
-        self,
-        montage: MontageConfig,
-        output_dir: str
+        self, montage: MontageConfig, output_dir: str
     ) -> sim_struct.SESSION:
         """
         Build SimNIBS SESSION object for a montage.
@@ -56,7 +59,10 @@ class SessionBuilder:
         # Set EEG cap if using electrode names (not XYZ)
         if not montage.is_xyz:
             eeg_net = montage.eeg_net or self.config.eeg_net
-            S.eeg_cap = os.path.join(self.pm.path("eeg_positions", subject_id=self.config.subject_id), eeg_net)
+            S.eeg_cap = os.path.join(
+                self.pm.path("eeg_positions", subject_id=self.config.subject_id),
+                eeg_net,
+            )
 
         # Mapping options
         S.map_to_surf = self.config.map_to_surf
@@ -131,7 +137,7 @@ class SessionBuilder:
             intensities.pair1 / 1000.0,
             intensities.pair2 / 1000.0,
             intensities.pair3 / 1000.0,
-            intensities.pair4 / 1000.0
+            intensities.pair4 / 1000.0,
         ]
 
         # Add 4 pairs
@@ -159,7 +165,7 @@ class SessionBuilder:
         electrode.dimensions = self.config.electrode.dimensions
         electrode.thickness = [
             self.config.electrode.thickness,
-            self.config.electrode.sponge_thickness
+            self.config.electrode.sponge_thickness,
         ]
 
     def _apply_tissue_conductivities(self, tdcs):

@@ -17,7 +17,11 @@ from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
 from tit.core import get_path_manager
-from tit.core.overwrite import OverwritePolicy, get_overwrite_policy, should_overwrite_path as core_should_overwrite_path
+from tit.core.overwrite import (
+    OverwritePolicy,
+    get_overwrite_policy,
+    should_overwrite_path as core_should_overwrite_path,
+)
 from tit import logger as logging_util
 
 
@@ -49,11 +53,23 @@ def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
 
 def _dataset_description_target(project_dir: str, dataset: str) -> Path:
     if dataset == "freesurfer":
-        return Path(project_dir) / "derivatives" / "freesurfer" / "dataset_description.json"
+        return (
+            Path(project_dir)
+            / "derivatives"
+            / "freesurfer"
+            / "dataset_description.json"
+        )
     if dataset == "simnibs":
-        return Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
+        return (
+            Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
+        )
     if dataset == "ti-toolbox":
-        return Path(project_dir) / "derivatives" / "ti-toolbox" / "dataset_description.json"
+        return (
+            Path(project_dir)
+            / "derivatives"
+            / "ti-toolbox"
+            / "dataset_description.json"
+        )
     raise ValueError(f"Unknown dataset: {dataset}")
 
 
@@ -73,7 +89,9 @@ def ensure_dataset_descriptions(project_dir: str, datasets: Iterable[str]) -> No
 
         if not target_path.exists():
             if template_path.exists():
-                target_path.write_text(template_path.read_text(encoding="utf-8"), encoding="utf-8")
+                target_path.write_text(
+                    template_path.read_text(encoding="utf-8"), encoding="utf-8"
+                )
             else:
                 target_path.write_text(
                     json.dumps(
@@ -137,7 +155,9 @@ def build_logger(
 
     if debug:
         for handler in list(logger.handlers):
-            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
                 handler.setLevel(logging.DEBUG)
 
     if callback is not None:

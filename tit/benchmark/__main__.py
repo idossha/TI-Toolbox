@@ -41,38 +41,42 @@ Examples:
   
   # Show help for specific benchmark
   python -m tit.benchmark charm --help
-"""
+""",
     )
-    
+
     parser.add_argument(
         "benchmark",
         choices=["charm", "recon", "dicom", "flex"],
         nargs="?",
-        help="Benchmark to run"
+        help="Benchmark to run",
     )
-    
+
     # If no arguments or just --help, show help
-    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ['-h', '--help']):
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
         parser.print_help()
         sys.exit(0)
-    
+
     # Parse first argument
     args, remaining = parser.parse_known_args()
-    
+
     if args.benchmark == "charm":
         from tit.benchmark.charm import main as charm_main
+
         sys.argv = [sys.argv[0]] + remaining
         charm_main()
     elif args.benchmark == "recon":
         from tit.benchmark.recon import main as recon_main
+
         sys.argv = [sys.argv[0]] + remaining
         recon_main()
     elif args.benchmark == "dicom":
         from tit.benchmark.dicom import main as dicom_main
+
         sys.argv = [sys.argv[0]] + remaining
         dicom_main()
     elif args.benchmark == "flex":
         from tit.benchmark.flex import main as flex_main
+
         sys.argv = [sys.argv[0]] + remaining
         flex_main()
     else:
@@ -82,4 +86,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

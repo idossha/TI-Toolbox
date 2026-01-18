@@ -71,7 +71,9 @@ def _print_world_nodes(world) -> None:
                 img = getattr(n, "image", None)
                 if img:
                     print(f"      Image: {img.name}")
-                    fp = getattr(img, "filepath", None) or getattr(img, "filepath_raw", None)
+                    fp = getattr(img, "filepath", None) or getattr(
+                        img, "filepath_raw", None
+                    )
                     if fp:
                         print(f"      Image File: {fp}")
             if ntype in {"ShaderNodeMapping"}:
@@ -212,8 +214,14 @@ def _print_render_settings(scene) -> None:
     _print_kv("Resolution %", getattr(r, "resolution_percentage", "<n/a>"))
     _print_kv("Pixel Aspect", (r.pixel_aspect_x, r.pixel_aspect_y))
     _print_kv("Use Border", getattr(r, "use_border", "<n/a>"))
-    _print_kv("Border Min", (getattr(r, "border_min_x", "<n/a>"), getattr(r, "border_min_y", "<n/a>")))
-    _print_kv("Border Max", (getattr(r, "border_max_x", "<n/a>"), getattr(r, "border_max_y", "<n/a>")))
+    _print_kv(
+        "Border Min",
+        (getattr(r, "border_min_x", "<n/a>"), getattr(r, "border_min_y", "<n/a>")),
+    )
+    _print_kv(
+        "Border Max",
+        (getattr(r, "border_max_x", "<n/a>"), getattr(r, "border_max_y", "<n/a>")),
+    )
     _print_kv("Use Persistent Data", getattr(r, "use_persistent_data", "<n/a>"))
     _print_kv("Dither Intensity", getattr(r, "dither_intensity", "<n/a>"))
 
@@ -231,15 +239,23 @@ def _print_camera(cam_obj) -> None:
         print(f"  Focal Length: {cam.lens}")
 
     # Optics / framing
-    print(f"  Sensor: {getattr(cam, 'sensor_width', '<n/a>')} x {getattr(cam, 'sensor_height', '<n/a>')} ({getattr(cam, 'sensor_fit', '<n/a>')})")
-    print(f"  Clip: {getattr(cam, 'clip_start', '<n/a>')} .. {getattr(cam, 'clip_end', '<n/a>')}")
-    print(f"  Shift: {getattr(cam, 'shift_x', '<n/a>')}, {getattr(cam, 'shift_y', '<n/a>')}")
+    print(
+        f"  Sensor: {getattr(cam, 'sensor_width', '<n/a>')} x {getattr(cam, 'sensor_height', '<n/a>')} ({getattr(cam, 'sensor_fit', '<n/a>')})"
+    )
+    print(
+        f"  Clip: {getattr(cam, 'clip_start', '<n/a>')} .. {getattr(cam, 'clip_end', '<n/a>')}"
+    )
+    print(
+        f"  Shift: {getattr(cam, 'shift_x', '<n/a>')}, {getattr(cam, 'shift_y', '<n/a>')}"
+    )
 
     # DOF
     dof = getattr(cam, "dof", None)
     if dof:
         print(f"  DOF enabled: {getattr(dof, 'use_dof', '<n/a>')}")
-        print(f"  Focus Object: {getattr(getattr(dof, 'focus_object', None), 'name', None)}")
+        print(
+            f"  Focus Object: {getattr(getattr(dof, 'focus_object', None), 'name', None)}"
+        )
         print(f"  Focus Distance: {getattr(dof, 'focus_distance', '<n/a>')}")
         print(f"  Aperture fstop: {getattr(dof, 'aperture_fstop', '<n/a>')}")
 
@@ -280,9 +296,9 @@ bpy.ops.wm.read_homefile(use_empty=True)
 blend_file = sys.argv[-1]
 bpy.ops.wm.open_mainfile(filepath=blend_file)
 
-print("="*80)
+print("=" * 80)
 print(f"Inspecting: {blend_file}")
-print("="*80)
+print("=" * 80)
 
 # Render / output settings
 scene = bpy.context.scene
@@ -330,7 +346,7 @@ for obj in bpy.context.scene.objects:
         print(f"    Parent: {obj.parent.name}")
 
     # Materials
-    if hasattr(obj.data, 'materials'):
+    if hasattr(obj.data, "materials"):
         print(f"    Materials: {len(obj.data.materials)}")
         for i, mat in enumerate(obj.data.materials):
             if mat:
@@ -340,16 +356,28 @@ for obj in bpy.context.scene.objects:
                 if mat.use_nodes:
                     bsdf = mat.node_tree.nodes.get("Principled BSDF")
                     if bsdf:
-                        print(f"        Base Color: {bsdf.inputs['Base Color'].default_value[:]}")
+                        print(
+                            f"        Base Color: {bsdf.inputs['Base Color'].default_value[:]}"
+                        )
                         print(f"        Alpha: {bsdf.inputs['Alpha'].default_value}")
-                        print(f"        Metallic: {bsdf.inputs['Metallic'].default_value}")
-                        print(f"        Roughness: {bsdf.inputs['Roughness'].default_value}")
-                        if 'Emission' in bsdf.inputs:
-                            print(f"        Emission: {bsdf.inputs['Emission'].default_value[:]}")
-                        if 'Emission Strength' in bsdf.inputs:
-                            print(f"        Emission Strength: {bsdf.inputs['Emission Strength'].default_value}")
-                        if 'Transmission' in bsdf.inputs:
-                            print(f"        Transmission: {bsdf.inputs['Transmission'].default_value}")
+                        print(
+                            f"        Metallic: {bsdf.inputs['Metallic'].default_value}"
+                        )
+                        print(
+                            f"        Roughness: {bsdf.inputs['Roughness'].default_value}"
+                        )
+                        if "Emission" in bsdf.inputs:
+                            print(
+                                f"        Emission: {bsdf.inputs['Emission'].default_value[:]}"
+                            )
+                        if "Emission Strength" in bsdf.inputs:
+                            print(
+                                f"        Emission Strength: {bsdf.inputs['Emission Strength'].default_value}"
+                            )
+                        if "Transmission" in bsdf.inputs:
+                            print(
+                                f"        Transmission: {bsdf.inputs['Transmission'].default_value}"
+                            )
 
 # Lights
 _print_section("Lights")
@@ -365,4 +393,4 @@ if not any_lights:
 _print_section("World")
 _print_world_nodes(scene.world)
 
-print("\n" + "="*80)
+print("\n" + "=" * 80)

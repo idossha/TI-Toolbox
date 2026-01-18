@@ -75,6 +75,7 @@ def test_cleanup_temporary_directories_retries(tmp_path: Path):
     calls = {"n": 0}
 
     import shutil as _shutil
+
     _real_rmtree = _shutil.rmtree
 
     def flaky_rmtree(path):
@@ -85,9 +86,9 @@ def test_cleanup_temporary_directories_retries(tmp_path: Path):
         return _real_rmtree(path)
 
     with patch("shutil.rmtree", side_effect=flaky_rmtree):
-        ok = cleanup_temporary_directories([str(d1), str(d2)], n_multistart=2, logger=logger)
+        ok = cleanup_temporary_directories(
+            [str(d1), str(d2)], n_multistart=2, logger=logger
+        )
     assert ok is True
     assert not d1.exists()
     assert not d2.exists()
-
-

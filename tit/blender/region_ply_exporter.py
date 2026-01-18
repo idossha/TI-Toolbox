@@ -59,11 +59,12 @@ from tit.core.mesh import create_mesh_opt_file
 # PLY Writers and Colormaps
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def write_ply_with_colors(vertices, faces, colors, output_path, field_name="TI_max"):
     """Write PLY file with vertex colors."""
     n_vertices = len(vertices)
     n_faces = len(faces)
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
         f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
@@ -89,7 +90,7 @@ def write_ply_with_scalars(vertices, faces, scalars, output_path, field_name="TI
     """Write PLY file with scalar field data."""
     n_vertices = len(vertices)
     n_faces = len(faces)
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
         f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
@@ -127,7 +128,7 @@ def simple_colormap(field_values, vmin=None, vmax=None):
     return colors
 
 
-def field_to_colormap(field_values, colormap='viridis', vmin=None, vmax=None):
+def field_to_colormap(field_values, colormap="viridis", vmin=None, vmax=None):
     """Apply matplotlib colormap to field values."""
     try:
         import matplotlib.cm as cm
@@ -153,20 +154,25 @@ def field_to_colormap(field_values, colormap='viridis', vmin=None, vmax=None):
 # Field Utilities
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def calculate_global_field_range(field_file_path, mesh_file_path=None):
     """Calculate global min/max field range from NIfTI file."""
     try:
         nii = nib.load(field_file_path)
         field_data = nii.get_fdata()
         valid_data = field_data[field_data > 0]
-        global_min = float(np.min(valid_data)) if valid_data.size else float(np.min(field_data))
-        global_max = float(np.max(valid_data)) if valid_data.size else float(np.max(field_data))
+        global_min = (
+            float(np.min(valid_data)) if valid_data.size else float(np.min(field_data))
+        )
+        global_max = (
+            float(np.max(valid_data)) if valid_data.size else float(np.max(field_data))
+        )
         if mesh_file_path and os.path.exists(mesh_file_path):
             try:
                 mesh = read_msh(mesh_file_path)
-                if hasattr(mesh, 'nodedata') and len(mesh.nodedata) > 0:
+                if hasattr(mesh, "nodedata") and len(mesh.nodedata) > 0:
                     for nodedata in mesh.nodedata:
-                        if hasattr(nodedata, 'field_name'):
+                        if hasattr(nodedata, "field_name"):
                             mesh_values = nodedata.value
                             mesh_pos = mesh_values[mesh_values > 0]
                             if mesh_pos.size:
@@ -184,28 +190,32 @@ def calculate_global_field_range(field_file_path, mesh_file_path=None):
     except Exception as e:
         return None, None
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Mesh/Atlas Utilities
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def mesh_vertices_faces_and_field(mesh, field_name="TI_max"):
     """Extract vertices, faces, and field data from mesh."""
     triangles = mesh.elm[mesh.elm.elm_type == 2]
     if len(triangles) == 0:
         return None, None, None
-    if hasattr(triangles, 'node_number_list'):
+    if hasattr(triangles, "node_number_list"):
         triangle_nodes = triangles.node_number_list[:, :3] - 1
     else:
         triangle_nodes = triangles[:, :3] - 1
     unique_nodes = np.unique(triangle_nodes.flatten())
     node_map = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_nodes)}
     vertices = mesh.nodes.node_coord[unique_nodes]
-    faces = np.array([[node_map[idx] for idx in tri] for tri in triangle_nodes], dtype=np.int32)
+    faces = np.array(
+        [[node_map[idx] for idx in tri] for tri in triangle_nodes], dtype=np.int32
+    )
     field_data = None
-    if hasattr(mesh, 'nodedata') and len(mesh.nodedata) > 0:
+    if hasattr(mesh, "nodedata") and len(mesh.nodedata) > 0:
         field_idx = None
         for i, nd in enumerate(mesh.nodedata):
-            if hasattr(nd, 'field_name') and nd.field_name == field_name:
+            if hasattr(nd, "field_name") and nd.field_name == field_name:
                 field_idx = i
                 break
         if field_idx is not None:
@@ -213,21 +223,34 @@ def mesh_vertices_faces_and_field(mesh, field_name="TI_max"):
             field_data = field_full[unique_nodes]
     return vertices, faces, field_data
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Main Orchestration
 # ──────────────────────────────────────────────────────────────────────────────
 
-def create_ply_from_vertices_faces(vertices, faces, vertex_field_values, ply_path, field_name, use_colors, colormap, field_range):
+
+def create_ply_from_vertices_faces(
+    vertices,
+    faces,
+    vertex_field_values,
+    ply_path,
+    field_name,
+    use_colors,
+    colormap,
+    field_range,
+):
     """Create PLY file from vertices, faces, and field values."""
     if vertices is None or faces is None:
         return False
-    
+
     vmin, vmax = field_range if field_range else (None, None)
     if use_colors:
         colors = field_to_colormap(vertex_field_values, colormap, vmin, vmax)
         write_ply_with_colors(vertices, faces, colors, ply_path, field_name)
     else:
-        write_ply_with_scalars(vertices, faces, vertex_field_values, ply_path, field_name)
+        write_ply_with_scalars(
+            vertices, faces, vertex_field_values, ply_path, field_name
+        )
     return True
 
 
@@ -253,14 +276,25 @@ def export_mesh_to_ply(mesh, ply_path, field_name, use_colors, colormap, field_r
     return True
 
 
-def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
-                   use_colors, colormap, field_range, global_from_nifti,
-                   export_regions, export_whole_gm, keep_meshes,
-                   regions_filter=None):
+def run_conversion(
+    mesh_path,
+    m2m_dir,
+    output_dir,
+    atlas_name,
+    field_name,
+    use_colors,
+    colormap,
+    field_range,
+    global_from_nifti,
+    export_regions,
+    export_whole_gm,
+    keep_meshes,
+    regions_filter=None,
+):
     """Main conversion workflow."""
     converted_count = 0
     mesh = read_msh(mesh_path)
-    if not hasattr(mesh, 'field') or field_name not in getattr(mesh, 'field', {}):
+    if not hasattr(mesh, "field") or field_name not in getattr(mesh, "field", {}):
         raise ValueError(f"Field '{field_name}' not found in mesh: {mesh_path}")
     atlas = subject_atlas(atlas_name, str(m2m_dir))
 
@@ -268,7 +302,7 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
     # Unified: use 'regions' subfolder for region outputs
     regions_out_dir = cortical_plys_dir / "regions"
     regions_out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create meshes directory if keeping meshes
     if keep_meshes:
         meshes_out_dir = Path(output_dir) / "meshes"
@@ -285,7 +319,7 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
     if export_regions:
         success_count = 0
         mesh_success_count = 0
-        
+
         # Calculate global field range from the whole mesh if not already set
         if effective_field_range is None:
             field_values = mesh.field[field_name].value
@@ -296,7 +330,7 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
                 effective_field_range = (global_min, global_max)
             else:
                 effective_field_range = (0.0, 1.0)
-        
+
         # Create temporary directory for ROI meshes
         with tempfile.TemporaryDirectory() as temp_dir:
             for region_name, region_mask in atlas.items():
@@ -307,41 +341,59 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
                     roi_nodes_count = np.sum(region_mask)
                     if roi_nodes_count == 0:
                         continue
-                    
+
                     # Get the field values within the ROI
                     field_values = mesh.field[field_name].value
                     field_values_in_roi = field_values[region_mask]
-                    
+
                     # Filter for positive values in ROI
                     positive_mask = field_values_in_roi > 0
                     field_values_positive = field_values_in_roi[positive_mask]
-                    
+
                     # Check if we have any positive values in the ROI
                     positive_count = len(field_values_positive)
                     if positive_count == 0:
                         continue
-                    
+
                     # Create ROI mesh
-                    temp_mesh_path = create_roi_mesh(mesh, region_mask, field_values, field_name, region_name, temp_dir)
-                    
+                    temp_mesh_path = create_roi_mesh(
+                        mesh,
+                        region_mask,
+                        field_values,
+                        field_name,
+                        region_name,
+                        temp_dir,
+                    )
+
                     # Load the ROI mesh for PLY conversion
                     roi_mesh = read_msh(temp_mesh_path)
-                    
+
                     # Get the ROI field values for extraction
                     roi_field_values = roi_mesh.field[field_name].value
-                    
+
                     # Extract ROI region (remove zero values)
-                    vertices, faces, vertex_field_values = extract_roi_region_no_zeros(roi_mesh, roi_field_values, return_field_values=True)
-                    
+                    vertices, faces, vertex_field_values = extract_roi_region_no_zeros(
+                        roi_mesh, roi_field_values, return_field_values=True
+                    )
+
                     if vertices is None or faces is None:
                         continue
-                    
+
                     # Create PLY with field data using global field range
                     ply_path = regions_out_dir / f"{region_name}.ply"
-                    if create_ply_from_vertices_faces(vertices, faces, vertex_field_values, str(ply_path), field_name, use_colors, colormap, effective_field_range):
+                    if create_ply_from_vertices_faces(
+                        vertices,
+                        faces,
+                        vertex_field_values,
+                        str(ply_path),
+                        field_name,
+                        use_colors,
+                        colormap,
+                        effective_field_range,
+                    ):
                         success_count += 1
                         converted_count += 1
-                    
+
                     # Export MSH if requested
                     if keep_meshes:
                         msh_path = meshes_out_dir / f"{region_name}_region.msh"
@@ -357,17 +409,17 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
                                 max_value = 1.0
 
                             field_info = {
-                                'fields': [field_name],
-                                'max_values': {field_name: max_value},
-                                'field_type': 'node'
+                                "fields": [field_name],
+                                "max_values": {field_name: max_value},
+                                "field_type": "node",
                             }
                             create_mesh_opt_file(str(msh_path), field_info)
                         except Exception as e:
                             pass
-                    
+
                     # Clean up temporary mesh file
                     os.remove(temp_mesh_path)
-                    
+
                 except Exception as e:
                     continue
 
@@ -375,11 +427,18 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
         # Name whole GM consistently: gm_<simulation>.ply
         base_name = os.path.basename(mesh_path)
         name_wo_ext = os.path.splitext(base_name)[0]
-        sim_name = name_wo_ext.split('_TI')[0]
+        sim_name = name_wo_ext.split("_TI")[0]
         # Unified whole GM filename
         whole_ply = cortical_plys_dir / "whole_gm.ply"
-        export_mesh_to_ply(mesh, str(whole_ply), field_name, use_colors, colormap, effective_field_range)
-    
+        export_mesh_to_ply(
+            mesh,
+            str(whole_ply),
+            field_name,
+            use_colors,
+            colormap,
+            effective_field_range,
+        )
+
     # Export whole GM mesh if requested
     if keep_meshes and export_whole_gm:
         whole_msh = Path(output_dir) / "whole_gm.msh"
@@ -394,14 +453,14 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_name,
                 max_value = 1.0
 
             field_info = {
-                'fields': [field_name],
-                'max_values': {field_name: max_value},
-                'field_type': 'node'
+                "fields": [field_name],
+                "max_values": {field_name: max_value},
+                "field_type": "node",
             }
             create_mesh_opt_file(str(whole_msh), field_info)
         except Exception as e:
             pass
-    
+
     return converted_count
 
 
@@ -412,7 +471,11 @@ def _resolve_msh2cortex(explicit_path: str | None) -> str | None:
         if p.exists():
             return str(p)
     # Try PATH
-    exe_name = "msh2cortex.exe" if platform.system().lower().startswith("win") else "msh2cortex"
+    exe_name = (
+        "msh2cortex.exe"
+        if platform.system().lower().startswith("win")
+        else "msh2cortex"
+    )
     found = shutil.which("msh2cortex") or shutil.which(exe_name)
     if found:
         return found
@@ -437,21 +500,20 @@ def _resolve_msh2cortex(explicit_path: str | None) -> str | None:
     return None
 
 
-def generate_cortical_surface_from_tetra(gm_mesh_path, m2m_dir, surface="central", msh2cortex_path: str | None = None):
+def generate_cortical_surface_from_tetra(
+    gm_mesh_path, m2m_dir, surface="central", msh2cortex_path: str | None = None
+):
     """Generate cortical surface mesh from tetrahedral GM mesh using msh2cortex."""
     exe = _resolve_msh2cortex(msh2cortex_path)
     if not exe:
         return None
     with tempfile.TemporaryDirectory() as tmpdir:
         out_dir = Path(tmpdir)
-        cmd = [
-            exe,
-            "-i", gm_mesh_path,
-            "-m", str(m2m_dir),
-            "-o", str(out_dir)
-        ]
+        cmd = [exe, "-i", gm_mesh_path, "-m", str(m2m_dir), "-o", str(out_dir)]
         try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
         except subprocess.CalledProcessError as e:
             return None
 
@@ -476,23 +538,67 @@ def generate_cortical_surface_from_tetra(gm_mesh_path, m2m_dir, surface="central
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Export cortical regions and whole GM surface to PLY")
-    parser.add_argument("--mesh", help="Input cortical surface mesh (.msh) from msh2cortex")
-    parser.add_argument("--gm-mesh", help="Input tetrahedral GM .msh (volumetric); will run msh2cortex")
+    parser = argparse.ArgumentParser(
+        description="Export cortical regions and whole GM surface to PLY"
+    )
+    parser.add_argument(
+        "--mesh", help="Input cortical surface mesh (.msh) from msh2cortex"
+    )
+    parser.add_argument(
+        "--gm-mesh", help="Input tetrahedral GM .msh (volumetric); will run msh2cortex"
+    )
     parser.add_argument("--m2m", required=True, help="Subject m2m directory")
-    parser.add_argument("--output-dir", required=True, help="Output directory for PLY files")
+    parser.add_argument(
+        "--output-dir", required=True, help="Output directory for PLY files"
+    )
     parser.add_argument("--atlas", default="DK40", help="Atlas name (default: DK40)")
-    parser.add_argument("--surface", default="central", choices=["central", "pial", "white"], help="Cortical surface to extract when using --gm-mesh (default: central)")
-    parser.add_argument("--msh2cortex", help="Path to msh2cortex executable (optional override)")
-    parser.add_argument("--field", default="TI_max", help="Field name to use/store (default: TI_max)")
-    parser.add_argument("--scalars", action="store_true", help="Store field as scalars instead of colors")
-    parser.add_argument("--colormap", default="viridis", help="Colormap for colors mode")
-    parser.add_argument("--field-range", nargs=2, type=float, metavar=("MIN", "MAX"), help="Explicit field range for mapping")
-    parser.add_argument("--global-from-nifti", help="Use global min/max from this NIfTI for color mapping")
-    parser.add_argument("--skip-regions", action="store_true", help="Do not export individual region PLYs")
-    parser.add_argument("--skip-whole-gm", action="store_true", help="Do not export the whole GM PLY")
-    parser.add_argument("--regions", help="Comma-separated list of region names to export (subset)")
-    parser.add_argument("--keep-meshes", action="store_true", help="Keep individual cortical region meshes as .msh files")
+    parser.add_argument(
+        "--surface",
+        default="central",
+        choices=["central", "pial", "white"],
+        help="Cortical surface to extract when using --gm-mesh (default: central)",
+    )
+    parser.add_argument(
+        "--msh2cortex", help="Path to msh2cortex executable (optional override)"
+    )
+    parser.add_argument(
+        "--field", default="TI_max", help="Field name to use/store (default: TI_max)"
+    )
+    parser.add_argument(
+        "--scalars",
+        action="store_true",
+        help="Store field as scalars instead of colors",
+    )
+    parser.add_argument(
+        "--colormap", default="viridis", help="Colormap for colors mode"
+    )
+    parser.add_argument(
+        "--field-range",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        help="Explicit field range for mapping",
+    )
+    parser.add_argument(
+        "--global-from-nifti",
+        help="Use global min/max from this NIfTI for color mapping",
+    )
+    parser.add_argument(
+        "--skip-regions",
+        action="store_true",
+        help="Do not export individual region PLYs",
+    )
+    parser.add_argument(
+        "--skip-whole-gm", action="store_true", help="Do not export the whole GM PLY"
+    )
+    parser.add_argument(
+        "--regions", help="Comma-separated list of region names to export (subset)"
+    )
+    parser.add_argument(
+        "--keep-meshes",
+        action="store_true",
+        help="Keep individual cortical region meshes as .msh files",
+    )
     return parser.parse_args()
 
 
@@ -519,7 +625,9 @@ def main():
     if args.gm_mesh:
         if not os.path.exists(args.gm_mesh):
             return 1
-        generated_surface = generate_cortical_surface_from_tetra(args.gm_mesh, m2m_dir, surface, args.msh2cortex)
+        generated_surface = generate_cortical_surface_from_tetra(
+            args.gm_mesh, m2m_dir, surface, args.msh2cortex
+        )
         if not generated_surface:
             return 1
         mesh_path = generated_surface
@@ -532,7 +640,7 @@ def main():
     print("Converting...")
     regions_filter = None
     if args.regions:
-        regions_filter = set([r.strip() for r in args.regions.split(',') if r.strip()])
+        regions_filter = set([r.strip() for r in args.regions.split(",") if r.strip()])
 
     try:
         converted_count = run_conversion(
@@ -561,5 +669,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
-

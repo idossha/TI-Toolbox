@@ -12,7 +12,7 @@ path patterns consistently across all tools.
 Usage:
     # Use the singleton instance
     from tit.core import get_path_manager
-    
+
     pm = get_path_manager()
     subjects = pm.list_subjects()
     m2m_dir = pm.path("m2m", subject_id="001")
@@ -38,7 +38,11 @@ class _CompiledTemplate:
 
     __slots__ = ("_segments", "required_entities")
 
-    def __init__(self, segments: Tuple[Tuple[Tuple[str, Optional[str]], ...], ...], required_entities: Tuple[str, ...]):
+    def __init__(
+        self,
+        segments: Tuple[Tuple[Tuple[str, Optional[str]], ...], ...],
+        required_entities: Tuple[str, ...],
+    ):
         # segments: tuple[ segment -> tuple[(literal, field_name_or_None)] ]
         self._segments = segments
         self.required_entities = required_entities
@@ -112,7 +116,12 @@ def _freeze_kwargs(kwargs: Mapping[str, Any]) -> Tuple[Tuple[str, str], ...]:
     """Deterministic, hashable kwargs representation for caching."""
     if not kwargs:
         return tuple()
-    return tuple(sorted(((str(k), "" if v is None else str(v)) for k, v in kwargs.items()), key=lambda kv: kv[0]))
+    return tuple(
+        sorted(
+            ((str(k), "" if v is None else str(v)) for k, v in kwargs.items()),
+            key=lambda kv: kv[0],
+        )
+    )
 
 
 def _ensure_compiled_templates(cls: "PathManager") -> None:
@@ -128,7 +137,9 @@ _COMPILED_TEMPLATES: Dict[str, _CompiledTemplate] = {}
 
 
 @lru_cache(maxsize=8192)
-def _cached_render(project_dir: str, key: str, frozen_items: Tuple[Tuple[str, str], ...]) -> str:
+def _cached_render(
+    project_dir: str, key: str, frozen_items: Tuple[Tuple[str, str], ...]
+) -> str:
     tpl = _COMPILED_TEMPLATES.get(key)
     if tpl is None:
         raise KeyError(f"Unknown path key: {key}")
@@ -140,24 +151,24 @@ def _cached_render(project_dir: str, key: str, frozen_items: Tuple[Tuple[str, st
 class PathManager:
     """
     Centralized path management for TI-Toolbox.
-    
+
     This class provides consistent path resolution across all components:
     - Project directory detection
     - Subject listing and validation
     - Common path patterns (derivatives, SimNIBS, m2m, etc.)
     - BIDS-compliant directory structure handling
-    
+
     Usage:
         pm = PathManager()
         pm.project_dir = "/path/to/project"  # Explicit set
         print(pm.project_dir)                # Get current
         print(pm.project_dir_name)           # Just the name
     """
-    
+
     def __init__(self, project_dir: Optional[str] = None):
         """
         Initialize the path manager.
-        
+
         Args:
             project_dir: Optional explicit project directory. If not provided,
                         auto-detection from environment variables is attempted
@@ -165,18 +176,18 @@ class PathManager:
         """
         self._project_dir: Optional[str] = None
         _ensure_compiled_templates(self.__class__)
-        
+
         if project_dir:
             self.project_dir = project_dir  # Use setter for validation
-    
+
     @property
     def project_dir(self) -> Optional[str]:
         """
         Get/set the project directory path.
-        
+
         Auto-detects from environment on first access if not set.
         Setting validates the path exists.
-        
+
         Usage:
             pm.project_dir = "/path/to/project"  # set
             path = pm.project_dir                # get
@@ -194,13 +205,13 @@ class PathManager:
                     if os.path.isdir(mnt_path):
                         self._project_dir = mnt_path
         return self._project_dir
-    
+
     @project_dir.setter
     def project_dir(self, path: str) -> None:
         if not os.path.isdir(path):
             raise ValueError(f"Project directory does not exist: {path}")
         self._project_dir = path
-    
+
     @property
     def project_dir_name(self) -> Optional[str]:
         """Get the project directory name (basename of project_dir)."""
@@ -218,51 +229,220 @@ class PathManager:
         "sourcedata": (const.DIR_SOURCEDATA,),
         "simnibs": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS),
         "freesurfer": (const.DIR_DERIVATIVES, "freesurfer"),
-        "simnibs_subject": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
-        "m2m": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}"),
-        "simulations": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations"),
-        "simulation": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}"),
+        "simnibs_subject": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
+        "m2m": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            f"{const.DIR_M2M_PREFIX}{{subject_id}}",
+        ),
+        "simulations": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+        ),
+        "simulation": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+            "{simulation_name}",
+        ),
         # freesurfer
-        "freesurfer_subject": (const.DIR_DERIVATIVES, "freesurfer", f"{const.PREFIX_SUBJECT}{{subject_id}}"),
-        "freesurfer_mri": (const.DIR_DERIVATIVES, "freesurfer", f"{const.PREFIX_SUBJECT}{{subject_id}}", "mri"),
+        "freesurfer_subject": (
+            const.DIR_DERIVATIVES,
+            "freesurfer",
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
+        "freesurfer_mri": (
+            const.DIR_DERIVATIVES,
+            "freesurfer",
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "mri",
+        ),
         # m2m subfolders
-        "eeg_positions": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}", const.DIR_EEG_POSITIONS),
-        "m2m_rois": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}", const.DIR_ROIS),
-        "t1": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}", const.FILE_T1),
-        "leadfields": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_LEADFIELDS),
+        "eeg_positions": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            f"{const.DIR_M2M_PREFIX}{{subject_id}}",
+            const.DIR_EEG_POSITIONS,
+        ),
+        "m2m_rois": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            f"{const.DIR_M2M_PREFIX}{{subject_id}}",
+            const.DIR_ROIS,
+        ),
+        "t1": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            f"{const.DIR_M2M_PREFIX}{{subject_id}}",
+            const.FILE_T1,
+        ),
+        "leadfields": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_LEADFIELDS,
+        ),
         # ti-toolbox derivatives
         "ti_toolbox": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX),
-        "ti_toolbox_info": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TI_TOOLBOX_INFO),
-        "ti_toolbox_status": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TI_TOOLBOX_INFO, "project_status.json"),
-        "ti_logs": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_LOGS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
-        "ti_logs_group": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_LOGS, "group_analysis"),
+        "ti_toolbox_info": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            const.DIR_TI_TOOLBOX_INFO,
+        ),
+        "ti_toolbox_status": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            const.DIR_TI_TOOLBOX_INFO,
+            "project_status.json",
+        ),
+        "ti_logs": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            const.DIR_LOGS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
+        "ti_logs_group": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            const.DIR_LOGS,
+            "group_analysis",
+        ),
         "ti_reports": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_REPORTS),
         "ti_stats_data": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, "stats", "data"),
         # config directory
-        "ti_toolbox_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG),
-        "montage_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG, const.FILE_MONTAGE_LIST),
-        "extensions_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG, "extensions.json"),
+        "ti_toolbox_config": (
+            const.DIR_CODE,
+            const.DIR_CODE_TI_TOOLBOX,
+            const.DIR_CONFIG,
+        ),
+        "montage_config": (
+            const.DIR_CODE,
+            const.DIR_CODE_TI_TOOLBOX,
+            const.DIR_CONFIG,
+            const.FILE_MONTAGE_LIST,
+        ),
+        "extensions_config": (
+            const.DIR_CODE,
+            const.DIR_CODE_TI_TOOLBOX,
+            const.DIR_CONFIG,
+            "extensions.json",
+        ),
         # TI outputs
-        "ti_mesh": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "TI", "mesh", "{simulation_name}_TI" + const.EXT_MESH),
-        "ti_central_surface": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "TI", "mesh", "surfaces", "{simulation_name}_TI_central" + const.EXT_MESH),
+        "ti_mesh": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+            "{simulation_name}",
+            "TI",
+            "mesh",
+            "{simulation_name}_TI" + const.EXT_MESH,
+        ),
+        "ti_central_surface": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+            "{simulation_name}",
+            "TI",
+            "mesh",
+            "surfaces",
+            "{simulation_name}_TI_central" + const.EXT_MESH,
+        ),
         # mTI outputs
-        "mti_mesh_dir": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "mTI", "mesh"),
-        "ti_mesh_dir": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "TI", "mesh"),
+        "mti_mesh_dir": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+            "{simulation_name}",
+            "mTI",
+            "mesh",
+        ),
+        "ti_mesh_dir": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "Simulations",
+            "{simulation_name}",
+            "TI",
+            "mesh",
+        ),
         # preprocessing / sourcedata
         "bids_subject": (f"{const.PREFIX_SUBJECT}{{subject_id}}",),
         "bids_anat": (f"{const.PREFIX_SUBJECT}{{subject_id}}", "anat"),
         "sourcedata": (const.DIR_SOURCEDATA,),
-        "sourcedata_subject": (const.DIR_SOURCEDATA, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
-        "sourcedata_dicom": (const.DIR_SOURCEDATA, f"{const.PREFIX_SUBJECT}{{subject_id}}", "{modality}", "dicom"),
+        "sourcedata_subject": (
+            const.DIR_SOURCEDATA,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
+        "sourcedata_dicom": (
+            const.DIR_SOURCEDATA,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            "{modality}",
+            "dicom",
+        ),
         # ex/flex
-        "ex_search": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_EX_SEARCH),
-        "ex_search_run": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_EX_SEARCH, "{run_name}"),
-        "flex_search": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH),
-        "flex_search_run": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH, "{search_name}"),
-        "flex_electrode_positions": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH, "{search_name}", "electrode_positions.json"),
+        "ex_search": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_EX_SEARCH,
+        ),
+        "ex_search_run": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_EX_SEARCH,
+            "{run_name}",
+        ),
+        "flex_search": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_FLEX_SEARCH,
+        ),
+        "flex_search_run": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_FLEX_SEARCH,
+            "{search_name}",
+        ),
+        "flex_electrode_positions": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            const.DIR_FLEX_SEARCH,
+            "{search_name}",
+            "electrode_positions.json",
+        ),
         # tissue analysis
-        "tissue_labeling": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}", "segmentation", "Labeling.nii.gz"),
-        "tissue_analysis_output": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TISSUE_ANALYSIS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
+        "tissue_labeling": (
+            const.DIR_DERIVATIVES,
+            const.DIR_SIMNIBS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+            f"{const.DIR_M2M_PREFIX}{{subject_id}}",
+            "segmentation",
+            "Labeling.nii.gz",
+        ),
+        "tissue_analysis_output": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            const.DIR_TISSUE_ANALYSIS,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
     }
 
     def path(self, key: str, /, **kwargs) -> str:
@@ -307,13 +487,17 @@ class PathManager:
         - Template entities are type-checked and missing entities raise ValueError
         """
         if not self.project_dir:
-            raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
+            raise RuntimeError(
+                "Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker."
+            )
         tpl = _COMPILED_TEMPLATES.get(key)
         if tpl is None:
             raise KeyError(f"Unknown path key: {key}")
         missing = [e for e in tpl.required_entities if e not in kwargs]
         if missing:
-            raise ValueError(f"Missing required path entities for {key!r}: {', '.join(missing)}")
+            raise ValueError(
+                f"Missing required path entities for {key!r}: {', '.join(missing)}"
+            )
         return _cached_render(self.project_dir, key, _freeze_kwargs(kwargs))
 
     def path_optional(self, key: str, /, **kwargs) -> Optional[str]:
@@ -475,14 +659,14 @@ class PathManager:
     def list_subjects(self) -> List[str]:
         """
         List all available subjects in the project.
-        
+
         Returns:
             List of subject IDs (without 'sub-' prefix), sorted naturally
         """
         simnibs_dir = self.path_optional("simnibs")
         if not simnibs_dir or not os.path.isdir(simnibs_dir):
             return []
-        
+
         subjects = []
         for item in os.listdir(simnibs_dir):
             if not item.startswith(const.PREFIX_SUBJECT):
@@ -491,19 +675,22 @@ class PathManager:
             # Only list subjects that have an m2m folder (SimNIBS-ready).
             if self.is_dir("m2m", subject_id=subject_id):
                 subjects.append(subject_id)
-        
+
         # Sort subjects naturally (001, 002, 010, 100)
-        subjects.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() 
-                                     for c in re.split('([0-9]+)', x)])
+        subjects.sort(
+            key=lambda x: [
+                int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", x)
+            ]
+        )
         return subjects
-    
+
     def list_simulations(self, subject_id: str) -> List[str]:
         """
         List all simulations for a subject.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
             List of simulation names, sorted alphabetically
         """
@@ -543,9 +730,13 @@ class PathManager:
         return s.replace("+", "_").replace(".", "_")
 
     @staticmethod
-    def spherical_analysis_name(x: float, y: float, z: float, radius: float, coordinate_space: str) -> str:
+    def spherical_analysis_name(
+        x: float, y: float, z: float, radius: float, coordinate_space: str
+    ) -> str:
         """Match GUI/CLI naming: sphere_x.._y.._z.._r.._{_MNI|_subject}."""
-        coord_space_suffix = "_MNI" if str(coordinate_space).upper() == "MNI" else "_subject"
+        coord_space_suffix = (
+            "_MNI" if str(coordinate_space).upper() == "MNI" else "_subject"
+        )
         return f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{float(radius)}{coord_space_suffix}"
 
     @classmethod
@@ -563,15 +754,23 @@ class PathManager:
             return f"whole_head_{atlas_clean}"
         region_val = str(region or "").strip()
         if not region_val:
-            raise ValueError("region is required for cortical analysis unless whole_head=True")
+            raise ValueError(
+                "region is required for cortical analysis unless whole_head=True"
+            )
         return f"region_{region_val}_{atlas_clean}"
 
-    def get_analysis_space_dir(self, subject_id: str, simulation_name: str, space: str) -> Optional[str]:
+    def get_analysis_space_dir(
+        self, subject_id: str, simulation_name: str, space: str
+    ) -> Optional[str]:
         """Get base analysis dir: .../Simulations/<sim>/Analyses/<Mesh|Voxel>."""
-        sim_dir = self.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
+        sim_dir = self.path_optional(
+            "simulation", subject_id=subject_id, simulation_name=simulation_name
+        )
         if not sim_dir:
             return None
-        return os.path.join(sim_dir, const.DIR_ANALYSIS, self.analysis_space_dir_name(space))
+        return os.path.join(
+            sim_dir, const.DIR_ANALYSIS, self.analysis_space_dir_name(space)
+        )
 
     def get_analysis_output_dir(
         self,
@@ -599,13 +798,26 @@ class PathManager:
         at = str(analysis_type).lower()
         if at == "spherical":
             if not coordinates or len(coordinates) != 3 or radius is None:
-                raise ValueError("coordinates(3) and radius are required for spherical analysis output path")
-            name = self.spherical_analysis_name(float(coordinates[0]), float(coordinates[1]), float(coordinates[2]), float(radius), coordinate_space)
+                raise ValueError(
+                    "coordinates(3) and radius are required for spherical analysis output path"
+                )
+            name = self.spherical_analysis_name(
+                float(coordinates[0]),
+                float(coordinates[1]),
+                float(coordinates[2]),
+                float(radius),
+                coordinate_space,
+            )
         else:
-            name = self.cortical_analysis_name(whole_head=bool(whole_head), region=region, atlas_name=atlas_name, atlas_path=atlas_path)
+            name = self.cortical_analysis_name(
+                whole_head=bool(whole_head),
+                region=region,
+                atlas_name=atlas_name,
+                atlas_path=atlas_path,
+            )
 
         return os.path.join(base, name)
-    
+
     def get_derivatives_dir(self) -> Optional[str]:
         """Get the derivatives directory path."""
         return self.path_optional("derivatives")
@@ -613,60 +825,60 @@ class PathManager:
     def list_eeg_caps(self, subject_id: str) -> List[str]:
         """
         List available EEG cap files for a subject.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
             List of EEG cap CSV filenames, sorted alphabetically
         """
         eeg_pos_dir = self.path_optional("eeg_positions", subject_id=subject_id)
         if not eeg_pos_dir or not os.path.isdir(eeg_pos_dir):
             return []
-        
+
         caps = []
         for file in os.listdir(eeg_pos_dir):
-            if file.endswith(const.EXT_CSV) and not file.startswith('.'):
+            if file.endswith(const.EXT_CSV) and not file.startswith("."):
                 caps.append(file)
-        
+
         caps.sort()
         return caps
-    
+
     def validate_subject_structure(self, subject_id: str) -> Dict[str, any]:
         """
         Validate that a subject has the required directory structure.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
             Dictionary with validation results:
             - 'valid': bool indicating if structure is valid
             - 'missing': list of missing required components
             - 'warnings': list of optional missing components
         """
-        results = {
-            'valid': True,
-            'missing': [],
-            'warnings': []
-        }
-        
+        results = {"valid": True, "missing": [], "warnings": []}
+
         # Check subject directory
         subject_dir = self.path_optional("simnibs_subject", subject_id=subject_id)
         if not subject_dir or not os.path.isdir(subject_dir):
-            results['valid'] = False
-            results['missing'].append(f"Subject directory: {const.PREFIX_SUBJECT}{subject_id}")
+            results["valid"] = False
+            results["missing"].append(
+                f"Subject directory: {const.PREFIX_SUBJECT}{subject_id}"
+            )
             return results
-        
+
         # Check m2m directory
         if not self.is_dir("m2m", subject_id=subject_id):
-            results['valid'] = False
-            results['missing'].append(f"m2m directory: {const.DIR_M2M_PREFIX}{subject_id}")
-        
+            results["valid"] = False
+            results["missing"].append(
+                f"m2m directory: {const.DIR_M2M_PREFIX}{subject_id}"
+            )
+
         # Check for EEG positions (optional warning)
         if not self.is_dir("eeg_positions", subject_id=subject_id):
-            results['warnings'].append(const.WARNING_NO_EEG_POSITIONS)
-        
+            results["warnings"].append(const.WARNING_NO_EEG_POSITIONS)
+
         return results
 
 
@@ -680,7 +892,7 @@ _path_manager_instance: Optional[PathManager] = None
 def get_path_manager() -> PathManager:
     """
     Get the global PathManager singleton instance.
-    
+
     Returns:
         The global path manager instance
     """
@@ -701,4 +913,3 @@ def reset_path_manager():
         _cached_render.cache_clear()
     except Exception:
         pass
-

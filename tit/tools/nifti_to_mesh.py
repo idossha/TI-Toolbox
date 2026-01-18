@@ -42,7 +42,9 @@ def remove_small_components(mask, threshold=0.1):
     return cleaned, num_features - len(keep_labels)
 
 
-def nifti_to_mesh(input_file, output_file=None, clean_components=False, clean_threshold=0.1):
+def nifti_to_mesh(
+    input_file, output_file=None, clean_components=False, clean_threshold=0.1
+):
     """
     Convert a NIfTI segmentation/mask to a surface mesh.
 
@@ -70,7 +72,7 @@ def nifti_to_mesh(input_file, output_file=None, clean_components=False, clean_th
     output_path = Path(output_file)
 
     # Validate output format
-    if output_path.suffix.lower() not in ['.stl', '.msh']:
+    if output_path.suffix.lower() not in [".stl", ".msh"]:
         raise ValueError("Output file must have .stl or .msh extension")
 
     # Load NIfTI
@@ -84,7 +86,9 @@ def nifti_to_mesh(input_file, output_file=None, clean_components=False, clean_th
     # Remove small disconnected components if requested
     removed_components = 0
     if clean_components:
-        mask, removed_components = remove_small_components(mask, threshold=clean_threshold)
+        mask, removed_components = remove_small_components(
+            mask, threshold=clean_threshold
+        )
 
     # Run marching cubes
     verts, faces, normals, _ = measure.marching_cubes(mask, level=0.5)
@@ -93,16 +97,16 @@ def nifti_to_mesh(input_file, output_file=None, clean_components=False, clean_th
     verts_world = nib.affines.apply_affine(affine, verts)
 
     # Save based on extension
-    if output_path.suffix.lower() == '.stl':
+    if output_path.suffix.lower() == ".stl":
         save_stl(verts_world, faces, str(output_path))
     else:  # .msh
         save_gmsh(verts_world, faces, str(output_path))
 
     return {
-        'vertices': len(verts_world),
-        'faces': len(faces),
-        'output_file': str(output_path),
-        'removed_components': removed_components
+        "vertices": len(verts_world),
+        "faces": len(faces),
+        "output_file": str(output_path),
+        "removed_components": removed_components,
     }
 
 
@@ -111,7 +115,9 @@ def save_stl(verts, faces, filename):
     try:
         from stl import mesh as stl_mesh
     except ImportError:
-        raise ImportError("stl package required for STL output. Install with: pip install numpy-stl")
+        raise ImportError(
+            "stl package required for STL output. Install with: pip install numpy-stl"
+        )
 
     # Create the mesh
     surface = stl_mesh.Mesh(np.zeros(faces.shape[0], dtype=stl_mesh.Mesh.dtype))
@@ -124,7 +130,7 @@ def save_stl(verts, faces, filename):
 
 def save_gmsh(verts, faces, filename):
     """Save mesh as Gmsh .msh format (v2.2 ASCII)."""
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         # Header
         f.write("$MeshFormat\n2.2 0 8\n$EndMeshFormat\n")
 
@@ -156,15 +162,24 @@ Examples:
   %(prog)s brain.nii.gz  # outputs brain.stl
 
 Supported output formats: .stl (binary STL), .msh (Gmsh ASCII)
-        """
+        """,
     )
     parser.add_argument("input", help="Input NIfTI segmentation file")
     parser.add_argument("-o", "--output", help="Output mesh file (.stl or .msh)")
-    parser.add_argument("--clean", action="store_true",
-                        help="Remove small disconnected components (<10%% of largest)")
-    parser.add_argument("--clean-threshold", type=float, default=0.1,
-                        help="Minimum size threshold for component removal (0-1, default: 0.1)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Remove small disconnected components (<10%% of largest)",
+    )
+    parser.add_argument(
+        "--clean-threshold",
+        type=float,
+        default=0.1,
+        help="Minimum size threshold for component removal (0-1, default: 0.1)",
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Print verbose output"
+    )
 
     args = parser.parse_args()
 
@@ -178,7 +193,7 @@ Supported output formats: .stl (binary STL), .msh (Gmsh ASCII)
             args.input,
             args.output,
             clean_components=args.clean,
-            clean_threshold=args.clean_threshold
+            clean_threshold=args.clean_threshold,
         )
 
         if args.verbose:
@@ -187,7 +202,7 @@ Supported output formats: .stl (binary STL), .msh (Gmsh ASCII)
             print(f"Mesh statistics:")
             print(f"  Vertices: {result['vertices']}")
             print(f"  Faces: {result['faces']}")
-            if result['removed_components'] > 0:
+            if result["removed_components"] > 0:
                 print(f"  Removed components: {result['removed_components']}")
         else:
             print(f"Created mesh: {result['output_file']}")

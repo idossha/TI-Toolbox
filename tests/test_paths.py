@@ -15,8 +15,8 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Add tit directory to path
-project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'tit')
+project_root = os.path.join(os.path.dirname(__file__), "..")
+ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
 from core.paths import (
@@ -35,7 +35,12 @@ def mock_subject_structure(tmp_path):
     subject_id = "001"
 
     # Create subject directories
-    subject_dir = project_dir / const.DIR_DERIVATIVES / const.DIR_SIMNIBS / f"{const.PREFIX_SUBJECT}{subject_id}"
+    subject_dir = (
+        project_dir
+        / const.DIR_DERIVATIVES
+        / const.DIR_SIMNIBS
+        / f"{const.PREFIX_SUBJECT}{subject_id}"
+    )
     m2m_dir = subject_dir / f"{const.DIR_M2M_PREFIX}{subject_id}"
     simulations_dir = subject_dir / "Simulations"
 
@@ -48,12 +53,12 @@ def mock_subject_structure(tmp_path):
     (simulations_dir / "montage2").mkdir()
 
     return {
-        'project_dir': str(project_dir),
-        'project_name': project_name,
-        'subject_id': subject_id,
-        'subject_dir': str(subject_dir),
-        'm2m_dir': str(m2m_dir),
-        'simulations_dir': str(simulations_dir)
+        "project_dir": str(project_dir),
+        "project_name": project_name,
+        "subject_id": subject_id,
+        "subject_dir": str(subject_dir),
+        "m2m_dir": str(m2m_dir),
+        "simulations_dir": str(simulations_dir),
     }
 
 
@@ -77,8 +82,8 @@ class TestPathManagerBasics:
         """Test PathManager initialization"""
         pm = PathManager()
         assert pm is not None
-        assert hasattr(pm, '_project_dir')
-        assert hasattr(pm, 'project_dir_name')
+        assert hasattr(pm, "_project_dir")
+        assert hasattr(pm, "project_dir_name")
 
 
 class TestProjectDetection:
@@ -95,8 +100,7 @@ class TestProjectDetection:
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
 
         # Mock the Docker mount prefix
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
-
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         reset_path_manager()  # Reset singleton after patching
         # Create new PathManager instance
@@ -141,35 +145,45 @@ class TestDirectoryPaths:
         (project_dir / const.DIR_CODE).mkdir(parents=True)
 
         return {
-            'project_dir': str(project_dir),
-            'project_name': project_name,
-            'derivatives': str(project_dir / const.DIR_DERIVATIVES),
-            'simnibs': str(project_dir / const.DIR_DERIVATIVES / const.DIR_SIMNIBS)
+            "project_dir": str(project_dir),
+            "project_name": project_name,
+            "derivatives": str(project_dir / const.DIR_DERIVATIVES),
+            "simnibs": str(project_dir / const.DIR_DERIVATIVES / const.DIR_SIMNIBS),
         }
 
     def test_get_derivatives_dir(self, mock_project_structure, monkeypatch):
         """Test getting derivatives directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_project_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_project_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_project_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_project_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         derivatives_dir = pm.path("derivatives")
 
-        assert derivatives_dir == mock_project_structure['derivatives']
+        assert derivatives_dir == mock_project_structure["derivatives"]
 
     def test_get_simnibs_dir(self, mock_project_structure, monkeypatch):
         """Test getting SimNIBS directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_project_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_project_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_project_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_project_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         simnibs_dir = pm.path("simnibs")
 
-        assert simnibs_dir == mock_project_structure['simnibs']
+        assert simnibs_dir == mock_project_structure["simnibs"]
 
 
 class TestSubjectPaths:
@@ -177,33 +191,50 @@ class TestSubjectPaths:
 
     def test_get_subject_dir(self, mock_subject_structure, monkeypatch):
         """Test getting subject directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        subject_dir = pm.path("simnibs_subject", subject_id=mock_subject_structure['subject_id'])
+        subject_dir = pm.path(
+            "simnibs_subject", subject_id=mock_subject_structure["subject_id"]
+        )
 
-        assert subject_dir == mock_subject_structure['subject_dir']
+        assert subject_dir == mock_subject_structure["subject_dir"]
 
     def test_get_m2m_dir(self, mock_subject_structure, monkeypatch):
         """Test getting m2m directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        m2m_dir = pm.path("m2m", subject_id=mock_subject_structure['subject_id'])
+        m2m_dir = pm.path("m2m", subject_id=mock_subject_structure["subject_id"])
 
-        assert m2m_dir == mock_subject_structure['m2m_dir']
+        assert m2m_dir == mock_subject_structure["m2m_dir"]
 
     def test_get_m2m_dir_nonexistent(self, mock_subject_structure, monkeypatch):
         """Test m2m path resolution for non-existent subject (path resolves; directory does not exist)."""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
@@ -234,23 +265,28 @@ class TestSubjectListing:
         invalid_subj.mkdir(parents=True)
 
         return {
-            'project_dir': str(project_dir),
-            'project_name': project_name,
-            'subjects': subjects
+            "project_dir": str(project_dir),
+            "project_name": project_name,
+            "subjects": subjects,
         }
 
     def test_list_subjects(self, mock_multi_subject_structure, monkeypatch):
         """Test listing all subjects"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_multi_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_multi_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_multi_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_multi_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         subjects = pm.list_subjects()
 
         assert len(subjects) == 3
-        assert set(subjects) == set(mock_multi_subject_structure['subjects'])
+        assert set(subjects) == set(mock_multi_subject_structure["subjects"])
 
     def test_list_subjects_no_project(self, monkeypatch):
         """Test listing subjects when no project is found"""
@@ -263,22 +299,34 @@ class TestSubjectListing:
 
     def test_list_simulations(self, mock_subject_structure, monkeypatch):
         """Test listing simulations for a subject"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        simulations = pm.list_simulations(mock_subject_structure['subject_id'])
+        simulations = pm.list_simulations(mock_subject_structure["subject_id"])
 
         assert len(simulations) == 2
         assert set(simulations) == {"montage1", "montage2"}
 
-    def test_list_simulations_nonexistent_subject(self, mock_subject_structure, monkeypatch):
+    def test_list_simulations_nonexistent_subject(
+        self, mock_subject_structure, monkeypatch
+    ):
         """Test listing simulations for non-existent subject"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
@@ -299,8 +347,14 @@ class TestSimulationPaths:
         sim_name = "montage1"
 
         # Create simulation directory structure
-        sim_dir = (project_dir / const.DIR_DERIVATIVES / const.DIR_SIMNIBS /
-                  f"{const.PREFIX_SUBJECT}{subject_id}" / "Simulations" / sim_name)
+        sim_dir = (
+            project_dir
+            / const.DIR_DERIVATIVES
+            / const.DIR_SIMNIBS
+            / f"{const.PREFIX_SUBJECT}{subject_id}"
+            / "Simulations"
+            / sim_name
+        )
         ti_dir = sim_dir / "TI"
         ti_dir.mkdir(parents=True)
 
@@ -309,49 +363,60 @@ class TestSimulationPaths:
         ti_mesh.touch()
 
         return {
-            'project_dir': str(project_dir),
-            'project_name': project_name,
-            'subject_id': subject_id,
-            'sim_name': sim_name,
-            'sim_dir': str(sim_dir),
-            'ti_mesh': str(ti_mesh)
+            "project_dir": str(project_dir),
+            "project_name": project_name,
+            "subject_id": subject_id,
+            "sim_name": sim_name,
+            "sim_dir": str(sim_dir),
+            "ti_mesh": str(ti_mesh),
         }
 
     def test_get_simulation_dir(self, mock_simulation_structure, monkeypatch):
         """Test getting simulation directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_simulation_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_simulation_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_simulation_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_simulation_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         sim_dir = pm.path(
             "simulation",
-            subject_id=mock_simulation_structure['subject_id'],
-            simulation_name=mock_simulation_structure['sim_name'],
+            subject_id=mock_simulation_structure["subject_id"],
+            simulation_name=mock_simulation_structure["sim_name"],
         )
 
-        assert sim_dir == mock_simulation_structure['sim_dir']
+        assert sim_dir == mock_simulation_structure["sim_dir"]
 
     def test_get_ti_mesh_path(self, mock_simulation_structure, monkeypatch):
         """Test getting TI mesh file path"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_simulation_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_simulation_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_simulation_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_simulation_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         ti_mesh = pm.path(
             "ti_mesh",
-            subject_id=mock_simulation_structure['subject_id'],
-            simulation_name=mock_simulation_structure['sim_name'],
+            subject_id=mock_simulation_structure["subject_id"],
+            simulation_name=mock_simulation_structure["sim_name"],
         )
 
         # The actual implementation returns: TI/mesh/<sim>_TI.msh
         expected_path = os.path.join(
-            mock_simulation_structure['sim_dir'],
-            "TI", "mesh",
-            f"{mock_simulation_structure['sim_name']}_TI{const.EXT_MESH}"
+            mock_simulation_structure["sim_dir"],
+            "TI",
+            "mesh",
+            f"{mock_simulation_structure['sim_name']}_TI{const.EXT_MESH}",
         )
         assert ti_mesh == expected_path
 
@@ -359,37 +424,51 @@ class TestSimulationPaths:
 class TestValidation:
     """Test subject validation functions"""
 
-    def test_validate_subject_structure_valid(self, mock_subject_structure, monkeypatch):
+    def test_validate_subject_structure_valid(
+        self, mock_subject_structure, monkeypatch
+    ):
         """Test validating a properly structured subject"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        validation = pm.validate_subject_structure(mock_subject_structure['subject_id'])
+        validation = pm.validate_subject_structure(mock_subject_structure["subject_id"])
 
         # Check the actual validation structure returned by the implementation
-        assert 'valid' in validation
-        assert isinstance(validation['valid'], bool)
-        assert validation['valid'] is True
-        assert 'missing' in validation
-        assert 'warnings' in validation
-        assert isinstance(validation['missing'], list)
-        assert isinstance(validation['warnings'], list)
+        assert "valid" in validation
+        assert isinstance(validation["valid"], bool)
+        assert validation["valid"] is True
+        assert "missing" in validation
+        assert "warnings" in validation
+        assert isinstance(validation["missing"], list)
+        assert isinstance(validation["warnings"], list)
 
-    def test_validate_subject_structure_invalid(self, mock_subject_structure, monkeypatch):
+    def test_validate_subject_structure_invalid(
+        self, mock_subject_structure, monkeypatch
+    ):
         """Test validating a non-existent subject"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_subject_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_subject_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_subject_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
         validation = pm.validate_subject_structure("999")
 
-        assert 'valid' in validation
-        assert validation['valid'] is False
+        assert "valid" in validation
+        assert validation["valid"] is False
 
 
 class TestFreeSurferPaths:
@@ -403,42 +482,60 @@ class TestFreeSurferPaths:
         subject_id = "001"
 
         # Create FreeSurfer directory
-        fs_dir = (project_dir / const.DIR_DERIVATIVES / "freesurfer" /
-                 f"{const.PREFIX_SUBJECT}{subject_id}")
+        fs_dir = (
+            project_dir
+            / const.DIR_DERIVATIVES
+            / "freesurfer"
+            / f"{const.PREFIX_SUBJECT}{subject_id}"
+        )
         fs_mri_dir = fs_dir / "mri"
         fs_mri_dir.mkdir(parents=True)
 
         return {
-            'project_dir': str(project_dir),
-            'project_name': project_name,
-            'subject_id': subject_id,
-            'fs_dir': str(fs_dir),
-            'fs_mri_dir': str(fs_mri_dir)
+            "project_dir": str(project_dir),
+            "project_name": project_name,
+            "subject_id": subject_id,
+            "fs_dir": str(fs_dir),
+            "fs_mri_dir": str(fs_mri_dir),
         }
 
     def test_get_freesurfer_subject_dir(self, mock_freesurfer_structure, monkeypatch):
         """Test getting FreeSurfer subject directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_freesurfer_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_freesurfer_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_freesurfer_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_freesurfer_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        fs_dir = pm.path("freesurfer_subject", subject_id=mock_freesurfer_structure['subject_id'])
+        fs_dir = pm.path(
+            "freesurfer_subject", subject_id=mock_freesurfer_structure["subject_id"]
+        )
 
-        assert fs_dir == mock_freesurfer_structure['fs_dir']
+        assert fs_dir == mock_freesurfer_structure["fs_dir"]
 
     def test_get_freesurfer_mri_dir(self, mock_freesurfer_structure, monkeypatch):
         """Test getting FreeSurfer MRI directory"""
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_freesurfer_structure['project_name'])
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
-                          os.path.dirname(mock_freesurfer_structure['project_dir']))
+        monkeypatch.setenv(
+            const.ENV_PROJECT_DIR_NAME, mock_freesurfer_structure["project_name"]
+        )
+        monkeypatch.setattr(
+            const,
+            "DOCKER_MOUNT_PREFIX",
+            os.path.dirname(mock_freesurfer_structure["project_dir"]),
+        )
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        fs_mri_dir = pm.path("freesurfer_mri", subject_id=mock_freesurfer_structure['subject_id'])
+        fs_mri_dir = pm.path(
+            "freesurfer_mri", subject_id=mock_freesurfer_structure["subject_id"]
+        )
 
-        assert fs_mri_dir == mock_freesurfer_structure['fs_mri_dir']
+        assert fs_mri_dir == mock_freesurfer_structure["fs_mri_dir"]
 
 
 class TestEdgeCases:
@@ -451,8 +548,7 @@ class TestEdgeCases:
         project_dir.mkdir(parents=True)
 
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
-
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
@@ -470,8 +566,7 @@ class TestEdgeCases:
         simnibs_dir.mkdir(parents=True)
 
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
-
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()

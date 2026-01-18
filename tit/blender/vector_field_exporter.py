@@ -31,13 +31,22 @@ BASE_VECTOR_WIDTH = 0.10
 # Geometry helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def create_arrow(position, direction, magnitude, *,
-                 vector_scale=0.4, base_length=1.0, shaft_width=0.05,
-                 length_mode: str = 'linear', length_scale: float = 1.0,
-                 anchor: str = 'tail'):
+
+def create_arrow(
+    position,
+    direction,
+    magnitude,
+    *,
+    vector_scale=0.4,
+    base_length=1.0,
+    shaft_width=0.05,
+    length_mode: str = "linear",
+    length_scale: float = 1.0,
+    anchor: str = "tail",
+):
     """Create a small arrow mesh for a vector with configurable length mapping."""
     # Determine arrow length from magnitude
-    if length_mode == 'linear':
+    if length_mode == "linear":
         scaled_length = max(1e-9, float(length_scale) * float(magnitude))
     else:
         magnitude_scale_factor = 0.005
@@ -52,20 +61,20 @@ def create_arrow(position, direction, magnitude, *,
     # Trimesh cone: base at z=0, tip at z=height (pointing up)
     shaft = trimesh.creation.cylinder(radius=shaft_radius, height=shaft_length)
     head = trimesh.creation.cone(radius=head_radius, height=head_length)
-    
+
     # Position cone so its base connects to shaft end
     # Shaft extends from -shaft_length/2 to +shaft_length/2
     # Cone base should be at +shaft_length/2, so translate cone by +shaft_length/2
     head.apply_translation([0, 0, shaft_length / 2.0])
-    
+
     arrow = trimesh.util.concatenate([shaft, head])
-    
+
     # After concatenation, arrow extends from -shaft_length/2 to +shaft_length/2 + head_length along Z
     # Center is at origin
 
     # Global scale
     arrow.apply_scale(vector_scale)
-    
+
     # After scaling:
     # - Shaft extends from -actual_shaft_len/2 to +actual_shaft_len/2
     # - Head extends from +actual_shaft_len/2 to +actual_shaft_len/2 + actual_head_len
@@ -89,25 +98,25 @@ def create_arrow(position, direction, magnitude, *,
             arrow.apply_transform(T)
     else:
         ndir = np.array([0.0, 0.0, 1.0])
-    
+
     # After rotation, arrow's local +Z (which was [0,0,1]) is now aligned with ndir in world space
     # So in world space:
     # - Tail is at: -ndir * (actual_shaft_len/2)
     # - Tip is at: +ndir * (actual_shaft_len/2 + actual_head_len)
-    
+
     # Translate based on anchor
     # After rotation, arrow is centered at origin with +Z aligned with ndir
     # Tail is at: -ndir * (actual_shaft_len/2)
     # Tip is at: +ndir * (actual_shaft_len/2 + actual_head_len)
-    
-    if anchor == 'head':
+
+    if anchor == "head":
         # Place tip at position
         # Tip is currently at: origin + ndir * (actual_shaft_len/2 + actual_head_len)
         # To move tip to position, translate by: position - ndir * (actual_shaft_len/2 + actual_head_len)
         tip_position = ndir * (actual_shaft_len / 2.0 + actual_head_len)
         arrow.apply_translation(position - tip_position)
     else:
-        # Place tail at position  
+        # Place tail at position
         # Tail is currently at: origin - ndir * (actual_shaft_len/2) = -ndir * (actual_shaft_len/2)
         # To move tail to position, translate by: position - tail_position
         # position - (-ndir * actual_shaft_len/2) = position + ndir * actual_shaft_len/2
@@ -118,10 +127,20 @@ def create_arrow(position, direction, magnitude, *,
     return arrow
 
 
-def write_ply_arrows(output_file, positions, vectors, magnitudes, colors, *,
-                     length_mode: str = 'linear', length_scale: float = 1.0,
-                     anchor: str = 'tail', vector_scale: float = 0.4,
-                     base_length: float = 1.0, shaft_width: float = 0.05):
+def write_ply_arrows(
+    output_file,
+    positions,
+    vectors,
+    magnitudes,
+    colors,
+    *,
+    length_mode: str = "linear",
+    length_scale: float = 1.0,
+    anchor: str = "tail",
+    vector_scale: float = 0.4,
+    base_length: float = 1.0,
+    shaft_width: float = 0.05,
+):
     """Write multiple arrows as a colored PLY file (ASCII)."""
     total = len(positions)
     if total == 0:
@@ -133,9 +152,15 @@ def write_ply_arrows(output_file, positions, vectors, magnitudes, colors, *,
 
     for i in range(total):
         arrow = create_arrow(
-            positions[i], vectors[i], magnitudes[i],
-            vector_scale=vector_scale, base_length=base_length, shaft_width=shaft_width,
-            length_mode=length_mode, length_scale=length_scale, anchor=anchor,
+            positions[i],
+            vectors[i],
+            magnitudes[i],
+            vector_scale=vector_scale,
+            base_length=base_length,
+            shaft_width=shaft_width,
+            length_mode=length_mode,
+            length_scale=length_scale,
+            anchor=anchor,
         )
         start = len(all_vertices)
         all_vertices.extend(arrow.vertices)
@@ -147,7 +172,7 @@ def write_ply_arrows(output_file, positions, vectors, magnitudes, colors, *,
     if not all_vertices:
         return
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
         f.write(f"element vertex {len(all_vertices)}\n")
@@ -162,7 +187,9 @@ def write_ply_arrows(output_file, positions, vectors, magnitudes, colors, *,
         f.write("property list uchar int vertex_indices\n")
         f.write("end_header\n")
         for v, c in zip(all_vertices, all_colors):
-            f.write(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])} {int(c[3])}\n")
+            f.write(
+                f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])} {int(c[3])}\n"
+            )
         for face in all_faces:
             f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
 
@@ -170,6 +197,7 @@ def write_ply_arrows(output_file, positions, vectors, magnitudes, colors, *,
 # ──────────────────────────────────────────────────────────────────────────────
 # Data helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def barycenters_for_mesh(m):
     try:
@@ -206,28 +234,30 @@ def surface_normals_for_mesh(m):
 def surface_normals_at_face_indices(surface_mesh, face_indices):
     """
     Get surface normals for specific face indices.
-    
+
     Args:
         surface_mesh: SimNIBS surface mesh
         face_indices: Array of face indices
-        
+
     Returns:
         Array of [N, 3] normals corresponding to the face indices
     """
     if face_indices is None:
         return None
-    
+
     try:
         # Get all surface normals
         all_normals = surface_normals_for_mesh(surface_mesh)
         # Get triangular elements
         triangular_elements = surface_mesh.elm.elm_type == 2
         if not np.any(triangular_elements):
-            triangular_elements = np.ones(len(surface_mesh.elm.node_number_list), dtype=bool)
-        
+            triangular_elements = np.ones(
+                len(surface_mesh.elm.node_number_list), dtype=bool
+            )
+
         # Get normals for triangular elements only
         triangle_normals = all_normals[triangular_elements]
-        
+
         # Get normals at the specified face indices
         # Ensure indices are within bounds
         valid_indices = face_indices < len(triangle_normals)
@@ -235,7 +265,7 @@ def surface_normals_at_face_indices(surface_mesh, face_indices):
         normals[valid_indices] = triangle_normals[face_indices[valid_indices]]
         # Fill invalid indices with default normal
         normals[~valid_indices] = np.array([0.0, 0.0, 1.0])
-        
+
         return normals
     except Exception:
         return None
@@ -244,10 +274,10 @@ def surface_normals_at_face_indices(surface_mesh, face_indices):
 def get_surface_face_barycenters(surface_mesh):
     """
     Get barycenters (centers) of triangular faces in a surface mesh.
-    
+
     Args:
         surface_mesh: SimNIBS surface mesh (triangular surface)
-        
+
     Returns:
         Array of [N, 3] barycenter positions for each triangle
     """
@@ -255,86 +285,92 @@ def get_surface_face_barycenters(surface_mesh):
     triangular_elements = surface_mesh.elm.elm_type == 2
     if not np.any(triangular_elements):
         # Fallback: try to get all elements if no triangles found
-        triangular_elements = np.ones(len(surface_mesh.elm.node_number_list), dtype=bool)
-    
-    triangle_nodes = surface_mesh.elm.node_number_list[triangular_elements] - 1  # Convert to 0-based
+        triangular_elements = np.ones(
+            len(surface_mesh.elm.node_number_list), dtype=bool
+        )
+
+    triangle_nodes = (
+        surface_mesh.elm.node_number_list[triangular_elements] - 1
+    )  # Convert to 0-based
     # Take first 3 nodes (assuming triangular elements)
     triangle_nodes = triangle_nodes[:, :3]
-    
+
     # Get node coordinates
     node_coords = surface_mesh.nodes.node_coord
-    
+
     # Calculate barycenters (centers) of each triangle
     barycenters = np.mean(node_coords[triangle_nodes], axis=1)
-    
+
     return barycenters
 
 
-def interpolate_field_to_surface_positions(volumetric_mesh, target_positions, field_name='E'):
+def interpolate_field_to_surface_positions(
+    volumetric_mesh, target_positions, field_name="E"
+):
     """
     Interpolate a field from volumetric mesh to target positions (e.g., face barycenters).
-    
+
     Args:
         volumetric_mesh: SimNIBS volumetric mesh with field data
         target_positions: Array of [N, 3] target positions to interpolate to
         field_name: Name of the field to interpolate (default: 'E')
-        
+
     Returns:
         Array of [N, 3] field values at target positions
     """
     if field_name not in volumetric_mesh.field:
         raise ValueError(f"Field '{field_name}' not found in volumetric mesh")
-    
+
     # Get field values from volumetric mesh (element-based)
     field_elm = volumetric_mesh.field[field_name].value  # [n_elements, 3]
-    
+
     # Method 1: Try to convert element-based to node-based, then interpolate to target positions
     try:
         from scipy.spatial import cKDTree
-        
+
         # Convert element-based field to node-based using SimNIBS elm2node_matrix
         M = volumetric_mesh.elm2node_matrix()
         vol_field_nodes = np.zeros((M.shape[0], 3))
         for i in range(3):
             vol_field_nodes[:, i] = M.dot(field_elm[:, i])
-        
+
         # Get volumetric mesh node positions
         vol_node_positions = volumetric_mesh.nodes.node_coord
-        
+
         # Find nearest volumetric mesh nodes for each target position
         tree = cKDTree(vol_node_positions)
         distances, indices = tree.query(target_positions)
-        
+
         # Map field values from volumetric nodes to target positions
         field_values = vol_field_nodes[indices]
-        
+
         return field_values
     except Exception:
         # Fallback: use element barycenters for interpolation
         from scipy.spatial import cKDTree
-        
+
         # Get element barycenters
         elm_positions = barycenters_for_mesh(volumetric_mesh)
-        
+
         # Interpolate using nearest neighbor from element barycenters
         field_values = np.zeros((len(target_positions), 3))
         tree = cKDTree(elm_positions)
         distances, indices = tree.query(target_positions)
-        
+
         for i in range(len(target_positions)):
             field_values[i] = field_elm[indices[i]]
-        
+
         return field_values
 
 
 def project_positions_to_surface(positions, surface_mesh):
     """
     Project positions to the nearest points on a surface mesh.
-    
+
     Args:
         positions: Array of [N, 3] positions to project
         surface_mesh: SimNIBS surface mesh (triangular surface mesh)
-        
+
     Returns:
         tuple: (projected_positions, face_indices) where:
             - projected_positions: Array of [N, 3] projected positions on the surface
@@ -346,22 +382,28 @@ def project_positions_to_surface(positions, surface_mesh):
         triangular_elements = surface_mesh.elm.elm_type == 2
         if not np.any(triangular_elements):
             # Fallback: try to get all elements if no triangles found
-            triangular_elements = np.ones(len(surface_mesh.elm.node_number_list), dtype=bool)
-        
-        triangle_nodes = surface_mesh.elm.node_number_list[triangular_elements] - 1  # Convert to 0-based
+            triangular_elements = np.ones(
+                len(surface_mesh.elm.node_number_list), dtype=bool
+            )
+
+        triangle_nodes = (
+            surface_mesh.elm.node_number_list[triangular_elements] - 1
+        )  # Convert to 0-based
         # Take first 3 nodes (assuming triangular elements)
         triangle_nodes = triangle_nodes[:, :3]
-        
+
         vertices = surface_mesh.nodes.node_coord
         faces = triangle_nodes
-        
+
         # Create trimesh object from surface
         surface_trimesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-        
+
         # Find nearest points on surface
         # trimesh.proximity.closest_point returns (closest_points, distances, face_indices)
-        closest_points, distances, face_indices = trimesh.proximity.closest_point(surface_trimesh, positions)
-        
+        closest_points, distances, face_indices = trimesh.proximity.closest_point(
+            surface_trimesh, positions
+        )
+
         return closest_points, face_indices
     except Exception as e:
         # Fallback: return original positions if projection fails
@@ -369,9 +411,14 @@ def project_positions_to_surface(positions, surface_mesh):
         return positions, None
 
 
-def map_magnitude_to_colors_magscale(magnitudes, *,
-                                     all_magnitudes_full,
-                                     blue_pct: float, green_pct: float, red_pct: float):
+def map_magnitude_to_colors_magscale(
+    magnitudes,
+    *,
+    all_magnitudes_full,
+    blue_pct: float,
+    green_pct: float,
+    red_pct: float,
+):
     # Percentiles across full-mesh magnitudes to reduce outlier skew
     blue_pct = float(min(max(blue_pct, 0.0), 100.0))
     green_pct = float(min(max(green_pct, 0.0), 100.0))
@@ -389,12 +436,12 @@ def map_magnitude_to_colors_magscale(magnitudes, *,
         if mag <= mag_blue:
             return np.array([0, 0, 255, 255], dtype=np.uint8)
         if mag <= mag_green:
-            denom = (mag_green - mag_blue)
+            denom = mag_green - mag_blue
             t = 0.0 if denom <= 0 else float((mag - mag_blue) / denom)
             r, g, b = 0, int(255 * t), int(255 * (1.0 - t))
             return np.array([r, g, b, 255], dtype=np.uint8)
         if mag <= mag_red:
-            denom = (mag_red - mag_green)
+            denom = mag_red - mag_green
             t = 1.0 if denom <= 0 else float((mag - mag_green) / denom)
             r, g, b = int(255 * t), int(255 * (1.0 - t)), 0
             return np.array([r, g, b, 255], dtype=np.uint8)
@@ -407,47 +454,140 @@ def map_magnitude_to_colors_magscale(magnitudes, *,
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     print("Starting...")
     ap = argparse.ArgumentParser(
-        description="Export TI/mTI vector arrows to PLY at face barycenters (optional CH1, CH2, SUM, TI_normal)")
+        description="Export TI/mTI vector arrows to PLY at face barycenters (optional CH1, CH2, SUM, TI_normal)"
+    )
 
-    ap.add_argument('mesh1', help='TDCS mesh 1 (with E field)')
-    ap.add_argument('mesh2', help='TDCS mesh 2 (with E field)')
-    ap.add_argument('output_prefix', help='Output directory for PLY files (TI.ply, CH1.ply, etc.)')
+    ap.add_argument("mesh1", help="TDCS mesh 1 (with E field)")
+    ap.add_argument("mesh2", help="TDCS mesh 2 (with E field)")
+    ap.add_argument(
+        "output_prefix", help="Output directory for PLY files (TI.ply, CH1.ply, etc.)"
+    )
 
-    ap.add_argument('--mti', nargs=2, metavar=('mesh3', 'mesh4'),
-                    help='Enable mTI mode with two extra meshes (mesh3, mesh4)')
+    ap.add_argument(
+        "--mti",
+        nargs=2,
+        metavar=("mesh3", "mesh4"),
+        help="Enable mTI mode with two extra meshes (mesh3, mesh4)",
+    )
 
     # Optional outputs
-    ap.add_argument('--export-ch1-ch2', dest='export_ch1_ch2', action='store_true', help='Export CH1 and CH2 vectors (default: only TI)')
-    ap.add_argument('--sum', dest='do_sum', action='store_true', help='Also export E_sum (TI: E1+E2, mTI: E1+E2+E3+E4)')
-    ap.add_argument('--ti-normal', dest='do_ti_normal', action='store_true', help='Also export TI_normal (projection onto surface normals)')
-    ap.add_argument('--combined', action='store_true', help='Also export combined PLY containing all requested types')
+    ap.add_argument(
+        "--export-ch1-ch2",
+        dest="export_ch1_ch2",
+        action="store_true",
+        help="Export CH1 and CH2 vectors (default: only TI)",
+    )
+    ap.add_argument(
+        "--sum",
+        dest="do_sum",
+        action="store_true",
+        help="Also export E_sum (TI: E1+E2, mTI: E1+E2+E3+E4)",
+    )
+    ap.add_argument(
+        "--ti-normal",
+        dest="do_ti_normal",
+        action="store_true",
+        help="Also export TI_normal (projection onto surface normals)",
+    )
+    ap.add_argument(
+        "--combined",
+        action="store_true",
+        help="Also export combined PLY containing all requested types",
+    )
 
     # Filtering & sampling
-    ap.add_argument('--central-surface', required=True, help='Central surface mesh (.msh from msh2cortex) to place vectors at face barycenters (matches STL surface)')
-    ap.add_argument('--top-percent', type=float, default=None, help='Keep only top X percent by |TI/mTI| before sampling')
-    ap.add_argument('--count', type=int, default=100000, help='Number of vectors to sample')
-    ap.add_argument('--all-nodes', action='store_true', help='Use all available vectors (disable sampling)')
-    ap.add_argument('--seed', type=int, default=42, help='Random seed for sampling reproducibility')
+    ap.add_argument(
+        "--central-surface",
+        required=True,
+        help="Central surface mesh (.msh from msh2cortex) to place vectors at face barycenters (matches STL surface)",
+    )
+    ap.add_argument(
+        "--top-percent",
+        type=float,
+        default=None,
+        help="Keep only top X percent by |TI/mTI| before sampling",
+    )
+    ap.add_argument(
+        "--count", type=int, default=100000, help="Number of vectors to sample"
+    )
+    ap.add_argument(
+        "--all-nodes",
+        action="store_true",
+        help="Use all available vectors (disable sampling)",
+    )
+    ap.add_argument(
+        "--seed", type=int, default=42, help="Random seed for sampling reproducibility"
+    )
 
     # Arrow styling
-    ap.add_argument('--length-mode', choices=['linear', 'visual'], default='linear', help="Arrow length mapping mode")
-    ap.add_argument('--length-scale', type=float, default=1.0, help='Unitless length scaling (internally normalized)')
-    ap.add_argument('--vector-scale', type=float, default=1.0, help='Unitless global arrow scale (internally normalized)')
-    ap.add_argument('--vector-width', type=float, default=1.0, help='Unitless shaft width (internally normalized)')
-    ap.add_argument('--vector-length', type=float, default=1.0, help='Unitless base arrow length (internally normalized)')
-    ap.add_argument('--anchor', choices=['tail', 'head'], default='tail', help='Which end of the arrow touches the barycenter')
+    ap.add_argument(
+        "--length-mode",
+        choices=["linear", "visual"],
+        default="linear",
+        help="Arrow length mapping mode",
+    )
+    ap.add_argument(
+        "--length-scale",
+        type=float,
+        default=1.0,
+        help="Unitless length scaling (internally normalized)",
+    )
+    ap.add_argument(
+        "--vector-scale",
+        type=float,
+        default=1.0,
+        help="Unitless global arrow scale (internally normalized)",
+    )
+    ap.add_argument(
+        "--vector-width",
+        type=float,
+        default=1.0,
+        help="Unitless shaft width (internally normalized)",
+    )
+    ap.add_argument(
+        "--vector-length",
+        type=float,
+        default=1.0,
+        help="Unitless base arrow length (internally normalized)",
+    )
+    ap.add_argument(
+        "--anchor",
+        choices=["tail", "head"],
+        default="tail",
+        help="Which end of the arrow touches the barycenter",
+    )
 
     # Colors
-    ap.add_argument('--color', choices=['rgb', 'magscale'], default='rgb',
-                    help="Color mode: rgb=CH1 red, CH2 blue, TI green (default); magscale=by magnitude")
-    ap.add_argument('--blue-percentile', type=float, default=50.0, help='Percentile mapped to full blue (magscale)')
-    ap.add_argument('--green-percentile', type=float, default=80.0, help='Percentile mapped to green pivot (magscale)')
-    ap.add_argument('--red-percentile', type=float, default=95.0, help='Percentile mapped to full red (magscale)')
+    ap.add_argument(
+        "--color",
+        choices=["rgb", "magscale"],
+        default="rgb",
+        help="Color mode: rgb=CH1 red, CH2 blue, TI green (default); magscale=by magnitude",
+    )
+    ap.add_argument(
+        "--blue-percentile",
+        type=float,
+        default=50.0,
+        help="Percentile mapped to full blue (magscale)",
+    )
+    ap.add_argument(
+        "--green-percentile",
+        type=float,
+        default=80.0,
+        help="Percentile mapped to green pivot (magscale)",
+    )
+    ap.add_argument(
+        "--red-percentile",
+        type=float,
+        default=95.0,
+        help="Percentile mapped to full red (magscale)",
+    )
 
-    ap.add_argument('--verbose', action='store_true', help='Verbose logging')
+    ap.add_argument("--verbose", action="store_true", help="Verbose logging")
 
     args = ap.parse_args()
 
@@ -473,7 +613,7 @@ def main():
     if not os.path.exists(args.central_surface):
         print(f"Error: Central surface mesh not found: {args.central_surface}")
         return 1
-    
+
     try:
         central_surface_mesh = simnibs.read_msh(args.central_surface)
         print(f"Using central surface for vector positions: {args.central_surface}")
@@ -483,23 +623,25 @@ def main():
 
     # Extract E fields from volumetric meshes
     for idx, m in enumerate([m1, m2] + ([m3, m4] if is_mti else []), start=1):
-        if 'E' not in m.field:
+        if "E" not in m.field:
             return 1
 
     # Use central surface face barycenters and interpolate E fields to them
     print("Using central surface face barycenters for vector positions...")
     positions = get_surface_face_barycenters(central_surface_mesh)
     print(f"Interpolating E fields to {len(positions)} surface face barycenters...")
-    E1 = interpolate_field_to_surface_positions(m1, positions, 'E')
-    E2 = interpolate_field_to_surface_positions(m2, positions, 'E')
+    E1 = interpolate_field_to_surface_positions(m1, positions, "E")
+    E2 = interpolate_field_to_surface_positions(m2, positions, "E")
     if is_mti:
-        E3 = interpolate_field_to_surface_positions(m3, positions, 'E')
-        E4 = interpolate_field_to_surface_positions(m4, positions, 'E')
+        E3 = interpolate_field_to_surface_positions(m3, positions, "E")
+        E4 = interpolate_field_to_surface_positions(m4, positions, "E")
     print(f"Interpolated E fields to {len(positions)} face barycenters")
     # Note: When using central surface, anchor='head' is recommended so tip is at barycenter
     # This ensures the arrow extends outward from the surface
-    if args.anchor != 'head':
-        print(f"Note: Using anchor='{args.anchor}' - for surface vectors, anchor='head' is recommended")
+    if args.anchor != "head":
+        print(
+            f"Note: Using anchor='{args.anchor}' - for surface vectors, anchor='head' is recommended"
+        )
 
     # Align sizes
     if is_mti:
@@ -529,18 +671,20 @@ def main():
             # Get face normals from surface mesh (one normal per triangle)
             try:
                 surf_normals = surface_normals_for_mesh(central_surface_mesh)
-                
+
                 # Filter to only triangular elements (elm_type == 2)
                 triangular_elements = central_surface_mesh.elm.elm_type == 2
                 if not np.any(triangular_elements):
-                    triangular_elements = np.ones(len(central_surface_mesh.elm.node_number_list), dtype=bool)
-                
+                    triangular_elements = np.ones(
+                        len(central_surface_mesh.elm.node_number_list), dtype=bool
+                    )
+
                 # Get normals for triangular elements only
                 triangle_normals = surf_normals[triangular_elements]
-                
+
                 # Align with positions (one normal per face barycenter)
                 if len(triangle_normals) > len(TI):
-                    surf_normals = triangle_normals[:len(TI)]
+                    surf_normals = triangle_normals[: len(TI)]
                 elif len(triangle_normals) < len(TI):
                     default_normal = np.array([0.0, 0.0, 1.0])
                     pad = np.tile(default_normal, (len(TI) - len(triangle_normals), 1))
@@ -551,7 +695,7 @@ def main():
                 # Fallback to TDCS mesh normals
                 surf_normals = surface_normals_for_mesh(m1)
                 if len(surf_normals) > len(TI):
-                    surf_normals = surf_normals[:len(TI)]
+                    surf_normals = surf_normals[: len(TI)]
                 elif len(surf_normals) < len(TI):
                     default_normal = np.array([0.0, 0.0, 1.0])
                     pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
@@ -561,20 +705,28 @@ def main():
             surf_normals = surface_normals_for_mesh(m1)
             # Align normals count with TI count
             if len(surf_normals) > len(TI):
-                surf_normals = surf_normals[:len(TI)]
+                surf_normals = surf_normals[: len(TI)]
             elif len(surf_normals) < len(TI):
                 default_normal = np.array([0.0, 0.0, 1.0])
                 pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
                 surf_normals = np.vstack([surf_normals, pad])
-        
+
         TI_normal = np.sum(TI * surf_normals, axis=1, keepdims=True) * surf_normals
 
     # Full magnitudes (pre-filter) for color normalization
     mag_E1_full = np.linalg.norm(E1, axis=1)
     mag_E2_full = np.linalg.norm(E2, axis=1)
     mag_TI_full = np.linalg.norm(TI, axis=1)
-    mag_E_sum_full = np.linalg.norm(E_sum, axis=1) if E_sum is not None else np.zeros_like(mag_TI_full)
-    mag_TI_normal_full = np.linalg.norm(TI_normal, axis=1) if TI_normal is not None else np.zeros_like(mag_TI_full)
+    mag_E_sum_full = (
+        np.linalg.norm(E_sum, axis=1)
+        if E_sum is not None
+        else np.zeros_like(mag_TI_full)
+    )
+    mag_TI_normal_full = (
+        np.linalg.norm(TI_normal, axis=1)
+        if TI_normal is not None
+        else np.zeros_like(mag_TI_full)
+    )
 
     # Filter non-zero TI
     mag_TI = np.linalg.norm(TI, axis=1)
@@ -631,7 +783,9 @@ def main():
     mag_E2_s = np.linalg.norm(E2_s, axis=1)
     mag_TI_s = np.linalg.norm(TI_s, axis=1)
     mag_E_sum_s = np.linalg.norm(E_sum_s, axis=1) if E_sum_s is not None else None
-    mag_TI_normal_s = np.linalg.norm(TI_normal_s, axis=1) if TI_normal_s is not None else None
+    mag_TI_normal_s = (
+        np.linalg.norm(TI_normal_s, axis=1) if TI_normal_s is not None else None
+    )
 
     # Colors
     BLUE = (0, 0, 255, 255)
@@ -640,7 +794,7 @@ def main():
     YELLOW = (255, 255, 0, 255)
     CYAN = (0, 255, 255, 255)
 
-    if args.color == 'magscale':
+    if args.color == "magscale":
         # magscale across full magnitudes of all fields present
         stacks = [mag_E1_full, mag_E2_full, mag_TI_full]
         if E_sum is not None:
@@ -648,34 +802,61 @@ def main():
         if TI_normal is not None:
             stacks.append(mag_TI_normal_full)
         all_full = np.concatenate(stacks) if stacks else mag_TI_full
-        ch1_colors = map_magnitude_to_colors_magscale(mag_E1_s, all_magnitudes_full=all_full,
-                                                      blue_pct=args.blue_percentile,
-                                                      green_pct=args.green_percentile,
-                                                      red_pct=args.red_percentile)
-        ch2_colors = map_magnitude_to_colors_magscale(mag_E2_s, all_magnitudes_full=all_full,
-                                                      blue_pct=args.blue_percentile,
-                                                      green_pct=args.green_percentile,
-                                                      red_pct=args.red_percentile)
-        ti_colors = map_magnitude_to_colors_magscale(mag_TI_s, all_magnitudes_full=all_full,
-                                                     blue_pct=args.blue_percentile,
-                                                     green_pct=args.green_percentile,
-                                                     red_pct=args.red_percentile)
-        sum_colors = (map_magnitude_to_colors_magscale(mag_E_sum_s, all_magnitudes_full=all_full,
-                                                       blue_pct=args.blue_percentile,
-                                                       green_pct=args.green_percentile,
-                                                       red_pct=args.red_percentile)
-                      if E_sum_s is not None else None)
-        ti_normal_colors = (map_magnitude_to_colors_magscale(mag_TI_normal_s, all_magnitudes_full=all_full,
-                                                             blue_pct=args.blue_percentile,
-                                                             green_pct=args.green_percentile,
-                                                             red_pct=args.red_percentile)
-                            if TI_normal_s is not None else None)
+        ch1_colors = map_magnitude_to_colors_magscale(
+            mag_E1_s,
+            all_magnitudes_full=all_full,
+            blue_pct=args.blue_percentile,
+            green_pct=args.green_percentile,
+            red_pct=args.red_percentile,
+        )
+        ch2_colors = map_magnitude_to_colors_magscale(
+            mag_E2_s,
+            all_magnitudes_full=all_full,
+            blue_pct=args.blue_percentile,
+            green_pct=args.green_percentile,
+            red_pct=args.red_percentile,
+        )
+        ti_colors = map_magnitude_to_colors_magscale(
+            mag_TI_s,
+            all_magnitudes_full=all_full,
+            blue_pct=args.blue_percentile,
+            green_pct=args.green_percentile,
+            red_pct=args.red_percentile,
+        )
+        sum_colors = (
+            map_magnitude_to_colors_magscale(
+                mag_E_sum_s,
+                all_magnitudes_full=all_full,
+                blue_pct=args.blue_percentile,
+                green_pct=args.green_percentile,
+                red_pct=args.red_percentile,
+            )
+            if E_sum_s is not None
+            else None
+        )
+        ti_normal_colors = (
+            map_magnitude_to_colors_magscale(
+                mag_TI_normal_s,
+                all_magnitudes_full=all_full,
+                blue_pct=args.blue_percentile,
+                green_pct=args.green_percentile,
+                red_pct=args.red_percentile,
+            )
+            if TI_normal_s is not None
+            else None
+        )
     else:
         ch1_colors = np.tile(np.array(RED), (len(pos_s), 1))
         ch2_colors = np.tile(np.array(BLUE), (len(pos_s), 1))
         ti_colors = np.tile(np.array(GREEN), (len(pos_s), 1))
-        sum_colors = np.tile(np.array(YELLOW), (len(pos_s), 1)) if E_sum_s is not None else None
-        ti_normal_colors = np.tile(np.array(CYAN), (len(pos_s), 1)) if TI_normal_s is not None else None
+        sum_colors = (
+            np.tile(np.array(YELLOW), (len(pos_s), 1)) if E_sum_s is not None else None
+        )
+        ti_normal_colors = (
+            np.tile(np.array(CYAN), (len(pos_s), 1))
+            if TI_normal_s is not None
+            else None
+        )
 
     # Ensure output dir
     out_dir = os.path.dirname(args.output_prefix)
@@ -689,52 +870,108 @@ def main():
     eff_vector_scale = float(args.vector_scale) * BASE_VECTOR_SCALE
     eff_vector_width = float(args.vector_width) * BASE_VECTOR_WIDTH
     eff_vector_length = float(args.vector_length) * BASE_VECTOR_LENGTH
-    
+
     # Get output directory from prefix (prefix is now the output directory)
-    output_dir = args.output_prefix if os.path.isdir(args.output_prefix) else (os.path.dirname(args.output_prefix) if os.path.dirname(args.output_prefix) else '.')
+    output_dir = (
+        args.output_prefix
+        if os.path.isdir(args.output_prefix)
+        else (
+            os.path.dirname(args.output_prefix)
+            if os.path.dirname(args.output_prefix)
+            else "."
+        )
+    )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
-    
+
     # Write per-type PLYs
     # CH1 and CH2 only if requested
     if args.export_ch1_ch2:
         write_ply_arrows(
-            os.path.join(output_dir, "CH1.ply"), pos_s, E1_s, mag_E1_s, ch1_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "CH1.ply"),
+            pos_s,
+            E1_s,
+            mag_E1_s,
+            ch1_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
         write_ply_arrows(
-            os.path.join(output_dir, "CH2.ply"), pos_s, E2_s, mag_E2_s, ch2_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "CH2.ply"),
+            pos_s,
+            E2_s,
+            mag_E2_s,
+            ch2_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
 
     # Always write TI/mTI
     if is_mti:
         write_ply_arrows(
-            os.path.join(output_dir, "mTI.ply"), pos_s, TI_s, mag_TI_s, ti_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "mTI.ply"),
+            pos_s,
+            TI_s,
+            mag_TI_s,
+            ti_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
     else:
         write_ply_arrows(
-            os.path.join(output_dir, "TI.ply"), pos_s, TI_s, mag_TI_s, ti_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "TI.ply"),
+            pos_s,
+            TI_s,
+            mag_TI_s,
+            ti_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
 
     if E_sum_s is not None:
         write_ply_arrows(
-            os.path.join(output_dir, "TI_sum.ply"), pos_s, E_sum_s, mag_E_sum_s, sum_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "TI_sum.ply"),
+            pos_s,
+            E_sum_s,
+            mag_E_sum_s,
+            sum_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
 
     if TI_normal_s is not None:
         write_ply_arrows(
-            os.path.join(output_dir, "TI_normal.ply"), pos_s, TI_normal_s, mag_TI_normal_s, ti_normal_colors,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "TI_normal.ply"),
+            pos_s,
+            TI_normal_s,
+            mag_TI_normal_s,
+            ti_normal_colors,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
 
     # Combined (optional): concat whatever types were written
@@ -754,9 +991,17 @@ def main():
         all_col = np.concatenate([p[3] for p in parts], axis=0)
 
         write_ply_arrows(
-            os.path.join(output_dir, "combined.ply"), all_pos, all_vec, all_mag, all_col,
-            length_mode=args.length_mode, length_scale=eff_length_scale, anchor=args.anchor,
-            vector_scale=eff_vector_scale, base_length=eff_vector_length, shaft_width=eff_vector_width,
+            os.path.join(output_dir, "combined.ply"),
+            all_pos,
+            all_vec,
+            all_mag,
+            all_col,
+            length_mode=args.length_mode,
+            length_scale=eff_length_scale,
+            anchor=args.anchor,
+            vector_scale=eff_vector_scale,
+            base_length=eff_vector_length,
+            shaft_width=eff_vector_width,
         )
 
     # Count exported files
@@ -776,7 +1021,5 @@ def main():
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
-
-

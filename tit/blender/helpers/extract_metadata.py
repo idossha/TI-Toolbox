@@ -6,6 +6,7 @@ from mathutils import Vector
 # Helper functions
 # -------------------------
 
+
 def safe_name(datablock):
     return datablock.name if datablock else None
 
@@ -32,6 +33,7 @@ def extract_custom_properties(id_block):
             continue
         props[key] = make_json_safe(id_block[key])
     return props
+
 
 # -------------------------
 # File-level metadata
@@ -175,4 +177,3 @@ if bpy.data.filepath:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     print(f"\nMetadata written to: {output_path}")
-

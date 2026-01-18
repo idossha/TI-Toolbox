@@ -72,7 +72,13 @@ class SaveFigOptions:
     edgecolor: str = "none"
 
 
-def savefig_close(fig: Any, output_file: str, *, fmt: Optional[str] = None, opts: SaveFigOptions = SaveFigOptions()) -> str:
+def savefig_close(
+    fig: Any,
+    output_file: str,
+    *,
+    fmt: Optional[str] = None,
+    opts: SaveFigOptions = SaveFigOptions(),
+) -> str:
     """
     Save a matplotlib Figure and close it.
 
@@ -93,5 +99,3 @@ def savefig_close(fig: Any, output_file: str, *, fmt: Optional[str] = None, opts
     except Exception:
         pass
     return output_file
-
-

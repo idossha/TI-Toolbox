@@ -23,8 +23,11 @@ from __future__ import annotations
 # This must happen before any tit imports
 import os
 import sys
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
-ti_toolbox_root = os.path.dirname(os.path.dirname(script_dir))  # Go up from tit/cli/ to /ti-toolbox or /TI-toolbox
+ti_toolbox_root = os.path.dirname(
+    os.path.dirname(script_dir)
+)  # Go up from tit/cli/ to /ti-toolbox or /TI-toolbox
 if ti_toolbox_root not in sys.path:
     sys.path.insert(0, ti_toolbox_root)
 
@@ -50,15 +53,69 @@ class VisBlenderCLI(BaseCLI):
         )
 
         # Add argument definitions
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID (e.g., 001)", required=True, flags=["--subject", "--sub"]))
-        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True, flags=["--simulation", "--sim"]))
-        self.add_argument(ArgumentDefinition(name="output_dir", type=str, help="Output directory (default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/)", required=False))
-        self.add_argument(ArgumentDefinition(name="montage_only", type=bool, help="Only show/place electrodes that are part of the montage pairs in config.json", default=False))
-        self.add_argument(ArgumentDefinition(name="electrode_diameter_mm", type=float, help="Electrode diameter in mm (default: 10.0)", default=10.0))
-        self.add_argument(ArgumentDefinition(name="electrode_height_mm", type=float, help="Electrode height in mm (default: 6.0)", default=6.0))
-        self.add_argument(ArgumentDefinition(name="export_glb", type=bool, help="Export GLB file for web viewing", default=False))
-        self.add_argument(ArgumentDefinition(name="verbose", type=bool, help="Verbose logging", default=False))
-
+        self.add_argument(
+            ArgumentDefinition(
+                name="subject",
+                type=str,
+                help="Subject ID (e.g., 001)",
+                required=True,
+                flags=["--subject", "--sub"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="simulation",
+                type=str,
+                help="Simulation name",
+                required=True,
+                flags=["--simulation", "--sim"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="output_dir",
+                type=str,
+                help="Output directory (default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/)",
+                required=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="montage_only",
+                type=bool,
+                help="Only show/place electrodes that are part of the montage pairs in config.json",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="electrode_diameter_mm",
+                type=float,
+                help="Electrode diameter in mm (default: 10.0)",
+                default=10.0,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="electrode_height_mm",
+                type=float,
+                help="Electrode height in mm (default: 6.0)",
+                default=6.0,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="export_glb",
+                type=bool,
+                help="Export GLB file for web viewing",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="verbose", type=bool, help="Verbose logging", default=False
+            )
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -161,7 +218,9 @@ class VisBlenderCLI(BaseCLI):
 def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.Logger:
     """Configure console + optional file logging with consistent formatting."""
     root_name = "tit.cli.vis_blender"
-    log = logging_util.get_logger(root_name, log_file=log_file, overwrite=True, console=True)
+    log = logging_util.get_logger(
+        root_name, log_file=log_file, overwrite=True, console=True
+    )
 
     if verbose:
         for h in list(log.handlers):
@@ -173,6 +232,7 @@ def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.
 
     # Use shared logger configuration
     from tit.blender.montage_publication import configure_montage_loggers
+
     configure_montage_loggers(log)
     return log
 
@@ -180,5 +240,3 @@ def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.
 if __name__ == "__main__":
     cli = VisBlenderCLI()
     raise SystemExit(cli.run())
-
-

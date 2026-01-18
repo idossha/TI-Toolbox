@@ -77,7 +77,9 @@ def plot_whole_head_roi_histogram(
 
         # Broadcast scalars to match data, otherwise apply NaN masks.
         if wh_sizes.ndim == 0:
-            wh_sizes = np.full(whole_head_field_data.shape, wh_sizes.item(), dtype=float)
+            wh_sizes = np.full(
+                whole_head_field_data.shape, wh_sizes.item(), dtype=float
+            )
         else:
             wh_sizes = wh_sizes[wh_mask]
 
@@ -86,7 +88,10 @@ def plot_whole_head_roi_histogram(
         else:
             roi_sizes = roi_sizes[roi_mask]
 
-        if wh_sizes.shape == whole_head_field_data.shape and roi_sizes.shape == roi_field_data.shape:
+        if (
+            wh_sizes.shape == whole_head_field_data.shape
+            and roi_sizes.shape == roi_field_data.shape
+        ):
             weights_wh = wh_sizes
             weights_roi = roi_sizes
 
@@ -103,7 +108,12 @@ def plot_whole_head_roi_histogram(
         "pdf.fonttype": 42,  # Embed fonts as text (not paths)
         "pdf.use14corefonts": True,
         "font.family": "sans-serif",
-        "font.sans-serif": ["DejaVu Sans", "Liberation Sans", "Bitstream Vera Sans", "sans-serif"],
+        "font.sans-serif": [
+            "DejaVu Sans",
+            "Liberation Sans",
+            "Bitstream Vera Sans",
+            "sans-serif",
+        ],
         "text.usetex": False,
         "svg.fonttype": "none",
     }
@@ -112,14 +122,18 @@ def plot_whole_head_roi_histogram(
         fig, ax = plt.subplots(figsize=(14, 10))
 
         # Histogram bins based on whole head data
-        hist, bin_edges = np.histogram(whole_head_field_data, bins=n_bins, weights=weights_wh)
+        hist, bin_edges = np.histogram(
+            whole_head_field_data, bins=n_bins, weights=weights_wh
+        )
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
         bin_width = float(bin_edges[1] - bin_edges[0])
 
         roi_hist, _ = np.histogram(roi_field_data, bins=bin_edges, weights=weights_roi)
 
         # Vectorized ROI contribution
-        roi_contribution = np.divide(roi_hist, hist, out=np.zeros_like(hist, dtype=float), where=hist > 0)
+        roi_contribution = np.divide(
+            roi_hist, hist, out=np.zeros_like(hist, dtype=float), where=hist > 0
+        )
 
         non_zero = roi_contribution[roi_contribution > 0]
         if non_zero.size > 0:
@@ -142,8 +156,14 @@ def plot_whole_head_roi_histogram(
         counts = [int(np.count_nonzero(whole_head_field_data >= t)) for t in thresholds]
 
         colors_lines = ["red", "darkred", "crimson", "maroon"]
-        for i, (threshold, cutoff, count) in enumerate(zip(thresholds, focality_cutoffs, counts)):
-            if float(np.min(whole_head_field_data)) <= threshold <= float(np.max(whole_head_field_data)):
+        for i, (threshold, cutoff, count) in enumerate(
+            zip(thresholds, focality_cutoffs, counts)
+        ):
+            if (
+                float(np.min(whole_head_field_data))
+                <= threshold
+                <= float(np.max(whole_head_field_data))
+            ):
                 ax.axvline(
                     x=threshold,
                     color=colors_lines[i % len(colors_lines)],
@@ -152,7 +172,9 @@ def plot_whole_head_roi_histogram(
                     label=f"{int(cutoff)}% of 99.9%ile\n({threshold:.2f} V/m)\nCount: {count:,} {data_type}s",
                 )
 
-        if roi_field_value is not None and float(np.min(whole_head_field_data)) <= float(roi_field_value) <= float(np.max(whole_head_field_data)):
+        if roi_field_value is not None and float(
+            np.min(whole_head_field_data)
+        ) <= float(roi_field_value) <= float(np.max(whole_head_field_data)):
             ax.axvline(
                 x=float(roi_field_value),
                 color="green",
@@ -162,7 +184,9 @@ def plot_whole_head_roi_histogram(
             )
 
         if ax.get_legend_handles_labels()[0]:
-            ax.legend(loc="upper left", bbox_to_anchor=(0.02, 0.98), frameon=True, fontsize=11)
+            ax.legend(
+                loc="upper left", bbox_to_anchor=(0.02, 0.98), frameon=True, fontsize=11
+            )
 
         ax.set_xlabel("Field Strength (V/m)", fontsize=14)
         ax.set_ylabel(f"{data_type.capitalize()}s", fontsize=14)
@@ -220,5 +244,3 @@ def plot_whole_head_roi_histogram(
         hist_file = os.path.join(output_dir, f"{base_name}_histogram.pdf")
         fig.tight_layout()
         return savefig_close(fig, hist_file, fmt="pdf", opts=SaveFigOptions(dpi=dpi))
-
-

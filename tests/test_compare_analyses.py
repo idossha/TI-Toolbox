@@ -17,7 +17,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Add the analyzer directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit', 'analyzer'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tit", "analyzer"))
 
 # Import the module under test
 try:
@@ -26,7 +26,8 @@ except ImportError as e:
     # If relative imports fail, try absolute import
     import sys
     import os
-    analyzer_path = os.path.join(os.path.dirname(__file__), '..', 'tit', 'analyzer')
+
+    analyzer_path = os.path.join(os.path.dirname(__file__), "..", "tit", "analyzer")
     if analyzer_path not in sys.path:
         sys.path.insert(0, analyzer_path)
     import compare_analyses
@@ -43,7 +44,9 @@ class TestProjectNameExtraction:
 
     def test_extract_project_name_different_mnt_pattern(self):
         """Test extraction from different /mnt patterns."""
-        test_path = "/mnt/test_project_123/derivatives/ti-toolbox/logs/sub-001/analyzer.log"
+        test_path = (
+            "/mnt/test_project_123/derivatives/ti-toolbox/logs/sub-001/analyzer.log"
+        )
         result = compare_analyses._extract_project_name(test_path)
         assert result == "test_project_123"
 
@@ -68,11 +71,13 @@ class TestProjectNameExtraction:
 class TestGroupLoggerSetup:
     """Test group logger setup functionality."""
 
-    @patch('compare_analyses.logging_util.get_logger')
-    @patch('os.makedirs')
-    @patch('os.path.exists')
-    @patch('os.path.isdir')
-    def test_setup_group_logger_creates_directory(self, mock_isdir, mock_exists, mock_makedirs, mock_get_logger):
+    @patch("compare_analyses.logging_util.get_logger")
+    @patch("os.makedirs")
+    @patch("os.path.exists")
+    @patch("os.path.isdir")
+    def test_setup_group_logger_creates_directory(
+        self, mock_isdir, mock_exists, mock_makedirs, mock_get_logger
+    ):
         """Test that setup_group_logger creates the log directory."""
         mock_isdir.return_value = True  # Mock project directory exists
         mock_exists.return_value = False
@@ -91,7 +96,7 @@ class TestGroupLoggerSetup:
         # Should return the logger
         assert result == mock_logger
 
-    @patch('compare_analyses.logging_util.get_logger')
+    @patch("compare_analyses.logging_util.get_logger")
     def test_setup_group_logger_reuses_existing(self, mock_get_logger):
         """Test that setup_group_logger reuses existing logger."""
         mock_logger = MagicMock()
@@ -104,10 +109,12 @@ class TestGroupLoggerSetup:
         # Should return the existing logger
         assert result == mock_logger
 
-    @patch('compare_analyses.logging_util.get_logger')
-    @patch('os.makedirs')
-    @patch('os.path.isdir')
-    def test_setup_group_logger_log_file_creation(self, mock_isdir, mock_makedirs, mock_get_logger):
+    @patch("compare_analyses.logging_util.get_logger")
+    @patch("os.makedirs")
+    @patch("os.path.isdir")
+    def test_setup_group_logger_log_file_creation(
+        self, mock_isdir, mock_makedirs, mock_get_logger
+    ):
         """Test that the log file path is constructed correctly."""
         mock_isdir.return_value = True  # Mock project directory exists
         mock_logger = MagicMock()

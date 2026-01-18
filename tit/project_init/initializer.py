@@ -35,7 +35,9 @@ def has_project_data_or_markers(project_dir: Path) -> bool:
     if any(project_dir.glob("sub-*")):
         return True
 
-    if _dir_has_files(project_dir / "sourcedata", patterns=("*.dcm", "*.nii", "*.nii.gz")):
+    if _dir_has_files(
+        project_dir / "sourcedata", patterns=("*.dcm", "*.nii", "*.nii.gz")
+    ):
         return True
 
     if _dir_has_files(project_dir / "derivatives"):
@@ -48,7 +50,11 @@ def has_project_data_or_markers(project_dir: Path) -> bool:
 
 
 def is_new_project(project_dir: Path) -> bool:
-    return project_dir.exists() and project_dir.is_dir() and not has_project_data_or_markers(project_dir)
+    return (
+        project_dir.exists()
+        and project_dir.is_dir()
+        and not has_project_data_or_markers(project_dir)
+    )
 
 
 def initialize_readme(project_dir: Path) -> None:
@@ -112,7 +118,9 @@ def initialize_dataset_description(project_dir: Path) -> None:
     dataset_file.write_text(json.dumps(payload, indent=2))
 
 
-def initialize_derivative_dataset_description(project_dir: Path, derivative_name: str) -> None:
+def initialize_derivative_dataset_description(
+    project_dir: Path, derivative_name: str
+) -> None:
     derivative_dir = project_dir / "derivatives" / derivative_name
     dataset_file = derivative_dir / "dataset_description.json"
     if dataset_file.exists():
@@ -124,7 +132,9 @@ def initialize_derivative_dataset_description(project_dir: Path, derivative_name
         "BIDSVersion": "1.6.0",
         "DatasetType": "derivative",
         "GeneratedBy": [{"Name": derivative_name}],
-        "SourceDatasets": [{"URI": f"bids:{project_dir.name}@{current_date}", "Version": "1.0.0"}],
+        "SourceDatasets": [
+            {"URI": f"bids:{project_dir.name}@{current_date}", "Version": "1.0.0"}
+        ],
         "DatasetLinks": {project_dir.name: "../../"},
     }
     dataset_file.write_text(json.dumps(payload, indent=2))
@@ -160,7 +170,9 @@ def initialize_project_structure(project_dir: Path) -> None:
 
     print("Creating directory structure...")
     (project_dir / "code" / "ti-toolbox" / "config").mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info").mkdir(parents=True, exist_ok=True)
+    (project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info").mkdir(
+        parents=True, exist_ok=True
+    )
     (project_dir / "derivatives" / "freesurfer").mkdir(parents=True, exist_ok=True)
     (project_dir / "derivatives" / "SimNIBS").mkdir(parents=True, exist_ok=True)
     (project_dir / "sourcedata").mkdir(parents=True, exist_ok=True)
@@ -198,7 +210,9 @@ def initialize_project_structure(project_dir: Path) -> None:
 
 def setup_example_data(toolbox_root: Path, project_dir: Path) -> bool:
     try:
-        success, _subjects = example_data_manager.setup_example_data(str(toolbox_root), str(project_dir))
+        success, _subjects = example_data_manager.setup_example_data(
+            str(toolbox_root), str(project_dir)
+        )
         return bool(success)
     except Exception:
         return False

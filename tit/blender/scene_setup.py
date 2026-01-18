@@ -123,7 +123,9 @@ def ensure_gm_wireframe(
         pass
 
 
-def ensure_world_nodes(*, bg_color: RGBA = (0.05, 0.05, 0.05, 1.0), strength: float = 1.0) -> None:
+def ensure_world_nodes(
+    *, bg_color: RGBA = (0.05, 0.05, 0.05, 1.0), strength: float = 1.0
+) -> None:
     """Ensure the scene world uses nodes and set a consistent background."""
     import bpy
 
@@ -362,7 +364,9 @@ def add_camera(
     return cam
 
 
-def _world_bounds(target_objects) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+def _world_bounds(
+    target_objects,
+) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
     """Compute world-space AABB (min_xyz, max_xyz) over objects that have a bound_box."""
     from mathutils import Vector
 
@@ -392,7 +396,11 @@ def _world_bounds(target_objects) -> Tuple[Tuple[float, float, float], Tuple[flo
         min_v = Vector((-1.0, -1.0, -1.0))
         max_v = Vector((1.0, 1.0, 1.0))
 
-    return (float(min_v.x), float(min_v.y), float(min_v.z)), (float(max_v.x), float(max_v.y), float(max_v.z))
+    return (float(min_v.x), float(min_v.y), float(min_v.z)), (
+        float(max_v.x),
+        float(max_v.y),
+        float(max_v.z),
+    )
 
 
 def _look_at(camera_obj, target: Tuple[float, float, float]) -> None:
@@ -504,7 +512,7 @@ def copy_material_with_color(
     *,
     name: str,
     base_color: RGBA,
-) :
+):
     """Copy an existing material and override its base color (Principled BSDF)."""
     mat = base_material.copy() if base_material else None
     if mat is None:
@@ -578,5 +586,3 @@ def _read_binary_stl(filepath: str):
             f.read(2)  # attribute byte count
 
     return vertices, faces
-
-

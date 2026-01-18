@@ -17,8 +17,12 @@ from tit.core.overwrite import OverwritePolicy, get_overwrite_policy
 
 
 def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
-    t1_candidates = sorted(list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*")))
-    t2_candidates = sorted(list(bids_anat_dir.glob("*T2*.nii*")) + list(bids_anat_dir.glob("*t2*.nii*")))
+    t1_candidates = sorted(
+        list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*"))
+    )
+    t2_candidates = sorted(
+        list(bids_anat_dir.glob("*T2*.nii*")) + list(bids_anat_dir.glob("*t2*.nii*"))
+    )
     t1_file = t1_candidates[0] if t1_candidates else None
     t2_file = t2_candidates[0] if t2_candidates else None
     return t1_file, t2_file
@@ -84,7 +88,9 @@ def run_recon_all(
         if not has_contents:
             shutil.rmtree(fs_subject_dir, ignore_errors=True)
         else:
-            if should_overwrite_path(fs_subject_dir, policy=policy, logger=logger, label="FreeSurfer"):
+            if should_overwrite_path(
+                fs_subject_dir, policy=policy, logger=logger, label="FreeSurfer"
+            ):
                 shutil.rmtree(fs_subject_dir, ignore_errors=True)
             else:
                 continue_existing = True
@@ -110,4 +116,6 @@ def run_recon_all(
         exit_code = subprocess.call(cmd)
 
     if exit_code != 0:
-        raise PreprocessError(f"recon-all failed for subject {subject_id} (exit {exit_code}).")
+        raise PreprocessError(
+            f"recon-all failed for subject {subject_id} (exit {exit_code})."
+        )

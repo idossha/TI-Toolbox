@@ -14,8 +14,8 @@ import tempfile
 from pathlib import Path
 
 # Add tit directory to path
-project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'tit')
+project_root = os.path.join(os.path.dirname(__file__), "..")
+ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
 from core import get_path_manager, reset_path_manager, constants as const
@@ -27,41 +27,49 @@ class TestCoreModulesAvailability:
     def test_import_paths(self):
         """Test importing paths module"""
         from core import paths
+
         assert paths is not None
 
     def test_import_constants(self):
         """Test importing constants module"""
         from core import constants
+
         assert constants is not None
 
     def test_import_nifti(self):
         """Test importing nifti module"""
         from core import nifti
+
         assert nifti is not None
 
     def test_import_utils(self):
         """Test importing utils module"""
         from core import utils
+
         assert utils is not None
 
     def test_import_mesh(self):
         """Test importing mesh module"""
         from core import mesh
+
         assert mesh is not None
 
     def test_import_calc(self):
         """Test importing calc module"""
         from core import calc
+
         assert calc is not None
 
     def test_import_process(self):
         """Test importing process module"""
         from core import process
+
         assert process is not None
 
     def test_import_errors(self):
         """Test importing errors module"""
         from core import errors
+
         assert errors is not None
 
 
@@ -82,8 +90,8 @@ class TestCoreModuleInitialization:
         from core import constants
 
         # Constants should be defined
-        assert hasattr(constants, 'DIR_DERIVATIVES')
-        assert hasattr(constants, 'ENV_PROJECT_DIR_NAME')
+        assert hasattr(constants, "DIR_DERIVATIVES")
+        assert hasattr(constants, "ENV_PROJECT_DIR_NAME")
 
         # Values should be consistent
         value1 = constants.DIR_DERIVATIVES
@@ -106,7 +114,7 @@ class TestPathsAndConstantsIntegration:
         derivatives_dir.mkdir(parents=True)
 
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         pm = PathManager()
         detected_derivatives = pm.get_derivatives_dir()
@@ -145,7 +153,7 @@ class TestEnvironmentConfiguration:
 
         # Set environment variable using constant
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         pm = PathManager()
         detected = pm.project_dir
@@ -228,12 +236,11 @@ class TestDataTypeConsistency:
             const.DIR_SIMNIBS,
             const.FILE_MONTAGE_LIST,
             const.EXT_NIFTI,
-            const.ENV_PROJECT_DIR_NAME
+            const.ENV_PROJECT_DIR_NAME,
         ]
 
         for const_val in string_constants:
-            assert isinstance(const_val, str), \
-                f"Constant {const_val} should be string"
+            assert isinstance(const_val, str), f"Constant {const_val} should be string"
 
     def test_pathmanager_returns_consistent_types(self, tmp_path, monkeypatch):
         """Test PathManager returns consistent types"""
@@ -244,7 +251,7 @@ class TestDataTypeConsistency:
         project_dir.mkdir(parents=True)
 
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-        monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
+        monkeypatch.setattr(const, "DOCKER_MOUNT_PREFIX", str(tmp_path / "mnt"))
 
         pm = PathManager()
 
@@ -266,8 +273,9 @@ class TestCoreModuleDocumentation:
         modules_to_check = [paths, constants, calc, mesh, process, errors]
 
         for module in modules_to_check:
-            assert module.__doc__ is not None, \
-                f"Module {module.__name__} should have docstring"
+            assert (
+                module.__doc__ is not None
+            ), f"Module {module.__name__} should have docstring"
 
 
 class TestResetFunctionality:

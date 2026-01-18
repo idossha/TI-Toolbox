@@ -4,8 +4,8 @@
 """
 Base Process Thread for TI-Toolbox GUI
 
-Provides a unified, intelligent base class for all background process threads in the 
-TI-Toolbox GUI. Consolidates common patterns for subprocess execution, output parsing, 
+Provides a unified, intelligent base class for all background process threads in the
+TI-Toolbox GUI. Consolidates common patterns for subprocess execution, output parsing,
 termination handling, and intelligent message type detection.
 
 Key Features:
@@ -61,10 +61,10 @@ from PyQt5 import QtCore
 def detect_message_type_from_content(text):
     """
     Intelligent message type detection from text content.
-    
+
     This is a standalone utility function that can be used by any component
     (threads, handlers, etc.) to classify messages for GUI display.
-    
+
     Priority order (matching original SimulationThread logic):
     1. Explicit error/warning tags or prefixes
     2. Explicit level tags ([INFO], [DEBUG], etc.) for external logger compatibility
@@ -75,13 +75,13 @@ def detect_message_type_from_content(text):
     7. Error keywords (error:, exception, traceback, failed)
     8. Additional warning/debug/info patterns
     9. Default (regular informational messages)
-    
+
     Args:
         text: The message text to classify (should be cleaned of ANSI codes)
-        
+
     Returns:
         str: Message type - 'error', 'warning', 'info', 'debug', 'success', 'command', or 'default'
-        
+
     Examples:
         >>> detect_message_type_from_content("[ERROR] File not found")
         'error'
@@ -91,64 +91,74 @@ def detect_message_type_from_content(text):
         'info'
     """
     text_lower = text.lower()
-    
+
     # Priority 1: Explicit error/warning tags or prefixes
-    is_error_tag = '[ERROR]' in text or 'ERROR:' in text
+    is_error_tag = "[ERROR]" in text or "ERROR:" in text
     if is_error_tag:
-        return 'error'
-    elif '[WARNING]' in text or 'Warning:' in text:
-        return 'warning'
-        
+        return "error"
+    elif "[WARNING]" in text or "Warning:" in text:
+        return "warning"
+
     # Priority 2: Explicit level tags (for compatibility with external loggers)
-    elif '[INFO]' in text:
-        return 'info'
-    elif '[DEBUG]' in text:
-        return 'debug'
-        
+    elif "[INFO]" in text:
+        return "info"
+    elif "[DEBUG]" in text:
+        return "debug"
+
     # Priority 3: Content-based detection for command/execution messages
-    elif any(keyword in text_lower for keyword in ['executing:', 'running', 'command']):
-        return 'command'
-        
+    elif any(keyword in text_lower for keyword in ["executing:", "running", "command"]):
+        return "command"
+
     # Priority 4: Success indicators
-    elif (text.startswith('[SUCCESS]') or 
-          ('completed successfully' in text_lower and 'debug' not in text_lower) or
-          ('✓ completed:' in text_lower) or
-          (text_lower.startswith('✓') and 'completed' in text_lower) or
-          ('✓ complete' in text_lower)):
-        return 'success'
-        
+    elif (
+        text.startswith("[SUCCESS]")
+        or ("completed successfully" in text_lower and "debug" not in text_lower)
+        or ("✓ completed:" in text_lower)
+        or (text_lower.startswith("✓") and "completed" in text_lower)
+        or ("✓ complete" in text_lower)
+    ):
+        return "success"
+
     # Priority 5: Progress/status messages (processing, starting)
-    elif any(keyword in text_lower for keyword in ['processing:', 'starting', 'processing subject']):
-        return 'info'
-        
+    elif any(
+        keyword in text_lower
+        for keyword in ["processing:", "starting", "processing subject"]
+    ):
+        return "info"
+
     # Priority 6: Section headers and structural elements
-    elif '===' in text or text.startswith('---'):
-        return 'command'
-        
+    elif "===" in text or text.startswith("---"):
+        return "command"
+
     # Priority 7: Error keywords (more specific to avoid false positives)
-    elif (text_lower.startswith('error:') or
-          text_lower.startswith('critical:') or
-          'exception' in text_lower or
-          'traceback' in text_lower or
-          text_lower.startswith('failed:') or
-          '✗ failed:' in text_lower):
-        return 'error'
+    elif (
+        text_lower.startswith("error:")
+        or text_lower.startswith("critical:")
+        or "exception" in text_lower
+        or "traceback" in text_lower
+        or text_lower.startswith("failed:")
+        or "✗ failed:" in text_lower
+    ):
+        return "error"
 
     # Priority 8: Additional warning patterns
-    elif any(keyword in text_lower for keyword in ['warning:', 'warn:', 'caution']):
-        return 'warning'
+    elif any(keyword in text_lower for keyword in ["warning:", "warn:", "caution"]):
+        return "warning"
 
     # Priority 9: Additional debug patterns
-    elif any(keyword in text_lower for keyword in ['debug:', 'verbose:']):
-        return 'debug'
+    elif any(keyword in text_lower for keyword in ["debug:", "verbose:"]):
+        return "debug"
 
     # Priority 10: Additional info patterns for common operations
-    elif any(keyword in text_lower for keyword in ['generating', 'loading', 'saving', 'creating']):
-        return 'info'
+    elif any(
+        keyword in text_lower
+        for keyword in ["generating", "loading", "saving", "creating"]
+    ):
+        return "info"
 
     # Default: regular informational messages (displayed in white)
     else:
-        return 'default'
+        return "default"
 
 
 class BaseProcessThread(QtCore.QThread):
@@ -167,7 +177,7 @@ class BaseProcessThread(QtCore.QThread):
     analyzes message content to determine the appropriate type for GUI colorization.
     This matches the original SimulationThread logic and ensures consistent behavior
     across all TI-Toolbox scripts and modules.
-    
+
     Message Type Classification:
     - ERROR (red, bold): [ERROR] tags, ERROR: prefix, exceptions, tracebacks, ✗ failed
     - WARNING (yellow): [WARNING] tags, Warning: prefix, caution keywords
@@ -188,7 +198,7 @@ class BaseProcessThread(QtCore.QThread):
     Note:
         The QThread's built-in 'finished' signal is used for completion notification.
         This matches the original thread implementations in TI-Toolbox.
-        
+
     Subclassing:
         Subclasses can override _detect_message_type() to add custom detection logic
         while still calling super()._detect_message_type() for fallback behavior.
@@ -199,7 +209,7 @@ class BaseProcessThread(QtCore.QThread):
     error_signal = QtCore.pyqtSignal(str)
 
     # ANSI escape sequence pattern (consolidated from multiple implementations)
-    ANSI_ESCAPE_PATTERN = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    ANSI_ESCAPE_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
     def __init__(self, cmd=None, env=None, parent=None):
         """
@@ -243,11 +253,11 @@ class BaseProcessThread(QtCore.QThread):
         """
         try:
             # Ensure Python output is unbuffered for real-time display
-            self.env['PYTHONUNBUFFERED'] = '1'
-            self.env['PYTHONFAULTHANDLER'] = '1'
+            self.env["PYTHONUNBUFFERED"] = "1"
+            self.env["PYTHONFAULTHANDLER"] = "1"
 
             # Create process with platform-specific process group handling
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 self.process = subprocess.Popen(
                     self.cmd,
                     stdout=subprocess.PIPE,
@@ -255,7 +265,7 @@ class BaseProcessThread(QtCore.QThread):
                     universal_newlines=True,
                     bufsize=1,  # Line buffered
                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                    env=self.env
+                    env=self.env,
                 )
             else:  # Unix/Linux/macOS
                 self.process = subprocess.Popen(
@@ -265,25 +275,27 @@ class BaseProcessThread(QtCore.QThread):
                     universal_newlines=True,
                     bufsize=1,  # Line buffered
                     preexec_fn=os.setsid,  # Create new process group
-                    env=self.env
+                    env=self.env,
                 )
 
             # Stream output in real-time
             if self.process.stdout:
-                for line in iter(self.process.stdout.readline, ''):
+                for line in iter(self.process.stdout.readline, ""):
                     if self.terminated:
                         break
 
                     if line:
                         # Clean and process the line
-                        raw_line = line.rstrip('\n')
+                        raw_line = line.rstrip("\n")
                         line_clean = self._strip_ansi_codes(raw_line)
                         line_stripped = line_clean.strip()
 
                         if line_stripped:
                             # Detect message type
                             line_lower = line_stripped.lower()
-                            message_type = self._detect_message_type(line_stripped, line_lower)
+                            message_type = self._detect_message_type(
+                                line_stripped, line_lower
+                            )
 
                             # Emit to GUI
                             self.output_signal.emit(line_stripped, message_type)
@@ -294,7 +306,9 @@ class BaseProcessThread(QtCore.QThread):
                 if returncode != 0:
                     # Note: Non-zero exit codes don't necessarily mean failure
                     # (e.g., SimNIBS may return warnings). Just log it.
-                    self.error_signal.emit(f"Process returned non-zero exit code ({returncode})")
+                    self.error_signal.emit(
+                        f"Process returned non-zero exit code ({returncode})"
+                    )
 
         except Exception as e:
             self.error_signal.emit(f"Error running process: {str(e)}")
@@ -313,17 +327,17 @@ class BaseProcessThread(QtCore.QThread):
             return text
 
         # Remove ANSI sequences
-        cleaned = self.ANSI_ESCAPE_PATTERN.sub('', text)
+        cleaned = self.ANSI_ESCAPE_PATTERN.sub("", text)
 
         # Remove any stray ESC characters
-        cleaned = cleaned.replace('\x1b', '')
+        cleaned = cleaned.replace("\x1b", "")
 
         return cleaned
 
     def _detect_message_type(self, line_stripped, line_lower):
         """
         Intelligent message type detection from output line content.
-        
+
         This method uses the shared detect_message_type_from_content() utility function
         to ensure consistent message classification across all TI-Toolbox components.
 
@@ -334,7 +348,7 @@ class BaseProcessThread(QtCore.QThread):
         Returns:
             Message type string: 'error', 'warning', 'info', 'debug',
                                 'success', 'command', or 'default'
-                                
+
         Examples:
             >>> _detect_message_type("[ERROR] File not found", "[error] file not found")
             'error'
@@ -360,13 +374,13 @@ class BaseProcessThread(QtCore.QThread):
         if self.process and self.process.poll() is None:  # Process is still running
             self.terminated = True
 
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 # Use taskkill with /T flag to kill entire process tree
                 try:
                     subprocess.call(
-                        ['taskkill', '/F', '/T', '/PID', str(self.process.pid)],
+                        ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
                         stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL
+                        stdout=subprocess.DEVNULL,
                     )
                 except (OSError, subprocess.SubprocessError):
                     # Fallback: try direct kill
@@ -425,7 +439,7 @@ class BaseProcessThread(QtCore.QThread):
 
 
 # Example usage and testing
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
     from PyQt5 import QtWidgets
 
@@ -433,10 +447,10 @@ if __name__ == '__main__':
         """Simple test thread that lists directory."""
 
         def run(self):
-            if os.name == 'nt':
-                self.cmd = ['cmd', '/c', 'dir']
+            if os.name == "nt":
+                self.cmd = ["cmd", "/c", "dir"]
             else:
-                self.cmd = ['ls', '-la']
+                self.cmd = ["ls", "-la"]
 
             self.execute_process()
 

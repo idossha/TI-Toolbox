@@ -141,7 +141,9 @@ def _run_subject_pipeline(
         )
 
     if overall_success:
-        logger.info(f"└─ Pre-processing completed successfully for subject: {subject_id}")
+        logger.info(
+            f"└─ Pre-processing completed successfully for subject: {subject_id}"
+        )
     else:
         logger.info(f"└─ Pre-processing failed for subject: {subject_id}")
 
