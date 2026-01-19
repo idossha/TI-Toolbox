@@ -3,7 +3,7 @@
 Responder ML CLI.
 
 Train a responder/non-responder classifier from TI_max E-field NIfTIs in MNI space
-using the Glasser atlas in `resources/atlas/` by default.
+using the `seg-aparc.aseg_space-MNI152NLin2009cAsym` atlas in `resources/atlas/` by default.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ class ResponderMLCLI(BaseCLI):
             ArgumentDefinition(
                 name="atlas_path",
                 type=str,
-                help="Atlas NIfTI path (default: Glasser)",
+                help="Atlas NIfTI path (default: seg-aparc.aseg_space-MNI152NLin2009cAsym)",
                 required=False,
             )
         )

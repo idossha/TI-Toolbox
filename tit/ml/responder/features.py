@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import logging
 
-from .config import default_glasser_atlas_path
+from .config import default_atlas_path
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +100,11 @@ def _load_atlas(atlas_path: Optional[Path]) -> Path:
         if not p.is_file():
             raise FileNotFoundError(f"Atlas not found: {p}")
         return p
-    p = default_glasser_atlas_path()
+    p = default_atlas_path()
     if p is None:
         raise FileNotFoundError(
-            "Default Glasser atlas not found. Expected resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz. "
+            "Default atlas not found. Expected resources/atlas/"
+            "seg-aparc.aseg_space-MNI152NLin2009cAsym.nii.gz. "
             "Provide --atlas-path explicitly."
         )
     return p

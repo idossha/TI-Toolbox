@@ -3,5 +3,5 @@ Responder prediction from TI E-field NIfTIs (MNI space) with atlas-based feature
 
 Default assumptions follow TI-toolbox conventions:
 - E-field map: grey_{sim}_TI_MNI_MNI_TI_max.nii.gz (already in MNI space, GM-masked)
-- Atlas: resources/atlas/MNI_Glasser_HCP_v1.0.nii.gz (Glasser)
+- Atlas: resources/atlas/seg-aparc.aseg_space-MNI152NLin2009cAsym.nii.gz
 """

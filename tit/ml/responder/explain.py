@@ -14,7 +14,7 @@ from tit.plotting.responder_ml import (
     plot_top_coefficients,
 )
 
-from .config import default_glasser_atlas_path, default_glasser_labels_path
+from .config import default_atlas_path, default_atlas_labels_path
 from .dataset import is_sham_condition, load_efield_images, load_subject_table
 from .features import _ensure_3d_data, parse_voxel_feature_names
 from tit.tools.extract_labels import label_ids_in_nifti, load_labels_tsv
@@ -61,15 +61,15 @@ def _resolve_labels_tsv(
     if sidecar.is_file():
         return sidecar
 
-    # 2) Fallback: default Glasser TSV (repo resources).
-    p = default_glasser_labels_path()
+    # 2) Fallback: default atlas TSV (repo resources).
+    p = default_atlas_labels_path()
     if p is not None and p.is_file():
         return p
     return None
 
 
 def _load_labels_map(
-    *, atlas_path: Path, labels_path: Optional[Path]
+    *, atlas_path: Path, labels_path: Optional[Path], strict: bool = False
 ) -> Dict[int, str]:
     """
     Load label map from TSV and validate 1:1 agreement with atlas NIfTI IDs.
@@ -77,7 +77,9 @@ def _load_labels_map(
     Rules:
     - Only `.tsv` is accepted.
     - TSV must contain at least `number` and `label` columns (RGB optional).
-    - TSV IDs must match the atlas label IDs (excluding 0) exactly.
+    - If `strict=True`, TSV IDs must match atlas label IDs (excluding 0) exactly.
+      If `strict=False` (default), mismatches are allowed and missing IDs will fall
+      back to `ROI_<id>` when reporting.
     """
     p = _resolve_labels_tsv(atlas_path=atlas_path, labels_path=labels_path)
     if p is None:
@@ -92,15 +94,16 @@ def _load_labels_map(
     atlas_ids = set(label_ids_in_nifti(atlas_path, exclude=(0,)))
     tsv_ids = set(mapping.keys())
     if atlas_ids != tsv_ids:
-        missing = sorted(atlas_ids - tsv_ids)
-        extra = sorted(tsv_ids - atlas_ids)
-        msg = "Atlas/labels mismatch (must be 1:1).\n"
-        if missing:
-            msg += f"- Missing in TSV (first 25): {missing[:25]}\n"
-        if extra:
-            msg += f"- Extra in TSV (first 25): {extra[:25]}\n"
-        msg += f"Atlas: {atlas_path}\nLabels: {p}"
-        raise RuntimeError(msg)
+        if strict:
+            missing = sorted(atlas_ids - tsv_ids)
+            extra = sorted(tsv_ids - atlas_ids)
+            msg = "Atlas/labels mismatch (must be 1:1).\n"
+            if missing:
+                msg += f"- Missing in TSV (first 25): {missing[:25]}\n"
+            if extra:
+                msg += f"- Extra in TSV (first 25): {extra[:25]}\n"
+            msg += f"Atlas: {atlas_path}\nLabels: {p}"
+            raise RuntimeError(msg)
     return mapping
 
 
@@ -167,6 +170,8 @@ def explain_model(
                 feature_names=feature_names,
                 voxel_ref_shape=voxel_ref_shape,
                 voxel_ref_affine=voxel_ref_affine,
+                atlas_path=atlas_path,
+                atlas_labels_path=atlas_labels_path,
                 model_path=model_path,
                 out_dir=out_dir,
                 logger=logger,
@@ -197,7 +202,7 @@ def explain_model(
             if atlas_path is not None:
                 atlas_p = Path(atlas_path)
             if atlas_p is None or not atlas_p.is_file():
-                atlas_p = default_glasser_atlas_path()
+                atlas_p = default_atlas_path()
             if atlas_p is None or not atlas_p.is_file():
                 raise FileNotFoundError("Atlas not found. Provide --atlas-path.")
         
@@ -239,7 +244,9 @@ def explain_model(
                     roi_id = -1
                 parsed.append((roi_id, stat, float(w)))
         
-            label_map = _load_labels_map(atlas_path=atlas_p, labels_path=atlas_labels_path)
+            label_map = _load_labels_map(
+                atlas_path=atlas_p, labels_path=atlas_labels_path, strict=False
+            )
         
             # Save ROI weights table
             roi_weights_csv = out_dir / "roi_weights.csv"
@@ -317,6 +324,19 @@ def explain_model(
             # --- Brain visualizations (PNG + HTML) for each weight map ---
             for weight_map in weight_maps:
                 try:
+                    # Pick a small set of ROIs for contour overlay (top-|weight|).
+                    stat = weight_map.name
+                    if stat.startswith("weight_map_"):
+                        stat = stat[len("weight_map_") :]
+                    if stat.lower().endswith(".nii.gz"):
+                        stat = stat[: -len(".nii.gz")]
+                    roi_to_w = {roi: w for roi, s, w in parsed if s == stat and roi > 0}
+                    contour_roi_ids = [
+                        int(roi)
+                        for roi, _w in sorted(
+                            roi_to_w.items(), key=lambda t: abs(t[1]), reverse=True
+                        )[:10]
+                    ]
                     viz_paths = create_weight_map_visualizations(
                         weight_map=weight_map,
                         out_dir=figures_dir,
@@ -364,6 +384,8 @@ def _explain_voxel_features(
     feature_names: List[str],
     voxel_ref_shape: Optional[Sequence[int]],
     voxel_ref_affine: Optional[Sequence[Sequence[float]]],
+    atlas_path: Optional[Path],
+    atlas_labels_path: Optional[Path],
     model_path: Path,
     out_dir: Path,
     logger,
@@ -449,6 +471,75 @@ def _explain_voxel_features(
         lines.append(f"{x},{y},{z},{weight}")
     voxel_weights_csv.write_text("\n".join(lines) + "\n")
 
+    # --- NEW: map weighted voxels to atlas ROIs and summarize (count + mass) ---
+    contour_roi_ids: List[int] = []
+    try:
+        import nilearn.image as nii_img  # type: ignore
+
+        atlas_p = Path(atlas_path) if atlas_path is not None else None
+        if atlas_p is None or not atlas_p.is_file():
+            atlas_p = default_atlas_path()
+        if atlas_p is None or not atlas_p.is_file():
+            logger.warning("Atlas ROI summary skipped: atlas not found")
+        else:
+            label_map = _load_labels_map(
+                atlas_path=atlas_p, labels_path=atlas_labels_path, strict=False
+            )
+            atlas_img = nib.load(str(atlas_p))
+            # Resample atlas labels onto the voxel weight map grid.
+            atlas_in_voxel_space = nii_img.resample_to_img(
+                atlas_img, weight_img, interpolation="nearest"
+            )
+            atlas_data = np.asanyarray(atlas_in_voxel_space.dataobj).astype(np.int32)
+            w = np.asarray(weight_volume, dtype=np.float32)
+            mask = (w != 0.0) & np.isfinite(w)
+            roi_ids = atlas_data[mask]
+            w_sel = w[mask]
+            keep = roi_ids > 0
+            roi_ids = roi_ids[keep]
+            w_sel = w_sel[keep]
+
+            summary_csv = out_dir / "voxel_roi_summary.csv"
+            if roi_ids.size == 0:
+                summary_csv.write_text(
+                    "roi_id,label_name,voxel_count,weight_sum,weight_mass_abs\n"
+                )
+                logger.warning(
+                    "Atlas ROI summary: no non-background atlas labels overlapped the selected voxels"
+                )
+            else:
+                # Aggregate.
+                uniq = np.unique(roi_ids)
+                rows: List[Tuple[int, int, float, float]] = []
+                for rid in uniq.tolist():
+                    rid_i = int(rid)
+                    m = roi_ids == rid_i
+                    cnt = int(m.sum())
+                    w_sum = float(w_sel[m].sum())
+                    w_abs = float(np.abs(w_sel[m]).sum())
+                    rows.append((rid_i, cnt, w_sum, w_abs))
+                rows_sorted = sorted(rows, key=lambda t: t[3], reverse=True)
+
+                # Save CSV.
+                out_lines = ["roi_id,label_name,voxel_count,weight_sum,weight_mass_abs"]
+                for rid_i, cnt, w_sum, w_abs in rows_sorted:
+                    out_lines.append(
+                        f"{rid_i},{label_map.get(rid_i, f'ROI_{rid_i}')},{cnt},{w_sum},{w_abs}"
+                    )
+                summary_csv.write_text("\n".join(out_lines) + "\n")
+                logger.info(f"Saved atlas ROI summary: {summary_csv}")
+                # Lightweight report (top ROIs by absolute mass).
+                top_k = min(10, len(rows_sorted))
+                for rid_i, cnt, w_sum, w_abs in rows_sorted[:top_k]:
+                    logger.info(
+                        f"ROI mass: id={rid_i} name={label_map.get(rid_i, f'ROI_{rid_i}')} "
+                        f"n_vox={cnt} mass_abs={w_abs:.6g} sum={w_sum:.6g}"
+                    )
+
+                contour_roi_ids = [rid for rid, _cnt, _ws, _wa in rows_sorted[:10]]
+    except Exception as e:
+        logger.warning(f"Atlas ROI summary skipped/failed (non-fatal): {e}")
+
     # Generate figures
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -528,6 +619,9 @@ def _explain_voxel_features(
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
     try:
+        atlas_p = Path(atlas_path) if atlas_path is not None else None
+        if atlas_p is None or not atlas_p.is_file():
+            atlas_p = default_atlas_path()
         viz_paths = create_weight_map_visualizations(
             weight_map=weight_map_path,
             out_dir=figures_dir,
@@ -713,7 +807,7 @@ def _maybe_add_intensity_response_fig5(
             if atlas_path is not None:
                 atlas_p = Path(atlas_path)
             if atlas_p is None or not atlas_p.is_file():
-                atlas_p = default_glasser_atlas_path()
+                atlas_p = default_atlas_path()
             if atlas_p is None or not atlas_p.is_file():
                 logger.warning("Fig5 skipped: atlas not found")
                 return

@@ -272,7 +272,10 @@ def plot_model_diagnostics_from_predictions_csv(
 
 
 def create_weight_map_visualizations(
-    *, weight_map: Path, out_dir: Path, title: str
+    *,
+    weight_map: Path,
+    out_dir: Path,
+    title: str,
 ) -> List[Path]:
     """
     Create glass brain PNG + interactive HTML for a weight map.
@@ -298,10 +301,13 @@ def create_weight_map_visualizations(
     glass.savefig(str(glass_png))
     glass.close()
 
+    out_paths: List[Path] = [glass_png]
+
     view = plotting.view_img(img, title=title, colorbar=True, black_bg=True)
     view.save_as_html(str(html_path))
 
-    return [glass_png, html_path]
+    out_paths.append(html_path)
+    return out_paths
 
 
 def plot_intensity_response_fig5(
@@ -428,7 +434,7 @@ def plot_intensity_response_fig5(
     axA.fill_between(centers, 0, pm_n, step="mid", color="#1f77b4", alpha=0.25)
     axA.step(centers, pm_r, where="mid", color="#d62728", linewidth=2, label="Responder")
     axA.fill_between(centers, 0, pm_r, step="mid", color="#d62728", alpha=0.25)
-    axA.set_xlabel("Current intensity (a.u.)")
+    axA.set_xlabel("Current intensity (V/m)")
     axA.set_ylabel("Probability mass")
     axA.set_title("A) Intensity histogram (normalized)")
     axA.grid(True, alpha=0.2)
@@ -437,7 +443,7 @@ def plot_intensity_response_fig5(
     # B) cumulative histogram (CDF)
     axB.step(centers, cdf_n, where="mid", color="#1f77b4", linewidth=2, label="Non-responder")
     axB.step(centers, cdf_r, where="mid", color="#d62728", linewidth=2, label="Responder")
-    axB.set_xlabel("Current intensity (a.u.)")
+    axB.set_xlabel("Current intensity (V/m)")
     axB.set_ylabel("Cumulative probability")
     axB.set_title("B) CDF of intensity")
     axB.set_ylim(-0.02, 1.02)
@@ -465,11 +471,70 @@ def plot_intensity_response_fig5(
         edgecolors="none",
         label="Responder",
     )
-    axC.set_xlabel("Median intensity (per subject)")
+    axC.set_xlabel("Median intensity (V/m; per subject)")
     axC.set_ylabel("Behavior / target")
     axC.set_title("C) Behavior vs median intensity")
     axC.grid(True, alpha=0.2)
     axC.legend(frameon=False, fontsize=9)
+
+    # Add a global linear trend line with equation.
+    x_fit = np.asarray(x_med, dtype=float)
+    y_fit = np.asarray(y_beh, dtype=float)
+    finite = np.isfinite(x_fit) & np.isfinite(y_fit)
+    if int(finite.sum()) >= 2:
+        xx = x_fit[finite]
+        yy = y_fit[finite]
+        slope, intercept = np.polyfit(xx, yy, deg=1)
+        x_line = np.linspace(float(xx.min()), float(xx.max()), num=200)
+        y_line = slope * x_line + intercept
+        axC.plot(
+            x_line,
+            y_line,
+            color="black",
+            linestyle="--",
+            linewidth=2,
+            alpha=0.85,
+            label="Linear fit",
+        )
+        # R^2 (guard for constant-y edge case)
+        y_hat = slope * xx + intercept
+        ss_res = float(np.sum((yy - y_hat) ** 2))
+        ss_tot = float(np.sum((yy - float(np.mean(yy))) ** 2))
+        r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else float("nan")
+
+        # p-value for slope (two-sided). Prefer SciPy for numerical stability.
+        p_val = float("nan")
+        try:
+            from scipy import stats  # type: ignore
+
+            lr = stats.linregress(xx, yy)
+            p_val = float(lr.pvalue)
+        except Exception:
+            p_val = float("nan")
+
+        r2_txt = f"$R^2$ = {r2:.3g}" if np.isfinite(r2) else None
+        p_txt = f"p = {p_val:.3g}" if np.isfinite(p_val) else None
+
+        lines = [f"y = {slope:.3g}x + {intercept:.3g}"]
+        if r2_txt and p_txt:
+            lines.append(f"{r2_txt}, {p_txt}")
+        elif r2_txt:
+            lines.append(r2_txt)
+        elif p_txt:
+            lines.append(p_txt)
+        eq = "\n".join(lines)
+        axC.text(
+            0.02,
+            0.98,
+            eq,
+            transform=axC.transAxes,
+            ha="left",
+            va="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="none", alpha=0.75),
+        )
+        # Refresh legend to include the fit line.
+        axC.legend(frameon=False, fontsize=9)
 
     # D) Gardner–Altman estimation plot (median intensity)
     # Left: raw group points
@@ -483,7 +548,7 @@ def plot_intensity_response_fig5(
     axD.hlines(np.mean(grp_r), 0.8, 1.2, color="#d62728", linewidth=3)
     axD.set_xticks([0.0, 1.0])
     axD.set_xticklabels(["Non", "Resp"])
-    axD.set_ylabel("Median intensity")
+    axD.set_ylabel("Median intensity (V/m)")
     axD.set_title(f"D) Estimation (Δ mean={diff_mean:.3g} [{ci_lo:.3g},{ci_hi:.3g}], Hedges g={g:.3g})")
     axD.grid(True, axis="y", alpha=0.2)
 

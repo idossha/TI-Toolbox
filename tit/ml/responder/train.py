@@ -13,7 +13,7 @@ import time
 
 from tit import logger as logging_util
 
-from .config import ResponderMLConfig, default_output_dir, default_glasser_atlas_path
+from .config import ResponderMLConfig, default_output_dir, default_atlas_path
 from .dataset import (
     SubjectRow,
     is_sham_condition,
@@ -349,7 +349,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     End-to-end training:
     - load subjects.csv
     - load E-field NIfTIs
-    - extract Glasser ROI features (mean/max/top10 mean)
+    - extract atlas ROI features (mean/max/top10 mean)
     - nested CV for unbiased estimate
     - fit final model on all data and save artifacts
     """
@@ -399,7 +399,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
 
         atlas_path = cfg.atlas_path
         if atlas_path is None:
-            atlas_path = default_glasser_atlas_path()
+            atlas_path = default_atlas_path()
         logger.info(f"Atlas: {atlas_path}")
 
     # Condition-aware loading:

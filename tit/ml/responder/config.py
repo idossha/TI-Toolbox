@@ -8,8 +8,10 @@ from tit.core import get_path_manager
 
 
 DEFAULT_EFIELD_FILENAME_PATTERN = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
-DEFAULT_GLASSER_ATLAS_FILENAME = "MNI_Glasser_HCP_v1.0.nii.gz"
-DEFAULT_GLASSER_LABELS_FILENAME = "MNI_Glasser_HCP_v1.0.tsv"
+# Default atlas for ML feature extraction / explanations (MNI space).
+# This is expected to live in `resources/atlas/` (repo root or project copy).
+DEFAULT_ATLAS_FILENAME = "seg-aparc.aseg_space-MNI152NLin2009cAsym.nii.gz"
+DEFAULT_ATLAS_LABELS_FILENAME = "seg-aparc.aseg_space-MNI152NLin2009cAsym.tsv"
 
 
 def _find_resources_atlas_dir() -> Optional[Path]:
@@ -38,19 +40,19 @@ def _find_resources_atlas_dir() -> Optional[Path]:
     return None
 
 
-def default_glasser_atlas_path() -> Optional[Path]:
+def default_atlas_path() -> Optional[Path]:
     atlas_dir = _find_resources_atlas_dir()
     if not atlas_dir:
         return None
-    p = atlas_dir / DEFAULT_GLASSER_ATLAS_FILENAME
+    p = atlas_dir / DEFAULT_ATLAS_FILENAME
     return p if p.is_file() else None
 
 
-def default_glasser_labels_path() -> Optional[Path]:
+def default_atlas_labels_path() -> Optional[Path]:
     atlas_dir = _find_resources_atlas_dir()
     if not atlas_dir:
         return None
-    p = atlas_dir / DEFAULT_GLASSER_LABELS_FILENAME
+    p = atlas_dir / DEFAULT_ATLAS_LABELS_FILENAME
     return p if p.is_file() else None
 
 

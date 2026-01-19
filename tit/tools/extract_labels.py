@@ -24,12 +24,46 @@ def load_labels_tsv(tsv_path):
     import csv
 
     mapping = {}
-    with open(tsv_path, 'r', newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f, delimiter='\t')
+    with open(tsv_path, "r", newline="", encoding="utf-8") as f:
+        # Support two common formats:
+        # 1) Headerless 2-column TSV: <id>\t<label>
+        # 2) Headered TSV with columns like {number|id|label_id} and {label|name|region}
+        pos = f.tell()
+        first = f.readline()
+        if not first:
+            return mapping
+        f.seek(pos)
+
+        first_parts = first.rstrip("\n").split("\t")
+        if len(first_parts) >= 2:
+            # Heuristic: headerless files usually start with an integer ID in col 0.
+            try:
+                int(first_parts[0].strip())
+                looks_headerless = True
+            except ValueError:
+                looks_headerless = False
+        else:
+            looks_headerless = False
+
+        if looks_headerless:
+            reader2 = csv.reader(f, delimiter="\t")
+            for row in reader2:
+                if not row or len(row) < 2:
+                    continue
+                try:
+                    label_id = int(str(row[0]).strip())
+                except ValueError:
+                    continue
+                label_name = str(row[1]).strip()
+                if label_name:
+                    mapping[label_id] = label_name
+            return mapping
+
+        reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
             # Try different column names that might contain the label ID
             label_id = None
-            for col_name in ['number', 'id', 'label_id']:
+            for col_name in ["number", "id", "label_id"]:
                 if col_name in row and row[col_name].strip():
                     try:
                         label_id = int(row[col_name])
@@ -39,7 +73,7 @@ def load_labels_tsv(tsv_path):
 
             # Get label name
             label_name = None
-            for col_name in ['label', 'name', 'region']:
+            for col_name in ["label", "name", "region"]:
                 if col_name in row and row[col_name].strip():
                     label_name = row[col_name].strip()
                     break
