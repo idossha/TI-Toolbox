@@ -30,6 +30,7 @@ def load_subject_table(
     target_col: str = "response",
     condition_col: Optional[str] = None,
     sham_value: str = "sham",
+    task: str = "classification",
     require_target: bool = True,
 ) -> List[SubjectRow]:
     """
@@ -42,7 +43,8 @@ def load_subject_table(
     - condition_col (only if provided)
 
     Target parsing:
-    - target must be 0/1 (binary classification only)
+    - classification: target must be 0/1
+    - regression: target must be numeric (float)
 
     Sham handling (optional):
     - If `condition_col` is provided and the row's condition equals `sham_value`
@@ -92,17 +94,27 @@ def load_subject_table(
                 raw = (r.get(str(target_col)) or "").strip()
                 if raw == "":
                     raise ValueError(f"Empty {target_col!r} on line {i}")
-                try:
-                    resp = int(raw)
-                except ValueError:
-                    raise ValueError(
-                        f"Invalid {target_col!r} on line {i}: {raw!r} (expected 0/1)"
-                    ) from None
-                if resp not in (0, 1):
-                    raise ValueError(
-                        f"Invalid {target_col!r} on line {i}: {resp} (expected 0/1)"
-                    )
-                target_val = float(resp)
+                if str(task) == "classification":
+                    try:
+                        resp = int(raw)
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid {target_col!r} on line {i}: {raw!r} (expected 0/1)"
+                        ) from None
+                    if resp not in (0, 1):
+                        raise ValueError(
+                            f"Invalid {target_col!r} on line {i}: {resp} (expected 0/1)"
+                        )
+                    target_val = float(resp)
+                elif str(task) == "regression":
+                    try:
+                        target_val = float(raw)
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid {target_col!r} on line {i}: {raw!r} (expected numeric)"
+                        ) from None
+                else:
+                    raise ValueError(f"Unknown task type: {task}")
 
             rows.append(
                 SubjectRow(

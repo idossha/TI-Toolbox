@@ -270,6 +270,49 @@ def extract_stats_ttest_features(
     )
 
 
+def extract_stats_fregression_features(
+    efield_imgs: Sequence[Any],
+    y: Sequence[float],
+    *,
+    p_threshold: float = 0.001,
+) -> FeatureMatrix:
+    """
+    Extract features using univariate F-test for regression.
+
+    Selects voxels whose univariate F-test p-values are below threshold.
+    """
+    from sklearn.feature_selection import f_regression  # type: ignore
+
+    if len(efield_imgs) != len(y):
+        raise ValueError(f"Mismatch: {len(efield_imgs)} images but {len(y)} targets")
+    if len(efield_imgs) < 4:
+        raise ValueError(
+            f"Need at least 4 subjects for statistical testing, got {len(efield_imgs)}"
+        )
+
+    y_arr = np.asarray(y, dtype=float)
+    if not np.isfinite(y_arr).all():
+        raise ValueError("Targets contain NaN/inf values")
+    if np.allclose(y_arr, y_arr[0]):
+        raise ValueError("Targets are constant; regression feature selection is undefined")
+
+    img_data, _ref_img, img_shape_3d = _prepare_efield_arrays(efield_imgs)
+
+    # Univariate F-test for each voxel
+    _f_stat, p_values = f_regression(img_data, y_arr)
+    significant_mask = (p_values < p_threshold) & (~np.isnan(p_values))
+    if not np.any(significant_mask):
+        raise ValueError(f"No voxels passed p < {p_threshold} threshold")
+
+    flat_indices = np.flatnonzero(significant_mask)
+    voxel_coords = np.unravel_index(flat_indices, img_shape_3d)
+    voxel_coords_list = list(zip(*voxel_coords))
+    feature_names = [f"voxel_{x}_{y}_{z}" for x, y, z in voxel_coords_list]
+    X = img_data[:, significant_mask]
+
+    return FeatureMatrix(X=X, feature_names=feature_names, atlas_path=None)
+
+
 def select_ttest_voxel_coords(
     efield_imgs: Sequence[Any],
     y: Sequence[float],
@@ -316,6 +359,43 @@ def select_ttest_voxel_coords(
     return voxel_coords, ref, img_shape_3d
 
 
+def select_fregression_voxel_coords(
+    efield_imgs: Sequence[Any],
+    y: Sequence[float],
+    *,
+    p_threshold: float = 0.001,
+    ref_img: Optional[Any] = None,
+) -> Tuple[List[Tuple[int, int, int]], Any, Tuple[int, int, int]]:
+    """
+    Run univariate F-tests and return selected voxel coordinates + reference image.
+    """
+    from sklearn.feature_selection import f_regression  # type: ignore
+
+    if len(efield_imgs) != len(y):
+        raise ValueError(f"Mismatch: {len(efield_imgs)} images but {len(y)} targets")
+    if len(efield_imgs) < 4:
+        raise ValueError(
+            f"Need at least 4 subjects for statistical testing, got {len(efield_imgs)}"
+        )
+
+    y_arr = np.asarray(y, dtype=float)
+    if not np.isfinite(y_arr).all():
+        raise ValueError("Targets contain NaN/inf values")
+    if np.allclose(y_arr, y_arr[0]):
+        raise ValueError("Targets are constant; regression feature selection is undefined")
+
+    img_data, ref, img_shape_3d = _prepare_efield_arrays(efield_imgs, ref_img=ref_img)
+
+    _f_stat, p_values = f_regression(img_data, y_arr)
+    significant_mask = (p_values < p_threshold) & (~np.isnan(p_values))
+    if not np.any(significant_mask):
+        raise ValueError(f"No voxels passed p < {p_threshold} threshold")
+
+    flat_indices = np.flatnonzero(significant_mask)
+    voxel_coords = list(zip(*np.unravel_index(flat_indices, img_shape_3d)))
+    return voxel_coords, ref, img_shape_3d
+
+
 def extract_features(
     efield_imgs: Sequence[Any],
     y: Optional[Sequence[float]] = None,
@@ -333,6 +413,7 @@ def extract_features(
 
     For atlas_roi approach: uses atlas-based ROI averaging.
     For stats_ttest approach: uses mass univariate t-test for voxel selection.
+    For stats_fregression approach: uses univariate F-test for regression targets.
     """
     if feature_reduction_approach == "atlas_roi":
         return extract_roi_features_from_efield(
@@ -351,8 +432,16 @@ def extract_features(
             y,
             p_threshold=ttest_p_threshold,
         )
+    elif feature_reduction_approach == "stats_fregression":
+        if y is None:
+            raise ValueError("y (targets) required for stats_fregression approach")
+        return extract_stats_fregression_features(
+            efield_imgs,
+            y,
+            p_threshold=ttest_p_threshold,
+        )
     else:
         raise ValueError(
             f"Unknown feature_reduction_approach: {feature_reduction_approach}. "
-            "Must be 'atlas_roi' or 'stats_ttest'"
+            "Must be 'atlas_roi', 'stats_ttest', or 'stats_fregression'"
         )

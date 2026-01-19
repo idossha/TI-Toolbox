@@ -60,6 +60,16 @@ class ResponderMLCLI(BaseCLI):
         )
         self.add_argument(
             ArgumentDefinition(
+                name="task",
+                type=str,
+                choices=["classification", "regression"],
+                help="ML task type (classification or regression).",
+                default="classification",
+                required=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
                 name="condition_col",
                 type=str,
                 help="Optional name of a condition column. Rows whose condition equals `sham_value` will be treated as sham and get all-zero ROI features (no NIfTI required).",
@@ -188,8 +198,8 @@ class ResponderMLCLI(BaseCLI):
             ArgumentDefinition(
                 name="feature_reduction_approach",
                 type=str,
-                choices=["atlas_roi", "stats_ttest"],
-                help="Feature reduction approach: atlas_roi (traditional ROI averaging) or stats_ttest (mass univariate t-test voxel selection)",
+                choices=["atlas_roi", "stats_ttest", "stats_fregression"],
+                help="Feature reduction approach: atlas_roi (traditional ROI averaging), stats_ttest (t-test voxel selection), or stats_fregression (F-test voxel selection for regression)",
                 default="atlas_roi",
                 required=False,
             )
@@ -212,6 +222,7 @@ class ResponderMLCLI(BaseCLI):
                 required=False,
             )
         )
+
 
     def execute(self, args: Dict[str, Any]) -> int:
         cmd = (args.get("command") or "").strip()
@@ -251,6 +262,7 @@ class ResponderMLCLI(BaseCLI):
                 logger.info(f"CLI args (raw): {args}")
             cfg = ResponderMLConfig(
                 csv_path=Path(csv_path),
+                task=str(args.get("task") or "classification"),
                 target_col=str(args.get("target_col") or "response"),
                 condition_col=(
                     str(args.get("condition_col")).strip()

@@ -7,8 +7,16 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from tit import logger as logging_util
+from tit.plotting.responder_ml import (
+    create_weight_map_visualizations,
+    plot_intensity_response_fig5,
+    plot_model_diagnostics_from_predictions_csv,
+    plot_top_coefficients,
+)
 
 from .config import default_glasser_atlas_path, default_glasser_labels_path
+from .dataset import is_sham_condition, load_efield_images, load_subject_table
+from .features import _ensure_3d_data, parse_voxel_feature_names
 from tit.tools.extract_labels import label_ids_in_nifti, load_labels_tsv
 
 
@@ -134,21 +142,52 @@ def explain_model(
         est = bundle.get("model")
         feature_names: List[str] = list(bundle.get("feature_names") or [])
         atlas_from_model = bundle.get("atlas_path")
-        config_from_model = bundle.get("config", {})
-        feature_reduction_approach = config_from_model.get("feature_reduction_approach", "atlas_roi")
+        config_from_model = dict(bundle.get("config", {}) or {})
+        if "voxel_ref_shape" not in config_from_model and "voxel_ref_shape" in bundle:
+            config_from_model["voxel_ref_shape"] = bundle.get("voxel_ref_shape")
+        if "voxel_ref_affine" not in config_from_model and "voxel_ref_affine" in bundle:
+            config_from_model["voxel_ref_affine"] = bundle.get("voxel_ref_affine")
+        feature_reduction_approach = config_from_model.get(
+            "feature_reduction_approach", "atlas_roi"
+        )
+        voxel_ref_shape = config_from_model.get("voxel_ref_shape")
+        voxel_ref_affine = config_from_model.get("voxel_ref_affine")
+        task = str(config_from_model.get("task") or "classification")
+        target_col = str(config_from_model.get("target_col") or "response")
+        csv_path_from_model = config_from_model.get("csv_path")
 
         if not feature_names:
             raise RuntimeError("Model bundle missing feature_names")
 
         # Handle different feature types based on approach
-        if feature_reduction_approach == "stats_ttest":
-            # For stats_ttest, features are voxel coordinates like "voxel_X_Y_Z"
-            return _explain_voxel_features(
+        if feature_reduction_approach in ("stats_ttest", "stats_fregression"):
+            # For stats_* approaches, features are voxel coordinates like "voxel_X_Y_Z"
+            artifacts = _explain_voxel_features(
                 est=est,
                 feature_names=feature_names,
+                voxel_ref_shape=voxel_ref_shape,
+                voxel_ref_affine=voxel_ref_affine,
+                model_path=model_path,
                 out_dir=out_dir,
                 logger=logger,
             )
+            _maybe_add_intensity_response_fig5(
+                artifacts=artifacts,
+                feature_reduction_approach=str(feature_reduction_approach),
+                model_path=model_path,
+                out_dir=out_dir,
+                logger=logger,
+                csv_path_from_model=csv_path_from_model,
+                target_col=target_col,
+                task=task,
+                atlas_path=atlas_path,
+                atlas_from_model=atlas_from_model,
+                voxel_ref_shape=voxel_ref_shape,
+                voxel_ref_affine=voxel_ref_affine,
+                feature_names=feature_names,
+                est=est,
+            )
+            return artifacts
         else:
             # For atlas_roi, features are ROI-based like "ROI_<id>__<stat>"
             pass  # Continue with existing ROI-based logic
@@ -238,7 +277,7 @@ def explain_model(
             # --- Industry-standard visual 1: feature importance (top coefficients) ---
             feat_imp = figures_dir / "feature_importance_top.png"
             try:
-                _plot_top_coefficients(
+                plot_top_coefficients(
                     parsed=parsed,
                     label_map=label_map,
                     out_path=feat_imp,
@@ -250,12 +289,16 @@ def explain_model(
             except Exception as e:
                 logger.warning(f"Could not generate feature importance figure: {e}")
         
-            # --- Industry-standard visual 2: model diagnostics (ROC/PR/Calib/Confusion or regression diagnostics) ---
-            pred_path = model_path.parent / "cv_predictions.csv"
+            # --- Industry-standard visual 2: model diagnostics (classification or regression) ---
             diag = figures_dir / "model_diagnostics.png"
-            if pred_path.is_file():
+            pred_candidates = [
+                model_path.parent / "cv_predictions.csv",
+                model_path.parent / "predictions.csv",
+            ]
+            pred_path = next((p for p in pred_candidates if p.is_file()), None)
+            if pred_path is not None:
                 try:
-                    _plot_model_diagnostics_from_predictions_csv(
+                    plot_model_diagnostics_from_predictions_csv(
                         predictions_csv=pred_path,
                         out_path=diag,
                     )
@@ -265,13 +308,52 @@ def explain_model(
                     logger.warning(
                         f"Could not generate model diagnostics figure from {pred_path}: {e}"
                     )
-        
-            return ExplainArtifacts(
+            else:
+                logger.warning(
+                    "No predictions CSV found for diagnostics "
+                    "(expected cv_predictions.csv or predictions.csv next to model)."
+                )
+
+            # --- Brain visualizations (PNG + HTML) for each weight map ---
+            for weight_map in weight_maps:
+                try:
+                    viz_paths = create_weight_map_visualizations(
+                        weight_map=weight_map,
+                        out_dir=figures_dir,
+                        title=f"Weight map: {weight_map.name}",
+                    )
+                    figures.extend(viz_paths)
+                    for p in viz_paths:
+                        logger.info(f"Saved brain visualization: {p}")
+                except Exception as e:
+                    logger.warning(
+                        f"Could not generate brain visualization for {weight_map}: {e}"
+                    )
+
+            artifacts = ExplainArtifacts(
                 output_dir=out_dir,
                 roi_weights_csv=roi_weights_csv,
                 weight_maps=weight_maps,
                 figures=figures,
             )
+            _maybe_add_intensity_response_fig5(
+                artifacts=artifacts,
+                feature_reduction_approach=str(feature_reduction_approach),
+                model_path=model_path,
+                out_dir=out_dir,
+                logger=logger,
+                csv_path_from_model=csv_path_from_model,
+                target_col=target_col,
+                task=task,
+                atlas_path=atlas_path,
+                atlas_from_model=atlas_from_model,
+                voxel_ref_shape=voxel_ref_shape,
+                voxel_ref_affine=voxel_ref_affine,
+                feature_names=feature_names,
+                est=est,
+            )
+        
+            return artifacts
     except Exception:
         logger.exception("Responder ML explain failed.")
         raise
@@ -280,6 +362,9 @@ def explain_model(
 def _explain_voxel_features(
     est,
     feature_names: List[str],
+    voxel_ref_shape: Optional[Sequence[int]],
+    voxel_ref_affine: Optional[Sequence[Sequence[float]]],
+    model_path: Path,
     out_dir: Path,
     logger,
 ) -> ExplainArtifacts:
@@ -325,28 +410,31 @@ def _explain_voxel_features(
     if not voxel_data:
         raise RuntimeError("No valid voxel coordinates found in feature names")
 
-    # Create voxel weight map
-    # Find the bounding box of significant voxels
-    coords = np.array([(x, y, z) for x, y, z, w in voxel_data])
-    weights = np.array([w for x, y, z, w in voxel_data])
+    # Create voxel weight map in training reference space (if available).
+    if voxel_ref_shape is None or voxel_ref_affine is None:
+        raise RuntimeError(
+            "Voxel reference shape/affine missing from model bundle. "
+            "Re-train the model to include voxel reference metadata."
+        )
 
-    if len(coords) == 0:
-        raise RuntimeError("No voxel coordinates to create weight map")
-
-    # Create 3D weight volume
-    min_coords = coords.min(axis=0)
-    max_coords = coords.max(axis=0)
-    shape = max_coords - min_coords + 1
-
-    # Create weight volume
+    weights = np.array([w for x, y, z, w in voxel_data], dtype=float)
+    shape = tuple(int(v) for v in voxel_ref_shape)
+    if len(shape) != 3:
+        raise RuntimeError(f"Invalid voxel_ref_shape: {shape}")
     weight_volume = np.zeros(shape, dtype=np.float32)
-    for (x, y, z), weight in zip(coords, weights):
-        local_x, local_y, local_z = x - min_coords[0], y - min_coords[1], z - min_coords[2]
-        weight_volume[local_x, local_y, local_z] = weight
 
-    # Create NIfTI image (using a dummy affine - this is for visualization only)
-    affine = np.eye(4)
-    affine[0, 0] = affine[1, 1] = affine[2, 2] = 2.0  # 2mm voxels (typical MNI)
+    dropped = 0
+    for x, y, z, weight in voxel_data:
+        if x < 0 or y < 0 or z < 0 or x >= shape[0] or y >= shape[1] or z >= shape[2]:
+            dropped += 1
+            continue
+        weight_volume[int(x), int(y), int(z)] = float(weight)
+    if dropped:
+        logger.warning(
+            f"Dropped {dropped} voxel weights outside reference shape {shape}"
+        )
+
+    affine = np.asarray(voxel_ref_affine, dtype=float)
     weight_img = nib.Nifti1Image(weight_volume, affine)
 
     # Save weight map
@@ -372,13 +460,16 @@ def _explain_voxel_features(
     # Feature importance plot (top positive/negative weights)
     try:
         feat_imp = figures_dir / "feature_importance_top.png"
-        _mpl_pyplot()
-
+        coords = [(x, y, z) for x, y, z, _w in voxel_data]
         # Sort by absolute weight
         sorted_indices = np.argsort(np.abs(weights))[::-1]
         top_n = min(20, len(weights))
         top_indices = sorted_indices[:top_n]
 
+        import matplotlib.pyplot as plt  # type: ignore
+        from tit.plotting import ensure_headless_matplotlib_backend, savefig_close
+
+        ensure_headless_matplotlib_backend()
         fig, ax = plt.subplots(figsize=(10, 6))
         y_pos = np.arange(top_n)
         bars = ax.barh(y_pos, weights[top_indices])
@@ -386,23 +477,67 @@ def _explain_voxel_features(
         # Color bars based on sign
         for i, bar in enumerate(bars):
             if weights[top_indices[i]] > 0:
-                bar.set_color('red')
+                bar.set_color("red")
             else:
-                bar.set_color('blue')
+                bar.set_color("blue")
 
         ax.set_yticks(y_pos)
-        ax.set_yticklabels([f"voxel_{coords[i][0]}_{coords[i][1]}_{coords[i][2]}" for i in top_indices])
-        ax.set_xlabel('Weight')
-        ax.set_title(f'Top {top_n} Voxel Weights')
+        ax.set_yticklabels(
+            [
+                f"voxel_{coords[i][0]}_{coords[i][1]}_{coords[i][2]}"
+                for i in top_indices
+            ]
+        )
+        ax.set_xlabel("Weight")
+        ax.set_title(f"Top {top_n} Voxel Weights")
         ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig(str(feat_imp), dpi=150, bbox_inches='tight')
-        plt.close(fig)
+        savefig_close(fig, str(feat_imp))
         figures.append(feat_imp)
         logger.info(f"Saved feature importance plot: {feat_imp}")
     except Exception as e:
         logger.warning(f"Could not generate feature importance plot: {e}")
+
+    # Diagnostics from predictions CSV (if present)
+    diag = figures_dir / "model_diagnostics.png"
+    pred_candidates = [
+        model_path.parent / "cv_predictions.csv",
+        model_path.parent / "predictions.csv",
+    ]
+    pred_path = next((p for p in pred_candidates if p.is_file()), None)
+    if pred_path is not None:
+        try:
+            plot_model_diagnostics_from_predictions_csv(
+                predictions_csv=pred_path,
+                out_path=diag,
+            )
+            figures.append(diag)
+            logger.info(f"Saved figure: {diag}")
+        except Exception as e:
+            logger.warning(
+                f"Could not generate model diagnostics figure from {pred_path}: {e}"
+            )
+    else:
+        logger.warning(
+            "No predictions CSV found for diagnostics "
+            "(expected cv_predictions.csv or predictions.csv next to model)."
+        )
+
+    # Brain visualization (PNG + HTML)
+    figures_dir = out_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        viz_paths = create_weight_map_visualizations(
+            weight_map=weight_map_path,
+            out_dir=figures_dir,
+            title="Voxel weight map",
+        )
+        figures.extend(viz_paths)
+        for p in viz_paths:
+            logger.info(f"Saved brain visualization: {p}")
+    except Exception as e:
+        logger.warning(f"Could not generate brain visualization: {e}")
 
     return ExplainArtifacts(
         output_dir=out_dir,
@@ -412,202 +547,335 @@ def _explain_voxel_features(
     )
 
 
-def _mpl_pyplot():
-    # Keep matplotlib optional at import-time for non-ML installs.
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
-    import matplotlib.pyplot as plt  # type: ignore
-
-    return plt
-
-
-def _plot_top_coefficients(
-    *,
-    parsed: Sequence[Tuple[int, str, float]],
-    label_map: Dict[int, str],
-    out_path: Path,
-    top_k: int = 20,
-    title: str = "Top coefficients",
-) -> None:
+def _read_predictions_proba_map(predictions_csv: Path) -> Dict[Tuple[str, str], float]:
     """
-    Plot top +/- coefficients as a horizontal bar chart.
-    This is a standard visual for linear models (log-reg / elastic-net).
+    Read a responder predictions CSV and map (subject_id, simulation_name) -> proba.
     """
-    plt = _mpl_pyplot()
-
-    # Build labeled entries
-    entries: List[Tuple[str, float]] = []
-    for roi_id, stat, w in parsed:
-        roi_name = label_map.get(roi_id, f"ROI_{roi_id}")
-        entries.append((f"{roi_name}__{stat}", float(w)))
-    if not entries:
-        raise RuntimeError("No coefficients to plot")
-
-    # Select most positive and most negative
-    entries_sorted = sorted(entries, key=lambda t: t[1])
-    neg = entries_sorted[: max(1, top_k // 2)]
-    pos = entries_sorted[-max(1, top_k // 2) :]
-    selected = neg + pos
-
-    labels = [n for n, _w in selected]
-    weights = np.asarray([w for _n, w in selected], dtype=float)
-    colors = ["#d62728" if w > 0 else "#1f77b4" for w in weights]
-
-    fig_h = max(4.0, 0.22 * len(labels) + 1.5)
-    fig, ax = plt.subplots(figsize=(12, fig_h), dpi=150)
-    y = np.arange(len(labels))
-    ax.barh(y, weights, color=colors, alpha=0.9)
-    ax.axvline(0.0, color="black", linewidth=1)
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.set_xlabel("Coefficient (from standardized features)")
-    ax.set_title(title)
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-
-
-def _read_csv_as_rows(csv_path: Path) -> List[Dict[str, str]]:
     import csv
 
-    with csv_path.open("r", newline="") as f:
+    if not predictions_csv.is_file():
+        return {}
+    with predictions_csv.open("r", newline="") as f:
         reader = csv.DictReader(f)
-        return [dict(r) for r in reader]
+        if not reader.fieldnames:
+            return {}
+        if "proba" not in set(reader.fieldnames):
+            return {}
+        out: Dict[Tuple[str, str], float] = {}
+        for r in reader:
+            sid = (r.get("subject_id") or "").strip()
+            sim = (r.get("simulation_name") or "").strip()
+            pp = (r.get("proba") or "").strip()
+            if not sid or pp == "":
+                continue
+            try:
+                out[(sid, sim)] = float(pp)
+            except ValueError:
+                continue
+    return out
 
 
-def _as_float(s: Optional[str]) -> Optional[float]:
-    if s is None:
-        return None
-    ss = str(s).strip()
-    if ss == "":
-        return None
-    try:
-        return float(ss)
-    except ValueError:
-        return None
+def _roi_ids_from_coef(
+    *, feature_names: Sequence[str], coef: np.ndarray, stat: str
+) -> Dict[int, float]:
+    """
+    Return ROI -> coefficient for features matching `ROI_<id>__<stat>`.
+    """
+    coef = np.asarray(coef, dtype=float).ravel()
+    if coef.shape[0] != len(feature_names):
+        raise ValueError("coef length does not match feature_names")
+
+    out: Dict[int, float] = {}
+    for name, w in zip(feature_names, coef.tolist()):
+        if not name.startswith("ROI_") or "__" not in name:
+            continue
+        left, st = name.split("__", 1)
+        if st != stat:
+            continue
+        try:
+            roi_id = int(left.replace("ROI_", ""))
+        except ValueError:
+            continue
+        out[int(roi_id)] = float(w)
+    return out
 
 
-def _as_int(s: Optional[str]) -> Optional[int]:
-    v = _as_float(s)
-    if v is None:
-        return None
-    return int(v)
+def _pick_top_roi_ids(
+    *, roi_to_coef: Dict[int, float], top_k: int = 5, prefer_positive: bool = True
+) -> List[int]:
+    items = list(roi_to_coef.items())
+    if prefer_positive:
+        pos = [(roi, w) for roi, w in items if w > 0]
+        if pos:
+            items = pos
+    items_sorted = sorted(items, key=lambda t: abs(t[1]), reverse=True)
+    return [int(roi) for roi, _w in items_sorted[: int(max(1, top_k))]]
 
 
-def _plot_model_diagnostics_from_predictions_csv(
-    *, predictions_csv: Path, out_path: Path
+def _maybe_add_intensity_response_fig5(
+    *,
+    artifacts: ExplainArtifacts,
+    feature_reduction_approach: str,
+    model_path: Path,
+    out_dir: Path,
+    logger,
+    csv_path_from_model: Optional[str],
+    target_col: str,
+    task: str,
+    atlas_path: Optional[Path],
+    atlas_from_model: Optional[str],
+    voxel_ref_shape: Optional[Sequence[int]],
+    voxel_ref_affine: Optional[Sequence[Sequence[float]]],
+    feature_names: Sequence[str],
+    est,
 ) -> None:
     """
-    Create a single multi-panel "industry standard" diagnostics figure:
-    - ROC + PR + calibration + confusion matrix
+    Best-effort: create an Albizu Fig.5-style intensity↔response figure and append it
+    to `artifacts.figures`.
+
+    Supports:
+    - atlas_roi: picks top-K positive-weight ROIs (top10mean preferred)
+    - stats_ttest / stats_fregression: uses the selected voxel coordinates
+
+    Behavior/response on the scatter plot:
+    - regression: y = target
+    - classification: y = out-of-fold `proba` from cv_predictions.csv if available, else y = target (0/1)
     """
-    rows = _read_csv_as_rows(predictions_csv)
-    if not rows:
-        raise RuntimeError(f"Empty predictions CSV: {predictions_csv}")
+    try:
+        if not csv_path_from_model:
+            logger.warning("Fig5 skipped: model bundle missing csv_path")
+            return
+        csv_path = Path(str(csv_path_from_model))
+        if not csv_path.is_file():
+            logger.warning(f"Fig5 skipped: csv_path not found: {csv_path}")
+            return
+        # Use bundle config if available (preferred), but fall back to defaults.
+        condition_col = None
+        sham_value = "sham"
+        efield_pat = None
+        try:
+            import joblib  # type: ignore
 
-    cols = set(rows[0].keys())
-    if "proba" not in cols:
-        raise RuntimeError(
-            f"Unrecognized predictions CSV format (expected 'proba' column): {sorted(cols)}"
+            bundle = joblib.load(model_path)
+            cfg = dict(bundle.get("config") or {})
+            condition_col = cfg.get("condition_col")
+            sham_value = str(cfg.get("sham_value") or "sham")
+            efield_pat = str(cfg.get("efield_filename_pattern") or "").strip() or None
+        except Exception:
+            pass
+
+        subjects = load_subject_table(
+            csv_path,
+            target_col=target_col,
+            condition_col=str(condition_col) if condition_col else None,
+            sham_value=sham_value,
+            task=("classification" if str(task) == "classification" else "regression"),
+            require_target=True,
         )
 
-    plt = _mpl_pyplot()
+        use_condition = bool(condition_col)
+        active_subjects = [
+            s
+            for s in subjects
+            if not (use_condition and is_sham_condition(s.condition, sham_value=sham_value))
+        ]
+        if len(active_subjects) < 4:
+            logger.warning("Fig5 skipped: not enough active subjects with labels")
+            return
 
-    from sklearn.calibration import calibration_curve
-    from sklearn.metrics import (
-        ConfusionMatrixDisplay,
-        average_precision_score,
-        confusion_matrix,
-        precision_recall_curve,
-        roc_auc_score,
-        roc_curve,
-    )
+        # Load E-field NIfTIs for active subjects.
+        from .config import DEFAULT_EFIELD_FILENAME_PATTERN
 
-    # Target column is usually "response" in current training output.
-    target_col = (
-        "response"
-        if "response" in cols
-        else next(
-            (
-                c
-                for c in cols
-                if c not in {"subject_id", "simulation_name", "proba"}
-            ),
-            None,
+        efield_pat = efield_pat or DEFAULT_EFIELD_FILENAME_PATTERN
+
+        imgs, y_active, kept_active = load_efield_images(
+            active_subjects,
+            efield_filename_pattern=efield_pat,
+            logger=logger,
         )
-    )
-    if not target_col:
-        raise RuntimeError("Could not infer target column in predictions CSV")
 
-    y: List[int] = []
-    p: List[float] = []
-    for r in rows:
-        yy = _as_int(r.get(target_col))
-        pp = _as_float(r.get("proba"))
-        if yy is None or pp is None:
-            continue
-        y.append(int(yy))
-        p.append(float(pp))
-    if len(y) < 2:
-        raise RuntimeError("Not enough labeled prediction rows to plot diagnostics")
+        # Build y for scatter (behavior proxy)
+        proba_map = _read_predictions_proba_map(model_path.parent / "cv_predictions.csv")
+        subj_behavior: List[float] = []
+        subj_label: List[int] = []
+        subj_median_intensity: List[float] = []
+        subj_rows: List[str] = []
+        voxel_r: List[np.ndarray] = []
+        voxel_n: List[np.ndarray] = []
 
-    y_arr = np.asarray(y, dtype=int)
-    p_arr = np.asarray(p, dtype=float)
+        # Determine feature mask / indices.
+        import nibabel as nib  # type: ignore
+        import nilearn.image as nii_img  # type: ignore
 
-    fpr, tpr, _ = roc_curve(y_arr, p_arr)
-    roc_auc = roc_auc_score(y_arr, p_arr)
-    prec, rec, _ = precision_recall_curve(y_arr, p_arr)
-    ap = average_precision_score(y_arr, p_arr)
-    frac_pos, mean_pred = calibration_curve(
-        y_arr, p_arr, n_bins=10, strategy="quantile"
-    )
+        if feature_reduction_approach == "atlas_roi":
+            # Resolve atlas
+            atlas_p: Optional[Path] = Path(atlas_from_model) if atlas_from_model else None
+            if atlas_path is not None:
+                atlas_p = Path(atlas_path)
+            if atlas_p is None or not atlas_p.is_file():
+                atlas_p = default_glasser_atlas_path()
+            if atlas_p is None or not atlas_p.is_file():
+                logger.warning("Fig5 skipped: atlas not found")
+                return
 
-    # Confusion matrix at threshold 0.5 (standard) and also best-F1; display best-F1.
-    thresholds = np.unique(np.clip(p_arr, 0.0, 1.0))
-    best_thr = 0.5
-    best_f1 = -1.0
-    for thr in thresholds:
-        y_hat = (p_arr >= thr).astype(int)
-        tp = int(((y_hat == 1) & (y_arr == 1)).sum())
-        fp = int(((y_hat == 1) & (y_arr == 0)).sum())
-        fn = int(((y_hat == 0) & (y_arr == 1)).sum())
-        denom = 2 * tp + fp + fn
-        f1 = (2 * tp / denom) if denom > 0 else 0.0
-        if f1 > best_f1:
-            best_f1 = f1
-            best_thr = float(thr)
+            atlas_img = nib.load(str(atlas_p))
+            atlas_data = np.asanyarray(atlas_img.dataobj).astype(np.int32)
 
-    cm = confusion_matrix(y_arr, (p_arr >= best_thr).astype(int), labels=[0, 1])
+            # Pull coef and pick stats
+            core_est = est
+            if hasattr(est, "named_steps"):
+                if "clf" in est.named_steps:
+                    core_est = est.named_steps["clf"]
+                elif "reg" in est.named_steps:
+                    core_est = est.named_steps["reg"]
+            coef = getattr(core_est, "coef_", None)
+            if coef is None:
+                logger.warning("Fig5 skipped: model has no coef_")
+                return
+            coef = np.asarray(coef)
+            if coef.ndim == 2:
+                coef = coef[0]
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10), dpi=150)
-    ax_roc, ax_pr, ax_cal, ax_cm = axes.ravel()
+            stats = sorted(
+                {n.split("__", 1)[1] for n in feature_names if n.startswith("ROI_") and "__" in n}
+            )
+            stat_pref = "top10mean" if "top10mean" in stats else ("mean" if "mean" in stats else (stats[0] if stats else "top10mean"))
+            roi_to_coef = _roi_ids_from_coef(feature_names=feature_names, coef=coef, stat=stat_pref)
+            if not roi_to_coef:
+                logger.warning(f"Fig5 skipped: no ROI coefficients found for stat={stat_pref!r}")
+                return
+            roi_ids = _pick_top_roi_ids(roi_to_coef=roi_to_coef, top_k=5, prefer_positive=True)
+            mask = np.isin(atlas_data, np.asarray(roi_ids, dtype=np.int32))
+            flat_idx = np.flatnonzero(mask.ravel())
+            if flat_idx.size == 0:
+                logger.warning(f"Fig5 skipped: selected ROI IDs had no voxels: {roi_ids}")
+                return
 
-    ax_roc.plot(fpr, tpr, color="#1f77b4", linewidth=2)
-    ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
-    ax_roc.set_xlabel("False Positive Rate")
-    ax_roc.set_ylabel("True Positive Rate")
-    ax_roc.set_title(f"ROC (AUC={roc_auc:.3f})")
-    ax_roc.grid(True, alpha=0.2)
+            # Iterate subjects and extract voxel values
+            # Precompute median split threshold for regression grouping if needed.
+            y_vals = [float(v) for v in y_active if v is not None]
+            y_med = float(np.median(np.asarray(y_vals, dtype=float))) if y_vals else 0.0
 
-    ax_pr.plot(rec, prec, color="#ff7f0e", linewidth=2)
-    ax_pr.set_xlabel("Recall")
-    ax_pr.set_ylabel("Precision")
-    ax_pr.set_title(f"Precision-Recall (AP={ap:.3f})")
-    ax_pr.grid(True, alpha=0.2)
+            for img, s, yy in zip(imgs, kept_active, y_active):
+                if yy is None:
+                    continue
+                aligned = nii_img.resample_to_img(img, atlas_img, interpolation="continuous")
+                data = np.asanyarray(aligned.dataobj)
+                data3 = _ensure_3d_data(data).astype(np.float32, copy=False).ravel()
+                vals = data3[flat_idx]
+                vals = vals[np.isfinite(vals)]
+                if vals.size == 0:
+                    continue
+                med = float(np.median(vals))
 
-    ax_cal.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
-    ax_cal.plot(mean_pred, frac_pos, marker="o", linewidth=2, color="#2ca02c")
-    ax_cal.set_xlabel("Mean predicted probability")
-    ax_cal.set_ylabel("Fraction of positives")
-    ax_cal.set_title("Calibration (reliability diagram)")
-    ax_cal.grid(True, alpha=0.2)
+                # y for scatter
+                if str(task) == "classification":
+                    y_scatter = float(proba_map.get((s.subject_id, s.simulation_name), float(yy)))
+                    lab = int(float(yy))
+                else:
+                    y_scatter = float(yy)
+                    lab = 1 if float(yy) >= y_med else 0
 
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
-    disp.plot(ax=ax_cm, cmap="Blues", colorbar=False, values_format="d")
-    ax_cm.set_title(f"Confusion (thr={best_thr:.3f}, best F1={best_f1:.3f})")
+                (voxel_r if lab == 1 else voxel_n).append(vals)
+                subj_behavior.append(y_scatter)
+                subj_label.append(lab)
+                subj_median_intensity.append(med)
+                subj_rows.append(f"{s.subject_id},{s.simulation_name},{lab},{y_scatter},{med}")
 
-    fig.suptitle("Model diagnostics (CV predictions)", y=0.99)
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
+            fig_title = f"Intensity vs response (atlas_roi; ROIs={roi_ids}, stat={stat_pref})"
+            fig_name = f"fig5_intensity_response__atlas_roi__stat-{stat_pref}__top{len(roi_ids)}.png"
+
+        else:
+            # stats_*: use selected voxel coordinates from feature names
+            coords = parse_voxel_feature_names(feature_names)
+            if not coords:
+                logger.warning("Fig5 skipped: no voxel coords parsed from feature names")
+                return
+            if voxel_ref_shape is None or voxel_ref_affine is None:
+                logger.warning("Fig5 skipped: voxel_ref_shape/affine missing from bundle")
+                return
+            shape = tuple(int(v) for v in voxel_ref_shape)
+            if len(shape) != 3:
+                logger.warning(f"Fig5 skipped: invalid voxel_ref_shape: {shape}")
+                return
+
+            # Build a reference image for resampling.
+            ref_img = nib.Nifti1Image(np.zeros(shape, dtype=np.float32), np.asarray(voxel_ref_affine, dtype=float))
+
+            # Convert coords to flat indices (drop out-of-bounds).
+            kept_coords: List[Tuple[int, int, int]] = []
+            flat_indices: List[int] = []
+            dropped = 0
+            for x, y, z in coords:
+                if x < 0 or y < 0 or z < 0 or x >= shape[0] or y >= shape[1] or z >= shape[2]:
+                    dropped += 1
+                    continue
+                kept_coords.append((x, y, z))
+                flat_indices.append(int(np.ravel_multi_index((x, y, z), shape)))
+            if dropped:
+                logger.info(f"Fig5: dropped {dropped} voxel coords outside ref shape {shape}")
+            if not flat_indices:
+                logger.warning("Fig5 skipped: all voxel coords were out of bounds")
+                return
+            flat_idx_arr = np.asarray(flat_indices, dtype=int)
+
+            # Precompute median split threshold for regression grouping if needed.
+            y_vals = [float(v) for v in y_active if v is not None]
+            y_med = float(np.median(np.asarray(y_vals, dtype=float))) if y_vals else 0.0
+
+            for img, s, yy in zip(imgs, kept_active, y_active):
+                if yy is None:
+                    continue
+                aligned = nii_img.resample_to_img(img, ref_img, interpolation="continuous")
+                data = np.asanyarray(aligned.dataobj)
+                data3 = _ensure_3d_data(data).astype(np.float32, copy=False).ravel()
+                vals = data3[flat_idx_arr]
+                vals = vals[np.isfinite(vals)]
+                if vals.size == 0:
+                    continue
+                med = float(np.median(vals))
+
+                if str(task) == "classification":
+                    y_scatter = float(proba_map.get((s.subject_id, s.simulation_name), float(yy)))
+                    lab = int(float(yy))
+                else:
+                    y_scatter = float(yy)
+                    lab = 1 if float(yy) >= y_med else 0
+
+                (voxel_r if lab == 1 else voxel_n).append(vals)
+                subj_behavior.append(y_scatter)
+                subj_label.append(lab)
+                subj_median_intensity.append(med)
+                subj_rows.append(f"{s.subject_id},{s.simulation_name},{lab},{y_scatter},{med}")
+
+            fig_title = f"Intensity vs response ({feature_reduction_approach}; n_voxels={len(flat_idx_arr)})"
+            fig_name = f"fig5_intensity_response__{feature_reduction_approach}__nvox-{len(flat_idx_arr)}.png"
+
+        if len(subj_label) < 4 or (np.sum(np.asarray(subj_label) == 1) < 2) or (np.sum(np.asarray(subj_label) == 0) < 2):
+            logger.warning("Fig5 skipped: need at least 2 subjects per group after filtering")
+            return
+
+        figures_dir = out_dir / "figures"
+        figures_dir.mkdir(parents=True, exist_ok=True)
+        fig_path = figures_dir / fig_name
+        summary_csv = out_dir / "intensity_response_summary.csv"
+        summary_csv.write_text(
+            "subject_id,simulation_name,group_label,scatter_y,median_intensity\n"
+            + "\n".join(subj_rows)
+            + "\n"
+        )
+
+        plot_intensity_response_fig5(
+            voxel_values_responder=np.concatenate(voxel_r, axis=0) if voxel_r else np.array([], dtype=float),
+            voxel_values_non_responder=np.concatenate(voxel_n, axis=0) if voxel_n else np.array([], dtype=float),
+            subj_median_intensity=np.asarray(subj_median_intensity, dtype=float),
+            subj_behavior=np.asarray(subj_behavior, dtype=float),
+            subj_label=np.asarray(subj_label, dtype=int),
+            out_path=fig_path,
+            title=fig_title,
+        )
+        artifacts.figures.append(fig_path)
+        logger.info(f"Saved Fig5-style intensity/response figure: {fig_path}")
+        logger.info(f"Saved intensity/response summary CSV: {summary_csv}")
+    except Exception as e:
+        logger.warning(f"Fig5 generation skipped/failed (non-fatal): {e}")

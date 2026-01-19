@@ -14,6 +14,12 @@ from .stats import (
     plot_cluster_size_mass_correlation,
     plot_permutation_null_distribution,
 )
+from .responder_ml import (
+    create_weight_map_visualizations,
+    plot_intensity_response_fig5,
+    plot_model_diagnostics_from_predictions_csv,
+    plot_top_coefficients,
+)
 from .ti_metrics import plot_intensity_vs_focality, plot_montage_distributions
 
 __all__ = [
@@ -26,4 +32,8 @@ __all__ = [
     "plot_cluster_size_mass_correlation",
     "plot_montage_distributions",
     "plot_intensity_vs_focality",
+    "plot_top_coefficients",
+    "plot_model_diagnostics_from_predictions_csv",
+    "create_weight_map_visualizations",
+    "plot_intensity_response_fig5",
 ]

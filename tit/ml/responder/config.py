@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from tit.core import get_path_manager
 
@@ -77,6 +77,8 @@ def default_subjects_csv_path() -> Path:
 @dataclass(frozen=True)
 class ResponderMLConfig:
     csv_path: Path
+    # ML task type: classification (binary) or regression (continuous).
+    task: Literal["classification", "regression"] = "classification"
     # Name of the target column in the CSV (defaults to the historical "response").
     target_col: str = "response"
     # Optional: name of a condition column in the CSV. If provided, rows whose condition
@@ -93,9 +95,12 @@ class ResponderMLConfig:
 
     # Feature reduction approach:
     # - atlas_roi: collect all voxels within an ROI and use atlas to average (traditional)
-    # - stats_ttest: mass univariate t-test with threshold for significant voxels
-    feature_reduction_approach: Literal["atlas_roi", "stats_ttest"] = "atlas_roi"
-    # Threshold for statistical feature selection (only used with stats_ttest)
+    # - stats_ttest: mass univariate t-test with threshold for significant voxels (classification)
+    # - stats_fregression: mass univariate F-test for regression (continuous targets)
+    feature_reduction_approach: Literal[
+        "atlas_roi", "stats_ttest", "stats_fregression"
+    ] = "atlas_roi"
+    # Threshold for statistical feature selection (used with stats_* approaches)
     ttest_p_threshold: float = 0.001
     # Perform feature selection within each CV fold (more expensive but better generalization)
     ttest_cv_feature_selection: bool = False

@@ -57,13 +57,20 @@ def predict_from_csv(
         atlas_path = bundle.get("atlas_path")
         feature_names = list(bundle.get("feature_names") or [])
         cfg: Dict[str, Any] = dict(bundle.get("config") or {})
+        if "voxel_ref_shape" not in cfg and "voxel_ref_shape" in bundle:
+            cfg["voxel_ref_shape"] = bundle.get("voxel_ref_shape")
+        if "voxel_ref_affine" not in cfg and "voxel_ref_affine" in bundle:
+            cfg["voxel_ref_affine"] = bundle.get("voxel_ref_affine")
         target_col = str(cfg.get("target_col") or "response")
+        task = str(cfg.get("task") or "classification")
         efield_filename_pattern = str(
             cfg.get("efield_filename_pattern") or DEFAULT_EFIELD_FILENAME_PATTERN
         )
         condition_col = cfg.get("condition_col")
         sham_value = str(cfg.get("sham_value") or "sham")
-        feature_reduction_approach = str(cfg.get("feature_reduction_approach") or "atlas_roi")
+        feature_reduction_approach = str(
+            cfg.get("feature_reduction_approach") or "atlas_roi"
+        )
         ttest_p_threshold = float(cfg.get("ttest_p_threshold") or 0.001)
 
         logger.info(f"Model: {model_path}")
@@ -104,9 +111,24 @@ def predict_from_csv(
             logger=logger,
         )
 
-        if feature_reduction_approach == "stats_ttest":
+        if feature_reduction_approach in ("stats_ttest", "stats_fregression"):
             # For stats_ttest models, use the pre-selected voxel features from training
-            fm = _extract_voxel_features_for_prediction(imgs, feature_names)
+            ref_shape = cfg.get("voxel_ref_shape")
+            ref_affine = cfg.get("voxel_ref_affine")
+            ref_img = None
+            if ref_shape is not None and ref_affine is not None:
+                try:
+                    import nibabel as nib  # type: ignore
+
+                    ref_img = nib.Nifti1Image(
+                        np.zeros(tuple(ref_shape), dtype=np.float32),
+                        np.asarray(ref_affine, dtype=float),
+                    )
+                except Exception:
+                    ref_img = None
+            fm = _extract_voxel_features_for_prediction(
+                imgs, feature_names, ref_img=ref_img
+            )
         else:
             # For atlas_roi models, use the standard atlas-based extraction
             fm = extract_features(
@@ -148,11 +170,20 @@ def predict_from_csv(
             )
         X = np.vstack(X_rows).astype(float)
 
-        proba = est.predict_proba(X)[:, 1]
-        lines = [f"subject_id,simulation_name,{target_col},proba"]
-        for s, yy, pp in zip(kept, y, proba.tolist()):
-            tgt = "" if yy is None else int(float(yy))
-            lines.append(f"{s.subject_id},{s.simulation_name},{tgt},{float(pp)}")
+        if task == "classification":
+            proba = est.predict_proba(X)[:, 1]
+            lines = [f"subject_id,simulation_name,{target_col},proba"]
+            for s, yy, pp in zip(kept, y, proba.tolist()):
+                tgt = "" if yy is None else int(float(yy))
+                lines.append(f"{s.subject_id},{s.simulation_name},{tgt},{float(pp)}")
+        elif task == "regression":
+            preds = est.predict(X)
+            lines = [f"subject_id,simulation_name,{target_col},prediction"]
+            for s, yy, pp in zip(kept, y, preds.tolist()):
+                tgt = "" if yy is None else float(yy)
+                lines.append(f"{s.subject_id},{s.simulation_name},{tgt},{float(pp)}")
+        else:
+            raise RuntimeError(f"Unknown task type: {task}")
 
         out.write_text("\n".join(lines) + "\n")
         logger.info(f"Saved predictions: {out}")
@@ -165,6 +196,8 @@ def predict_from_csv(
 def _extract_voxel_features_for_prediction(
     efield_imgs: Any,
     feature_names: list[str],
+    *,
+    ref_img: Optional[Any] = None,
 ) -> FeatureMatrix:
     """
     Extract voxel features for prediction using pre-selected voxel coordinates.
@@ -181,5 +214,5 @@ def _extract_voxel_features_for_prediction(
             f"No valid voxel coordinates found in feature names: {feature_names[:5]}..."
         )
 
-    fm = extract_voxel_features_by_coords(efield_imgs, voxel_coords)
+    fm = extract_voxel_features_by_coords(efield_imgs, voxel_coords, ref_img=ref_img)
     return FeatureMatrix(X=fm.X, feature_names=feature_names, atlas_path=None)

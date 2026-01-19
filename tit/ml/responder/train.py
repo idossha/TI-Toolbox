@@ -24,6 +24,7 @@ from .features import (
     FeatureMatrix,
     extract_features,
     extract_voxel_features_by_coords,
+    select_fregression_voxel_coords,
     select_ttest_voxel_coords,
 )
 
@@ -45,6 +46,23 @@ def _safe_splits(y: Sequence[int], desired: int) -> int:
     neg = sum(1 for v in y if v == 0)
     max_splits = max(2, min(desired, pos, neg))
     return max_splits
+
+
+def _safe_splits_regression(n_samples: int, desired: int) -> int:
+    if n_samples < 4:
+        return 2
+    return max(2, min(desired, n_samples))
+
+
+def _ref_image_shape_and_affine(img: Any) -> Tuple[Tuple[int, int, int], List[List[float]]]:
+    data = np.asanyarray(img.dataobj)
+    if data.ndim == 4:
+        data = data[..., 0] if data.shape[-1] == 1 else data[..., -1]
+    if data.ndim != 3:
+        raise ValueError(f"Unexpected ref image shape: {data.shape}")
+    shape = tuple(int(x) for x in data.shape)
+    affine = np.asarray(getattr(img, "affine", np.eye(4)), dtype=float)
+    return shape, affine.tolist()
 
 
 def _json_safe(value: Any) -> Any:
@@ -205,6 +223,127 @@ def _outer_cv_proba_classification(
     return proba, best_params_per_fold, (n_selected_per_fold or None)
 
 
+def _outer_cv_pred_regression(
+    *,
+    y_arr: np.ndarray,
+    X: Optional[np.ndarray],
+    outer_cv,
+    inner_cv,
+    pipe,
+    param_grid: Any,
+    cfg: ResponderMLConfig,
+    efield_imgs: Sequence[Any],
+    active_indices: Sequence[Optional[int]],
+    logger,
+    log_progress: bool = True,
+    n_jobs_override: Optional[int] = None,
+) -> Tuple[np.ndarray, List[Dict[str, Any]], Optional[List[int]]]:
+    from sklearn.model_selection import GridSearchCV
+
+    use_cv_selection = (
+        cfg.feature_reduction_approach in ("stats_ttest", "stats_fregression")
+        and cfg.ttest_cv_feature_selection
+    )
+    preds = np.full(shape=(len(y_arr),), fill_value=np.nan, dtype=float)
+    best_params_per_fold: List[Dict[str, Any]] = []
+    n_selected_per_fold: List[int] = []
+
+    for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(y_arr), start=1):
+        if log_progress and cfg.verbose:
+            logger.info(
+                f"Outer fold {fold_idx}/{outer_cv.n_splits}: tuning hyperparameters…"
+            )
+        if use_cv_selection:
+            train_active_indices = [
+                active_indices[i]
+                for i in train_idx
+                if active_indices[i] is not None
+            ]
+            train_active_indices = [int(i) for i in train_active_indices]
+            train_active_imgs = [efield_imgs[i] for i in train_active_indices]
+            train_active_y = [
+                float(y_arr[i]) for i in train_idx if active_indices[i] is not None
+            ]
+            if len(train_active_imgs) < 4:
+                raise ValueError(
+                    "CV-based feature selection requires at least 4 active training subjects."
+                )
+            if cfg.feature_reduction_approach == "stats_ttest":
+                voxel_coords, ref_img, _shape = select_ttest_voxel_coords(
+                    train_active_imgs,
+                    train_active_y,
+                    p_threshold=cfg.ttest_p_threshold,
+                )
+            else:
+                voxel_coords, ref_img, _shape = select_fregression_voxel_coords(
+                    train_active_imgs,
+                    train_active_y,
+                    p_threshold=cfg.ttest_p_threshold,
+                )
+            n_selected_per_fold.append(len(voxel_coords))
+
+            test_active_indices = [
+                active_indices[i]
+                for i in test_idx
+                if active_indices[i] is not None
+            ]
+            test_active_indices = [int(i) for i in test_active_indices]
+            test_active_imgs = [efield_imgs[i] for i in test_active_indices]
+
+            fm_train = extract_voxel_features_by_coords(
+                train_active_imgs, voxel_coords, ref_img=ref_img
+            )
+            fm_test = extract_voxel_features_by_coords(
+                test_active_imgs, voxel_coords, ref_img=ref_img
+            )
+            n_features = fm_train.X.shape[1]
+            X_tr = np.zeros((len(train_idx), n_features), dtype=float)
+            X_te = np.zeros((len(test_idx), n_features), dtype=float)
+
+            train_map = {
+                idx: fm_train.X[i] for i, idx in enumerate(train_active_indices)
+            }
+            test_map = {idx: fm_test.X[i] for i, idx in enumerate(test_active_indices)}
+
+            for pos, idx in enumerate(train_idx):
+                active_idx = active_indices[idx]
+                if active_idx is None:
+                    continue
+                X_tr[pos, :] = train_map[int(active_idx)]
+            for pos, idx in enumerate(test_idx):
+                active_idx = active_indices[idx]
+                if active_idx is None:
+                    continue
+                X_te[pos, :] = test_map[int(active_idx)]
+        else:
+            if X is None:
+                raise RuntimeError("X is required when CV feature selection is disabled")
+            X_tr, X_te = X[train_idx], X[test_idx]
+
+        y_tr = y_arr[train_idx]
+        gs = GridSearchCV(
+            pipe,
+            param_grid=param_grid,
+            scoring="neg_mean_squared_error",
+            cv=inner_cv,
+            n_jobs=int(n_jobs_override) if n_jobs_override is not None else int(cfg.n_jobs),
+            refit=True,
+            verbose=(1 if cfg.verbose and log_progress else 0),
+        )
+        gs.fit(X_tr, y_tr)
+        best_params_per_fold.append(dict(gs.best_params_))
+
+        preds[test_idx] = gs.predict(X_te)
+        if log_progress and cfg.verbose:
+            logger.info(
+                f"Outer fold {fold_idx}/{outer_cv.n_splits}: done. best={gs.best_params_}"
+            )
+
+    if np.isnan(preds).any():
+        raise RuntimeError("Internal error: some CV predictions were not generated")
+    return preds, best_params_per_fold, (n_selected_per_fold or None)
+
+
 def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     """
     End-to-end training:
@@ -214,12 +353,15 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     - nested CV for unbiased estimate
     - fit final model on all data and save artifacts
     """
-    from sklearn.linear_model import LogisticRegression
+    from sklearn.linear_model import ElasticNet, LogisticRegression
     from sklearn.metrics import (
         average_precision_score,
+        mean_absolute_error,
+        mean_squared_error,
+        r2_score,
         roc_auc_score,
     )
-    from sklearn.model_selection import GridSearchCV, StratifiedKFold
+    from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
     import joblib
@@ -251,6 +393,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
             target_col=cfg.target_col,
             condition_col=cfg.condition_col,
             sham_value=cfg.sham_value,
+            task=cfg.task,
             require_target=True,
         )
 
@@ -322,8 +465,13 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
             )
 
         # Extract features for non-CV selection paths.
+        if cfg.task == "classification" and cfg.feature_reduction_approach == "stats_fregression":
+            raise ValueError("stats_fregression is only valid for regression tasks")
+        if cfg.task == "regression" and cfg.feature_reduction_approach == "stats_ttest":
+            raise ValueError("stats_ttest is only valid for classification tasks")
+
         use_cv_selection = (
-            cfg.feature_reduction_approach == "stats_ttest"
+            cfg.feature_reduction_approach in ("stats_ttest", "stats_fregression")
             and cfg.ttest_cv_feature_selection
         )
         fm: Optional[FeatureMatrix] = None
@@ -332,13 +480,13 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
 
         if use_cv_selection:
             logger.info(
-                "CV-based voxel selection enabled: t-test feature selection will run within each outer fold."
+                "CV-based voxel selection enabled: statistical feature selection will run within each outer fold."
             )
         else:
             approach_desc = (
                 "ROI features (mean/top10mean)"
                 if cfg.feature_reduction_approach == "atlas_roi"
-                else f"statistical features (t-test p<{cfg.ttest_p_threshold})"
+                else f"statistical features (p<{cfg.ttest_p_threshold})"
             )
             logger.info(f"Extracting {approach_desc}…")
             fm = extract_features(
@@ -369,96 +517,166 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
         logger.exception("Responder ML training failed.")
         raise
 
-    y_arr = np.asarray([int(v) for v in y], dtype=int)
+    if cfg.task == "classification":
+        y_arr = np.asarray([int(v) for v in y], dtype=int)
+    else:
+        y_arr = np.asarray([float(v) for v in y], dtype=float)
     if cfg.verbose:
-        if X is not None:
-            logger.info(
-                f"Feature matrix: X={X.shape}, y={y_arr.shape} (pos={(y_arr==1).sum()}, neg={(y_arr==0).sum()})"
-            )
+        if cfg.task == "classification":
+            if X is not None:
+                logger.info(
+                    f"Feature matrix: X={X.shape}, y={y_arr.shape} (pos={(y_arr==1).sum()}, neg={(y_arr==0).sum()})"
+                )
+            else:
+                logger.info(
+                    f"Feature matrix: y={y_arr.shape} (pos={(y_arr==1).sum()}, neg={(y_arr==0).sum()})"
+                )
         else:
-            logger.info(
-                f"Feature matrix: y={y_arr.shape} (pos={(y_arr==1).sum()}, neg={(y_arr==0).sum()})"
-            )
+            if X is not None:
+                logger.info(f"Feature matrix: X={X.shape}, y={y_arr.shape}")
+            else:
+                logger.info(f"Feature matrix: y={y_arr.shape}")
 
-    outer_splits = _safe_splits(y_arr.tolist(), cfg.outer_splits)
-    inner_splits = _safe_splits(y_arr.tolist(), cfg.inner_splits)
+    if cfg.task == "classification":
+        outer_splits = _safe_splits(y_arr.tolist(), cfg.outer_splits)
+        inner_splits = _safe_splits(y_arr.tolist(), cfg.inner_splits)
+    else:
+        outer_splits = _safe_splits_regression(len(y_arr), cfg.outer_splits)
+        inner_splits = _safe_splits_regression(len(y_arr), cfg.inner_splits)
     if cfg.verbose:
         logger.info(
             f"Nested CV: outer={outer_splits} folds, inner={inner_splits} folds, n_jobs={cfg.n_jobs}"
         )
 
-    outer_cv = StratifiedKFold(
-        n_splits=outer_splits, shuffle=True, random_state=cfg.random_state
-    )
-    inner_cv = StratifiedKFold(
-        n_splits=inner_splits, shuffle=True, random_state=cfg.random_state + 1
-    )
+    if cfg.task == "classification":
+        outer_cv = StratifiedKFold(
+            n_splits=outer_splits, shuffle=True, random_state=cfg.random_state
+        )
+        inner_cv = StratifiedKFold(
+            n_splits=inner_splits, shuffle=True, random_state=cfg.random_state + 1
+        )
+    else:
+        outer_cv = KFold(
+            n_splits=outer_splits, shuffle=True, random_state=cfg.random_state
+        )
+        inner_cv = KFold(
+            n_splits=inner_splits, shuffle=True, random_state=cfg.random_state + 1
+        )
 
-    pipe = Pipeline(
-        steps=[
-            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            (
-                "clf",
-                LogisticRegression(
-                    penalty="elasticnet",
-                    solver="saga",
-                    class_weight="balanced",
-                    max_iter=int(cfg.max_iter),
-                    tol=float(cfg.tol),
-                    random_state=cfg.random_state,
+    if cfg.task == "classification":
+        pipe = Pipeline(
+            steps=[
+                ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                (
+                    "clf",
+                    LogisticRegression(
+                        penalty="elasticnet",
+                        solver="saga",
+                        class_weight="balanced",
+                        max_iter=int(cfg.max_iter),
+                        tol=float(cfg.tol),
+                        random_state=cfg.random_state,
+                    ),
                 ),
-            ),
+            ]
+        )
+        # Expanded hyperparameter grid (best-practice: explore C on log scale, penalties, class weights)
+        C_grid = np.logspace(-3, 3, 7).tolist()
+        param_grid = [
+            {
+                "clf__penalty": ["l2"],
+                "clf__C": C_grid,
+                "clf__class_weight": [None, "balanced"],
+            },
+            {
+                "clf__penalty": ["l1"],
+                "clf__C": C_grid,
+                "clf__class_weight": [None, "balanced"],
+            },
+            {
+                "clf__penalty": ["elasticnet"],
+                "clf__C": C_grid,
+                "clf__l1_ratio": [0.1, 0.3, 0.5, 0.7, 0.9],
+                "clf__class_weight": [None, "balanced"],
+            },
         ]
-    )
-    # Expanded hyperparameter grid (best-practice: explore C on log scale, penalties, class weights)
-    # Slightly relaxed regularization by shifting C to higher values.
-    C_grid = np.logspace(-3, 3, 7).tolist()
-    param_grid = [
-        {
-            "clf__penalty": ["l2"],
-            "clf__C": C_grid,
-            "clf__class_weight": [None, "balanced"],
-        },
-        {
-            "clf__penalty": ["l1"],
-            "clf__C": C_grid,
-            "clf__class_weight": [None, "balanced"],
-        },
-        {
-            "clf__penalty": ["elasticnet"],
-            "clf__C": C_grid,
-            "clf__l1_ratio": [0.1, 0.3, 0.5, 0.7, 0.9],
-            "clf__class_weight": [None, "balanced"],
-        },
-    ]
 
-    proba, best_params_per_fold, n_selected_per_fold = _outer_cv_proba_classification(
-        y_arr=y_arr,
-        X=X,
-        outer_cv=outer_cv,
-        inner_cv=inner_cv,
-        pipe=pipe,
-        param_grid=param_grid,
-        cfg=cfg,
-        efield_imgs=efield_imgs,
-        active_indices=active_indices,
-        logger=logger,
-        log_progress=True,
-    )
+        proba, best_params_per_fold, n_selected_per_fold = _outer_cv_proba_classification(
+            y_arr=y_arr,
+            X=X,
+            outer_cv=outer_cv,
+            inner_cv=inner_cv,
+            pipe=pipe,
+            param_grid=param_grid,
+            cfg=cfg,
+            efield_imgs=efield_imgs,
+            active_indices=active_indices,
+            logger=logger,
+            log_progress=True,
+        )
+    else:
+        pipe = Pipeline(
+            steps=[
+                ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                (
+                    "reg",
+                    ElasticNet(
+                        alpha=1.0,
+                        l1_ratio=0.5,
+                        max_iter=int(cfg.max_iter),
+                        tol=float(cfg.tol),
+                    ),
+                ),
+            ]
+        )
+        alpha_grid = np.logspace(-4, 1, 6).tolist()
+        param_grid = {
+            "reg__alpha": alpha_grid,
+            "reg__l1_ratio": [0.1, 0.3, 0.5, 0.7, 0.9],
+        }
+
+        preds, best_params_per_fold, n_selected_per_fold = _outer_cv_pred_regression(
+            y_arr=y_arr,
+            X=X,
+            outer_cv=outer_cv,
+            inner_cv=inner_cv,
+            pipe=pipe,
+            param_grid=param_grid,
+            cfg=cfg,
+            efield_imgs=efield_imgs,
+            active_indices=active_indices,
+            logger=logger,
+            log_progress=True,
+        )
 
     metrics: Dict[str, Any] = {
-        "task": "classification",
+        "task": cfg.task,
         "target_col": str(cfg.target_col),
         "n_subjects_total": len(subjects),
         "n_subjects_used": int(len(kept)),
         "outer_splits": int(outer_splits),
         "inner_splits": int(inner_splits),
-        "roc_auc": float(roc_auc_score(y_arr, proba)),
-        "pr_auc": float(average_precision_score(y_arr, proba)),
-        "pos_count": int((y_arr == 1).sum()),
-        "neg_count": int((y_arr == 0).sum()),
         "best_params_per_fold": best_params_per_fold,
     }
+    if cfg.task == "classification":
+        metrics.update(
+            {
+                "roc_auc": float(roc_auc_score(y_arr, proba)),
+                "pr_auc": float(average_precision_score(y_arr, proba)),
+                "pos_count": int((y_arr == 1).sum()),
+                "neg_count": int((y_arr == 0).sum()),
+            }
+        )
+    else:
+        mse = float(mean_squared_error(y_arr, preds))
+        rmse = float(np.sqrt(mse))
+        metrics.update(
+            {
+                "r2": float(r2_score(y_arr, preds)),
+                "rmse": rmse,
+                "mae": float(mean_absolute_error(y_arr, preds)),
+            }
+        )
     if n_selected_per_fold is not None:
         metrics["n_selected_per_fold"] = n_selected_per_fold
 
@@ -485,7 +703,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
                 X_rows.append(np.asarray(active_map[k], dtype=float))
         X = np.vstack(X_rows).astype(float)
 
-    if cfg.feature_reduction_approach == "stats_ttest":
+    if cfg.feature_reduction_approach in ("stats_ttest", "stats_fregression"):
         n_selected = len(feature_names)
         logger.warning(
             f"WARNING: Statistical feature selection selected {n_selected} features from {efield_imgs[0].shape[0] * efield_imgs[0].shape[1] * efield_imgs[0].shape[2]} total voxels."
@@ -507,7 +725,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     gs_final = GridSearchCV(
         pipe,
         param_grid=param_grid,
-        scoring="roc_auc",
+        scoring=("roc_auc" if cfg.task == "classification" else "neg_mean_squared_error"),
         cv=inner_cv,
         n_jobs=int(cfg.n_jobs),
         refit=True,
@@ -532,7 +750,23 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
         y_perms = [rng.permutation(y_arr) for _ in range(n_perm)]
 
         def _perm_score(y_perm: np.ndarray) -> float:
-            perm_proba, _bp, _sel = _outer_cv_proba_classification(
+            if cfg.task == "classification":
+                perm_proba, _bp, _sel = _outer_cv_proba_classification(
+                    y_arr=y_perm,
+                    X=X,
+                    outer_cv=outer_cv,
+                    inner_cv=inner_cv,
+                    pipe=pipe,
+                    param_grid=param_grid,
+                    cfg=cfg,
+                    efield_imgs=efield_imgs,
+                    active_indices=active_indices,
+                    logger=logger,
+                    log_progress=False,
+                    n_jobs_override=1 if int(cfg.n_jobs) > 1 else None,
+                )
+                return float(roc_auc_score(y_perm, perm_proba))
+            perm_preds, _bp, _sel = _outer_cv_pred_regression(
                 y_arr=y_perm,
                 X=X,
                 outer_cv=outer_cv,
@@ -546,7 +780,7 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
                 log_progress=False,
                 n_jobs_override=1 if int(cfg.n_jobs) > 1 else None,
             )
-            return float(roc_auc_score(y_perm, perm_proba))
+            return float(r2_score(y_perm, perm_preds))
 
         if int(cfg.n_jobs) > 1:
             from joblib import Parallel, delayed
@@ -558,27 +792,45 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
         else:
             perm_scores = [_perm_score(y_perm) for y_perm in y_perms]
         perm_scores_arr = np.asarray(perm_scores, dtype=float)
-        obs = float(metrics["roc_auc"])
-        p_val = float((np.sum(perm_scores_arr >= obs) + 1.0) / (len(perm_scores_arr) + 1.0))
-        metrics["permutation"] = {
-            "n_permutations": int(n_perm),
-            "roc_auc_observed": obs,
-            "roc_auc_mean": float(perm_scores_arr.mean()),
-            "roc_auc_std": float(perm_scores_arr.std()),
-            "roc_auc_p_value": p_val,
-        }
+        if cfg.task == "classification":
+            obs = float(metrics["roc_auc"])
+            p_val = float(
+                (np.sum(perm_scores_arr >= obs) + 1.0) / (len(perm_scores_arr) + 1.0)
+            )
+            metrics["permutation"] = {
+                "n_permutations": int(n_perm),
+                "roc_auc_observed": obs,
+                "roc_auc_mean": float(perm_scores_arr.mean()),
+                "roc_auc_std": float(perm_scores_arr.std()),
+                "roc_auc_p_value": p_val,
+            }
+        else:
+            obs = float(metrics["r2"])
+            p_val = float(
+                (np.sum(perm_scores_arr >= obs) + 1.0) / (len(perm_scores_arr) + 1.0)
+            )
+            metrics["permutation"] = {
+                "n_permutations": int(n_perm),
+                "r2_observed": obs,
+                "r2_mean": float(perm_scores_arr.mean()),
+                "r2_std": float(perm_scores_arr.std()),
+                "r2_p_value": p_val,
+            }
 
-    joblib.dump(
-        {
-            "model": best_est,
-            "feature_names": fm.feature_names,
-            "atlas_path": str(fm.atlas_path),
-            "config": asdict(cfg),
-        },
-        model_path,
-    )
+    bundle: Dict[str, Any] = {
+        "model": best_est,
+        "feature_names": fm.feature_names,
+        "atlas_path": str(fm.atlas_path),
+        "config": asdict(cfg),
+    }
+    if cfg.feature_reduction_approach in ("stats_ttest", "stats_fregression"):
+        ref_shape, ref_affine = _ref_image_shape_and_affine(efield_imgs[0])
+        bundle["voxel_ref_shape"] = ref_shape
+        bundle["voxel_ref_affine"] = ref_affine
 
-    # Optional bootstrap stability for coefficients (classification only, off by default).
+    joblib.dump(bundle, model_path)
+
+    # Optional bootstrap stability for coefficients (off by default).
     if int(getattr(cfg, "bootstrap_samples", 0)) > 0:
         rng = np.random.default_rng(int(cfg.random_state))
         B = int(cfg.bootstrap_samples)
@@ -587,27 +839,45 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
             idx = rng.integers(0, len(y_arr), size=len(y_arr))
             Xb = X[idx]
             yb = y_arr[idx]
-            est_b = Pipeline(
-                steps=[
-                    ("scaler", StandardScaler(with_mean=True, with_std=True)),
-                    (
-                        "clf",
-                        LogisticRegression(
-                            penalty="elasticnet",
-                            solver="saga",
-                            class_weight="balanced",
-                            max_iter=5000,
-                            random_state=cfg.random_state + b + 100,
-                            C=float(best_params_final.get("clf__C", 1.0)),
-                            l1_ratio=float(best_params_final.get("clf__l1_ratio", 0.5)),
+            if cfg.task == "classification":
+                est_b = Pipeline(
+                    steps=[
+                        ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                        (
+                            "clf",
+                            LogisticRegression(
+                                penalty="elasticnet",
+                                solver="saga",
+                                class_weight="balanced",
+                                max_iter=5000,
+                                random_state=cfg.random_state + b + 100,
+                                C=float(best_params_final.get("clf__C", 1.0)),
+                                l1_ratio=float(best_params_final.get("clf__l1_ratio", 0.5)),
+                            ),
                         ),
-                    ),
-                ]
-            )
+                    ]
+                )
+            else:
+                est_b = Pipeline(
+                    steps=[
+                        ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                        (
+                            "reg",
+                            ElasticNet(
+                                max_iter=5000,
+                                alpha=float(best_params_final.get("reg__alpha", 1.0)),
+                                l1_ratio=float(best_params_final.get("reg__l1_ratio", 0.5)),
+                            ),
+                        ),
+                    ]
+                )
             est_b.fit(Xb, yb)
-            coef_mat[b, :] = np.asarray(
-                est_b.named_steps["clf"].coef_[0], dtype=float
-            )
+            if cfg.task == "classification":
+                coef_mat[b, :] = np.asarray(
+                    est_b.named_steps["clf"].coef_[0], dtype=float
+                )
+            else:
+                coef_mat[b, :] = np.asarray(est_b.named_steps["reg"].coef_, dtype=float)
 
         coef_mean = coef_mat.mean(axis=0)
         coef_std = coef_mat.std(axis=0)
@@ -630,9 +900,14 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     feat_names_path.write_text(json.dumps(fm.feature_names, indent=2))
 
     # Write per-subject predictions
-    lines = ["subject_id,simulation_name,response,proba"]
-    for s, yy, pp in zip(kept, y_arr.tolist(), proba.tolist()):
-        lines.append(f"{s.subject_id},{s.simulation_name},{int(yy)},{float(pp)}")
+    if cfg.task == "classification":
+        lines = [f"subject_id,simulation_name,{cfg.target_col},proba"]
+        for s, yy, pp in zip(kept, y_arr.tolist(), proba.tolist()):
+            lines.append(f"{s.subject_id},{s.simulation_name},{int(yy)},{float(pp)}")
+    else:
+        lines = [f"subject_id,simulation_name,{cfg.target_col},prediction"]
+        for s, yy, pp in zip(kept, y_arr.tolist(), preds.tolist()):
+            lines.append(f"{s.subject_id},{s.simulation_name},{float(yy)},{float(pp)}")
     preds_path.write_text("\n".join(lines) + "\n")
 
     logger.info(f"Saved model: {model_path}")
