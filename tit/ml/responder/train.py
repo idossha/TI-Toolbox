@@ -411,7 +411,8 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
         ]
     )
     # Expanded hyperparameter grid (best-practice: explore C on log scale, penalties, class weights)
-    C_grid = np.logspace(-4, 2, 7).tolist()
+    # Slightly relaxed regularization by shifting C to higher values.
+    C_grid = np.logspace(-3, 3, 7).tolist()
     param_grid = [
         {
             "clf__penalty": ["l2"],
@@ -519,6 +520,11 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
     best_params_final: Dict[str, Any] = dict(gs_final.best_params_ or {})
     metrics["best_params_final"] = best_params_final
 
+    model_path = out_dir / "model.joblib"
+    metrics_path = out_dir / "metrics.json"
+    preds_path = out_dir / "cv_predictions.csv"
+    feat_names_path = out_dir / "feature_names.json"
+
     if int(getattr(cfg, "permutation_tests", 0)) > 0:
         rng = np.random.default_rng(int(cfg.random_state) + 1000)
         n_perm = int(getattr(cfg, "permutation_tests", 0))
@@ -562,80 +568,66 @@ def train_from_csv(cfg: ResponderMLConfig) -> TrainArtifacts:
             "roc_auc_p_value": p_val,
         }
 
-        # Output paths
-        run_name = cfg.run_name
-        out_dir = cfg.output_dir or default_output_dir(run_name=run_name)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        if cfg.verbose:
-            logger.info(f"Output dir: {out_dir}")
+    joblib.dump(
+        {
+            "model": best_est,
+            "feature_names": fm.feature_names,
+            "atlas_path": str(fm.atlas_path),
+            "config": asdict(cfg),
+        },
+        model_path,
+    )
 
-        model_path = out_dir / "model.joblib"
-        metrics_path = out_dir / "metrics.json"
-        preds_path = out_dir / "cv_predictions.csv"
-        feat_names_path = out_dir / "feature_names.json"
-
-        joblib.dump(
-            {
-                "model": best_est,
-                "feature_names": fm.feature_names,
-                "atlas_path": str(fm.atlas_path),
-                "config": asdict(cfg),
-            },
-            model_path,
-        )
-
-        # Optional bootstrap stability for coefficients (classification only, off by default).
-        if int(getattr(cfg, "bootstrap_samples", 0)) > 0:
-            rng = np.random.default_rng(int(cfg.random_state))
-            B = int(cfg.bootstrap_samples)
-            coef_mat = np.zeros((B, len(fm.feature_names)), dtype=float)
-            for b in range(B):
-                idx = rng.integers(0, len(y_arr), size=len(y_arr))
-                Xb = X[idx]
-                yb = y_arr[idx]
-                est_b = Pipeline(
-                    steps=[
-                        ("scaler", StandardScaler(with_mean=True, with_std=True)),
-                        (
-                            "clf",
-                            LogisticRegression(
-                                penalty="elasticnet",
-                                solver="saga",
-                                class_weight="balanced",
-                                max_iter=5000,
-                                random_state=cfg.random_state + b + 100,
-                                C=float(best_params_final.get("clf__C", 1.0)),
-                                l1_ratio=float(
-                                    best_params_final.get("clf__l1_ratio", 0.5)
-                                ),
-                            ),
+    # Optional bootstrap stability for coefficients (classification only, off by default).
+    if int(getattr(cfg, "bootstrap_samples", 0)) > 0:
+        rng = np.random.default_rng(int(cfg.random_state))
+        B = int(cfg.bootstrap_samples)
+        coef_mat = np.zeros((B, len(fm.feature_names)), dtype=float)
+        for b in range(B):
+            idx = rng.integers(0, len(y_arr), size=len(y_arr))
+            Xb = X[idx]
+            yb = y_arr[idx]
+            est_b = Pipeline(
+                steps=[
+                    ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                    (
+                        "clf",
+                        LogisticRegression(
+                            penalty="elasticnet",
+                            solver="saga",
+                            class_weight="balanced",
+                            max_iter=5000,
+                            random_state=cfg.random_state + b + 100,
+                            C=float(best_params_final.get("clf__C", 1.0)),
+                            l1_ratio=float(best_params_final.get("clf__l1_ratio", 0.5)),
                         ),
-                    ]
-                )
-                est_b.fit(Xb, yb)
-                coef_mat[b, :] = np.asarray(
-                    est_b.named_steps["clf"].coef_[0], dtype=float
-                )
-
-            coef_mean = coef_mat.mean(axis=0)
-            coef_std = coef_mat.std(axis=0)
-            sign_consistency = np.mean(
-                np.sign(coef_mat) == np.sign(coef_mean[None, :]), axis=0
+                    ),
+                ]
             )
-            stab_path = out_dir / "coef_stability.csv"
-            lines = ["feature,coef_mean,coef_std,sign_consistency"]
-            for name, m, s, sc in zip(
-                fm.feature_names,
-                coef_mean.tolist(),
-                coef_std.tolist(),
-                sign_consistency.tolist(),
-            ):
-                lines.append(f"{name},{float(m)},{float(s)},{float(sc)}")
-            stab_path.write_text("\n".join(lines) + "\n")
-            logger.info(f"Saved coefficient stability: {stab_path}")
+            est_b.fit(Xb, yb)
+            coef_mat[b, :] = np.asarray(
+                est_b.named_steps["clf"].coef_[0], dtype=float
+            )
 
-        metrics_path.write_text(json.dumps(metrics, indent=2))
-        feat_names_path.write_text(json.dumps(fm.feature_names, indent=2))
+        coef_mean = coef_mat.mean(axis=0)
+        coef_std = coef_mat.std(axis=0)
+        sign_consistency = np.mean(
+            np.sign(coef_mat) == np.sign(coef_mean[None, :]), axis=0
+        )
+        stab_path = out_dir / "coef_stability.csv"
+        lines = ["feature,coef_mean,coef_std,sign_consistency"]
+        for name, m, s, sc in zip(
+            fm.feature_names,
+            coef_mean.tolist(),
+            coef_std.tolist(),
+            sign_consistency.tolist(),
+        ):
+            lines.append(f"{name},{float(m)},{float(s)},{float(sc)}")
+        stab_path.write_text("\n".join(lines) + "\n")
+        logger.info(f"Saved coefficient stability: {stab_path}")
+
+    metrics_path.write_text(json.dumps(metrics, indent=2))
+    feat_names_path.write_text(json.dumps(fm.feature_names, indent=2))
 
     # Write per-subject predictions
     lines = ["subject_id,simulation_name,response,proba"]
