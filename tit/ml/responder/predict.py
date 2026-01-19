@@ -8,11 +8,16 @@ import numpy as np
 import joblib
 import sklearn
 
-from tit.cli import utils as cli_utils
+from tit import logger as logging_util
 
 from .config import DEFAULT_EFIELD_FILENAME_PATTERN
-from .dataset import load_efield_images, load_subject_table
-from .features import extract_roi_features_from_efield
+from .dataset import is_sham_condition, load_efield_images, load_subject_table
+from .features import (
+    extract_features,
+    extract_voxel_features_by_coords,
+    parse_voxel_feature_names,
+    FeatureMatrix,
+)
 
 
 @dataclass(frozen=True)
@@ -30,56 +35,151 @@ def predict_from_csv(
     Predict for subjects in a CSV using a trained model bundle.
 
     The target column is optional at prediction time.
-    - For classification models: writes probability (`proba`)
-    - For regression models: writes continuous prediction (`pred`)
+    - Writes probability (`proba`)
     """
-    if not model_path.is_file():
-        raise FileNotFoundError(f"Model not found: {model_path}")
+    out = output_csv or (model_path.parent / "predictions.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    log_path = out.parent / "responder_ml.log"
 
-    bundle = joblib.load(model_path)
-    est = bundle.get("model")
-    atlas_path = bundle.get("atlas_path")
-    feature_names = list(bundle.get("feature_names") or [])
-    cfg: Dict[str, Any] = dict(bundle.get("config") or {})
-    task = str(cfg.get("task") or "classification")
-    target_col = str(cfg.get("target_col") or "response")
-    efield_filename_pattern = str(
-        cfg.get("efield_filename_pattern") or DEFAULT_EFIELD_FILENAME_PATTERN
+    logger = logging_util.get_logger(
+        "tit.ml.responder.predict",
+        log_file=str(log_path),
+        overwrite=False,
+        console=True,
     )
 
-    subjects = load_subject_table(
-        csv_path,
-        task=("regression" if task == "regression" else "classification"),
-        target_col=target_col,
-        require_target=False,
-    )
-    imgs, y, kept = load_efield_images(
-        subjects, efield_filename_pattern=efield_filename_pattern
-    )
+    try:
+        if not model_path.is_file():
+            raise FileNotFoundError(f"Model not found: {model_path}")
 
-    fm = extract_roi_features_from_efield(
-        imgs, atlas_path=Path(atlas_path) if atlas_path else None
-    )
-    X = fm.X
-    if feature_names and fm.feature_names != feature_names:
-        raise RuntimeError(
-            "Feature ordering mismatch between model bundle and newly extracted features. "
-            "Ensure the same atlas and feature definition are used."
+        bundle = joblib.load(model_path)
+        est = bundle.get("model")
+        atlas_path = bundle.get("atlas_path")
+        feature_names = list(bundle.get("feature_names") or [])
+        cfg: Dict[str, Any] = dict(bundle.get("config") or {})
+        target_col = str(cfg.get("target_col") or "response")
+        efield_filename_pattern = str(
+            cfg.get("efield_filename_pattern") or DEFAULT_EFIELD_FILENAME_PATTERN
+        )
+        condition_col = cfg.get("condition_col")
+        sham_value = str(cfg.get("sham_value") or "sham")
+        feature_reduction_approach = str(cfg.get("feature_reduction_approach") or "atlas_roi")
+        ttest_p_threshold = float(cfg.get("ttest_p_threshold") or 0.001)
+
+        logger.info(f"Model: {model_path}")
+        logger.info(f"CSV: {csv_path}")
+        logger.info(f"Output: {out}")
+
+        subjects = load_subject_table(
+            csv_path,
+            target_col=target_col,
+            condition_col=str(condition_col) if condition_col else None,
+            sham_value=sham_value,
+            require_target=False,
         )
 
-    out = output_csv or (model_path.parent / "predictions.csv")
-    if task == "regression":
-        pred = np.asarray(est.predict(X), dtype=float)
-        lines = [f"subject_id,simulation_name,{target_col},pred"]
-        for s, yy, pp in zip(kept, y, pred.tolist()):
-            tgt = "" if yy is None else float(yy)
-            lines.append(f"{s.subject_id},{s.simulation_name},{tgt},{float(pp)}")
-    else:
+        use_condition = bool(condition_col)
+        if use_condition:
+            sham_subjects = [
+                s
+                for s in subjects
+                if is_sham_condition(s.condition, sham_value=sham_value)
+            ]
+            active_subjects = [
+                s
+                for s in subjects
+                if not is_sham_condition(s.condition, sham_value=sham_value)
+            ]
+            logger.info(
+                f"Subjects: total={len(subjects)}, active={len(active_subjects)}, sham={len(sham_subjects)}"
+            )
+        else:
+            sham_subjects = []
+            active_subjects = list(subjects)
+            logger.info(f"Subjects: total={len(subjects)}")
+
+        imgs, y_active, kept_active = load_efield_images(
+            active_subjects,
+            efield_filename_pattern=efield_filename_pattern,
+            logger=logger,
+        )
+
+        if feature_reduction_approach == "stats_ttest":
+            # For stats_ttest models, use the pre-selected voxel features from training
+            fm = _extract_voxel_features_for_prediction(imgs, feature_names)
+        else:
+            # For atlas_roi models, use the standard atlas-based extraction
+            fm = extract_features(
+                imgs,
+                y=None,  # Not needed for atlas_roi
+                feature_reduction_approach=feature_reduction_approach,
+                atlas_path=Path(atlas_path) if atlas_path else None,
+                ttest_p_threshold=ttest_p_threshold,
+            )
+        if feature_names and fm.feature_names != feature_names:
+            raise RuntimeError(
+                "Feature ordering mismatch between model bundle and newly extracted features. "
+                "Ensure the same atlas and feature definition are used."
+            )
+
+        n_features = fm.X.shape[1]
+        active_map = {
+            (s.subject_id, s.simulation_name): fm.X[i, :]
+            for i, s in enumerate(kept_active)
+        }
+        kept = []
+        y = []
+        X_rows = []
+        for s in subjects:
+            k = (s.subject_id, s.simulation_name)
+            if use_condition and is_sham_condition(s.condition, sham_value=sham_value):
+                kept.append(s)
+                y.append(s.target)
+                X_rows.append(np.zeros((n_features,), dtype=float))
+                continue
+            if k not in active_map:
+                continue
+            kept.append(s)
+            y.append(s.target)
+            X_rows.append(np.asarray(active_map[k], dtype=float))
+        if not kept:
+            raise FileNotFoundError(
+                "No subjects could be used for prediction (no active NIfTIs and/or no sham rows)."
+            )
+        X = np.vstack(X_rows).astype(float)
+
         proba = est.predict_proba(X)[:, 1]
         lines = [f"subject_id,simulation_name,{target_col},proba"]
         for s, yy, pp in zip(kept, y, proba.tolist()):
             tgt = "" if yy is None else int(float(yy))
             lines.append(f"{s.subject_id},{s.simulation_name},{tgt},{float(pp)}")
-    out.write_text("\n".join(lines) + "\n")
-    cli_utils.echo_success(f"Saved predictions: {out}")
-    return PredictArtifacts(output_csv=out)
+
+        out.write_text("\n".join(lines) + "\n")
+        logger.info(f"Saved predictions: {out}")
+        return PredictArtifacts(output_csv=out)
+    except Exception:
+        logger.exception("Responder ML predict failed.")
+        raise
+
+
+def _extract_voxel_features_for_prediction(
+    efield_imgs: Any,
+    feature_names: list[str],
+) -> FeatureMatrix:
+    """
+    Extract voxel features for prediction using pre-selected voxel coordinates.
+
+    For stats_ttest models, the feature_names contain voxel coordinates like "voxel_X_Y_Z".
+    During prediction, we extract the E-field values at these specific coordinates.
+    """
+    if not feature_names:
+        raise RuntimeError("No feature names available from trained model")
+
+    voxel_coords = parse_voxel_feature_names(feature_names)
+    if not voxel_coords:
+        raise RuntimeError(
+            f"No valid voxel coordinates found in feature names: {feature_names[:5]}..."
+        )
+
+    fm = extract_voxel_features_by_coords(efield_imgs, voxel_coords)
+    return FeatureMatrix(X=fm.X, feature_names=feature_names, atlas_path=None)

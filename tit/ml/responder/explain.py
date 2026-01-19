@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from tit.cli import utils as cli_utils
+from tit import logger as logging_util
 
 from .config import default_glasser_atlas_path, default_glasser_labels_path
 from tit.tools.extract_labels import label_ids_in_nifti, load_labels_tsv
@@ -113,32 +113,183 @@ def explain_model(
     import joblib  # type: ignore
     import nibabel as nib  # type: ignore
 
-    if not model_path.is_file():
-        raise FileNotFoundError(f"Model not found: {model_path}")
-
-    bundle = joblib.load(model_path)
-    est = bundle.get("model")
-    feature_names: List[str] = list(bundle.get("feature_names") or [])
-    atlas_from_model = bundle.get("atlas_path")
-
-    if not feature_names:
-        raise RuntimeError("Model bundle missing feature_names")
-
-    # Resolve atlas
-    atlas_p: Optional[Path] = Path(atlas_from_model) if atlas_from_model else None
-    if atlas_path is not None:
-        atlas_p = Path(atlas_path)
-    if atlas_p is None or not atlas_p.is_file():
-        atlas_p = default_glasser_atlas_path()
-    if atlas_p is None or not atlas_p.is_file():
-        raise FileNotFoundError("Atlas not found. Provide --atlas-path.")
-
     out_dir = output_dir or model_path.parent
     out_dir.mkdir(parents=True, exist_ok=True)
-    figures_dir = out_dir / "figures"
-    figures_dir.mkdir(parents=True, exist_ok=True)
+    log_path = out_dir / "responder_ml.log"
+    logger = logging_util.get_logger(
+        "tit.ml.responder.explain",
+        log_file=str(log_path),
+        overwrite=False,
+        console=True,
+    )
 
-    # Pull coefficients from pipeline (scaler + clf/reg) or bare estimator.
+    try:
+        logger.info(f"Model: {model_path}")
+        logger.info(f"Output dir: {out_dir}")
+
+        if not model_path.is_file():
+            raise FileNotFoundError(f"Model not found: {model_path}")
+
+        bundle = joblib.load(model_path)
+        est = bundle.get("model")
+        feature_names: List[str] = list(bundle.get("feature_names") or [])
+        atlas_from_model = bundle.get("atlas_path")
+        config_from_model = bundle.get("config", {})
+        feature_reduction_approach = config_from_model.get("feature_reduction_approach", "atlas_roi")
+
+        if not feature_names:
+            raise RuntimeError("Model bundle missing feature_names")
+
+        # Handle different feature types based on approach
+        if feature_reduction_approach == "stats_ttest":
+            # For stats_ttest, features are voxel coordinates like "voxel_X_Y_Z"
+            return _explain_voxel_features(
+                est=est,
+                feature_names=feature_names,
+                out_dir=out_dir,
+                logger=logger,
+            )
+        else:
+            # For atlas_roi, features are ROI-based like "ROI_<id>__<stat>"
+            pass  # Continue with existing ROI-based logic
+
+            # Resolve atlas
+            atlas_p: Optional[Path] = Path(atlas_from_model) if atlas_from_model else None
+            if atlas_path is not None:
+                atlas_p = Path(atlas_path)
+            if atlas_p is None or not atlas_p.is_file():
+                atlas_p = default_glasser_atlas_path()
+            if atlas_p is None or not atlas_p.is_file():
+                raise FileNotFoundError("Atlas not found. Provide --atlas-path.")
+        
+            # out_dir already resolved/created above
+            figures_dir = out_dir / "figures"
+            figures_dir.mkdir(parents=True, exist_ok=True)
+        
+            # Pull coefficients from pipeline (scaler + clf/reg) or bare estimator.
+            core_est = est
+            if hasattr(est, "named_steps"):
+                if "clf" in est.named_steps:
+                    core_est = est.named_steps["clf"]
+                elif "reg" in est.named_steps:
+                    core_est = est.named_steps["reg"]
+            coef = getattr(core_est, "coef_", None)
+            if coef is None:
+                raise RuntimeError(
+                    "Model does not expose coef_ (expected linear model such as logistic regression or elastic-net regression)"
+                )
+            coef = np.asarray(coef)
+            if coef.ndim == 2:
+                coef = coef[0]
+            if coef.shape[0] != len(feature_names):
+                raise RuntimeError("coef_ length does not match feature_names")
+        
+            # Parse ROI + stat from feature name: ROI_<id>__<stat>
+            parsed: List[Tuple[int, str, float]] = []
+            for name, w in zip(feature_names, coef.tolist()):
+                roi_id = None
+                stat = "unknown"
+                if name.startswith("ROI_") and "__" in name:
+                    left, stat = name.split("__", 1)
+                    try:
+                        roi_id = int(left.replace("ROI_", ""))
+                    except ValueError:
+                        roi_id = None
+                if roi_id is None:
+                    # Fallback: keep an artificial id (-1)
+                    roi_id = -1
+                parsed.append((roi_id, stat, float(w)))
+        
+            label_map = _load_labels_map(atlas_path=atlas_p, labels_path=atlas_labels_path)
+        
+            # Save ROI weights table
+            roi_weights_csv = out_dir / "roi_weights.csv"
+            lines = ["label_id,label_name,stat,coef"]
+            for roi_id, stat, w in parsed:
+                lines.append(f"{roi_id},{label_map.get(roi_id, f'ROI_{roi_id}')},{stat},{w}")
+            roi_weights_csv.write_text("\n".join(lines) + "\n")
+        
+            # Build weight maps per stat
+            atlas_img = nib.load(str(atlas_p))
+            atlas_data = np.asanyarray(atlas_img.dataobj).astype(np.int32)
+        
+            stats = sorted({stat for _roi, stat, _w in parsed})
+            weight_maps: List[Path] = []
+            for stat in stats:
+                weights_by_roi: Dict[int, float] = {roi: w for roi, s, w in parsed if s == stat}
+                out_data = np.zeros_like(atlas_data, dtype=np.float32)
+                for roi_id, w in weights_by_roi.items():
+                    if roi_id <= 0:
+                        continue
+                    out_data[atlas_data == roi_id] = float(w)
+                out_img = nib.Nifti1Image(
+                    out_data, affine=atlas_img.affine, header=atlas_img.header
+                )
+                out_path = out_dir / f"weight_map_{stat}.nii.gz"
+                nib.save(out_img, str(out_path))
+                weight_maps.append(out_path)
+        
+            logger.info(f"Saved ROI weights: {roi_weights_csv}")
+            for p in weight_maps:
+                logger.info(f"Saved weight map: {p}")
+        
+            figures: List[Path] = []
+        
+            # --- Industry-standard visual 1: feature importance (top coefficients) ---
+            feat_imp = figures_dir / "feature_importance_top.png"
+            try:
+                _plot_top_coefficients(
+                    parsed=parsed,
+                    label_map=label_map,
+                    out_path=feat_imp,
+                    top_k=25,
+                    title="Top linear coefficients (standardized features)",
+                )
+                figures.append(feat_imp)
+                logger.info(f"Saved figure: {feat_imp}")
+            except Exception as e:
+                logger.warning(f"Could not generate feature importance figure: {e}")
+        
+            # --- Industry-standard visual 2: model diagnostics (ROC/PR/Calib/Confusion or regression diagnostics) ---
+            pred_path = model_path.parent / "cv_predictions.csv"
+            diag = figures_dir / "model_diagnostics.png"
+            if pred_path.is_file():
+                try:
+                    _plot_model_diagnostics_from_predictions_csv(
+                        predictions_csv=pred_path,
+                        out_path=diag,
+                    )
+                    figures.append(diag)
+                    logger.info(f"Saved figure: {diag}")
+                except Exception as e:
+                    logger.warning(
+                        f"Could not generate model diagnostics figure from {pred_path}: {e}"
+                    )
+        
+            return ExplainArtifacts(
+                output_dir=out_dir,
+                roi_weights_csv=roi_weights_csv,
+                weight_maps=weight_maps,
+                figures=figures,
+            )
+    except Exception:
+        logger.exception("Responder ML explain failed.")
+        raise
+
+
+def _explain_voxel_features(
+    est,
+    feature_names: List[str],
+    out_dir: Path,
+    logger,
+) -> ExplainArtifacts:
+    """
+    Explain model with voxel-level features (from stats_ttest approach).
+    """
+    import matplotlib.pyplot as plt
+    import nibabel as nib
+
+    # Pull coefficients from pipeline
     core_est = est
     if hasattr(est, "named_steps"):
         if "clf" in est.named_steps:
@@ -156,91 +307,106 @@ def explain_model(
     if coef.shape[0] != len(feature_names):
         raise RuntimeError("coef_ length does not match feature_names")
 
-    # Parse ROI + stat from feature name: ROI_<id>__<stat>
-    parsed: List[Tuple[int, str, float]] = []
-    for name, w in zip(feature_names, coef.tolist()):
-        roi_id = None
-        stat = "unknown"
-        if name.startswith("ROI_") and "__" in name:
-            left, stat = name.split("__", 1)
-            try:
-                roi_id = int(left.replace("ROI_", ""))
-            except ValueError:
-                roi_id = None
-        if roi_id is None:
-            # Fallback: keep an artificial id (-1)
-            roi_id = -1
-        parsed.append((roi_id, stat, float(w)))
+    # Parse voxel coordinates from feature names: voxel_X_Y_Z
+    voxel_data: List[Tuple[int, int, int, float]] = []
+    for name, weight in zip(feature_names, coef.tolist()):
+        if name.startswith("voxel_"):
+            parts = name.split("_")
+            if len(parts) == 4:  # voxel_X_Y_Z
+                try:
+                    x, y, z = int(parts[1]), int(parts[2]), int(parts[3])
+                    voxel_data.append((x, y, z, float(weight)))
+                except ValueError:
+                    logger.warning(f"Could not parse voxel coordinates from: {name}")
+                    continue
+        else:
+            logger.warning(f"Unexpected voxel feature name format: {name}")
 
-    label_map = _load_labels_map(atlas_path=atlas_p, labels_path=atlas_labels_path)
+    if not voxel_data:
+        raise RuntimeError("No valid voxel coordinates found in feature names")
 
-    # Save ROI weights table
-    roi_weights_csv = out_dir / "roi_weights.csv"
-    lines = ["label_id,label_name,stat,coef"]
-    for roi_id, stat, w in parsed:
-        lines.append(f"{roi_id},{label_map.get(roi_id, f'ROI_{roi_id}')},{stat},{w}")
-    roi_weights_csv.write_text("\n".join(lines) + "\n")
+    # Create voxel weight map
+    # Find the bounding box of significant voxels
+    coords = np.array([(x, y, z) for x, y, z, w in voxel_data])
+    weights = np.array([w for x, y, z, w in voxel_data])
 
-    # Build weight maps per stat
-    atlas_img = nib.load(str(atlas_p))
-    atlas_data = np.asanyarray(atlas_img.dataobj).astype(np.int32)
+    if len(coords) == 0:
+        raise RuntimeError("No voxel coordinates to create weight map")
 
-    stats = sorted({stat for _roi, stat, _w in parsed})
-    weight_maps: List[Path] = []
-    for stat in stats:
-        weights_by_roi: Dict[int, float] = {roi: w for roi, s, w in parsed if s == stat}
-        out_data = np.zeros_like(atlas_data, dtype=np.float32)
-        for roi_id, w in weights_by_roi.items():
-            if roi_id <= 0:
-                continue
-            out_data[atlas_data == roi_id] = float(w)
-        out_img = nib.Nifti1Image(
-            out_data, affine=atlas_img.affine, header=atlas_img.header
-        )
-        out_path = out_dir / f"weight_map_{stat}.nii.gz"
-        nib.save(out_img, str(out_path))
-        weight_maps.append(out_path)
+    # Create 3D weight volume
+    min_coords = coords.min(axis=0)
+    max_coords = coords.max(axis=0)
+    shape = max_coords - min_coords + 1
 
-    cli_utils.echo_success(f"Saved ROI weights: {roi_weights_csv}")
-    for p in weight_maps:
-        cli_utils.echo_success(f"Saved weight map: {p}")
+    # Create weight volume
+    weight_volume = np.zeros(shape, dtype=np.float32)
+    for (x, y, z), weight in zip(coords, weights):
+        local_x, local_y, local_z = x - min_coords[0], y - min_coords[1], z - min_coords[2]
+        weight_volume[local_x, local_y, local_z] = weight
 
-    figures: List[Path] = []
+    # Create NIfTI image (using a dummy affine - this is for visualization only)
+    affine = np.eye(4)
+    affine[0, 0] = affine[1, 1] = affine[2, 2] = 2.0  # 2mm voxels (typical MNI)
+    weight_img = nib.Nifti1Image(weight_volume, affine)
 
-    # --- Industry-standard visual 1: feature importance (top coefficients) ---
-    feat_imp = figures_dir / "feature_importance_top.png"
+    # Save weight map
+    weight_map_path = out_dir / "voxel_weight_map.nii.gz"
+    nib.save(weight_img, str(weight_map_path))
+    weight_maps = [weight_map_path]
+
+    # Save voxel weights CSV
+    voxel_weights_csv = out_dir / "voxel_weights.csv"
+    lines = ["x,y,z,weight"]
+    for x, y, z, weight in voxel_data:
+        lines.append(f"{x},{y},{z},{weight}")
+    voxel_weights_csv.write_text("\n".join(lines) + "\n")
+
+    # Generate figures
+    figures_dir = out_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    figures = []
+
+    # Skip glass brain plot for now - requires additional nilearn setup
+    # Will add this in a future update
+
+    # Feature importance plot (top positive/negative weights)
     try:
-        _plot_top_coefficients(
-            parsed=parsed,
-            label_map=label_map,
-            out_path=feat_imp,
-            top_k=25,
-            title="Top linear coefficients (standardized features)",
-        )
-        figures.append(feat_imp)
-        cli_utils.echo_success(f"Saved figure: {feat_imp}")
-    except Exception as e:
-        cli_utils.echo_warning(f"Could not generate feature importance figure: {e}")
+        feat_imp = figures_dir / "feature_importance_top.png"
+        _mpl_pyplot()
 
-    # --- Industry-standard visual 2: model diagnostics (ROC/PR/Calib/Confusion or regression diagnostics) ---
-    pred_path = model_path.parent / "cv_predictions.csv"
-    diag = figures_dir / "model_diagnostics.png"
-    if pred_path.is_file():
-        try:
-            _plot_model_diagnostics_from_predictions_csv(
-                predictions_csv=pred_path,
-                out_path=diag,
-            )
-            figures.append(diag)
-            cli_utils.echo_success(f"Saved figure: {diag}")
-        except Exception as e:
-            cli_utils.echo_warning(
-                f"Could not generate model diagnostics figure from {pred_path}: {e}"
-            )
+        # Sort by absolute weight
+        sorted_indices = np.argsort(np.abs(weights))[::-1]
+        top_n = min(20, len(weights))
+        top_indices = sorted_indices[:top_n]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        y_pos = np.arange(top_n)
+        bars = ax.barh(y_pos, weights[top_indices])
+
+        # Color bars based on sign
+        for i, bar in enumerate(bars):
+            if weights[top_indices[i]] > 0:
+                bar.set_color('red')
+            else:
+                bar.set_color('blue')
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels([f"voxel_{coords[i][0]}_{coords[i][1]}_{coords[i][2]}" for i in top_indices])
+        ax.set_xlabel('Weight')
+        ax.set_title(f'Top {top_n} Voxel Weights')
+        ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(str(feat_imp), dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        figures.append(feat_imp)
+        logger.info(f"Saved feature importance plot: {feat_imp}")
+    except Exception as e:
+        logger.warning(f"Could not generate feature importance plot: {e}")
 
     return ExplainArtifacts(
         output_dir=out_dir,
-        roi_weights_csv=roi_weights_csv,
+        roi_weights_csv=voxel_weights_csv,  # Use voxel weights CSV
         weight_maps=weight_maps,
         figures=figures,
     )
@@ -334,177 +500,114 @@ def _plot_model_diagnostics_from_predictions_csv(
 ) -> None:
     """
     Create a single multi-panel "industry standard" diagnostics figure:
-    - Classification: ROC + PR + calibration + confusion matrix
-    - Regression: parity + residuals histogram (+ residuals vs fitted)
+    - ROC + PR + calibration + confusion matrix
     """
     rows = _read_csv_as_rows(predictions_csv)
     if not rows:
         raise RuntimeError(f"Empty predictions CSV: {predictions_csv}")
 
     cols = set(rows[0].keys())
-    is_classification = "proba" in cols
-    is_regression = "pred" in cols
-    if not (is_classification or is_regression):
+    if "proba" not in cols:
         raise RuntimeError(
-            f"Unrecognized predictions CSV format (expected 'proba' or 'pred' column): {sorted(cols)}"
+            f"Unrecognized predictions CSV format (expected 'proba' column): {sorted(cols)}"
         )
 
     plt = _mpl_pyplot()
 
-    if is_classification:
-        from sklearn.calibration import calibration_curve
-        from sklearn.metrics import (
-            ConfusionMatrixDisplay,
-            average_precision_score,
-            confusion_matrix,
-            precision_recall_curve,
-            roc_auc_score,
-            roc_curve,
+    from sklearn.calibration import calibration_curve
+    from sklearn.metrics import (
+        ConfusionMatrixDisplay,
+        average_precision_score,
+        confusion_matrix,
+        precision_recall_curve,
+        roc_auc_score,
+        roc_curve,
+    )
+
+    # Target column is usually "response" in current training output.
+    target_col = (
+        "response"
+        if "response" in cols
+        else next(
+            (
+                c
+                for c in cols
+                if c not in {"subject_id", "simulation_name", "proba"}
+            ),
+            None,
         )
-
-        # Target column is usually "response" in current training output.
-        target_col = (
-            "response"
-            if "response" in cols
-            else next(
-                (
-                    c
-                    for c in cols
-                    if c not in {"subject_id", "simulation_name", "proba"}
-                ),
-                None,
-            )
-        )
-        if not target_col:
-            raise RuntimeError("Could not infer target column in predictions CSV")
-
-        y: List[int] = []
-        p: List[float] = []
-        for r in rows:
-            yy = _as_int(r.get(target_col))
-            pp = _as_float(r.get("proba"))
-            if yy is None or pp is None:
-                continue
-            y.append(int(yy))
-            p.append(float(pp))
-        if len(y) < 2:
-            raise RuntimeError("Not enough labeled prediction rows to plot diagnostics")
-
-        y_arr = np.asarray(y, dtype=int)
-        p_arr = np.asarray(p, dtype=float)
-
-        fpr, tpr, _ = roc_curve(y_arr, p_arr)
-        roc_auc = roc_auc_score(y_arr, p_arr)
-        prec, rec, _ = precision_recall_curve(y_arr, p_arr)
-        ap = average_precision_score(y_arr, p_arr)
-        frac_pos, mean_pred = calibration_curve(
-            y_arr, p_arr, n_bins=10, strategy="quantile"
-        )
-
-        # Confusion matrix at threshold 0.5 (standard) and also best-F1; display best-F1.
-        thresholds = np.unique(np.clip(p_arr, 0.0, 1.0))
-        best_thr = 0.5
-        best_f1 = -1.0
-        for thr in thresholds:
-            y_hat = (p_arr >= thr).astype(int)
-            tp = int(((y_hat == 1) & (y_arr == 1)).sum())
-            fp = int(((y_hat == 1) & (y_arr == 0)).sum())
-            fn = int(((y_hat == 0) & (y_arr == 1)).sum())
-            denom = 2 * tp + fp + fn
-            f1 = (2 * tp / denom) if denom > 0 else 0.0
-            if f1 > best_f1:
-                best_f1 = f1
-                best_thr = float(thr)
-
-        cm = confusion_matrix(y_arr, (p_arr >= best_thr).astype(int), labels=[0, 1])
-
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10), dpi=150)
-        ax_roc, ax_pr, ax_cal, ax_cm = axes.ravel()
-
-        ax_roc.plot(fpr, tpr, color="#1f77b4", linewidth=2)
-        ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
-        ax_roc.set_xlabel("False Positive Rate")
-        ax_roc.set_ylabel("True Positive Rate")
-        ax_roc.set_title(f"ROC (AUC={roc_auc:.3f})")
-        ax_roc.grid(True, alpha=0.2)
-
-        ax_pr.plot(rec, prec, color="#ff7f0e", linewidth=2)
-        ax_pr.set_xlabel("Recall")
-        ax_pr.set_ylabel("Precision")
-        ax_pr.set_title(f"Precision-Recall (AP={ap:.3f})")
-        ax_pr.grid(True, alpha=0.2)
-
-        ax_cal.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
-        ax_cal.plot(mean_pred, frac_pos, marker="o", linewidth=2, color="#2ca02c")
-        ax_cal.set_xlabel("Mean predicted probability")
-        ax_cal.set_ylabel("Fraction of positives")
-        ax_cal.set_title("Calibration (reliability diagram)")
-        ax_cal.grid(True, alpha=0.2)
-
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
-        disp.plot(ax=ax_cm, cmap="Blues", colorbar=False, values_format="d")
-        ax_cm.set_title(f"Confusion (thr={best_thr:.3f}, best F1={best_f1:.3f})")
-
-        fig.suptitle("Model diagnostics (CV predictions)", y=0.99)
-        fig.tight_layout()
-        fig.savefig(out_path)
-        plt.close(fig)
-        return
-
-    # Regression
-    target_col = next(
-        (c for c in cols if c not in {"subject_id", "simulation_name", "pred"}), None
     )
     if not target_col:
         raise RuntimeError("Could not infer target column in predictions CSV")
 
-    y_f: List[float] = []
-    pred_f: List[float] = []
+    y: List[int] = []
+    p: List[float] = []
     for r in rows:
-        yy = _as_float(r.get(target_col))
-        pp = _as_float(r.get("pred"))
+        yy = _as_int(r.get(target_col))
+        pp = _as_float(r.get("proba"))
         if yy is None or pp is None:
             continue
-        y_f.append(float(yy))
-        pred_f.append(float(pp))
-    if len(y_f) < 2:
+        y.append(int(yy))
+        p.append(float(pp))
+    if len(y) < 2:
         raise RuntimeError("Not enough labeled prediction rows to plot diagnostics")
 
-    y_arr_f = np.asarray(y_f, dtype=float)
-    pred_arr_f = np.asarray(pred_f, dtype=float)
-    resid = pred_arr_f - y_arr_f
+    y_arr = np.asarray(y, dtype=int)
+    p_arr = np.asarray(p, dtype=float)
 
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=150)
-    ax_scatter, ax_resid_hist, ax_resid_fit = axes.ravel()
-
-    ax_scatter.scatter(
-        y_arr_f, pred_arr_f, s=28, alpha=0.85, color="#1f77b4", edgecolor="none"
+    fpr, tpr, _ = roc_curve(y_arr, p_arr)
+    roc_auc = roc_auc_score(y_arr, p_arr)
+    prec, rec, _ = precision_recall_curve(y_arr, p_arr)
+    ap = average_precision_score(y_arr, p_arr)
+    frac_pos, mean_pred = calibration_curve(
+        y_arr, p_arr, n_bins=10, strategy="quantile"
     )
-    mn = float(min(y_arr_f.min(), pred_arr_f.min()))
-    mx = float(max(y_arr_f.max(), pred_arr_f.max()))
-    ax_scatter.plot([mn, mx], [mn, mx], linestyle="--", color="gray", linewidth=1)
-    ax_scatter.set_xlabel(f"True {target_col}")
-    ax_scatter.set_ylabel("Predicted")
-    ax_scatter.set_title("Parity plot")
-    ax_scatter.grid(True, alpha=0.2)
 
-    ax_resid_hist.hist(resid, bins=20, color="#ff7f0e", alpha=0.9)
-    ax_resid_hist.axvline(0.0, color="black", linewidth=1)
-    ax_resid_hist.set_xlabel("Residual (pred - true)")
-    ax_resid_hist.set_ylabel("Count")
-    ax_resid_hist.set_title("Residuals histogram")
-    ax_resid_hist.grid(True, alpha=0.2)
+    # Confusion matrix at threshold 0.5 (standard) and also best-F1; display best-F1.
+    thresholds = np.unique(np.clip(p_arr, 0.0, 1.0))
+    best_thr = 0.5
+    best_f1 = -1.0
+    for thr in thresholds:
+        y_hat = (p_arr >= thr).astype(int)
+        tp = int(((y_hat == 1) & (y_arr == 1)).sum())
+        fp = int(((y_hat == 1) & (y_arr == 0)).sum())
+        fn = int(((y_hat == 0) & (y_arr == 1)).sum())
+        denom = 2 * tp + fp + fn
+        f1 = (2 * tp / denom) if denom > 0 else 0.0
+        if f1 > best_f1:
+            best_f1 = f1
+            best_thr = float(thr)
 
-    ax_resid_fit.scatter(
-        pred_arr_f, resid, s=28, alpha=0.85, color="#2ca02c", edgecolor="none"
-    )
-    ax_resid_fit.axhline(0.0, color="black", linewidth=1)
-    ax_resid_fit.set_xlabel("Predicted")
-    ax_resid_fit.set_ylabel("Residual (pred - true)")
-    ax_resid_fit.set_title("Residuals vs fitted")
-    ax_resid_fit.grid(True, alpha=0.2)
+    cm = confusion_matrix(y_arr, (p_arr >= best_thr).astype(int), labels=[0, 1])
 
-    fig.suptitle("Model diagnostics (CV predictions)", y=1.02)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10), dpi=150)
+    ax_roc, ax_pr, ax_cal, ax_cm = axes.ravel()
+
+    ax_roc.plot(fpr, tpr, color="#1f77b4", linewidth=2)
+    ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
+    ax_roc.set_xlabel("False Positive Rate")
+    ax_roc.set_ylabel("True Positive Rate")
+    ax_roc.set_title(f"ROC (AUC={roc_auc:.3f})")
+    ax_roc.grid(True, alpha=0.2)
+
+    ax_pr.plot(rec, prec, color="#ff7f0e", linewidth=2)
+    ax_pr.set_xlabel("Recall")
+    ax_pr.set_ylabel("Precision")
+    ax_pr.set_title(f"Precision-Recall (AP={ap:.3f})")
+    ax_pr.grid(True, alpha=0.2)
+
+    ax_cal.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
+    ax_cal.plot(mean_pred, frac_pos, marker="o", linewidth=2, color="#2ca02c")
+    ax_cal.set_xlabel("Mean predicted probability")
+    ax_cal.set_ylabel("Fraction of positives")
+    ax_cal.set_title("Calibration (reliability diagram)")
+    ax_cal.grid(True, alpha=0.2)
+
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
+    disp.plot(ax=ax_cm, cmap="Blues", colorbar=False, values_format="d")
+    ax_cm.set_title(f"Confusion (thr={best_thr:.3f}, best F1={best_f1:.3f})")
+
+    fig.suptitle("Model diagnostics (CV predictions)", y=0.99)
     fig.tight_layout()
     fig.savefig(out_path)
     plt.close(fig)

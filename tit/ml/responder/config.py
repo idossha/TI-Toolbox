@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 from tit.core import get_path_manager
 
@@ -77,26 +77,42 @@ def default_subjects_csv_path() -> Path:
 @dataclass(frozen=True)
 class ResponderMLConfig:
     csv_path: Path
-    # Task mode:
-    # - classification: binary target (0/1)
-    # - regression: continuous target (float)
-    task: Literal["classification", "regression"] = "classification"
     # Name of the target column in the CSV (defaults to the historical "response").
     target_col: str = "response"
+    # Optional: name of a condition column in the CSV. If provided, rows whose condition
+    # equals `sham_value` are treated as sham and will be assigned all-zero ROI features.
+    # This allows including sham subjects without requiring their E-field NIfTI files.
+    condition_col: Optional[str] = None
+    # Which value in `condition_col` indicates sham. Comparison is case-insensitive.
+    sham_value: str = "sham"
     atlas_path: Optional[Path] = None
     atlas_labels_path: Optional[Path] = None
     efield_filename_pattern: str = DEFAULT_EFIELD_FILENAME_PATTERN
     run_name: str = "run"
     output_dir: Optional[Path] = None
 
+    # Feature reduction approach:
+    # - atlas_roi: collect all voxels within an ROI and use atlas to average (traditional)
+    # - stats_ttest: mass univariate t-test with threshold for significant voxels
+    feature_reduction_approach: Literal["atlas_roi", "stats_ttest"] = "atlas_roi"
+    # Threshold for statistical feature selection (only used with stats_ttest)
+    ttest_p_threshold: float = 0.001
+    # Perform feature selection within each CV fold (more expensive but better generalization)
+    ttest_cv_feature_selection: bool = False
+
     # Model/CV defaults (kept conservative for small N)
     outer_splits: int = 5
     inner_splits: int = 4
     random_state: int = 42
     n_jobs: int = 1
+    # Solver controls for convergence
+    max_iter: int = 10000
+    tol: float = 1e-4
 
     # Optional bootstrap for coefficient stability (0 disables)
     bootstrap_samples: int = 0
+    # Optional permutation tests for stability (0 disables)
+    permutation_tests: int = 0
 
     # Print progress + enable sklearn verbose output for GridSearchCV
     verbose: bool = False

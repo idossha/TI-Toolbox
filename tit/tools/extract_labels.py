@@ -7,6 +7,77 @@ import numpy as np
 from pathlib import Path
 
 
+def load_labels_tsv(tsv_path):
+    """
+    Load label mappings from a TSV file.
+
+    Parameters
+    ----------
+    tsv_path : str or Path
+        Path to TSV file with label mappings
+
+    Returns
+    -------
+    dict
+        Mapping from label ID (int) to label name (str)
+    """
+    import csv
+
+    mapping = {}
+    with open(tsv_path, 'r', newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f, delimiter='\t')
+        for row in reader:
+            # Try different column names that might contain the label ID
+            label_id = None
+            for col_name in ['number', 'id', 'label_id']:
+                if col_name in row and row[col_name].strip():
+                    try:
+                        label_id = int(row[col_name])
+                        break
+                    except ValueError:
+                        continue
+
+            # Get label name
+            label_name = None
+            for col_name in ['label', 'name', 'region']:
+                if col_name in row and row[col_name].strip():
+                    label_name = row[col_name].strip()
+                    break
+
+            if label_id is not None and label_name:
+                mapping[label_id] = label_name
+
+    return mapping
+
+
+def label_ids_in_nifti(nifti_path, exclude=(0,)):
+    """
+    Get unique label IDs from a NIfTI segmentation file.
+
+    Parameters
+    ----------
+    nifti_path : str or Path
+        Path to NIfTI segmentation file
+    exclude : tuple, optional
+        Label values to exclude (default: (0,) for background)
+
+    Returns
+    -------
+    list of int
+        Sorted list of unique label IDs
+    """
+    img = nib.load(str(nifti_path))
+    data = img.get_fdata()
+
+    # Get unique values
+    unique_labels = np.unique(data)
+
+    # Convert to int and exclude specified values
+    unique_labels = [int(label) for label in unique_labels if label not in exclude]
+
+    return sorted(unique_labels)
+
+
 def extract_labels_from_nifti(input_file, labels, output_file=None):
     """
     Extract specific labels from a NIfTI segmentation file.

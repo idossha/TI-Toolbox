@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Literal, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from tit.core import get_path_manager
 
@@ -14,16 +14,22 @@ from .config import DEFAULT_EFIELD_FILENAME_PATTERN
 class SubjectRow:
     subject_id: str
     simulation_name: str
+    condition: Optional[str] = None
     target: Optional[float] = (
-        None  # binary (0/1) for classification; float for regression; optional for predict
+        None  # binary (0/1) for classification; optional for predict
     )
+
+
+def is_sham_condition(condition: Optional[str], sham_value: str = "sham") -> bool:
+    return (condition or "").strip().lower() == (sham_value or "").strip().lower()
 
 
 def load_subject_table(
     csv_path: Path,
     *,
-    task: Literal["classification", "regression"] = "classification",
     target_col: str = "response",
+    condition_col: Optional[str] = None,
+    sham_value: str = "sham",
     require_target: bool = True,
 ) -> List[SubjectRow]:
     """
@@ -33,10 +39,15 @@ def load_subject_table(
     - subject_id
     - simulation_name
     - target_col (only if require_target=True)
+    - condition_col (only if provided)
 
     Target parsing:
-    - task="classification": target must be 0/1
-    - task="regression": target is parsed as float
+    - target must be 0/1 (binary classification only)
+
+    Sham handling (optional):
+    - If `condition_col` is provided and the row's condition equals `sham_value`
+      (case-insensitive), then an empty `simulation_name` is allowed. This supports
+      including sham subjects without requiring NIfTI files (features will be set to 0).
     """
     if not csv_path.is_file():
         raise FileNotFoundError(f"CSV not found: {csv_path}")
@@ -49,6 +60,8 @@ def load_subject_table(
         required = {"subject_id", "simulation_name"}
         if require_target:
             required.add(str(target_col))
+        if condition_col:
+            required.add(str(condition_col))
         missing = required.difference({h.strip() for h in reader.fieldnames if h})
         if missing:
             raise ValueError(
@@ -59,36 +72,45 @@ def load_subject_table(
         for i, r in enumerate(reader, start=2):
             sid = (r.get("subject_id") or "").strip()
             sim = (r.get("simulation_name") or "").strip()
-            if not sid or not sim:
-                raise ValueError(f"Empty subject_id or simulation_name on line {i}")
+            cond_raw: Optional[str] = None
+            if condition_col:
+                cond_raw = (r.get(str(condition_col)) or "").strip()
+
+            if not sid:
+                raise ValueError(f"Empty subject_id on line {i}")
+
+            if not sim:
+                if condition_col and is_sham_condition(cond_raw, sham_value=sham_value):
+                    # Allowed: sham subjects can omit simulation_name because they do not
+                    # require a NIfTI on disk (features will be set to 0).
+                    sim = ""
+                else:
+                    raise ValueError(f"Empty simulation_name on line {i}")
 
             target_val: Optional[float] = None
             if require_target:
                 raw = (r.get(str(target_col)) or "").strip()
                 if raw == "":
                     raise ValueError(f"Empty {target_col!r} on line {i}")
-                if task == "classification":
-                    try:
-                        resp = int(raw)
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid {target_col!r} on line {i}: {raw!r} (expected 0/1)"
-                        ) from None
-                    if resp not in (0, 1):
-                        raise ValueError(
-                            f"Invalid {target_col!r} on line {i}: {resp} (expected 0/1)"
-                        )
-                    target_val = float(resp)
-                else:
-                    try:
-                        target_val = float(raw)
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid {target_col!r} on line {i}: {raw!r} (expected float)"
-                        ) from None
+                try:
+                    resp = int(raw)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid {target_col!r} on line {i}: {raw!r} (expected 0/1)"
+                    ) from None
+                if resp not in (0, 1):
+                    raise ValueError(
+                        f"Invalid {target_col!r} on line {i}: {resp} (expected 0/1)"
+                    )
+                target_val = float(resp)
 
             rows.append(
-                SubjectRow(subject_id=sid, simulation_name=sim, target=target_val)
+                SubjectRow(
+                    subject_id=sid,
+                    simulation_name=sim,
+                    condition=cond_raw if condition_col else None,
+                    target=target_val,
+                )
             )
 
     if not rows:
@@ -124,6 +146,7 @@ def load_efield_images(
     subjects: Sequence[SubjectRow],
     *,
     efield_filename_pattern: str = DEFAULT_EFIELD_FILENAME_PATTERN,
+    logger: Optional[Any] = None,
 ) -> Tuple[List["nib.Nifti1Image"], List[Optional[float]], List[SubjectRow]]:
     """
     Load E-field NIfTIs for the given subjects.
@@ -163,6 +186,20 @@ def load_efield_images(
         if missing:
             preview = "\n".join([f"- {m}" for m in missing[:10]])
             detail = f"\nMissing files (first {min(10, len(missing))}):\n{preview}"
+        if logger is not None:
+            try:
+                logger.error("No E-field NIfTIs could be loaded." + detail)
+            except Exception:
+                pass
         raise FileNotFoundError("No E-field NIfTIs could be loaded." + detail)
+
+    if missing and logger is not None:
+        try:
+            preview = "\n".join([f"- {m}" for m in missing[:10]])
+            logger.warning(
+                f"Missing E-field NIfTIs: {len(missing)} (showing first {min(10, len(missing))}):\n{preview}"
+            )
+        except Exception:
+            pass
 
     return imgs, y, kept

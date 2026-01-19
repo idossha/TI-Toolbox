@@ -295,6 +295,24 @@ class PathManager:
         ),
         # ti-toolbox derivatives
         "ti_toolbox": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX),
+        # responder-ml (E-field → responder probability) outputs/inputs
+        "ti_responder": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            "responder",
+        ),
+        "ti_responder_inputs": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            "responder",
+            "inputs",
+        ),
+        "ti_responder_run": (
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            "responder",
+            "{run_name}",
+        ),
         "ti_toolbox_info": (
             const.DIR_DERIVATIVES,
             const.DIR_TI_TOOLBOX,
