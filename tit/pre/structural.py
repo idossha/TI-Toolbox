@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Optional
 
 from tit.core import get_path_manager
-from .charm import run_charm
+from .charm import run_charm, run_subject_atlas
 from .common import (
     CommandRunner,
     PreprocessCancelled,
@@ -47,7 +47,6 @@ def _run_subject_pipeline(
     run_recon: bool,
     parallel_recon: bool,
     create_m2m: bool,
-    create_atlas: bool,
     run_tissue: bool,
     debug: bool,
     overwrite: Optional[bool],
@@ -105,13 +104,24 @@ def _run_subject_pipeline(
                     project_dir,
                     subject_id,
                     logger=logger,
-                    init_atlas=create_atlas,
                     overwrite=policy.overwrite,
                     prompt_overwrite=policy.prompt,
                     runner=runner,
                 ),
                 logger,
             )
+            # Run subject_atlas after charm completes to create .annot files
+            if overall_success:
+                overall_success &= _run_step(
+                    "Subject atlas segmentation",
+                    lambda: run_subject_atlas(
+                        project_dir,
+                        subject_id,
+                        logger=logger,
+                        runner=runner,
+                    ),
+                    logger,
+                )
 
         if run_recon:
             overall_success &= _run_step(
@@ -159,7 +169,6 @@ def run_pipeline(
     parallel_recon: bool = False,
     parallel_cores: Optional[int] = None,
     create_m2m: bool = False,
-    create_atlas: bool = False,
     run_tissue_analysis: bool = False,
     debug: bool = False,
     overwrite: Optional[bool] = None,
@@ -185,9 +194,7 @@ def run_pipeline(
     parallel_cores : int, optional
         Max parallel subjects for recon-all.
     create_m2m : bool, optional
-        Run SimNIBS charm.
-    create_atlas : bool, optional
-        Run subject atlas segmentation.
+        Run SimNIBS charm (also runs subject_atlas for .annot files).
     run_tissue_analysis : bool, optional
         Run tissue analysis pipeline.
     debug : bool, optional
@@ -221,7 +228,7 @@ def run_pipeline(
     datasets = {"ti-toolbox"}
     if run_recon:
         datasets.add("freesurfer")
-    if create_m2m or create_atlas:
+    if create_m2m:
         datasets.add("simnibs")
     ensure_dataset_descriptions(project_dir, datasets)
 
@@ -241,7 +248,6 @@ def run_pipeline(
                     run_recon=False,
                     parallel_recon=parallel_recon,
                     create_m2m=create_m2m,
-                    create_atlas=create_atlas,
                     run_tissue=False,
                     debug=debug,
                     overwrite=overwrite,
@@ -269,7 +275,6 @@ def run_pipeline(
                         run_recon=True,
                         parallel_recon=True,
                         create_m2m=False,
-                        create_atlas=False,
                         run_tissue=False,
                         debug=debug,
                         overwrite=overwrite,
@@ -296,7 +301,6 @@ def run_pipeline(
                         run_recon=False,
                         parallel_recon=parallel_recon,
                         create_m2m=False,
-                        create_atlas=False,
                         run_tissue=True,
                         debug=debug,
                         overwrite=overwrite,
@@ -319,7 +323,6 @@ def run_pipeline(
                     run_recon=run_recon,
                     parallel_recon=parallel_recon,
                     create_m2m=create_m2m,
-                    create_atlas=create_atlas,
                     run_tissue=run_tissue_analysis,
                     debug=debug,
                     overwrite=overwrite,

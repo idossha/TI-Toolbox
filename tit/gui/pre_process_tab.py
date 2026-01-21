@@ -39,7 +39,6 @@ class PreProcessThread(QtCore.QThread):
         parallel_recon: bool,
         parallel_cores: int,
         create_m2m: bool,
-        create_atlas: bool,
         run_tissue_analysis: bool,
         debug_mode: bool,
         overwrite_outputs: bool,
@@ -52,7 +51,6 @@ class PreProcessThread(QtCore.QThread):
         self.parallel_recon = parallel_recon
         self.parallel_cores = parallel_cores
         self.create_m2m = create_m2m
-        self.create_atlas = create_atlas
         self.run_tissue_analysis = run_tissue_analysis
         self.debug_mode = debug_mode
         self.overwrite_outputs = overwrite_outputs
@@ -77,7 +75,6 @@ class PreProcessThread(QtCore.QThread):
                 parallel_recon=self.parallel_recon,
                 parallel_cores=self.parallel_cores,
                 create_m2m=self.create_m2m,
-                create_atlas=self.create_atlas,
                 run_tissue_analysis=self.run_tissue_analysis,
                 debug=self.debug_mode,
                 overwrite=self.overwrite_outputs,
@@ -615,7 +612,6 @@ class PreProcessTab(QtWidgets.QWidget):
             parallel_recon=self.parallel_cb.isChecked(),
             parallel_cores=self.cores_spin.value(),
             create_m2m=self.create_m2m_cb.isChecked(),
-            create_atlas=False,
             run_tissue_analysis=self.run_tissue_analyzer_cb.isChecked(),
             debug_mode=self.debug_mode,
             overwrite_outputs=overwrite_outputs,

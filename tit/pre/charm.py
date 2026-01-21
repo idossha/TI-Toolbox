@@ -8,11 +8,14 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from tit.core import get_path_manager
 from .common import CommandRunner, PreprocessError
-from tit.core.overwrite import OverwritePolicy, get_overwrite_policy
+from tit.core.overwrite import get_overwrite_policy
+
+# All available atlases for subject_atlas command
+ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
 
 
 def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
@@ -32,7 +35,6 @@ def run_charm(
     subject_id: str,
     *,
     logger,
-    init_atlas: bool = False,
     overwrite: Optional[bool] = None,
     prompt_overwrite: Optional[bool] = None,
     runner: Optional[CommandRunner] = None,
@@ -47,8 +49,6 @@ def run_charm(
         Subject identifier without the `sub-` prefix.
     logger : logging.Logger
         Logger used for progress and command output.
-    init_atlas : bool, optional
-        Enable SimNIBS atlas initialization during charm.
     overwrite : bool, optional
         Force overwrite of existing outputs.
     prompt_overwrite : bool, optional
@@ -102,8 +102,6 @@ def run_charm(
     cmd = ["charm"]
     if forcerun:
         cmd.append("--forcerun")
-    if init_atlas:
-        cmd.append("--initatlas")
     cmd += ["--forcesform", subject_id, str(t1_file)]
     if t2_file:
         cmd.append(str(t2_file))
@@ -117,3 +115,66 @@ def run_charm(
         raise PreprocessError(
             f"charm failed for subject {subject_id} (exit {exit_code})."
         )
+
+
+def run_subject_atlas(
+    project_dir: str,
+    subject_id: str,
+    *,
+    logger,
+    runner: Optional[CommandRunner] = None,
+) -> None:
+    """Run subject_atlas to create .annot files for a subject.
+
+    This should be called after charm completes successfully.
+    Generates all three atlases: a2009s, DK40, and HCP_MMP1.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root.
+    subject_id : str
+        Subject identifier without the `sub-` prefix.
+    logger : logging.Logger
+        Logger used for progress and command output.
+    runner : CommandRunner, optional
+        Subprocess runner used to stream output.
+    """
+    if not shutil.which("subject_atlas"):
+        raise PreprocessError("subject_atlas (SimNIBS) is not installed.")
+
+    pm = get_path_manager()
+    pm.project_dir = project_dir
+    m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
+
+    if not m2m_dir.exists():
+        raise PreprocessError(
+            f"m2m folder not found at {m2m_dir}. Run charm first."
+        )
+
+    # Output directory for atlas segmentation
+    output_dir = m2m_dir / "segmentation"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if runner is None:
+        runner = CommandRunner()
+
+    logger.info(f"Running subject_atlas for subject {subject_id} with atlases: {', '.join(ATLASES)}")
+
+    for atlas in ATLASES:
+        cmd = [
+            "subject_atlas",
+            "-m", str(m2m_dir),
+            "-a", atlas,
+            "-o", str(output_dir),
+        ]
+
+        logger.info(f"  Creating {atlas} atlas...")
+        exit_code = runner.run(cmd, logger=logger)
+
+        if exit_code != 0:
+            raise PreprocessError(
+                f"subject_atlas failed for subject {subject_id} with atlas {atlas} (exit {exit_code})."
+            )
+
+    logger.info(f"All atlases created successfully for subject {subject_id}")
