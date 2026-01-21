@@ -236,7 +236,7 @@ class CommandRunner:
                     if self.stop_event.is_set():
                         _terminate_process(proc)
                         raise PreprocessCancelled("Pre-processing cancelled.")
-                    line = line.rstrip()
+                    line = line.strip()
                     if line:
                         logger.info(line)
             returncode = proc.wait()

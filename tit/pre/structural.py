@@ -215,12 +215,12 @@ def run_pipeline(
     int
         0 on success, 1 on failure.
     """
-    pm = get_path_manager()
-    pm.project_dir = project_dir
-
     subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
     if not subject_list:
         raise PreprocessError("No subjects provided.")
+
+    pm = get_path_manager()
+    pm.project_dir = project_dir
 
     for sid in subject_list:
         ensure_subject_dirs(project_dir, sid)
