@@ -74,6 +74,12 @@ flags:
     carryforward: false
     target: 60%
 
+  preprocessing:
+    paths:
+      - tit/pre/
+    carryforward: false
+    target: 60%
+
 # Files to ignore in coverage reports
 ignore:
   - "**/__pycache__"
@@ -83,7 +89,6 @@ ignore:
   - "setup.py"
   - "version.py"
   - "**/gui/**"  # GUI code is harder to test in headless environments
-  - "**/pre/**"  # Pre-processing scripts are mostly bash
   - "**/__init__.py"  # Init files are often just imports
 
 # Comment configuration for pull requests

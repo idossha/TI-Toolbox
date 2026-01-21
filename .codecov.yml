@@ -65,6 +65,11 @@ flags:
       - tit/opt/
     carryforward: true
 
+  preprocessing:
+    paths:
+      - tit/pre/
+    carryforward: true
+
 # GitHub PR comment formatting
 github_checks:
   annotations: true
