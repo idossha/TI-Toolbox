@@ -74,7 +74,7 @@ jobs:
             ./codecov \
               -t ${CODECOV_TOKEN} \
               -f /tmp/coverage/coverage.xml \
-              -F unittests,core,simulator,analyzer,optimizer,stats,plotting \
+              -F unittests,core,simulator,analyzer,optimizer,stats,plotting,preprocessing \
               -n "CircleCI-${CIRCLE_BUILD_NUM}" \
               -B "${CIRCLE_BRANCH}" \
               -C "${CIRCLE_SHA1}" \

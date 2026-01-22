@@ -19,6 +19,7 @@ analyzer = tit/analyzer/
 optimizer = tit/opt/
 stats = tit/stats/
 plotting = tit/plotting/
+preprocessing = tit/pre/
 
 [report]
 precision = 2
