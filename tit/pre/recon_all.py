@@ -1,6 +1,27 @@
 #!/usr/bin/env simnibs_python
 """
-FreeSurfer recon-all wrapper.
+FreeSurfer recon-all wrapper for cortical surface reconstruction.
+
+This module provides a wrapper around FreeSurfer's ``recon-all`` command
+for automated cortical reconstruction and segmentation. It handles:
+
+- Automatic detection of T1 and T2 weighted images from BIDS structure
+- Environment validation (FREESURFER_HOME, required executables)
+- Overwrite policy handling for existing reconstructions
+- Optional parallel processing support
+
+The reconstructed surfaces are used downstream by SimNIBS for head mesh
+generation and by the analyzer for cortical field analysis.
+
+Functions
+---------
+run_recon_all
+    Main entry point for running FreeSurfer reconstruction.
+
+See Also
+--------
+tit.pre.charm : SimNIBS head mesh generation
+tit.pre.dcm2nii : DICOM to NIfTI conversion
 """
 
 from __future__ import annotations
@@ -17,6 +38,31 @@ from tit.core.overwrite import OverwritePolicy, get_overwrite_policy
 
 
 def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
+    """
+    Find T1 and T2 weighted anatomical NIfTI files in a BIDS anatomy directory.
+
+    Searches for files matching T1/T2 patterns (case-insensitive) and returns
+    the first match of each type when sorted alphabetically. This handles
+    various BIDS naming conventions (e.g., ``sub-001_T1w.nii.gz``).
+
+    Parameters
+    ----------
+    bids_anat_dir : Path
+        Path to the BIDS subject anatomy directory
+        (typically ``{project}/sub-{ID}/anat/``).
+
+    Returns
+    -------
+    tuple[Optional[Path], Optional[Path]]
+        A tuple of (t1_file, t2_file) where each is either a Path to the
+        found file or None if no matching file was found.
+
+    Examples
+    --------
+    >>> t1, t2 = _find_anat_files(Path("/project/sub-001/anat"))
+    >>> if t1:
+    ...     print(f"Found T1: {t1}")
+    """
     t1_candidates = sorted(
         list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*"))
     )
@@ -29,6 +75,30 @@ def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path
 
 
 def _validate_freesurfer_env(logger) -> None:
+    """
+    Validate that FreeSurfer environment is properly configured.
+
+    Checks for:
+    - ``FREESURFER_HOME`` environment variable is set and points to a valid directory
+    - ``recon-all`` executable is available in PATH
+    - ``tcsh`` shell is installed (required by FreeSurfer scripts)
+
+    Parameters
+    ----------
+    logger : logging.Logger
+        Logger instance for warning messages.
+
+    Raises
+    ------
+    PreprocessError
+        If FREESURFER_HOME directory doesn't exist, or if required
+        executables (recon-all, tcsh) are not found in PATH.
+
+    Warns
+    -----
+    Logs a warning if FREESURFER_HOME is not set, but does not raise
+    an exception as FreeSurfer may still work if configured differently.
+    """
     fs_home = os.environ.get("FREESURFER_HOME")
     if not fs_home:
         logger.warning("FREESURFER_HOME is not set. FreeSurfer may not work properly.")
