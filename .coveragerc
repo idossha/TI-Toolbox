@@ -9,7 +9,6 @@ omit =
     */benchmark/*
     */blender/*
     */gui/*
-    */pre/*
     setup.py
     version.py
 
