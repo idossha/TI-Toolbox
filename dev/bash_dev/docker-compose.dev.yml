@@ -12,13 +12,14 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.2.4
+    image: idossha/simnibs:v2.2.5
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${DEV_CODEBASE_DIR}:/ti-toolbox
+      - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
     environment:
       USER: root
       DISPLAY: ${DISPLAY}

@@ -390,6 +390,55 @@ DEFAULT_ANALYZER_CONFIG = {
 }
 
 # ============================================================================
+# QSI (QSIPrep/QSIRecon) INTEGRATION
+# ============================================================================
+
+# QSI Docker images
+QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
+QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
+QSI_DEFAULT_IMAGE_TAG = "1.1.1"
+
+# QSI directories
+DIR_QSIPREP = "qsiprep"
+DIR_QSIRECON = "qsirecon"
+DIR_DWI = "dwi"
+
+# QSI recon specs (available reconstruction pipelines)
+QSI_RECON_SPECS = [
+    "mrtrix_multishell_msmt_ACT-fast",
+    "multishell_scalarfest",
+    "dipy_dki",
+    "dipy_mapmri",
+    "amico_noddi",
+    "pyafq_tractometry",
+    "mrtrix_multishell_msmt_pyafq_tractometry",
+    "dsi_studio_gqi",
+    "dsi_studio_autotrack",
+]
+
+# QSI atlases (available for connectivity analysis)
+QSI_ATLASES = [
+    "AAL116",
+    "AICHA384Ext",
+    "Brainnetome246Ext",
+    "Gordon333Ext",
+    "MICCAI2012",
+    "Schaefer100",
+    "Schaefer200",
+    "Schaefer400",
+    "power264Ext",
+]
+
+# QSI default resource settings
+QSI_DEFAULT_CPUS = 8
+QSI_DEFAULT_MEMORY_GB = 32
+QSI_DEFAULT_OMP_THREADS = 1
+QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
+
+# QSI environment variable for local project directory
+ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
+
+# ============================================================================
 # VERSION INFORMATION
 # ============================================================================
 

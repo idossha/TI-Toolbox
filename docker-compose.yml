@@ -19,6 +19,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
+      - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
     environment:
       USER: root
       DISPLAY: ${DISPLAY}

@@ -23,6 +23,7 @@ from .common import (
 from .dicom2nifti import run_dicom_to_nifti
 from .recon_all import run_recon_all
 from .tissue_analyzer import run_tissue_analysis
+from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 
 
 def _run_step(label: str, func, logger) -> bool:
@@ -48,6 +49,10 @@ def _run_subject_pipeline(
     parallel_recon: bool,
     create_m2m: bool,
     run_tissue: bool,
+    run_qsiprep_step: bool,
+    run_qsirecon_step: bool,
+    qsi_recon_config: Optional[dict],
+    extract_dti_step: bool,
     debug: bool,
     overwrite: Optional[bool],
     prompt_overwrite: Optional[bool],
@@ -150,6 +155,50 @@ def _run_subject_pipeline(
             logger,
         )
 
+    # QSI pipeline steps (DWI preprocessing)
+    if run_qsiprep_step:
+        overall_success &= _run_step(
+            "QSIPrep DWI preprocessing",
+            lambda: run_qsiprep(
+                project_dir,
+                subject_id,
+                logger=logger,
+                overwrite=policy.overwrite,
+                runner=runner,
+            ),
+            logger,
+        )
+
+    if run_qsirecon_step:
+        # Extract recon specs and atlases from config
+        recon_specs = qsi_recon_config.get("recon_specs") if qsi_recon_config else None
+        atlases = qsi_recon_config.get("atlases") if qsi_recon_config else None
+        overall_success &= _run_step(
+            "QSIRecon reconstruction",
+            lambda: run_qsirecon(
+                project_dir,
+                subject_id,
+                logger=logger,
+                recon_specs=recon_specs,
+                atlases=atlases,
+                overwrite=policy.overwrite,
+                runner=runner,
+            ),
+            logger,
+        )
+
+    if extract_dti_step:
+        overall_success &= _run_step(
+            "DTI tensor extraction",
+            lambda: extract_dti_tensor(
+                project_dir,
+                subject_id,
+                logger=logger,
+                overwrite=policy.overwrite if policy.overwrite else False,
+            ),
+            logger,
+        )
+
     if overall_success:
         logger.info(
             f"└─ Pre-processing completed successfully for subject: {subject_id}"
@@ -170,6 +219,10 @@ def run_pipeline(
     parallel_cores: Optional[int] = None,
     create_m2m: bool = False,
     run_tissue_analysis: bool = False,
+    run_qsiprep: bool = False,
+    run_qsirecon: bool = False,
+    qsi_recon_config: Optional[dict] = None,
+    extract_dti: bool = False,
     debug: bool = False,
     overwrite: Optional[bool] = None,
     prompt_overwrite: Optional[bool] = None,
@@ -197,6 +250,14 @@ def run_pipeline(
         Run SimNIBS charm (also runs subject_atlas for .annot files).
     run_tissue_analysis : bool, optional
         Run tissue analysis pipeline.
+    run_qsiprep : bool, optional
+        Run QSIPrep DWI preprocessing via Docker.
+    run_qsirecon : bool, optional
+        Run QSIRecon reconstruction via Docker.
+    qsi_recon_specs : iterable of str, optional
+        QSIRecon reconstruction specs to run. Default: ['dipy_dki'].
+    extract_dti : bool, optional
+        Extract DTI tensor for SimNIBS anisotropic conductivity.
     debug : bool, optional
         Enable verbose logging.
     overwrite : bool, optional
@@ -249,6 +310,10 @@ def run_pipeline(
                     parallel_recon=parallel_recon,
                     create_m2m=create_m2m,
                     run_tissue=False,
+                    run_qsiprep_step=False,
+                    run_qsirecon_step=False,
+                    qsi_recon_specs=qsi_recon_specs,
+                    extract_dti_step=False,
                     debug=debug,
                     overwrite=overwrite,
                     prompt_overwrite=prompt_overwrite,
@@ -276,6 +341,10 @@ def run_pipeline(
                         parallel_recon=True,
                         create_m2m=False,
                         run_tissue=False,
+                        run_qsiprep_step=False,
+                        run_qsirecon_step=False,
+                        qsi_recon_config=qsi_recon_config,
+                        extract_dti_step=False,
                         debug=debug,
                         overwrite=overwrite,
                         prompt_overwrite=prompt_overwrite,
@@ -302,6 +371,37 @@ def run_pipeline(
                         parallel_recon=parallel_recon,
                         create_m2m=False,
                         run_tissue=True,
+                        run_qsiprep_step=False,
+                        run_qsirecon_step=False,
+                        qsi_recon_config=qsi_recon_config,
+                        extract_dti_step=False,
+                        debug=debug,
+                        overwrite=overwrite,
+                        prompt_overwrite=prompt_overwrite,
+                        runner=runner,
+                        callback=logger_callback,
+                    )
+                    overall_success &= success
+                except PreprocessCancelled:
+                    raise
+                except Exception:
+                    overall_success = False
+        # Run QSI steps after tissue analysis (if enabled)
+        if run_qsiprep or run_qsirecon or extract_dti:
+            for sid in subject_list:
+                try:
+                    success = _run_subject_pipeline(
+                        project_dir,
+                        sid,
+                        convert_dicom=False,
+                        run_recon=False,
+                        parallel_recon=parallel_recon,
+                        create_m2m=False,
+                        run_tissue=False,
+                        run_qsiprep_step=run_qsiprep,
+                        run_qsirecon_step=run_qsirecon,
+                        qsi_recon_config=qsi_recon_config,
+                        extract_dti_step=extract_dti,
                         debug=debug,
                         overwrite=overwrite,
                         prompt_overwrite=prompt_overwrite,
@@ -324,6 +424,10 @@ def run_pipeline(
                     parallel_recon=parallel_recon,
                     create_m2m=create_m2m,
                     run_tissue=run_tissue_analysis,
+                    run_qsiprep_step=run_qsiprep,
+                    run_qsirecon_step=run_qsirecon,
+                    qsi_recon_specs=qsi_recon_specs,
+                    extract_dti_step=extract_dti,
                     debug=debug,
                     overwrite=overwrite,
                     prompt_overwrite=prompt_overwrite,

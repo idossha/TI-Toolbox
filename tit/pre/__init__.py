@@ -3,7 +3,7 @@ Pre-processing Python APIs for TI-Toolbox.
 
 This package provides standalone, reusable functions for preprocessing steps
 such as DICOM conversion, FreeSurfer recon-all, SimNIBS charm, atlas creation,
-and tissue analysis.
+tissue analysis, and DWI preprocessing via QSIPrep/QSIRecon.
 """
 
 from .structural import run_pipeline
@@ -12,6 +12,7 @@ from .recon_all import run_recon_all
 from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .fix_t2_filenames import run_fix_t2_filenames
+from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 
 __all__ = [
     "run_pipeline",
@@ -20,4 +21,7 @@ __all__ = [
     "run_charm",
     "run_tissue_analysis",
     "run_fix_t2_filenames",
+    "run_qsiprep",
+    "run_qsirecon",
+    "extract_dti_tensor",
 ]

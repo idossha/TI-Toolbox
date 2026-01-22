@@ -78,6 +78,38 @@ class PreProcessCLI(BaseCLI):
                 default=False,
             )
         )
+        self.add_argument(
+            ArgumentDefinition(
+                name="run_qsiprep",
+                type=bool,
+                help="Run QSIPrep DWI preprocessing (requires Docker)",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="run_qsirecon",
+                type=bool,
+                help="Run QSIRecon reconstruction (requires Docker)",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="qsi_recon_specs",
+                type=str,
+                help="QSIRecon reconstruction specs (comma-separated)",
+                default="dipy_dki",
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="extract_dti",
+                type=bool,
+                help="Extract DTI tensor for SimNIBS anisotropic conductivity",
+                default=False,
+            )
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -112,6 +144,20 @@ class PreProcessCLI(BaseCLI):
         parallel_recon = utils.ask_bool("Use --parallel recon-all?", default=False)
         create_m2m = utils.ask_bool("Create m2m (charm)?", default=False)
         run_tissue_analysis = utils.ask_bool("Run tissue analysis?", default=False)
+        run_qsiprep = utils.ask_bool("Run QSIPrep (DWI preprocessing)?", default=False)
+        run_qsirecon = False
+        qsi_recon_config = {"recon_specs": ["mrtrix_multishell_msmt_ACT-fast"], "atlases": ["Schaefer100", "AAL116"]}
+        extract_dti = False
+        if run_qsiprep:
+            run_qsirecon = utils.ask_bool("Run QSIRecon (reconstruction)?", default=True)
+            if run_qsirecon:
+                specs_input = utils.ask_optional(
+                    "QSIRecon specs (comma-separated)", default="mrtrix_multishell_msmt_ACT-fast"
+                ) or "mrtrix_multishell_msmt_ACT-fast"
+                qsi_recon_config["recon_specs"] = [s.strip() for s in specs_input.split(",")]
+            extract_dti = utils.ask_bool(
+                "Extract DTI tensor for SimNIBS?", default=True
+            )
 
         if not utils.review_and_confirm(
             "Review (pre-process)",
@@ -122,6 +168,10 @@ class PreProcessCLI(BaseCLI):
                 ("Parallel recon", "yes" if parallel_recon else "no"),
                 ("Create m2m", "yes" if create_m2m else "no"),
                 ("Tissue analysis", "yes" if run_tissue_analysis else "no"),
+                ("Run QSIPrep", "yes" if run_qsiprep else "no"),
+                ("Run QSIRecon", "yes" if run_qsirecon else "no"),
+                ("QSIRecon specs", qsi_recon_config["recon_specs"] if run_qsirecon else "n/a"),
+                ("Extract DTI", "yes" if extract_dti else "no"),
             ],
             default_yes=True,
         ):
@@ -136,6 +186,10 @@ class PreProcessCLI(BaseCLI):
                 parallel_recon=parallel_recon,
                 create_m2m=create_m2m,
                 run_tissue_analysis=run_tissue_analysis,
+                run_qsiprep=run_qsiprep,
+                run_qsirecon=run_qsirecon,
+                qsi_recon_config=qsi_recon_config,
+                extract_dti=extract_dti,
             )
         )
 
@@ -147,6 +201,18 @@ class PreProcessCLI(BaseCLI):
         if not subject_ids:
             raise RuntimeError("No subjects provided.")
 
+        # Parse QSI recon specs
+        qsi_recon_specs_str = args.get("qsi_recon_specs", "mrtrix_multishell_msmt_ACT-fast")
+        qsi_recon_specs = (
+            [s.strip() for s in qsi_recon_specs_str.split(",") if s.strip()]
+            if qsi_recon_specs_str
+            else ["mrtrix_multishell_msmt_ACT-fast"]
+        )
+        qsi_recon_config = {
+            "recon_specs": qsi_recon_specs,
+            "atlases": ["Schaefer100", "AAL116"]
+        }
+
         for sid in subject_ids:
             _ensure_subject_dirs(project_dir, sid)
         return run_pipeline(
@@ -157,6 +223,10 @@ class PreProcessCLI(BaseCLI):
             parallel_recon=bool(args.get("parallel_recon", False)),
             create_m2m=bool(args.get("create_m2m", False)),
             run_tissue_analysis=bool(args.get("run_tissue_analysis", False)),
+            run_qsiprep=bool(args.get("run_qsiprep", False)),
+            run_qsirecon=bool(args.get("run_qsirecon", False)),
+            qsi_recon_config=qsi_recon_config,
+            extract_dti=bool(args.get("extract_dti", False)),
         )
 
 

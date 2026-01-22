@@ -382,6 +382,7 @@ class PathManager:
         # preprocessing / sourcedata
         "bids_subject": (f"{const.PREFIX_SUBJECT}{{subject_id}}",),
         "bids_anat": (f"{const.PREFIX_SUBJECT}{{subject_id}}", "anat"),
+        "bids_dwi": (f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_DWI),
         "sourcedata": (const.DIR_SOURCEDATA,),
         "sourcedata_subject": (
             const.DIR_SOURCEDATA,
@@ -392,6 +393,19 @@ class PathManager:
             f"{const.PREFIX_SUBJECT}{{subject_id}}",
             "{modality}",
             "dicom",
+        ),
+        # QSIPrep/QSIRecon derivatives
+        "qsiprep": (const.DIR_DERIVATIVES, const.DIR_QSIPREP),
+        "qsiprep_subject": (
+            const.DIR_DERIVATIVES,
+            const.DIR_QSIPREP,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
+        ),
+        "qsirecon": (const.DIR_DERIVATIVES, const.DIR_QSIRECON),
+        "qsirecon_subject": (
+            const.DIR_DERIVATIVES,
+            const.DIR_QSIRECON,
+            f"{const.PREFIX_SUBJECT}{{subject_id}}",
         ),
         # ex/flex
         "ex_search": (
