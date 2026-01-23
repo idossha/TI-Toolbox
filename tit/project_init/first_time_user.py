@@ -19,7 +19,7 @@ logger.propagate = False  # Prevent propagation to root logger
 def get_status_file_path():
     """
     Get the path to the status file in the project directory.
-    The file will be stored in /mnt/PROJECT_DIR_NAME/derivatives/ti-toolbox/.ti-toolbox-info/project_status.json
+    The file will be stored in /mnt/PROJECT_DIR_NAME/code/ti-toolbox/config/project_status.json
     """
     pm = get_path_manager()
     return pm.path("ti_toolbox_status")

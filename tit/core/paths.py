@@ -220,7 +220,7 @@ class PathManager:
         return os.environ.get(const.ENV_PROJECT_DIR_NAME)
 
     # -------------------------------------------------------------------------
-    # Fast template-based resolver (reduces method count + code bloat).
+    # Fast template-based resolver 
     # -------------------------------------------------------------------------
 
     _TEMPLATES = {
@@ -295,15 +295,16 @@ class PathManager:
         ),
         # ti-toolbox derivatives
         "ti_toolbox": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX),
+        # project configuration & status
         "ti_toolbox_info": (
-            const.DIR_DERIVATIVES,
-            const.DIR_TI_TOOLBOX,
-            const.DIR_TI_TOOLBOX_INFO,
+            const.DIR_CODE,
+            const.DIR_CODE_TI_TOOLBOX,
+            const.DIR_CONFIG,
         ),
         "ti_toolbox_status": (
-            const.DIR_DERIVATIVES,
-            const.DIR_TI_TOOLBOX,
-            const.DIR_TI_TOOLBOX_INFO,
+            const.DIR_CODE,
+            const.DIR_CODE_TI_TOOLBOX,
+            const.DIR_CONFIG,
             "project_status.json",
         ),
         "ti_logs": (

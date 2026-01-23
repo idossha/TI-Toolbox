@@ -501,7 +501,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
     }
     
     // Create project status file
-    const statusDir = path.join(validatedDir, 'derivatives', 'ti-toolbox', '.ti-toolbox-info');
+    const statusDir = path.join(validatedDir, 'code', 'ti-toolbox', 'config');
     const statusFile = path.join(statusDir, 'project_status.json');
     
     if (!fs.existsSync(statusFile)) {

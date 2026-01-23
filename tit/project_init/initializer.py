@@ -10,7 +10,7 @@ from . import example_data_manager
 
 MARKER_FILES = (
     "code/ti-toolbox/config/.initialized",
-    "derivatives/ti-toolbox/.ti-toolbox-info/project_status.json",
+    "code/ti-toolbox/config/project_status.json",
     "dataset_description.json",
     "README",
 )
@@ -141,9 +141,9 @@ def initialize_derivative_dataset_description(
 
 
 def initialize_project_status(project_dir: Path) -> None:
-    info_dir = project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info"
-    status_file = info_dir / "project_status.json"
-    info_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = project_dir / "code" / "ti-toolbox" / "config"
+    status_file = config_dir / "project_status.json"
+    config_dir.mkdir(parents=True, exist_ok=True)
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     payload = {
         "project_created": current_time,
@@ -170,9 +170,6 @@ def initialize_project_structure(project_dir: Path) -> None:
 
     print("Creating directory structure...")
     (project_dir / "code" / "ti-toolbox" / "config").mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info").mkdir(
-        parents=True, exist_ok=True
-    )
     (project_dir / "derivatives" / "freesurfer").mkdir(parents=True, exist_ok=True)
     (project_dir / "derivatives" / "SimNIBS").mkdir(parents=True, exist_ok=True)
     (project_dir / "sourcedata").mkdir(parents=True, exist_ok=True)

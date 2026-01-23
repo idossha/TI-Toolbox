@@ -479,8 +479,8 @@ write_project_status() {
   echo ""
   echo "Initializing project status..."
 
-  # Set info directory to derivatives location
-  INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+  # Set status directory to config location
+  INFO_DIR="$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
   STATUS_FILE="$INFO_DIR/project_status.json"
 
   mkdir -p "$INFO_DIR"
@@ -516,7 +516,7 @@ EOF
     fi
   fi
 
-  # No need to mirror since we're now using the derivatives location directly
+  # No need to mirror since we're now using the config location directly
   echo "✓ Project status updated"
   return 0
 }
@@ -582,8 +582,8 @@ initialize_project_configs() {
   if [ "$is_new_project" = true ]; then
     echo "Initializing new project..."
     
-    # Create .ti-toolbox-info directory with error checking (under derivatives/ti-toolbox)
-    local info_dir="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+    # Create config directory with error checking
+    local info_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
     if ! mkdir -p "$info_dir" 2>/dev/null; then
       echo "ERROR: Could not create directory $info_dir"
       return 1

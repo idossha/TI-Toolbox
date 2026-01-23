@@ -16,6 +16,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.user"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.yml"
 VERBOSE = False
+X11_MARKER_NAME = ".ti_toolbox_x11_initialized"
+X11_MARKER_DIR = Path("code/ti-toolbox/config")
 
 
 def run(
@@ -139,10 +141,7 @@ def check_x_forwarding() -> Optional[str]:
         os.environ.setdefault("DISPLAY", ":0")
         return find_xhost()
     if system == "Darwin":
-        xquartz_app = Path("/Applications/Utilities/XQuartz.app")
-        if not xquartz_app.exists():
-            print("Error: XQuartz is not installed. Please install XQuartz.")
-            sys.exit(1)
+        os.environ["DISPLAY"] = "host.docker.internal:0"
         return find_xhost()
     if system == "Windows":
         print(
@@ -174,22 +173,68 @@ def allow_xhost(xhost_bin: Optional[str]) -> None:
         return
     system = platform.system()
     if system == "Linux":
-        run([xhost_bin, "+local:root"], check=False, capture_output=True)
-        run([xhost_bin, "+local:docker"], check=False, capture_output=True)
+        run([xhost_bin, "+"], check=False, capture_output=True)
     elif system in ("Darwin", "Windows"):
         env = os.environ.copy()
         env["DISPLAY"] = ":0"
-        run([xhost_bin, "+localhost"], check=False, env=env, capture_output=True)
-        run([xhost_bin, platform.node()], check=False, env=env, capture_output=True)
+        run([xhost_bin, "+"], check=False, env=env, capture_output=True)
 
 
-def revert_xhost(xhost_bin: Optional[str]) -> None:
+def xquartz_command() -> str:
+    try:
+        return capture(["ps", "-ax", "-o", "command="])
+    except Exception:
+        return ""
+
+
+def x11_marker_path(project_dir: Path) -> Path:
+    return project_dir / X11_MARKER_DIR / X11_MARKER_NAME
+
+
+def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
+    xquartz_app = Path("/Applications/Utilities/XQuartz.app")
+    if not xquartz_app.exists():
+        print("Error: XQuartz is not installed. Please install XQuartz.")
+        sys.exit(1)
     if not xhost_bin:
+        print("Error: xhost is not available. Please ensure XQuartz is installed correctly.")
+        sys.exit(1)
+
+    Path.home().joinpath(".Xauthority").touch(exist_ok=True)
+    run(["defaults", "write", "org.macosforge.xquartz.X11", "nolisten_tcp", "-bool", "false"], check=False)
+
+    cmd = xquartz_command()
+    if "XQuartz" not in cmd and "Xquartz" not in cmd:
+        print("Starting XQuartz...")
+        run(["open", "-a", "XQuartz"], check=False)
+        time.sleep(2)
+        cmd = xquartz_command()
+
+    if "XQuartz" not in cmd and "Xquartz" not in cmd:
+        print("Error: XQuartz is not running. Start it first (open -a XQuartz).")
+        sys.exit(1)
+    if "-nolisten tcp" in cmd:
+        print(
+            "Error: XQuartz is running with -nolisten tcp. Quit and restart XQuartz after running: "
+            "defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false"
+        )
+        sys.exit(1)
+
+    env = os.environ.copy()
+    env["DISPLAY"] = ":0"
+    run([xhost_bin, "+"], check=False, env=env, capture_output=True)
+
+
+def maybe_init_macos_x11(project_dir: Path, is_new_project: bool, xhost_bin: Optional[str]) -> None:
+    if platform.system() != "Darwin":
         return
-    system = platform.system()
-    if system in ("Linux", "Darwin"):
-        run([xhost_bin, "-local:root"], check=False, capture_output=True)
-        run([xhost_bin, "-local:docker"], check=False, capture_output=True)
+    marker = x11_marker_path(project_dir)
+    if is_new_project or not marker.exists():
+        print("Initializing XQuartz for X11 forwarding (one-time)...")
+        init_macos_x11_once(xhost_bin)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("x11_initialized=1\n")
+    print("XQuartz: ensure 'Allow connections from network clients' is enabled.")
 
 
 def ensure_docker_volume(volume_name: str) -> None:
@@ -383,26 +428,33 @@ def main() -> None:
     display_welcome()
 
     default_dir = load_default_project_dir()
+    is_new_project = False
     if args.project_dir:
         project_dir = Path(os.path.expanduser(args.project_dir))
         if not project_dir.exists():
             if args.yes:
                 project_dir.mkdir(parents=True, exist_ok=True)
+                is_new_project = True
             else:
                 print(f"Directory does not exist: {project_dir}")
                 sys.exit(1)
+        elif project_dir.is_dir():
+            is_new_project = not any(project_dir.iterdir())
+        else:
+            print(f"Path exists but is not a directory: {project_dir}")
+            sys.exit(1)
     else:
-        project_dir, _created, _is_empty = prompt_project_dir(default_dir, args.yes)
+        project_dir, created, is_empty = prompt_project_dir(default_dir, args.yes)
+        is_new_project = created or is_empty
 
     save_default_project_dir(str(project_dir))
 
     set_display_env()
-    allow_xhost(xhost_bin)
+    maybe_init_macos_x11(project_dir, is_new_project, xhost_bin)
+    if platform.system() == "Linux":
+        allow_xhost(xhost_bin)
 
-    try:
-        run_docker_compose(project_dir, project_dir.name)
-    finally:
-        revert_xhost(xhost_bin)
+    run_docker_compose(project_dir, project_dir.name)
 
 
 if __name__ == "__main__":

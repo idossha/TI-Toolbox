@@ -10,8 +10,36 @@ DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.user"
 
 AUTO_CREATE="false"
 PROJECT_DIR_ARG=""
-XHOST_BIN=""
 SIMNIBS_CONTAINER_NAME="simnibs_container"
+XHOST_BIN=""
+MPLBACKEND_VALUE="Qt5Agg"
+PROJECT_DIR_CREATED="false"
+PROJECT_DIR_EMPTY="false"
+X11_MARKER_NAME=".ti_toolbox_x11_initialized"
+X11_MARKER_DIR="code/ti-toolbox/config"
+set_xhost_bin() {
+  if command -v xhost >/dev/null 2>&1; then
+    XHOST_BIN="xhost"
+  elif [[ -x /opt/X11/bin/xhost ]]; then
+    XHOST_BIN="/opt/X11/bin/xhost"
+  else
+    XHOST_BIN=""
+    return 1
+  fi
+}
+
+allow_xhost() {
+  [[ -n "$XHOST_BIN" ]] || return 0
+  case "$OS_TYPE" in
+    Linux)
+      "$XHOST_BIN" + >/dev/null 2>&1 || true
+      ;;
+    Darwin)
+      DISPLAY=":0" "$XHOST_BIN" + >/dev/null 2>&1 || true
+      ;;
+  esac
+}
+
 
 die() {
   echo "$1"
@@ -29,17 +57,6 @@ save_default_paths() {
   echo "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\"" > "$DEFAULT_PATHS_FILE"
 }
 
-set_xhost_bin() {
-  if command -v xhost >/dev/null 2>&1; then
-    XHOST_BIN="xhost"
-  elif [[ -x /opt/X11/bin/xhost ]]; then
-    XHOST_BIN="/opt/X11/bin/xhost"
-  else
-    XHOST_BIN=""
-    return 1
-  fi
-}
-
 check_docker_available() {
   command -v docker >/dev/null 2>&1 || die "Error: Docker is not installed or not in PATH."
   docker info >/dev/null 2>&1 || die "Error: Docker daemon is not running. Please start Docker and try again."
@@ -51,65 +68,16 @@ check_x_forwarding() {
     Linux)
       export DISPLAY=${DISPLAY:-:0}
       set_xhost_bin >/dev/null 2>&1 || die "Error: xhost is not available. Please install xhost."
+      allow_xhost
       ;;
     Darwin)
-      [[ -d "/Applications/Utilities/XQuartz.app" ]] || die "Error: XQuartz is not installed. Please install XQuartz."
-      defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false >/dev/null 2>&1 || true
-      if ! pgrep -x "XQuartz" >/dev/null 2>&1 && ! pgrep -x "Xquartz" >/dev/null 2>&1; then
-        echo ""
-        echo "========================================"
-        echo "WARNING: XQuartz is NOT running."
-        echo "Start XQuartz if you need GUI support."
-        echo "========================================"
-        echo ""
-      fi
-      set_xhost_bin >/dev/null 2>&1 || die "Error: xhost is not available. Please ensure XQuartz is installed correctly."
+      export DISPLAY="host.docker.internal:0"
       ;;
     MINGW*|MSYS*|CYGWIN*)
-      echo "Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:"
-      echo "  - 'Multiple windows' mode"
-      echo "  - 'Disable access control' checked"
-      echo "  - Firewall configured to allow X server connections"
-      echo ""
-      read -r -p "Press Enter to continue once X server is configured..."
+      die "Windows GUI forwarding is not supported by this loader."
       ;;
     *)
       die "Unsupported OS for X11 display configuration."
-      ;;
-  esac
-}
-
-set_display_env() {
-  case "$OS_TYPE" in
-    Linux)
-      export DISPLAY=${DISPLAY:-:0}
-      ;;
-    Darwin|MINGW*|MSYS*|CYGWIN*)
-      export DISPLAY="host.docker.internal:0"
-      ;;
-  esac
-}
-
-allow_xhost() {
-  [[ -n "$XHOST_BIN" ]] || return 0
-  case "$OS_TYPE" in
-    Linux)
-      "$XHOST_BIN" +local:root >/dev/null 2>&1 || true
-      "$XHOST_BIN" +local:docker >/dev/null 2>&1 || true
-      ;;
-    Darwin|MINGW*|MSYS*|CYGWIN*)
-      DISPLAY=":0" "$XHOST_BIN" +localhost >/dev/null 2>&1 || true
-      DISPLAY=":0" "$XHOST_BIN" +"$(hostname)" >/dev/null 2>&1 || true
-      ;;
-  esac
-}
-
-revert_xhost() {
-  [[ -n "$XHOST_BIN" ]] || return 0
-  case "$OS_TYPE" in
-    Linux|Darwin)
-      "$XHOST_BIN" -local:root >/dev/null 2>&1 || true
-      "$XHOST_BIN" -local:docker >/dev/null 2>&1 || true
       ;;
   esac
 }
@@ -164,6 +132,12 @@ get_project_directory() {
         read -r response
         [[ "$response" == "y" ]] || continue
       fi
+      PROJECT_DIR_CREATED="false"
+      if [[ -z "$(ls -A "$LOCAL_PROJECT_DIR" 2>/dev/null)" ]]; then
+        PROJECT_DIR_EMPTY="true"
+      else
+        PROJECT_DIR_EMPTY="false"
+      fi
       break
     elif [[ -e "$LOCAL_PROJECT_DIR" ]]; then
       echo "Path exists but is not a directory: $LOCAL_PROJECT_DIR"
@@ -178,10 +152,53 @@ get_project_directory() {
       fi
       if [[ "$response" == "y" ]]; then
         mkdir -p "$LOCAL_PROJECT_DIR" || die "Error: Unable to create directory $LOCAL_PROJECT_DIR"
+        PROJECT_DIR_CREATED="true"
+        PROJECT_DIR_EMPTY="true"
         break
       fi
     fi
   done
+}
+
+macos_x11_marker_path() {
+  echo "${LOCAL_PROJECT_DIR%/}/$X11_MARKER_DIR/$X11_MARKER_NAME"
+}
+
+init_macos_x11_once() {
+  [[ -d "/Applications/Utilities/XQuartz.app" ]] || die "Error: XQuartz is not installed. Please install XQuartz."
+  set_xhost_bin >/dev/null 2>&1 || die "Error: xhost is not available. Please ensure XQuartz is installed correctly."
+  touch "$HOME/.Xauthority" >/dev/null 2>&1 || true
+
+  defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false >/dev/null 2>&1 || true
+
+  local xquartz_cmd
+  xquartz_cmd=$(ps -ax -o command= | grep -i '[X]quartz' | head -n 1 || true)
+  if [[ -z "$xquartz_cmd" ]]; then
+    echo "Starting XQuartz..."
+    open -a XQuartz >/dev/null 2>&1 || true
+    sleep 2
+    xquartz_cmd=$(ps -ax -o command= | grep -i '[X]quartz' | head -n 1 || true)
+  fi
+
+  [[ -n "$xquartz_cmd" ]] || die "Error: XQuartz is not running. Start it first (open -a XQuartz)."
+  if [[ "$xquartz_cmd" == *"-nolisten tcp"* ]]; then
+    die "Error: XQuartz is running with -nolisten tcp. Quit and restart XQuartz after running: defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false"
+  fi
+
+  DISPLAY=":0" "$XHOST_BIN" + >/dev/null 2>&1 || true
+}
+
+maybe_init_macos_x11() {
+  [[ "$OS_TYPE" == "Darwin" ]] || return 0
+  local marker
+  marker=$(macos_x11_marker_path)
+  if [[ "$PROJECT_DIR_CREATED" == "true" || "$PROJECT_DIR_EMPTY" == "true" || ! -f "$marker" ]]; then
+    echo "Initializing XQuartz for X11 forwarding (one-time)..."
+    init_macos_x11_once
+    mkdir -p "$(dirname "$marker")" || true
+    echo "x11_initialized=1" > "$marker"
+  fi
+  echo "XQuartz: ensure 'Allow connections from network clients' is enabled."
 }
 
 ensure_docker_volumes() {
@@ -318,7 +335,6 @@ parse_args "$@"
 [[ -f "$SCRIPT_DIR/docker-compose.yml" ]] || die "Error: docker-compose.yml not found in $SCRIPT_DIR."
 
 check_docker_available
-check_x_forwarding
 display_welcome
 
 load_default_paths
@@ -327,12 +343,11 @@ get_project_directory
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 save_default_paths
 
-set_display_env
-allow_xhost
-
-trap revert_xhost EXIT
+maybe_init_macos_x11
+check_x_forwarding
 
 export LOCAL_PROJECT_DIR
 export PROJECT_DIR_NAME
+export MPLBACKEND="$MPLBACKEND_VALUE"
 
 run_docker_compose

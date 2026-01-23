@@ -24,7 +24,7 @@ This directory contains files and configurations that are used when initializing
 
 1. When a new project is created:
    - The loader (`loader.py`) checks if the project is new
-   - Creates a project status file (`derivatives/ti-toolbox/.ti-toolbox-info/project_status.json`) with initial flags
+   - Creates a project status file (`code/ti-toolbox/config/project_status.json`) with initial flags
    - Initializes BIDS directory structure
    - Creates dataset_description.json and README files
    - Calls `example_data_manager.py` to copy example data if applicable
@@ -38,7 +38,7 @@ This directory contains files and configurations that are used when initializing
 
 ## Project Status File
 
-The project status file (`derivatives/ti-toolbox/.ti-toolbox-info/project_status.json`) contains:
+The project status file (`code/ti-toolbox/config/project_status.json`) contains:
 ```json
 {
   "project_created": "2024-01-01T12:00:00.000000",
@@ -68,13 +68,12 @@ project/
 │   └── anat/                           # Anatomical images
 ├── derivatives/                         # Processed data
 │   ├── ti-toolbox/                     # TI-Toolbox outputs
-│   │   └── .ti-toolbox-info/          # Hidden metadata directory
-│   │       ├── project_status.json    # Project status tracking
-│   │       └── system_info.txt        # System information
 │   ├── SimNIBS/                        # SimNIBS outputs
 │   └── freesurfer/                     # FreeSurfer outputs
 ├── code/                                # Code and configurations
 │   └── ti-toolbox/
+│       └── config/
+│           └── project_status.json     # Project status tracking
 ├── dataset_description.json             # BIDS dataset description
 └── README                               # BIDS README file
 ```
