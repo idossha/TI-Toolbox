@@ -16,14 +16,11 @@ services:
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
       - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
-      MPLBACKEND: "Agg"
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects
       FS_LICENSE: /usr/local/freesurfer/license.txt
