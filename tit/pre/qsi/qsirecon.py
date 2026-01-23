@@ -88,8 +88,12 @@ def run_qsirecon(
     if recon_specs is None:
         recon_specs = ["mrtrix_multishell_msmt_ACT-fast"]
 
+    # Default atlases for connectivity-based recon specs
+    if atlases is None:
+        atlases = ["Schaefer100", "AAL116"]
+
     logger.info(
-        f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}"
+        f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
     )
 
     # Validate QSIPrep output exists
