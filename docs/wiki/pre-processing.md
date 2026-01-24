@@ -339,4 +339,15 @@ The pre-processing pipeline generates all necessary inputs for downstream TI ana
 - **SimNIBS head models** → `simulator` electromagnetic field computation
 - **BIDS anatomical data** → `analyzer` ROI analysis and visualization
 
-See the [Ex-Search](ex-search.md) and [Simulator](simulator.md) documentation for details on using pre-processed data in TI analysis workflows. 
+See the [Ex-Search](ex-search.md) and [Simulator](simulator.md) documentation for details on using pre-processed data in TI analysis workflows.
+
+## Related Pipelines
+
+### Diffusion Processing
+
+For anisotropic conductivity simulations, diffusion-weighted imaging (DWI) data can be processed using the integrated QSIPrep/QSIRecon pipeline. This produces DTI tensors that account for white matter fiber orientation in field calculations.
+
+See the [Diffusion Processing](diffusion-processing.md) documentation for:
+- QSIPrep preprocessing of raw DWI data
+- QSIRecon tensor reconstruction
+- DTI extraction for SimNIBS integration 
