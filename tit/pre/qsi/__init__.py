@@ -24,13 +24,14 @@ Configuration Classes:
 
 from .qsiprep import run_qsiprep
 from .qsirecon import run_qsirecon
-from .dti_extractor import extract_dti_tensor
+from .dti_extractor import extract_dti_tensor, check_dti_tensor_exists
 from .config import QSIPrepConfig, QSIReconConfig, ReconSpec, QSIAtlas, ResourceConfig
 
 __all__ = [
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti_tensor",
+    "check_dti_tensor_exists",
     "QSIPrepConfig",
     "QSIReconConfig",
     "ReconSpec",

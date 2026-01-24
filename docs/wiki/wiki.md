@@ -8,10 +8,11 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 
 
 ### Core Functionality
-- **[Pre-Processing](pre-processing)** - Data preparation and mesh generation workflows
-- **[Flex Search](flex-search)** - TI optimization pipeline based on differntial evolutionary algorithm
+- **[Pre-Processing](pre-processing)** - Structural MRI preparation and mesh generation workflows
+- **[Diffusion Processing](diffusion-processing)** - QSIPrep/QSIRecon integration for DTI-based anisotropic simulations
+- **[Flex Search](flex-search)** - TI optimization pipeline based on differential evolutionary algorithm
 - **[Ex Search](ex-search)** - TI optimization pipeline based on leadfield matrices
-- **[Simulator](simulator)** -  Simualtor with flexible parameter input
+- **[Simulator](simulator)** - Simulator with flexible parameter input and anisotropic support
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 - **[GUI](gui)** - Main graphical interface of TI-Toolbox

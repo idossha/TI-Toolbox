@@ -11,7 +11,7 @@ permalink: /installation/macos/
 2. **Start Docker Desktop** and ensure it's running (green indicator in menu bar)
 
 ### X Server for GUI
-Install [XQuartz 2.7.7](https://www.xquartz.org/) for GUI display:
+Install [XQuartz 2.7.7](https://www.xquartz.org/releases/XQuartz-2.7.7.html) for GUI display:
 - Download and install XQuartz version 2.7.7 from the official website
 - Log out and back in (or restart) after installation
 

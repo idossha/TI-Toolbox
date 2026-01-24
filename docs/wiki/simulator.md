@@ -93,18 +93,34 @@ The TI-Toolbox automatically co-registers the following EEG electrode nets to he
 ---
 ## Anisotropy
 
-The simulator supports different tissue conductivity models:
+The simulator supports different tissue conductivity models for more accurate field calculations.
 
 ### Isotropic Model
 - **Description**: Uniform conductivity in all directions
 - **Applications**: Simplified modeling, faster computation
 - **Limitations**: May not accurately represent white matter anisotropy
+- **Default**: Used when no DTI data is available
 
 ### Anisotropic Model
 - **Description**: Direction-dependent conductivity based on DTI data
-- **Requirements**: Diffusion tensor imaging (DTI) scans
+- **Requirements**: Diffusion tensor imaging (DTI) data processed through QSIPrep/QSIRecon
 - **Applications**: More realistic modeling of white matter tracts
 - **Processing**: Accounts for fiber orientation in field calculations
+
+### DTI Data Preparation
+
+The TI-Toolbox provides integrated DTI processing via QSIPrep and QSIRecon. The pipeline extracts diffusion tensors and converts them to the format required by SimNIBS.
+
+#### Required Files
+
+For anisotropic simulation, the following file must exist in the m2m directory:
+
+```
+derivatives/SimNIBS/sub-{id}/m2m_{id}/
+└── DTI_coregT1_tensor.nii.gz    # 4D tensor (X, Y, Z, 6)
+```
+
+For complete DTI processing instructions, see the [Diffusion Processing](diffusion-processing.md) documentation.
 
 #### DTI Eigen Vectors Visualization
 
@@ -115,7 +131,18 @@ The simulator supports different tissue conductivity models:
 
 These visualizations display the principal diffusion directions (eigen vectors) derived from diffusion tensor imaging (DTI) data, which are used to create direction-dependent conductivity tensors in anisotropic tissue modeling.
 
-For a complete explanation of DTI processing and tensor preparation, see the [SimNIBS wiki](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html).
+### Anisotropy Types
+
+SimNIBS supports different methods for applying anisotropic conductivity:
+
+| Type | Code | Description |
+|------|------|-------------|
+| **Scalar** | `'scalar'` | Isotropic (no DTI) |
+| **Direct** | `'dir'` | Direct mapping of tensor eigenvalues to conductivity |
+| **Volume Normalized** | `'vn'` | Normalized tensors scaled by tissue conductivity |
+
+
+For additional details on DTI processing theory, see the [SimNIBS dwi2cond documentation](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html).
 
 ---
 
