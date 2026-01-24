@@ -43,9 +43,17 @@ class TestFindDtiTensorFile:
         tensor_file = dwi_dir / "sub-001_dti_tensor.nii.gz"
         tensor_file.touch()
 
-        result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
-        assert result is not None
-        assert result.name == "sub-001_dti_tensor.nii.gz"
+        # Mock nibabel to return valid tensor shape
+        mock_img = MagicMock()
+        mock_img.shape = (10, 10, 10, 6)  # Valid tensor shape
+
+        with patch.dict("sys.modules", {"nibabel": MagicMock()}):
+            import sys
+            sys.modules["nibabel"].load.return_value = mock_img
+
+            result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
+            assert result is not None
+            assert result.name == "sub-001_dti_tensor.nii.gz"
 
     def test_find_tensor_with_different_naming(self, tmp_path, mock_logger):
         """Test finding tensor file with alternative naming convention."""
@@ -54,30 +62,46 @@ class TestFindDtiTensorFile:
         tensor_file = dwi_dir / "sub-001_tensor.nii.gz"
         tensor_file.touch()
 
-        result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
-        assert result is not None
+        # Mock nibabel to return valid tensor shape
+        mock_img = MagicMock()
+        mock_img.shape = (10, 10, 10, 6)
+
+        with patch.dict("sys.modules", {"nibabel": MagicMock()}):
+            import sys
+            sys.modules["nibabel"].load.return_value = mock_img
+
+            result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
+            assert result is not None
 
     def test_no_tensor_file_found(self, tmp_path, mock_logger):
         """Test when no tensor file is found."""
-        # Create directory structure but no tensor file
+        # Create directory structure but no tensor file matching patterns
         dwi_dir = tmp_path / "sub-001" / "dwi"
         dwi_dir.mkdir(parents=True)
         (dwi_dir / "sub-001_fa.nii.gz").touch()  # FA file, not tensor
 
-        result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
-        assert result is None
-        mock_logger.warning.assert_called()
+        # Mock nibabel - FA file won't match tensor patterns anyway
+        mock_img = MagicMock()
+        mock_img.shape = (10, 10, 10)  # 3D - not a tensor
+
+        with patch.dict("sys.modules", {"nibabel": MagicMock()}):
+            import sys
+            sys.modules["nibabel"].load.return_value = mock_img
+
+            result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
+            assert result is None
 
     def test_subject_directory_not_found(self, tmp_path, mock_logger):
         """Test when subject directory doesn't exist."""
         result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
         assert result is None
+        mock_logger.warning.assert_called()
 
     def test_filters_out_non_tensor_files(self, tmp_path, mock_logger):
         """Test that FA, MD, etc. files are filtered out."""
         dwi_dir = tmp_path / "sub-001" / "dwi"
         dwi_dir.mkdir(parents=True)
-        # Create files that should be filtered
+        # Create files that should be filtered by name
         (dwi_dir / "sub-001_fa.nii.gz").touch()
         (dwi_dir / "sub-001_md.nii.gz").touch()
         (dwi_dir / "sub-001_mask.nii.gz").touch()
@@ -85,9 +109,17 @@ class TestFindDtiTensorFile:
         tensor_file = dwi_dir / "sub-001_dti_tensor.nii.gz"
         tensor_file.touch()
 
-        result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
-        assert result is not None
-        assert "tensor" in result.name.lower()
+        # Mock nibabel to return valid tensor shape for tensor file
+        mock_img = MagicMock()
+        mock_img.shape = (10, 10, 10, 6)
+
+        with patch.dict("sys.modules", {"nibabel": MagicMock()}):
+            import sys
+            sys.modules["nibabel"].load.return_value = mock_img
+
+            result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
+            assert result is not None
+            assert "tensor" in result.name.lower()
 
 
 class TestFindDkiTensorFiles:
@@ -219,6 +251,7 @@ class TestExtractDtiTensor:
         mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(np.float32)
         mock_img.affine = np.eye(4)
         mock_img.header = MagicMock()
+        mock_img.shape = (10, 10, 10, 6)
         mock_nib.load.return_value = mock_img
         mock_nib.Nifti1Image.return_value = MagicMock()
 
@@ -230,21 +263,32 @@ class TestExtractDtiTensor:
             # Patch nibabel at import time using patch.dict on sys.modules
             with patch.dict("sys.modules", {"nibabel": mock_nib}):
                 with patch(
-                    "tit.pre.qsi.dti_extractor._find_dki_tensor_files",
-                    return_value=(None, None),
+                    "tit.pre.qsi.dti_extractor._find_dsistudio_tensor_components",
+                    return_value=None,
                 ):
                     with patch(
-                        "tit.pre.qsi.dti_extractor._find_dti_tensor_file",
-                        return_value=tensor_file,
+                        "tit.pre.qsi.dti_extractor._find_dki_tensor_files",
+                        return_value=(None, None),
                     ):
-                        result = extract_dti_tensor(
-                            project_dir=str(tmp_path),
-                            subject_id="001",
-                            logger=mock_logger,
-                        )
+                        with patch(
+                            "tit.pre.qsi.dti_extractor._find_dti_tensor_file",
+                            return_value=tensor_file,
+                        ):
+                            with patch(
+                                "tit.pre.qsi.dti_extractor.shutil.copy2"
+                            ) as mock_copy:
+                                result = extract_dti_tensor(
+                                    project_dir=str(tmp_path),
+                                    subject_id="001",
+                                    logger=mock_logger,
+                                    skip_registration=True,  # Skip registration in test
+                                )
 
-                assert result is not None
-                mock_nib.save.assert_called_once()
+                                assert result is not None
+                                # Should have saved the intermediate file
+                                assert mock_nib.save.called
+                                # Should have copied to final location
+                                assert mock_copy.called
 
     def test_extract_dti_tensor_m2m_not_found(self, tmp_path, mock_logger):
         """Test that missing m2m directory raises PreprocessError."""
@@ -338,6 +382,7 @@ class TestExtractDtiTensor:
         mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(np.float32)
         mock_img.affine = np.eye(4)
         mock_img.header = MagicMock()
+        mock_img.shape = (10, 10, 10, 6)
         mock_nib.load.return_value = mock_img
         mock_nib.Nifti1Image.return_value = MagicMock()
 
@@ -352,23 +397,31 @@ class TestExtractDtiTensor:
             # Patch nibabel at import time using patch.dict on sys.modules
             with patch.dict("sys.modules", {"nibabel": mock_nib}):
                 with patch(
-                    "tit.pre.qsi.dti_extractor._find_dki_tensor_files",
-                    return_value=(dki_dt_file, None),
-                ) as mock_find_dki:
+                    "tit.pre.qsi.dti_extractor._find_dsistudio_tensor_components",
+                    return_value=None,
+                ):
                     with patch(
-                        "tit.pre.qsi.dti_extractor._find_dti_tensor_file",
-                        return_value=dti_tensor_file,
-                    ) as mock_find_dti:
-                        extract_dti_tensor(
-                            project_dir=str(tmp_path),
-                            subject_id="001",
-                            logger=mock_logger,
-                        )
+                        "tit.pre.qsi.dti_extractor._find_dki_tensor_files",
+                        return_value=(dki_dt_file, None),
+                    ) as mock_find_dki:
+                        with patch(
+                            "tit.pre.qsi.dti_extractor._find_dti_tensor_file",
+                            return_value=dti_tensor_file,
+                        ) as mock_find_dti:
+                            with patch(
+                                "tit.pre.qsi.dti_extractor.shutil.copy2"
+                            ):
+                                extract_dti_tensor(
+                                    project_dir=str(tmp_path),
+                                    subject_id="001",
+                                    logger=mock_logger,
+                                    skip_registration=True,
+                                )
 
-                        # DKI should be tried first
-                        mock_find_dki.assert_called_once()
-                        # General DTI should not be called since DKI was found
-                        mock_find_dti.assert_not_called()
+                                # DKI should be tried first
+                                mock_find_dki.assert_called_once()
+                                # General DTI should not be called since DKI was found
+                                mock_find_dti.assert_not_called()
 
 
 class TestCheckDtiTensorExists:
