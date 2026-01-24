@@ -66,7 +66,7 @@ def test_loader_main_calls_docker_compose(monkeypatch, tmp_path):
     monkeypatch.setattr(loader, "display_welcome", lambda: None)
     monkeypatch.setattr(loader, "set_display_env", lambda: None)
     monkeypatch.setattr(loader, "allow_xhost", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(loader, "revert_xhost", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(loader, "maybe_init_macos_x11", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(loader, "run_docker_compose", fake_docker_compose)
     monkeypatch.setattr(
         loader, "save_default_project_dir", lambda *_args, **_kwargs: None

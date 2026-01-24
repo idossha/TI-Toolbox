@@ -176,8 +176,8 @@ class TestQSIReconConfig:
         """Test default configuration values."""
         config = QSIReconConfig(subject_id="001")
         assert config.subject_id == "001"
-        assert config.recon_specs == ["dipy_dki"]
-        assert config.atlases is None
+        assert config.recon_specs == ["mrtrix_multishell_msmt_ACT-fast"]
+        assert config.atlases == ["Schaefer100", "AAL116"]
         assert config.use_gpu is False
         assert config.image_tag == const.QSI_DEFAULT_IMAGE_TAG
 

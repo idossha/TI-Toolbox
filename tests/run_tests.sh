@@ -320,6 +320,12 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
             "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_integration.py" || true
 
         echo ""
+
+        # QSI module tests (QSIPrep/QSIRecon integration)
+        run_test "QSI Module Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_qsi_config.py tests/test_qsi_docker_builder.py tests/test_qsi_utils.py tests/test_qsi_qsiprep.py tests/test_qsi_qsirecon.py tests/test_qsi_dti_extractor.py" || true
+
+        echo ""
     fi
 fi
 
