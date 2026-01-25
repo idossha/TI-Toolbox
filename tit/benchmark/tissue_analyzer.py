@@ -10,12 +10,11 @@ Usage:
 """
 
 import sys
-import os
-import subprocess
-from pathlib import Path
-from datetime import datetime
 import argparse
 import json
+import logging
+from pathlib import Path
+from datetime import datetime
 
 from tit.benchmark.core import (
     BenchmarkTimer,
@@ -25,74 +24,44 @@ from tit.benchmark.core import (
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
+from tit.pre.tissue_analyzer import TissueAnalyzer, TISSUE_CONFIGS
 
 
 def run_tissue_analysis(
     nifti_path: Path,
     tissue_type: str,
     output_dir: Path,
-    tissue_script: Path,
     logger,
-    debug_mode=True,
 ):
     """Run tissue analysis and benchmark performance."""
-
     metadata = {
         "nifti_path": str(nifti_path),
         "tissue_type": tissue_type,
         "output_dir": str(output_dir),
-        "debug_mode": debug_mode,
     }
 
     timer = BenchmarkTimer(f"tissue_analysis_{tissue_type}", metadata=metadata)
     timer.start()
 
     try:
-        env = os.environ.copy()
-        env["DEBUG_MODE"] = "true" if debug_mode else "false"
-
-        # Build command - use simnibs_python to run tissue_analyzer.py
-        cmd = [
-            "simnibs_python",
-            str(tissue_script),
-            str(nifti_path),
-            "--tissue",
-            tissue_type,
-            "--output",
-            str(output_dir / f"{tissue_type}_analysis"),
-        ]
+        tissue_output_dir = output_dir / f"{tissue_type}_analysis"
 
         logger.info(f"Running tissue analysis for: {tissue_type}")
         logger.info(f"Input: {nifti_path}")
-        logger.info(f"Output: {output_dir / f'{tissue_type}_analysis'}")
+        logger.info(f"Output: {tissue_output_dir}")
 
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env=env,
-        )
+        # Create a simple logger for the analyzer
+        analyzer_logger = logging.getLogger(f"tissue_analyzer.{tissue_type}")
+        analyzer_logger.setLevel(logging.INFO)
 
-        line_count = 0
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                logger.debug(line.rstrip())
-                line_count += 1
-                if line_count % 10 == 0:
-                    timer.sample()
-
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, cmd)
+        # Run analysis directly using the module
+        analyzer = TissueAnalyzer(nifti_path, tissue_output_dir, tissue_type, analyzer_logger)
+        results = analyzer.analyze()
 
         result = timer.stop(success=True)
-        result.metadata["output_directory"] = str(
-            output_dir / f"{tissue_type}_analysis"
-        )
+        result.metadata["output_directory"] = str(tissue_output_dir)
+        result.metadata["volume_cm3"] = results.get("volume_cm3", 0)
+        result.metadata["thickness_mean"] = results.get("thickness", {}).get("mean", 0)
 
         return result
 
@@ -111,11 +80,9 @@ def main():
         "--nifti-path", type=Path, help="Path to segmented NIfTI file (Labeling.nii.gz)"
     )
     parser.add_argument("--subject-id", type=str)
-    parser.add_argument("--tissue-script", type=Path, help="Path to tissue_analyzer.py")
     parser.add_argument(
         "--tissues", type=str, help="Comma-separated tissue types (csf,bone,skin)"
     )
-    parser.add_argument("--no-debug", action="store_true")
 
     args = parser.parse_args()
 
@@ -124,32 +91,24 @@ def main():
     merged = merge_config_with_args(config, args, "tissue_analyzer")
 
     # Extract configuration
-    project_dir = Path(merged.get("project_dir", "."))
     output_dir = Path(merged["output_dir"])
     nifti_path = Path(merged["nifti_path"])
     subject_id = str(merged.get("subject_id", "unknown"))
-    tissue_script = Path(
-        merged.get("tissue_script", "/development/tit/tit/tools/tissue_analyzer.py")
-    )
-    debug_mode = merged.get("debug_mode", True)
 
     # Parse tissue types
     if args.tissues:
         tissue_types = [t.strip() for t in args.tissues.split(",")]
     else:
-        tissue_types = merged.get("tissues", ["csf", "bone", "skin"])
+        tissue_types = merged.get("tissues", list(TISSUE_CONFIGS.keys()))
 
     # Validate paths
     if not nifti_path.exists():
         print(f"Error: NIfTI file not found: {nifti_path}")
         sys.exit(1)
-    if not tissue_script.exists():
-        print(f"Error: tissue_analyzer.py script not found: {tissue_script}")
-        sys.exit(1)
 
     # Setup logging
     log_file = create_benchmark_log_file("tissue_analyzer", output_dir, subject_id)
-    logger = BenchmarkLogger("tissue_analyzer_benchmark", log_file, debug_mode, True)
+    logger = BenchmarkLogger("tissue_analyzer_benchmark", log_file, True, True)
 
     logger.header("TISSUE ANALYZER BENCHMARK")
     logger.info(f"NIfTI file: {nifti_path}")
@@ -161,15 +120,16 @@ def main():
 
         all_results = []
         for tissue_type in tissue_types:
+            if tissue_type not in TISSUE_CONFIGS:
+                logger.warning(f"Unknown tissue type: {tissue_type}, skipping")
+                continue
+
             logger.separator("=", 70)
             logger.info(f"Running: tissue type = {tissue_type}")
             logger.separator("=", 70)
 
-            result = run_tissue_analysis(
-                nifti_path, tissue_type, output_dir, tissue_script, logger, debug_mode
-            )
-
-            all_results.append(result)
+            result = run_tissue_analysis(nifti_path, tissue_type, output_dir, logger)
+            all_results.append((tissue_type, result))
             print_benchmark_result(result)
 
             # Save individual result
@@ -192,7 +152,7 @@ def main():
                     "duration_formatted": r.duration_formatted,
                     "success": r.success,
                 }
-                for tt, r in zip(tissue_types, all_results)
+                for tt, r in all_results
             ],
         }
 
@@ -206,7 +166,7 @@ def main():
         logger.separator("=", 70)
         logger.info("BENCHMARK SUMMARY")
         logger.separator("=", 70)
-        for tt, r in zip(tissue_types, all_results):
+        for tt, r in all_results:
             status = "SUCCESS" if r.success else "FAILED"
             logger.info(f"{tt.upper()}: {r.duration_formatted} - {status}")
         logger.info(f"Summary: {summary_file}")
@@ -217,7 +177,6 @@ def main():
     except Exception as e:
         logger.error(f"Benchmark failed: {e}")
         import traceback
-
         logger.error(traceback.format_exc())
         sys.exit(1)
 
