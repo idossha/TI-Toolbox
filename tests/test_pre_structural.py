@@ -269,6 +269,62 @@ class TestRunSubjectPipeline:
         assert result is False
 
 
+@pytest.mark.unit
+def test_run_pipeline_generates_preprocessing_report(tmp_path, monkeypatch):
+    from tit import reporting
+
+    project_dir = str(tmp_path)
+    subject_id = "001"
+
+    monkeypatch.setattr("pre.structural.ensure_subject_dirs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("pre.structural.ensure_dataset_descriptions", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("pre.structural._run_subject_pipeline", lambda *_args, **_kwargs: True)
+
+    calls = {"generated": False}
+
+    class DummyReportGenerator:
+        def __init__(self, project_dir, subject_id):
+            calls["init"] = (project_dir, subject_id)
+            self.steps = []
+            self.scanned = False
+
+        def add_processing_step(self, **kwargs):
+            self.steps.append(kwargs)
+
+        def scan_for_data(self):
+            self.scanned = True
+
+        def generate(self):
+            calls["generated"] = True
+            return Path(project_dir) / "report.html"
+
+    monkeypatch.setattr(reporting, "PreprocessingReportGenerator", DummyReportGenerator)
+
+    exit_code = run_pipeline(
+        project_dir,
+        [subject_id],
+        convert_dicom=True,
+        run_recon=False,
+        parallel_recon=False,
+        create_m2m=False,
+        run_tissue_analysis=False,
+        run_qsiprep=False,
+        run_qsirecon=False,
+        qsi_recon_config=None,
+        extract_dti=False,
+        debug=False,
+        overwrite=None,
+        prompt_overwrite=None,
+        stop_event=None,
+        logger_callback=None,
+        runner=MagicMock(),
+    )
+
+    assert exit_code == 0
+    assert calls["init"] == (project_dir, subject_id)
+    assert calls["generated"] is True
+
+
 class TestRunPipeline:
     """Test run_pipeline function"""
 

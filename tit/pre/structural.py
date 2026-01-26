@@ -440,4 +440,90 @@ def run_pipeline(
             except Exception:
                 overall_success = False
 
+    # Generate HTML reports for each subject
+    try:
+        from tit.reporting import PreprocessingReportGenerator
+
+        for sid in subject_list:
+            try:
+                report_gen = PreprocessingReportGenerator(
+                    project_dir=project_dir,
+                    subject_id=sid,
+                )
+
+                # Add processing steps based on what was run
+                if convert_dicom:
+                    report_gen.add_processing_step(
+                        step_name="DICOM Conversion",
+                        description="Convert DICOM files to NIfTI format",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if create_m2m:
+                    report_gen.add_processing_step(
+                        step_name="SimNIBS charm",
+                        description="Create head mesh model for simulations",
+                        status="completed" if overall_success else "failed",
+                    )
+                    report_gen.add_processing_step(
+                        step_name="Subject Atlas Segmentation",
+                        description="Generate atlas-based parcellation",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if run_recon:
+                    report_gen.add_processing_step(
+                        step_name="FreeSurfer recon-all",
+                        description="Cortical surface reconstruction",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if run_tissue_analysis:
+                    report_gen.add_processing_step(
+                        step_name="Tissue Analysis",
+                        description="Tissue segmentation and analysis",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if run_qsiprep:
+                    report_gen.add_processing_step(
+                        step_name="QSIPrep",
+                        description="Diffusion MRI preprocessing",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if run_qsirecon:
+                    report_gen.add_processing_step(
+                        step_name="QSIRecon",
+                        description="Diffusion MRI reconstruction",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                if extract_dti:
+                    report_gen.add_processing_step(
+                        step_name="DTI Tensor Extraction",
+                        description="Extract DTI tensors for anisotropic conductivity",
+                        status="completed" if overall_success else "failed",
+                    )
+
+                # Auto-scan for data
+                report_gen.scan_for_data()
+
+                # Generate report
+                report_path = report_gen.generate()
+
+                # Log report generation via callback if available
+                if logger_callback:
+                    logger_callback(f"Report generated: {report_path}", "info")
+
+            except Exception as e:
+                if logger_callback:
+                    logger_callback(
+                        f"Warning: Could not generate report for {sid}: {e}",
+                        "warning",
+                    )
+
+    except ImportError:
+        pass  # Reporting module not available
+
     return 0 if overall_success else 1

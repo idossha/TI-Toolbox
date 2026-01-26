@@ -90,6 +90,12 @@
     [ -f "$SIM_DIR/high_Frequency/niftis/ernie_extended_TDCS_1_scalar_magnE.nii.gz" ]
     [ -f "$SIM_DIR/high_Frequency/niftis/ernie_extended_TDCS_2_scalar_E.nii.gz" ]
     [ -f "$SIM_DIR/high_Frequency/niftis/ernie_extended_TDCS_2_scalar_magnE.nii.gz" ]
+
+    # Reporting output
+    REPORT_DIR="$PROJECT_DIR/derivatives/ti-toolbox/reports/sub-$SUBJECT"
+    [ -d "$REPORT_DIR" ]
+    [ -n "$(ls -1 "$REPORT_DIR"/simulation_report_*.html 2>/dev/null)" ]
+    [ -f "$PROJECT_DIR/derivatives/ti-toolbox/reports/dataset_description.json" ]
 }
 
 

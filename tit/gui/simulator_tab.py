@@ -25,7 +25,7 @@ from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import detect_message_type_from_content
 from tit.core import get_path_manager, constants as const
-from tit.reporting.report_util import get_simulation_report_generator
+from tit.reporting import SimulationReportGenerator
 
 # Import the refactored simulation dataclasses
 from tit.sim import (
@@ -1616,6 +1616,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 eeg_net = "flex_mode"
 
             # Get current values in mA (IntensityConfig expects mA, session_builder converts to A)
+            current_ma_3 = None
+            current_ma_4 = None
             try:
                 current_ma_1 = float(self.current_input_1.text() or "1.0")
                 current_ma_2 = float(self.current_input_2.text() or "1.0")
@@ -2120,8 +2122,9 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             project_dir_path = self.pm.project_dir
 
-            self.report_generator = get_simulation_report_generator(
-                project_dir_path, self.simulation_session_id
+            self.report_generator = SimulationReportGenerator(
+                project_dir=project_dir_path,
+                simulation_session_id=self.simulation_session_id,
             )
 
             # Add simulation parameters to report (including custom conductivities)
@@ -2132,6 +2135,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     eeg_net=eeg_net,
                     intensity_ch1=current_ma_1,
                     intensity_ch2=current_ma_2,
+                    intensity_ch3=current_ma_3,
+                    intensity_ch4=current_ma_4,
                     quiet_mode=False,
                     conductivities=self._get_conductivities_for_report(),
                 )
@@ -2190,9 +2195,8 @@ class SimulatorTab(QtWidgets.QWidget):
                             montage_name
                         ]
 
-                    # Use keyword arguments for consistency with updated method signature
                     self.report_generator.add_montage(
-                        name=montage_name,  # Use 'name' keyword argument for consistency
+                        montage_name=montage_name,
                         electrode_pairs=electrode_pairs,
                         montage_type=montage_type,
                     )
@@ -2596,16 +2600,11 @@ class SimulatorTab(QtWidgets.QWidget):
                         individual_session_id = (
                             f"{self.simulation_session_id}_{subject_id}_{montage_name}"
                         )
-                        report_generator = get_simulation_report_generator(
-                            project_dir, individual_session_id
+                        report_generator = SimulationReportGenerator(
+                            project_dir=project_dir,
+                            simulation_session_id=individual_session_id,
+                            subject_id=subject_id,
                         )
-
-                        if not report_generator:
-                            self.update_output(
-                                f"[WARNING] Report generator not available for {subject_id}-{montage_name}",
-                                "warning",
-                            )
-                            continue
 
                         # Add simulation parameters
                         report_generator.add_simulation_parameters(
@@ -2639,7 +2638,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
                         # Add this specific montage
                         report_generator.add_montage(
-                            name=montage_name,
+                            montage_name=montage_name,
                             electrode_pairs=[["E1", "E2"]],  # Default pairs
                             montage_type=(
                                 "unipolar"
@@ -2686,7 +2685,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Generate individual report
-                        report_path = report_generator.generate_report()
+                        report_path = report_generator.generate()
                         successful_reports += 1
                         self.update_output(
                             f"[SUCCESS] Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}"
@@ -3343,40 +3342,19 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _get_conductivities_for_report(self):
         """Get conductivity values formatted for the simulation report."""
-        # Start with default values
-        temp_gen = get_simulation_report_generator("", "")
-
-        if not temp_gen:
-            # Fallback to manual conductivity dict if report generator not available
-            conductivities = {
-                1: {
-                    "name": "White Matter",
-                    "conductivity": 0.126,
-                    "reference": "Wagner et al., 2004",
-                },
-                2: {
-                    "name": "Gray Matter",
-                    "conductivity": 0.275,
-                    "reference": "Wagner et al., 2004",
-                },
-                3: {
-                    "name": "CSF",
-                    "conductivity": 1.654,
-                    "reference": "Wagner et al., 2004",
-                },
-                4: {
-                    "name": "Bone",
-                    "conductivity": 0.01,
-                    "reference": "Wagner et al., 2004",
-                },
-                5: {
-                    "name": "Scalp",
-                    "conductivity": 0.465,
-                    "reference": "Wagner et al., 2004",
-                },
-            }
-        else:
-            conductivities = temp_gen._get_default_conductivities()
+        # Default SimNIBS conductivity values
+        conductivities = {
+            1: {"name": "White Matter", "conductivity": 0.126, "reference": "SimNIBS default"},
+            2: {"name": "Gray Matter", "conductivity": 0.275, "reference": "SimNIBS default"},
+            3: {"name": "CSF", "conductivity": 1.654, "reference": "SimNIBS default"},
+            4: {"name": "Bone", "conductivity": 0.01, "reference": "SimNIBS default"},
+            5: {"name": "Scalp", "conductivity": 0.465, "reference": "SimNIBS default"},
+            6: {"name": "Eye balls", "conductivity": 0.5, "reference": "SimNIBS default"},
+            7: {"name": "Compact Bone", "conductivity": 0.008, "reference": "SimNIBS default"},
+            8: {"name": "Spongy Bone", "conductivity": 0.025, "reference": "SimNIBS default"},
+            9: {"name": "Blood", "conductivity": 0.6, "reference": "SimNIBS default"},
+            10: {"name": "Muscle", "conductivity": 0.16, "reference": "SimNIBS default"},
+        }
 
         # Override with any custom values
         for tissue_num, custom_value in self.custom_conductivities.items():
@@ -3384,7 +3362,6 @@ class SimulatorTab(QtWidgets.QWidget):
                 conductivities[tissue_num]["conductivity"] = custom_value
                 conductivities[tissue_num]["reference"] = "Custom (User Modified)"
             else:
-                # Add new custom tissue
                 conductivities[tissue_num] = {
                     "name": f"Custom Tissue {tissue_num}",
                     "conductivity": custom_value,

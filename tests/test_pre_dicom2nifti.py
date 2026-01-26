@@ -7,11 +7,10 @@ import json
 import os
 import pytest
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # Add tit directory to path
 project_root = os.path.join(os.path.dirname(__file__), "..")
@@ -19,16 +18,17 @@ ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
 from pre.dicom2nifti import (
-    _find_series_suffix,
-    _handle_compressed_dicom,
-    _process_dicom_directory,
+    _detect_modality,
+    _extract_archives,
+    _find_dicom_files,
+    _process_modality,
     run_dicom_to_nifti,
 )
-from pre.common import PreprocessError, CommandRunner
+from pre.common import PreprocessError
 
 
-class TestFindSeriesSuffix:
-    """Test _find_series_suffix function"""
+class TestDetectModality:
+    """Test _detect_modality function"""
 
     def test_find_t1w_from_series_description(self):
         """Test detecting T1w from SeriesDescription"""
@@ -37,7 +37,7 @@ class TestFindSeriesSuffix:
             json_path = Path(f.name)
 
         try:
-            suffix = _find_series_suffix(json_path)
+            suffix = _detect_modality(json_path, fallback="")
             assert suffix == "T1w"
         finally:
             json_path.unlink()
@@ -49,7 +49,7 @@ class TestFindSeriesSuffix:
             json_path = Path(f.name)
 
         try:
-            suffix = _find_series_suffix(json_path)
+            suffix = _detect_modality(json_path, fallback="")
             assert suffix == "T2w"
         finally:
             json_path.unlink()
@@ -68,7 +68,7 @@ class TestFindSeriesSuffix:
                 json_path = Path(f.name)
 
             try:
-                suffix = _find_series_suffix(json_path)
+                suffix = _detect_modality(json_path, fallback="")
                 assert suffix == "T1w", f"Failed for {test_data}"
             finally:
                 json_path.unlink()
@@ -87,7 +87,7 @@ class TestFindSeriesSuffix:
                 json_path = Path(f.name)
 
             try:
-                suffix = _find_series_suffix(json_path)
+                suffix = _detect_modality(json_path, fallback="")
                 assert suffix == "T2w", f"Failed for {test_data}"
             finally:
                 json_path.unlink()
@@ -99,7 +99,7 @@ class TestFindSeriesSuffix:
             json_path = Path(f.name)
 
         try:
-            suffix = _find_series_suffix(json_path)
+            suffix = _detect_modality(json_path, fallback="")
             assert suffix == ""
         finally:
             json_path.unlink()
@@ -111,7 +111,7 @@ class TestFindSeriesSuffix:
             json_path = Path(f.name)
 
         try:
-            suffix = _find_series_suffix(json_path)
+            suffix = _detect_modality(json_path, fallback="")
             assert suffix == ""
         finally:
             json_path.unlink()
@@ -123,7 +123,7 @@ class TestFindSeriesSuffix:
             json_path = Path(f.name)
 
         try:
-            suffix = _find_series_suffix(json_path)
+            suffix = _detect_modality(json_path, fallback="")
             assert suffix == ""
         finally:
             json_path.unlink()
@@ -131,70 +131,59 @@ class TestFindSeriesSuffix:
     def test_find_handles_missing_file(self):
         """Test handles missing file gracefully"""
         json_path = Path("/nonexistent/file.json")
-        suffix = _find_series_suffix(json_path)
+        suffix = _detect_modality(json_path, fallback="")
         assert suffix == ""
 
 
-class TestHandleCompressedDicom:
-    """Test _handle_compressed_dicom function"""
+class TestFindDicomFiles:
+    """Test _find_dicom_files function"""
 
+    def test_find_dicom_files_recursively(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            nested = base / "nested"
+            nested.mkdir()
+            (base / "a.dcm").touch()
+            (nested / "b.IMA").touch()
+            (nested / "ignore.txt").touch()
+
+            files = _find_dicom_files(base)
+            names = {f.name for f in files}
+            assert "a.dcm" in names
+            assert "b.IMA" in names
+            assert "ignore.txt" not in names
+
+
+class TestExtractArchives:
+    """Test _extract_archives function"""
+
+    @patch("pre.dicom2nifti._find_dicom_files")
+    @patch("pre.dicom2nifti.shutil.move")
     @patch("subprocess.check_call")
-    def test_handle_compressed_extracts_tgz(self, mock_check_call):
-        """Test extraction of .tgz archive"""
+    def test_extract_archives_moves_files(
+        self, mock_check_call, mock_move, mock_find_dicom
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             source_dir = Path(tmpdir) / "source"
             target_dir = Path(tmpdir) / "target"
             source_dir.mkdir()
             target_dir.mkdir()
 
-            # Create dummy .tgz file
-            tgz_file = source_dir / "dicom.tgz"
-            tgz_file.touch()
+            (source_dir / "dicom.tgz").touch()
+            mock_find_dicom.return_value = [Path(tmpdir) / "file1.dcm"]
 
             logger = MagicMock()
 
-            # Mock tar extraction to create DICOM files
-            def mock_tar_extract(cmd):
-                # Simulate creating extracted files
-                temp_extracted = Path(tmpdir) / "temp_extract"
-                temp_extracted.mkdir(exist_ok=True)
-                (temp_extracted / "file1.dcm").touch()
-                (temp_extracted / "file2.IMA").touch()
+            _extract_archives(source_dir, target_dir, logger)
 
-            mock_check_call.side_effect = mock_tar_extract
+            mock_check_call.assert_called_once()
+            mock_move.assert_called_once_with(
+                str(Path(tmpdir) / "file1.dcm"),
+                str(target_dir / "file1.dcm"),
+            )
+            assert logger.info.called
 
-            # This test verifies the function attempts extraction
-            # Full functionality requires actual tar/file operations
-            # which are mocked here to avoid file system dependencies
-
-    def test_handle_compressed_cleans_up_temp_dir(self):
-        """Test temporary directory is cleaned up"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "source"
-            target_dir = Path(tmpdir) / "target"
-            source_dir.mkdir()
-            target_dir.mkdir()
-
-            # Create dummy .tgz file
-            tgz_file = source_dir / "dicom.tgz"
-            tgz_file.touch()
-
-            temp_dir = Path(tmpdir) / "temp"
-            temp_dir.mkdir()
-
-            logger = MagicMock()
-
-            with patch("tempfile.mkdtemp", return_value=str(temp_dir)), \
-                 patch("subprocess.check_call"), \
-                 patch("shutil.rmtree") as mock_rmtree:
-
-                _handle_compressed_dicom(source_dir, target_dir, logger)
-
-                # Verify cleanup was called
-                mock_rmtree.assert_called()
-
-    def test_handle_compressed_no_tgz_files(self):
-        """Test handles directory with no .tgz files"""
+    def test_extract_archives_no_archives(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             source_dir = Path(tmpdir) / "source"
             target_dir = Path(tmpdir) / "target"
@@ -202,155 +191,105 @@ class TestHandleCompressedDicom:
             target_dir.mkdir()
 
             logger = MagicMock()
+            _extract_archives(source_dir, target_dir, logger)
 
-            # Should not raise error
-            _handle_compressed_dicom(source_dir, target_dir, logger)
-
-            # Logger should not be called since no archives found
             assert not logger.info.called
 
 
-class TestProcessDicomDirectory:
-    """Test _process_dicom_directory function"""
+class TestProcessModality:
+    """Test _process_modality function"""
 
-    def test_process_empty_directory_returns_early(self):
-        """Test processing empty directory returns without error"""
+    def test_process_returns_false_when_no_dicoms(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "source"
-            source_dir.mkdir()
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
+            sourcedata_dir = Path(tmpdir) / "sourcedata"
+            bids_anat_dir = Path(tmpdir) / "anat"
+            sourcedata_dir.mkdir()
             bids_anat_dir.mkdir()
+
+            pm = MagicMock()
+            pm.path.return_value = str(Path(tmpdir) / "dicom")
 
             logger = MagicMock()
             from tit.core.overwrite import OverwritePolicy
             policy = OverwritePolicy(overwrite=False, prompt=False)
 
-            # Should return without error
-            _process_dicom_directory(
-                source_dir,
-                bids_anat_dir,
-                "001",
-                logger=logger,
-                policy=policy,
-                runner=None
-            )
-
-            # Logger should not have logged processing
-            assert not logger.info.called
-
-    def test_process_nonexistent_directory_returns_early(self):
-        """Test processing non-existent directory returns without error"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "nonexistent"
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            bids_anat_dir.mkdir()
-
-            logger = MagicMock()
-            from tit.core.overwrite import OverwritePolicy
-            policy = OverwritePolicy(overwrite=False, prompt=False)
-
-            # Should return without error
-            _process_dicom_directory(
-                source_dir,
-                bids_anat_dir,
-                "001",
-                logger=logger,
-                policy=policy,
-                runner=None
-            )
-
-    @patch("subprocess.call")
-    def test_process_calls_dcm2niix(self, mock_call):
-        """Test dcm2niix is called with correct arguments"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "source"
-            source_dir.mkdir()
-            # Add a dummy file to make directory non-empty
-            (source_dir / "dummy.dcm").touch()
-
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            bids_anat_dir.mkdir()
-
-            logger = MagicMock()
-            from tit.core.overwrite import OverwritePolicy
-            policy = OverwritePolicy(overwrite=False, prompt=False)
-
-            mock_call.return_value = 0
-
-            _process_dicom_directory(
-                source_dir,
-                bids_anat_dir,
-                "001",
-                logger=logger,
-                policy=policy,
-                runner=None
-            )
-
-            # Verify dcm2niix was called
-            mock_call.assert_called_once()
-            cmd = mock_call.call_args[0][0]
-            assert cmd[0] == "dcm2niix"
-            assert "-z" in cmd
-            assert "y" in cmd
-            assert str(source_dir) in cmd
-
-    @patch("subprocess.call", return_value=1)
-    def test_process_raises_on_dcm2niix_failure(self, mock_call):
-        """Test raises PreprocessError when dcm2niix fails"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "source"
-            source_dir.mkdir()
-            (source_dir / "dummy.dcm").touch()
-
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            bids_anat_dir.mkdir()
-
-            logger = MagicMock()
-            from tit.core.overwrite import OverwritePolicy
-            policy = OverwritePolicy(overwrite=False, prompt=False)
-
-            with pytest.raises(PreprocessError) as exc_info:
-                _process_dicom_directory(
-                    source_dir,
+            with patch("pre.dicom2nifti._find_dicom_files", return_value=[]):
+                result = _process_modality(
+                    "T1w",
+                    sourcedata_dir,
                     bids_anat_dir,
                     "001",
-                    logger=logger,
-                    policy=policy,
-                    runner=None
+                    pm,
+                    policy,
+                    logger,
+                    runner=None,
                 )
 
-            assert "dcm2niix failed" in str(exc_info.value)
+            assert result is False
 
-    @patch("subprocess.call", return_value=0)
-    def test_process_uses_runner_if_provided(self, mock_call):
-        """Test uses CommandRunner if provided"""
+    def test_process_runs_dcm2niix_and_converts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_dir = Path(tmpdir) / "source"
-            source_dir.mkdir()
-            (source_dir / "dummy.dcm").touch()
-
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
+            sourcedata_dir = Path(tmpdir) / "sourcedata"
+            bids_anat_dir = Path(tmpdir) / "anat"
+            sourcedata_dir.mkdir()
+            (sourcedata_dir / "T1w").mkdir()
             bids_anat_dir.mkdir()
+
+            pm = MagicMock()
+            pm.path.return_value = str(Path(tmpdir) / "dicom")
 
             logger = MagicMock()
             from tit.core.overwrite import OverwritePolicy
             policy = OverwritePolicy(overwrite=False, prompt=False)
 
-            runner = MagicMock()
-            runner.run.return_value = 0
+            with patch("pre.dicom2nifti._find_dicom_files", return_value=[Path(tmpdir) / "a.dcm"]), \
+                 patch("pre.dicom2nifti._run_dcm2niix", return_value=True) as mock_run, \
+                 patch("pre.dicom2nifti._process_converted_files", return_value=True) as mock_process:
+                result = _process_modality(
+                    "T1w",
+                    sourcedata_dir,
+                    bids_anat_dir,
+                    "001",
+                    pm,
+                    policy,
+                    logger,
+                    runner=None,
+                )
 
-            _process_dicom_directory(
-                source_dir,
-                bids_anat_dir,
-                "001",
-                logger=logger,
-                policy=policy,
-                runner=runner
-            )
+            assert result is True
+            mock_run.assert_called_once()
+            mock_process.assert_called_once()
 
-            # Verify runner was used instead of subprocess.call
-            runner.run.assert_called_once()
-            assert not mock_call.called
+    def test_process_raises_on_dcm2niix_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sourcedata_dir = Path(tmpdir) / "sourcedata"
+            bids_anat_dir = Path(tmpdir) / "anat"
+            sourcedata_dir.mkdir()
+            (sourcedata_dir / "T1w").mkdir()
+            bids_anat_dir.mkdir()
+
+            pm = MagicMock()
+            pm.path.return_value = str(Path(tmpdir) / "dicom")
+
+            logger = MagicMock()
+            from tit.core.overwrite import OverwritePolicy
+            policy = OverwritePolicy(overwrite=False, prompt=False)
+
+            with patch("pre.dicom2nifti._find_dicom_files", return_value=[Path(tmpdir) / "a.dcm"]), \
+                 patch("pre.dicom2nifti._run_dcm2niix", return_value=False):
+                with pytest.raises(PreprocessError) as exc_info:
+                    _process_modality(
+                        "T1w",
+                        sourcedata_dir,
+                        bids_anat_dir,
+                        "001",
+                        pm,
+                        policy,
+                        logger,
+                        runner=None,
+                    )
+
+            assert "dcm2niix failed" in str(exc_info.value)
 
 
 class TestRunDicomToNifti:
@@ -406,13 +345,14 @@ class TestRunDicomToNifti:
 
     @patch("shutil.which", return_value="/usr/bin/dcm2niix")
     @patch("pre.dicom2nifti.get_path_manager")
-    @patch("pre.dicom2nifti._handle_compressed_dicom")
-    @patch("pre.dicom2nifti._process_dicom_directory")
+    @patch("pre.dicom2nifti._extract_archives")
+    @patch("pre.dicom2nifti._process_modality")
     def test_run_processes_both_modalities(
-        self, mock_process, mock_handle_compressed, mock_get_pm, mock_which
+        self, mock_process, mock_extract, mock_get_pm, mock_which
     ):
         """Test processes both T1w and T2w directories"""
         with tempfile.TemporaryDirectory() as tmpdir:
+            mock_process.return_value = True
             mock_pm = MagicMock()
             mock_get_pm.return_value = mock_pm
 
@@ -444,8 +384,11 @@ class TestRunDicomToNifti:
 
     @patch("shutil.which", return_value="/usr/bin/dcm2niix")
     @patch("pre.dicom2nifti.get_path_manager")
-    def test_run_raises_if_no_output_files(self, mock_get_pm, mock_which):
-        """Test raises PreprocessError if no NIfTI files created"""
+    @patch("pre.dicom2nifti._process_modality", return_value=False)
+    def test_run_warns_if_no_output_files(
+        self, mock_process, mock_get_pm, mock_which
+    ):
+        """Test warns if no NIfTI files created"""
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_pm = MagicMock()
             mock_get_pm.return_value = mock_pm
@@ -470,10 +413,9 @@ class TestRunDicomToNifti:
 
             logger = MagicMock()
 
-            with pytest.raises(PreprocessError) as exc_info:
-                run_dicom_to_nifti(tmpdir, "001", logger=logger)
+            run_dicom_to_nifti(tmpdir, "001", logger=logger)
 
-            assert "No NIfTI files found" in str(exc_info.value)
+            logger.warning.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ import os
 import shutil
 import sys
 import time
+from pathlib import Path
 
 from tit.logger import configure_external_loggers
 
@@ -305,6 +306,227 @@ def main() -> int:
     # Log session footer
     total_duration = time.time() - start_time
     flex_log.log_session_footer(args.subject, n_multistart, total_duration, logger)
+
+    # Generate HTML report
+    try:
+        from tit.core import constants as const
+        from tit.core import get_path_manager
+        from tit.reporting import FlexSearchReportGenerator
+
+        def _resolve_project_dir(output_folder: str) -> str:
+            pm = get_path_manager()
+            project_dir = pm.project_dir if pm else None
+            if not project_dir:
+                project_dir = os.environ.get(const.ENV_PROJECT_DIR)
+            if project_dir:
+                return project_dir
+
+            output_path = Path(output_folder).resolve()
+            for parent in [output_path] + list(output_path.parents):
+                if parent.name == const.DIR_DERIVATIVES:
+                    return str(parent.parent)
+            return str(output_path.parent)
+
+        def _format_postproc(value: str) -> str:
+            postproc_map = {
+                "max_TI": "TImax",
+                "dir_TI_normal": "normal",
+                "dir_TI_tangential": "tangential",
+            }
+            return postproc_map.get(value, value)
+
+        def _atlas_name_from_path(path_value: str, hemisphere: str) -> str:
+            if not path_value:
+                return ""
+            atlas_filename = os.path.basename(path_value)
+            atlas_with_subject = atlas_filename.replace(f"{hemisphere}.", "").replace(
+                ".annot", ""
+            )
+            if "_" in atlas_with_subject:
+                return atlas_with_subject.split("_", 1)[-1]
+            return atlas_with_subject
+
+        project_dir = _resolve_project_dir(base_output_folder)
+
+        report_gen = FlexSearchReportGenerator(
+            project_dir=project_dir,
+            subject_id=args.subject,
+        )
+
+        # Set configuration
+        report_gen.set_configuration(
+            electrode_net=getattr(args, "eeg_net", None),
+            optimization_goal=args.goal,
+            post_processing=_format_postproc(args.postproc),
+            n_candidates=n_multistart,
+            n_starts=n_multistart,
+            selection_method="best" if n_multistart > 1 else "single",
+            electrode_shape=args.electrode_shape,
+            electrode_dimensions_mm=args.dimensions,
+            electrode_thickness_mm=args.thickness,
+            electrode_current_mA=args.current,
+            mapping_enabled=bool(getattr(args, "enable_mapping", False)),
+            disable_mapping_simulation=bool(
+                getattr(args, "disable_mapping_simulation", False)
+            ),
+            run_final_electrode_simulation=args.run_final_electrode_simulation,
+            max_iterations=args.max_iterations,
+            population_size=args.population_size,
+            tolerance=args.tolerance,
+            mutation=args.mutation,
+            recombination=args.recombination,
+            thresholds=args.thresholds,
+            non_roi_method=args.non_roi_method,
+            cpu_cores=args.cpus,
+            detailed_results=args.detailed_results,
+            visualize_valid_skin_region=args.visualize_valid_skin_region,
+            skin_visualization_net=args.skin_visualization_net,
+        )
+
+        # Set ROI info
+        roi_method = args.roi_method
+        roi_name = os.getenv("ROI_NAME") or "Target ROI"
+        roi_data = {
+            "roi_name": roi_name,
+            "roi_type": roi_method,
+        }
+        if args.goal == "focality" and args.non_roi_method:
+            roi_data["non_roi_method"] = args.non_roi_method
+        if roi_method == "spherical":
+            roi_x = float(os.getenv("ROI_X", "0"))
+            roi_y = float(os.getenv("ROI_Y", "0"))
+            roi_z = float(os.getenv("ROI_Z", "0"))
+            roi_radius = float(os.getenv("ROI_RADIUS", "10"))
+            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+
+            roi_data.update(
+                {
+                    "coordinates": [roi_x, roi_y, roi_z],
+                    "radius": roi_radius,
+                    "coordinate_space": "MNI" if use_mni_coords else "subject",
+                }
+            )
+
+            if args.goal == "focality" and args.non_roi_method == "specific":
+                non_roi_coords = [
+                    float(os.getenv("NON_ROI_X", "0")),
+                    float(os.getenv("NON_ROI_Y", "0")),
+                    float(os.getenv("NON_ROI_Z", "0")),
+                ]
+                non_roi_radius = float(os.getenv("NON_ROI_RADIUS", "10"))
+                use_mni_coords_non_roi = (
+                    os.getenv("USE_MNI_COORDS_NON_ROI", "false").lower() == "true"
+                )
+                roi_data.update(
+                    {
+                        "non_roi_method": args.non_roi_method,
+                        "non_roi_coordinates": non_roi_coords,
+                        "non_roi_radius": non_roi_radius,
+                        "non_roi_coordinate_space": "MNI"
+                        if use_mni_coords_non_roi
+                        else "subject",
+                    }
+                )
+        elif roi_method == "atlas":
+            hemisphere = os.getenv("SELECTED_HEMISPHERE", "lh")
+            atlas_path = os.getenv("ATLAS_PATH", "")
+            atlas_label = os.getenv("ROI_LABEL")
+            roi_data.update(
+                {
+                    "hemisphere": hemisphere,
+                    "atlas": _atlas_name_from_path(atlas_path, hemisphere) or atlas_path,
+                    "atlas_label": int(atlas_label) if atlas_label is not None else None,
+                }
+            )
+            if args.goal == "focality" and args.non_roi_method == "specific":
+                non_roi_label = os.getenv("NON_ROI_LABEL")
+                non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH", "")
+                roi_data.update(
+                    {
+                        "non_roi_atlas": os.path.basename(non_roi_atlas_path)
+                        if non_roi_atlas_path
+                        else None,
+                        "non_roi_label": int(non_roi_label)
+                        if non_roi_label is not None
+                        else None,
+                    }
+                )
+        else:  # subcortical
+            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH", "")
+            volume_label = os.getenv("VOLUME_ROI_LABEL")
+            roi_data.update(
+                {
+                    "volume_atlas": os.path.basename(volume_atlas_path)
+                    if volume_atlas_path
+                    else None,
+                    "volume_label": int(volume_label) if volume_label is not None else None,
+                }
+            )
+            if args.goal == "focality" and args.non_roi_method == "specific":
+                non_roi_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH", "")
+                non_roi_label = os.getenv("VOLUME_NON_ROI_LABEL")
+                roi_data.update(
+                    {
+                        "non_roi_atlas": os.path.basename(non_roi_atlas_path)
+                        if non_roi_atlas_path
+                        else None,
+                        "non_roi_label": int(non_roi_label)
+                        if non_roi_label is not None
+                        else None,
+                    }
+                )
+
+        report_gen.set_roi_info(**roi_data)
+
+        # Add search results
+        for i, score in enumerate(optim_funvalue_list):
+            if score != float("inf"):
+                report_gen.add_search_result(
+                    rank=i + 1,
+                    electrode_1a="",  # Would need to parse from output
+                    electrode_1b="",
+                    electrode_2a="",
+                    electrode_2b="",
+                    score=float(score),
+                )
+
+        # Set best solution if available
+        electrode_positions_path = Path(base_output_folder) / "electrode_positions.json"
+        electrode_positions = None
+        channel_array_indices = None
+        if electrode_positions_path.exists():
+            try:
+                import json
+
+                with open(electrode_positions_path) as f:
+                    pos_data = json.load(f)
+                electrode_positions = pos_data.get("optimized_positions")
+                channel_array_indices = pos_data.get("channel_array_indices")
+            except Exception as exc:
+                logger.warning(f"Failed to parse electrode_positions.json: {exc}")
+
+        if n_multistart > 1 and best_opt_idx != -1:
+            report_gen.set_best_solution(
+                electrode_pairs=[],  # Would need to parse from output
+                score=float(optim_funvalue_list[best_opt_idx]),
+                metrics={"run": best_opt_idx + 1},
+                electrode_coordinates=electrode_positions,
+                channel_array_indices=channel_array_indices,
+            )
+        elif n_multistart == 1 and optim_funvalue_list[0] != float("inf"):
+            report_gen.set_best_solution(
+                electrode_pairs=[],
+                score=float(optim_funvalue_list[0]),
+                metrics={},
+                electrode_coordinates=electrode_positions,
+                channel_array_indices=channel_array_indices,
+            )
+
+        report_path = report_gen.generate()
+        logger.info(f"Report generated: {report_path}")
+
+    except Exception as e:
+        logger.warning(f"Could not generate HTML report: {e}")
 
     return 0
 

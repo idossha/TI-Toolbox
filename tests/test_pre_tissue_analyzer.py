@@ -1,51 +1,179 @@
-#!/usr/bin/env simnibs_python
+#!/usr/bin/env python
 """
-Unit tests for TI-Toolbox tissue analyzer wrapper (pre/tissue_analyzer.py)
+Unit tests for TI-Toolbox tissue analyzer (pre/tissue_analyzer.py)
 """
 
 import os
-import pytest
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-# Add tit directory to path
+import numpy as np
+import pytest
+
 project_root = os.path.join(os.path.dirname(__file__), "..")
 ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
 from pre.tissue_analyzer import (
     DEFAULT_TISSUES,
+    TISSUE_CONFIGS,
+    TissueAnalyzer,
     run_tissue_analysis,
 )
 from pre.common import PreprocessError
 
 
-class TestDefaultTissuesConstant:
-    """Test DEFAULT_TISSUES constant"""
+def _fake_nifti(data: np.ndarray):
+    """Create a mock NIfTI object."""
+    from types import SimpleNamespace
 
-    def test_default_tissues_contains_expected_values(self):
-        """Test DEFAULT_TISSUES contains expected tissue types"""
+    header = MagicMock()
+    header.get_zooms.return_value = (1.0, 1.0, 1.0, 1.0)
+    return SimpleNamespace(
+        get_fdata=lambda: data,
+        affine=np.eye(4),
+        header=header,
+    )
+
+
+class TestDefaultTissues:
+    """Test DEFAULT_TISSUES constant."""
+
+    def test_contains_expected_values(self):
         assert "bone" in DEFAULT_TISSUES
         assert "csf" in DEFAULT_TISSUES
         assert "skin" in DEFAULT_TISSUES
 
-    def test_default_tissues_is_tuple(self):
-        """Test DEFAULT_TISSUES is a tuple"""
+    def test_is_tuple(self):
         assert isinstance(DEFAULT_TISSUES, tuple)
 
-    def test_default_tissues_has_correct_count(self):
-        """Test DEFAULT_TISSUES has exactly 3 tissues"""
+    def test_has_correct_count(self):
         assert len(DEFAULT_TISSUES) == 3
 
 
+class TestTissueConfigs:
+    """Test TISSUE_CONFIGS dictionary."""
+
+    def test_has_required_keys(self):
+        for tissue, config in TISSUE_CONFIGS.items():
+            assert "name" in config
+            assert "labels" in config
+            assert "padding" in config
+            assert "color_scheme" in config
+            assert "tissue_color" in config
+            assert "brain_labels" in config
+
+    def test_labels_are_lists(self):
+        for tissue, config in TISSUE_CONFIGS.items():
+            assert isinstance(config["labels"], list)
+            assert isinstance(config["brain_labels"], list)
+
+
+class TestTissueAnalyzer:
+    """Test TissueAnalyzer class."""
+
+    def test_init_raises_on_unknown_tissue(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        data = np.zeros((3, 3, 3), dtype=float)
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            with pytest.raises(PreprocessError) as exc_info:
+                TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "unknown_tissue", logger)
+            assert "Unknown tissue type" in str(exc_info.value)
+
+    def test_creates_tissue_mask(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        data = np.zeros((4, 4, 4), dtype=float)
+        data[1, 1, 1] = 4  # CSF label
+        data[2, 2, 2] = 5  # Another CSF label
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            mask = analyzer._create_tissue_mask()
+
+        assert mask.shape == data.shape
+        assert mask[1, 1, 1] == 1
+        assert mask[2, 2, 2] == 1
+        assert mask.sum() == 2
+
+    def test_creates_brain_mask(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        data = np.zeros((4, 4, 4), dtype=float)
+        data[1, 1, 1] = 3  # Brain label
+        data[2, 2, 2] = 42  # Another brain label
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            mask = analyzer._create_brain_mask()
+
+        assert mask[1, 1, 1] == 1
+        assert mask[2, 2, 2] == 1
+        assert mask.sum() == 2
+
+    def test_handles_no_tissue(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        data = np.zeros((4, 4, 4), dtype=float)  # No tissue labels
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            result = analyzer.analyze()
+
+        assert result["volume_cm3"] == 0
+
+    def test_calculates_thickness(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        # Create a simple 3D tissue block
+        data = np.zeros((10, 10, 10), dtype=float)
+        data[3:7, 3:7, 3:7] = 4  # CSF block
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            mask = analyzer._create_tissue_mask()
+            stats = analyzer._calculate_thickness(mask)
+
+        assert stats["mean"] > 0
+        assert stats["max"] > stats["min"]
+        assert stats["thickness_map"] is not None
+
+    def test_loads_label_names_from_lut(self, tmp_path):
+        nifti_path = tmp_path / "seg.nii.gz"
+        nifti_path.write_text("dummy")
+
+        lut = tmp_path / "labeling_LUT.txt"
+        lut.write_text("# comment\n1\tGray Matter:\t0\t0\t0\t0\n2\tWhite Matter:\t0\t0\t0\t0\n")
+
+        data = np.zeros((3, 3, 3), dtype=float)
+        logger = MagicMock()
+
+        with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
+            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+
+        assert analyzer.label_names.get(1) == "Gray Matter"
+        assert analyzer.label_names.get(2) == "White Matter"
+
+
 class TestRunTissueAnalysis:
-    """Test run_tissue_analysis function"""
+    """Test run_tissue_analysis function."""
 
     @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_raises_if_labeling_not_found(self, mock_get_pm):
-        """Test raises PreprocessError if Labeling.nii.gz not found"""
+    def test_raises_if_labeling_not_found(self, mock_get_pm):
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
 
@@ -61,262 +189,83 @@ class TestRunTissueAnalysis:
             assert "Labeling.nii.gz not found" in str(exc_info.value)
 
     @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_raises_if_script_not_found(self, mock_get_pm):
-        """Test raises PreprocessError if tissue_analyzer.py script not found"""
+    @patch("pre.tissue_analyzer.TissueAnalyzer")
+    def test_processes_default_tissues(self, mock_analyzer_class, mock_get_pm):
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
 
         with tempfile.TemporaryDirectory() as tmpdir:
             label_path = Path(tmpdir) / "Labeling.nii.gz"
             label_path.touch()
-            mock_pm.path.return_value = str(label_path)
-            mock_pm.ensure_dir.return_value = str(Path(tmpdir) / "output")
-
-            logger = MagicMock()
-
-            # Mock Path.exists to return False for tissue_analyzer.py
-            original_exists = Path.exists
-            def mock_exists(self):
-                if "tissue_analyzer.py" in str(self):
-                    return False
-                return original_exists(self)
-
-            with patch.object(Path, "exists", mock_exists):
-                with pytest.raises(PreprocessError) as exc_info:
-                    run_tissue_analysis(tmpdir, "001", logger=logger)
-
-                assert "tissue_analyzer.py not found" in str(exc_info.value)
-
-    @patch("pre.tissue_analyzer.get_path_manager")
-    @patch("subprocess.call")
-    def test_run_processes_default_tissues(self, mock_call, mock_get_pm):
-        """Test processes default tissue types"""
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            label_path = Path(tmpdir) / "Labeling.nii.gz"
-            label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
             output_dir = Path(tmpdir) / "output"
 
             mock_pm.path.return_value = str(label_path)
             mock_pm.ensure_dir.return_value = str(output_dir)
 
-            # Mock the script path resolution
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = {"volume_cm3": 1.0}
+            mock_analyzer_class.return_value = mock_analyzer
 
-                # Make script_path.exists() return True
-                actual_script_path = script_dir / "tissue_analyzer.py"
-                with patch.object(Path, "exists", return_value=True):
-                    mock_call.return_value = 0
+            logger = MagicMock()
 
-                    logger = MagicMock()
+            results = run_tissue_analysis(tmpdir, "001", logger=logger)
 
-                    run_tissue_analysis(tmpdir, "001", logger=logger)
-
-                    # Verify called for each default tissue
-                    assert mock_call.call_count == len(DEFAULT_TISSUES)
+            # Should be called for each default tissue
+            assert mock_analyzer_class.call_count == len(DEFAULT_TISSUES)
+            assert len(results) == len(DEFAULT_TISSUES)
 
     @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_processes_custom_tissues(self, mock_get_pm):
-        """Test processes custom tissue types"""
+    @patch("pre.tissue_analyzer.TissueAnalyzer")
+    def test_processes_custom_tissues(self, mock_analyzer_class, mock_get_pm):
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
 
         with tempfile.TemporaryDirectory() as tmpdir:
             label_path = Path(tmpdir) / "Labeling.nii.gz"
             label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
             output_dir = Path(tmpdir) / "output"
 
             mock_pm.path.return_value = str(label_path)
             mock_pm.ensure_dir.return_value = str(output_dir)
 
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = {"volume_cm3": 1.0}
+            mock_analyzer_class.return_value = mock_analyzer
+
             logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
 
-            custom_tissues = ["gray", "white"]
+            results = run_tissue_analysis(tmpdir, "001", tissues=["csf"], logger=logger)
 
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
-
-                with patch.object(Path, "exists", return_value=True):
-                    run_tissue_analysis(
-                        tmpdir,
-                        "001",
-                        tissues=custom_tissues,
-                        logger=logger,
-                        runner=runner
-                    )
-
-                    # Verify called for each custom tissue
-                    assert runner.run.call_count == len(custom_tissues)
+            assert mock_analyzer_class.call_count == 1
+            assert "csf" in results
 
     @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_raises_on_analysis_failure(self, mock_get_pm):
-        """Test raises PreprocessError when tissue analysis fails"""
+    @patch("pre.tissue_analyzer.TissueAnalyzer")
+    def test_skips_unknown_tissue(self, mock_analyzer_class, mock_get_pm):
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
 
         with tempfile.TemporaryDirectory() as tmpdir:
             label_path = Path(tmpdir) / "Labeling.nii.gz"
             label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
             output_dir = Path(tmpdir) / "output"
 
             mock_pm.path.return_value = str(label_path)
             mock_pm.ensure_dir.return_value = str(output_dir)
 
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 1  # Failure
-
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
-
-                with patch.object(Path, "exists", return_value=True):
-                    with pytest.raises(PreprocessError) as exc_info:
-                        run_tissue_analysis(tmpdir, "001", logger=logger, runner=runner)
-
-                    assert "Tissue analysis failed" in str(exc_info.value)
-
-    @patch("pre.tissue_analyzer.get_path_manager")
-    @patch("subprocess.call")
-    def test_run_uses_subprocess_call_when_no_runner(self, mock_call, mock_get_pm):
-        """Test uses subprocess.call when runner not provided"""
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            label_path = Path(tmpdir) / "Labeling.nii.gz"
-            label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
-            output_dir = Path(tmpdir) / "output"
-
-            mock_pm.path.return_value = str(label_path)
-            mock_pm.ensure_dir.return_value = str(output_dir)
-
-            mock_call.return_value = 0
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = {"volume_cm3": 1.0}
+            mock_analyzer_class.return_value = mock_analyzer
 
             logger = MagicMock()
 
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
+            results = run_tissue_analysis(tmpdir, "001", tissues=["unknown", "csf"], logger=logger)
 
-                with patch.object(Path, "exists", return_value=True):
-                    run_tissue_analysis(tmpdir, "001", logger=logger, runner=None)
-
-                    # Verify subprocess.call was used
-                    assert mock_call.call_count == len(DEFAULT_TISSUES)
-
-    @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_uses_runner_when_provided(self, mock_get_pm):
-        """Test uses CommandRunner when provided"""
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            label_path = Path(tmpdir) / "Labeling.nii.gz"
-            label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
-            output_dir = Path(tmpdir) / "output"
-
-            mock_pm.path.return_value = str(label_path)
-            mock_pm.ensure_dir.return_value = str(output_dir)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
-
-                with patch.object(Path, "exists", return_value=True):
-                    run_tissue_analysis(tmpdir, "001", logger=logger, runner=runner)
-
-                    # Verify runner was used
-                    assert runner.run.call_count == len(DEFAULT_TISSUES)
-
-    @patch("pre.tissue_analyzer.get_path_manager")
-    def test_run_creates_output_directories(self, mock_get_pm):
-        """Test creates output directories for each tissue"""
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            label_path = Path(tmpdir) / "Labeling.nii.gz"
-            label_path.touch()
-
-            # Create dummy script
-            script_dir = Path(tmpdir) / "tools"
-            script_dir.mkdir()
-            script_path = script_dir / "tissue_analyzer.py"
-            script_path.touch()
-
-            output_root = Path(tmpdir) / "output"
-
-            mock_pm.path.return_value = str(label_path)
-            mock_pm.ensure_dir.return_value = str(output_root)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            with patch("pre.tissue_analyzer.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_instance.resolve.return_value.parents = [script_dir.parent, Path("/")]
-                mock_path_class.return_value = mock_path_instance
-
-                with patch.object(Path, "exists", return_value=True):
-                    run_tissue_analysis(tmpdir, "001", logger=logger, runner=runner)
-
-                    # Verify ensure_dir was called
-                    mock_pm.ensure_dir.assert_called_once_with(
-                        "tissue_analysis_output", subject_id="001"
-                    )
+            # Should only process known tissue
+            assert mock_analyzer_class.call_count == 1
+            assert "csf" in results
+            assert "unknown" not in results
+            logger.warning.assert_called()
 
 
 if __name__ == "__main__":

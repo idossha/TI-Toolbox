@@ -953,6 +953,71 @@ def main():
         f"Completed {report['success_count']}/{report['total_simulations']} simulations"
     )
 
+    # Generate HTML report
+    try:
+        from tit.reporting import SimulationReportGenerator
+
+        report_gen = SimulationReportGenerator(
+            project_dir=project_dir,
+            simulation_session_id=report["session_id"],
+            subject_id=subject_id,
+        )
+
+        # Add simulation parameters
+        report_gen.add_simulation_parameters(
+            conductivity_type=conductivity_str,
+            simulation_mode=mode,
+            eeg_net=eeg_net,
+            intensity_ch1=config.intensities.pair1,
+            intensity_ch2=config.intensities.pair2,
+            intensity_ch3=config.intensities.pair3,
+            intensity_ch4=config.intensities.pair4,
+        )
+
+        # Add electrode parameters
+        report_gen.add_electrode_parameters(
+            shape=electrode_shape,
+            dimensions=f"{dimensions[0]}x{dimensions[1]} mm",
+            thickness=thickness,
+        )
+
+        # Add subject
+        report_gen.add_subject(
+            subject_id=subject_id,
+            m2m_path=pm.path("m2m", subject_id=subject_id),
+            status="completed" if report["error_count"] == 0 else "partial",
+        )
+
+        # Add montages and results
+        for montage in montages:
+            report_gen.add_montage(
+                montage_name=montage.name,
+                electrode_pairs=[
+                    {"electrode1": p[0], "electrode2": p[1]}
+                    for p in montage.electrode_pairs
+                ],
+                montage_type=montage.simulation_mode.value,
+            )
+
+        for result in results:
+            report_gen.add_simulation_result(
+                subject_id=subject_id,
+                montage_name=result["montage_name"],
+                output_files=result.get("output_files", []),
+                status=result["status"],
+            )
+            if result["status"] == "failed":
+                report_gen.add_error(
+                    result.get("error", "Unknown error"),
+                    context=result["montage_name"],
+                )
+
+        report_path = report_gen.generate()
+        print(f"Report generated: {report_path}")
+
+    except Exception as e:
+        print(f"Warning: Could not generate HTML report: {e}")
+
     # Exit with error if any simulations failed
     if report["error_count"] > 0:
         sys.exit(1)
