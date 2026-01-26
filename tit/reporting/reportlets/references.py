@@ -16,7 +16,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Core TI & SimNIBS references
     # ==========================================================================
     {
-        "key": "ti",
+        "key": "TI Theory",
         "citation": (
             "Grossman N, et al. Noninvasive deep brain stimulation via "
             "temporally interfering electric fields. Cell. 2017 Jun;169(6):"
@@ -25,7 +25,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1016/j.cell.2017.05.024",
     },
     {
-        "key": "simnibs",
+        "key": "SimNIBS",
         "citation": (
             "Thielscher A, Antunes A, Saturnino GB. Field modeling for "
             "transcranial magnetic stimulation: a useful tool to understand "
@@ -36,7 +36,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1109/EMBC.2015.7318340",
     },
     {
-        "key": "simnibs4",
+        "key": "SimNIBS",
         "citation": (
             "Saturnino GB, Puonti O, Nielsen JD, Antonenko D, Madsen KH, "
             "Thielscher A. SimNIBS 2.1: a comprehensive pipeline for "
@@ -48,7 +48,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1007/978-3-030-21293-3_1",
     },
     {
-        "key": "charm",
+        "key": "CHARM Segmentation",
         "citation": (
             "Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, "
             "Thielscher A. Accurate and robust whole-head segmentation from "
@@ -61,7 +61,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Simulation-specific references
     # ==========================================================================
     {
-        "key": "multipolar_ti",
+        "key": "Multipolar TI",
         "citation": (
             "Botzanowski B, et al. Focal control of non-invasive deep brain "
             "stimulation using multipolar temporal interference. Bioelectron "
@@ -70,7 +70,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1186/s42234-025-00169-6",
     },
     {
-        "key": "electrode_params",
+        "key": "Electrode Parameters",
         "citation": (
             "Saturnino GB, Antunes A, Thielscher A. On the importance of "
             "electrode parameters for shaping electric field patterns "
@@ -79,7 +79,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1016/j.neuroimage.2015.06.067",
     },
     {
-        "key": "quasi_static",
+        "key": "Quasi-static Approximation",
         "citation": (
             "Gaugain G, et al. Quasi-static approximation error of electric "
             "field analysis for transcranial current stimulation. J Neural "
@@ -88,7 +88,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1088/1741-2552/acb14d",
     },
     {
-        "key": "tdcs_determinants",
+        "key": "Electric Field Determinants",
         "citation": (
             "Opitz A, Paulus W, Will S, Antunes A, Thielscher A. Determinants "
             "of the electric field during transcranial direct current "
@@ -100,7 +100,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Atlas references
     # ==========================================================================
     {
-        "key": "icbm",
+        "key": "International Consortium for Brain Mapping (ICBM)",
         "citation": (
             "Mazziotta J, et al. A probabilistic atlas and reference system "
             "for the human brain: International Consortium for Brain Mapping "
@@ -110,7 +110,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1098/rstb.2001.0915",
     },
     {
-        "key": "glasser",
+        "key": "Glasser Atlas",
         "citation": (
             "Glasser MF, et al. A multi-modal parcellation of human cerebral "
             "cortex. Nature. 2016 Aug;536(7615):171-8."
@@ -118,7 +118,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1038/nature18933",
     },
     {
-        "key": "destrieux",
+        "key": "Destrieux Atlas",
         "citation": (
             "Destrieux C, Fischl B, Dale A, Halgren E. Automatic parcellation "
             "of human cortical gyri and sulci using standard anatomical "
@@ -127,7 +127,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1016/j.neuroimage.2010.06.010",
     },
     {
-        "key": "mcrib",
+        "key": "Desikan-Killiany-Tourville Atlas",
         "citation": (
             "Alexander B, et al. Desikan-Killiany-Tourville atlas compatible "
             "version of M-CRIB neonatal parcellated whole brain atlas: the "
@@ -139,7 +139,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # EEG electrode positioning
     # ==========================================================================
     {
-        "key": "eeg_positions",
+        "key": "EEG Positions",
         "citation": (
             "Jurcak V, Tsuzuki D, Dan I. 10/20, 10/10, and 10/5 systems "
             "revisited: their validity as relative head-surface-based "
@@ -148,7 +148,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1016/j.neuroimage.2006.09.024",
     },
     {
-        "key": "egi_sensor_nets",
+        "key": "EGI Sensor Nets",
         "citation": "Geodesic Sensor Nets. Electrical Geodesics, Inc.",
         "url": "https://www.egi.com/clinical-division/geodesic-sensor-nets",
     },
@@ -156,14 +156,14 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Preprocessing & data format references
     # ==========================================================================
     {
-        "key": "freesurfer",
+        "key": "FreeSurfer",
         "citation": (
             "Fischl B. FreeSurfer. NeuroImage. 2012 Aug;62(2):774-81."
         ),
         "doi": "10.1016/j.neuroimage.2012.01.021",
     },
     {
-        "key": "bids",
+        "key": "Brain Imaging Data Structure (BIDS)",
         "citation": (
             "Gorgolewski KJ, et al. The brain imaging data structure, a "
             "format for organizing and describing outputs of neuroimaging "
@@ -172,7 +172,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1038/sdata.2016.44",
     },
     {
-        "key": "bids_apps",
+        "key": "BIDS Apps",
         "citation": (
             "Gorgolewski KJ, et al. BIDS apps: improving ease of use, "
             "accessibility, and reproducibility of neuroimaging data analysis "
@@ -181,7 +181,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1371/journal.pcbi.1005209",
     },
     {
-        "key": "qsiprep",
+        "key": "QSIprep",
         "citation": (
             "Cieslak M, et al. QSIPrep: an integrative platform for "
             "preprocessing and reconstructing diffusion MRI data. "
@@ -190,7 +190,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1038/s41592-021-01185-5",
     },
     {
-        "key": "dcm2niix",
+        "key": "DICOM to NIfTI Converter (dcm2niix)",
         "citation": (
             "Li X, Morgan PS, Ashburner J, Smith J, Rorden C. The first step "
             "for neuroimaging data analysis: DICOM to NIfTI conversion. "
@@ -202,7 +202,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Flex-search / optimization references
     # ==========================================================================
     {
-        "key": "leadfield_free",
+        "key": "Leadfield-free Optimization Framework",
         "citation": (
             "Weise K, Madsen KH, Worbs T, Knosche TR, Korshoj A, Thielscher A. "
             "A leadfield-free optimization framework for transcranially "
@@ -236,7 +236,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # Meshing & visualization (for future use)
     # ==========================================================================
     {
-        "key": "gmsh",
+        "key": "Gmsh",
         "citation": (
             "Geuzaine C, Remacle J-F. Gmsh: a 3-D finite element mesh "
             "generator with built-in pre- and post-processing facilities. "
@@ -245,7 +245,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
         "doi": "10.1002/nme.2579",
     },
     {
-        "key": "blender",
+        "key": "Blender",
         "citation": "Blender - Free and Open 3D Creation Software.",
         "url": "https://github.com/blender/blender",
     },
