@@ -344,8 +344,8 @@ class BaseReportGenerator(ABC):
 
         # Add standard sections
         self._add_errors_section()
-        self._add_methods_section()
-        self._add_references_section()
+        self._add_methods_section(pipeline_components=[self.report_type])
+        self._add_references_section(pipeline_components=[self.report_type])
 
         # Ensure output directory exists
         self._ensure_output_dir()

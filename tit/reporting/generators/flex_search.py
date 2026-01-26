@@ -46,7 +46,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             project_dir=project_dir,
             subject_id=subject_id,
             session_id=session_id,
-            report_type="optimization",
+            report_type="flex-search",
         )
 
         # Flex-search specific data
