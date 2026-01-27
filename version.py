@@ -20,39 +20,27 @@ DOCKER_IMAGES = {
         "description": "Core SimNIBS image with TI tools",
         "size": "~8GB",
     },
-    "freesurfer": {
+    "FreeSurfer": {
         "version": "2.2.4",
         "tag": "freesurfer/freesurfer:7.4.1",
         "description": "FreeSurfer - Brain Analysis and Segmentation",
         "size": "~9GB",
     },
-    "fsl": {
-        "version": "2.2.4",
-        "tag": "brainlife/fsl:6.0.7.4",
-        "description": "FSL - FMRIB Software Library",
-        "size": "~4GB",
-    },
 }
 
 # Neuroimaging Tools Information
 TOOLS_INFO = {
-    "freesurfer": {
+    "FreeSurfer": {
         "version": "2.2.4",
         "description": "Cortical reconstruction and brain segmentation",
         "website": "https://surfer.nmr.mgh.harvard.edu/",
         "license": "FreeSurfer License",
     },
-    "simnibs": {
+    "SimNIBS": {
         "version": "2.2.4",
         "description": "Finite element method for brain stimulation",
         "website": "https://simnibs.github.io/simnibs/",
         "license": "GPL v3",
-    },
-    "fsl": {
-        "version": "2.2.4",
-        "description": "Comprehensive library of analysis tools for FMRI, MRI and DTI",
-        "website": "https://fsl.fmrib.ox.ac.uk/",
-        "license": "FSL License",
     },
     "dcm2niix": {
         "version": "2.2.4",
@@ -60,43 +48,43 @@ TOOLS_INFO = {
         "website": "https://github.com/rordenlab/dcm2niix",
         "license": "BSD 2-Clause",
     },
-    "nibabel": {
+    "Nibabel": {
         "version": "2.2.4",
         "description": "Python library for neuroimaging data I/O",
         "website": "https://nipy.org/nibabel/",
         "license": "MIT",
     },
-    "numpy": {
+    "NumPy": {
         "version": "2.2.4",
         "description": "Numerical computing library",
         "website": "https://numpy.org/",
         "license": "BSD",
     },
-    "scipy": {
+    "SciPy": {
         "version": "2.2.4",
         "description": "Scientific computing library",
         "website": "https://scipy.org/",
         "license": "BSD",
     },
-    "matplotlib": {
+    "Matplotlib": {
         "version": "2.2.4",
         "description": "Plotting and visualization library",
         "website": "https://matplotlib.org/",
         "license": "PSF",
     },
-    "pandas": {
+    "Pandas": {
         "version": "2.2.4",
         "description": "Data analysis and manipulation library",
         "website": "https://pandas.pydata.org/",
         "license": "BSD",
     },
-    "vtk": {
+    "VTK": {
         "version": "2.2.4",
         "description": "3D graphics and visualization toolkit",
         "website": "https://vtk.org/",
         "license": "BSD",
     },
-    "gmsh": {
+    "Gmsh": {
         "version": "2.2.4",
         "description": "3D finite element mesh generator",
         "website": "https://gmsh.info/",
@@ -178,5 +166,5 @@ def get_tools_summary():
     Returns:
         dict: Summary of key tools with versions
     """
-    key_tools = ["freesurfer", "simnibs", "fsl", "dcm2niix"]
+    key_tools = ["FreeSurfer", "SimNIBS", "dcm2niix"]
     return {tool: TOOLS_INFO[tool] for tool in key_tools if tool in TOOLS_INFO}
