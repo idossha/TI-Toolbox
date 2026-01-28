@@ -150,9 +150,7 @@ def run_qsirecon(
         spec_output_dir = output_base / f"sub-{subject_id}"
 
         if spec_output_dir.exists() and overwrite is False:
-            logger.info(
-                f"QSIRecon output exists for {subject_id}/{spec}, skipping"
-            )
+            logger.info(f"QSIRecon output exists for {subject_id}/{spec}, skipping")
             continue
 
         try:
@@ -168,9 +166,7 @@ def run_qsirecon(
         returncode = runner.run(cmd, logger=logger)
 
         if returncode != 0:
-            raise PreprocessError(
-                f"QSIRecon {spec} failed with exit code {returncode}"
-            )
+            raise PreprocessError(f"QSIRecon {spec} failed with exit code {returncode}")
 
         logger.info(f"QSIRecon {spec} completed for subject {subject_id}")
 

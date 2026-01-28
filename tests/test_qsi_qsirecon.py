@@ -139,7 +139,9 @@ class TestRunQsirecon:
         with patch("tit.pre.qsi.qsirecon.validate_qsiprep_output") as mock_val:
             mock_val.return_value = (False, "QSIPrep output not found")
 
-            with pytest.raises(PreprocessError, match="QSIPrep output validation failed"):
+            with pytest.raises(
+                PreprocessError, match="QSIPrep output validation failed"
+            ):
                 run_qsirecon(
                     project_dir=str(tmp_path),
                     subject_id="001",
@@ -379,7 +381,9 @@ class TestRunQsirecon:
             )
             mock_builder.return_value = builder_instance
 
-            with pytest.raises(PreprocessError, match="Failed to build QSIRecon command"):
+            with pytest.raises(
+                PreprocessError, match="Failed to build QSIRecon command"
+            ):
                 run_qsirecon(
                     project_dir=str(tmp_path),
                     subject_id="001",

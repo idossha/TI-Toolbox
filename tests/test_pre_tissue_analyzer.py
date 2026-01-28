@@ -83,7 +83,9 @@ class TestTissueAnalyzer:
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
             with pytest.raises(PreprocessError) as exc_info:
-                TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "unknown_tissue", logger)
+                TissueAnalyzer(
+                    str(nifti_path), str(tmp_path / "out"), "unknown_tissue", logger
+                )
             assert "Unknown tissue type" in str(exc_info.value)
 
     def test_creates_tissue_mask(self, tmp_path):
@@ -96,7 +98,9 @@ class TestTissueAnalyzer:
         logger = MagicMock()
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
-            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            analyzer = TissueAnalyzer(
+                str(nifti_path), str(tmp_path / "out"), "csf", logger
+            )
             mask = analyzer._create_tissue_mask()
 
         assert mask.shape == data.shape
@@ -114,7 +118,9 @@ class TestTissueAnalyzer:
         logger = MagicMock()
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
-            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            analyzer = TissueAnalyzer(
+                str(nifti_path), str(tmp_path / "out"), "csf", logger
+            )
             mask = analyzer._create_brain_mask()
 
         assert mask[1, 1, 1] == 1
@@ -129,7 +135,9 @@ class TestTissueAnalyzer:
         logger = MagicMock()
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
-            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            analyzer = TissueAnalyzer(
+                str(nifti_path), str(tmp_path / "out"), "csf", logger
+            )
             result = analyzer.analyze()
 
         assert result["volume_cm3"] == 0
@@ -144,7 +152,9 @@ class TestTissueAnalyzer:
         logger = MagicMock()
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
-            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            analyzer = TissueAnalyzer(
+                str(nifti_path), str(tmp_path / "out"), "csf", logger
+            )
             mask = analyzer._create_tissue_mask()
             stats = analyzer._calculate_thickness(mask)
 
@@ -157,13 +167,17 @@ class TestTissueAnalyzer:
         nifti_path.write_text("dummy")
 
         lut = tmp_path / "labeling_LUT.txt"
-        lut.write_text("# comment\n1\tGray Matter:\t0\t0\t0\t0\n2\tWhite Matter:\t0\t0\t0\t0\n")
+        lut.write_text(
+            "# comment\n1\tGray Matter:\t0\t0\t0\t0\n2\tWhite Matter:\t0\t0\t0\t0\n"
+        )
 
         data = np.zeros((3, 3, 3), dtype=float)
         logger = MagicMock()
 
         with patch("pre.tissue_analyzer.nib.load", return_value=_fake_nifti(data)):
-            analyzer = TissueAnalyzer(str(nifti_path), str(tmp_path / "out"), "csf", logger)
+            analyzer = TissueAnalyzer(
+                str(nifti_path), str(tmp_path / "out"), "csf", logger
+            )
 
         assert analyzer.label_names.get(1) == "Gray Matter"
         assert analyzer.label_names.get(2) == "White Matter"
@@ -259,7 +273,9 @@ class TestRunTissueAnalysis:
 
             logger = MagicMock()
 
-            results = run_tissue_analysis(tmpdir, "001", tissues=["unknown", "csf"], logger=logger)
+            results = run_tissue_analysis(
+                tmpdir, "001", tissues=["unknown", "csf"], logger=logger
+            )
 
             # Should only process known tissue
             assert mock_analyzer_class.call_count == 1

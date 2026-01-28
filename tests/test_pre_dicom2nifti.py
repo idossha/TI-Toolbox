@@ -32,7 +32,7 @@ class TestDetectModality:
 
     def test_find_t1w_from_series_description(self):
         """Test detecting T1w from SeriesDescription"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"SeriesDescription": "T1_MPRAGE"}, f)
             json_path = Path(f.name)
 
@@ -44,7 +44,7 @@ class TestDetectModality:
 
     def test_find_t2w_from_series_description(self):
         """Test detecting T2w from SeriesDescription"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"SeriesDescription": "T2_CUBE"}, f)
             json_path = Path(f.name)
 
@@ -63,7 +63,9 @@ class TestDetectModality:
         ]
 
         for test_data in test_cases:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 json.dump(test_data, f)
                 json_path = Path(f.name)
 
@@ -82,7 +84,9 @@ class TestDetectModality:
         ]
 
         for test_data in test_cases:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 json.dump(test_data, f)
                 json_path = Path(f.name)
 
@@ -94,7 +98,7 @@ class TestDetectModality:
 
     def test_find_no_suffix_when_neither_t1_nor_t2(self):
         """Test returns empty string when neither T1 nor T2"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"SeriesDescription": "FLAIR"}, f)
             json_path = Path(f.name)
 
@@ -106,7 +110,7 @@ class TestDetectModality:
 
     def test_find_no_suffix_when_series_description_missing(self):
         """Test returns empty string when SeriesDescription missing"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"OtherField": "value"}, f)
             json_path = Path(f.name)
 
@@ -118,7 +122,7 @@ class TestDetectModality:
 
     def test_find_handles_invalid_json(self):
         """Test handles invalid JSON gracefully"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("{invalid json")
             json_path = Path(f.name)
 
@@ -211,6 +215,7 @@ class TestProcessModality:
 
             logger = MagicMock()
             from tit.core.overwrite import OverwritePolicy
+
             policy = OverwritePolicy(overwrite=False, prompt=False)
 
             with patch("pre.dicom2nifti._find_dicom_files", return_value=[]):
@@ -240,11 +245,19 @@ class TestProcessModality:
 
             logger = MagicMock()
             from tit.core.overwrite import OverwritePolicy
+
             policy = OverwritePolicy(overwrite=False, prompt=False)
 
-            with patch("pre.dicom2nifti._find_dicom_files", return_value=[Path(tmpdir) / "a.dcm"]), \
-                 patch("pre.dicom2nifti._run_dcm2niix", return_value=True) as mock_run, \
-                 patch("pre.dicom2nifti._process_converted_files", return_value=True) as mock_process:
+            with (
+                patch(
+                    "pre.dicom2nifti._find_dicom_files",
+                    return_value=[Path(tmpdir) / "a.dcm"],
+                ),
+                patch("pre.dicom2nifti._run_dcm2niix", return_value=True) as mock_run,
+                patch(
+                    "pre.dicom2nifti._process_converted_files", return_value=True
+                ) as mock_process,
+            ):
                 result = _process_modality(
                     "T1w",
                     sourcedata_dir,
@@ -273,10 +286,16 @@ class TestProcessModality:
 
             logger = MagicMock()
             from tit.core.overwrite import OverwritePolicy
+
             policy = OverwritePolicy(overwrite=False, prompt=False)
 
-            with patch("pre.dicom2nifti._find_dicom_files", return_value=[Path(tmpdir) / "a.dcm"]), \
-                 patch("pre.dicom2nifti._run_dcm2niix", return_value=False):
+            with (
+                patch(
+                    "pre.dicom2nifti._find_dicom_files",
+                    return_value=[Path(tmpdir) / "a.dcm"],
+                ),
+                patch("pre.dicom2nifti._run_dcm2niix", return_value=False),
+            ):
                 with pytest.raises(PreprocessError) as exc_info:
                     _process_modality(
                         "T1w",
@@ -328,9 +347,13 @@ class TestRunDicomToNifti:
                 ("bids_anat", "001"): str(bids_anat_dir),
                 ("sourcedata_dicom", "001", "T1w"): str(t1_dicom_dir),
                 ("sourcedata_dicom", "001", "T2w"): str(t2_dicom_dir),
-            }.get((key, kwargs.get("subject_id"), kwargs.get("modality")),
-                  {("sourcedata_subject", "001"): str(sourcedata_dir),
-                   ("bids_anat", "001"): str(bids_anat_dir)}.get((key, kwargs.get("subject_id"))))
+            }.get(
+                (key, kwargs.get("subject_id"), kwargs.get("modality")),
+                {
+                    ("sourcedata_subject", "001"): str(sourcedata_dir),
+                    ("bids_anat", "001"): str(bids_anat_dir),
+                }.get((key, kwargs.get("subject_id"))),
+            )
 
             logger = MagicMock()
 
@@ -372,7 +395,11 @@ class TestRunDicomToNifti:
             mock_pm.path.side_effect = lambda key, **kwargs: {
                 "sourcedata_subject": str(sourcedata_dir),
                 "bids_anat": str(bids_anat_dir),
-                "sourcedata_dicom": str(t1_dicom_dir) if kwargs.get("modality") == "T1w" else str(t2_dicom_dir),
+                "sourcedata_dicom": (
+                    str(t1_dicom_dir)
+                    if kwargs.get("modality") == "T1w"
+                    else str(t2_dicom_dir)
+                ),
             }[key]
 
             logger = MagicMock()
@@ -385,9 +412,7 @@ class TestRunDicomToNifti:
     @patch("shutil.which", return_value="/usr/bin/dcm2niix")
     @patch("pre.dicom2nifti.get_path_manager")
     @patch("pre.dicom2nifti._process_modality", return_value=False)
-    def test_run_warns_if_no_output_files(
-        self, mock_process, mock_get_pm, mock_which
-    ):
+    def test_run_warns_if_no_output_files(self, mock_process, mock_get_pm, mock_which):
         """Test warns if no NIfTI files created"""
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_pm = MagicMock()
@@ -408,7 +433,11 @@ class TestRunDicomToNifti:
             mock_pm.path.side_effect = lambda key, **kwargs: {
                 "sourcedata_subject": str(sourcedata_dir),
                 "bids_anat": str(bids_anat_dir),
-                "sourcedata_dicom": str(t1_dicom_dir) if kwargs.get("modality") == "T1w" else str(t2_dicom_dir),
+                "sourcedata_dicom": (
+                    str(t1_dicom_dir)
+                    if kwargs.get("modality") == "T1w"
+                    else str(t2_dicom_dir)
+                ),
             }[key]
 
             logger = MagicMock()

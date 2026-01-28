@@ -118,7 +118,9 @@ class TestValidateFreesurferEnv:
     def test_validate_raises_if_tcsh_not_found(self, mock_which):
         """Test raises if tcsh not found"""
         # Return recon-all but not tcsh
-        mock_which.side_effect = lambda x: "/usr/bin/recon-all" if x == "recon-all" else None
+        mock_which.side_effect = lambda x: (
+            "/usr/bin/recon-all" if x == "recon-all" else None
+        )
 
         logger = MagicMock()
 
@@ -368,9 +370,7 @@ class TestRunReconAll:
     @patch("shutil.which")
     @patch("pre.recon_all.get_path_manager")
     @patch("pre.recon_all._find_anat_files")
-    def test_run_raises_on_nonzero_exit(
-        self, mock_find_anat, mock_get_pm, mock_which
-    ):
+    def test_run_raises_on_nonzero_exit(self, mock_find_anat, mock_get_pm, mock_which):
         """Test raises PreprocessError on non-zero exit code"""
         mock_which.side_effect = lambda x: "/usr/bin/" + x
 
@@ -406,9 +406,7 @@ class TestRunReconAll:
     @patch("shutil.which")
     @patch("pre.recon_all.get_path_manager")
     @patch("pre.recon_all._find_anat_files")
-    def test_run_uses_runner_if_provided(
-        self, mock_find_anat, mock_get_pm, mock_which
-    ):
+    def test_run_uses_runner_if_provided(self, mock_find_anat, mock_get_pm, mock_which):
         """Test uses CommandRunner if provided"""
         mock_which.side_effect = lambda x: "/usr/bin/" + x
 

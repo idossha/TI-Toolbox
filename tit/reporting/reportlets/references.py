@@ -157,9 +157,7 @@ DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # ==========================================================================
     {
         "key": "FreeSurfer",
-        "citation": (
-            "Fischl B. FreeSurfer. NeuroImage. 2012 Aug;62(2):774-81."
-        ),
+        "citation": ("Fischl B. FreeSurfer. NeuroImage. 2012 Aug;62(2):774-81."),
         "doi": "10.1016/j.neuroimage.2012.01.021",
     },
     {
@@ -287,24 +285,49 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
         # These define ALL references for each report type (no core refs added)
         report_type_refs = {
             "simulation": [
-                "ti", "simnibs", "icbm", "charm", "multipolar_ti",
-                "electrode_params", "quasi_static", "eeg_positions",
+                "ti",
+                "simnibs",
+                "icbm",
+                "charm",
+                "multipolar_ti",
+                "electrode_params",
+                "quasi_static",
+                "eeg_positions",
                 "egi_sensor_nets",
             ],
             "simulator": [
-                "ti", "simnibs", "icbm", "charm", "multipolar_ti",
-                "electrode_params", "quasi_static", "eeg_positions",
+                "ti",
+                "simnibs",
+                "icbm",
+                "charm",
+                "multipolar_ti",
+                "electrode_params",
+                "quasi_static",
+                "eeg_positions",
                 "egi_sensor_nets",
             ],
             "preprocessing": [
-                "simnibs", "freesurfer", "icbm", "charm", "mcrib",
-                "destrieux", "glasser", "bids", "bids_apps",
-                "tdcs_determinants", "eeg_positions", "egi_sensor_nets",
+                "simnibs",
+                "freesurfer",
+                "icbm",
+                "charm",
+                "mcrib",
+                "destrieux",
+                "glasser",
+                "bids",
+                "bids_apps",
+                "tdcs_determinants",
+                "eeg_positions",
+                "egi_sensor_nets",
                 "simnibs4",
             ],
             "flex-search": [
-                "simnibs", "charm", "leadfield_free", "mcrib",
-                "destrieux", "glasser",
+                "simnibs",
+                "charm",
+                "leadfield_free",
+                "mcrib",
+                "destrieux",
+                "glasser",
             ],
         }
 

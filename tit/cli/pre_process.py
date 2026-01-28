@@ -146,15 +146,26 @@ class PreProcessCLI(BaseCLI):
         run_tissue_analysis = utils.ask_bool("Run tissue analysis?", default=False)
         run_qsiprep = utils.ask_bool("Run QSIPrep (DWI preprocessing)?", default=False)
         run_qsirecon = False
-        qsi_recon_config = {"recon_specs": ["mrtrix_multishell_msmt_ACT-fast"], "atlases": ["Schaefer100", "AAL116"]}
+        qsi_recon_config = {
+            "recon_specs": ["mrtrix_multishell_msmt_ACT-fast"],
+            "atlases": ["Schaefer100", "AAL116"],
+        }
         extract_dti = False
         if run_qsiprep:
-            run_qsirecon = utils.ask_bool("Run QSIRecon (reconstruction)?", default=True)
+            run_qsirecon = utils.ask_bool(
+                "Run QSIRecon (reconstruction)?", default=True
+            )
             if run_qsirecon:
-                specs_input = utils.ask_optional(
-                    "QSIRecon specs (comma-separated)", default="mrtrix_multishell_msmt_ACT-fast"
-                ) or "mrtrix_multishell_msmt_ACT-fast"
-                qsi_recon_config["recon_specs"] = [s.strip() for s in specs_input.split(",")]
+                specs_input = (
+                    utils.ask_optional(
+                        "QSIRecon specs (comma-separated)",
+                        default="mrtrix_multishell_msmt_ACT-fast",
+                    )
+                    or "mrtrix_multishell_msmt_ACT-fast"
+                )
+                qsi_recon_config["recon_specs"] = [
+                    s.strip() for s in specs_input.split(",")
+                ]
             extract_dti = utils.ask_bool(
                 "Extract DTI tensor for SimNIBS?", default=True
             )
@@ -170,7 +181,10 @@ class PreProcessCLI(BaseCLI):
                 ("Tissue analysis", "yes" if run_tissue_analysis else "no"),
                 ("Run QSIPrep", "yes" if run_qsiprep else "no"),
                 ("Run QSIRecon", "yes" if run_qsirecon else "no"),
-                ("QSIRecon specs", qsi_recon_config["recon_specs"] if run_qsirecon else "n/a"),
+                (
+                    "QSIRecon specs",
+                    qsi_recon_config["recon_specs"] if run_qsirecon else "n/a",
+                ),
                 ("Extract DTI", "yes" if extract_dti else "no"),
             ],
             default_yes=True,
@@ -202,7 +216,9 @@ class PreProcessCLI(BaseCLI):
             raise RuntimeError("No subjects provided.")
 
         # Parse QSI recon specs
-        qsi_recon_specs_str = args.get("qsi_recon_specs", "mrtrix_multishell_msmt_ACT-fast")
+        qsi_recon_specs_str = args.get(
+            "qsi_recon_specs", "mrtrix_multishell_msmt_ACT-fast"
+        )
         qsi_recon_specs = (
             [s.strip() for s in qsi_recon_specs_str.split(",") if s.strip()]
             if qsi_recon_specs_str
@@ -210,7 +226,7 @@ class PreProcessCLI(BaseCLI):
         )
         qsi_recon_config = {
             "recon_specs": qsi_recon_specs,
-            "atlases": ["Schaefer100", "AAL116"]
+            "atlases": ["Schaefer100", "AAL116"],
         }
 
         for sid in subject_ids:

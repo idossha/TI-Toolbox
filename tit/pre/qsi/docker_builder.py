@@ -77,13 +77,7 @@ class DockerCommandBuilder:
         self.project_dir = project_dir
         self.paths = paths or DockerPaths()
 
-        # Get host project directory for volume mounts
-        try:
-            self._host_project_dir = get_host_project_dir()
-        except ValueError as e:
-            raise DockerBuildError(str(e))
-
-        # Get FreeSurfer license path
+        self._host_project_dir = get_host_project_dir()
         self._fs_license = get_freesurfer_license_path()
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> List[str]:
@@ -102,7 +96,11 @@ class DockerCommandBuilder:
         """
         image = f"{const.QSI_QSIPREP_IMAGE}:{config.image_tag}"
         inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
-        effective_cpus = config.resources.cpus if config.resources.cpus is not None else inherited_cpus
+        effective_cpus = (
+            config.resources.cpus
+            if config.resources.cpus is not None
+            else inherited_cpus
+        )
         effective_mem_gb = (
             config.resources.memory_gb
             if config.resources.memory_gb is not None
@@ -140,27 +138,18 @@ class DockerCommandBuilder:
         # BIDS data is at project root
         cmd.extend(["-v", f"{self._host_project_dir}:{self.paths.bids_dir}:ro"])
 
-        # QSIPrep output goes to derivatives/qsiprep
-        qsiprep_output = str(
-            Path(self._host_project_dir) / "derivatives" / "qsiprep"
-        )
+        qsiprep_output = str(Path(self._host_project_dir) / "derivatives" / "qsiprep")
         cmd.extend(["-v", f"{qsiprep_output}:{self.paths.output_dir}"])
 
-        # Work directory for intermediate files
         work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsiprep_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
-        # FreeSurfer license
         if self._fs_license:
-            cmd.extend(
-                ["-v", f"{self._fs_license}:{self.paths.license_file}:ro"]
-            )
+            cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
 
-        # Image
         cmd.append(image)
 
         # QSIPrep arguments
-        # Input and output directories (container paths)
         cmd.extend(
             [
                 self.paths.bids_dir,
@@ -169,25 +158,14 @@ class DockerCommandBuilder:
             ]
         )
 
-        # Subject filter
         cmd.extend(["--participant-label", config.subject_id])
-
-        # Output resolution
         cmd.extend(["--output-resolution", str(config.output_resolution)])
-
-        # Work directory
         cmd.extend(["-w", self.paths.work_dir])
-
-        # Resource settings
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
+        cmd.extend(["--fs-license-file", self.paths.license_file])
 
-        # FreeSurfer license
-        if self._fs_license:
-            cmd.extend(["--fs-license-file", self.paths.license_file])
-
-        # Optional flags
         if config.skip_bids_validation:
             cmd.append("--skip-bids-validation")
 
@@ -198,15 +176,11 @@ class DockerCommandBuilder:
             cmd.extend(["--unringing-method", config.unringing_method])
 
         if config.distortion_group_merge != "none":
-            cmd.extend(
-                ["--distortion-group-merge", config.distortion_group_merge]
-            )
+            cmd.extend(["--distortion-group-merge", config.distortion_group_merge])
 
         return cmd
 
-    def build_qsirecon_cmd(
-        self, config: QSIReconConfig, recon_spec: str
-    ) -> List[str]:
+    def build_qsirecon_cmd(self, config: QSIReconConfig, recon_spec: str) -> List[str]:
         """
         Build Docker command for QSIRecon with a specific recon spec.
 
@@ -224,14 +198,17 @@ class DockerCommandBuilder:
         """
         image = f"{const.QSI_QSIRECON_IMAGE}:{config.image_tag}"
         inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
-        effective_cpus = config.resources.cpus if config.resources.cpus is not None else inherited_cpus
+        effective_cpus = (
+            config.resources.cpus
+            if config.resources.cpus is not None
+            else inherited_cpus
+        )
         effective_mem_gb = (
             config.resources.memory_gb
             if config.resources.memory_gb is not None
             else inherited_mem_gb
         )
 
-        # Build base docker run command
         cmd = [
             "docker",
             "run",
@@ -240,11 +217,9 @@ class DockerCommandBuilder:
             f"qsirecon_{config.subject_id}_{recon_spec.replace('-', '_')}_{uuid.uuid4().hex[:8]}",
         ]
 
-        # GPU support
         if config.use_gpu:
             cmd.extend(["--gpus", "all"])
 
-        # Resource limits
         cmd.extend(
             [
                 "--cpus",
@@ -254,7 +229,6 @@ class DockerCommandBuilder:
             ]
         )
 
-        # Environment variables
         cmd.extend(
             [
                 "-e",
@@ -262,36 +236,19 @@ class DockerCommandBuilder:
             ]
         )
 
-        # Volume mounts
-        # QSIPrep output is the input for QSIRecon
-        qsiprep_output = str(
-            Path(self._host_project_dir) / "derivatives" / "qsiprep"
-        )
+        qsiprep_output = str(Path(self._host_project_dir) / "derivatives" / "qsiprep")
         cmd.extend(["-v", f"{qsiprep_output}:{self.paths.bids_dir}:ro"])
 
-        # QSIRecon output goes to derivatives/qsirecon
-        qsirecon_output = str(
-            Path(self._host_project_dir) / "derivatives" / "qsirecon"
-        )
+        qsirecon_output = str(Path(self._host_project_dir) / "derivatives" / "qsirecon")
         cmd.extend(["-v", f"{qsirecon_output}:{self.paths.output_dir}"])
 
-        # Work directory for intermediate files
-        work_dir = str(
-            Path(self._host_project_dir) / "derivatives" / ".qsirecon_work"
-        )
+        work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsirecon_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
-        # FreeSurfer license
-        if self._fs_license:
-            cmd.extend(
-                ["-v", f"{self._fs_license}:{self.paths.license_file}:ro"]
-            )
+        cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
 
-        # Image
         cmd.append(image)
 
-        # QSIRecon arguments
-        # Input and output directories (container paths)
         cmd.extend(
             [
                 self.paths.bids_dir,
@@ -300,30 +257,18 @@ class DockerCommandBuilder:
             ]
         )
 
-        # Subject filter
         cmd.extend(["--participant-label", config.subject_id])
-
-        # Recon specification
         cmd.extend(["--recon-spec", recon_spec])
-
-        # Work directory
         cmd.extend(["-w", self.paths.work_dir])
-
-        # Resource settings
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
+        cmd.extend(["--fs-license-file", self.paths.license_file])
 
-        # FreeSurfer license
-        if self._fs_license:
-            cmd.extend(["--fs-license-file", self.paths.license_file])
-
-        # Atlases for connectivity
         if config.atlases:
             for atlas in config.atlases:
                 cmd.extend(["--atlases", atlas])
 
-        # Optional flags
         if config.skip_odf_reports:
             cmd.append("--skip-odf-reports")
 

@@ -38,9 +38,7 @@ from tit.pre.common import PreprocessError
 DSISTUDIO_TENSOR_PARAMS = ["txx", "txy", "txz", "tyy", "tyz", "tzz"]
 
 
-def _iter_qsirecon_subject_dirs(
-    qsirecon_dir: Path, subject_id: str
-) -> List[Path]:
+def _iter_qsirecon_subject_dirs(qsirecon_dir: Path, subject_id: str) -> List[Path]:
     """
     Yield possible subject directories across QSIRecon outputs.
 
@@ -116,7 +114,12 @@ def _find_dsistudio_tensor_components(
 
         if not is_dsistudio:
             # Also check the direct path
-            dsistudio_dir = qsirecon_dir / "derivatives" / "qsirecon-DSIStudio" / f"sub-{subject_id}"
+            dsistudio_dir = (
+                qsirecon_dir
+                / "derivatives"
+                / "qsirecon-DSIStudio"
+                / f"sub-{subject_id}"
+            )
             if dsistudio_dir.exists():
                 subject_dir = dsistudio_dir
                 is_dsistudio = True
@@ -196,13 +199,34 @@ def _find_dti_tensor_file(
         # Skip scalar maps and other non-tensor files
         if any(
             skip in name_lower
-            for skip in ["fa", "md", "rd", "ad", "mask", "b0", "rgb", "odf",
-                        "gfa", "iso", "qa", "ha", "linearity", "planarity",
-                        "sphericity", "kfa", "mk", "ak", "rk", "mkt"]
+            for skip in [
+                "fa",
+                "md",
+                "rd",
+                "ad",
+                "mask",
+                "b0",
+                "rgb",
+                "odf",
+                "gfa",
+                "iso",
+                "qa",
+                "ha",
+                "linearity",
+                "planarity",
+                "sphericity",
+                "kfa",
+                "mk",
+                "ak",
+                "rk",
+                "mkt",
+            ]
         ):
             return False
         # Skip individual tensor component files (we handle those separately)
-        if any(f"param-t{c}" in name_lower for c in ["xx", "xy", "xz", "yy", "yz", "zz"]):
+        if any(
+            f"param-t{c}" in name_lower for c in ["xx", "xy", "xz", "yy", "yz", "zz"]
+        ):
             return False
         try:
             import nibabel as nib
@@ -230,9 +254,7 @@ def _find_dti_tensor_file(
         if not subject_dir.exists():
             continue
         for pattern in search_patterns:
-            matches = [
-                m for m in subject_dir.glob(pattern) if _is_tensor_candidate(m)
-            ]
+            matches = [m for m in subject_dir.glob(pattern) if _is_tensor_candidate(m)]
             if matches:
                 logger.debug(f"Found DTI tensor file: {matches[0]}")
                 return matches[0]
@@ -407,16 +429,18 @@ def _convert_tensor_to_simnibs_format(
 
     else:
         logger.error(f"Unexpected number of tensor components: {n_components}")
-        raise ValueError(
-            f"Expected 6 or 9 tensor components, got {n_components}"
-        )
+        raise ValueError(f"Expected 6 or 9 tensor components, got {n_components}")
 
 
 def _find_qsiprep_t1(project_dir: Path, subject_id: str) -> Optional[Path]:
     """Find the qsiprep T1 in ACPC space."""
     qsiprep_t1 = (
-        project_dir / "derivatives" / "qsiprep" / f"sub-{subject_id}" / "anat" /
-        f"sub-{subject_id}_space-ACPC_desc-preproc_T1w.nii.gz"
+        project_dir
+        / "derivatives"
+        / "qsiprep"
+        / f"sub-{subject_id}"
+        / "anat"
+        / f"sub-{subject_id}_space-ACPC_desc-preproc_T1w.nii.gz"
     )
     if qsiprep_t1.exists():
         return qsiprep_t1
@@ -476,8 +500,12 @@ def _register_tensor_to_simnibs_t1(
         logger.info("ANTs found in environment, using ANTs for registration")
         with tempfile.TemporaryDirectory() as tmpdir:
             return _register_with_ants_local(
-                tensor_path, qsiprep_t1_path, simnibs_t1_path,
-                output_path, Path(tmpdir), logger
+                tensor_path,
+                qsiprep_t1_path,
+                simnibs_t1_path,
+                output_path,
+                Path(tmpdir),
+                logger,
             )
 
     # Fall back to simple resampling
@@ -486,9 +514,7 @@ def _register_tensor_to_simnibs_t1(
         "SimNIBS T1 space. Note: This performs spatial resampling but not "
         "tensor reorientation, which is acceptable for most applications."
     )
-    return _resample_tensor_to_target(
-        tensor_path, simnibs_t1_path, output_path, logger
-    )
+    return _resample_tensor_to_target(tensor_path, simnibs_t1_path, output_path, logger)
 
 
 def _register_with_ants_local(
@@ -509,11 +535,16 @@ def _register_with_ants_local(
     xfm_prefix = str(tmpdir / "t1_to_simnibs_")
     reg_cmd = [
         "antsRegistrationSyN.sh",
-        "-d", "3",
-        "-f", str(fixed_t1_path),
-        "-m", str(moving_t1_path),
-        "-o", xfm_prefix,
-        "-t", "a",  # Affine only for speed
+        "-d",
+        "3",
+        "-f",
+        str(fixed_t1_path),
+        "-m",
+        str(moving_t1_path),
+        "-o",
+        xfm_prefix,
+        "-t",
+        "a",  # Affine only for speed
     ]
 
     logger.info("Running ANTs registration...")
@@ -528,13 +559,20 @@ def _register_with_ants_local(
     # For tensors, we use image type 2 (tensor)
     apply_cmd = [
         "antsApplyTransforms",
-        "-d", "3",
-        "-e", "2",  # Tensor image type
-        "-i", str(tensor_path),
-        "-r", str(fixed_t1_path),
-        "-o", str(output_path),
-        "-t", xfm_file,
-        "-n", "Linear",
+        "-d",
+        "3",
+        "-e",
+        "2",  # Tensor image type
+        "-i",
+        str(tensor_path),
+        "-r",
+        str(fixed_t1_path),
+        "-o",
+        str(output_path),
+        "-t",
+        xfm_file,
+        "-n",
+        "Linear",
     ]
 
     logger.info("Applying transform to tensor...")

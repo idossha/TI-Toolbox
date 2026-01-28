@@ -88,9 +88,7 @@ class MethodsBoilerplateReportlet(BaseReportlet):
         if self.parameters.get("electrode_shape"):
             shape = self.parameters.get("electrode_shape", "circular")
             size = self.parameters.get("electrode_size", "not specified")
-            parts.append(
-                f"Electrodes were modeled as {shape} with dimensions {size}."
-            )
+            parts.append(f"Electrodes were modeled as {shape} with dimensions {size}.")
 
         # Add intensity info
         if self.parameters.get("intensity"):
@@ -183,7 +181,7 @@ class MethodsBoilerplateReportlet(BaseReportlet):
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet methods-boilerplate-reportlet" id="{self.reportlet_id}">
             {title_html}
             <p class="boilerplate-intro">
@@ -197,7 +195,7 @@ class MethodsBoilerplateReportlet(BaseReportlet):
                 {boilerplate}
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -254,14 +252,14 @@ class DescriptionReportlet(BaseReportlet):
                 f"<p>{p.strip()}</p>" for p in paragraphs if p.strip()
             )
 
-        return f'''
+        return f"""
         <div class="reportlet description-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="text-content">
                 {formatted_content}
             </div>
         </div>
-        '''
+        """
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""
@@ -323,11 +321,13 @@ class CommandLogReportlet(BaseReportlet):
             output: Command output (if any)
             status: Execution status (success, error)
         """
-        self.commands.append({
-            "command": command,
-            "output": output or "",
-            "status": status,
-        })
+        self.commands.append(
+            {
+                "command": command,
+                "output": output or "",
+                "status": status,
+            }
+        )
 
     def render_html(self) -> str:
         """Render the command log as HTML."""
@@ -342,24 +342,24 @@ class CommandLogReportlet(BaseReportlet):
                 output_html = f'<div class="command-output">{self._escape_html(cmd["output"])}</div>'
 
             command_items.append(
-                f'''
+                f"""
                 <div class="command-item {status_class}">
                     <div class="command-prompt">$ {self._escape_html(cmd["command"])}</div>
                     {output_html}
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet command-log-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="command-log">
                 {"".join(command_items)}
             </div>
         </div>
-        '''
+        """
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""

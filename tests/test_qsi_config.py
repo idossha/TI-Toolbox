@@ -23,7 +23,10 @@ class TestReconSpec:
     def test_enum_values(self):
         """Test that all expected recon specs are defined."""
         assert ReconSpec.DIPY_DKI.value == "dipy_dki"
-        assert ReconSpec.MRTRIX_MULTISHELL_MSMT_ACT_FAST.value == "mrtrix_multishell_msmt_ACT-fast"
+        assert (
+            ReconSpec.MRTRIX_MULTISHELL_MSMT_ACT_FAST.value
+            == "mrtrix_multishell_msmt_ACT-fast"
+        )
         assert ReconSpec.AMICO_NODDI.value == "amico_noddi"
 
     def test_from_string(self):

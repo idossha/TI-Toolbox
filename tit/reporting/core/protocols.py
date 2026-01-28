@@ -124,7 +124,7 @@ class ReportSection:
         if self.description:
             description_html = f'<p class="section-description">{self.description}</p>'
 
-        return f'''
+        return f"""
         <section id="{self.section_id}" class="report-section {collapse_class}">
             <h2 class="section-title">{self.title}</h2>
             {description_html}
@@ -132,7 +132,7 @@ class ReportSection:
                 {content}
             </div>
         </section>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert section to dictionary."""

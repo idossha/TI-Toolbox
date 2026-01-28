@@ -92,11 +92,13 @@ class BaseReportGenerator(ABC):
         """Collect versions of relevant software tools."""
         # Python version
         import sys
+
         self.software_versions["python"] = sys.version.split()[0]
 
         # TI-Toolbox version
         try:
             from tit import __version__
+
             self.software_versions["ti_toolbox"] = __version__
         except (ImportError, AttributeError):
             self.software_versions["ti_toolbox"] = "unknown"
@@ -120,7 +122,9 @@ class BaseReportGenerator(ABC):
             if fs_home:
                 version_file = Path(fs_home) / "build-stamp.txt"
                 if version_file.exists():
-                    self.software_versions["freesurfer"] = version_file.read_text().strip()
+                    self.software_versions["freesurfer"] = (
+                        version_file.read_text().strip()
+                    )
         except Exception:
             pass
 
@@ -155,13 +159,15 @@ class BaseReportGenerator(ABC):
             context: Context (e.g., subject ID, montage name)
             step: Processing step where error occurred
         """
-        self.errors.append({
-            "message": message,
-            "context": context,
-            "step": step,
-            "severity": SeverityLevel.ERROR.value,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self.errors.append(
+            {
+                "message": message,
+                "context": context,
+                "step": step,
+                "severity": SeverityLevel.ERROR.value,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def add_warning(
         self,
@@ -177,13 +183,15 @@ class BaseReportGenerator(ABC):
             context: Context (e.g., subject ID, montage name)
             step: Processing step where warning occurred
         """
-        self.warnings.append({
-            "message": message,
-            "context": context,
-            "step": step,
-            "severity": SeverityLevel.WARNING.value,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self.warnings.append(
+            {
+                "message": message,
+                "context": context,
+                "step": step,
+                "severity": SeverityLevel.WARNING.value,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def get_output_dir(self) -> Path:
         """
@@ -272,7 +280,9 @@ class BaseReportGenerator(ABC):
         )
         section.add_reportlet(error_reportlet)
 
-    def _add_methods_section(self, pipeline_components: Optional[List[str]] = None) -> None:
+    def _add_methods_section(
+        self, pipeline_components: Optional[List[str]] = None
+    ) -> None:
         """
         Add methods boilerplate section to the report.
 
@@ -293,7 +303,9 @@ class BaseReportGenerator(ABC):
         )
         section.add_reportlet(methods_reportlet)
 
-    def _add_references_section(self, pipeline_components: Optional[List[str]] = None) -> None:
+    def _add_references_section(
+        self, pipeline_components: Optional[List[str]] = None
+    ) -> None:
         """
         Add references section to the report.
 

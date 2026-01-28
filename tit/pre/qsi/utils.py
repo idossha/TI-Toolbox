@@ -151,9 +151,7 @@ def check_image_exists(image: str, tag: str) -> bool:
         return False
 
 
-def pull_image_if_needed(
-    image: str, tag: str, logger: logging.Logger
-) -> bool:
+def pull_image_if_needed(image: str, tag: str, logger: logging.Logger) -> bool:
     """
     Pull a Docker image if it doesn't exist locally.
 
@@ -260,9 +258,7 @@ def validate_qsiprep_output(
     Tuple[bool, Optional[str]]
         (is_valid, error_message). If valid, error_message is None.
     """
-    qsiprep_dir = (
-        Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
-    )
+    qsiprep_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
 
     if not qsiprep_dir.exists():
         return False, f"QSIPrep output directory not found: {qsiprep_dir}"
@@ -434,9 +430,9 @@ def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
     cpu_limit: Optional[int] = None
 
     # Prefer cpuset if present
-    cpuset = _read_first_line("/sys/fs/cgroup/cpuset.cpus.effective") or _read_first_line(
-        "/sys/fs/cgroup/cpuset/cpuset.cpus"
-    )
+    cpuset = _read_first_line(
+        "/sys/fs/cgroup/cpuset.cpus.effective"
+    ) or _read_first_line("/sys/fs/cgroup/cpuset/cpuset.cpus")
     cpuset_count = _parse_cpuset(cpuset) if cpuset else None
     if cpuset_count:
         cpu_limit = cpuset_count

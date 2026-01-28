@@ -62,11 +62,13 @@ class SliceSeriesReportlet(BaseReportlet):
             mime_type: MIME type of the image
         """
         base64_data = self._process_image(image_data)
-        self.slices.append({
-            "base64": base64_data,
-            "label": label,
-            "mime_type": mime_type,
-        })
+        self.slices.append(
+            {
+                "base64": base64_data,
+                "label": label,
+                "mime_type": mime_type,
+            }
+        )
 
     def _process_image(self, image_data: Union[str, bytes, Path, Any]) -> str:
         """Convert image data to base64 string."""
@@ -102,13 +104,13 @@ class SliceSeriesReportlet(BaseReportlet):
     def render_html(self) -> str:
         """Render the slice series as HTML."""
         if not self.slices:
-            return f'''
+            return f"""
             <div class="reportlet slice-series-reportlet" id="{self.reportlet_id}">
                 <div class="image-placeholder">
                     <em>No slices available</em>
                 </div>
             </div>
-            '''
+            """
 
         slice_images = []
         for slice_data in self.slices:
@@ -117,19 +119,21 @@ class SliceSeriesReportlet(BaseReportlet):
             label_html = f'<span class="slice-label">{label}</span>' if label else ""
 
             slice_images.append(
-                f'''
+                f"""
                 <div class="slice-image">
                     <img src="data:{mime_type};base64,{slice_data["base64"]}"
                          alt="{label or 'Brain slice'}" />
                     {label_html}
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
-        caption_html = f'<p class="series-caption">{self.caption}</p>' if self.caption else ""
+        caption_html = (
+            f'<p class="series-caption">{self.caption}</p>' if self.caption else ""
+        )
 
-        return f'''
+        return f"""
         <div class="reportlet slice-series-reportlet {self.orientation}" id="{self.reportlet_id}">
             {title_html}
             <div class="slice-series">
@@ -137,7 +141,7 @@ class SliceSeriesReportlet(BaseReportlet):
             </div>
             {caption_html}
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -238,16 +242,20 @@ class MontageImageReportlet(BaseReportlet):
             electrode2: Second electrode position
             intensity: Optional current intensity
         """
-        self.electrode_pairs.append({
-            "name": name,
-            "electrode1": electrode1,
-            "electrode2": electrode2,
-            "intensity": intensity,
-        })
+        self.electrode_pairs.append(
+            {
+                "name": name,
+                "electrode1": electrode1,
+                "electrode2": electrode2,
+                "intensity": intensity,
+            }
+        )
 
     def render_html(self) -> str:
         """Render the montage image as HTML."""
-        title_html = f"<h3>{self._title or self.montage_name or 'Electrode Montage'}</h3>"
+        title_html = (
+            f"<h3>{self._title or self.montage_name or 'Electrode Montage'}</h3>"
+        )
 
         # Electrode pairs table
         pairs_html = ""
@@ -263,17 +271,17 @@ class MontageImageReportlet(BaseReportlet):
                     except (TypeError, ValueError):
                         intensity_str = str(intensity_value)
                 rows.append(
-                    f'''
+                    f"""
                     <tr>
                         <td>{pair.get("name", "")}</td>
                         <td>{pair.get("electrode1", "")}</td>
                         <td>{pair.get("electrode2", "")}</td>
                         <td>{intensity_str}</td>
                     </tr>
-                    '''
+                    """
                 )
 
-            pairs_html = f'''
+            pairs_html = f"""
             <div class="electrode-pairs">
                 <table class="data-table compact">
                     <thead>
@@ -289,26 +297,26 @@ class MontageImageReportlet(BaseReportlet):
                     </tbody>
                 </table>
             </div>
-            '''
+            """
 
         # Image display
         image_html = ""
         if self._base64_data:
-            image_html = f'''
+            image_html = f"""
             <figure class="montage-figure">
                 <img src="data:{self._mime_type};base64,{self._base64_data}"
                      alt="{self.montage_name or 'Electrode montage'}"
                      class="report-image montage-image" />
             </figure>
-            '''
+            """
         else:
-            image_html = '''
+            image_html = """
             <div class="image-placeholder">
                 <em>No montage image available</em>
             </div>
-            '''
+            """
 
-        return f'''
+        return f"""
         <div class="reportlet montage-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="montage-content">
@@ -316,7 +324,7 @@ class MontageImageReportlet(BaseReportlet):
                 {pairs_html}
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -374,7 +382,9 @@ class MultiViewBrainReportlet(BaseReportlet):
     def reportlet_type(self) -> ReportletType:
         return ReportletType.IMAGE
 
-    def set_view(self, view_name: str, image_data: Union[str, Path, bytes, Any]) -> None:
+    def set_view(
+        self, view_name: str, image_data: Union[str, Path, bytes, Any]
+    ) -> None:
         """
         Set an image for a specific view.
 
@@ -400,7 +410,9 @@ class MultiViewBrainReportlet(BaseReportlet):
             try:
                 buffer = io.BytesIO()
                 image_data.save(buffer, format="PNG")
-                self.views[view_name] = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                self.views[view_name] = base64.b64encode(buffer.getvalue()).decode(
+                    "utf-8"
+                )
             except Exception:
                 pass
 
@@ -412,28 +424,30 @@ class MultiViewBrainReportlet(BaseReportlet):
         for view_name, base64_data in self.views.items():
             if base64_data:
                 view_panels.append(
-                    f'''
+                    f"""
                     <div class="view-panel {view_name}">
                         <div class="view-label">{view_name.capitalize()}</div>
                         <img src="data:image/png;base64,{base64_data}"
                              alt="{view_name} view"
                              class="view-image" />
                     </div>
-                    '''
+                    """
                 )
             else:
                 view_panels.append(
-                    f'''
+                    f"""
                     <div class="view-panel {view_name}">
                         <div class="view-label">{view_name.capitalize()}</div>
                         <div class="view-placeholder">Not available</div>
                     </div>
-                    '''
+                    """
                 )
 
-        caption_html = f'<p class="multiview-caption">{self.caption}</p>' if self.caption else ""
+        caption_html = (
+            f'<p class="multiview-caption">{self.caption}</p>' if self.caption else ""
+        )
 
-        return f'''
+        return f"""
         <div class="reportlet multiview-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="multiview-grid">
@@ -441,7 +455,7 @@ class MultiViewBrainReportlet(BaseReportlet):
             </div>
             {caption_html}
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {

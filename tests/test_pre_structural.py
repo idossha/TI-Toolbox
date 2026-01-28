@@ -109,7 +109,7 @@ class TestRunSubjectPipeline:
             overwrite=None,
             prompt_overwrite=None,
             runner=runner,
-            callback=None
+            callback=None,
         )
 
         assert result is True
@@ -148,7 +148,7 @@ class TestRunSubjectPipeline:
             overwrite=None,
             prompt_overwrite=None,
             runner=runner,
-            callback=None
+            callback=None,
         )
 
         assert result is True
@@ -187,7 +187,7 @@ class TestRunSubjectPipeline:
             overwrite=None,
             prompt_overwrite=None,
             runner=runner,
-            callback=None
+            callback=None,
         )
 
         assert result is True
@@ -225,7 +225,7 @@ class TestRunSubjectPipeline:
             overwrite=None,
             prompt_overwrite=None,
             runner=runner,
-            callback=None
+            callback=None,
         )
 
         assert result is True
@@ -233,7 +233,9 @@ class TestRunSubjectPipeline:
 
     @patch("pre.structural.build_logger")
     @patch("pre.structural.get_overwrite_policy")
-    @patch("pre.structural.run_dicom_to_nifti", side_effect=RuntimeError("DICOM failed"))
+    @patch(
+        "pre.structural.run_dicom_to_nifti", side_effect=RuntimeError("DICOM failed")
+    )
     def test_run_subject_pipeline_returns_false_on_failure(
         self, mock_run_dicom, mock_get_policy, mock_build_logger
     ):
@@ -263,7 +265,7 @@ class TestRunSubjectPipeline:
             overwrite=None,
             prompt_overwrite=None,
             runner=runner,
-            callback=None
+            callback=None,
         )
 
         assert result is False
@@ -276,9 +278,15 @@ def test_run_pipeline_generates_preprocessing_report(tmp_path, monkeypatch):
     project_dir = str(tmp_path)
     subject_id = "001"
 
-    monkeypatch.setattr("pre.structural.ensure_subject_dirs", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("pre.structural.ensure_dataset_descriptions", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("pre.structural._run_subject_pipeline", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        "pre.structural.ensure_subject_dirs", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        "pre.structural.ensure_dataset_descriptions", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        "pre.structural._run_subject_pipeline", lambda *_args, **_kwargs: True
+    )
 
     calls = {"generated": False}
 
@@ -353,7 +361,7 @@ class TestRunPipeline:
             ["001"],
             convert_dicom=True,
             run_recon=False,
-            create_m2m=False
+            create_m2m=False,
         )
 
         assert result == 0
@@ -374,9 +382,7 @@ class TestRunPipeline:
         mock_run_subject.return_value = True
 
         result = run_pipeline(
-            "/test/project",
-            ["001", "002", "003"],
-            convert_dicom=True
+            "/test/project", ["001", "002", "003"], convert_dicom=True
         )
 
         assert result == 0
@@ -396,11 +402,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = False  # Failure
 
-        result = run_pipeline(
-            "/test/project",
-            ["001"],
-            convert_dicom=True
-        )
+        result = run_pipeline("/test/project", ["001"], convert_dicom=True)
 
         assert result == 1
 
@@ -417,11 +419,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = True
 
-        run_pipeline(
-            "/test/project",
-            ["001"],
-            run_recon=True
-        )
+        run_pipeline("/test/project", ["001"], run_recon=True)
 
         # Verify freesurfer was included in datasets
         call_args = mock_ensure_datasets.call_args[0]
@@ -441,11 +439,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = True
 
-        run_pipeline(
-            "/test/project",
-            ["001"],
-            create_m2m=True
-        )
+        run_pipeline("/test/project", ["001"], create_m2m=True)
 
         # Verify simnibs was included in datasets
         call_args = mock_ensure_datasets.call_args[0]
@@ -465,11 +459,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = True
 
-        run_pipeline(
-            "/test/project",
-            ["001"],
-            convert_dicom=True
-        )
+        run_pipeline("/test/project", ["001"], convert_dicom=True)
 
         # Verify ti-toolbox was included in datasets
         call_args = mock_ensure_datasets.call_args[0]
@@ -489,11 +479,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = True
 
-        run_pipeline(
-            "/test/project",
-            ["  001  ", "002\n", "\t003"],
-            convert_dicom=True
-        )
+        run_pipeline("/test/project", ["  001  ", "002\n", "\t003"], convert_dicom=True)
 
         # Verify subjects were cleaned
         assert mock_run_subject.call_count == 3
@@ -513,11 +499,7 @@ class TestRunPipeline:
 
         mock_run_subject.return_value = True
 
-        run_pipeline(
-            "/test/project",
-            ["001", "", "   ", "002"],
-            convert_dicom=True
-        )
+        run_pipeline("/test/project", ["001", "", "   ", "002"], convert_dicom=True)
 
         # Verify only valid subjects were processed
         assert mock_run_subject.call_count == 2
@@ -536,10 +518,7 @@ class TestRunPipeline:
         mock_run_subject.return_value = True
 
         run_pipeline(
-            "/test/project",
-            ["001"],
-            convert_dicom=True,
-            runner=None  # Not provided
+            "/test/project", ["001"], convert_dicom=True, runner=None  # Not provided
         )
 
         # Verify runner was passed to subject pipeline
@@ -562,12 +541,7 @@ class TestRunPipeline:
 
         custom_runner = CommandRunner()
 
-        run_pipeline(
-            "/test/project",
-            ["001"],
-            convert_dicom=True,
-            runner=custom_runner
-        )
+        run_pipeline("/test/project", ["001"], convert_dicom=True, runner=custom_runner)
 
         # Verify custom runner was passed
         call_kwargs = mock_run_subject.call_args[1]
@@ -587,11 +561,7 @@ class TestRunPipeline:
         mock_run_subject.side_effect = PreprocessCancelled("User cancelled")
 
         with pytest.raises(PreprocessCancelled):
-            run_pipeline(
-                "/test/project",
-                ["001"],
-                convert_dicom=True
-            )
+            run_pipeline("/test/project", ["001"], convert_dicom=True)
 
     @patch("pre.structural.get_path_manager")
     @patch("pre.structural.ensure_subject_dirs")
@@ -605,16 +575,9 @@ class TestRunPipeline:
         mock_get_pm.return_value = mock_pm
 
         # First subject raises exception, second succeeds
-        mock_run_subject.side_effect = [
-            Exception("First subject failed"),
-            True
-        ]
+        mock_run_subject.side_effect = [Exception("First subject failed"), True]
 
-        result = run_pipeline(
-            "/test/project",
-            ["001", "002"],
-            convert_dicom=True
-        )
+        result = run_pipeline("/test/project", ["001", "002"], convert_dicom=True)
 
         # Should process both subjects despite first failure
         assert mock_run_subject.call_count == 2
@@ -626,7 +589,12 @@ class TestRunPipeline:
     @patch("pre.structural.ThreadPoolExecutor")
     @patch("pre.structural._run_subject_pipeline")
     def test_run_pipeline_parallel_recon(
-        self, mock_run_subject, mock_executor, mock_ensure_datasets, mock_ensure_dirs, mock_get_pm
+        self,
+        mock_run_subject,
+        mock_executor,
+        mock_ensure_datasets,
+        mock_ensure_dirs,
+        mock_get_pm,
     ):
         """Test parallel recon-all processing"""
         mock_pm = MagicMock()
@@ -644,12 +612,10 @@ class TestRunPipeline:
         mock_executor_instance.submit.return_value = mock_future
 
         from concurrent.futures import as_completed
+
         with patch("pre.structural.as_completed", return_value=[mock_future]):
             result = run_pipeline(
-                "/test/project",
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True
+                "/test/project", ["001", "002"], run_recon=True, parallel_recon=True
             )
 
             # Verify ThreadPoolExecutor was used

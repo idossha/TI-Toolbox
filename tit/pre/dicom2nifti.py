@@ -102,7 +102,9 @@ def _run_dcm2niix(
     return exit_code == 0
 
 
-def _move_to_extra(bids_anat_dir: Path, json_file: Path, nii_file: Path, logger) -> None:
+def _move_to_extra(
+    bids_anat_dir: Path, json_file: Path, nii_file: Path, logger
+) -> None:
     """Move extra series to separate directory."""
     extra_dir = bids_anat_dir / "extra"
     extra_dir.mkdir(parents=True, exist_ok=True)
@@ -146,6 +148,7 @@ def _process_converted_files(
             should_overwrite = policy.overwrite
             if not should_overwrite and policy.prompt:
                 import sys
+
                 if sys.stdin.isatty():
                     ans = input(f"Output exists for {subject_id}. Overwrite? [y/N]: ")
                     should_overwrite = ans.strip().lower() in ("y", "yes")
@@ -159,7 +162,9 @@ def _process_converted_files(
 
         # Compress if needed
         if not str(nii_file).endswith(".gz"):
-            subprocess.run(["gzip", "-f", str(nii_file)], check=True, capture_output=True)
+            subprocess.run(
+                ["gzip", "-f", str(nii_file)], check=True, capture_output=True
+            )
             nii_file = nii_file.parent / (nii_file.name + ".gz")
 
         shutil.move(str(json_file), str(target_json))
@@ -184,7 +189,9 @@ def _process_modality(
 ) -> bool:
     """Process DICOM files for a specific modality."""
     source_dir = sourcedata_dir / modality
-    dicom_dir = Path(pm.path("sourcedata_dicom", subject_id=subject_id, modality=modality))
+    dicom_dir = Path(
+        pm.path("sourcedata_dicom", subject_id=subject_id, modality=modality)
+    )
     dicom_dir.mkdir(parents=True, exist_ok=True)
 
     _extract_archives(source_dir, dicom_dir, logger)
@@ -245,7 +252,14 @@ def run_dicom_to_nifti(
     converted = False
     for modality in ("T1w", "T2w"):
         if _process_modality(
-            modality, sourcedata_dir, bids_anat_dir, subject_id, pm, policy, logger, runner
+            modality,
+            sourcedata_dir,
+            bids_anat_dir,
+            subject_id,
+            pm,
+            policy,
+            logger,
+            runner,
         ):
             converted = True
 

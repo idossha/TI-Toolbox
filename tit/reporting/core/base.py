@@ -92,7 +92,7 @@ class MetadataReportlet(BaseReportlet):
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
-        return f'''
+        return f"""
         <div class="reportlet metadata-reportlet table-mode" id="{self.reportlet_id}">
             {title_html}
             <table class="metadata-table">
@@ -101,7 +101,7 @@ class MetadataReportlet(BaseReportlet):
                 </tbody>
             </table>
         </div>
-        '''
+        """
 
     def _render_cards(self) -> str:
         """Render as card grid."""
@@ -110,23 +110,23 @@ class MetadataReportlet(BaseReportlet):
             formatted_key = key.replace("_", " ").title()
             formatted_value = self._format_value(value)
             cards.append(
-                f'''
+                f"""
                 <div class="metadata-card">
                     <div class="card-label">{formatted_key}</div>
                     <div class="card-value">{formatted_value}</div>
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
-        return f'''
+        return f"""
         <div class="reportlet metadata-reportlet card-mode" id="{self.reportlet_id}">
             {title_html}
             <div class="card-grid columns-{self.columns}">
                 {"".join(cards)}
             </div>
         </div>
-        '''
+        """
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
@@ -224,13 +224,13 @@ class ImageReportlet(BaseReportlet):
     def render_html(self) -> str:
         """Render image as HTML."""
         if not self._base64_data:
-            return f'''
+            return f"""
             <div class="reportlet image-reportlet" id="{self.reportlet_id}">
                 <div class="image-placeholder">
                     <em>No image available</em>
                 </div>
             </div>
-            '''
+            """
 
         style_parts = []
         if self.width:
@@ -246,7 +246,7 @@ class ImageReportlet(BaseReportlet):
             else ""
         )
 
-        return f'''
+        return f"""
         <div class="reportlet image-reportlet" id="{self.reportlet_id}">
             {title_html}
             <figure class="image-figure">
@@ -257,7 +257,7 @@ class ImageReportlet(BaseReportlet):
                 {caption_html}
             </figure>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -332,11 +332,11 @@ class TableReportlet(BaseReportlet):
     def render_html(self) -> str:
         """Render table as HTML."""
         if not self.rows and not self.headers:
-            return f'''
+            return f"""
             <div class="reportlet table-reportlet" id="{self.reportlet_id}">
                 <em>No data available</em>
             </div>
-            '''
+            """
 
         classes = ["data-table"]
         if self.striped:
@@ -359,7 +359,7 @@ class TableReportlet(BaseReportlet):
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet table-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="table-wrapper">
@@ -369,7 +369,7 @@ class TableReportlet(BaseReportlet):
                 </table>
             </div>
         </div>
-        '''
+        """
 
     def _format_cell(self, value: Any) -> str:
         """Format a cell value for display."""
@@ -432,7 +432,9 @@ class TextReportlet(BaseReportlet):
         if self.content_type == "html":
             formatted_content = self.content
         elif self.content_type == "code":
-            formatted_content = f"<pre><code>{self._escape_html(self.content)}</code></pre>"
+            formatted_content = (
+                f"<pre><code>{self._escape_html(self.content)}</code></pre>"
+            )
         else:
             # Plain text - convert newlines to paragraphs
             paragraphs = self.content.split("\n\n")
@@ -442,13 +444,13 @@ class TextReportlet(BaseReportlet):
 
         copy_button = ""
         if self.copyable:
-            copy_button = f'''
+            copy_button = f"""
             <button class="copy-btn" onclick="copyToClipboard('{self.reportlet_id}-content')">
                 Copy to Clipboard
             </button>
-            '''
+            """
 
-        return f'''
+        return f"""
         <div class="reportlet text-reportlet" id="{self.reportlet_id}">
             {title_html}
             {copy_button}
@@ -456,7 +458,7 @@ class TextReportlet(BaseReportlet):
                 {formatted_content}
             </div>
         </div>
-        '''
+        """
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""
@@ -509,44 +511,56 @@ class ErrorReportlet(BaseReportlet):
         self.messages.append(
             {
                 "message": message,
-                "severity": severity.value if isinstance(severity, SeverityLevel) else severity,
+                "severity": (
+                    severity.value if isinstance(severity, SeverityLevel) else severity
+                ),
                 "context": context,
                 "step": step,
             }
         )
 
-    def add_error(self, message: str, context: Optional[str] = None, step: Optional[str] = None) -> None:
+    def add_error(
+        self, message: str, context: Optional[str] = None, step: Optional[str] = None
+    ) -> None:
         """Add an error message."""
         self.add_message(message, SeverityLevel.ERROR, context, step)
 
-    def add_warning(self, message: str, context: Optional[str] = None, step: Optional[str] = None) -> None:
+    def add_warning(
+        self, message: str, context: Optional[str] = None, step: Optional[str] = None
+    ) -> None:
         """Add a warning message."""
         self.add_message(message, SeverityLevel.WARNING, context, step)
 
     def render_html(self) -> str:
         """Render errors and warnings as HTML."""
         if not self.messages:
-            return f'''
+            return f"""
             <div class="reportlet error-reportlet success" id="{self.reportlet_id}">
                 <div class="success-message">
                     <span class="status-icon">[OK]</span>
                     No errors or warnings
                 </div>
             </div>
-            '''
+            """
 
         message_items = []
         for msg in self.messages:
             severity = msg.get("severity", "error")
-            icon = "[!]" if severity == "warning" else "[X]" if severity in ("error", "critical") else "[i]"
+            icon = (
+                "[!]"
+                if severity == "warning"
+                else "[X]" if severity in ("error", "critical") else "[i]"
+            )
             context = msg.get("context", "")
             step = msg.get("step", "")
 
-            context_html = f'<span class="error-context">[{context}]</span>' if context else ""
+            context_html = (
+                f'<span class="error-context">[{context}]</span>' if context else ""
+            )
             step_html = f'<span class="error-step">Step: {step}</span>' if step else ""
 
             message_items.append(
-                f'''
+                f"""
                 <div class="message-item {severity}">
                     <span class="severity-icon">{icon}</span>
                     <div class="message-content">
@@ -555,19 +569,19 @@ class ErrorReportlet(BaseReportlet):
                         {step_html}
                     </div>
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet error-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="messages-list">
                 {"".join(message_items)}
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -626,31 +640,33 @@ class ReferencesReportlet(BaseReportlet):
 
             # Add DOI link if available
             if ref.get("doi"):
-                doi_link = f'<a href="https://doi.org/{ref["doi"]}" target="_blank">[DOI]</a>'
+                doi_link = (
+                    f'<a href="https://doi.org/{ref["doi"]}" target="_blank">[DOI]</a>'
+                )
                 citation = f"{citation} {doi_link}"
             elif ref.get("url"):
                 url_link = f'<a href="{ref["url"]}" target="_blank">[Link]</a>'
                 citation = f"{citation} {url_link}"
 
             ref_items.append(
-                f'''
+                f"""
                 <li class="reference-item" id="ref-{key}">
                     <span class="ref-key">[{key}]</span>
                     <span class="ref-citation">{citation}</span>
                 </li>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>"
 
-        return f'''
+        return f"""
         <div class="reportlet references-reportlet" id="{self.reportlet_id}">
             {title_html}
             <ol class="references-list">
                 {"".join(ref_items)}
             </ol>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {

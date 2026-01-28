@@ -154,20 +154,22 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             focality: Focality metric
             **metrics: Additional metrics
         """
-        self.search_results.append({
-            "rank": rank,
-            "electrode_1a": electrode_1a,
-            "electrode_1b": electrode_1b,
-            "electrode_2a": electrode_2a,
-            "electrode_2b": electrode_2b,
-            "pair_1": f"{electrode_1a}-{electrode_1b}",
-            "pair_2": f"{electrode_2a}-{electrode_2b}",
-            "score": score,
-            "mean_field_roi": mean_field_roi,
-            "max_field_roi": max_field_roi,
-            "focality": focality,
-            **metrics,
-        })
+        self.search_results.append(
+            {
+                "rank": rank,
+                "electrode_1a": electrode_1a,
+                "electrode_1b": electrode_1b,
+                "electrode_2a": electrode_2a,
+                "electrode_2b": electrode_2b,
+                "pair_1": f"{electrode_1a}-{electrode_1b}",
+                "pair_2": f"{electrode_2a}-{electrode_2b}",
+                "score": score,
+                "mean_field_roi": mean_field_roi,
+                "max_field_roi": max_field_roi,
+                "focality": focality,
+                **metrics,
+            }
+        )
 
     def set_best_solution(
         self,
@@ -273,7 +275,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         )
 
         # Goal
-        goal = self.config.get("optimization_goal") or self.config.get("optimization_target")
+        goal = self.config.get("optimization_goal") or self.config.get(
+            "optimization_target"
+        )
         if goal:
             cards.add_card(
                 label="Goal",
@@ -332,12 +336,15 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "electrode_net": self.config.get("electrode_net"),
             "optimization_goal": self.config.get("optimization_goal"),
             "optimization_target": self.config.get("optimization_target"),
-            "post_processing": self.config.get("post_processing") or self.config.get("postproc"),
+            "post_processing": self.config.get("post_processing")
+            or self.config.get("postproc"),
             "n_starts": self.config.get("n_starts"),
             "selection_method": self.config.get("selection_method"),
             "n_candidates": self.config.get("n_candidates"),
         }
-        param_list.add_category("Optimization", {k: v for k, v in main_params.items() if v is not None})
+        param_list.add_category(
+            "Optimization", {k: v for k, v in main_params.items() if v is not None}
+        )
 
         electrode_params = {
             "electrode_shape": self.config.get("electrode_shape"),
@@ -350,7 +357,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "mapping_enabled": self.config.get("mapping_enabled"),
             "run_final_simulation": self.config.get("run_final_electrode_simulation"),
         }
-        param_list.add_category("Electrodes", {k: v for k, v in electrode_params.items() if v is not None})
+        param_list.add_category(
+            "Electrodes", {k: v for k, v in electrode_params.items() if v is not None}
+        )
 
         algorithm_params = {
             "max_iterations": self.config.get("max_iterations"),
@@ -362,15 +371,21 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "non_roi_method": self.config.get("non_roi_method"),
             "cpu_cores": self.config.get("cpu_cores"),
         }
-        param_list.add_category("Algorithm", {k: v for k, v in algorithm_params.items() if v is not None})
+        param_list.add_category(
+            "Algorithm", {k: v for k, v in algorithm_params.items() if v is not None}
+        )
 
         output_params = {
             "detailed_results": self.config.get("detailed_results"),
-            "visualize_valid_skin_region": self.config.get("visualize_valid_skin_region"),
+            "visualize_valid_skin_region": self.config.get(
+                "visualize_valid_skin_region"
+            ),
             "skin_visualization_net": self.config.get("skin_visualization_net"),
             "disable_mapping_simulation": self.config.get("disable_mapping_simulation"),
         }
-        param_list.add_category("Output", {k: v for k, v in output_params.items() if v is not None})
+        param_list.add_category(
+            "Output", {k: v for k, v in output_params.items() if v is not None}
+        )
 
         section.add_reportlet(param_list)
 
@@ -418,7 +433,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         if self.roi_info.get("non_roi_radius"):
             roi_data["non_roi_radius_mm"] = self.roi_info.get("non_roi_radius")
         if self.roi_info.get("non_roi_coordinate_space"):
-            roi_data["non_roi_coordinate_space"] = self.roi_info.get("non_roi_coordinate_space")
+            roi_data["non_roi_coordinate_space"] = self.roi_info.get(
+                "non_roi_coordinate_space"
+            )
         if self.roi_info.get("non_roi_atlas"):
             roi_data["non_roi_atlas"] = self.roi_info.get("non_roi_atlas")
         if self.roi_info.get("non_roi_label") is not None:
@@ -483,7 +500,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         pair_strings = []
         for pair in pairs:
             if isinstance(pair, dict):
-                pair_strings.append(f"{pair.get('electrode1', '?')}-{pair.get('electrode2', '?')}")
+                pair_strings.append(
+                    f"{pair.get('electrode1', '?')}-{pair.get('electrode2', '?')}"
+                )
             else:
                 pair_strings.append(str(pair))
 
@@ -555,11 +574,13 @@ class FlexSearchReportGenerator(BaseReportGenerator):
     def _get_methods_parameters(self) -> Dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
-        params.update({
-            "optimization_method": "flex-search",
-            "target_region": self.roi_info.get("name"),
-            "n_candidates": self.config.get("n_candidates"),
-        })
+        params.update(
+            {
+                "optimization_method": "flex-search",
+                "target_region": self.roi_info.get("name"),
+                "n_candidates": self.config.get("n_candidates"),
+            }
+        )
         return params
 
     def _build_report(self) -> None:

@@ -197,11 +197,23 @@ def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
         print("Error: XQuartz is not installed. Please install XQuartz.")
         sys.exit(1)
     if not xhost_bin:
-        print("Error: xhost is not available. Please ensure XQuartz is installed correctly.")
+        print(
+            "Error: xhost is not available. Please ensure XQuartz is installed correctly."
+        )
         sys.exit(1)
 
     Path.home().joinpath(".Xauthority").touch(exist_ok=True)
-    run(["defaults", "write", "org.macosforge.xquartz.X11", "nolisten_tcp", "-bool", "false"], check=False)
+    run(
+        [
+            "defaults",
+            "write",
+            "org.macosforge.xquartz.X11",
+            "nolisten_tcp",
+            "-bool",
+            "false",
+        ],
+        check=False,
+    )
 
     cmd = xquartz_command()
     if "XQuartz" not in cmd and "Xquartz" not in cmd:
@@ -225,7 +237,9 @@ def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
     run([xhost_bin, "+"], check=False, env=env, capture_output=True)
 
 
-def maybe_init_macos_x11(project_dir: Path, is_new_project: bool, xhost_bin: Optional[str]) -> None:
+def maybe_init_macos_x11(
+    project_dir: Path, is_new_project: bool, xhost_bin: Optional[str]
+) -> None:
     if platform.system() != "Darwin":
         return
     marker = x11_marker_path(project_dir)

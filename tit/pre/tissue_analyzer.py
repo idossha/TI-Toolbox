@@ -212,27 +212,54 @@ class TissueAnalyzer:
 
         # A. Axial view (top-left)
         ax1 = fig.add_subplot(gs[0, 0])
-        masked = np.where(filtered_mask[:, :, mid[2]] > 0, thickness_map[:, :, mid[2]], np.nan)
-        im = ax1.imshow(masked.T, cmap=self.color_scheme, origin="lower",
-                        aspect=vy / vx, interpolation="bilinear", vmin=vmin, vmax=vmax)
+        masked = np.where(
+            filtered_mask[:, :, mid[2]] > 0, thickness_map[:, :, mid[2]], np.nan
+        )
+        im = ax1.imshow(
+            masked.T,
+            cmap=self.color_scheme,
+            origin="lower",
+            aspect=vy / vx,
+            interpolation="bilinear",
+            vmin=vmin,
+            vmax=vmax,
+        )
         ax1.set_title("A. Axial View", fontsize=12, fontweight="bold")
         ax1.set_xlabel("X (Anterior-Posterior)")
         ax1.set_ylabel("Y (Left-Right)")
 
         # B. Coronal view (top-center)
         ax2 = fig.add_subplot(gs[0, 1])
-        masked = np.where(filtered_mask[:, mid[1], :] > 0, thickness_map[:, mid[1], :], np.nan)
-        ax2.imshow(masked.T, cmap=self.color_scheme, origin="lower",
-                   aspect=vz / vx, interpolation="bilinear", vmin=vmin, vmax=vmax)
+        masked = np.where(
+            filtered_mask[:, mid[1], :] > 0, thickness_map[:, mid[1], :], np.nan
+        )
+        ax2.imshow(
+            masked.T,
+            cmap=self.color_scheme,
+            origin="lower",
+            aspect=vz / vx,
+            interpolation="bilinear",
+            vmin=vmin,
+            vmax=vmax,
+        )
         ax2.set_title("B. Coronal View", fontsize=12, fontweight="bold")
         ax2.set_xlabel("X (Anterior-Posterior)")
         ax2.set_ylabel("Z (Inferior-Superior)")
 
         # C. Sagittal view (top-right)
         ax3 = fig.add_subplot(gs[0, 2])
-        masked = np.where(filtered_mask[mid[0], :, :] > 0, thickness_map[mid[0], :, :], np.nan)
-        ax3.imshow(masked.T, cmap=self.color_scheme, origin="lower",
-                   aspect=vz / vy, interpolation="bilinear", vmin=vmin, vmax=vmax)
+        masked = np.where(
+            filtered_mask[mid[0], :, :] > 0, thickness_map[mid[0], :, :], np.nan
+        )
+        ax3.imshow(
+            masked.T,
+            cmap=self.color_scheme,
+            origin="lower",
+            aspect=vz / vy,
+            interpolation="bilinear",
+            vmin=vmin,
+            vmax=vmax,
+        )
         ax3.set_title("C. Sagittal View", fontsize=12, fontweight="bold")
         ax3.set_xlabel("Y (Left-Right)")
         ax3.set_ylabel("Z (Inferior-Superior)")
@@ -244,25 +271,60 @@ class TissueAnalyzer:
 
         # D. Histogram (bottom, spanning all columns)
         ax4 = fig.add_subplot(gs[1, :])
-        ax4.hist(thickness_values, bins=50, alpha=0.7, color="steelblue",
-                 edgecolor="navy", density=True)
+        ax4.hist(
+            thickness_values,
+            bins=50,
+            alpha=0.7,
+            color="steelblue",
+            edgecolor="navy",
+            density=True,
+        )
 
         # Statistical lines
         mean, std = thickness_stats["mean"], thickness_stats["std"]
-        ax4.axvline(mean, color="red", linestyle="-", linewidth=2.5,
-                    label=f"Mean: {mean:.2f} mm")
-        ax4.axvline(mean + std, color="red", linestyle="--", linewidth=1.5,
-                    label=f"+1 SD: {mean + std:.2f} mm")
-        ax4.axvline(mean - std, color="red", linestyle="--", linewidth=1.5,
-                    label=f"-1 SD: {mean - std:.2f} mm")
+        ax4.axvline(
+            mean,
+            color="red",
+            linestyle="-",
+            linewidth=2.5,
+            label=f"Mean: {mean:.2f} mm",
+        )
+        ax4.axvline(
+            mean + std,
+            color="red",
+            linestyle="--",
+            linewidth=1.5,
+            label=f"+1 SD: {mean + std:.2f} mm",
+        )
+        ax4.axvline(
+            mean - std,
+            color="red",
+            linestyle="--",
+            linewidth=1.5,
+            label=f"-1 SD: {mean - std:.2f} mm",
+        )
 
         p25, p75 = np.percentile(thickness_values, [25, 75])
-        ax4.axvline(p25, color="orange", linestyle=":", linewidth=1.5, alpha=0.8,
-                    label=f"25th %ile: {p25:.2f} mm")
-        ax4.axvline(p75, color="orange", linestyle=":", linewidth=1.5, alpha=0.8,
-                    label=f"75th %ile: {p75:.2f} mm")
+        ax4.axvline(
+            p25,
+            color="orange",
+            linestyle=":",
+            linewidth=1.5,
+            alpha=0.8,
+            label=f"25th %ile: {p25:.2f} mm",
+        )
+        ax4.axvline(
+            p75,
+            color="orange",
+            linestyle=":",
+            linewidth=1.5,
+            alpha=0.8,
+            label=f"75th %ile: {p75:.2f} mm",
+        )
 
-        ax4.set_xlabel(f"{self.tissue_name} Thickness (mm)", fontsize=11, fontweight="bold")
+        ax4.set_xlabel(
+            f"{self.tissue_name} Thickness (mm)", fontsize=11, fontweight="bold"
+        )
         ax4.set_ylabel("Probability Density", fontsize=11, fontweight="bold")
         ax4.set_title("D. Thickness Distribution", fontsize=12, fontweight="bold")
         ax4.legend(loc="upper right", fontsize=9, framealpha=0.9)
@@ -280,11 +342,24 @@ class TissueAnalyzer:
             f"Volume: {volume_cm3:.1f} cm³\n"
             f"Voxel dims: {vx:.2f}×{vy:.2f}×{vz:.2f} mm"
         )
-        ax4.text(0.02, 0.98, stats_text, transform=ax4.transAxes, fontsize=9,
-                 verticalalignment="top",
-                 bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.9, edgecolor="gray"))
+        ax4.text(
+            0.02,
+            0.98,
+            stats_text,
+            transform=ax4.transAxes,
+            fontsize=9,
+            verticalalignment="top",
+            bbox=dict(
+                boxstyle="round,pad=0.4", facecolor="white", alpha=0.9, edgecolor="gray"
+            ),
+        )
 
-        fig.suptitle(f"{self.tissue_name} Thickness Analysis", fontsize=16, fontweight="bold", y=0.98)
+        fig.suptitle(
+            f"{self.tissue_name} Thickness Analysis",
+            fontsize=16,
+            fontweight="bold",
+            y=0.98,
+        )
         plt.tight_layout()
         plt.subplots_adjust(right=0.90, top=0.93, bottom=0.08, hspace=0.25)
 
@@ -375,10 +450,22 @@ class TissueAnalyzer:
 
                     # Add Z-cutoff lines for coronal and sagittal views
                     if col in [1, 2]:
-                        ax.axhline(y=z_threshold, color="yellow", linewidth=3,
-                                   linestyle="--", alpha=0.9, label="Z-cutoff")
-                        ax.axhline(y=brain_center_z, color="white", linewidth=2,
-                                   linestyle=":", alpha=0.8, label="Brain center")
+                        ax.axhline(
+                            y=z_threshold,
+                            color="yellow",
+                            linewidth=3,
+                            linestyle="--",
+                            alpha=0.9,
+                            label="Z-cutoff",
+                        )
+                        ax.axhline(
+                            y=brain_center_z,
+                            color="white",
+                            linewidth=2,
+                            linestyle=":",
+                            alpha=0.8,
+                            label="Brain center",
+                        )
 
                 ax.imshow(img, origin="lower", aspect=aspect)
                 ax.set_title(f"{view_name} View", fontsize=11, fontweight="bold")
@@ -405,17 +492,40 @@ class TissueAnalyzer:
                         )
                         box_color = "lightyellow"
 
-                    ax.text(0.02, 0.98, legend_text, transform=ax.transAxes,
-                            fontsize=9, verticalalignment="top",
-                            bbox=dict(boxstyle="round,pad=0.3", facecolor=box_color, alpha=0.85))
+                    ax.text(
+                        0.02,
+                        0.98,
+                        legend_text,
+                        transform=ax.transAxes,
+                        fontsize=9,
+                        verticalalignment="top",
+                        bbox=dict(
+                            boxstyle="round,pad=0.3", facecolor=box_color, alpha=0.85
+                        ),
+                    )
 
             # Row label on left side
-            fig.text(0.02, 0.75 - row * 0.42, row_labels[row], fontsize=12,
-                     fontweight="bold", ha="left", va="center", rotation=90)
+            fig.text(
+                0.02,
+                0.75 - row * 0.42,
+                row_labels[row],
+                fontsize=12,
+                fontweight="bold",
+                ha="left",
+                va="center",
+                rotation=90,
+            )
 
-        fig.suptitle(f"{self.tissue_name} Extraction Methodology", fontsize=16, fontweight="bold", y=0.96)
+        fig.suptitle(
+            f"{self.tissue_name} Extraction Methodology",
+            fontsize=16,
+            fontweight="bold",
+            y=0.96,
+        )
         plt.tight_layout()
-        plt.subplots_adjust(left=0.06, right=0.98, top=0.92, bottom=0.05, wspace=0.08, hspace=0.15)
+        plt.subplots_adjust(
+            left=0.06, right=0.98, top=0.92, bottom=0.05, wspace=0.08, hspace=0.15
+        )
 
         # Save
         output_png = self.output_dir / f"{self.tissue_name.lower()}_methodology.png"
@@ -442,12 +552,14 @@ class TissueAnalyzer:
             return
 
         plt.style.use("default")
-        plt.rcParams.update({
-            "font.size": 11,
-            "font.family": "DejaVu Sans",
-            "axes.linewidth": 1.2,
-            "figure.dpi": 150,
-        })
+        plt.rcParams.update(
+            {
+                "font.size": 11,
+                "font.family": "DejaVu Sans",
+                "axes.linewidth": 1.2,
+                "figure.dpi": 150,
+            }
+        )
 
         # Create thickness figure
         self._create_thickness_figure(filtered_mask, thickness_stats, plt)
@@ -502,7 +614,10 @@ class TissueAnalyzer:
         total_voxels = int(np.sum(tissue_mask))
         if total_voxels == 0:
             self.logger.warning(f"No {self.tissue_name} tissue found")
-            return {"volume_cm3": 0, "thickness": {"mean": 0, "std": 0, "min": 0, "max": 0}}
+            return {
+                "volume_cm3": 0,
+                "thickness": {"mean": 0, "std": 0, "min": 0, "max": 0},
+            }
 
         # Filter to brain region
         if np.sum(brain_mask) > 0:
@@ -511,7 +626,9 @@ class TissueAnalyzer:
             filtered_mask = tissue_mask
 
         filtered_voxels = int(np.sum(filtered_mask))
-        self.logger.debug(f"Voxels: {total_voxels:,} total, {filtered_voxels:,} filtered")
+        self.logger.debug(
+            f"Voxels: {total_voxels:,} total, {filtered_voxels:,} filtered"
+        )
 
         # Calculate thickness
         thickness_stats = self._calculate_thickness(filtered_mask)
@@ -521,7 +638,9 @@ class TissueAnalyzer:
         volume_cm3 = volume_mm3 / 1000
 
         # Generate outputs
-        self._create_visualizations(tissue_mask, brain_mask, filtered_mask, thickness_stats)
+        self._create_visualizations(
+            tissue_mask, brain_mask, filtered_mask, thickness_stats
+        )
         report_path = self._write_report(tissue_mask, filtered_mask, thickness_stats)
 
         self.logger.info(

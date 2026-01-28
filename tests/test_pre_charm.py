@@ -200,7 +200,9 @@ class TestRunCharm:
     @patch("shutil.which", return_value="/usr/bin/charm")
     @patch("pre.charm.get_path_manager")
     @patch("pre.charm._find_anat_files")
-    def test_run_charm_executes_with_t1_only(self, mock_find_anat, mock_get_pm, mock_which):
+    def test_run_charm_executes_with_t1_only(
+        self, mock_find_anat, mock_get_pm, mock_which
+    ):
         """Test executes charm with T1 only (no T2)"""
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
@@ -240,7 +242,9 @@ class TestRunCharm:
     @patch("shutil.which", return_value="/usr/bin/charm")
     @patch("pre.charm.get_path_manager")
     @patch("pre.charm._find_anat_files")
-    def test_run_charm_executes_with_t1_and_t2(self, mock_find_anat, mock_get_pm, mock_which):
+    def test_run_charm_executes_with_t1_and_t2(
+        self, mock_find_anat, mock_get_pm, mock_which
+    ):
         """Test executes charm with both T1 and T2"""
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
@@ -279,7 +283,9 @@ class TestRunCharm:
     @patch("shutil.which", return_value="/usr/bin/charm")
     @patch("pre.charm.get_path_manager")
     @patch("pre.charm._find_anat_files")
-    def test_run_charm_uses_forcerun_when_overwrite(self, mock_find_anat, mock_get_pm, mock_which):
+    def test_run_charm_uses_forcerun_when_overwrite(
+        self, mock_find_anat, mock_get_pm, mock_which
+    ):
         """Test uses --forcerun flag when overwrite is True"""
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
@@ -317,7 +323,9 @@ class TestRunCharm:
     @patch("shutil.which", return_value="/usr/bin/charm")
     @patch("pre.charm.get_path_manager")
     @patch("pre.charm._find_anat_files")
-    def test_run_charm_skips_when_exists_no_overwrite(self, mock_find_anat, mock_get_pm, mock_which):
+    def test_run_charm_skips_when_exists_no_overwrite(
+        self, mock_find_anat, mock_get_pm, mock_which
+    ):
         """Test skips execution when m2m exists and overwrite is False"""
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm
@@ -353,7 +361,9 @@ class TestRunCharm:
     @patch("shutil.which", return_value="/usr/bin/charm")
     @patch("pre.charm.get_path_manager")
     @patch("pre.charm._find_anat_files")
-    def test_run_charm_raises_on_nonzero_exit(self, mock_find_anat, mock_get_pm, mock_which):
+    def test_run_charm_raises_on_nonzero_exit(
+        self, mock_find_anat, mock_get_pm, mock_which
+    ):
         """Test raises PreprocessError on non-zero exit code"""
         mock_pm = MagicMock()
         mock_get_pm.return_value = mock_pm

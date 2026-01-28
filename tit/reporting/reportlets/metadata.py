@@ -156,9 +156,11 @@ class ConductivityTableReportlet(BaseReportlet):
             rows.append(f"<tr>{''.join(cells)}</tr>")
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
-        type_badge = f'<span class="conductivity-type-badge">{self.conductivity_type}</span>'
+        type_badge = (
+            f'<span class="conductivity-type-badge">{self.conductivity_type}</span>'
+        )
 
-        return f'''
+        return f"""
         <div class="reportlet conductivity-reportlet" id="{self.reportlet_id}">
             {title_html}
             {type_badge}
@@ -173,7 +175,7 @@ class ConductivityTableReportlet(BaseReportlet):
                 </table>
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -238,15 +240,17 @@ class ProcessingStepReportlet(BaseReportlet):
         if isinstance(status, StatusType):
             status = status.value
 
-        self.steps.append({
-            "name": name,
-            "description": description,
-            "status": status,
-            "duration": duration,
-            "parameters": parameters or {},
-            "output_files": output_files or [],
-            "error_message": error_message,
-        })
+        self.steps.append(
+            {
+                "name": name,
+                "description": description,
+                "status": status,
+                "duration": duration,
+                "parameters": parameters or {},
+                "output_files": output_files or [],
+                "error_message": error_message,
+            }
+        )
 
     def _format_duration(self, seconds: Optional[float]) -> str:
         """Format duration in human-readable form."""
@@ -275,11 +279,11 @@ class ProcessingStepReportlet(BaseReportlet):
     def render_html(self) -> str:
         """Render the processing steps as HTML."""
         if not self.steps:
-            return f'''
+            return f"""
             <div class="reportlet processing-steps-reportlet" id="{self.reportlet_id}">
                 <em>No processing steps recorded</em>
             </div>
-            '''
+            """
 
         step_items = []
         for i, step in enumerate(self.steps):
@@ -295,44 +299,44 @@ class ProcessingStepReportlet(BaseReportlet):
                     f"<tr><td>{k}</td><td>{v}</td></tr>"
                     for k, v in step["parameters"].items()
                 )
-                params_html = f'''
+                params_html = f"""
                 <div class="step-parameters">
                     <strong>Parameters:</strong>
                     <table class="data-table compact">
                         <tbody>{param_rows}</tbody>
                     </table>
                 </div>
-                '''
+                """
 
             # Build output files section
             outputs_html = ""
             if step.get("output_files"):
-                file_list = "".join(
-                    f"<li>{f}</li>" for f in step["output_files"]
-                )
-                outputs_html = f'''
+                file_list = "".join(f"<li>{f}</li>" for f in step["output_files"])
+                outputs_html = f"""
                 <div class="step-outputs">
                     <strong>Output Files:</strong>
                     <ul>{file_list}</ul>
                 </div>
-                '''
+                """
 
             # Build error section
             error_html = ""
             if step.get("error_message"):
-                error_html = f'''
+                error_html = f"""
                 <div class="step-error">
                     <strong>Error:</strong>
                     <span class="error-text">{step["error_message"]}</span>
                 </div>
-                '''
+                """
 
             description_html = ""
             if step.get("description"):
-                description_html = f'<p class="step-description">{step["description"]}</p>'
+                description_html = (
+                    f'<p class="step-description">{step["description"]}</p>'
+                )
 
             step_items.append(
-                f'''
+                f"""
                 <div class="processing-step" id="{step_id}">
                     <div class="step-header" onclick="toggleStep('{step_id}')">
                         <span class="step-status {status}">{icon}</span>
@@ -346,7 +350,7 @@ class ProcessingStepReportlet(BaseReportlet):
                         {error_html}
                     </div>
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
@@ -356,14 +360,14 @@ class ProcessingStepReportlet(BaseReportlet):
         failed = sum(1 for s in self.steps if s.get("status") == "failed")
         total = len(self.steps)
 
-        summary_html = f'''
+        summary_html = f"""
         <div class="steps-summary">
             <span class="summary-item completed">{completed}/{total} completed</span>
             {f'<span class="summary-item failed">{failed} failed</span>' if failed > 0 else ''}
         </div>
-        '''
+        """
 
-        return f'''
+        return f"""
         <div class="reportlet processing-steps-reportlet" id="{self.reportlet_id}">
             {title_html}
             {summary_html}
@@ -371,7 +375,7 @@ class ProcessingStepReportlet(BaseReportlet):
                 {"".join(step_items)}
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -429,13 +433,15 @@ class SummaryCardsReportlet(BaseReportlet):
             color: Optional accent color
             subtitle: Optional subtitle text
         """
-        self.cards.append({
-            "label": label,
-            "value": value,
-            "icon": icon,
-            "color": color,
-            "subtitle": subtitle,
-        })
+        self.cards.append(
+            {
+                "label": label,
+                "value": value,
+                "icon": icon,
+                "color": color,
+                "subtitle": subtitle,
+            }
+        )
 
     def render_html(self) -> str:
         """Render the summary cards as HTML."""
@@ -444,31 +450,39 @@ class SummaryCardsReportlet(BaseReportlet):
 
         card_items = []
         for card in self.cards:
-            icon_html = f'<span class="card-icon">{card["icon"]}</span>' if card.get("icon") else ""
-            subtitle_html = f'<div class="card-subtitle">{card["subtitle"]}</div>' if card.get("subtitle") else ""
+            icon_html = (
+                f'<span class="card-icon">{card["icon"]}</span>'
+                if card.get("icon")
+                else ""
+            )
+            subtitle_html = (
+                f'<div class="card-subtitle">{card["subtitle"]}</div>'
+                if card.get("subtitle")
+                else ""
+            )
             style = f'border-top-color: {card["color"]};' if card.get("color") else ""
 
             card_items.append(
-                f'''
+                f"""
                 <div class="summary-card" style="{style}">
                     {icon_html}
                     <div class="card-label">{card["label"]}</div>
                     <div class="card-value">{card["value"]}</div>
                     {subtitle_html}
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet summary-cards-reportlet" id="{self.reportlet_id}">
             {title_html}
             <div class="card-grid columns-{self.columns}">
                 {"".join(card_items)}
             </div>
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -556,31 +570,31 @@ class ParameterListReportlet(BaseReportlet):
                 formatted_name = name.replace("_", " ").title()
                 formatted_value = self._format_value(value)
                 rows.append(
-                    f'''<tr>
+                    f"""<tr>
                         <td class="param-name">{formatted_name}</td>
                         <td class="param-value">{formatted_value}</td>
-                    </tr>'''
+                    </tr>"""
                 )
 
             category_sections.append(
-                f'''
+                f"""
                 <div class="parameter-category">
                     <h4>{category}</h4>
                     <table class="data-table compact">
                         <tbody>{"".join(rows)}</tbody>
                     </table>
                 </div>
-                '''
+                """
             )
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
-        return f'''
+        return f"""
         <div class="reportlet parameter-list-reportlet" id="{self.reportlet_id}">
             {title_html}
             {"".join(category_sections)}
         </div>
-        '''
+        """
 
     def to_dict(self) -> Dict[str, Any]:
         return {

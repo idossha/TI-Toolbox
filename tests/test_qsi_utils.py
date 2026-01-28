@@ -33,20 +33,26 @@ class TestResolveHostProjectPath:
 
     def test_resolve_with_local_project_dir_set(self):
         """Test path resolution when LOCAL_PROJECT_DIR is set."""
-        with patch.dict(os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}):
+        with patch.dict(
+            os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}
+        ):
             # Test full path transformation
             result = resolve_host_project_path("/mnt/myproject/derivatives/qsiprep")
             assert result == "/home/user/myproject/derivatives/qsiprep"
 
     def test_resolve_root_mount_path(self):
         """Test path resolution for the root mount path."""
-        with patch.dict(os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}):
+        with patch.dict(
+            os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}
+        ):
             result = resolve_host_project_path("/mnt/myproject")
             assert result == "/home/user/myproject"
 
     def test_resolve_non_mount_path(self):
         """Test that non-mount paths are returned unchanged."""
-        with patch.dict(os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}):
+        with patch.dict(
+            os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/myproject"}
+        ):
             result = resolve_host_project_path("/some/other/path")
             assert result == "/some/other/path"
 
@@ -64,7 +70,9 @@ class TestGetHostProjectDir:
 
     def test_get_with_env_var_set(self):
         """Test getting host project dir when env var is set."""
-        with patch.dict(os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/project"}):
+        with patch.dict(
+            os.environ, {const.ENV_LOCAL_PROJECT_DIR: "/home/user/project"}
+        ):
             result = get_host_project_dir()
             assert result == "/home/user/project"
 
@@ -90,7 +98,9 @@ class TestCheckDockerAvailable:
         """Test when Docker daemon is not running."""
         with patch("shutil.which", return_value="/usr/bin/docker"):
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=1, stderr="daemon not running")
+                mock_run.return_value = MagicMock(
+                    returncode=1, stderr="daemon not running"
+                )
                 available, message = check_docker_available()
                 assert available is False
                 assert "daemon" in message.lower()
@@ -107,9 +117,12 @@ class TestCheckDockerAvailable:
     def test_docker_timeout(self):
         """Test when Docker command times out."""
         import subprocess
+
         with patch("shutil.which", return_value="/usr/bin/docker"):
             with patch("subprocess.run") as mock_run:
-                mock_run.side_effect = subprocess.TimeoutExpired(cmd="docker", timeout=10)
+                mock_run.side_effect = subprocess.TimeoutExpired(
+                    cmd="docker", timeout=10
+                )
                 available, message = check_docker_available()
                 assert available is False
                 assert "timed out" in message.lower()
@@ -189,9 +202,12 @@ class TestPullImageIfNeeded:
     def test_pull_timeout(self, mock_logger):
         """Test image pull timeout."""
         import subprocess
+
         with patch("tit.pre.qsi.utils.check_image_exists", return_value=False):
             with patch("subprocess.run") as mock_run:
-                mock_run.side_effect = subprocess.TimeoutExpired(cmd="docker", timeout=1800)
+                mock_run.side_effect = subprocess.TimeoutExpired(
+                    cmd="docker", timeout=1800
+                )
                 result = pull_image_if_needed("pennlinc/qsiprep", "1.1.1", mock_logger)
                 assert result is False
                 mock_logger.error.assert_called()

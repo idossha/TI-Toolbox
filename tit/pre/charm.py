@@ -148,9 +148,7 @@ def run_subject_atlas(
     m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
 
     if not m2m_dir.exists():
-        raise PreprocessError(
-            f"m2m folder not found at {m2m_dir}. Run charm first."
-        )
+        raise PreprocessError(f"m2m folder not found at {m2m_dir}. Run charm first.")
 
     # Output directory for atlas segmentation
     output_dir = m2m_dir / "segmentation"
@@ -159,14 +157,19 @@ def run_subject_atlas(
     if runner is None:
         runner = CommandRunner()
 
-    logger.info(f"Running subject_atlas for subject {subject_id} with atlases: {', '.join(ATLASES)}")
+    logger.info(
+        f"Running subject_atlas for subject {subject_id} with atlases: {', '.join(ATLASES)}"
+    )
 
     for atlas in ATLASES:
         cmd = [
             "subject_atlas",
-            "-m", str(m2m_dir),
-            "-a", atlas,
-            "-o", str(output_dir),
+            "-m",
+            str(m2m_dir),
+            "-a",
+            atlas,
+            "-o",
+            str(output_dir),
         ]
 
         logger.info(f"  Creating {atlas} atlas...")

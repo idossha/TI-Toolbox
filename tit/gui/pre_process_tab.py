@@ -41,7 +41,10 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
             inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
         except Exception:
-            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
+            inherited_cpus, inherited_mem_gb = (
+                const.QSI_DEFAULT_CPUS,
+                const.QSI_DEFAULT_MEMORY_GB,
+            )
 
         # Output resolution
         resolution_layout = QtWidgets.QHBoxLayout()
@@ -72,7 +75,9 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
         self.omp_threads_spin = QtWidgets.QSpinBox()
         self.omp_threads_spin.setRange(1, multiprocessing.cpu_count())
-        self.omp_threads_spin.setValue(self.config.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS))
+        self.omp_threads_spin.setValue(
+            self.config.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS)
+        )
         resource_layout.addRow("OMP Threads:", self.omp_threads_spin)
 
         layout.addWidget(resource_group)
@@ -83,19 +88,25 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
         self.denoise_combo = QtWidgets.QComboBox()
         self.denoise_combo.addItems(["dwidenoise", "patch2self", "none"])
-        self.denoise_combo.setCurrentText(self.config.get("denoise_method", "dwidenoise"))
+        self.denoise_combo.setCurrentText(
+            self.config.get("denoise_method", "dwidenoise")
+        )
         self.denoise_combo.setToolTip("Denoising method to apply to DWI data")
         options_layout.addRow("Denoise Method:", self.denoise_combo)
 
         self.unringing_combo = QtWidgets.QComboBox()
         self.unringing_combo.addItems(["mrdegibbs", "rpg", "none"])
-        self.unringing_combo.setCurrentText(self.config.get("unringing_method", "mrdegibbs"))
+        self.unringing_combo.setCurrentText(
+            self.config.get("unringing_method", "mrdegibbs")
+        )
         self.unringing_combo.setToolTip("Gibbs ringing removal method")
         options_layout.addRow("Unringing Method:", self.unringing_combo)
 
         self.skip_bids_cb = QtWidgets.QCheckBox()
         self.skip_bids_cb.setChecked(self.config.get("skip_bids_validation", True))
-        self.skip_bids_cb.setToolTip("Skip BIDS validation (useful for non-BIDS datasets)")
+        self.skip_bids_cb.setToolTip(
+            "Skip BIDS validation (useful for non-BIDS datasets)"
+        )
         options_layout.addRow("Skip BIDS Validation:", self.skip_bids_cb)
 
         layout.addWidget(options_group)
@@ -133,7 +144,10 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
             inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
         except Exception:
-            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
+            inherited_cpus, inherited_mem_gb = (
+                const.QSI_DEFAULT_CPUS,
+                const.QSI_DEFAULT_MEMORY_GB,
+            )
         self.resolution_spin.setValue(const.QSI_DEFAULT_OUTPUT_RESOLUTION)
         self.cpus_spin.setValue(inherited_cpus)
         self.memory_spin.setValue(inherited_mem_gb)
@@ -175,7 +189,10 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
             inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
         except Exception:
-            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
+            inherited_cpus, inherited_mem_gb = (
+                const.QSI_DEFAULT_CPUS,
+                const.QSI_DEFAULT_MEMORY_GB,
+            )
 
         # Reconstruction specs group
         specs_group = QtWidgets.QGroupBox("Reconstruction Specifications")
@@ -203,6 +220,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         self.atlas_checkboxes = {}
         # Use QSIReconConfig defaults for atlases
         from tit.pre.qsi.config import QSIReconConfig
+
         temp_config = QSIReconConfig(subject_id="temp")
         default_atlases = self.config.get("atlases", temp_config.atlases) or []
 
@@ -237,7 +255,9 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
         self.gpu_cb = QtWidgets.QCheckBox()
         self.gpu_cb.setChecked(self.config.get("use_gpu", False))
-        self.gpu_cb.setToolTip("Enable GPU acceleration (requires NVIDIA Docker runtime)")
+        self.gpu_cb.setToolTip(
+            "Enable GPU acceleration (requires NVIDIA Docker runtime)"
+        )
         options_layout.addRow("Use GPU:", self.gpu_cb)
 
         self.skip_odf_cb = QtWidgets.QCheckBox()
@@ -276,6 +296,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
             cb.setChecked(spec == "mrtrix_multishell_msmt_ACT-fast")
         # Reset atlas checkboxes to QSIReconConfig defaults
         from tit.pre.qsi.config import QSIReconConfig
+
         temp_config = QSIReconConfig(subject_id="temp")
         default_atlases = temp_config.atlases or []
         for atlas, cb in self.atlas_checkboxes.items():
@@ -285,7 +306,10 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
             inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
         except Exception:
-            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
+            inherited_cpus, inherited_mem_gb = (
+                const.QSI_DEFAULT_CPUS,
+                const.QSI_DEFAULT_MEMORY_GB,
+            )
         self.cpus_spin.setValue(inherited_cpus)
         self.memory_spin.setValue(inherited_mem_gb)
         self.gpu_cb.setChecked(False)
@@ -304,11 +328,16 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         # Use QSIReconConfig defaults if nothing selected
         if not selected_atlases:
             from tit.pre.qsi.config import QSIReconConfig
+
             temp_config = QSIReconConfig(subject_id="temp")
             selected_atlases = temp_config.atlases
 
         return {
-            "recon_specs": selected_specs if selected_specs else ["mrtrix_multishell_msmt_ACT-fast"],
+            "recon_specs": (
+                selected_specs
+                if selected_specs
+                else ["mrtrix_multishell_msmt_ACT-fast"]
+            ),
             "atlases": selected_atlases,
             "cpus": self.cpus_spin.value(),
             "memory_gb": self.memory_spin.value(),
@@ -617,7 +646,9 @@ class PreProcessTab(QtWidgets.QWidget):
         qsiprep_layout.addWidget(self.run_qsiprep_cb)
 
         self.qsiprep_config_btn = QtWidgets.QPushButton()
-        self.qsiprep_config_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView))
+        self.qsiprep_config_btn.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
+        )
         self.qsiprep_config_btn.setFixedSize(24, 24)
         self.qsiprep_config_btn.setToolTip("Configure QSIPrep parameters")
         self.qsiprep_config_btn.clicked.connect(self.open_qsiprep_config)
@@ -635,7 +666,9 @@ class PreProcessTab(QtWidgets.QWidget):
         qsirecon_layout.addWidget(self.run_qsirecon_cb)
 
         self.qsirecon_config_btn = QtWidgets.QPushButton()
-        self.qsirecon_config_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView))
+        self.qsirecon_config_btn.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
+        )
         self.qsirecon_config_btn.setFixedSize(24, 24)
         self.qsirecon_config_btn.setToolTip("Configure QSIRecon parameters")
         self.qsirecon_config_btn.clicked.connect(self.open_qsirecon_config)
@@ -978,7 +1011,9 @@ class PreProcessTab(QtWidgets.QWidget):
             f"- Run tissue analyzer: {self.run_tissue_analyzer_cb.isChecked()}", "debug"
         )
         self.update_output(f"- Run QSIPrep: {self.run_qsiprep_cb.isChecked()}", "debug")
-        self.update_output(f"- Run QSIRecon: {self.run_qsirecon_cb.isChecked()}", "debug")
+        self.update_output(
+            f"- Run QSIRecon: {self.run_qsirecon_cb.isChecked()}", "debug"
+        )
         self.update_output(f"- Extract DTI: {self.extract_dti_cb.isChecked()}", "debug")
         self.update_output(f"- Debug mode: {self.debug_mode}", "debug")
 

@@ -104,8 +104,6 @@ class ResourceConfig:
     """
 
     # If None, the DooD container will inherit the *current container's*
-    # cgroup limits (CPU/memory). This prevents hard-coded caps (e.g. 32GB)
-    # from unintentionally starving sibling containers.
     cpus: Optional[int] = None
     memory_gb: Optional[int] = None
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
@@ -190,8 +188,12 @@ class QSIReconConfig:
     """
 
     subject_id: str
-    recon_specs: List[str] = field(default_factory=lambda: ["mrtrix_multishell_msmt_ACT-fast"])
-    atlases: Optional[List[str]] = field(default_factory=lambda: ["Schaefer100", "AAL116"])
+    recon_specs: List[str] = field(
+        default_factory=lambda: ["mrtrix_multishell_msmt_ACT-fast"]
+    )
+    atlases: Optional[List[str]] = field(
+        default_factory=lambda: ["Schaefer100", "AAL116"]
+    )
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     image_tag: str = const.QSI_DEFAULT_IMAGE_TAG
@@ -202,14 +204,12 @@ class QSIReconConfig:
             raise ValueError("subject_id is required")
         if not self.recon_specs:
             raise ValueError("At least one recon_spec is required")
-        # Validate recon specs
         valid_specs = set(const.QSI_RECON_SPECS)
         for spec in self.recon_specs:
             if spec not in valid_specs:
                 raise ValueError(
                     f"Unknown recon spec: {spec}. Valid specs: {valid_specs}"
                 )
-        # Validate atlases if provided
         if self.atlases:
             valid_atlases = set(const.QSI_ATLASES)
             for atlas in self.atlases:

@@ -145,16 +145,18 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         if isinstance(status, StatusType):
             status = status.value
 
-        self.processing_steps.append({
-            "name": step_name,
-            "description": description,
-            "parameters": parameters or {},
-            "status": status,
-            "duration": duration,
-            "output_files": output_files or [],
-            "figures": figures or [],
-            "error_message": error_message,
-        })
+        self.processing_steps.append(
+            {
+                "name": step_name,
+                "description": description,
+                "parameters": parameters or {},
+                "status": status,
+                "duration": duration,
+                "output_files": output_files or [],
+                "figures": figures or [],
+                "error_message": error_message,
+            }
+        )
 
         # Track errors
         if status == "failed" and error_message:
@@ -178,13 +180,15 @@ class PreprocessingReportGenerator(BaseReportGenerator):
             caption: Image caption
             image_type: Type of QC image
         """
-        self.qc_images.append({
-            "title": title,
-            "base64_data": base64_data,
-            "step_name": step_name,
-            "caption": caption,
-            "image_type": image_type,
-        })
+        self.qc_images.append(
+            {
+                "title": title,
+                "base64_data": base64_data,
+                "step_name": step_name,
+                "caption": caption,
+                "image_type": image_type,
+            }
+        )
 
     def scan_for_data(self) -> None:
         """
@@ -239,8 +243,14 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         if any("simnibs" in s or "charm" in s or "m2m" in s for s in step_names):
             # Try multiple possible paths
             m2m_paths = [
-                derivatives_dir / "SimNIBS" / f"sub-{self.subject_id}" / f"m2m_{self.subject_id}",
-                derivatives_dir / "simnibs" / f"sub-{self.subject_id}" / f"m2m_{self.subject_id}",
+                derivatives_dir
+                / "SimNIBS"
+                / f"sub-{self.subject_id}"
+                / f"m2m_{self.subject_id}",
+                derivatives_dir
+                / "simnibs"
+                / f"sub-{self.subject_id}"
+                / f"m2m_{self.subject_id}",
                 derivatives_dir / "simnibs" / f"m2m_sub-{self.subject_id}",
             ]
             for m2m_dir in m2m_paths:
@@ -289,7 +299,9 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         )
 
         # Processing steps
-        completed = sum(1 for s in self.processing_steps if s.get("status") == "completed")
+        completed = sum(
+            1 for s in self.processing_steps if s.get("status") == "completed"
+        )
         total = len(self.processing_steps)
         cards.add_card(
             label="Steps",
@@ -304,9 +316,7 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         )
 
         # Total duration
-        total_duration = sum(
-            s.get("duration", 0) or 0 for s in self.processing_steps
-        )
+        total_duration = sum(s.get("duration", 0) or 0 for s in self.processing_steps)
         if total_duration > 3600:
             duration_str = f"{total_duration / 3600:.1f}h"
         elif total_duration > 60:
@@ -336,11 +346,13 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         input_rows = []
         for data_type, data_info in self.input_data.items():
             files = data_info.get("file_paths", [])
-            input_rows.append({
-                "Data Type": data_type,
-                "Files": len(files),
-                "Path": files[0] if files else "—",
-            })
+            input_rows.append(
+                {
+                    "Data Type": data_type,
+                    "Files": len(files),
+                    "Path": files[0] if files else "—",
+                }
+            )
 
         input_table = TableReportlet(
             data=input_rows,
@@ -388,11 +400,13 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         output_rows = []
         for data_type, data_info in self.output_data.items():
             files = data_info.get("file_paths", [])
-            output_rows.append({
-                "Data Type": data_type,
-                "Files/Dirs": len(files),
-                "Path": files[0] if files else "—",
-            })
+            output_rows.append(
+                {
+                    "Data Type": data_type,
+                    "Files/Dirs": len(files),
+                    "Path": files[0] if files else "—",
+                }
+            )
 
         output_table = TableReportlet(
             data=output_rows,
@@ -444,7 +458,9 @@ class PreprocessingReportGenerator(BaseReportGenerator):
             params["freesurfer_version"] = self.software_versions["freesurfer"]
         if "simnibs" in self.software_versions:
             params["simnibs_version"] = self.software_versions["simnibs"]
-        if "qsiprep" in self.output_data or "qsiprep" in [s["name"].lower() for s in self.processing_steps]:
+        if "qsiprep" in self.output_data or "qsiprep" in [
+            s["name"].lower() for s in self.processing_steps
+        ]:
             params["qsiprep_version"] = self.software_versions.get("qsiprep", "")
 
         return params

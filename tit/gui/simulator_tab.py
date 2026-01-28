@@ -3344,16 +3344,40 @@ class SimulatorTab(QtWidgets.QWidget):
         """Get conductivity values formatted for the simulation report."""
         # Default SimNIBS conductivity values
         conductivities = {
-            1: {"name": "White Matter", "conductivity": 0.126, "reference": "SimNIBS default"},
-            2: {"name": "Gray Matter", "conductivity": 0.275, "reference": "SimNIBS default"},
+            1: {
+                "name": "White Matter",
+                "conductivity": 0.126,
+                "reference": "SimNIBS default",
+            },
+            2: {
+                "name": "Gray Matter",
+                "conductivity": 0.275,
+                "reference": "SimNIBS default",
+            },
             3: {"name": "CSF", "conductivity": 1.654, "reference": "SimNIBS default"},
             4: {"name": "Bone", "conductivity": 0.01, "reference": "SimNIBS default"},
             5: {"name": "Scalp", "conductivity": 0.465, "reference": "SimNIBS default"},
-            6: {"name": "Eye balls", "conductivity": 0.5, "reference": "SimNIBS default"},
-            7: {"name": "Compact Bone", "conductivity": 0.008, "reference": "SimNIBS default"},
-            8: {"name": "Spongy Bone", "conductivity": 0.025, "reference": "SimNIBS default"},
+            6: {
+                "name": "Eye balls",
+                "conductivity": 0.5,
+                "reference": "SimNIBS default",
+            },
+            7: {
+                "name": "Compact Bone",
+                "conductivity": 0.008,
+                "reference": "SimNIBS default",
+            },
+            8: {
+                "name": "Spongy Bone",
+                "conductivity": 0.025,
+                "reference": "SimNIBS default",
+            },
             9: {"name": "Blood", "conductivity": 0.6, "reference": "SimNIBS default"},
-            10: {"name": "Muscle", "conductivity": 0.16, "reference": "SimNIBS default"},
+            10: {
+                "name": "Muscle",
+                "conductivity": 0.16,
+                "reference": "SimNIBS default",
+            },
         }
 
         # Override with any custom values

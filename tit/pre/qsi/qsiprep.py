@@ -138,9 +138,7 @@ def run_qsiprep(
         raise PreprocessError(f"Failed to build QSIPrep command: {e}")
 
     # Ensure image is available
-    if not pull_image_if_needed(
-        const.QSI_QSIPREP_IMAGE, image_tag, logger
-    ):
+    if not pull_image_if_needed(const.QSI_QSIPREP_IMAGE, image_tag, logger):
         raise PreprocessError(
             f"Failed to pull QSIPrep image: {const.QSI_QSIPREP_IMAGE}:{image_tag}"
         )

@@ -258,7 +258,9 @@ class TestDockerCommandBuilder:
 class TestDockerCommandBuilderNoLicense:
     """Tests for DockerCommandBuilder without FreeSurfer license."""
 
-    def test_build_cmd_without_license(self, mock_docker_available, mock_host_project_dir):
+    def test_build_cmd_without_license(
+        self, mock_docker_available, mock_host_project_dir
+    ):
         """Test command construction without FreeSurfer license."""
         with patch("tit.pre.qsi.docker_builder.get_freesurfer_license_path") as mock:
             mock.return_value = None

@@ -55,7 +55,9 @@ def run_tissue_analysis(
         analyzer_logger.setLevel(logging.INFO)
 
         # Run analysis directly using the module
-        analyzer = TissueAnalyzer(nifti_path, tissue_output_dir, tissue_type, analyzer_logger)
+        analyzer = TissueAnalyzer(
+            nifti_path, tissue_output_dir, tissue_type, analyzer_logger
+        )
         results = analyzer.analyze()
 
         result = timer.stop(success=True)
@@ -177,6 +179,7 @@ def main():
     except Exception as e:
         logger.error(f"Benchmark failed: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         sys.exit(1)
 

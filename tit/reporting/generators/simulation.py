@@ -165,11 +165,13 @@ class SimulationReportGenerator(BaseReportGenerator):
             m2m_path: Path to the m2m folder
             status: Subject processing status
         """
-        self.subjects.append({
-            "subject_id": subject_id,
-            "m2m_path": m2m_path,
-            "status": status,
-        })
+        self.subjects.append(
+            {
+                "subject_id": subject_id,
+                "m2m_path": m2m_path,
+                "status": status,
+            }
+        )
 
     def add_montage(
         self,
@@ -185,11 +187,13 @@ class SimulationReportGenerator(BaseReportGenerator):
             electrode_pairs: List of electrode pair specifications
             montage_type: Type of montage (TI, mTI, unipolar, multipolar)
         """
-        self.montages.append({
-            "name": montage_name,
-            "electrode_pairs": self._normalize_electrode_pairs(electrode_pairs),
-            "type": montage_type,
-        })
+        self.montages.append(
+            {
+                "name": montage_name,
+                "electrode_pairs": self._normalize_electrode_pairs(electrode_pairs),
+                "type": montage_type,
+            }
+        )
 
     def _normalize_electrode_pairs(
         self,
@@ -223,9 +227,11 @@ class SimulationReportGenerator(BaseReportGenerator):
                 intensity = (
                     pair.get("intensity")
                     if pair.get("intensity") is not None
-                    else pair.get("current")
-                    if pair.get("current") is not None
-                    else pair.get("value")
+                    else (
+                        pair.get("current")
+                        if pair.get("current") is not None
+                        else pair.get("value")
+                    )
                 )
 
                 pair_list = (
@@ -250,12 +256,14 @@ class SimulationReportGenerator(BaseReportGenerator):
             else:
                 electrode1 = str(pair)
 
-            normalized.append({
-                "name": name,
-                "electrode1": "" if electrode1 is None else str(electrode1),
-                "electrode2": "" if electrode2 is None else str(electrode2),
-                "intensity": intensity,
-            })
+            normalized.append(
+                {
+                    "name": name,
+                    "electrode1": "" if electrode1 is None else str(electrode1),
+                    "electrode2": "" if electrode2 is None else str(electrode2),
+                    "intensity": intensity,
+                }
+            )
 
         self._apply_default_intensities(normalized)
         return normalized
@@ -390,14 +398,16 @@ class SimulationReportGenerator(BaseReportGenerator):
             title: Image title
             caption: Image caption
         """
-        self.visualizations.append({
-            "subject_id": subject_id,
-            "montage_name": montage_name,
-            "image_type": image_type,
-            "base64_data": base64_data,
-            "title": title,
-            "caption": caption,
-        })
+        self.visualizations.append(
+            {
+                "subject_id": subject_id,
+                "montage_name": montage_name,
+                "image_type": image_type,
+                "base64_data": base64_data,
+                "title": title,
+                "caption": caption,
+            }
+        )
 
     def _build_summary_section(self) -> None:
         """Build the summary section."""
@@ -421,7 +431,8 @@ class SimulationReportGenerator(BaseReportGenerator):
         )
 
         completed = sum(
-            1 for r in self.simulation_results.values()
+            1
+            for r in self.simulation_results.values()
             if r.get("status") == "completed"
         )
         cards.add_card(
@@ -450,12 +461,16 @@ class SimulationReportGenerator(BaseReportGenerator):
         param_list = ParameterListReportlet(title="Configuration")
 
         # Simulation parameters
-        sim_params = {k: v for k, v in self.simulation_parameters.items() if v is not None}
+        sim_params = {
+            k: v for k, v in self.simulation_parameters.items() if v is not None
+        }
         if sim_params:
             param_list.add_category("Simulation", sim_params)
 
         # Electrode parameters
-        elec_params = {k: v for k, v in self.electrode_parameters.items() if v is not None}
+        elec_params = {
+            k: v for k, v in self.electrode_parameters.items() if v is not None
+        }
         if elec_params:
             param_list.add_category("Electrodes", elec_params)
 
@@ -474,7 +489,9 @@ class SimulationReportGenerator(BaseReportGenerator):
 
         cond_table = ConductivityTableReportlet(
             conductivities=self.conductivities,
-            conductivity_type=self.simulation_parameters.get("conductivity_type", "scalar"),
+            conductivity_type=self.simulation_parameters.get(
+                "conductivity_type", "scalar"
+            ),
         )
         section.add_reportlet(cond_table)
 
@@ -503,7 +520,10 @@ class SimulationReportGenerator(BaseReportGenerator):
 
             # Find visualization for this montage
             for viz in self.visualizations:
-                if viz.get("montage_name") == montage["name"] and viz.get("image_type") == "montage":
+                if (
+                    viz.get("montage_name") == montage["name"]
+                    and viz.get("image_type") == "montage"
+                ):
                     montage_reportlet.set_base64_data(viz["base64_data"])
                     break
 
@@ -526,12 +546,14 @@ class SimulationReportGenerator(BaseReportGenerator):
             duration_str = (
                 f"{result['duration']:.1f}s" if result.get("duration") else "—"
             )
-            results_data.append({
-                "Subject": result["subject_id"],
-                "Montage": result["montage_name"],
-                "Status": result["status"],
-                "Duration": duration_str,
-            })
+            results_data.append(
+                {
+                    "Subject": result["subject_id"],
+                    "Montage": result["montage_name"],
+                    "Status": result["status"],
+                    "Duration": duration_str,
+                }
+            )
 
         if results_data:
             results_table = TableReportlet(
@@ -576,11 +598,13 @@ class SimulationReportGenerator(BaseReportGenerator):
 
         subjects_data = []
         for subj in self.subjects:
-            subjects_data.append({
-                "Subject ID": subj["subject_id"],
-                "M2M Path": subj.get("m2m_path", "—"),
-                "Status": subj.get("status", "pending"),
-            })
+            subjects_data.append(
+                {
+                    "Subject ID": subj["subject_id"],
+                    "M2M Path": subj.get("m2m_path", "—"),
+                    "Status": subj.get("status", "pending"),
+                }
+            )
 
         if subjects_data:
             subjects_table = TableReportlet(
@@ -593,12 +617,16 @@ class SimulationReportGenerator(BaseReportGenerator):
     def _get_methods_parameters(self) -> Dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
-        params.update({
-            "conductivity_type": self.simulation_parameters.get("conductivity_type"),
-            "electrode_shape": self.electrode_parameters.get("shape"),
-            "electrode_size": self.electrode_parameters.get("dimensions"),
-            "intensity": self.simulation_parameters.get("intensity_ch1"),
-        })
+        params.update(
+            {
+                "conductivity_type": self.simulation_parameters.get(
+                    "conductivity_type"
+                ),
+                "electrode_shape": self.electrode_parameters.get("shape"),
+                "electrode_size": self.electrode_parameters.get("dimensions"),
+                "intensity": self.simulation_parameters.get("intensity_ch1"),
+            }
+        )
         return params
 
     def _build_report(self) -> None:

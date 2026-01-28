@@ -152,10 +152,14 @@ class ReportAssembler:
         parts = []
 
         if self.metadata.subject_id:
-            parts.append(f'<span>Subject: <strong>{self.metadata.subject_id}</strong></span>')
+            parts.append(
+                f"<span>Subject: <strong>{self.metadata.subject_id}</strong></span>"
+            )
 
         if self.metadata.session_id:
-            parts.append(f'<span>Session: <strong>{self.metadata.session_id}</strong></span>')
+            parts.append(
+                f"<span>Session: <strong>{self.metadata.session_id}</strong></span>"
+            )
 
         parts.append(
             f'<span>Generated: <strong>{self.metadata.generation_time.strftime("%Y-%m-%d %H:%M:%S")}</strong></span>'

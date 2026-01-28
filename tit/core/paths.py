@@ -220,7 +220,7 @@ class PathManager:
         return os.environ.get(const.ENV_PROJECT_DIR_NAME)
 
     # -------------------------------------------------------------------------
-    # Fast template-based resolver 
+    # Fast template-based resolver
     # -------------------------------------------------------------------------
 
     _TEMPLATES = {

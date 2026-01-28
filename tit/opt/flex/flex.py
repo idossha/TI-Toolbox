@@ -422,9 +422,9 @@ def main() -> int:
                         "non_roi_method": args.non_roi_method,
                         "non_roi_coordinates": non_roi_coords,
                         "non_roi_radius": non_roi_radius,
-                        "non_roi_coordinate_space": "MNI"
-                        if use_mni_coords_non_roi
-                        else "subject",
+                        "non_roi_coordinate_space": (
+                            "MNI" if use_mni_coords_non_roi else "subject"
+                        ),
                     }
                 )
         elif roi_method == "atlas":
@@ -434,8 +434,11 @@ def main() -> int:
             roi_data.update(
                 {
                     "hemisphere": hemisphere,
-                    "atlas": _atlas_name_from_path(atlas_path, hemisphere) or atlas_path,
-                    "atlas_label": int(atlas_label) if atlas_label is not None else None,
+                    "atlas": _atlas_name_from_path(atlas_path, hemisphere)
+                    or atlas_path,
+                    "atlas_label": (
+                        int(atlas_label) if atlas_label is not None else None
+                    ),
                 }
             )
             if args.goal == "focality" and args.non_roi_method == "specific":
@@ -443,12 +446,14 @@ def main() -> int:
                 non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH", "")
                 roi_data.update(
                     {
-                        "non_roi_atlas": os.path.basename(non_roi_atlas_path)
-                        if non_roi_atlas_path
-                        else None,
-                        "non_roi_label": int(non_roi_label)
-                        if non_roi_label is not None
-                        else None,
+                        "non_roi_atlas": (
+                            os.path.basename(non_roi_atlas_path)
+                            if non_roi_atlas_path
+                            else None
+                        ),
+                        "non_roi_label": (
+                            int(non_roi_label) if non_roi_label is not None else None
+                        ),
                     }
                 )
         else:  # subcortical
@@ -456,10 +461,14 @@ def main() -> int:
             volume_label = os.getenv("VOLUME_ROI_LABEL")
             roi_data.update(
                 {
-                    "volume_atlas": os.path.basename(volume_atlas_path)
-                    if volume_atlas_path
-                    else None,
-                    "volume_label": int(volume_label) if volume_label is not None else None,
+                    "volume_atlas": (
+                        os.path.basename(volume_atlas_path)
+                        if volume_atlas_path
+                        else None
+                    ),
+                    "volume_label": (
+                        int(volume_label) if volume_label is not None else None
+                    ),
                 }
             )
             if args.goal == "focality" and args.non_roi_method == "specific":
@@ -467,12 +476,14 @@ def main() -> int:
                 non_roi_label = os.getenv("VOLUME_NON_ROI_LABEL")
                 roi_data.update(
                     {
-                        "non_roi_atlas": os.path.basename(non_roi_atlas_path)
-                        if non_roi_atlas_path
-                        else None,
-                        "non_roi_label": int(non_roi_label)
-                        if non_roi_label is not None
-                        else None,
+                        "non_roi_atlas": (
+                            os.path.basename(non_roi_atlas_path)
+                            if non_roi_atlas_path
+                            else None
+                        ),
+                        "non_roi_label": (
+                            int(non_roi_label) if non_roi_label is not None else None
+                        ),
                     }
                 )
 

@@ -49,6 +49,7 @@ class TestFindDtiTensorFile:
 
         with patch.dict("sys.modules", {"nibabel": MagicMock()}):
             import sys
+
             sys.modules["nibabel"].load.return_value = mock_img
 
             result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
@@ -68,6 +69,7 @@ class TestFindDtiTensorFile:
 
         with patch.dict("sys.modules", {"nibabel": MagicMock()}):
             import sys
+
             sys.modules["nibabel"].load.return_value = mock_img
 
             result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
@@ -86,6 +88,7 @@ class TestFindDtiTensorFile:
 
         with patch.dict("sys.modules", {"nibabel": MagicMock()}):
             import sys
+
             sys.modules["nibabel"].load.return_value = mock_img
 
             result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
@@ -115,6 +118,7 @@ class TestFindDtiTensorFile:
 
         with patch.dict("sys.modules", {"nibabel": MagicMock()}):
             import sys
+
             sys.modules["nibabel"].load.return_value = mock_img
 
             result = _find_dti_tensor_file(tmp_path, "001", mock_logger)
@@ -248,7 +252,9 @@ class TestExtractDtiTensor:
         # Create a mock nibabel module
         mock_nib = MagicMock()
         mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(np.float32)
+        mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(
+            np.float32
+        )
         mock_img.affine = np.eye(4)
         mock_img.header = MagicMock()
         mock_img.shape = (10, 10, 10, 6)
@@ -379,7 +385,9 @@ class TestExtractDtiTensor:
         # Create a mock nibabel module
         mock_nib = MagicMock()
         mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(np.float32)
+        mock_img.get_fdata.return_value = np.random.rand(10, 10, 10, 6).astype(
+            np.float32
+        )
         mock_img.affine = np.eye(4)
         mock_img.header = MagicMock()
         mock_img.shape = (10, 10, 10, 6)
@@ -408,9 +416,7 @@ class TestExtractDtiTensor:
                             "tit.pre.qsi.dti_extractor._find_dti_tensor_file",
                             return_value=dti_tensor_file,
                         ) as mock_find_dti:
-                            with patch(
-                                "tit.pre.qsi.dti_extractor.shutil.copy2"
-                            ):
+                            with patch("tit.pre.qsi.dti_extractor.shutil.copy2"):
                                 extract_dti_tensor(
                                     project_dir=str(tmp_path),
                                     subject_id="001",

@@ -64,7 +64,9 @@ def prompt_dir(label: str, prompt: str, current: str) -> Path:
     while True:
         if current:
             print(f"Current {label}: {current}")
-            new_val = input("Press Enter to use this directory or enter a new path:\n").strip()
+            new_val = input(
+                "Press Enter to use this directory or enter a new path:\n"
+            ).strip()
             if new_val:
                 current = new_val
         else:
@@ -106,11 +108,23 @@ def check_xquartz_version() -> None:
     except Exception:
         return
     if version and version > "2.8.0":
-        print("Warning: XQuartz version is above 2.8.0. Consider 2.7.7 for compatibility.")
+        print(
+            "Warning: XQuartz version is above 2.8.0. Consider 2.7.7 for compatibility."
+        )
 
 
 def allow_network_clients() -> None:
-    run(["defaults", "write", "org.macosforge.xquartz.X11", "nolisten_tcp", "-bool", "false"], check=False)
+    run(
+        [
+            "defaults",
+            "write",
+            "org.macosforge.xquartz.X11",
+            "nolisten_tcp",
+            "-bool",
+            "false",
+        ],
+        check=False,
+    )
     if not is_process_running("XQuartz"):
         print("WARNING: XQuartz is NOT running. Start XQuartz if you need GUI support.")
 
@@ -228,7 +242,9 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
         return
     try:
         existing = set(
-            capture(["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]).splitlines()
+            capture(
+                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
+            ).splitlines()
         )
     except Exception:
         existing = set()
@@ -236,12 +252,16 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
     if not missing:
         return
     print("Pulling required Docker images...")
-    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env)
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env
+    )
 
 
 def run_docker_compose(env: dict[str, str], dev_codebase_dir: Path) -> None:
     print("Starting services...")
-    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "up", "-d"], env=env)
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "up", "-d"], env=env
+    )
 
     print("Waiting for services to initialize...")
     time.sleep(3)
@@ -310,7 +330,9 @@ def main() -> None:
     project_dir = (
         Path(os.path.expanduser(args.project_dir)).resolve()
         if args.project_dir
-        else prompt_dir("project directory", "Give path to local project dir:", default_project)
+        else prompt_dir(
+            "project directory", "Give path to local project dir:", default_project
+        )
     )
     dev_codebase_dir = (
         Path(os.path.expanduser(args.dev_codebase_dir)).resolve()

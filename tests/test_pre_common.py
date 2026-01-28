@@ -80,7 +80,9 @@ class TestEnsureSubjectDirs:
 
         # Verify all modalities and directories were created
         calls = mock_pm.ensure_dir.call_args_list
-        assert len(calls) == 6  # T1w, T2w, bids_anat, freesurfer_subject, simnibs_subject, ti_toolbox
+        assert (
+            len(calls) == 6
+        )  # T1w, T2w, bids_anat, freesurfer_subject, simnibs_subject, ti_toolbox
 
         # Check sourcedata_dicom for both modalities
         assert call("sourcedata_dicom", subject_id=subject_id, modality="T1w") in calls
@@ -130,9 +132,24 @@ class TestDatasetDescriptions:
             ensure_dataset_descriptions(project_dir, datasets)
 
             # Check that files were created
-            fs_file = Path(project_dir) / "derivatives" / "freesurfer" / "dataset_description.json"
-            simnibs_file = Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
-            tit_file = Path(project_dir) / "derivatives" / "ti-toolbox" / "dataset_description.json"
+            fs_file = (
+                Path(project_dir)
+                / "derivatives"
+                / "freesurfer"
+                / "dataset_description.json"
+            )
+            simnibs_file = (
+                Path(project_dir)
+                / "derivatives"
+                / "SimNIBS"
+                / "dataset_description.json"
+            )
+            tit_file = (
+                Path(project_dir)
+                / "derivatives"
+                / "ti-toolbox"
+                / "dataset_description.json"
+            )
 
             assert fs_file.exists()
             assert simnibs_file.exists()
@@ -161,7 +178,7 @@ class TestDatasetDescriptions:
                 "BIDSVersion": "1.10.0",
                 "DatasetType": "derivative",
                 "SourceDatasets": [{"URI": ""}],
-                "DatasetLinks": {}
+                "DatasetLinks": {},
             }
             fs_file.write_text(json.dumps(initial_data, indent=2))
 
@@ -182,7 +199,12 @@ class TestDatasetDescriptions:
 
             ensure_dataset_descriptions(project_dir, ["simnibs"])
 
-            simnibs_file = Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
+            simnibs_file = (
+                Path(project_dir)
+                / "derivatives"
+                / "SimNIBS"
+                / "dataset_description.json"
+            )
             data = json.loads(simnibs_file.read_text())
 
             assert "DatasetLinks" in data
@@ -240,7 +262,7 @@ class TestBuildLogger:
                 subject_id="001",
                 project_dir=tmpdir,
                 debug=False,
-                console=True
+                console=True,
             )
 
             # Verify PathManager was used
@@ -273,7 +295,7 @@ class TestBuildLogger:
                 step_name="test_step",
                 subject_id="001",
                 project_dir=tmpdir,
-                log_file=custom_log_file
+                log_file=custom_log_file,
             )
 
             # Verify custom log file was used
@@ -295,10 +317,7 @@ class TestBuildLogger:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = build_logger(
-                step_name="test_step",
-                subject_id="001",
-                project_dir=tmpdir,
-                debug=True
+                step_name="test_step", subject_id="001", project_dir=tmpdir, debug=True
             )
 
             # Verify debug level was set on stream handler
@@ -444,7 +463,12 @@ class TestCommandRunner:
         logger = MagicMock()
 
         mock_stdout = MagicMock()
-        mock_stdout.readline.side_effect = ["output line 1\n", "output line 2\n", "output line 3\n", ""]
+        mock_stdout.readline.side_effect = [
+            "output line 1\n",
+            "output line 2\n",
+            "output line 3\n",
+            "",
+        ]
         mock_process = MagicMock()
         mock_process.stdout = mock_stdout
         mock_process.wait.return_value = 0
@@ -506,6 +530,7 @@ class TestCommandRunner:
         # Mock stdout that yields lines, then sets stop event
         mock_stdout = MagicMock()
         call_count = 0
+
         def readline_side_effect():
             nonlocal call_count
             call_count += 1
@@ -535,7 +560,11 @@ class TestCommandRunner:
         logger = MagicMock()
 
         mock_stdout = MagicMock()
-        mock_stdout.readline.side_effect = ["  line with spaces  \n", "\tline with tabs\t\n", ""]
+        mock_stdout.readline.side_effect = [
+            "  line with spaces  \n",
+            "\tline with tabs\t\n",
+            "",
+        ]
         mock_process = MagicMock()
         mock_process.stdout = mock_stdout
         mock_process.wait.return_value = 0
@@ -623,6 +652,7 @@ class TestTerminateProcess:
 
         # Verify killpg was called with SIGTERM
         import signal
+
         mock_killpg.assert_called_once_with(12345, signal.SIGTERM)
 
     @patch("os.name", "nt")

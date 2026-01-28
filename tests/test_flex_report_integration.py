@@ -52,7 +52,9 @@ def test_flex_main_triggers_report_generation(tmp_path, monkeypatch):
         return SimpleNamespace(output_folder=str(base_output))
 
     monkeypatch.setattr(flex_module.flex_config, "parse_arguments", lambda: args)
-    monkeypatch.setattr(flex_module.flex_config, "build_optimization", build_optimization)
+    monkeypatch.setattr(
+        flex_module.flex_config, "build_optimization", build_optimization
+    )
     monkeypatch.setattr(
         flex_module.flex_config, "configure_optimizer_options", lambda *_a, **_k: None
     )
@@ -60,8 +62,12 @@ def test_flex_main_triggers_report_generation(tmp_path, monkeypatch):
         flex_module, "configure_external_loggers", lambda *_a, **_k: None
     )
 
-    monkeypatch.setattr(flex_module.multi_start, "run_single_optimization", lambda *_a, **_k: 1.0)
-    monkeypatch.setattr(flex_module.multi_start, "copy_best_solution", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        flex_module.multi_start, "run_single_optimization", lambda *_a, **_k: 1.0
+    )
+    monkeypatch.setattr(
+        flex_module.multi_start, "copy_best_solution", lambda *_a, **_k: True
+    )
     monkeypatch.setattr(
         flex_module.multi_start,
         "create_single_optimization_summary_file",
@@ -79,7 +85,9 @@ def test_flex_main_triggers_report_generation(tmp_path, monkeypatch):
     ]:
         monkeypatch.setattr(flex_module.flex_log, name, lambda *_a, **_k: None)
 
-    monkeypatch.setattr(flex_module.flex_log, "setup_logger", lambda *_a, **_k: MagicMock())
+    monkeypatch.setattr(
+        flex_module.flex_log, "setup_logger", lambda *_a, **_k: MagicMock()
+    )
 
     calls = {"generated": False}
 
