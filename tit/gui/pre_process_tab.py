@@ -35,6 +35,13 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
     def setup_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
+        # Use DooD-inherited defaults (current container limits) unless user overrides.
+        try:
+            from tit.pre.qsi.utils import get_inherited_dood_resources
+
+            inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        except Exception:
+            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
 
         # Output resolution
         resolution_layout = QtWidgets.QHBoxLayout()
@@ -54,12 +61,12 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
         self.cpus_spin = QtWidgets.QSpinBox()
         self.cpus_spin.setRange(1, multiprocessing.cpu_count())
-        self.cpus_spin.setValue(self.config.get("cpus", const.QSI_DEFAULT_CPUS))
+        self.cpus_spin.setValue(self.config.get("cpus", inherited_cpus))
         resource_layout.addRow("CPUs:", self.cpus_spin)
 
         self.memory_spin = QtWidgets.QSpinBox()
-        self.memory_spin.setRange(4, 256)
-        self.memory_spin.setValue(self.config.get("memory_gb", const.QSI_DEFAULT_MEMORY_GB))
+        self.memory_spin.setRange(4, max(256, int(inherited_mem_gb)))
+        self.memory_spin.setValue(self.config.get("memory_gb", inherited_mem_gb))
         self.memory_spin.setSuffix(" GB")
         resource_layout.addRow("Memory:", self.memory_spin)
 
@@ -121,9 +128,15 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
 
     def reset_defaults(self):
         """Reset all settings to defaults."""
+        try:
+            from tit.pre.qsi.utils import get_inherited_dood_resources
+
+            inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        except Exception:
+            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
         self.resolution_spin.setValue(const.QSI_DEFAULT_OUTPUT_RESOLUTION)
-        self.cpus_spin.setValue(const.QSI_DEFAULT_CPUS)
-        self.memory_spin.setValue(const.QSI_DEFAULT_MEMORY_GB)
+        self.cpus_spin.setValue(inherited_cpus)
+        self.memory_spin.setValue(inherited_mem_gb)
         self.omp_threads_spin.setValue(const.QSI_DEFAULT_OMP_THREADS)
         self.denoise_combo.setCurrentText("dwidenoise")
         self.unringing_combo.setCurrentText("mrdegibbs")
@@ -157,6 +170,12 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
     def setup_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
+        try:
+            from tit.pre.qsi.utils import get_inherited_dood_resources
+
+            inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        except Exception:
+            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
 
         # Reconstruction specs group
         specs_group = QtWidgets.QGroupBox("Reconstruction Specifications")
@@ -201,12 +220,12 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
         self.cpus_spin = QtWidgets.QSpinBox()
         self.cpus_spin.setRange(1, multiprocessing.cpu_count())
-        self.cpus_spin.setValue(self.config.get("cpus", const.QSI_DEFAULT_CPUS))
+        self.cpus_spin.setValue(self.config.get("cpus", inherited_cpus))
         resource_layout.addRow("CPUs:", self.cpus_spin)
 
         self.memory_spin = QtWidgets.QSpinBox()
-        self.memory_spin.setRange(4, 256)
-        self.memory_spin.setValue(self.config.get("memory_gb", const.QSI_DEFAULT_MEMORY_GB))
+        self.memory_spin.setRange(4, max(256, int(inherited_mem_gb)))
+        self.memory_spin.setValue(self.config.get("memory_gb", inherited_mem_gb))
         self.memory_spin.setSuffix(" GB")
         resource_layout.addRow("Memory:", self.memory_spin)
 
@@ -261,8 +280,14 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         default_atlases = temp_config.atlases or []
         for atlas, cb in self.atlas_checkboxes.items():
             cb.setChecked(atlas in default_atlases)
-        self.cpus_spin.setValue(const.QSI_DEFAULT_CPUS)
-        self.memory_spin.setValue(const.QSI_DEFAULT_MEMORY_GB)
+        try:
+            from tit.pre.qsi.utils import get_inherited_dood_resources
+
+            inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        except Exception:
+            inherited_cpus, inherited_mem_gb = const.QSI_DEFAULT_CPUS, const.QSI_DEFAULT_MEMORY_GB
+        self.cpus_spin.setValue(inherited_cpus)
+        self.memory_spin.setValue(inherited_mem_gb)
         self.gpu_cb.setChecked(False)
         self.skip_odf_cb.setChecked(True)
         self.tag_edit.setText(const.QSI_DEFAULT_IMAGE_TAG)
@@ -312,6 +337,7 @@ class PreProcessThread(QtCore.QThread):
         run_tissue_analysis: bool,
         run_qsiprep: bool = False,
         run_qsirecon: bool = False,
+        qsiprep_config: dict = None,
         qsi_recon_config: dict = None,
         extract_dti: bool = False,
         debug_mode: bool,
@@ -328,6 +354,7 @@ class PreProcessThread(QtCore.QThread):
         self.run_tissue_analysis = run_tissue_analysis
         self.run_qsiprep = run_qsiprep
         self.run_qsirecon = run_qsirecon
+        self.qsiprep_config = qsiprep_config
         self.qsi_recon_config = qsi_recon_config
         self.extract_dti = extract_dti
         self.debug_mode = debug_mode
@@ -356,6 +383,7 @@ class PreProcessThread(QtCore.QThread):
                 run_tissue_analysis=self.run_tissue_analysis,
                 run_qsiprep=self.run_qsiprep,
                 run_qsirecon=self.run_qsirecon,
+                qsiprep_config=self.qsiprep_config,
                 qsi_recon_config=self.qsi_recon_config,
                 extract_dti=self.extract_dti,
                 debug=self.debug_mode,
@@ -959,6 +987,11 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.run_qsirecon_cb.isChecked() and self.qsirecon_config:
             qsi_recon_config = self.qsirecon_config
 
+        # Get QSIPrep config
+        qsiprep_config = None
+        if self.run_qsiprep_cb.isChecked() and self.qsiprep_config:
+            qsiprep_config = self.qsiprep_config
+
         # Create and start the thread
         self.processing_thread = PreProcessThread(
             self.project_dir,
@@ -971,6 +1004,7 @@ class PreProcessTab(QtWidgets.QWidget):
             run_tissue_analysis=self.run_tissue_analyzer_cb.isChecked(),
             run_qsiprep=self.run_qsiprep_cb.isChecked(),
             run_qsirecon=self.run_qsirecon_cb.isChecked(),
+            qsiprep_config=qsiprep_config,
             qsi_recon_config=qsi_recon_config,
             extract_dti=self.extract_dti_cb.isChecked(),
             debug_mode=self.debug_mode,

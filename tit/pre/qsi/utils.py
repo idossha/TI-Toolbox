@@ -11,6 +11,7 @@ for the QSI Docker-out-of-Docker integration.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import shutil
 import subprocess
@@ -332,3 +333,161 @@ def format_memory_limit(memory_gb: int) -> str:
         Formatted memory string (e.g., '32g').
     """
     return f"{memory_gb}g"
+
+
+def _read_first_line(path: str) -> Optional[str]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.readline().strip()
+    except Exception:
+        return None
+
+
+def _parse_cpuset(value: str) -> Optional[int]:
+    """
+    Parse cpuset string like '0-3,6,8-9' to an integer count.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+
+    count = 0
+    for part in value.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            try:
+                start = int(start_s)
+                end = int(end_s)
+            except ValueError:
+                return None
+            if end < start:
+                return None
+            count += end - start + 1
+        else:
+            try:
+                int(part)
+            except ValueError:
+                return None
+            count += 1
+    return count or None
+
+
+def _get_total_mem_bytes_from_proc() -> Optional[int]:
+    """
+    Read total system memory visible inside the current container.
+    """
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    # MemTotal:      154457636 kB
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        kb = int(parts[1])
+                        return kb * 1024
+    except Exception:
+        return None
+    return None
+
+
+def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
+    """
+    Return (cpu_limit, mem_limit_bytes) for the *current* container.
+
+    - cpu_limit: integer number of CPUs available via cgroups/cpuset if limited,
+      otherwise None.
+    - mem_limit_bytes: memory limit in bytes via cgroups if limited,
+      otherwise None.
+    """
+    # ---- Memory ----
+    mem_limit_bytes: Optional[int] = None
+
+    # cgroup v2
+    mem_max = _read_first_line("/sys/fs/cgroup/memory.max")
+    if mem_max and mem_max != "max":
+        try:
+            val = int(mem_max)
+            # Treat extremely large values as effectively unlimited
+            if val > 1 << 60:
+                mem_limit_bytes = None
+            else:
+                mem_limit_bytes = val
+        except ValueError:
+            mem_limit_bytes = None
+    else:
+        # cgroup v1
+        mem_v1 = _read_first_line("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+        if mem_v1:
+            try:
+                val = int(mem_v1)
+                if val > 1 << 60:
+                    mem_limit_bytes = None
+                else:
+                    mem_limit_bytes = val
+            except ValueError:
+                mem_limit_bytes = None
+
+    # ---- CPU ----
+    cpu_limit: Optional[int] = None
+
+    # Prefer cpuset if present
+    cpuset = _read_first_line("/sys/fs/cgroup/cpuset.cpus.effective") or _read_first_line(
+        "/sys/fs/cgroup/cpuset/cpuset.cpus"
+    )
+    cpuset_count = _parse_cpuset(cpuset) if cpuset else None
+    if cpuset_count:
+        cpu_limit = cpuset_count
+
+    # cgroup v2 cpu.max
+    cpu_max = _read_first_line("/sys/fs/cgroup/cpu.max")
+    if cpu_max and cpu_max.strip():
+        parts = cpu_max.split()
+        if len(parts) >= 2 and parts[0] != "max":
+            try:
+                quota = int(parts[0])
+                period = int(parts[1])
+                if quota > 0 and period > 0:
+                    derived = max(1, math.floor(quota / period))
+                    cpu_limit = min(cpu_limit, derived) if cpu_limit else derived
+            except ValueError:
+                pass
+    else:
+        # cgroup v1 cpu quota
+        quota_s = _read_first_line("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
+        period_s = _read_first_line("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+        if quota_s and period_s:
+            try:
+                quota = int(quota_s)
+                period = int(period_s)
+                if quota > 0 and period > 0:
+                    derived = max(1, math.floor(quota / period))
+                    cpu_limit = min(cpu_limit, derived) if cpu_limit else derived
+            except ValueError:
+                pass
+
+    return cpu_limit, mem_limit_bytes
+
+
+def get_inherited_dood_resources() -> Tuple[int, int]:
+    """
+    Determine DooD resource defaults that match the current container.
+
+    Returns (cpus, memory_gb) with conservative rounding.
+    """
+    cpu_limit, mem_limit_bytes = get_container_resource_limits()
+
+    cpus = cpu_limit or (os.cpu_count() or 1)
+
+    if mem_limit_bytes is None:
+        mem_limit_bytes = _get_total_mem_bytes_from_proc()
+
+    if mem_limit_bytes is None:
+        # Last-resort fallback: keep existing historical default
+        return int(cpus), int(const.QSI_DEFAULT_MEMORY_GB)
+
+    # Convert bytes -> GiB (floor), ensure minimum 4GB
+    mem_gb = max(4, int(mem_limit_bytes // (1024**3)))
+    return int(cpus), int(mem_gb)

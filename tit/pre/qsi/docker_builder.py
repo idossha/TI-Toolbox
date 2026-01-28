@@ -10,6 +10,7 @@ handling volume mounts, resource allocation, and pipeline arguments.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -20,6 +21,7 @@ from .utils import (
     check_docker_available,
     get_host_project_dir,
     get_freesurfer_license_path,
+    get_inherited_dood_resources,
     format_memory_limit,
 )
 
@@ -99,6 +101,13 @@ class DockerCommandBuilder:
             Complete Docker command as a list of arguments.
         """
         image = f"{const.QSI_QSIPREP_IMAGE}:{config.image_tag}"
+        inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        effective_cpus = config.resources.cpus if config.resources.cpus is not None else inherited_cpus
+        effective_mem_gb = (
+            config.resources.memory_gb
+            if config.resources.memory_gb is not None
+            else inherited_mem_gb
+        )
 
         # Build base docker run command
         cmd = [
@@ -106,16 +115,16 @@ class DockerCommandBuilder:
             "run",
             "--rm",
             "--name",
-            f"qsiprep_{config.subject_id}",
+            f"qsiprep_{config.subject_id}_{uuid.uuid4().hex[:8]}",
         ]
 
         # Resource limits
         cmd.extend(
             [
                 "--cpus",
-                str(config.resources.cpus),
+                str(effective_cpus),
                 "--memory",
-                format_memory_limit(config.resources.memory_gb),
+                format_memory_limit(effective_mem_gb),
             ]
         )
 
@@ -170,9 +179,9 @@ class DockerCommandBuilder:
         cmd.extend(["-w", self.paths.work_dir])
 
         # Resource settings
-        cmd.extend(["--nthreads", str(config.resources.cpus)])
+        cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
-        cmd.extend(["--mem-mb", str(config.resources.memory_gb * 1024)])
+        cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
         # FreeSurfer license
         if self._fs_license:
@@ -214,6 +223,13 @@ class DockerCommandBuilder:
             Complete Docker command as a list of arguments.
         """
         image = f"{const.QSI_QSIRECON_IMAGE}:{config.image_tag}"
+        inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
+        effective_cpus = config.resources.cpus if config.resources.cpus is not None else inherited_cpus
+        effective_mem_gb = (
+            config.resources.memory_gb
+            if config.resources.memory_gb is not None
+            else inherited_mem_gb
+        )
 
         # Build base docker run command
         cmd = [
@@ -221,7 +237,7 @@ class DockerCommandBuilder:
             "run",
             "--rm",
             "--name",
-            f"qsirecon_{config.subject_id}_{recon_spec.replace('-', '_')}",
+            f"qsirecon_{config.subject_id}_{recon_spec.replace('-', '_')}_{uuid.uuid4().hex[:8]}",
         ]
 
         # GPU support
@@ -232,9 +248,9 @@ class DockerCommandBuilder:
         cmd.extend(
             [
                 "--cpus",
-                str(config.resources.cpus),
+                str(effective_cpus),
                 "--memory",
-                format_memory_limit(config.resources.memory_gb),
+                format_memory_limit(effective_mem_gb),
             ]
         )
 
@@ -294,9 +310,9 @@ class DockerCommandBuilder:
         cmd.extend(["-w", self.paths.work_dir])
 
         # Resource settings
-        cmd.extend(["--nthreads", str(config.resources.cpus)])
+        cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
-        cmd.extend(["--mem-mb", str(config.resources.memory_gb * 1024)])
+        cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
         # FreeSurfer license
         if self._fs_license:

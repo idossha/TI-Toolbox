@@ -9,6 +9,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Optional
 
+from tit.core import constants as const
 from tit.core import get_path_manager
 from .charm import run_charm, run_subject_atlas
 from .common import (
@@ -51,6 +52,7 @@ def _run_subject_pipeline(
     run_tissue: bool,
     run_qsiprep_step: bool,
     run_qsirecon_step: bool,
+    qsiprep_config: Optional[dict],
     qsi_recon_config: Optional[dict],
     extract_dti_step: bool,
     debug: bool,
@@ -157,12 +159,25 @@ def _run_subject_pipeline(
 
     # QSI pipeline steps (DWI preprocessing)
     if run_qsiprep_step:
+        qsiprep_cfg = qsiprep_config or {}
         overall_success &= _run_step(
             "QSIPrep DWI preprocessing",
             lambda: run_qsiprep(
                 project_dir,
                 subject_id,
                 logger=logger,
+                output_resolution=qsiprep_cfg.get(
+                    "output_resolution", const.QSI_DEFAULT_OUTPUT_RESOLUTION
+                ),
+                cpus=qsiprep_cfg.get("cpus"),
+                memory_gb=qsiprep_cfg.get("memory_gb"),
+                omp_threads=qsiprep_cfg.get(
+                    "omp_threads", const.QSI_DEFAULT_OMP_THREADS
+                ),
+                image_tag=qsiprep_cfg.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG),
+                skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
+                denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
+                unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
                 overwrite=policy.overwrite,
                 runner=runner,
             ),
@@ -171,8 +186,9 @@ def _run_subject_pipeline(
 
     if run_qsirecon_step:
         # Extract recon specs and atlases from config
-        recon_specs = qsi_recon_config.get("recon_specs") if qsi_recon_config else None
-        atlases = qsi_recon_config.get("atlases") if qsi_recon_config else None
+        recon_cfg = qsi_recon_config or {}
+        recon_specs = recon_cfg.get("recon_specs") if recon_cfg else None
+        atlases = recon_cfg.get("atlases") if recon_cfg else None
         overall_success &= _run_step(
             "QSIRecon reconstruction",
             lambda: run_qsirecon(
@@ -181,6 +197,12 @@ def _run_subject_pipeline(
                 logger=logger,
                 recon_specs=recon_specs,
                 atlases=atlases,
+                use_gpu=recon_cfg.get("use_gpu", False),
+                cpus=recon_cfg.get("cpus"),
+                memory_gb=recon_cfg.get("memory_gb"),
+                omp_threads=recon_cfg.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS),
+                image_tag=recon_cfg.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG),
+                skip_odf_reports=recon_cfg.get("skip_odf_reports", True),
                 overwrite=policy.overwrite,
                 runner=runner,
             ),
@@ -221,6 +243,7 @@ def run_pipeline(
     run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
+    qsiprep_config: Optional[dict] = None,
     qsi_recon_config: Optional[dict] = None,
     extract_dti: bool = False,
     debug: bool = False,
@@ -312,6 +335,7 @@ def run_pipeline(
                     run_tissue=False,
                     run_qsiprep_step=False,
                     run_qsirecon_step=False,
+                    qsiprep_config=qsiprep_config,
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=False,
                     debug=debug,
@@ -343,6 +367,7 @@ def run_pipeline(
                         run_tissue=False,
                         run_qsiprep_step=False,
                         run_qsirecon_step=False,
+                        qsiprep_config=qsiprep_config,
                         qsi_recon_config=qsi_recon_config,
                         extract_dti_step=False,
                         debug=debug,
@@ -373,6 +398,7 @@ def run_pipeline(
                         run_tissue=True,
                         run_qsiprep_step=False,
                         run_qsirecon_step=False,
+                        qsiprep_config=qsiprep_config,
                         qsi_recon_config=qsi_recon_config,
                         extract_dti_step=False,
                         debug=debug,
@@ -400,6 +426,7 @@ def run_pipeline(
                         run_tissue=False,
                         run_qsiprep_step=run_qsiprep,
                         run_qsirecon_step=run_qsirecon,
+                        qsiprep_config=qsiprep_config,
                         qsi_recon_config=qsi_recon_config,
                         extract_dti_step=extract_dti,
                         debug=debug,
@@ -426,6 +453,7 @@ def run_pipeline(
                     run_tissue=run_tissue_analysis,
                     run_qsiprep_step=run_qsiprep,
                     run_qsirecon_step=run_qsirecon,
+                    qsiprep_config=qsiprep_config,
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=extract_dti,
                     debug=debug,

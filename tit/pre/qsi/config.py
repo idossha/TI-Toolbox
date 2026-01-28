@@ -103,14 +103,17 @@ class ResourceConfig:
         Number of OpenMP threads (affects ANTS, MRtrix, etc.).
     """
 
-    cpus: int = const.QSI_DEFAULT_CPUS
-    memory_gb: int = const.QSI_DEFAULT_MEMORY_GB
+    # If None, the DooD container will inherit the *current container's*
+    # cgroup limits (CPU/memory). This prevents hard-coded caps (e.g. 32GB)
+    # from unintentionally starving sibling containers.
+    cpus: Optional[int] = None
+    memory_gb: Optional[int] = None
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
 
     def __post_init__(self) -> None:
-        if self.cpus < 1:
+        if self.cpus is not None and self.cpus < 1:
             raise ValueError("cpus must be >= 1")
-        if self.memory_gb < 4:
+        if self.memory_gb is not None and self.memory_gb < 4:
             raise ValueError("memory_gb must be >= 4")
         if self.omp_threads < 1:
             raise ValueError("omp_threads must be >= 1")
