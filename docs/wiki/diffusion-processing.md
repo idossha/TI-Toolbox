@@ -6,6 +6,9 @@ permalink: /wiki/diffusion-processing/
 
 The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
 
+
+## This is currently not available in the official release but is availble via the `loader_dev` script. If you are interested in using this before the official release comes out, please reach out via email.
+
 ## Overview
 
 Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue, particularly white matter. The diffusion processing pipeline consists of three main stages:
