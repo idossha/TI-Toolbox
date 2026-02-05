@@ -85,24 +85,12 @@ def _collect_env_info() -> Dict[str, Any]:
         "cwd": os.getcwd(),
         "numpy_version": np.__version__,
     }
-    try:
         import sklearn  # type: ignore
-
         info["sklearn_version"] = sklearn.__version__
-    except Exception:
-        info["sklearn_version"] = "not_installed"
-    try:
         import nibabel  # type: ignore
-
         info["nibabel_version"] = nibabel.__version__
-    except Exception:
-        info["nibabel_version"] = "not_installed"
-    try:
         import nilearn  # type: ignore
-
         info["nilearn_version"] = nilearn.__version__
-    except Exception:
-        info["nilearn_version"] = "not_installed"
     return info
 
 
