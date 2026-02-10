@@ -1,0 +1,276 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author Ido Haber
+    Version 2.2.4
+    Description TI-Toolbox combined image (SimNIBS 4.5 + FreeSurfer 7.4.1) for HPC deployment
+    URL https://github.com/idossha/TI-toolbox
+
+%environment
+    export DEBIAN_FRONTEND=noninteractive
+    export FREESURFER_HOME=/usr/local/freesurfer
+    export SUBJECTS_DIR=/usr/local/freesurfer/subjects
+    export PATH="/usr/local/freesurfer/bin:$PATH"
+    export SIMNIBSDIR=/opt/SimNIBS-4.5
+    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
+    export PATH="/ti-toolbox/tit/cli:$PATH"
+    export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
+    export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+    export KMP_AFFINITY=disabled
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ================================================================
+    # System packages
+    # ================================================================
+    apt-get update && apt-get install -y \
+        # Core system utilities
+        wget \
+        git \
+        unzip \
+        tar \
+        bzip2 \
+        curl \
+        gettext \
+        locales \
+        fontconfig \
+        tzdata \
+        \
+        # Build tools and compilers
+        build-essential \
+        gcc \
+        g++ \
+        gcc-10 \
+        g++-10 \
+        cmake \
+        ninja-build \
+        libtool \
+        libtool-bin \
+        autoconf \
+        automake \
+        pkg-config \
+        \
+        # System libraries
+        libglib2.0-0 \
+        libopenblas-dev \
+        \
+        # OpenGL and Mesa libraries (for 3D graphics)
+        libgl1-mesa-glx \
+        libglu1-mesa \
+        mesa-utils \
+        libgl1-mesa-dri \
+        libglapi-mesa \
+        libosmesa6 \
+        libegl1-mesa \
+        libgbm1 \
+        \
+        # X11 libraries (for GUI via ssh -X)
+        libxt6 \
+        libxext6 \
+        libxrender1 \
+        libxrandr2 \
+        libxfixes3 \
+        libxcursor1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxi6 \
+        libxmu6 \
+        libxft2 \
+        libice6 \
+        libsm6 \
+        \
+        # Qt5 libraries (for PyQt5 GUI)
+        libqt5widgets5 \
+        libqt5gui5 \
+        libqt5core5a \
+        libqt5svg5 \
+        libqt5opengl5 \
+        qtbase5-dev \
+        qtbase5-dev-tools \
+        qtchooser \
+        \
+        # GTK libraries
+        libgtk2.0-0 \
+        \
+        # Minimal CLI tools
+        bc \
+        jq \
+        vim \
+        dos2unix \
+        \
+        # Neuroimaging tools
+        dcm2niix \
+        tcsh \
+        \
+        # FreeSurfer runtime deps
+        libgomp1 \
+        libx11-6 \
+        libjpeg62 \
+        libtiff5 \
+        perl-modules \
+        ca-certificates \
+        \
+        && locale-gen en_US.UTF-8 \
+        && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+    # ================================================================
+    # FreeSurfer 7.4.1
+    # ================================================================
+    export FREESURFER_HOME=/usr/local/freesurfer
+    mkdir -p $FREESURFER_HOME
+
+    wget --progress=bar:force:noscroll \
+        https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.4.1/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz \
+        -P /tmp \
+        && tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp \
+        && mv /tmp/freesurfer/* $FREESURFER_HOME/ \
+        && rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
+
+    # ================================================================
+    # SimNIBS 4.5
+    # ================================================================
+    export OMP_NUM_THREADS=1
+    export KMP_AFFINITY=disabled
+
+    mkdir -p /simnibs && chmod -R 755 /simnibs
+    wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
+        && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
+        && /simnibs/simnibs_installer/install -s
+
+    # Move SimNIBS to /opt for multi-user access and symlink back
+    mv /root/SimNIBS-4.5 /opt/SimNIBS-4.5
+    ln -s /opt/SimNIBS-4.5 /root/SimNIBS-4.5
+
+    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
+    export SIMNIBSDIR=/opt/SimNIBS-4.5
+
+    # Clean up installer
+    rm -rf /simnibs
+
+    # Additional Python packages
+    simnibs_python -m pip install --no-cache-dir \
+        meshio nilearn PyOpenGL-accelerate trimesh seaborn \
+        scikit-image numpy-stl click bpy
+
+    # ================================================================
+    # TI-Toolbox
+    # ================================================================
+    git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+
+    # Convert shell scripts to Unix line endings
+    find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
+
+    # Extra EEG electrode caps
+    mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+    cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+
+    # Flex extension
+    rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
+        $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+
+    # Install TIT package
+    cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
+
+%runscript
+    # Source FreeSurfer
+    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+    fi
+
+    # Setup XDG runtime dir
+    export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+
+    # Auto-detect project directory from /mnt
+    if [ -z "$PROJECT_DIR" ] && [ -d /mnt ]; then
+        for d in /mnt/*/; do
+            if [ -d "$d" ]; then
+                export PROJECT_DIR="$d"
+                break
+            fi
+        done
+    fi
+
+    if [ $# -eq 0 ]; then
+        echo ""
+        echo "================================================================"
+        echo "  TI-Toolbox (Apptainer) - Interactive Session"
+        echo "================================================================"
+        echo ""
+        echo "  SimNIBS:    $SIMNIBSDIR"
+        echo "  FreeSurfer: $FREESURFER_HOME"
+        echo "  TI-Toolbox: /ti-toolbox"
+        if [ -n "$PROJECT_DIR" ]; then
+            echo "  Project:    $PROJECT_DIR"
+        fi
+        echo ""
+        exec /bin/bash --norc --init-file /dev/stdin <<'INITEOF'
+# Source FreeSurfer
+[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+# CLI aliases
+alias GUI='simnibs_python -m tit.cli.gui'
+alias analyzer='simnibs_python -m tit.cli.analyzer'
+alias ex_search='simnibs_python -m tit.cli.ex_search'
+alias flex_search='simnibs_python -m tit.cli.flex_search'
+alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
+alias pre_process='simnibs_python -m tit.cli.pre_process'
+alias simulator='simnibs_python -m tit.cli.simulator'
+alias blender='simnibs_python -m tit.cli.vis_blender'
+alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
+alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
+PS1='[tit] \w \$ '
+INITEOF
+    else
+        exec "$@"
+    fi
+
+%test
+    # Verify SimNIBS
+    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
+    simnibs_python -c "import simnibs; print('SimNIBS', simnibs.__version__)" || exit 1
+
+    # Verify TI-Toolbox
+    simnibs_python -c "import tit; print('TI-Toolbox', tit.__version__)" || exit 1
+
+    # Verify FreeSurfer binaries
+    test -d /usr/local/freesurfer/bin || exit 1
+    echo "FreeSurfer directory OK"
+
+    echo "All smoke tests passed."
+
+%help
+    TI-Toolbox: Temporal Interference Stimulation Toolbox for HPC
+
+    This image contains SimNIBS 4.5, FreeSurfer 7.4.1, and TI-Toolbox
+    pre-installed for high-performance computing environments.
+
+    Usage:
+      # Interactive session
+      apptainer run --bind /path/to/project:/mnt/project ti-toolbox.sif
+
+      # Run a specific command
+      apptainer exec --bind /path/to/project:/mnt/project ti-toolbox.sif \
+          simnibs_python -m tit.cli.simulator --help
+
+      # With FreeSurfer license
+      apptainer run \
+          --bind /path/to/project:/mnt/project \
+          --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro \
+          ti-toolbox.sif
+
+    FreeSurfer License:
+      The FreeSurfer license is NOT included in the image.
+      Bind-mount your license.txt at runtime:
+        --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro
+
+    Environment Variables:
+      FREESURFER_HOME=/usr/local/freesurfer
+      SIMNIBSDIR=/opt/SimNIBS-4.5
+      OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+
+    For full documentation, see:
+      https://github.com/idossha/TI-toolbox
