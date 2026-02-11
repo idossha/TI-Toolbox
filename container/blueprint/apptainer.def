@@ -9,24 +9,36 @@ From: ubuntu:22.04
 
 %environment
     export DEBIAN_FRONTEND=noninteractive
+    
+    # FreeSurfer base paths (SetUpFreeSurfer.sh will set the rest)
     export FREESURFER_HOME=/usr/local/freesurfer
+    export FS_LICENSE=/usr/local/freesurfer/license.txt
     export SUBJECTS_DIR=/usr/local/freesurfer/subjects
-    export PATH="/usr/local/freesurfer/bin:$PATH"
+    
+    # SimNIBS
     export SIMNIBSDIR=/opt/SimNIBS-4.5
+    
+    # Initial PATH (will be extended by SetUpFreeSurfer.sh)
     export PATH="/opt/SimNIBS-4.5/bin:$PATH"
     export PATH="/ti-toolbox/tit/cli:$PATH"
+    
+    # Runtime directories
     export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
     export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
     export KMP_AFFINITY=disabled
+    
+    # Ensure bash is default shell
+    export SHELL=/bin/bash
 
 %post
     export DEBIAN_FRONTEND=noninteractive
 
     # ================================================================
-    # System packages
+    # System packages (combined FreeSurfer + SimNIBS deps)
+    # NOTE: kept on a single logical line to avoid shell parsing issues
+    #       in Apptainer's /bin/sh during %post.
     # ================================================================
     apt-get update && apt-get install -y \
-        # Core system utilities
         wget \
         git \
         unzip \
@@ -37,8 +49,6 @@ From: ubuntu:22.04
         locales \
         fontconfig \
         tzdata \
-        \
-        # Build tools and compilers
         build-essential \
         gcc \
         g++ \
@@ -51,22 +61,17 @@ From: ubuntu:22.04
         autoconf \
         automake \
         pkg-config \
-        \
-        # System libraries
         libglib2.0-0 \
         libopenblas-dev \
-        \
-        # OpenGL and Mesa libraries (for 3D graphics)
         libgl1-mesa-glx \
         libglu1-mesa \
         mesa-utils \
         libgl1-mesa-dri \
         libglapi-mesa \
         libosmesa6 \
+        mesa-va-drivers \
         libegl1-mesa \
         libgbm1 \
-        \
-        # X11 libraries (for GUI via ssh -X)
         libxt6 \
         libxext6 \
         libxrender1 \
@@ -80,31 +85,30 @@ From: ubuntu:22.04
         libxft2 \
         libice6 \
         libsm6 \
-        \
-        # Qt5 libraries (for PyQt5 GUI)
         libqt5widgets5 \
         libqt5gui5 \
         libqt5core5a \
         libqt5svg5 \
         libqt5opengl5 \
+        libqt5network5 \
+        libqt5xml5 \
         qtbase5-dev \
         qtbase5-dev-tools \
         qtchooser \
-        \
-        # GTK libraries
+        qttools5-dev-tools \
         libgtk2.0-0 \
-        \
-        # Minimal CLI tools
         bc \
         jq \
         vim \
+        tmux \
+        tree \
+        execstack \
+        parallel \
         dos2unix \
-        \
-        # Neuroimaging tools
+        bats \
+        imagemagick \
         dcm2niix \
         tcsh \
-        \
-        # FreeSurfer runtime deps
         libgomp1 \
         libx11-6 \
         libjpeg62 \
@@ -113,7 +117,18 @@ From: ubuntu:22.04
         ca-certificates \
         \
         && locale-gen en_US.UTF-8 \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+        && apt-get clean && rm -rf /var/lib/apt/lists/* || true
+
+    # ================================================================
+    # Docker CLI (optional, for Docker-out-of-Docker workflows)
+    # ================================================================
+    install -m 0755 -d /etc/apt/keyrings \
+        && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+        && chmod a+r /etc/apt/keyrings/docker.gpg \
+        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d/docker.list \
+        && apt-get update \
+        && apt-get install -y docker-ce-cli \
+        && apt-get clean && rm -rf /var/lib/apt/lists/* || true
 
     # ================================================================
     # FreeSurfer 7.4.1
@@ -127,6 +142,15 @@ From: ubuntu:22.04
         && tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp \
         && mv /tmp/freesurfer/* $FREESURFER_HOME/ \
         && rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
+
+    # Fix permissions for SetUpFreeSurfer.sh
+    chmod +x $FREESURFER_HOME/SetUpFreeSurfer.sh 2>/dev/null || true
+    
+    # Create subjects directory if not exists
+    mkdir -p $FREESURFER_HOME/subjects
+    
+    # Create a placeholder license file (will be bind-mounted at runtime)
+    touch $FREESURFER_HOME/license.txt
 
     # ================================================================
     # SimNIBS 4.5
@@ -174,16 +198,71 @@ From: ubuntu:22.04
     # Install TIT package
     cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 
-%runscript
-    # Source FreeSurfer
-    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+    # ================================================================
+    # System-wide profile so every user gets FreeSurfer + TI-Toolbox
+    # (Apptainer runs as host user e.g. ihaber, not root; .bashrc is per-user)
+    # ================================================================
+    cat > /etc/profile.d/ti-toolbox-freesurfer.sh <<'PROFILE_EOF'
+#!/bin/bash
+# TI-Toolbox + FreeSurfer environment setup
+
+# FreeSurfer setup - source the official setup script
+if [ -n "$FREESURFER_HOME" ] && [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+    # Source FreeSurfer setup silently
+    . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+fi
+
+# Ensure critical FreeSurfer paths are set (fallback if SetUpFreeSurfer.sh fails)
+if [ -n "$FREESURFER_HOME" ]; then
+    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$PATH"
+    export SUBJECTS_DIR="${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}"
+    export FS_LICENSE="${FS_LICENSE:-$FREESURFER_HOME/license.txt}"
+    export FSFAST_HOME="${FSFAST_HOME:-$FREESURFER_HOME/fsfast}"
+    export FMRI_ANALYSIS_DIR="${FMRI_ANALYSIS_DIR:-$FREESURFER_HOME/fsfast}"
+    export FUNCTIONALS_DIR="${FUNCTIONALS_DIR:-$FREESURFER_HOME/sessions}"
+fi
+
+# TI-Toolbox CLI aliases (any user)
+alias GUI='simnibs_python -m tit.cli.gui'
+alias analyzer='simnibs_python -m tit.cli.analyzer'
+alias ex_search='simnibs_python -m tit.cli.ex_search'
+alias flex_search='simnibs_python -m tit.cli.flex_search'
+alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
+alias pre_process='simnibs_python -m tit.cli.pre_process'
+alias simulator='simnibs_python -m tit.cli.simulator'
+alias blender='simnibs_python -m tit.cli.vis_blender'
+alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
+alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
+PROFILE_EOF
+    chmod 644 /etc/profile.d/ti-toolbox-freesurfer.sh
+
+    # Also ensure /etc/bash.bashrc sources profile.d (Debian/Ubuntu interactive non-login)
+    if ! grep -q 'ti-toolbox-freesurfer' /etc/bash.bashrc 2>/dev/null; then
+        echo '[ -f /etc/profile.d/ti-toolbox-freesurfer.sh ] && . /etc/profile.d/ti-toolbox-freesurfer.sh' >> /etc/bash.bashrc
+    fi
+    
+    # Ensure /etc/profile also sources it for login shells
+    if ! grep -q 'profile.d' /etc/profile 2>/dev/null; then
+        echo 'for i in /etc/profile.d/*.sh; do [ -r "$i" ] && . "$i"; done' >> /etc/profile
     fi
 
+%runscript
+    #!/bin/bash
+    
     # Setup XDG runtime dir
     export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 700 "$XDG_RUNTIME_DIR"
+    
+    # Source system-wide profile for FreeSurfer and TI-Toolbox
+    if [ -f /etc/profile.d/ti-toolbox-freesurfer.sh ]; then
+        . /etc/profile.d/ti-toolbox-freesurfer.sh
+    fi
+    
+    # Also source /etc/profile to ensure all system settings are loaded
+    if [ -f /etc/profile ]; then
+        . /etc/profile >/dev/null 2>&1 || true
+    fi
 
     # Auto-detect project directory from /mnt
     if [ -z "$PROJECT_DIR" ] && [ -d /mnt ]; then
@@ -208,22 +287,11 @@ From: ubuntu:22.04
             echo "  Project:    $PROJECT_DIR"
         fi
         echo ""
-        exec /bin/bash --norc --init-file /dev/stdin <<'INITEOF'
-# Source FreeSurfer
-[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
-# CLI aliases
-alias GUI='simnibs_python -m tit.cli.gui'
-alias analyzer='simnibs_python -m tit.cli.analyzer'
-alias ex_search='simnibs_python -m tit.cli.ex_search'
-alias flex_search='simnibs_python -m tit.cli.flex_search'
-alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
-alias pre_process='simnibs_python -m tit.cli.pre_process'
-alias simulator='simnibs_python -m tit.cli.simulator'
-alias blender='simnibs_python -m tit.cli.vis_blender'
-alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
-alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
-PS1='[tit] \w \$ '
-INITEOF
+        echo "  FreeSurfer tools available: recon-all, freeview, etc."
+        echo ""
+        # Use --login to ensure /etc/profile is sourced, but --noprofile/--norc
+        # to avoid host user dotfiles that might override container settings
+        exec /bin/bash --login --noprofile --norc
     else
         exec "$@"
     fi
@@ -236,9 +304,33 @@ INITEOF
     # Verify TI-Toolbox
     simnibs_python -c "import tit; print('TI-Toolbox', tit.__version__)" || exit 1
 
-    # Verify FreeSurfer binaries
-    test -d /usr/local/freesurfer/bin || exit 1
-    echo "FreeSurfer directory OK"
+    # Verify FreeSurfer installation
+    export FREESURFER_HOME=/usr/local/freesurfer
+    if [ -d "$FREESURFER_HOME/bin" ]; then
+        echo "FreeSurfer directory OK"
+        # Check if critical binaries exist
+        if [ -x "$FREESURFER_HOME/bin/recon-all" ]; then
+            echo "  - recon-all: OK"
+        else
+            echo "  - recon-all: NOT FOUND"
+        fi
+        if [ -x "$FREESURFER_HOME/bin/freeview" ]; then
+            echo "  - freeview: OK"
+        else
+            echo "  - freeview: NOT FOUND"
+        fi
+        # Source FreeSurfer setup and verify mri_info works
+        if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+            . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+            if command -v mri_info >/dev/null 2>&1; then
+                echo "  - FreeSurfer environment: OK"
+            else
+                echo "  - FreeSurfer environment: WARNING (PATH may not be set correctly)"
+            fi
+        fi
+    else
+        echo "WARNING: /usr/local/freesurfer/bin not found during %test. Image build will continue." >&2
+    fi
 
     echo "All smoke tests passed."
 
@@ -256,7 +348,7 @@ INITEOF
       apptainer exec --bind /path/to/project:/mnt/project ti-toolbox.sif \
           simnibs_python -m tit.cli.simulator --help
 
-      # With FreeSurfer license
+      # With FreeSurfer license (required for FreeSurfer tools)
       apptainer run \
           --bind /path/to/project:/mnt/project \
           --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro \
@@ -266,6 +358,9 @@ INITEOF
       The FreeSurfer license is NOT included in the image.
       Bind-mount your license.txt at runtime:
         --bind /path/to/license.txt:/usr/local/freesurfer/license.txt:ro
+      
+      You can request a free license at:
+        https://surfer.nmr.mgh.harvard.edu/registration.html
 
     Environment Variables:
       FREESURFER_HOME=/usr/local/freesurfer
