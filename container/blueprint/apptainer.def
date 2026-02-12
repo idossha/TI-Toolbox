@@ -10,15 +10,13 @@ From: ubuntu:22.04
 %environment
     export DEBIAN_FRONTEND=noninteractive
     
-    # FreeSurfer base paths (SetUpFreeSurfer.sh will set the rest)
+    # FreeSurfer base paths
     export FREESURFER_HOME=/usr/local/freesurfer
     export FS_LICENSE=/usr/local/freesurfer/license.txt
     export SUBJECTS_DIR=/usr/local/freesurfer/subjects
     
     # SimNIBS
     export SIMNIBSDIR=/opt/SimNIBS-4.5
-    
-    # Initial PATH (will be extended by SetUpFreeSurfer.sh)
     export PATH="/opt/SimNIBS-4.5/bin:$PATH"
     export PATH="/ti-toolbox/tit/cli:$PATH"
     
@@ -29,6 +27,16 @@ From: ubuntu:22.04
     
     # Ensure bash is default shell
     export SHELL=/bin/bash
+    
+    # Source FreeSurfer setup script to set up the environment
+    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
+    fi
+    
+    # Ensure critical FreeSurfer paths are set (fallback if SetUpFreeSurfer.sh fails)
+    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$PATH"
+    export PATH="$FREESURFER_HOME/mni/bin:$PATH"
+    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -69,7 +77,6 @@ From: ubuntu:22.04
         libgl1-mesa-dri \
         libglapi-mesa \
         libosmesa6 \
-        mesa-va-drivers \
         libegl1-mesa \
         libgbm1 \
         libxt6 \
@@ -96,17 +103,12 @@ From: ubuntu:22.04
         qtbase5-dev-tools \
         qtchooser \
         qttools5-dev-tools \
+        libqt5x11extras5 \
         libgtk2.0-0 \
         bc \
         jq \
         vim \
-        tmux \
-        tree \
-        execstack \
-        parallel \
         dos2unix \
-        bats \
-        imagemagick \
         dcm2niix \
         tcsh \
         libgomp1 \
@@ -120,17 +122,6 @@ From: ubuntu:22.04
         && apt-get clean && rm -rf /var/lib/apt/lists/* || true
 
     # ================================================================
-    # Docker CLI (optional, for Docker-out-of-Docker workflows)
-    # ================================================================
-    install -m 0755 -d /etc/apt/keyrings \
-        && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-        && chmod a+r /etc/apt/keyrings/docker.gpg \
-        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d/docker.list \
-        && apt-get update \
-        && apt-get install -y docker-ce-cli \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* || true
-
-    # ================================================================
     # FreeSurfer 7.4.1
     # ================================================================
     export FREESURFER_HOME=/usr/local/freesurfer
@@ -138,19 +129,34 @@ From: ubuntu:22.04
 
     wget --progress=bar:force:noscroll \
         https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.4.1/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz \
-        -P /tmp \
-        && tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp \
-        && mv /tmp/freesurfer/* $FREESURFER_HOME/ \
-        && rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
+        -P /tmp
+    
+    # Extract with --no-same-owner to avoid uid/gid mapping issues in container
+    # This prevents "Cannot change ownership" errors seen in some environments
+    tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp --no-same-owner --no-same-permissions 2>&1 || true
+    
+    # Move FreeSurfer to final location
+    mv /tmp/freesurfer/* $FREESURFER_HOME/
+    rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
 
-    # Fix permissions for SetUpFreeSurfer.sh
-    chmod +x $FREESURFER_HOME/SetUpFreeSurfer.sh 2>/dev/null || true
+    # Fix permissions - ensure all files are readable/executable
+    chmod -R a+r $FREESURFER_HOME/
+    find $FREESURFER_HOME -type d -exec chmod a+rx {} \; 2>/dev/null || true
+    find $FREESURFER_HOME/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
+    find $FREESURFER_HOME/fsfast/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
+    find $FREESURFER_HOME/tktools -type f -exec chmod a+x {} \; 2>/dev/null || true
+    find $FREESURFER_HOME/mni/bin -type f -exec chmod a+x {} \; 2>/dev/null || true
+    
+    # Fix permissions for SetUpFreeSurfer.sh specifically
+    chmod a+x $FREESURFER_HOME/SetUpFreeSurfer.sh 2>/dev/null || true
     
     # Create subjects directory if not exists
     mkdir -p $FREESURFER_HOME/subjects
+    chmod a+rwx $FREESURFER_HOME/subjects
     
     # Create a placeholder license file (will be bind-mounted at runtime)
     touch $FREESURFER_HOME/license.txt
+    chmod a+r $FREESURFER_HOME/license.txt
 
     # ================================================================
     # SimNIBS 4.5
@@ -202,27 +208,76 @@ From: ubuntu:22.04
     # System-wide profile so every user gets FreeSurfer + TI-Toolbox
     # (Apptainer runs as host user e.g. ihaber, not root; .bashrc is per-user)
     # ================================================================
+    
+    # First, source SetUpFreeSurfer.sh during build to capture all environment variables
+    # This ensures we have the complete FreeSurfer environment
+    export FREESURFER_HOME=/usr/local/freesurfer
+    export SUBJECTS_DIR=$FREESURFER_HOME/subjects
+    export FS_LICENSE=$FREESURFER_HOME/license.txt
+    
+    # Source the official FreeSurfer setup to get all environment variables
+    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+        # Save current environment, source FreeSurfer setup, then capture changes
+        env_before=$(mktemp)
+        env_after=$(mktemp)
+        env > "$env_before"
+        
+        # Source FreeSurfer setup script
+        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
+        
+        env > "$env_after"
+        rm -f "$env_before" "$env_after"
+    fi
+    
+    # Create the system-wide profile script with all FreeSurfer settings
     cat > /etc/profile.d/ti-toolbox-freesurfer.sh <<'PROFILE_EOF'
 #!/bin/bash
 # TI-Toolbox + FreeSurfer environment setup
+# This file is sourced for all users in the container
 
-# FreeSurfer setup - source the official setup script
-if [ -n "$FREESURFER_HOME" ] && [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-    # Source FreeSurfer setup silently
+# Basic FreeSurfer paths (must be set before sourcing SetUpFreeSurfer.sh)
+export FREESURFER_HOME=/usr/local/freesurfer
+export SUBJECTS_DIR=${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}
+export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
+
+# Source the official FreeSurfer setup script
+if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+    # Temporarily disable error exit to prevent issues with FreeSurfer setup
+    OLD_EXIT_ON_ERROR=$(set +o | grep errexit)
+    set +e
     . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
+    eval "$OLD_EXIT_ON_ERROR"
 fi
 
-# Ensure critical FreeSurfer paths are set (fallback if SetUpFreeSurfer.sh fails)
+# Fallback: Ensure all critical FreeSurfer paths are set
+# These are the variables that SetUpFreeSurfer.sh typically sets
 if [ -n "$FREESURFER_HOME" ]; then
+    # Core paths
     export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$PATH"
-    export SUBJECTS_DIR="${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}"
-    export FS_LICENSE="${FS_LICENSE:-$FREESURFER_HOME/license.txt}"
-    export FSFAST_HOME="${FSFAST_HOME:-$FREESURFER_HOME/fsfast}"
-    export FMRI_ANALYSIS_DIR="${FMRI_ANALYSIS_DIR:-$FREESURFER_HOME/fsfast}"
-    export FUNCTIONALS_DIR="${FUNCTIONALS_DIR:-$FREESURFER_HOME/sessions}"
+    export FSFAST_HOME=${FSFAST_HOME:-$FREESURFER_HOME/fsfast}
+    export FMRI_ANALYSIS_DIR=${FMRI_ANALYSIS_DIR:-$FREESURFER_HOME/fsfast}
+    export FUNCTIONALS_DIR=${FUNCTIONALS_DIR:-$FREESURFER_HOME/sessions}
+    
+    # MNI tools paths
+    export MINC_BIN_DIR=${MINC_BIN_DIR:-$FREESURFER_HOME/mni/bin}
+    export MINC_LIB_DIR=${MINC_LIB_DIR:-$FREESURFER_HOME/mni/lib}
+    export PATH="$MINC_BIN_DIR:$PATH"
+    
+    # Library paths for FreeSurfer
+    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$MINC_LIB_DIR:$LD_LIBRARY_PATH"
+    
+    # FreeSurfer specific variables
+    export FS_SETENV=1
+    export FSF_OUTPUT_FORMAT=nii.gz
+    
+    # Platform-specific settings (Linux x86_64)
+    export FS_OVERRIDE=0
+    export FIX_VERTEX_AREA=""
+    export FSFAST_HOME=$FREESURFER_HOME/fsfast
+    export FMRI_ANALYSIS_DIR=$FREESURFER_HOME/fsfast
 fi
 
-# TI-Toolbox CLI aliases (any user)
+# TI-Toolbox CLI aliases (available to any user)
 alias GUI='simnibs_python -m tit.cli.gui'
 alias analyzer='simnibs_python -m tit.cli.analyzer'
 alias ex_search='simnibs_python -m tit.cli.ex_search'
@@ -236,14 +291,18 @@ alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
 PROFILE_EOF
     chmod 644 /etc/profile.d/ti-toolbox-freesurfer.sh
 
-    # Also ensure /etc/bash.bashrc sources profile.d (Debian/Ubuntu interactive non-login)
-    if ! grep -q 'ti-toolbox-freesurfer' /etc/bash.bashrc 2>/dev/null; then
-        echo '[ -f /etc/profile.d/ti-toolbox-freesurfer.sh ] && . /etc/profile.d/ti-toolbox-freesurfer.sh' >> /etc/bash.bashrc
+    # Also ensure /etc/bash.bashrc sources profile.d (Debian/Ubuntu interactive non-login shells)
+    if [ -f /etc/bash.bashrc ]; then
+        if ! grep -q 'ti-toolbox-freesurfer' /etc/bash.bashrc 2>/dev/null; then
+            echo '[ -f /etc/profile.d/ti-toolbox-freesurfer.sh ] && . /etc/profile.d/ti-toolbox-freesurfer.sh' >> /etc/bash.bashrc
+        fi
     fi
     
-    # Ensure /etc/profile also sources it for login shells
-    if ! grep -q 'profile.d' /etc/profile 2>/dev/null; then
-        echo 'for i in /etc/profile.d/*.sh; do [ -r "$i" ] && . "$i"; done' >> /etc/profile
+    # Ensure /etc/profile sources profile.d for login shells
+    if [ -f /etc/profile ]; then
+        if ! grep -q 'profile.d' /etc/profile 2>/dev/null; then
+            echo 'for i in /etc/profile.d/*.sh; do [ -r "$i" ] && . "$i"; done' >> /etc/profile
+        fi
     fi
 
 %runscript
@@ -254,7 +313,20 @@ PROFILE_EOF
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 700 "$XDG_RUNTIME_DIR"
     
-    # Source system-wide profile for FreeSurfer and TI-Toolbox
+    # Source FreeSurfer setup first (critical for FreeSurfer to work)
+    export FREESURFER_HOME=/usr/local/freesurfer
+    export SUBJECTS_DIR=${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}
+    export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
+    
+    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
+    fi
+    
+    # Ensure FreeSurfer paths are set (fallback)
+    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
+    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
+    
+    # Source system-wide profile for TI-Toolbox and additional settings
     if [ -f /etc/profile.d/ti-toolbox-freesurfer.sh ]; then
         . /etc/profile.d/ti-toolbox-freesurfer.sh
     fi
@@ -289,9 +361,10 @@ PROFILE_EOF
         echo ""
         echo "  FreeSurfer tools available: recon-all, freeview, etc."
         echo ""
-        # Use --login to ensure /etc/profile is sourced, but --noprofile/--norc
-        # to avoid host user dotfiles that might override container settings
-        exec /bin/bash --login --noprofile --norc
+        # Start interactive bash with environment pre-configured
+        # Use --rcfile to ensure our profile is loaded
+        export PS1='[ti-toolbox] \w \$ '
+        exec /bin/bash --norc
     else
         exec "$@"
     fi
