@@ -9,34 +9,16 @@ From: ubuntu:22.04
 
 %environment
     export DEBIAN_FRONTEND=noninteractive
-    
-    # FreeSurfer base paths
     export FREESURFER_HOME=/usr/local/freesurfer
     export FS_LICENSE=/usr/local/freesurfer/license.txt
     export SUBJECTS_DIR=/usr/local/freesurfer/subjects
-    
-    # SimNIBS
     export SIMNIBSDIR=/opt/SimNIBS-4.5
-    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
-    export PATH="/ti-toolbox/tit/cli:$PATH"
-    
-    # Runtime directories
+    export PATH="/opt/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
+    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
     export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
     export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
     export KMP_AFFINITY=disabled
-    
-    # Ensure bash is default shell
     export SHELL=/bin/bash
-    
-    # Source FreeSurfer setup script to set up the environment
-    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
-    fi
-    
-    # Ensure critical FreeSurfer paths are set (fallback if SetUpFreeSurfer.sh fails)
-    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$PATH"
-    export PATH="$FREESURFER_HOME/mni/bin:$PATH"
-    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -205,79 +187,21 @@ From: ubuntu:22.04
     cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 
     # ================================================================
-    # System-wide profile so every user gets FreeSurfer + TI-Toolbox
-    # (Apptainer runs as host user e.g. ihaber, not root; .bashrc is per-user)
+    # Single bash rc: FreeSurfer + TI-Toolbox aliases (aligned with Docker entrypoint.sh)
     # ================================================================
-    
-    # First, source SetUpFreeSurfer.sh during build to capture all environment variables
-    # This ensures we have the complete FreeSurfer environment
-    export FREESURFER_HOME=/usr/local/freesurfer
-    export SUBJECTS_DIR=$FREESURFER_HOME/subjects
-    export FS_LICENSE=$FREESURFER_HOME/license.txt
-    
-    # Source the official FreeSurfer setup to get all environment variables
-    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-        # Save current environment, source FreeSurfer setup, then capture changes
-        env_before=$(mktemp)
-        env_after=$(mktemp)
-        env > "$env_before"
-        
-        # Source FreeSurfer setup script
-        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
-        
-        env > "$env_after"
-        rm -f "$env_before" "$env_after"
-    fi
-    
-    # Create the system-wide profile script with all FreeSurfer settings
-    cat > /etc/profile.d/ti-toolbox-freesurfer.sh <<'PROFILE_EOF'
+    cat > /etc/ti-toolbox.bashrc <<'TI_RC_EOF'
 #!/bin/bash
-# TI-Toolbox + FreeSurfer environment setup
-# This file is sourced for all users in the container
+# TI-Toolbox + FreeSurfer — single source for interactive shells (cf. entrypoint.sh)
 
-# Basic FreeSurfer paths (must be set before sourcing SetUpFreeSurfer.sh)
 export FREESURFER_HOME=/usr/local/freesurfer
 export SUBJECTS_DIR=${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}
 export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
 
-# Source the official FreeSurfer setup script
-if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-    # Temporarily disable error exit to prevent issues with FreeSurfer setup
-    OLD_EXIT_ON_ERROR=$(set +o | grep errexit)
-    set +e
-    . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
-    eval "$OLD_EXIT_ON_ERROR"
-fi
+[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
 
-# Fallback: Ensure all critical FreeSurfer paths are set
-# These are the variables that SetUpFreeSurfer.sh typically sets
-if [ -n "$FREESURFER_HOME" ]; then
-    # Core paths
-    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$PATH"
-    export FSFAST_HOME=${FSFAST_HOME:-$FREESURFER_HOME/fsfast}
-    export FMRI_ANALYSIS_DIR=${FMRI_ANALYSIS_DIR:-$FREESURFER_HOME/fsfast}
-    export FUNCTIONALS_DIR=${FUNCTIONALS_DIR:-$FREESURFER_HOME/sessions}
-    
-    # MNI tools paths
-    export MINC_BIN_DIR=${MINC_BIN_DIR:-$FREESURFER_HOME/mni/bin}
-    export MINC_LIB_DIR=${MINC_LIB_DIR:-$FREESURFER_HOME/mni/lib}
-    export PATH="$MINC_BIN_DIR:$PATH"
-    
-    # Library paths for FreeSurfer
-    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$MINC_LIB_DIR:$LD_LIBRARY_PATH"
-    
-    # FreeSurfer specific variables
-    export FS_SETENV=1
-    export FSF_OUTPUT_FORMAT=nii.gz
-    
-    # Platform-specific settings (Linux x86_64)
-    export FS_OVERRIDE=0
-    export FIX_VERTEX_AREA=""
-    export FSFAST_HOME=$FREESURFER_HOME/fsfast
-    export FMRI_ANALYSIS_DIR=$FREESURFER_HOME/fsfast
-fi
+export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:$PATH"
+export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:${LD_LIBRARY_PATH:-}"
 
-# TI-Toolbox CLI aliases (available to any user)
 alias GUI='simnibs_python -m tit.cli.gui'
 alias analyzer='simnibs_python -m tit.cli.analyzer'
 alias ex_search='simnibs_python -m tit.cli.ex_search'
@@ -288,83 +212,28 @@ alias simulator='simnibs_python -m tit.cli.simulator'
 alias blender='simnibs_python -m tit.cli.vis_blender'
 alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
 alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
-PROFILE_EOF
-    chmod 644 /etc/profile.d/ti-toolbox-freesurfer.sh
 
-    # Also ensure /etc/bash.bashrc sources profile.d (Debian/Ubuntu interactive non-login shells)
-    if [ -f /etc/bash.bashrc ]; then
-        if ! grep -q 'ti-toolbox-freesurfer' /etc/bash.bashrc 2>/dev/null; then
-            echo '[ -f /etc/profile.d/ti-toolbox-freesurfer.sh ] && . /etc/profile.d/ti-toolbox-freesurfer.sh' >> /etc/bash.bashrc
-        fi
-    fi
-    
-    # Ensure /etc/profile sources profile.d for login shells
-    if [ -f /etc/profile ]; then
-        if ! grep -q 'profile.d' /etc/profile 2>/dev/null; then
-            echo 'for i in /etc/profile.d/*.sh; do [ -r "$i" ] && . "$i"; done' >> /etc/profile
-        fi
-    fi
+[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+TI_RC_EOF
+    chmod 644 /etc/ti-toolbox.bashrc
 
 %runscript
     #!/bin/bash
-    
-    # Setup XDG runtime dir
     export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 700 "$XDG_RUNTIME_DIR"
-    
-    # Source FreeSurfer setup first (critical for FreeSurfer to work)
-    export FREESURFER_HOME=/usr/local/freesurfer
-    export SUBJECTS_DIR=${SUBJECTS_DIR:-$FREESURFER_HOME/subjects}
-    export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
-    
-    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-        . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
-    fi
-    
-    # Ensure FreeSurfer paths are set (fallback)
-    export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
-    export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
-    
-    # Source system-wide profile for TI-Toolbox and additional settings
-    if [ -f /etc/profile.d/ti-toolbox-freesurfer.sh ]; then
-        . /etc/profile.d/ti-toolbox-freesurfer.sh
-    fi
-    
-    # Also source /etc/profile to ensure all system settings are loaded
-    if [ -f /etc/profile ]; then
-        . /etc/profile >/dev/null 2>&1 || true
-    fi
-
-    # Auto-detect project directory from /mnt
-    if [ -z "$PROJECT_DIR" ] && [ -d /mnt ]; then
-        for d in /mnt/*/; do
-            if [ -d "$d" ]; then
-                export PROJECT_DIR="$d"
-                break
-            fi
-        done
-    fi
+    [ -z "$PROJECT_DIR" ] && [ -d /mnt ] && for d in /mnt/*/; do [ -d "$d" ] && export PROJECT_DIR="$d" && break; done
 
     if [ $# -eq 0 ]; then
         echo ""
         echo "================================================================"
         echo "  TI-Toolbox (Apptainer) - Interactive Session"
         echo "================================================================"
+        echo "  SimNIBS: $SIMNIBSDIR   FreeSurfer: $FREESURFER_HOME   TI-Toolbox: /ti-toolbox"
         echo ""
-        echo "  SimNIBS:    $SIMNIBSDIR"
-        echo "  FreeSurfer: $FREESURFER_HOME"
-        echo "  TI-Toolbox: /ti-toolbox"
-        if [ -n "$PROJECT_DIR" ]; then
-            echo "  Project:    $PROJECT_DIR"
-        fi
-        echo ""
-        echo "  FreeSurfer tools available: recon-all, freeview, etc."
-        echo ""
-        # Start interactive bash with environment pre-configured
-        # Use --rcfile to ensure our profile is loaded
         export PS1='[ti-toolbox] \w \$ '
-        exec /bin/bash --norc
+        exec /bin/bash --rcfile /etc/ti-toolbox.bashrc
     else
         exec "$@"
     fi
