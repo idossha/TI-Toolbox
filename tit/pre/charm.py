@@ -18,16 +18,23 @@ from tit.core.overwrite import get_overwrite_policy
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
 
 
-def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
-    t1_candidates = sorted(
-        list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*"))
+def _find_anat_files(subject_id: str) -> tuple[Optional[Path], Optional[Path]]:
+    """Find T1 and T2 weighted anatomical NIfTI files.
+
+    Looks for exact BIDS filenames produced by DICOM conversion:
+    sub-{subject_id}_T1w.nii.gz and sub-{subject_id}_T2w.nii.gz
+    """
+    pm = get_path_manager()
+    bids_anat_dir = Path(pm.path("bids_anat", subject_id=subject_id))
+
+    t1_file = bids_anat_dir / f"sub-{subject_id}_T1w.nii.gz"
+    t2_file = bids_anat_dir / f"sub-{subject_id}_T2w.nii.gz"
+
+    # Return only if files exist
+    return (
+        t1_file if t1_file.exists() else None,
+        t2_file if t2_file.exists() else None,
     )
-    t2_candidates = sorted(
-        list(bids_anat_dir.glob("*T2*.nii*")) + list(bids_anat_dir.glob("*t2*.nii*"))
-    )
-    t1_file = t1_candidates[0] if t1_candidates else None
-    t2_file = t2_candidates[0] if t2_candidates else None
-    return t1_file, t2_file
 
 
 def run_charm(
@@ -56,18 +63,16 @@ def run_charm(
     runner : CommandRunner, optional
         Subprocess runner used to stream output.
     """
-    if not shutil.which("charm"):
-        raise PreprocessError("charm (SimNIBS) is not installed.")
-
     pm = get_path_manager()
     pm.project_dir = project_dir
-    bids_anat_dir = Path(pm.path("bids_anat", subject_id=subject_id))
+
     simnibs_subject_dir = Path(pm.path("simnibs_subject", subject_id=subject_id))
     simnibs_subject_dir.mkdir(parents=True, exist_ok=True)
     m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
 
-    t1_file, t2_file = _find_anat_files(bids_anat_dir)
+    t1_file, t2_file = _find_anat_files(subject_id)
     if not t1_file:
+        bids_anat_dir = Path(pm.path("bids_anat", subject_id=subject_id))
         raise PreprocessError(f"No T1 image found in {bids_anat_dir}")
 
     policy = get_overwrite_policy(overwrite, prompt_overwrite)
