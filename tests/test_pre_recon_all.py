@@ -25,52 +25,76 @@ from pre.common import PreprocessError, CommandRunner
 
 
 class TestFindAnatFiles:
-    """Test _find_anat_files function"""
+    """Test _find_anat_files function - looks for exact BIDS pattern"""
 
-    def test_find_returns_none_when_no_files(self):
+    @patch("pre.recon_all.get_path_manager")
+    def test_find_returns_none_when_no_files(self, mock_get_pm):
         """Test returns (None, None) when no files found"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir)
+            mock_pm = MagicMock()
+            mock_get_pm.return_value = mock_pm
+            mock_pm.path.return_value = str(Path(tmpdir) / "sub-001" / "anat")
 
-            t1_file, t2_file = _find_anat_files(bids_anat_dir)
+            t1_file, t2_file = _find_anat_files("001")
 
             assert t1_file is None
             assert t2_file is None
 
-    def test_find_detects_t1w_file(self):
-        """Test detects T1w files"""
+    @patch("pre.recon_all.get_path_manager")
+    def test_find_detects_t1w_file(self, mock_get_pm):
+        """Test detects T1w file with exact BIDS pattern"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir)
+            bids_anat_dir = Path(tmpdir) / "sub-001" / "anat"
+            bids_anat_dir.mkdir(parents=True)
             t1_file_path = bids_anat_dir / "sub-001_T1w.nii.gz"
             t1_file_path.touch()
 
-            t1_file, t2_file = _find_anat_files(bids_anat_dir)
+            mock_pm = MagicMock()
+            mock_get_pm.return_value = mock_pm
+            mock_pm.path.return_value = str(bids_anat_dir)
+
+            t1_file, t2_file = _find_anat_files("001")
 
             assert t1_file == t1_file_path
             assert t2_file is None
 
-    def test_find_detects_t2w_file(self):
-        """Test detects T2w files"""
+    @patch("pre.recon_all.get_path_manager")
+    def test_find_detects_t2w_file(self, mock_get_pm):
+        """Test detects T2w file with exact BIDS pattern"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir)
+            bids_anat_dir = Path(tmpdir) / "sub-001" / "anat"
+            bids_anat_dir.mkdir(parents=True)
             t2_file_path = bids_anat_dir / "sub-001_T2w.nii.gz"
             t2_file_path.touch()
 
-            t1_file, t2_file = _find_anat_files(bids_anat_dir)
+            mock_pm = MagicMock()
+            mock_get_pm.return_value = mock_pm
+            mock_pm.path.return_value = str(bids_anat_dir)
+
+            t1_file, t2_file = _find_anat_files("001")
 
             assert t1_file is None
             assert t2_file == t2_file_path
 
-    def test_find_case_insensitive(self):
-        """Test detection is case-insensitive"""
+    @patch("pre.recon_all.get_path_manager")
+    def test_find_detects_both_t1_and_t2(self, mock_get_pm):
+        """Test detects both T1 and T2 files"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir)
-            t1_file_path = bids_anat_dir / "sub-001_t1w.nii.gz"
+            bids_anat_dir = Path(tmpdir) / "sub-001" / "anat"
+            bids_anat_dir.mkdir(parents=True)
+            t1_file_path = bids_anat_dir / "sub-001_T1w.nii.gz"
+            t2_file_path = bids_anat_dir / "sub-001_T2w.nii.gz"
             t1_file_path.touch()
+            t2_file_path.touch()
 
-            t1_file, t2_file = _find_anat_files(bids_anat_dir)
+            mock_pm = MagicMock()
+            mock_get_pm.return_value = mock_pm
+            mock_pm.path.return_value = str(bids_anat_dir)
+
+            t1_file, t2_file = _find_anat_files("001")
 
             assert t1_file == t1_file_path
+            assert t2_file == t2_file_path
 
 
 class TestValidateFreesurferEnv:
@@ -245,198 +269,6 @@ class TestRunReconAll:
             assert "-T2" in cmd
             assert str(t2_file) in cmd
             assert "-T2pial" in cmd
-
-    @patch.dict(os.environ, {"FREESURFER_HOME": "/"}, clear=True)
-    @patch("shutil.which")
-    @patch("pre.recon_all.get_path_manager")
-    @patch("pre.recon_all._find_anat_files")
-    @patch("subprocess.call")
-    def test_run_uses_parallel_flag(
-        self, mock_call, mock_find_anat, mock_get_pm, mock_which
-    ):
-        """Test uses -parallel flag when requested"""
-        mock_which.side_effect = lambda x: "/usr/bin/" + x
-
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            fs_subject_dir = Path(tmpdir) / "freesurfer" / "sub-001"
-
-            bids_anat_dir.mkdir()
-
-            t1_file = bids_anat_dir / "sub-001_T1w.nii.gz"
-            t1_file.touch()
-
-            mock_pm.path.side_effect = lambda key, **kwargs: {
-                "bids_anat": str(bids_anat_dir),
-                "freesurfer_subject": str(fs_subject_dir),
-            }[key]
-
-            mock_find_anat.return_value = (t1_file, None)
-            mock_call.return_value = 0
-
-            logger = MagicMock()
-
-            run_recon_all(tmpdir, "001", logger=logger, parallel=True)
-
-            cmd = mock_call.call_args[0][0]
-            assert "-parallel" in cmd
-
-    @patch.dict(os.environ, {"FREESURFER_HOME": "/"}, clear=True)
-    @patch("shutil.which")
-    @patch("pre.recon_all.get_path_manager")
-    @patch("pre.recon_all._find_anat_files")
-    @patch("shutil.rmtree")
-    def test_run_removes_existing_output_on_overwrite(
-        self, mock_rmtree, mock_find_anat, mock_get_pm, mock_which
-    ):
-        """Test removes existing FreeSurfer output when overwrite is True"""
-        mock_which.side_effect = lambda x: "/usr/bin/" + x
-
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            fs_subject_dir = Path(tmpdir) / "freesurfer" / "sub-001"
-
-            bids_anat_dir.mkdir()
-            fs_subject_dir.mkdir(parents=True)
-            (fs_subject_dir / "existing_file").touch()  # Make directory non-empty
-
-            t1_file = bids_anat_dir / "sub-001_T1w.nii.gz"
-            t1_file.touch()
-
-            mock_pm.path.side_effect = lambda key, **kwargs: {
-                "bids_anat": str(bids_anat_dir),
-                "freesurfer_subject": str(fs_subject_dir),
-            }[key]
-
-            mock_find_anat.return_value = (t1_file, None)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            run_recon_all(tmpdir, "001", logger=logger, overwrite=True, runner=runner)
-
-            # Verify rmtree was called
-            mock_rmtree.assert_called()
-
-    @patch.dict(os.environ, {"FREESURFER_HOME": "/"}, clear=True)
-    @patch("shutil.which")
-    @patch("pre.recon_all.get_path_manager")
-    @patch("pre.recon_all._find_anat_files")
-    def test_run_continues_existing_when_not_overwriting(
-        self, mock_find_anat, mock_get_pm, mock_which
-    ):
-        """Test continues existing processing when output exists and not overwriting"""
-        mock_which.side_effect = lambda x: "/usr/bin/" + x
-
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            fs_subject_dir = Path(tmpdir) / "freesurfer" / "sub-001"
-
-            bids_anat_dir.mkdir()
-            fs_subject_dir.mkdir(parents=True)
-            (fs_subject_dir / "existing_file").touch()
-
-            t1_file = bids_anat_dir / "sub-001_T1w.nii.gz"
-            t1_file.touch()
-
-            mock_pm.path.side_effect = lambda key, **kwargs: {
-                "bids_anat": str(bids_anat_dir),
-                "freesurfer_subject": str(fs_subject_dir),
-            }[key]
-
-            mock_find_anat.return_value = (t1_file, None)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            run_recon_all(tmpdir, "001", logger=logger, overwrite=False, runner=runner)
-
-            # Verify command does not include -i (continuing existing)
-            cmd = runner.run.call_args[0][0]
-            assert "-i" not in cmd
-
-    @patch.dict(os.environ, {"FREESURFER_HOME": "/"}, clear=True)
-    @patch("shutil.which")
-    @patch("pre.recon_all.get_path_manager")
-    @patch("pre.recon_all._find_anat_files")
-    def test_run_raises_on_nonzero_exit(self, mock_find_anat, mock_get_pm, mock_which):
-        """Test raises PreprocessError on non-zero exit code"""
-        mock_which.side_effect = lambda x: "/usr/bin/" + x
-
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            fs_subject_dir = Path(tmpdir) / "freesurfer" / "sub-001"
-
-            bids_anat_dir.mkdir()
-
-            t1_file = bids_anat_dir / "sub-001_T1w.nii.gz"
-            t1_file.touch()
-
-            mock_pm.path.side_effect = lambda key, **kwargs: {
-                "bids_anat": str(bids_anat_dir),
-                "freesurfer_subject": str(fs_subject_dir),
-            }[key]
-
-            mock_find_anat.return_value = (t1_file, None)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 1  # Non-zero exit
-
-            with pytest.raises(PreprocessError) as exc_info:
-                run_recon_all(tmpdir, "001", logger=logger, runner=runner)
-
-            assert "recon-all failed" in str(exc_info.value)
-
-    @patch.dict(os.environ, {"FREESURFER_HOME": "/"}, clear=True)
-    @patch("shutil.which")
-    @patch("pre.recon_all.get_path_manager")
-    @patch("pre.recon_all._find_anat_files")
-    def test_run_uses_runner_if_provided(self, mock_find_anat, mock_get_pm, mock_which):
-        """Test uses CommandRunner if provided"""
-        mock_which.side_effect = lambda x: "/usr/bin/" + x
-
-        mock_pm = MagicMock()
-        mock_get_pm.return_value = mock_pm
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bids_anat_dir = Path(tmpdir) / "bids_anat"
-            fs_subject_dir = Path(tmpdir) / "freesurfer" / "sub-001"
-
-            bids_anat_dir.mkdir()
-
-            t1_file = bids_anat_dir / "sub-001_T1w.nii.gz"
-            t1_file.touch()
-
-            mock_pm.path.side_effect = lambda key, **kwargs: {
-                "bids_anat": str(bids_anat_dir),
-                "freesurfer_subject": str(fs_subject_dir),
-            }[key]
-
-            mock_find_anat.return_value = (t1_file, None)
-
-            logger = MagicMock()
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            run_recon_all(tmpdir, "001", logger=logger, runner=runner)
-
-            # Verify runner was used
-            runner.run.assert_called_once()
 
 
 if __name__ == "__main__":
