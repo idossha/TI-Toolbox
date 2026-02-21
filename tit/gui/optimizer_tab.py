@@ -25,7 +25,7 @@ class OptimizerTab(QtWidgets.QWidget):
 
         # Add label
         label = QtWidgets.QLabel("Select Optimization Method:")
-        label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        label.setStyleSheet("font-weight: bold; font-size: 5pt;")
         selector_layout.addWidget(label)
 
         # Create dropdown menu

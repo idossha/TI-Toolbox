@@ -199,7 +199,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         specs_layout = QtWidgets.QVBoxLayout(specs_group)
 
         specs_label = QtWidgets.QLabel("Select reconstruction pipelines to run:")
-        specs_label.setStyleSheet("color: #888888; font-size: 10px;")
+        specs_label.setStyleSheet("color: #888888; font-size: 8pt;")
         specs_layout.addWidget(specs_label)
 
         self.spec_checkboxes = {}
@@ -476,6 +476,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # Create a scroll area for the form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(600)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -483,18 +484,9 @@ class PreProcessTab(QtWidgets.QWidget):
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Processing... Only the Stop button is available")
         self.status_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: white;
-                color: #f44336;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-weight: bold;
-                font-size: 13px;
-                min-height: 15px;
-                max-height: 15px;
-            }
-        """
+            "QLabel { background-color: white; color: #f44336;"
+            " padding: 4px 8px; border-radius: 3px;"
+            " font-weight: bold; font-size: 10pt; }"
         )
         self.status_label.setAlignment(QtCore.Qt.AlignCenter)
         self.status_label.hide()  # Initially hidden
@@ -507,6 +499,9 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Subject selection section
         subject_widget = QtWidgets.QWidget()
+        subject_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
         subject_main_layout = QtWidgets.QVBoxLayout(subject_widget)
         subject_main_layout.setContentsMargins(10, 0, 10, 10)  # Removed top margin
 
@@ -517,8 +512,10 @@ class PreProcessTab(QtWidgets.QWidget):
         # Subject list with selection
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QListWidget.ExtendedSelection)
-        self.subject_list.setFixedHeight(235)  # Fixed height for the list
-        subject_main_layout.addWidget(self.subject_list)
+        self.subject_list.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
+        subject_main_layout.addWidget(self.subject_list, 1)
 
         # Selection buttons frame
         button_frame = QtWidgets.QFrame()
@@ -544,32 +541,15 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Options section
         options_widget = QtWidgets.QWidget()
-        options_widget.setFixedWidth(
-            402
-        )  # Fixed width for options (increased by 15% from 350)
+        options_widget.setMinimumWidth(336)
+        options_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         options_layout = QtWidgets.QVBoxLayout(options_widget)
-        options_layout.setContentsMargins(
-            10, 23, 10, 10
-        )  # Add top margin to align with subject selection label
+        options_layout.setContentsMargins(10, 10, 10, 10)
 
         # Pre-processing options group
         self.options_group = QtWidgets.QGroupBox("Processing Options")
-        self.options_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #cccccc;
-                border-radius: 5px;
-                margin-top: 0px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-        """
-        )
         options_group_layout = QtWidgets.QVBoxLayout(self.options_group)
         options_group_layout.setSpacing(10)  # Consistent spacing between options
 
@@ -602,7 +582,7 @@ class PreProcessTab(QtWidgets.QWidget):
         parallel_comment = QtWidgets.QLabel(
             f"   {available_cores} cores available on this system"
         )
-        parallel_comment.setStyleSheet("color: #888888; font-size: 10px;")
+        parallel_comment.setStyleSheet("color: #888888; font-size: 4pt;")
         options_group_layout.addWidget(parallel_comment)
 
         # Enable spinbox based on checkbox
@@ -633,7 +613,7 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.addWidget(dwi_separator)
 
         dwi_label = QtWidgets.QLabel("DWI Processing (Docker)")
-        dwi_label.setStyleSheet("color: #888888; font-size: 10px; font-weight: normal;")
+        dwi_label.setStyleSheet("color: #888888; font-size: 4pt; font-weight: normal;")
         options_group_layout.addWidget(dwi_label)
 
         # QSIPrep option with gear button
@@ -700,7 +680,7 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -719,11 +699,11 @@ class PreProcessTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=180,
-            max_height=None,
+            min_height=400,
+            max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget)
+        main_layout.addWidget(self.console_widget, 2)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)

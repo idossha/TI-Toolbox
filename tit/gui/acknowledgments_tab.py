@@ -128,7 +128,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         """Add a section to the acknowledgments layout."""
         # Create a group box for this acknowledgment
         group_box = QtWidgets.QGroupBox(title)
-        group_box.setStyleSheet("QGroupBox { font-weight: bold; font-size: 14px; }")
+        group_box.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
 
         group_layout = QtWidgets.QVBoxLayout(group_box)
 

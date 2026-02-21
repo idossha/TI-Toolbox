@@ -259,6 +259,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(600)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -301,7 +302,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         scroll_layout.addLayout(main_horizontal_layout)
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(scroll_area, 3)
 
         # Initial call to set input widths after UI is created
         QtCore.QTimer.singleShot(100, self._update_input_widths)
@@ -323,11 +324,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=180,
-            max_height=None,
+            min_height=400,
+            max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget)
+        main_layout.addWidget(self.console_widget, 2)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
@@ -470,7 +471,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         self.pairs_table.setColumnWidth(0, 100)
         self.pairs_table.setColumnWidth(2, 50)
-        self.pairs_table.setMaximumHeight(250)
+        self.pairs_table.setMinimumHeight(80)
+        self.pairs_table.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
         pairs_layout.addWidget(self.pairs_table)
 
         # Buttons for managing pairs
@@ -516,12 +520,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Subject combo
         subject_combo = QtWidgets.QComboBox()
-        subject_combo.setMaxVisibleItems(
-            10
-        )  # Show max 10 items before scrollbar appears
-        subject_combo.setStyleSheet(
-            "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
-        )
         subjects = self.pm.list_subjects()
         subject_combo.addItems(subjects)
         subject_combo.currentTextChanged.connect(
@@ -531,10 +529,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Simulation combo
         sim_combo = QtWidgets.QComboBox()
-        sim_combo.setMaxVisibleItems(10)  # Show max 10 items before scrollbar appears
-        sim_combo.setStyleSheet(
-            "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
-        )
         if subjects:
             sims = self.pm.list_simulations(subjects[0])
             sim_combo.addItems(sims)
@@ -542,7 +536,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Remove button
         remove_btn = QtWidgets.QPushButton("✕")
-        remove_btn.setMaximumWidth(40)
+        remove_btn.setFixedWidth(32)
         remove_btn.clicked.connect(lambda: self.remove_pair(row))
         self.pairs_table.setCellWidget(row, 2, remove_btn)
 
@@ -609,10 +603,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         sim_layout = QtWidgets.QHBoxLayout()
         sim_layout.addWidget(QtWidgets.QLabel("Simulation:"))
         sim_combo = QtWidgets.QComboBox()
-        sim_combo.setMaxVisibleItems(10)  # Show max 10 items before scrollbar appears
-        sim_combo.setStyleSheet(
-            "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
-        )
 
         # Get all unique simulations across all subjects
         all_sims = set()
@@ -704,7 +694,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
                 # Remove button
                 remove_btn = QtWidgets.QPushButton("✕")
-                remove_btn.setMaximumWidth(40)
+                remove_btn.setFixedWidth(32)
                 remove_btn.clicked.connect(lambda checked, r=row: self.remove_pair(r))
                 self.pairs_table.setCellWidget(row, 2, remove_btn)
 
@@ -785,7 +775,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.region_input = QtWidgets.QLineEdit()
         self.region_input.setPlaceholderText("e.g., superiorfrontal")
         self.region_input.setMinimumWidth(100)
-        self.region_input.setMaximumWidth(200)  # Allow some expansion
+        self.region_input.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
 
         self.whole_head_check = QtWidgets.QCheckBox("All")
         self.whole_head_check.setSizePolicy(
@@ -826,7 +818,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.atlas_name_combo = QtWidgets.QComboBox()
         self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
         self.atlas_name_combo.setCurrentText("DK40")
-        self.atlas_name_combo.setMinimumWidth(100)
         self.atlas_name_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -847,7 +838,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         self.atlas_combo = QtWidgets.QComboBox()
         self.atlas_combo.setEditable(False)
-        self.atlas_combo.setMinimumWidth(100)
         self.atlas_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -889,10 +879,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.coord_z = QtWidgets.QLineEdit()
         for coord_widget in [self.coord_x, self.coord_y, self.coord_z]:
             coord_widget.setPlaceholderText("0.0")
-            coord_widget.setMinimumWidth(60)
-            coord_widget.setMaximumWidth(100)  # Allow some expansion
+            coord_widget.setMinimumWidth(55)
             coord_widget.setSizePolicy(
-                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
             )
         coordinates_row.addWidget(self.coordinates_label)
         coordinates_row.addWidget(self.coord_x)
@@ -910,10 +899,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         self.radius_input = QtWidgets.QLineEdit()
         self.radius_input.setPlaceholderText("5.0")
-        self.radius_input.setMinimumWidth(60)
-        self.radius_input.setMaximumWidth(100)  # Allow some expansion
+        self.radius_input.setMinimumWidth(55)
         self.radius_input.setSizePolicy(
-            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
         )
         radius_row.addWidget(self.radius_label)
         radius_row.addWidget(self.radius_input)
@@ -974,7 +962,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.gmsh_subject_combo.setStyleSheet(
             "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
         )
-        self.gmsh_subject_combo.setMinimumWidth(120)
         self.gmsh_subject_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -992,7 +979,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.gmsh_sim_combo.setStyleSheet(
             "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
         )
-        self.gmsh_sim_combo.setMinimumWidth(120)
         self.gmsh_sim_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -1008,7 +994,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         bottom_row.addWidget(analysis_label)
         self.gmsh_analysis_combo = QtWidgets.QComboBox()
-        self.gmsh_analysis_combo.setMinimumWidth(120)
         self.gmsh_analysis_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )

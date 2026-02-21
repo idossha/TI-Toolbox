@@ -19,6 +19,7 @@ import warnings
 from pathlib import Path
 
 from tit.core import get_path_manager
+from tit.gui.style import APP_STYLESHEET
 
 # Suppress specific SIP deprecation warning originating from PyQt/SIP internals
 warnings.filterwarnings(
@@ -154,15 +155,41 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Set the tab bar without close buttons
         self.tab_widget.setTabsClosable(False)
+        # Always show scroll arrows when tabs overflow the bar
+        self.tab_widget.tabBar().setUsesScrollButtons(True)
+
+        # Reduce tab size: set font and override padding directly on the widget
+        tab_font = QtGui.QFont()
+        tab_font.setPointSize(7)
+        self.tab_widget.tabBar().setFont(tab_font)
+        self.tab_widget.tabBar().setStyleSheet(
+            "QTabBar::tab { padding: 8px 16px; min-width: 60px; }"
+        )
 
         # Track the core tabs (non-closable tabs)
         self.core_tab_count = self.tab_widget.count()
 
         main_layout.addWidget(self.tab_widget)
 
-        # Set window properties and center on screen
-        self.resize(1000, 800)
-        self.setMinimumWidth(1050)  # 1000 * 1.05 = 1050
+        # Set window properties and center on screen.
+        # Adaptive sizing: 54% of available width (clamped 750–1143),
+        # 80% of available height (clamped 700–1000). Falls back to 786×800.
+        try:
+            from PyQt5.QtGui import QGuiApplication
+
+            screen = QGuiApplication.primaryScreen()
+            if screen is not None:
+                available = screen.availableGeometry()
+                init_w = max(750, min(1143, int(available.width() * 0.54)))
+                init_h = max(700, min(1000, int(available.height() * 0.80)))
+            else:
+                init_w, init_h = 786, 800
+        except Exception:
+            init_w, init_h = 786, 800
+
+        self.resize(init_w, init_h)
+        # Minimum width = 85% of initial width, floor of 643px.
+        self.setMinimumWidth(max(643, int(init_w * 0.85)))
         self.center_on_screen()
 
     def center_on_screen(self):
@@ -364,7 +391,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not hasattr(tab_widget, "_busy_message_label"):
             msg_label = QtWidgets.QLabel(tab_widget)
             msg_label.setStyleSheet(
-                "color: #d9534f; font-size: 14px; font-weight: bold; padding: 4px 0 4px 0;"
+                "color: #d9534f; font-size: 5pt; font-weight: bold; padding: 4px 0 4px 0;"
             )
             msg_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             msg_label.hide()
@@ -491,10 +518,14 @@ def check_for_update(current_version, parent_window=None):
 
 def main():
     """Main entry point for the application."""
+    # Enable HiDPI scaling BEFORE creating QApplication (Qt5 hard requirement).
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
     app = QtWidgets.QApplication(sys.argv)
 
-    # Set application style
+    # Set application style and apply shared design tokens
     app.setStyle("Fusion")
+    app.setStyleSheet(APP_STYLESHEET)
 
     # Set application icon if available
     icon_path = os.path.join(

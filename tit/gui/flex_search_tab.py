@@ -161,7 +161,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subject_list.setSelectionMode(
             QtWidgets.QAbstractItemView.ExtendedSelection
         )
-        self.subject_list.setMaximumHeight(100)  # Reduced height (was 120)
+        self.subject_list.setMinimumHeight(80)
         self.eeg_net_combo = QtWidgets.QComboBox()
         self.atlas_combo = QtWidgets.QComboBox()
         self.nonroi_atlas_combo = QtWidgets.QComboBox()
@@ -186,19 +186,10 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Initialize buttons that might be referenced
         self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_subjects_btn.setMaximumWidth(100)
-
         self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
-        self.select_all_subjects_btn.setMaximumWidth(100)
-
         self.clear_subjects_btn = QtWidgets.QPushButton("Clear")
-        self.clear_subjects_btn.setMaximumWidth(100)
-
         self.refresh_eeg_nets_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_eeg_nets_btn.setMaximumWidth(100)
-
         self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_atlases_btn.setMaximumWidth(100)
 
         # Initialize labels
         self.subject_label = QtWidgets.QLabel("Subjects:")
@@ -260,7 +251,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Initialize Freeview button for spherical ROI
         self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
-        self.view_t1_btn.setMaximumWidth(150)
         self.view_t1_btn.setToolTip(
             "Open subject's T1 scan in Freeview to find RAS coordinates"
         )
@@ -456,25 +446,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.nonroi_label_input = QtWidgets.QSpinBox()
         self.nonroi_label_input.setRange(1, 10000)
         self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_nonroi_regions_btn.setMaximumWidth(120)
 
         # Non-ROI inputs (volume)
         self.nonroi_volume_atlas_combo = QtWidgets.QComboBox()
         self.nonroi_volume_label_input = QtWidgets.QSpinBox()
         self.nonroi_volume_label_input.setRange(1, 10000)
         self.list_nonroi_volume_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_nonroi_volume_regions_btn.setMaximumWidth(120)
 
         # ROI hemisphere combo and list regions button (for cortical ROI)
         self.roi_hemi_combo = QtWidgets.QComboBox()
         self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
         self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_roi_regions_btn.setMaximumWidth(120)
 
         # Subcortical volume controls
         self.volume_atlas_combo = QtWidgets.QComboBox()
         self.refresh_volume_atlases_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_volume_atlases_btn.setMaximumWidth(100)
         self.volume_label_value_input = QtWidgets.QSpinBox()
         self.volume_label_value_input.setRange(1, 10000)
         self.volume_label_value_input.setValue(10)
@@ -482,7 +468,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             "Common values: 10=Left-Thalamus, 49=Right-Thalamus, 17=Left-Hippocampus, 53=Right-Hippocampus"
         )
         self.list_volume_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_volume_regions_btn.setMaximumWidth(120)
 
         # Labels for subcortical controls
         self.volume_atlas_label = QtWidgets.QLabel("Volume Atlas:")
@@ -541,6 +526,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(600)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(
@@ -573,10 +559,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
 
-        self.goal_combo.setMaximumWidth(320)
+        self.goal_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         basic_params_layout.addRow(self.goal_label, self.goal_combo)
 
-        self.postproc_combo.setMaximumWidth(320)
+        self.postproc_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
 
         top_row_layout.addWidget(basic_params_group, 1)
@@ -588,9 +578,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Automatic Simulations Options (formerly Electrode Mapping)
         self.mapping_group = QtWidgets.QGroupBox("Automatic Simulations (Optional)")
-        self.mapping_group.setMaximumHeight(
-            140
-        )  # Increased height to accommodate both checkboxes
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
         mapping_layout.setVerticalSpacing(2)  # Minimal vertical spacing between rows
         mapping_layout.setContentsMargins(4, 4, 4, 4)  # Minimal margins
@@ -607,9 +594,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         # EEG net selection (only visible when run_mapped_simulation is checked)
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
         eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-        self.eeg_net_combo.setFixedWidth(195)  # Force width to be 2.5x larger
+        self.eeg_net_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         eeg_net_controls_inner_layout.addWidget(self.eeg_net_combo)
-        eeg_net_controls_inner_layout.addStretch()
         self.eeg_net_widget.setLayout(eeg_net_controls_inner_layout)
         self.eeg_net_widget.setVisible(False)
         self.eeg_net_label.setVisible(False)
@@ -680,7 +668,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             "Coordinates will be treated as MNI space and transformed to each subject's native space."
         )
         self.mni_info_label.setStyleSheet(
-            "background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: 11px;"
+            "background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: 8pt;"
         )
         self.mni_info_label.setWordWrap(True)
         self.mni_info_label.setVisible(False)
@@ -708,7 +696,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         atlas_controls_widget = QtWidgets.QWidget()
         atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
-        self.atlas_combo.setMaximumWidth(320)
+        self.atlas_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         atlas_controls_inner_layout.addWidget(self.atlas_combo)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_label)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_combo)
@@ -727,7 +717,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         volume_controls_widget = QtWidgets.QWidget()
         volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
-        self.volume_atlas_combo.setMaximumWidth(320)
+        self.volume_atlas_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         volume_controls_inner_layout.addWidget(self.volume_atlas_combo)
         volume_controls_inner_layout.addWidget(self.refresh_volume_atlases_btn)
         volume_controls_inner_layout.addWidget(self.list_volume_regions_btn)
@@ -751,7 +743,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         adaptive_help = QtWidgets.QLabel(
             "Automatically determines thresholds by first running mean optimization to find achievable intensity."
         )
-        adaptive_help.setStyleSheet("font-size: 10px; color: gray;")
+        adaptive_help.setStyleSheet("font-size: 8pt; color: gray;")
         adaptive_help.setWordWrap(True)
         focality_layout.addRow(adaptive_help)
 
@@ -772,7 +764,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         threshold_help = QtWidgets.QLabel(
             "Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min."
         )
-        threshold_help.setStyleSheet("font-size: 10px; color: gray;")
+        threshold_help.setStyleSheet("font-size: 8pt; color: gray;")
         focality_layout.addRow(threshold_help)
         focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
 
@@ -802,7 +794,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_atlas_controls_inner_layout = QtWidgets.QHBoxLayout(
             nonroi_atlas_controls_widget
         )
-        self.nonroi_atlas_combo.setMaximumWidth(320)
+        self.nonroi_atlas_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_atlas_combo)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_label)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_combo)
@@ -823,7 +817,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_volume_controls_layout = QtWidgets.QHBoxLayout(
             nonroi_volume_controls_widget
         )
-        self.nonroi_volume_atlas_combo.setMaximumWidth(320)
+        self.nonroi_volume_atlas_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         nonroi_volume_controls_layout.addWidget(self.nonroi_volume_atlas_combo)
         nonroi_volume_controls_layout.addWidget(self.list_nonroi_volume_regions_btn)
         nonroi_volume_controls_layout.addStretch()
@@ -904,7 +900,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_layout.addWidget(self.stability_group)
 
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -923,11 +919,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=180,
-            max_height=None,
+            min_height=400,
+            max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget)
+        main_layout.addWidget(self.console_widget, 2)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
@@ -2923,10 +2919,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 f"🎯 Step 2/2: Running focality optimization with adaptive thresholds"
             )
             self.update_output(
-                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage*100:.0f}%)"
+                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
             )
             self.update_output(
-                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage*100:.0f}%)"
+                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
             )
 
             # Build focality optimization command with adaptive thresholds
@@ -3070,10 +3066,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 f"🎯 Step 2/2: Running focality optimization with adaptive thresholds"
             )
             self.update_output(
-                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage*100:.0f}%)"
+                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
             )
             self.update_output(
-                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage*100:.0f}%)"
+                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
             )
 
             # Build focality optimization command with adaptive thresholds

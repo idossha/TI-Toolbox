@@ -294,7 +294,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         # Title and description
         title_label = QtWidgets.QLabel("System Monitor")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        title_label.setStyleSheet("font-size: 7pt; font-weight: bold;")
 
         description_label = QtWidgets.QLabel(
             "Monitor toolbox-related processes including pre-processing, simulations, and optimizations."
@@ -311,11 +311,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         # CPU usage
         self.cpu_label = QtWidgets.QLabel("CPU: 0%")
-        self.cpu_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.cpu_label.setStyleSheet("font-weight: bold; font-size: 5pt;")
 
         # Memory usage
         self.memory_label = QtWidgets.QLabel("Memory: 0%")
-        self.memory_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.memory_label.setStyleSheet("font-weight: bold; font-size: 5pt;")
 
         # Last update
         self.update_label = QtWidgets.QLabel("Last Update: --:--:--")
@@ -336,15 +336,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.process_table = QtWidgets.QTableWidget()
         self.process_table.setColumnCount(7)
         self.process_table.setHorizontalHeaderLabels(
-            [
-                "PID",
-                "Process Name",
-                "Command",
-                "CPU %",
-                "Memory %",
-                "Memory (MB)",
-                "Runtime",
-            ]
+            ["PID", "Name", "Command", "CPU%", "Mem%", "MB", "Time"]
         )
 
         # Set table properties
@@ -354,13 +346,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         # Set column widths
         header = self.process_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # PID
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Process Name
-        header.setSectionResizeMode(2, QHeaderView.Stretch)  # Command
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # CPU %
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Memory %
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Memory MB
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Runtime
+        for col in [0, 1, 3, 4, 5, 6]:
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(
+            2, QHeaderView.Stretch
+        )  # Command takes remaining space
 
         processes_layout.addWidget(self.process_table)
 

@@ -73,6 +73,13 @@ class ConsoleWidget(QtWidgets.QWidget):
 
         self.setup_ui()
 
+        # Apply height constraints to the outer widget so the QTextEdit always
+        # fills the full console area regardless of parent layout.
+        if self.min_height:
+            self.setMinimumHeight(self.min_height)
+        if self.max_height:
+            self.setMaximumHeight(self.max_height)
+
     def setup_ui(self):
         """Set up the console UI components."""
         layout = QtWidgets.QVBoxLayout(self)
@@ -84,7 +91,7 @@ class ConsoleWidget(QtWidgets.QWidget):
         # Console label
         if self.console_label:
             label = QtWidgets.QLabel(self.console_label)
-            label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+            label.setStyleSheet("font-weight: bold; margin-top: 8px;")
             header_layout.addWidget(label)
 
         # Add stretch to push buttons to the right
@@ -98,19 +105,10 @@ class ConsoleWidget(QtWidgets.QWidget):
         if self.show_clear_button:
             self.clear_btn = QtWidgets.QPushButton("Clear Console")
             self.clear_btn.clicked.connect(self.clear_console)
+            # Subtle dark style so it visually belongs to the console area.
             self.clear_btn.setStyleSheet(
-                """
-                QPushButton {
-                    background-color: #555;
-                    color: white;
-                    padding: 5px 10px;
-                    border: none;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #666;
-                }
-            """
+                "QPushButton { background-color: #555; color: white; border-color: #444; }"
+                " QPushButton:hover { background-color: #666; }"
             )
             header_layout.addWidget(self.clear_btn)
 
@@ -125,46 +123,31 @@ class ConsoleWidget(QtWidgets.QWidget):
             )
             self.debug_checkbox.toggled.connect(self.toggle_debug_mode)
             self.debug_checkbox.setStyleSheet(
-                """
-                QCheckBox {
-                    font-weight: bold;
-                    color: #333333;
-                    padding: 5px;
-                    margin-left: 10px;
-                }
-                QCheckBox::indicator {
-                    width: 16px;
-                    height: 16px;
-                }
-                QCheckBox::indicator:unchecked {
-                    border: 2px solid #cccccc;
-                    background-color: white;
-                    border-radius: 3px;
-                }
-                QCheckBox::indicator:checked {
-                    border: 2px solid #4CAF50;
-                    background-color: #4CAF50;
-                    border-radius: 3px;
-                }
-            """
+                "QCheckBox { font-weight: bold; margin-left: 8px; }"
+                " QCheckBox::indicator:unchecked { border: 2px solid #cccccc;"
+                "  background-color: white; border-radius: 3px; }"
+                " QCheckBox::indicator:checked  { border: 2px solid #4CAF50;"
+                "  background-color: #4CAF50; border-radius: 3px; }"
             )
             header_layout.addWidget(self.debug_checkbox)
 
         layout.addLayout(header_layout)
 
-        # Console output with dark theme
+        # Console output with dark theme.
+        # Height constraints are applied to the outer ConsoleWidget (self),
+        # not to this QTextEdit, so the dark area always fills the wrapper.
         self.console = QtWidgets.QTextEdit()
         self.console.setReadOnly(True)
-        self.console.setMinimumHeight(self.min_height)
-        if self.max_height:
-            self.console.setMaximumHeight(self.max_height)
+        self.console.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
         self.console.setStyleSheet(
             """
             QTextEdit {
                 background-color: #1e1e1e;
                 color: #f0f0f0;
                 font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 13px;
+                font-size: 5pt;
                 border: 1px solid #3c3c3c;
                 border-radius: 5px;
                 padding: 8px;
@@ -172,7 +155,9 @@ class ConsoleWidget(QtWidgets.QWidget):
         """
         )
         self.console.setAcceptRichText(True)
-        layout.addWidget(self.console)
+        # stretch=1 ensures the QTextEdit fills all remaining vertical space
+        # within whatever height the outer ConsoleWidget is given.
+        layout.addWidget(self.console, 1)
 
     def toggle_debug_mode(self):
         """Toggle debug mode for verbose output."""
@@ -225,18 +210,23 @@ class ConsoleWidget(QtWidgets.QWidget):
             # Default white text
             formatted_text = f'<span style="color: #ffffff;">{text}</span>'
 
-        # Check if user is at the bottom of the console before appending
+        # Snapshot scrollbar state before append.
+        # QTextEdit.append() internally moves the cursor to the end which can
+        # cause an unsolicited scroll even when the user has scrolled up.
+        # Explicitly restoring the position afterward is the only reliable fix.
         scrollbar = self.console.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
+        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+        saved_value = scrollbar.value()
 
         # Append to the console with HTML formatting
         self.console.append(formatted_text)
 
-        # Only auto-scroll if user was already at the bottom
+        # Sticky-scroll: if user was at the bottom, follow new content.
+        # Otherwise, restore the exact position they were at.
         if at_bottom:
-            self.console.ensureCursorVisible()
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(saved_value)
 
     def append_html(self, html_text):
         """
@@ -247,11 +237,14 @@ class ConsoleWidget(QtWidgets.QWidget):
         """
         scrollbar = self.console.verticalScrollBar()
         at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+        saved_value = scrollbar.value()
 
         self.console.append(html_text)
 
         if at_bottom:
-            self.console.ensureCursorVisible()
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(saved_value)
 
         QtWidgets.QApplication.processEvents()
 

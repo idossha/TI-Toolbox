@@ -252,409 +252,170 @@ class SimulatorTab(QtWidgets.QWidget):
         self._max_concurrent_jobs = 1
         self._run_start_time = None
         self._project_dir_path_current = None
+        # Per-job selection state
+        self._job_selections = {}   # row_index -> list[str] of selected item texts
+        self._job_cards: list = []
+        self._selected_card_idx: int = -1
         # Initialize debug mode (default to False)
         self.debug_mode = False
         # Initialize path manager
         self.pm = get_path_manager()
         self.setup_ui()
 
-        # Initialize with available subjects and montages
-        QtCore.QTimer.singleShot(500, self.list_subjects)
-        QtCore.QTimer.singleShot(700, self.update_montage_list)
-        QtCore.QTimer.singleShot(900, self.refresh_flex_search_list)
-        QtCore.QTimer.singleShot(
-            1000, self.initialize_ui_state
-        )  # Initialize UI state silently
+        # Populate subjects/EEG nets after UI is ready
+        QtCore.QTimer.singleShot(500, self._load_available_subjects)
 
     def setup_ui(self):
         """Set up the user interface for the simulator tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Create a scroll area for the form
+        # Scroll area for the top form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(800)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
-        # Main horizontal layout to separate left and right
-        main_horizontal_layout = QtWidgets.QHBoxLayout()
+        # ── Section 1: Simulation Jobs ─────────────────────────────────────
+        jobs_group = QtWidgets.QGroupBox("Simulation Jobs")
+        jobs_outer = QtWidgets.QVBoxLayout(jobs_group)
 
-        # Left side layout for subjects and montages
-        left_layout = QtWidgets.QVBoxLayout()
+        # Card-based job list inside a scroll area
+        self.jobs_scroll = QtWidgets.QScrollArea()
+        self.jobs_scroll.setWidgetResizable(True)
+        self.jobs_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.jobs_scroll.setMinimumHeight(180)
+        self.jobs_scroll.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
+        self.jobs_container = QtWidgets.QWidget()
+        self.jobs_layout = QtWidgets.QVBoxLayout(self.jobs_container)
+        self.jobs_layout.setContentsMargins(4, 4, 4, 4)
+        self.jobs_layout.setSpacing(4)
+        self.jobs_layout.addStretch()   # keeps cards pushed to top
+        self.jobs_scroll.setWidget(self.jobs_container)
+        jobs_outer.addWidget(self.jobs_scroll)
 
-        # Subject selection
-        subject_container = QtWidgets.QGroupBox("Subject(s)")
-        subject_layout = QtWidgets.QVBoxLayout(subject_container)
+        # Bottom button row
+        jobs_footer = QtWidgets.QHBoxLayout()
+        self.add_job_btn = QtWidgets.QPushButton("+ Add Job")
+        self.add_job_btn.clicked.connect(lambda: self._add_job_row())
+        self.remove_job_btn = QtWidgets.QPushButton("Remove Selected")
+        self.remove_job_btn.clicked.connect(self._remove_selected_job_row)
+        jobs_footer.addStretch()
+        jobs_footer.addWidget(self.add_job_btn)
+        jobs_footer.addWidget(self.remove_job_btn)
+        jobs_outer.addLayout(jobs_footer)
 
-        # Create horizontal layout for list and buttons side by side
-        subject_content_layout = QtWidgets.QHBoxLayout()
+        # ── Section 2: Selection panel ─────────────────────────────────────
+        selection_group = QtWidgets.QGroupBox("Montage / Flex-Search Selection")
+        selection_outer = QtWidgets.QVBoxLayout(selection_group)
 
-        # List widget for subject selection
-        self.subject_list = QtWidgets.QListWidget()
-        self.subject_list.setSelectionMode(
+        self.selection_label = QtWidgets.QLabel("Select a job row above")
+        selection_outer.addWidget(self.selection_label)
+
+        self.selection_list = QtWidgets.QListWidget()
+        self.selection_list.setSelectionMode(
             QtWidgets.QAbstractItemView.ExtendedSelection
         )
-        self.subject_list.setMinimumHeight(90)  # Reduced by 10% (100 * 0.9 = 90)
-        self.subject_list.itemSelectionChanged.connect(
-            self.refresh_flex_search_list
-        )  # Refresh flex-search when subjects change
-        self.subject_list.itemSelectionChanged.connect(
-            self.update_freehand_configs
-        )  # Refresh free-hand configs when subjects change
-        self.subject_list.itemSelectionChanged.connect(
-            self.populate_flex_eeg_nets
-        )  # Populate flex EEG nets when subjects change
-        subject_content_layout.addWidget(self.subject_list)
-
-        # Subject control buttons in vertical layout on the right
-        subject_button_layout = QtWidgets.QVBoxLayout()
-        self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_subjects_btn.clicked.connect(self.list_subjects)
-        self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
-        self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
-        self.clear_subject_selection_btn = QtWidgets.QPushButton("Clear")
-        self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
-
-        subject_button_layout.addWidget(self.list_subjects_btn)
-        subject_button_layout.addWidget(self.select_all_subjects_btn)
-        subject_button_layout.addWidget(self.clear_subject_selection_btn)
-        subject_button_layout.addStretch()  # Push buttons to the top
-
-        subject_content_layout.addLayout(subject_button_layout)
-        subject_layout.addLayout(subject_content_layout)
-
-        # Add subject container to left layout
-        left_layout.addWidget(subject_container)
-
-        # Montage selection - now placed below subjects on left side
-        montage_container = QtWidgets.QGroupBox("Montage(s)")
-        montage_container.setMinimumHeight(202)  # Reduced by 10% (224 * 0.9 = 202)
-        montage_container.setMaximumHeight(202)  # Set maximum height for consistency
-        montage_container.setMinimumWidth(450)  # Reduced by 10% (500 * 0.9 = 450)
-        montage_container.setMaximumWidth(450)  # Set maximum width for consistency
-        montage_layout = QtWidgets.QVBoxLayout(montage_container)
-
-        # Create horizontal layout for list and buttons side by side
-        montage_content_layout = QtWidgets.QHBoxLayout()
-
-        # List widget for montage selection
-        self.montage_list = QtWidgets.QListWidget()
-        self.montage_list.setSelectionMode(
-            QtWidgets.QAbstractItemView.ExtendedSelection
+        self.selection_list.setMinimumHeight(120)
+        self.selection_list.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
-        # No height constraints - let it fill the available vertical space
-        montage_content_layout.addWidget(self.montage_list)
-
-        # Montage control buttons in vertical layout on the right
-        montage_button_layout = QtWidgets.QVBoxLayout()
-        # Add New Montage button
-        self.add_new_montage_btn = QtWidgets.QPushButton("Add New")
-        self.add_new_montage_btn.clicked.connect(self.show_add_montage_dialog)
-        # Remove Montage button
-        self.remove_montage_btn = QtWidgets.QPushButton("Remove")
-        self.remove_montage_btn.clicked.connect(self.remove_selected_montage)
-        # Other montage buttons
-        self.list_montages_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_montages_btn.clicked.connect(self.update_montage_list)
-        self.clear_montage_selection_btn = QtWidgets.QPushButton("Clear")
-        self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
-
-        montage_button_layout.addWidget(self.add_new_montage_btn)
-        montage_button_layout.addWidget(self.remove_montage_btn)
-        montage_button_layout.addWidget(self.list_montages_btn)
-        montage_button_layout.addWidget(self.clear_montage_selection_btn)
-        montage_button_layout.addStretch()  # Push buttons to the top
-
-        montage_content_layout.addLayout(montage_button_layout)
-        montage_layout.addLayout(montage_content_layout)
-
-        # Add montage container to left layout
-        self.montage_container = (
-            montage_container  # Store reference for visibility control
+        self.selection_list.itemSelectionChanged.connect(
+            self._save_selection_for_current_row
         )
-        left_layout.addWidget(montage_container)
+        selection_outer.addWidget(self.selection_list)
 
-        # Flex-search outputs selection
-        flex_search_container = QtWidgets.QGroupBox("Flex-Search Outputs")
-        flex_search_container.setMinimumHeight(202)  # Reduced by 10% (224 * 0.9 = 202)
-        flex_search_container.setMaximumHeight(
-            202
-        )  # Set maximum height for consistency
-        flex_search_container.setMinimumWidth(450)  # Reduced by 10% (500 * 0.9 = 450)
-        flex_search_container.setMaximumWidth(450)  # Set maximum width for consistency
-        flex_search_layout = QtWidgets.QVBoxLayout(flex_search_container)
+        sel_btn_row = QtWidgets.QHBoxLayout()
+        self.refresh_selection_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_selection_btn.clicked.connect(self._refresh_selection_list)
+        self.clear_selection_btn = QtWidgets.QPushButton("Clear")
+        self.clear_selection_btn.clicked.connect(self._clear_selection)
+        self.add_montage_sel_btn = QtWidgets.QPushButton("Add Montage")
+        self.add_montage_sel_btn.clicked.connect(self.show_add_montage_dialog)
+        self.remove_montage_sel_btn = QtWidgets.QPushButton("Remove Montage")
+        self.remove_montage_sel_btn.clicked.connect(self.remove_selected_montage)
+        sel_btn_row.addWidget(self.refresh_selection_btn)
+        sel_btn_row.addWidget(self.clear_selection_btn)
+        sel_btn_row.addSpacing(16)
+        sel_btn_row.addWidget(self.add_montage_sel_btn)
+        sel_btn_row.addWidget(self.remove_montage_sel_btn)
+        sel_btn_row.addStretch()
+        selection_outer.addLayout(sel_btn_row)
 
-        # Create horizontal layout for list and buttons side by side
-        flex_content_layout = QtWidgets.QHBoxLayout()
+        # ── Section 3: Global Parameters ───────────────────────────────────
+        global_group = QtWidgets.QGroupBox("Global Parameters")
+        global_layout = QtWidgets.QVBoxLayout(global_group)
+        global_layout.setContentsMargins(8, 4, 8, 4)
+        global_layout.setSpacing(3)
 
-        # Create vertical layout for list and options on the left
-        flex_list_and_options = QtWidgets.QVBoxLayout()
-
-        # List widget for flex-search output selection
-        self.flex_search_list = QtWidgets.QListWidget()
-        self.flex_search_list.setSelectionMode(
-            QtWidgets.QAbstractItemView.ExtendedSelection
-        )
-        # No height constraints - let it fill the available vertical space
-        flex_list_and_options.addWidget(self.flex_search_list)
-
-        # Flex-search options
-        flex_options_layout = QtWidgets.QVBoxLayout()
-
-        # Electrode type checkboxes
-        electrode_type_layout = QtWidgets.QHBoxLayout()
-        self.flex_use_mapped = QtWidgets.QCheckBox("Use Mapped")
-        self.flex_use_optimized = QtWidgets.QCheckBox("Use Optimized")
-        self.flex_use_mapped.setChecked(True)  # Default to mapped
-
-        # Connect to update EEG net visibility
-        self.flex_use_mapped.stateChanged.connect(self.on_flex_mapped_changed)
-
-        electrode_type_layout.addWidget(QtWidgets.QLabel("Type:"))
-        electrode_type_layout.addWidget(self.flex_use_mapped)
-        electrode_type_layout.addWidget(self.flex_use_optimized)
-        electrode_type_layout.addStretch()
-        flex_options_layout.addLayout(electrode_type_layout)
-
-        # EEG net selection for flex-mapped mode
-        flex_eeg_net_layout = QtWidgets.QHBoxLayout()
-        self.flex_eeg_net_label = QtWidgets.QLabel("EEG Net:")
-        self.flex_eeg_net_combo = QtWidgets.QComboBox()
-        self.flex_eeg_net_combo.setMinimumWidth(200)
-        flex_eeg_net_layout.addWidget(self.flex_eeg_net_label)
-        flex_eeg_net_layout.addWidget(self.flex_eeg_net_combo)
-        flex_eeg_net_layout.addStretch()
-        flex_options_layout.addLayout(flex_eeg_net_layout)
-
-        flex_list_and_options.addLayout(flex_options_layout)
-
-        flex_content_layout.addLayout(flex_list_and_options)
-
-        # Flex-search control buttons in vertical layout on the right
-        flex_button_layout = QtWidgets.QVBoxLayout()
-        self.refresh_flex_btn = QtWidgets.QPushButton("Refresh List")
-        self.refresh_flex_btn.clicked.connect(self.refresh_flex_search_list)
-        self.clear_flex_selection_btn = QtWidgets.QPushButton("Clear")
-        self.clear_flex_selection_btn.clicked.connect(self.clear_flex_search_selection)
-
-        flex_button_layout.addWidget(self.refresh_flex_btn)
-        flex_button_layout.addWidget(self.clear_flex_selection_btn)
-        flex_button_layout.addStretch()  # Push buttons to the top
-
-        flex_content_layout.addLayout(flex_button_layout)
-        flex_search_layout.addLayout(flex_content_layout)
-
-        # Add flex-search container to left layout
-        left_layout.addWidget(flex_search_container)
-
-        # Store containers for show/hide functionality
-        self.montage_container = montage_container
-        self.flex_search_container = flex_search_container
-
-        # Right side layout for simulation parameters
-        right_layout = QtWidgets.QVBoxLayout()
-
-        # Simulation parameters group
-        sim_params_container = QtWidgets.QGroupBox("Simulation Configuration")
-        sim_params_layout = QtWidgets.QVBoxLayout(sim_params_container)
-
-        # Simulation type (Isotropic/Anisotropic)
-        sim_type_layout = QtWidgets.QHBoxLayout()
+        # Row 1: Anisotropy + conductivity editor
+        row1 = QtWidgets.QHBoxLayout()
         self.sim_type_label = QtWidgets.QLabel("Anisotropy:")
         self.sim_type_combo = QtWidgets.QComboBox()
         self.sim_type_combo.addItem("Isotropic", "scalar")
         self.sim_type_combo.addItem("Anisotropic (vn)", "vn")
         self.sim_type_combo.addItem("Anisotropic (dir)", "dir")
         self.sim_type_combo.addItem("Anisotropic (mc)", "mc")
-
-        sim_type_layout.addWidget(self.sim_type_label)
-        sim_type_layout.addWidget(self.sim_type_combo)
-
-        # Add conductivity editor button on the same line
         self.conductivity_editor_btn = QtWidgets.QPushButton("Change Default Cond.")
         self.conductivity_editor_btn.clicked.connect(self.show_conductivity_editor)
-        sim_type_layout.addWidget(self.conductivity_editor_btn)
-        sim_type_layout.addStretch()  # Push everything to the left
-
-        sim_params_layout.addLayout(sim_type_layout)
-
-        # EEG Net selection - aligned with Brain Anisotropy dropdown
-        eeg_net_layout = QtWidgets.QHBoxLayout()
-        self.eeg_net_label = QtWidgets.QLabel("EEG Net:")
-        # Set minimum width to match "Brain Anisotropy:" label
-        self.eeg_net_label.setMinimumWidth(self.sim_type_label.sizeHint().width())
+        row1.addWidget(self.sim_type_label)
+        row1.addWidget(self.sim_type_combo)
+        row1.addSpacing(8)
+        row1.addWidget(self.conductivity_editor_btn)
+        row1.addStretch()
+        global_layout.addLayout(row1)
+        # Hidden master EEG net combo – keeps AddMontageDialog working
         self.eeg_net_combo = QtWidgets.QComboBox()
-        eeg_net_layout.addWidget(self.eeg_net_label)
-        eeg_net_layout.addWidget(self.eeg_net_combo)
-        eeg_net_layout.addStretch()
-        sim_params_layout.addLayout(eeg_net_layout)
+        self.eeg_net_combo.setVisible(False)
 
-        # Connect EEG net selection change to montage list update
-        self.eeg_net_combo.currentTextChanged.connect(self.update_montage_list)
-
-        # Simulation Type Selection (Montage vs Flex vs Free-hand)
-        sim_type_selection_layout = QtWidgets.QHBoxLayout()
-        self.sim_type_selection_label = QtWidgets.QLabel("Montage Source:")
-        self.sim_type_montage = QtWidgets.QRadioButton("Montage List")
-        self.sim_type_flex = QtWidgets.QRadioButton("Flex-Search")
-        self.sim_type_freehand = QtWidgets.QRadioButton("Free-hand")
-        self.sim_type_montage.setChecked(True)  # Default to montage simulation
-
-        # Create button group for mutual exclusion
-        self.sim_type_group = QtWidgets.QButtonGroup()
-        self.sim_type_group.addButton(self.sim_type_montage, 1)
-        self.sim_type_group.addButton(self.sim_type_flex, 2)
-        self.sim_type_group.addButton(self.sim_type_freehand, 3)
-
-        sim_type_selection_layout.addWidget(self.sim_type_selection_label)
-        sim_type_selection_layout.addWidget(self.sim_type_montage)
-        sim_type_selection_layout.addWidget(self.sim_type_flex)
-        sim_type_selection_layout.addWidget(self.sim_type_freehand)
-        sim_type_selection_layout.addStretch()
-        sim_params_layout.addLayout(sim_type_selection_layout)
-
-        # Connect to mode change handler - use clicked to avoid double signals
-        self.sim_type_montage.clicked.connect(self.on_simulation_type_changed)
-        self.sim_type_flex.clicked.connect(self.on_simulation_type_changed)
-        self.sim_type_freehand.clicked.connect(self.on_simulation_type_changed)
-
-        # Simulation mode (Unipolar/Multipolar) - only for montage simulation
-        sim_mode_layout = QtWidgets.QHBoxLayout()
-        self.sim_mode_label = QtWidgets.QLabel("Simulation Mode:")
-        # Set minimum width to match "Montage Source:" label
-        self.sim_mode_label.setMinimumWidth(
-            self.sim_type_selection_label.sizeHint().width()
-        )
-        self.sim_mode_unipolar = QtWidgets.QRadioButton("Unipolar")
-        self.sim_mode_multipolar = QtWidgets.QRadioButton("Multipolar")
-        self.sim_mode_unipolar.setChecked(True)
-        sim_mode_layout.addWidget(self.sim_mode_label)
-        sim_mode_layout.addWidget(self.sim_mode_unipolar)
-        sim_mode_layout.addWidget(self.sim_mode_multipolar)
-        sim_mode_layout.addStretch()
-        # Connect mode radio buttons to update montage list and current inputs
-        self.sim_mode_unipolar.toggled.connect(self.update_montage_list)
-        self.sim_mode_multipolar.toggled.connect(self.update_montage_list)
-        self.sim_mode_unipolar.toggled.connect(self.update_current_inputs_visibility)
-        self.sim_mode_multipolar.toggled.connect(self.update_current_inputs_visibility)
-        sim_params_layout.addLayout(sim_mode_layout)
-
-        # Store the sim_mode_layout for show/hide
-        self.sim_mode_layout_widgets = [
-            self.sim_mode_label,
-            self.sim_mode_unipolar,
-            self.sim_mode_multipolar,
-        ]
-
-        # Electrode parameters group
-        self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
-        electrode_params_layout = QtWidgets.QVBoxLayout(self.electrode_params_group)
-
-        # Current value (four fields for multipolar support)
-        self.current_layout = QtWidgets.QVBoxLayout()
-
-        # First row: Channel 1 and 2
-        current_row1 = QtWidgets.QHBoxLayout()
-        self.current_label_1 = QtWidgets.QLabel("Current Ch1 (mA):")
-        self.current_input_1 = QtWidgets.QLineEdit()
-        self.current_input_1.setPlaceholderText("1.0")
-        self.current_input_1.setText("1.0")  # Default to 1.0 mA
-        self.current_label_2 = QtWidgets.QLabel("Current Ch2 (mA):")
-        self.current_input_2 = QtWidgets.QLineEdit()
-        self.current_input_2.setPlaceholderText("1.0")
-        self.current_input_2.setText("1.0")  # Default to 1.0 mA
-        current_row1.addWidget(self.current_label_1)
-        current_row1.addWidget(self.current_input_1)
-        current_row1.addSpacing(10)
-        current_row1.addWidget(self.current_label_2)
-        current_row1.addWidget(self.current_input_2)
-        self.current_layout.addLayout(current_row1)
-
-        # Second row: Channel 3 and 4 (for multipolar mode)
-        current_row2 = QtWidgets.QHBoxLayout()
-        self.current_label_3 = QtWidgets.QLabel("Current Ch3 (mA):")
-        self.current_input_3 = QtWidgets.QLineEdit()
-        self.current_input_3.setPlaceholderText("1.0")
-        self.current_input_3.setText("1.0")  # Default to 1.0 mA
-        self.current_label_4 = QtWidgets.QLabel("Current Ch4 (mA):")
-        self.current_input_4 = QtWidgets.QLineEdit()
-        self.current_input_4.setPlaceholderText("1.0")
-        self.current_input_4.setText("1.0")  # Default to 1.0 mA
-        current_row2.addWidget(self.current_label_3)
-        current_row2.addWidget(self.current_input_3)
-        current_row2.addSpacing(10)
-        current_row2.addWidget(self.current_label_4)
-        current_row2.addWidget(self.current_input_4)
-        self.current_layout.addLayout(current_row2)
-
-        # Store widgets for show/hide functionality
-        self.multipolar_current_widgets = [
-            self.current_label_3,
-            self.current_input_3,
-            self.current_label_4,
-            self.current_input_4,
-        ]
-
-        # Initially hide channels 3 and 4
-        for widget in self.multipolar_current_widgets:
-            widget.setVisible(False)
-        electrode_params_layout.addLayout(self.current_layout)
-
-        # Initialize current inputs visibility (after widgets are created)
-        self.update_current_inputs_visibility()
-
-        # Electrode shape
-        shape_layout = QtWidgets.QHBoxLayout()
+        # Row 2a: Electrode shape
+        row2 = QtWidgets.QHBoxLayout()
         self.electrode_shape_label = QtWidgets.QLabel("Electrode Shape:")
         self.electrode_shape_rect = QtWidgets.QRadioButton("Rectangle")
         self.electrode_shape_rect.setProperty("value", "rect")
         self.electrode_shape_ellipse = QtWidgets.QRadioButton("Ellipse")
         self.electrode_shape_ellipse.setProperty("value", "ellipse")
-        self.electrode_shape_ellipse.setChecked(True)  # Set default to Ellipse
-        shape_layout.addWidget(self.electrode_shape_label)
-        shape_layout.addWidget(self.electrode_shape_rect)
-        shape_layout.addWidget(self.electrode_shape_ellipse)
-        electrode_params_layout.addLayout(shape_layout)
+        self.electrode_shape_ellipse.setChecked(True)
+        row2.addWidget(self.electrode_shape_label)
+        row2.addWidget(self.electrode_shape_rect)
+        row2.addWidget(self.electrode_shape_ellipse)
+        row2.addStretch()
+        global_layout.addLayout(row2)
 
-        # Electrode dimensions
-        dimensions_layout = QtWidgets.QHBoxLayout()
+        # Row 2b: Dimensions + thickness
+        row2b = QtWidgets.QHBoxLayout()
         self.dimensions_label = QtWidgets.QLabel("Dimensions (mm, x,y):")
         self.dimensions_input = QtWidgets.QLineEdit()
         self.dimensions_input.setPlaceholderText("8,8")
-        self.dimensions_input.setText("8,8")  # Set default to 8,8
-        dimensions_layout.addWidget(self.dimensions_label)
-        dimensions_layout.addWidget(self.dimensions_input)
-        electrode_params_layout.addLayout(dimensions_layout)
-
-        # Electrode thickness
-        thickness_layout = QtWidgets.QHBoxLayout()
+        self.dimensions_input.setText("8,8")
+        self.dimensions_input.setMaximumWidth(60)
         self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
         self.thickness_input = QtWidgets.QLineEdit()
         self.thickness_input.setPlaceholderText("4")
-        self.thickness_input.setText("4")  # Set default to 4mm
-        thickness_layout.addWidget(self.thickness_label)
-        thickness_layout.addWidget(self.thickness_input)
-        electrode_params_layout.addLayout(thickness_layout)
+        self.thickness_input.setText("4")
+        self.thickness_input.setMaximumWidth(44)
+        row2b.addWidget(self.dimensions_label)
+        row2b.addWidget(self.dimensions_input)
+        row2b.addSpacing(8)
+        row2b.addWidget(self.thickness_label)
+        row2b.addWidget(self.thickness_input)
+        row2b.addStretch()
+        global_layout.addLayout(row2b)
 
-        # Add electrode params group to simulation params
-        sim_params_layout.addWidget(self.electrode_params_group)
-
-        # Parallel Execution Options
-        parallel_layout = QtWidgets.QHBoxLayout()
+        # Row 3: Parallel execution
+        row3 = QtWidgets.QHBoxLayout()
         self.parallel_checkbox = QtWidgets.QCheckBox("Parallel Execution")
         self.parallel_checkbox.setToolTip(
             "Run multiple montage simulations in parallel using multiple CPU cores"
         )
         self.parallel_checkbox.setChecked(False)
-
         self.parallel_workers_label = QtWidgets.QLabel("Workers:")
         self.parallel_workers_label.setEnabled(False)
 
-        # Get default worker count (half of CPUs)
         import os as _os
-
         default_workers = max(1, (_os.cpu_count() or 4) // 2)
-
         self.parallel_workers_spin = QtWidgets.QSpinBox()
         self.parallel_workers_spin.setRange(1, _os.cpu_count() or 8)
         self.parallel_workers_spin.setValue(default_workers)
@@ -662,80 +423,77 @@ class SimulatorTab(QtWidgets.QWidget):
             f"Number of parallel workers (CPU cores: {_os.cpu_count() or 'unknown'})"
         )
         self.parallel_workers_spin.setEnabled(False)
-        self.parallel_workers_spin.setFixedWidth(60)
-
-        # Connect checkbox to enable/disable worker spinbox
+        self.parallel_workers_spin.setMinimumWidth(52)
+        self.parallel_workers_spin.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
         self.parallel_checkbox.toggled.connect(
             lambda checked: (
                 self.parallel_workers_label.setEnabled(checked),
                 self.parallel_workers_spin.setEnabled(checked),
             )
         )
+        row3.addWidget(self.parallel_checkbox)
+        row3.addWidget(self.parallel_workers_label)
+        row3.addWidget(self.parallel_workers_spin)
+        row3.addStretch()
+        global_layout.addLayout(row3)
 
-        parallel_layout.addWidget(self.parallel_checkbox)
-        parallel_layout.addWidget(self.parallel_workers_label)
-        parallel_layout.addWidget(self.parallel_workers_spin)
-        parallel_layout.addStretch()
+        # ── Assemble 2-column layout ───────────────────────────────────────
+        # Right panel: Montage/Flex selection on top, Global Parameters below
+        right_panel = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(4)
+        right_layout.addWidget(selection_group, 1)   # stretch=1: takes remaining height
+        right_layout.addWidget(global_group, 0)      # stretch=0: compact, natural height
 
-        sim_params_layout.addLayout(parallel_layout)
+        # Outer horizontal splitter: Jobs (left, full height) | right panel
+        outer_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        outer_splitter.setChildrenCollapsible(False)
+        outer_splitter.addWidget(jobs_group)
+        outer_splitter.addWidget(right_panel)
+        outer_splitter.setStretchFactor(0, 3)
+        outer_splitter.setStretchFactor(1, 1)
+        outer_splitter.setMinimumHeight(340)
+        scroll_layout.addWidget(outer_splitter)
 
-        # Add simulation parameters to right layout
-        right_layout.addWidget(sim_params_container)
-
-        # Add left and right layouts to main horizontal layout
-        main_horizontal_layout.addLayout(left_layout, 1)  # 1:2 ratio
-        main_horizontal_layout.addLayout(right_layout, 2)
-
-        # Add main horizontal layout to scroll layout
-        scroll_layout.addLayout(main_horizontal_layout)
-
-        # Set scroll content and add to main layout
+        # Set scroll content
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(scroll_area, 3)
 
-        # Create Run/Stop buttons using component
+        # Run/Stop buttons
         self.action_buttons = RunStopButtons(
             self, run_text="Run Simulation", stop_text="Stop Simulation"
         )
         self.action_buttons.connect_run(self.run_simulation)
         self.action_buttons.connect_stop(self.stop_simulation)
-
-        # Keep references for backward compatibility
         self.run_btn = self.action_buttons.get_run_button()
         self.stop_btn = self.action_buttons.get_stop_button()
 
-        # Console widget component with Run/Stop buttons integrated
+        # Console widget
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=180,
-            max_height=None,
+            min_height=400,
+            max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget)
-
-        # Connect the debug checkbox to set_debug_mode method
+        main_layout.addWidget(self.console_widget, 2)
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
-
-        # Reference to underlying console for backward compatibility
         self.output_console = self.console_widget.get_console_widget()
 
-        # We'll keep the old montage group but hide it since we're moving this functionality
-        # to a dialog. It will be referenced by the dialog.
+        # Hidden legacy group (AddMontageDialog compatibility)
         self.montage_group = QtWidgets.QGroupBox("Add New Montage")
         self.montage_group.setVisible(False)
         self.montage_content = QtWidgets.QWidget()
 
-        # Create the electrode stacked widget for reference in the dialog
+        # Stacked widget (used by AddMontageDialog reference)
         self.electrode_stacked_widget = QtWidgets.QStackedWidget()
-
-        # Unipolar electrode pairs (two pairs)
         self.uni_electrode_widget = QtWidgets.QWidget()
         uni_electrode_layout = QtWidgets.QVBoxLayout(self.uni_electrode_widget)
-
-        # Pair 1
         uni_pair1_layout = QtWidgets.QHBoxLayout()
         self.uni_pair1_label = QtWidgets.QLabel("Pair 1:")
         self.uni_pair1_e1 = QtWidgets.QLineEdit()
@@ -747,8 +505,6 @@ class SimulatorTab(QtWidgets.QWidget):
         uni_pair1_layout.addWidget(QtWidgets.QLabel("→"))
         uni_pair1_layout.addWidget(self.uni_pair1_e2)
         uni_electrode_layout.addLayout(uni_pair1_layout)
-
-        # Pair 2
         uni_pair2_layout = QtWidgets.QHBoxLayout()
         self.uni_pair2_label = QtWidgets.QLabel("Pair 2:")
         self.uni_pair2_e1 = QtWidgets.QLineEdit()
@@ -760,51 +516,34 @@ class SimulatorTab(QtWidgets.QWidget):
         uni_pair2_layout.addWidget(QtWidgets.QLabel("→"))
         uni_pair2_layout.addWidget(self.uni_pair2_e2)
         uni_electrode_layout.addLayout(uni_pair2_layout)
-
-        # Multipolar electrode pairs (four pairs)
         self.multi_electrode_widget = QtWidgets.QWidget()
         multi_electrode_layout = QtWidgets.QVBoxLayout(self.multi_electrode_widget)
-
-        # Pair 1-4 for multipolar
         for i in range(1, 5):
             pair_layout = QtWidgets.QHBoxLayout()
             pair_label = QtWidgets.QLabel(f"Pair {i}:")
-
-            # Create electrode inputs and save references
             e1 = QtWidgets.QLineEdit()
             e1.setPlaceholderText(f"E{10+2*(i-1)}")
             e2 = QtWidgets.QLineEdit()
             e2.setPlaceholderText(f"E{11+2*(i-1)}")
-
-            # Store references for later access
             setattr(self, f"multi_pair{i}_e1", e1)
             setattr(self, f"multi_pair{i}_e2", e2)
-
             pair_layout.addWidget(pair_label)
             pair_layout.addWidget(e1)
             pair_layout.addWidget(QtWidgets.QLabel("→"))
             pair_layout.addWidget(e2)
             multi_electrode_layout.addLayout(pair_layout)
-
-        # Add the widgets to the stacked widget
         self.electrode_stacked_widget.addWidget(self.uni_electrode_widget)
         self.electrode_stacked_widget.addWidget(self.multi_electrode_widget)
 
-    def list_subjects(self):
-        """List available subjects in the project directory."""
-        try:
-            # Clear existing items
-            self.subject_list.clear()
-            self.eeg_net_combo.clear()
+    # ── Subject / EEG net loading ──────────────────────────────────────────
 
-            # Get subjects using path manager (already sorted naturally)
+    def _load_available_subjects(self):
+        """Load available subjects and EEG nets; populate any existing job rows."""
+        try:
+            self.eeg_net_combo.clear()
             subjects = self.pm.list_subjects()
 
-            # Add subjects to list widget
             for subject_id in subjects:
-                self.subject_list.addItem(subject_id)
-
-                # Check for EEG nets in eeg_positions directory
                 eeg_caps = self.pm.list_eeg_caps(subject_id)
                 for net_file in eeg_caps:
                     if net_file not in [
@@ -813,343 +552,585 @@ class SimulatorTab(QtWidgets.QWidget):
                     ]:
                         self.eeg_net_combo.addItem(net_file)
 
-            # If no nets found, add default
             if self.eeg_net_combo.count() == 0:
                 self.eeg_net_combo.addItem("GSN-HydroCel-185.csv")
 
+            # Refresh subject and EEG net combos in existing job cards
+            eeg_nets = [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]
+            for card in self._job_cards:
+                current_subj = card.subject_combo.currentText()
+                card.subject_combo.blockSignals(True)
+                card.subject_combo.clear()
+                card.subject_combo.addItems(subjects)
+                idx = card.subject_combo.findText(current_subj)
+                if idx >= 0:
+                    card.subject_combo.setCurrentIndex(idx)
+                card.subject_combo.blockSignals(False)
+
+                current_net = card.eeg_net_combo.currentText()
+                card.eeg_net_combo.blockSignals(True)
+                card.eeg_net_combo.clear()
+                card.eeg_net_combo.addItems(eeg_nets)
+                idx = card.eeg_net_combo.findText(current_net)
+                if idx >= 0:
+                    card.eeg_net_combo.setCurrentIndex(idx)
+                card.eeg_net_combo.blockSignals(False)
+
         except Exception as e:
-            print(f"Error listing subjects: {str(e)}")
+            print(f"Error loading subjects: {e}")
 
-    def select_all_subjects(self):
-        """Select all subjects in the subject list."""
-        self.subject_list.selectAll()
-
-    def clear_subject_selection(self):
-        """Clear the selection in the subject list."""
-        self.subject_list.clearSelection()
-
-    def clear_montage_selection(self):
-        """Clear the selection in the montage list."""
-        self.montage_list.clearSelection()
-
-    def update_freehand_configs(self):
-        """Update the list of available free-hand electrode configurations."""
+    def _get_available_subjects(self):
+        """Return sorted list of available subject IDs."""
         try:
-            # Only populate when Free-hand mode is selected
-            if not self.sim_type_freehand.isChecked():
-                return
-            # Clear existing items first
-            self.montage_list.clear()
+            return self.pm.list_subjects()
+        except Exception:
+            return []
 
-            # Require exactly one subject to view subject-specific free-hand configs
-            selected_subjects = [
-                item.text() for item in self.subject_list.selectedItems()
-            ]
-            if len(selected_subjects) != 1:
-                placeholder = QtWidgets.QListWidgetItem(
-                    "Select exactly one subject to view free-hand configurations"
+    # ── Job table management ────────────────────────────────────────────────
+
+    def _add_job_row(self, subject=None, source="Montage", mode="U",
+                     currents="1.0,1.0", eeg_net=None):
+        """Append a new simulation job card to the list."""
+        idx = len(self._job_cards)
+        self._job_selections[idx] = []
+
+        card = QtWidgets.QFrame()
+        card.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        card._card_idx = idx
+        self._apply_card_style(card, selected=False)
+
+        card_layout = QtWidgets.QVBoxLayout(card)
+        card_layout.setContentsMargins(6, 3, 6, 3)
+        card_layout.setSpacing(2)
+
+        # ── Row 1: Subject | Source | Mode | ✕ ─────────────────────────
+        row1 = QtWidgets.QHBoxLayout()
+        row1.setSpacing(4)
+
+        subjects = self._get_available_subjects()
+        card.subject_combo = QtWidgets.QComboBox()
+        card.subject_combo.addItems(subjects)
+        if subject and subject in subjects:
+            card.subject_combo.setCurrentText(subject)
+        elif subjects:
+            card.subject_combo.setCurrentIndex(0)
+        card.subject_combo.currentTextChanged.connect(self._on_row_subject_changed)
+        row1.addWidget(card.subject_combo, 2)
+
+        card.source_combo = QtWidgets.QComboBox()
+        card.source_combo.addItems(["Montage", "Flex-Search", "Freehand"])
+        if source in ["Montage", "Flex-Search", "Freehand"]:
+            card.source_combo.setCurrentText(source)
+        card.source_combo.currentTextChanged.connect(self._on_row_source_changed)
+        row1.addWidget(card.source_combo, 1)
+
+        card.mode_combo = QtWidgets.QComboBox()
+        card.mode_combo.addItems(["U", "M"])
+        if mode in ["U", "M"]:
+            card.mode_combo.setCurrentText(mode)
+        card.mode_combo.setFixedWidth(44)
+        card.mode_combo.currentTextChanged.connect(self._on_row_mode_changed)
+        row1.addWidget(card.mode_combo)
+
+        card.del_btn = QtWidgets.QPushButton("×")
+        card.del_btn.setFixedWidth(24)
+        card.del_btn.setFixedHeight(22)
+        card.del_btn.clicked.connect(self._remove_job_row_by_sender)
+        row1.addWidget(card.del_btn)
+
+        card_layout.addLayout(row1)
+
+        # ── Row 2: mA | current box | Net | count ──────────────────────
+        row2 = QtWidgets.QHBoxLayout()
+        row2.setSpacing(4)
+
+        row2.addWidget(QtWidgets.QLabel("mA:"))
+
+        ph = "1.0,1.0,1.0,1.0" if mode == "M" else "1.0,1.0"
+        card.current_edit = QtWidgets.QLineEdit(currents)
+        card.current_edit.setPlaceholderText(ph)
+        card.current_edit.setMinimumWidth(80)
+        row2.addWidget(card.current_edit, 3)
+
+        row2.addWidget(QtWidgets.QLabel("Net:"))
+
+        card.eeg_net_combo = QtWidgets.QComboBox()
+        for i in range(self.eeg_net_combo.count()):
+            card.eeg_net_combo.addItem(self.eeg_net_combo.itemText(i))
+        if card.eeg_net_combo.count() == 0:
+            card.eeg_net_combo.addItem("GSN-HydroCel-185.csv")
+        if eeg_net and card.eeg_net_combo.findText(eeg_net) >= 0:
+            card.eeg_net_combo.setCurrentText(eeg_net)
+        card.eeg_net_combo.currentTextChanged.connect(self._on_row_eeg_net_changed)
+        row2.addWidget(card.eeg_net_combo, 2)
+
+        card.count_label = QtWidgets.QLabel("0 selected")
+        row2.addWidget(card.count_label)
+
+        card_layout.addLayout(row2)
+
+        # Make the card clickable to select it
+        card.mousePressEvent = lambda event, i=idx: self._select_card(i)
+
+        # Insert before the trailing stretch
+        insert_pos = self.jobs_layout.count() - 1
+        self.jobs_layout.insertWidget(insert_pos, card)
+        self._job_cards.append(card)
+
+        # Auto-select the new card
+        self._select_card(idx)
+
+    def _apply_card_style(self, card, selected):
+        """Apply normal or selected visual style to a job card."""
+        if selected:
+            card.setStyleSheet("QFrame { border: 2px solid #444; }")
+        else:
+            card.setStyleSheet("QFrame { border: 1px solid #ccc; }")
+
+    def _select_card(self, idx):
+        """Select the card at idx; deselect all others; refresh selection list."""
+        self._selected_card_idx = idx
+        for i, card in enumerate(self._job_cards):
+            self._apply_card_style(card, selected=(i == idx))
+        self._refresh_selection_list()
+
+    def _remove_job_row(self, row):
+        """Remove the job card at the given index."""
+        if row < 0 or row >= len(self._job_cards):
+            return
+        card = self._job_cards.pop(row)
+        self.jobs_layout.removeWidget(card)
+        card.setParent(None)
+        card.deleteLater()
+
+        # Re-key _job_selections
+        new_selections = {}
+        for k, v in self._job_selections.items():
+            if k < row:
+                new_selections[k] = v
+            elif k > row:
+                new_selections[k - 1] = v
+        self._job_selections = new_selections
+
+        # Update stored card indices
+        for i, c in enumerate(self._job_cards):
+            c._card_idx = i
+            c.mousePressEvent = lambda event, idx=i: self._select_card(idx)
+
+        # Adjust selected index
+        if self._selected_card_idx == row:
+            new_idx = min(row, len(self._job_cards) - 1)
+            self._selected_card_idx = new_idx
+            self._refresh_selection_list()
+            if new_idx >= 0:
+                self._apply_card_style(self._job_cards[new_idx], selected=True)
+        elif self._selected_card_idx > row:
+            self._selected_card_idx -= 1
+
+    def _remove_selected_job_row(self):
+        """Remove the currently selected job card."""
+        if self._selected_card_idx >= 0:
+            self._remove_job_row(self._selected_card_idx)
+
+    def _remove_job_row_by_sender(self):
+        """Remove the card whose delete button was clicked."""
+        btn = self.sender()
+        for i, card in enumerate(self._job_cards):
+            if card.del_btn is btn:
+                self._remove_job_row(i)
+                return
+
+    def _on_row_subject_changed(self, text):
+        """Reset selections when subject changes for a card."""
+        combo = self.sender()
+        for i, card in enumerate(self._job_cards):
+            if card.subject_combo is combo:
+                self._job_selections[i] = []
+                self._update_count_cell(i)
+                if i == self._selected_card_idx:
+                    self._refresh_selection_list()
+                break
+
+    def _on_row_source_changed(self, text):
+        """Reset selections when source type changes for a card."""
+        combo = self.sender()
+        for i, card in enumerate(self._job_cards):
+            if card.source_combo is combo:
+                self._job_selections[i] = []
+                self._update_count_cell(i)
+                if i == self._selected_card_idx:
+                    self._refresh_selection_list()
+                break
+
+    def _on_row_eeg_net_changed(self, text):
+        """Reset selections when EEG net changes for a card (montage list changes)."""
+        combo = self.sender()
+        for i, card in enumerate(self._job_cards):
+            if card.eeg_net_combo is combo:
+                self._job_selections[i] = []
+                self._update_count_cell(i)
+                if i == self._selected_card_idx:
+                    self._refresh_selection_list()
+                break
+
+    def _on_row_mode_changed(self, text):
+        """Update current input placeholder when U/M mode changes."""
+        combo = self.sender()
+        for card in self._job_cards:
+            if card.mode_combo is combo:
+                ph = "1.0,1.0,1.0,1.0" if text == "M" else "1.0,1.0"
+                card.current_edit.setPlaceholderText(ph)
+                break
+
+    def _update_count_cell(self, row):
+        """Update the count label on the job card for a given index."""
+        if row < 0 or row >= len(self._job_cards):
+            return
+        selections = self._job_selections.get(row, [])
+        n = len(selections)
+        self._job_cards[row].count_label.setText(f"{n} selected")
+
+    # ── Selection panel ─────────────────────────────────────────────────────
+
+    def _refresh_selection_list(self):
+        """Repopulate the selection list for the currently selected job card."""
+        idx = self._selected_card_idx
+        if idx < 0 or idx >= len(self._job_cards):
+            self.selection_list.blockSignals(True)
+            self.selection_list.clear()
+            self.selection_list.blockSignals(False)
+            self.selection_label.setText("Select a job card above")
+            self._update_selection_panel_buttons(source=None)
+            return
+
+        card = self._job_cards[idx]
+        subject = card.subject_combo.currentText()
+        source = card.source_combo.currentText()   # "Montage" | "Flex-Search" | "Freehand"
+        self.selection_label.setText(f"Selecting for: {subject} / {source}")
+        self._update_selection_panel_buttons(source=source)
+
+        # Build item list
+        items = []
+        if source == "Montage":
+            eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
+            sim_mode = card.mode_combo.currentText()   # "U" or "M"
+            items = self._get_montage_names_for_params(eeg_net, sim_mode)
+        elif source == "Flex-Search":
+            items = self._get_flex_outputs_for_subject(subject)
+        elif source == "Freehand":
+            items = self._get_freehand_configs_for_subject(subject)
+
+        saved = set(self._job_selections.get(idx, []))
+
+        self.selection_list.blockSignals(True)
+        self.selection_list.clear()
+        for item_text in items:
+            list_item = QtWidgets.QListWidgetItem(item_text)
+            self.selection_list.addItem(list_item)
+            if item_text in saved:
+                list_item.setSelected(True)
+        self.selection_list.blockSignals(False)
+
+    def _save_selection_for_current_row(self):
+        """Save the current selection list state to _job_selections."""
+        idx = self._selected_card_idx
+        if idx < 0 or idx >= len(self._job_cards):
+            return
+        selected_texts = [
+            item.text() for item in self.selection_list.selectedItems()
+        ]
+        self._job_selections[idx] = selected_texts
+        self._update_count_cell(idx)
+
+    def _clear_selection(self):
+        """Clear the selection in the selection list."""
+        self.selection_list.clearSelection()
+        self._save_selection_for_current_row()
+
+    def _update_selection_panel_buttons(self, source):
+        """Show/hide montage-specific buttons based on current source."""
+        is_montage = (source == "Montage")
+        self.add_montage_sel_btn.setVisible(is_montage)
+        self.remove_montage_sel_btn.setVisible(is_montage)
+
+    # ── Data helpers ────────────────────────────────────────────────────────
+
+    def _get_montage_names_for_params(self, eeg_net, sim_mode):
+        """Return list of montage names for given EEG net and sim mode (U/M)."""
+        try:
+            project_dir = self.pm.project_dir
+            if not project_dir:
+                return []
+            montage_file = self.ensure_montage_file_exists(project_dir)
+            with open(montage_file, "r") as f:
+                montage_data = json.load(f)
+            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+            nets = montage_data.get("nets", {})
+            if eeg_net not in nets:
+                return []
+            return list(nets[eeg_net].get(net_type, {}).keys())
+        except Exception as e:
+            print(f"Error getting montage names: {e}")
+            return []
+
+    def _get_flex_outputs_for_subject(self, subject_id):
+        """Return list of flex-search item strings for a subject (mapped + optimized).
+
+        Always offers [mapped] for any run that has electrode_positions.json
+        (actual EEG-cap mapping is done at simulation time). Also offers
+        [optimized] when optimized_positions are stored in that file.
+        """
+        items = []
+        try:
+            # Use PathManager helper which already filters for electrode_positions.json
+            run_names = self.pm.list_flex_search_runs(subject_id=subject_id)
+            for search_name in run_names:
+                # [mapped] is always available – mapping to EEG cap happens at sim time
+                items.append(f"{search_name} [mapped]")
+                # [optimized] only if the optimized_positions key is present
+                positions_file = self.pm.path_optional(
+                    "flex_electrode_positions", subject_id=subject_id, search_name=search_name
                 )
-                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
-                self.montage_list.addItem(placeholder)
-                return
-            current_subject = selected_subjects[0]
+                if positions_file and os.path.isfile(positions_file):
+                    try:
+                        with open(positions_file, "r") as f:
+                            pos_data = json.load(f)
+                        if pos_data.get("optimized_positions"):
+                            items.append(f"{search_name} [optimized]")
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"Error getting flex outputs for {subject_id}: {e}")
+        return items
 
-            # Get stim_configs directory
-            m2m_dir = self.pm.path_optional("m2m", subject_id=current_subject)
+    def _get_freehand_configs_for_subject(self, subject_id):
+        """Return list of freehand config names for a subject."""
+        items = []
+        try:
+            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
             if not m2m_dir or not os.path.isdir(m2m_dir):
-                placeholder = QtWidgets.QListWidgetItem(
-                    "No subject m2m directory found"
-                )
-                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
-                self.montage_list.addItem(placeholder)
-                return
-
+                return items
             stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
             if not os.path.exists(stim_configs_dir):
-                placeholder = QtWidgets.QListWidgetItem(
-                    "No free-hand configurations found"
-                )
-                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
-                self.montage_list.addItem(placeholder)
-                return
-
-            config_files = [
-                f for f in os.listdir(stim_configs_dir) if f.endswith(".json")
-            ]
-            if not config_files:
-                placeholder = QtWidgets.QListWidgetItem(
-                    "No free-hand configurations found"
-                )
-                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
-                self.montage_list.addItem(placeholder)
-                return
-
-            # Populate list with configs
-            for config_file in sorted(config_files):
-                config_path = os.path.join(stim_configs_dir, config_file)
-                try:
-                    with open(config_path, "r") as f:
-                        config_data = json.load(f)
-                    name = config_data.get("name", config_file.replace(".json", ""))
-                    stim_type = config_data.get("type", "U")
-                    electrode_positions = config_data.get("electrode_positions", {})
-                    type_label = "Unipolar" if stim_type == "U" else "Multipolar"
-                    label_html = f"<b>{name}</b> ({type_label}, {len(electrode_positions)} electrodes)"
-
-                    item = QtWidgets.QListWidgetItem()
-                    item.setData(QtCore.Qt.UserRole, name)
-                    payload = dict(config_data)
-                    payload["subject_id"] = current_subject
-                    item.setData(QtCore.Qt.UserRole + 1, payload)
-                    self.montage_list.addItem(item)
-
-                    label_widget = QtWidgets.QLabel()
-                    label_widget.setTextFormat(QtCore.Qt.RichText)
-                    label_widget.setText(label_html)
-                    label_widget.setStyleSheet(
-                        "QLabel { padding: 2px 4px; font-size: 13px; }"
-                    )
-                    self.montage_list.setItemWidget(item, label_widget)
-                    item.setSizeHint(label_widget.sizeHint())
-                except Exception as e:
-                    print(f"Error loading config {config_file}: {e}")
-                    continue
+                return items
+            for config_file in sorted(os.listdir(stim_configs_dir)):
+                if config_file.endswith(".json"):
+                    config_path = os.path.join(stim_configs_dir, config_file)
+                    try:
+                        with open(config_path, "r") as f:
+                            config_data = json.load(f)
+                        name = config_data.get("name", config_file.replace(".json", ""))
+                        items.append(name)
+                    except Exception:
+                        items.append(config_file.replace(".json", ""))
         except Exception as e:
-            self.update_output(f"Error loading free-hand configs: {e}", "error")
+            print(f"Error getting freehand configs for {subject_id}: {e}")
+        return items
 
-    def refresh_flex_search_list(self):
-        """Refresh the list of available flex-search outputs based on selected subjects."""
+    # ── MontageConfig builders ──────────────────────────────────────────────
+
+    def _build_montage_configs_for_row(self, subject, source, sim_mode, selected_items, eeg_net):
+        """Build list of MontageConfig objects for a single job row."""
+        configs = []
+        if source == "montage":
+            configs = self._build_montage_configs_from_names(selected_items, eeg_net, sim_mode)
+        elif source == "flex-search":
+            configs = self._build_montage_configs_from_flex(subject, selected_items, eeg_net)
+        elif source == "freehand":
+            configs = self._build_montage_configs_from_freehand(subject, selected_items)
+        return configs
+
+    def _build_montage_configs_from_names(self, montage_names, eeg_net, sim_mode):
+        """Build MontageConfig list from montage names."""
+        configs = []
         try:
-            self.flex_search_list.clear()
+            project_dir = self.pm.project_dir
+            montage_file = self.ensure_montage_file_exists(project_dir)
+            with open(montage_file, "r") as f:
+                montage_data = json.load(f)
+            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+            for montage_name in montage_names:
+                electrode_pairs = None
+                if (
+                    "nets" in montage_data
+                    and eeg_net in montage_data["nets"]
+                    and net_type in montage_data["nets"][eeg_net]
+                    and montage_name in montage_data["nets"][eeg_net][net_type]
+                ):
+                    electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
+                if electrode_pairs:
+                    pairs_as_tuples = [(pair[0], pair[1]) for pair in electrode_pairs]
+                    configs.append(MontageConfig(
+                        name=montage_name,
+                        electrode_pairs=pairs_as_tuples,
+                        is_xyz=False,
+                        eeg_net=eeg_net,
+                    ))
+        except Exception as e:
+            self.update_output(f"Error building montage configs: {e}", "error")
+        return configs
 
-            # Get selected subjects to filter flex-search outputs
-            selected_subjects = [
-                item.text() for item in self.subject_list.selectedItems()
-            ]
+    def _build_montage_configs_from_flex(self, subject_id, selected_items, eeg_net):
+        """Build MontageConfig list from flex-search selection items."""
+        configs = []
+        for item_text in selected_items:
+            try:
+                # Parse "search_name [mapped]" or "search_name [optimized]"
+                if item_text.endswith(" [mapped]"):
+                    search_name = item_text[:-len(" [mapped]")]
+                    electrode_type = "mapped"
+                elif item_text.endswith(" [optimized]"):
+                    search_name = item_text[:-len(" [optimized]")]
+                    electrode_type = "optimized"
+                else:
+                    search_name = item_text
+                    electrode_type = "mapped"
 
-            # Only show flex-search outputs if subjects are selected (similar to montage behavior)
-            if not selected_subjects:
-                return
-
-            # Iterate through selected subject directories only
-            for subject_id in selected_subjects:
                 flex_search_dir = self.pm.path_optional(
-                    "flex_search", subject_id=subject_id
+                    "flex_search_run", subject_id=subject_id, search_name=search_name
                 )
-                if flex_search_dir and os.path.isdir(flex_search_dir):
-                    # Look for search directories
-                    for search_name in os.listdir(flex_search_dir):
-                        search_dir = os.path.join(flex_search_dir, search_name)
-                        positions_file = os.path.join(
-                            search_dir, "electrode_positions.json"
+                if not flex_search_dir:
+                    self.update_output(
+                        f"Flex-search folder not found for {subject_id} | {search_name}", "error"
+                    )
+                    continue
+
+                positions_file = os.path.join(flex_search_dir, "electrode_positions.json")
+
+                if electrode_type == "mapped":
+                    # Need to map to EEG cap
+                    eeg_positions_dir = self.pm.path_optional("eeg_positions", subject_id=subject_id)
+                    eeg_net_path = os.path.join(eeg_positions_dir or "", eeg_net)
+                    if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
+                        self.update_output(f"EEG net file not found: {eeg_net_path}", "error")
+                        continue
+
+                    # Run electrode mapping
+                    mapping_file = os.path.join(
+                        flex_search_dir,
+                        f'electrode_mapping_{eeg_net.replace(".csv", "")}.json',
+                    )
+                    self.update_output(
+                        f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...", "info"
+                    )
+                    map_electrodes_path = os.path.join(
+                        os.path.dirname(os.path.dirname(__file__)), "tools", "map_electrodes.py"
+                    )
+                    try:
+                        subprocess.run(
+                            ["simnibs_python", map_electrodes_path, "-i", positions_file,
+                             "-n", eeg_net_path, "-o", mapping_file],
+                            capture_output=True, text=True, check=True,
                         )
+                        self.update_output(f"Electrode mapping completed for {search_name}", "info")
+                    except subprocess.CalledProcessError as e:
+                        self.update_output(f"Error mapping electrodes: {e.stderr}", "error")
+                        continue
 
-                        if os.path.isdir(search_dir) and os.path.exists(positions_file):
-                            # Read the positions file to get details
-                            try:
-                                with open(positions_file, "r") as f:
-                                    positions_data = json.load(f)
+                    if not os.path.exists(mapping_file):
+                        self.update_output(f"Mapping file was not created: {mapping_file}", "error")
+                        continue
 
-                                # Create display label (no EEG net shown until mapped)
-                                label = f"{subject_id} | {search_name}"
+                    with open(mapping_file, "r") as f:
+                        mapping_data = json.load(f)
+                    mapped_labels = mapping_data.get("mapped_labels", [])
+                    if len(mapped_labels) < 4:
+                        self.update_output(
+                            f"Not enough electrodes for TI in {search_name} (need >=4)", "error"
+                        )
+                        continue
 
-                                # Add item to list
-                                item = QtWidgets.QListWidgetItem(label)
-                                item.setData(
-                                    QtCore.Qt.UserRole,
-                                    {
-                                        "subject_id": subject_id,
-                                        "search_name": search_name,
-                                        "positions_file": positions_file,
-                                        "positions_data": positions_data,
-                                    },
-                                )
-                                self.flex_search_list.addItem(item)
+                    montage_name = self._parse_flex_search_name(search_name, "mapped")
+                    if montage_name.startswith("flex_"):
+                        electrodes = mapped_labels[:4]
+                        configs.append(MontageConfig(
+                            name=montage_name,
+                            electrode_pairs=[(electrodes[0], electrodes[1]),
+                                            (electrodes[2], electrodes[3])],
+                            is_xyz=False,
+                            eeg_net=eeg_net,
+                        ))
 
-                            except Exception as e:
-                                print(
-                                    f"Error reading flex-search positions file {positions_file}: {e}"
-                                )
+                else:  # optimized
+                    with open(positions_file, "r") as f:
+                        pos_data = json.load(f)
+                    optimized_positions = pos_data.get("optimized_positions", [])
+                    if len(optimized_positions) < 4:
+                        self.update_output(
+                            f"Not enough optimized electrodes in {search_name}", "error"
+                        )
+                        continue
+                    montage_name = self._parse_flex_search_name(search_name, "optimized")
+                    if montage_name.startswith("flex_"):
+                        positions = optimized_positions[:4]
+                        configs.append(MontageConfig(
+                            name=montage_name,
+                            electrode_pairs=[(positions[0], positions[1]),
+                                            (positions[2], positions[3])],
+                            is_xyz=True,
+                            eeg_net=None,
+                        ))
+            except Exception as e:
+                self.update_output(f"Error processing flex item '{item_text}': {e}", "error")
+        return configs
 
-        except Exception as e:
-            print(f"Error refreshing flex-search list: {str(e)}")
-
-    def clear_flex_search_selection(self):
-        """Clear all flex-search selections."""
-        self.flex_search_list.clearSelection()
-
-    def populate_flex_eeg_nets(self):
-        """Populate the flex EEG net dropdown with available EEG nets from selected subjects."""
+    def _build_montage_configs_from_freehand(self, subject_id, selected_names):
+        """Build MontageConfig list from freehand config names."""
+        configs = []
         try:
-            self.flex_eeg_net_combo.clear()
+            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            if not m2m_dir:
+                return configs
+            stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
+            if not os.path.exists(stim_configs_dir):
+                return configs
 
-            # Get selected subjects
-            selected_subjects = [
-                item.text() for item in self.subject_list.selectedItems()
-            ]
-
-            if not selected_subjects:
-                return
-
-            # Collect unique EEG nets from all selected subjects
-            unique_nets = set()
-            for subject_id in selected_subjects:
-                eeg_caps = self.pm.list_eeg_caps(subject_id)
-                for net_file in eeg_caps:
-                    unique_nets.add(net_file)
-
-            # Add sorted nets to combo box
-            for net in sorted(unique_nets):
-                self.flex_eeg_net_combo.addItem(net)
-
-            # If no nets found, add default
-            if self.flex_eeg_net_combo.count() == 0:
-                self.flex_eeg_net_combo.addItem("GSN-HydroCel-185.csv")
-
+            for name in selected_names:
+                # Find the matching config file
+                for config_file in os.listdir(stim_configs_dir):
+                    if not config_file.endswith(".json"):
+                        continue
+                    config_path = os.path.join(stim_configs_dir, config_file)
+                    try:
+                        with open(config_path, "r") as f:
+                            config_data = json.load(f)
+                        config_name = config_data.get("name", config_file.replace(".json", ""))
+                        if config_name != name:
+                            continue
+                        electrode_positions = config_data.get("electrode_positions", {})
+                        ordered_keys = ["E1+", "E1-", "E2+", "E2-"]
+                        coords = []
+                        for k in ordered_keys:
+                            if k in electrode_positions:
+                                coords.append(electrode_positions[k])
+                        if len(coords) < 4:
+                            for k in sorted(electrode_positions.keys()):
+                                if k not in ordered_keys and len(coords) < 4:
+                                    coords.append(electrode_positions.get(k))
+                        if len(coords) >= 4:
+                            configs.append(MontageConfig(
+                                name=name,
+                                electrode_pairs=[(coords[0], coords[1]), (coords[2], coords[3])],
+                                is_xyz=True,
+                                eeg_net="freehand",
+                            ))
+                        break
+                    except Exception as e:
+                        print(f"Error loading freehand config {config_file}: {e}")
         except Exception as e:
-            print(f"Error populating flex EEG nets: {str(e)}")
+            self.update_output(f"Error building freehand configs: {e}", "error")
+        return configs
 
-    def on_flex_mapped_changed(self):
-        """Handle changes to the 'Use Mapped' checkbox."""
-        # Show/hide EEG net selection based on checkbox state
-        is_mapped = self.flex_use_mapped.isChecked()
-        self.flex_eeg_net_label.setVisible(is_mapped)
-        self.flex_eeg_net_combo.setVisible(is_mapped)
-
-        # Populate EEG nets when checkbox is enabled
-        if is_mapped:
-            self.populate_flex_eeg_nets()
-
-    def on_simulation_type_changed(self):
-        """Handle changes between Montage, Flex, and Free-hand simulation modes."""
-        is_montage_mode = self.sim_type_montage.isChecked()
-        is_flex_mode = self.sim_type_flex.isChecked()
-        is_freehand_mode = self.sim_type_freehand.isChecked()
-
-        # Show/hide montage-related UI elements
-        self.montage_container.setVisible(is_montage_mode or is_freehand_mode)
-
-        # Enable/disable (grey out) simulation mode and EEG net controls
-        for widget in self.sim_mode_layout_widgets:
-            widget.setEnabled(is_montage_mode)
-        self.eeg_net_combo.setEnabled(is_montage_mode)
-        self.eeg_net_label.setEnabled(is_montage_mode)
-
-        # Show/hide flex-search-related UI elements
-        self.flex_search_container.setVisible(is_flex_mode)
-
-        # Update window title or status and refresh lists
-        if is_montage_mode:
-            self.update_output("Switched to Montage Simulation mode", "info")
-            self.update_montage_list()  # Refresh montage list
-        elif is_flex_mode:
-            self.update_output("Switched to Flex-Search Simulation mode", "info")
-            self.refresh_flex_search_list()  # Refresh flex-search list
-            self.populate_flex_eeg_nets()  # Populate EEG nets for flex-mapped mode
-        elif is_freehand_mode:
-            self.update_output("Switched to Free-hand Simulation mode", "info")
-            self.update_freehand_configs()  # Refresh free-hand configs
-
-    def initialize_ui_state(self):
-        """Initialize UI state without printing messages."""
-        is_montage_mode = self.sim_type_montage.isChecked()
-
-        # Show/hide montage-related UI elements
-        self.montage_container.setVisible(is_montage_mode)
-
-        # Enable/disable (grey out) simulation mode and EEG net controls instead of hiding
-        for widget in self.sim_mode_layout_widgets:
-            widget.setEnabled(is_montage_mode)
-        self.eeg_net_combo.setEnabled(is_montage_mode)
-        self.eeg_net_label.setEnabled(is_montage_mode)
-
-        # Show/hide flex-search-related UI elements
-        self.flex_search_container.setVisible(not is_montage_mode)
-
-        # Initialize flex EEG net dropdown visibility based on checkbox state
-        is_mapped = self.flex_use_mapped.isChecked()
-        self.flex_eeg_net_label.setVisible(is_mapped)
-        self.flex_eeg_net_combo.setVisible(is_mapped)
+    # ── Legacy compat stubs ─────────────────────────────────────────────────
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
         from tit.sim import utils as sim_utils
-
         return sim_utils.ensure_montage_file(project_dir)
 
     def update_montage_list(self, checked=None):
-        """Update the list of available montages."""
-        try:
-            # Get project directory using path manager
-            project_dir = self.pm.project_dir
-            if not project_dir:
-                return
-            # Clear existing items
-            self.montage_list.clear()
-            # Ensure montage file exists and get its path
-            montage_file = self.ensure_montage_file_exists(project_dir)
-            # Load montages from montage_list.json
-            with open(montage_file, "r") as f:
-                montage_data = json.load(f)
-            # Get the current EEG net
-            current_net = self.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
-            # Get montages for the current net
-            if "nets" in montage_data and current_net in montage_data["nets"]:
-                net_montages = montage_data["nets"][current_net]
-                # Add unipolar montages if in unipolar mode
-                if (
-                    self.sim_mode_unipolar.isChecked()
-                    and "uni_polar_montages" in net_montages
-                ):
-                    for montage_name, pairs in net_montages[
-                        "uni_polar_montages"
-                    ].items():
-                        label_html = self._format_montage_label_html(
-                            montage_name, pairs, is_unipolar=True
-                        )
-                        item = QtWidgets.QListWidgetItem()
-                        item.setData(
-                            QtCore.Qt.UserRole, montage_name
-                        )  # Store the real name for selection logic
-                        self.montage_list.addItem(item)
-                        label_widget = QtWidgets.QLabel()
-                        label_widget.setTextFormat(QtCore.Qt.RichText)
-                        label_widget.setText(label_html)
-                        label_widget.setStyleSheet(
-                            "QLabel { padding: 2px 4px; font-size: 13px; }"
-                        )
-                        self.montage_list.setItemWidget(item, label_widget)
-                        item.setSizeHint(label_widget.sizeHint())
-                # Add multipolar montages if in multipolar mode
-                if (
-                    self.sim_mode_multipolar.isChecked()
-                    and "multi_polar_montages" in net_montages
-                ):
-                    for montage_name, pairs in net_montages[
-                        "multi_polar_montages"
-                    ].items():
-                        label_html = self._format_montage_label_html(
-                            montage_name, pairs, is_unipolar=False
-                        )
-                        item = QtWidgets.QListWidgetItem()
-                        item.setData(QtCore.Qt.UserRole, montage_name)
-                        self.montage_list.addItem(item)
-                        label_widget = QtWidgets.QLabel()
-                        label_widget.setTextFormat(QtCore.Qt.RichText)
-                        label_widget.setText(label_html)
-                        label_widget.setStyleSheet(
-                            "QLabel { padding: 2px 4px; font-size: 13px; }"
-                        )
-                        self.montage_list.setItemWidget(item, label_widget)
-                        item.setSizeHint(label_widget.sizeHint())
-        except Exception as e:
-            print(f"Error updating montage list: {str(e)}")
-        # Update the electrode inputs view
-        if checked is not None:
-            if checked:  # Unipolar selected
-                self.electrode_stacked_widget.setCurrentIndex(0)
-            else:  # Multipolar selected
-                self.electrode_stacked_widget.setCurrentIndex(1)
+        """Refresh the selection list (called after adding montage)."""
+        self._refresh_selection_list()
 
     def _format_montage_label_html(self, montage_name, pairs, is_unipolar=True):
         """Format montage label for the list widget using HTML for a professional look."""
@@ -1165,518 +1146,53 @@ class SimulatorTab(QtWidgets.QWidget):
                 channel_labels.append(channel)
         return f"<b>{montage_name}</b>  |  " + "   +   ".join(channel_labels)
 
-    def list_montages(self):
-        """List available montages from montage_list.json."""
-        try:
-            # Get project directory using path manager
-            project_dir = self.pm.project_dir
-            if not project_dir:
-                return
-            # Ensure and use the new location under code/ti-toolbox/config
-            montage_file = self.ensure_montage_file_exists(project_dir)
-
-            self.update_output(f"Looking for montages in: {montage_file}")
-
-            if os.path.exists(montage_file):
-                with open(montage_file, "r") as f:
-                    montage_data = json.load(f)
-
-                # Determine current EEG net
-                current_net = self.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
-                # Get montages for the selected mode from the new nested structure
-                is_unipolar = self.sim_mode_unipolar.isChecked()
-                montage_type = (
-                    "uni_polar_montages" if is_unipolar else "multi_polar_montages"
-                )
-                mode_text = "Unipolar" if is_unipolar else "Multipolar"
-
-                self.output_console.append(
-                    '<div style="background-color: #2a2a2a; border: 1px solid #444; border-radius: 5px; padding: 10px; margin: 10px 0;">'
-                )
-                self.output_console.append(
-                    f'<span style="color: #55ffff; font-weight: bold;">📋 Available {mode_text} Montages:</span>'
-                )
-
-                net_montages = {}
-                if (
-                    isinstance(montage_data, dict)
-                    and "nets" in montage_data
-                    and current_net in montage_data["nets"]
-                ):
-                    net_montages = montage_data["nets"].get(current_net, {})
-
-                montages = (
-                    net_montages.get(montage_type, {})
-                    if isinstance(net_montages, dict)
-                    else {}
-                )
-
-                if isinstance(montages, dict) and montages:
-                    # Display montages with formatted electrode pairs
-                    self.output_console.append(
-                        '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">'
-                    )
-                    self.output_console.append(
-                        '<tr style="background-color: #333; color: white;">'
-                    )
-                    self.output_console.append(
-                        '<th style="padding: 5px; text-align: left; border-bottom: 1px solid #555;">Name</th>'
-                    )
-                    self.output_console.append(
-                        '<th style="padding: 5px; text-align: left; border-bottom: 1px solid #555;">Electrode Pairs</th>'
-                    )
-                    self.output_console.append("</tr>")
-
-                    found_montages = False
-                    row_num = 0
-
-                    for name, details in montages.items():
-                        row_style = (
-                            "background-color: #2d2d2d;"
-                            if row_num % 2 == 0
-                            else "background-color: #333;"
-                        )
-                        row_num += 1
-                        found_montages = True
-
-                        if isinstance(details, list) and len(details) >= 1:
-                            pairs_str = self._format_electrode_pairs(details)
-                            self.output_console.append(f'<tr style="{row_style}">')
-                            self.output_console.append(
-                                f'<td style="padding: 5px; border-bottom: 1px solid #444;">{name}</td>'
-                            )
-                            self.output_console.append(
-                                f'<td style="padding: 5px; border-bottom: 1px solid #444;">{pairs_str}</td>'
-                            )
-                            self.output_console.append("</tr>")
-                        elif isinstance(details, dict) and "pair" in details:
-                            pair = details.get("pair", "")
-                            current = details.get("current", "")
-                            self.output_console.append(f'<tr style="{row_style}">')
-                            self.output_console.append(
-                                f'<td style="padding: 5px; border-bottom: 1px solid #444;">{name}</td>'
-                            )
-                            self.output_console.append(
-                                f'<td style="padding: 5px; border-bottom: 1px solid #444;">{pair}, {current}mA</td>'
-                            )
-                            self.output_console.append("</tr>")
-
-                    self.output_console.append("</table>")
-
-                    if not found_montages:
-                        self.output_console.append(
-                            f'<div style="color: #ffff55; padding: 10px;">No {mode_text.lower()} montages found.</div>'
-                        )
-                else:
-                    self.output_console.append(
-                        f'<div style="color: #ffff55; padding: 10px;">No {mode_text.lower()} montages found.</div>'
-                    )
-
-                self.output_console.append("</div>")
-            else:
-                self.update_output(f"Montage file not found at {montage_file}")
-                self.update_output("Create a new montage using the form below.")
-        except Exception as e:
-            self.update_output(f"Error listing montages: {str(e)}")
-
     def _format_electrode_pairs(self, pairs):
         """Format electrode pairs for display in a clean way."""
         if not pairs:
             return "No electrode pairs"
-
         formatted_pairs = []
         for pair in pairs:
             if isinstance(pair, list) and len(pair) >= 2:
-                formatted_pair = f'<span style="color: #55aaff;">{pair[0]}</span><span style="color: #aaaaaa;">→</span><span style="color: #ff5555;">{pair[1]}</span>'
+                formatted_pair = (
+                    f'<span style="color: #55aaff;">{pair[0]}</span>'
+                    f'<span style="color: #aaaaaa;">-></span>'
+                    f'<span style="color: #ff5555;">{pair[1]}</span>'
+                )
                 formatted_pairs.append(formatted_pair)
-
         return ", ".join(formatted_pairs)
 
     def run_simulation(self):
-        """Run the simulation with the selected parameters."""
-
+        """Run the simulation with the per-job table configuration."""
         try:
-            # Get selected subjects
-            selected_subjects = [
-                item.text() for item in self.subject_list.selectedItems()
-            ]
-            if not selected_subjects:
+            # ── Collect jobs from table ────────────────────────────────────
+            raw_jobs = []  # (subject_id, source, sim_mode, current_str, eeg_net, selected_items)
+            for i, card in enumerate(self._job_cards):
+                subject = card.subject_combo.currentText().strip()
+                source = card.source_combo.currentText().lower()
+                sim_mode = card.mode_combo.currentText()   # "U" or "M"
+                row_eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
+                selected = self._job_selections.get(i, [])
+                if not selected:
+                    continue
+                raw = card.current_edit.text().strip() or (
+                    "1.0,1.0,1.0,1.0" if sim_mode == "M" else "1.0,1.0"
+                )
+                current_str = raw
+                raw_jobs.append((subject, source, sim_mode, current_str, row_eeg_net, selected))
+
+            if not raw_jobs:
                 QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please select at least one subject."
+                    self, "Warning",
+                    "No jobs configured. Add rows with subjects and selected montages/configs."
                 )
                 return
 
-            # Clean up old directories for flex-search mode
-            if not self.sim_type_montage.isChecked():
-                for subject_id in selected_subjects:
-                    self.cleanup_old_simulation_directories(subject_id)
-
-            # Get project directory using path manager
+            # ── Read global params ─────────────────────────────────────────
             project_dir = self.pm.project_dir
-
-            # Check simulation mode and validate selections
-            is_montage_mode = self.sim_type_montage.isChecked()
-            is_freehand_mode = self.sim_type_freehand.isChecked()
-
-            if is_montage_mode:
-                # Montage simulation mode
-                selected_montages = [
-                    item.data(QtCore.Qt.UserRole)
-                    for item in self.montage_list.selectedItems()
-                ]
-                if not selected_montages:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Warning", "Please select at least one montage."
-                    )
-                    return
-                selected_flex_searches = []  # No flex-search in montage mode
-                flex_montage_configs = []
-                freehand_configs = []
-            elif is_freehand_mode:
-                # Free-hand simulation mode
-                selected_freehand = [item for item in self.montage_list.selectedItems()]
-                if not selected_freehand:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "Please select at least one free-hand configuration.",
-                    )
-                    return
-
-                # Get the free-hand config data
-                freehand_configs = []
-                for item in selected_freehand:
-                    config_data = item.data(QtCore.Qt.UserRole + 1)
-                    if config_data:
-                        freehand_configs.append(config_data)
-
-                selected_montages = []
-                selected_flex_searches = []
-                flex_montage_configs = []
-            else:
-                # Flex-search simulation mode
-                selected_flex_searches = [
-                    item.data(QtCore.Qt.UserRole)
-                    for item in self.flex_search_list.selectedItems()
-                ]
-                if not selected_flex_searches:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "Please select at least one flex-search output.",
-                    )
-                    return
-                selected_montages = []  # No regular montages in flex mode
-
-                # Process flex-search outputs into individual montage configurations
-                flex_montage_configs = (
-                    []
-                )  # List of individual subject-montage configurations
-
-                # Check which electrode types are selected
-                use_mapped = self.flex_use_mapped.isChecked()
-                use_optimized = self.flex_use_optimized.isChecked()
-
-                # Validate that at least one option is selected
-                if not use_mapped and not use_optimized:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "Please select at least one electrode type (Mapped or Optimized).",
-                    )
-                    return
-
-                for flex_data in selected_flex_searches:
-                    subject_id = flex_data["subject_id"]
-                    search_name = flex_data["search_name"]
-                    positions_data = flex_data["positions_data"]
-
-                    # Create individual montage configurations based on selection
-                    if use_mapped:
-                        # Get selected EEG net
-                        eeg_net = self.flex_eeg_net_combo.currentText()
-                        if not eeg_net:
-                            self.update_output(
-                                f"Error: No EEG net selected for mapping", "error"
-                            )
-                            continue
-
-                        # Get paths
-                        flex_search_dir = self.pm.path_optional(
-                            "flex_search_run",
-                            subject_id=subject_id,
-                            search_name=search_name,
-                        )
-                        if not flex_search_dir:
-                            self.update_output(
-                                f"Error: flex-search folder not found for {subject_id} | {search_name}",
-                                "error",
-                            )
-                            continue
-                        positions_file = os.path.join(
-                            flex_search_dir, "electrode_positions.json"
-                        )
-                        # Get EEG net CSV path
-                        eeg_positions_dir = self.pm.path_optional(
-                            "eeg_positions", subject_id=subject_id
-                        )
-                        eeg_net_path = os.path.join(eeg_positions_dir or "", eeg_net)
-
-                        if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
-                            self.update_output(
-                                f"Error: EEG net file not found: {eeg_net_path}",
-                                "error",
-                            )
-                            continue
-
-                        # Create temporary mapping file path
-                        mapping_file = os.path.join(
-                            flex_search_dir,
-                            f'electrode_mapping_{eeg_net.replace(".csv", "")}.json',
-                        )
-
-                        # Run map_electrodes.py to generate mapping
-                        self.update_output(
-                            f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...",
-                            "info",
-                        )
-
-                        try:
-                            # Get path to map_electrodes.py
-                            map_electrodes_path = os.path.join(
-                                os.path.dirname(os.path.dirname(__file__)),
-                                "tools",
-                                "map_electrodes.py",
-                            )
-
-                            # Run map_electrodes.py
-                            result = subprocess.run(
-                                [
-                                    "simnibs_python",
-                                    map_electrodes_path,
-                                    "-i",
-                                    positions_file,
-                                    "-n",
-                                    eeg_net_path,
-                                    "-o",
-                                    mapping_file,
-                                ],
-                                capture_output=True,
-                                text=True,
-                                check=True,
-                            )
-
-                            self.update_output(
-                                f"Electrode mapping completed for {search_name}", "info"
-                            )
-
-                        except subprocess.CalledProcessError as e:
-                            self.update_output(
-                                f"Error running map_electrodes.py: {e.stderr}", "error"
-                            )
-                            continue
-                        except Exception as e:
-                            self.update_output(
-                                f"Error during electrode mapping: {str(e)}", "error"
-                            )
-                            continue
-
-                        # Read the generated mapping file
-                        if not os.path.exists(mapping_file):
-                            self.update_output(
-                                f"Error: Mapping file was not created: {mapping_file}",
-                                "error",
-                            )
-                            continue
-
-                        with open(mapping_file, "r") as f:
-                            mapping_data_from_file = json.load(f)
-
-                        if (
-                            "mapped_positions" not in mapping_data_from_file
-                            or "mapped_labels" not in mapping_data_from_file
-                        ):
-                            self.update_output(
-                                f"Error: Invalid electrode mapping file format: {mapping_file}",
-                                "error",
-                            )
-                            continue
-
-                        mapped_positions = mapping_data_from_file["mapped_positions"]
-                        mapped_labels = mapping_data_from_file["mapped_labels"]
-
-                        # Create individual montage configuration for mapped electrodes
-                        if (
-                            len(mapped_positions) >= 4 and len(mapped_labels) >= 4
-                        ):  # Need at least 4 electrodes for TI
-                            # Parse search_name to extract components for new naming format
-                            montage_name = self._parse_flex_search_name(
-                                search_name, "mapped"
-                            )
-
-                            # Use the first 4 electrode labels for TI simulation
-                            electrodes_for_ti = mapped_labels[:4]
-
-                            # Validate montage name doesn't conflict with existing directories
-                            if montage_name.startswith("flex_"):
-                                # Create individual configuration for this subject-montage combination
-                                config = {
-                                    "subject_id": subject_id,
-                                    "eeg_net": eeg_net,
-                                    "montage": {
-                                        "name": montage_name,
-                                        "type": "flex_mapped",
-                                        "search_name": search_name,
-                                        "eeg_net": eeg_net,
-                                        "electrode_labels": electrodes_for_ti,
-                                        "pairs": [
-                                            [
-                                                electrodes_for_ti[0],
-                                                electrodes_for_ti[1],
-                                            ],
-                                            [
-                                                electrodes_for_ti[2],
-                                                electrodes_for_ti[3],
-                                            ],
-                                        ],
-                                    },
-                                }
-                                flex_montage_configs.append(config)
-                                # Configuration created (verbose output reduced)
-                            else:
-                                self.update_output(
-                                    f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'",
-                                    "warning",
-                                )
-                        else:
-                            self.update_output(
-                                f"Error: Not enough electrodes for TI simulation in {search_name} (need at least 4)",
-                                "error",
-                            )
-
-                    if use_optimized:
-                        optimized_positions = positions_data["optimized_positions"]
-
-                        # Create individual montage configuration for optimized electrodes
-                        if (
-                            len(optimized_positions) >= 4
-                        ):  # Need at least 4 electrodes for TI
-                            # Parse search_name to extract components for new naming format
-                            montage_name = self._parse_flex_search_name(
-                                search_name, "optimized"
-                            )
-
-                            # Use the first 4 electrode positions for TI simulation
-                            positions_for_ti = optimized_positions[:4]
-
-                            # Validate montage name doesn't conflict with existing directories
-                            if montage_name.startswith("flex_"):
-                                # Create individual configuration for this subject-montage combination
-                                config = {
-                                    "subject_id": subject_id,
-                                    "eeg_net": "optimized_coords",  # No specific EEG net needed for optimized coordinates
-                                    "montage": {
-                                        "name": montage_name,
-                                        "type": "flex_optimized",
-                                        "search_name": search_name,
-                                        "electrode_positions": positions_for_ti,
-                                        "pairs": [
-                                            [positions_for_ti[0], positions_for_ti[1]],
-                                            [positions_for_ti[2], positions_for_ti[3]],
-                                        ],
-                                    },
-                                }
-                                flex_montage_configs.append(config)
-                                # Optimized configuration created (verbose output reduced)
-                            else:
-                                self.update_output(
-                                    f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'",
-                                    "warning",
-                                )
-                        else:
-                            self.update_output(
-                                f"Error: Not enough electrodes for TI simulation in {search_name} (need at least 4)",
-                                "error",
-                            )
-
-            # Skip directory existence check for now - let the simulation scripts handle it
-
-            # Get simulation parameters
-            conductivity = (
-                self.sim_type_combo.currentData()
-            )  # Get conductivity from combo box
-
-            # Determine sim mode (U/M) for all frameworks; pipeline selection is handled elsewhere
-            sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
-            if is_montage_mode:
-                eeg_net = self.eeg_net_combo.currentText()
-            elif is_freehand_mode:
-                eeg_net = "freehand"
-            else:
-                eeg_net = "flex_mode"
-
-            # Get current values in mA (IntensityConfig expects mA, session_builder converts to A)
-            current_ma_3 = None
-            current_ma_4 = None
-            try:
-                current_ma_1 = float(self.current_input_1.text() or "1.0")
-                current_ma_2 = float(self.current_input_2.text() or "1.0")
-
-                # For multipolar mode, also get channels 3 and 4
-                if self.sim_mode_multipolar.isChecked():
-                    current_ma_3 = float(self.current_input_3.text() or "1.0")
-                    current_ma_4 = float(self.current_input_4.text() or "1.0")
-                    if (
-                        current_ma_1 <= 0
-                        or current_ma_2 <= 0
-                        or current_ma_3 <= 0
-                        or current_ma_4 <= 0
-                    ):
-                        QtWidgets.QMessageBox.warning(
-                            self,
-                            "Warning",
-                            "All current values must be greater than 0 mA.",
-                        )
-                        return
-                    current = (
-                        f"{current_ma_1},{current_ma_2},{current_ma_3},{current_ma_4}"
-                    )
-                else:
-                    if current_ma_1 <= 0 or current_ma_2 <= 0:
-                        QtWidgets.QMessageBox.warning(
-                            self, "Warning", "Current values must be greater than 0 mA."
-                        )
-                        return
-                    current = f"{current_ma_1},{current_ma_2}"
-            except ValueError:
-                channels_text = (
-                    "all channels"
-                    if self.sim_mode_multipolar.isChecked()
-                    else "both channels"
-                )
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Warning",
-                    f"Please enter valid current values in mA for {channels_text}.",
-                )
-                return
-
-            electrode_shape = (
-                "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
-            )
-            dimensions = (
-                self.dimensions_input.text() or "8,8"
-            )  # Default to 8,8 if empty
-            thickness = self.thickness_input.text() or "4"  # Default to 4 if empty
-
-            # Validate parameters
-            if not all([conductivity, sim_mode, eeg_net]):
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Warning",
-                    "Please fill in all required simulation parameters.",
-                )
-                return
+            conductivity = self.sim_type_combo.currentData()
+            electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            dimensions = self.dimensions_input.text() or "8,8"
+            thickness = self.thickness_input.text() or "4"
 
             # Validate numeric inputs
             try:
@@ -1688,73 +1204,39 @@ class SimulatorTab(QtWidgets.QWidget):
                 float(thickness)
             except ValueError:
                 QtWidgets.QMessageBox.warning(
-                    self,
-                    "Warning",
-                    "Please enter valid numeric values for dimensions and thickness.",
+                    self, "Warning",
+                    "Please enter valid numeric values for dimensions and thickness."
                 )
                 return
 
-            # Show confirmation dialog with details
-            if is_montage_mode:
-                current_details = f"• Current Channel 1: {current_ma_1} mA\n• Current Channel 2: {current_ma_2} mA\n"
-                if self.sim_mode_multipolar.isChecked():
-                    current_details += f"• Current Channel 3: {current_ma_3} mA\n• Current Channel 4: {current_ma_4} mA\n"
-
-                details = (
-                    f"This will run MONTAGE simulations for:\n\n"
-                    f"• {len(selected_subjects)} subject(s)\n"
-                    f"• {len(selected_montages)} montage(s)\n\n"
-                    f"Parameters:\n"
-                    f"• Simulation type: {conductivity}\n"
-                    f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
-                    f"• EEG Net: {eeg_net}\n"
-                    f"{current_details}"
-                    f"• Electrode shape: {electrode_shape}\n"
-                    f"• Dimensions: {dimensions} mm\n"
-                    f"• Thickness: {thickness} mm"
+            # ── Build MontageConfig objects for each job row ───────────────
+            jobs = []   # (subject_id, MontageConfig, current_str)
+            for subject, source, sim_mode, current_str, row_eeg_net, selected in raw_jobs:
+                montage_configs = self._build_montage_configs_for_row(
+                    subject, source, sim_mode, selected, row_eeg_net
                 )
-            elif is_freehand_mode:
-                details = (
-                    f"This will run FREE-HAND simulations for:\n\n"
-                    f"• {len(selected_subjects)} subject(s)\n"
-                    f"• {len(freehand_configs)} configuration(s)\n\n"
-                    f"Parameters:\n"
-                    f"• Simulation type: {conductivity}\n"
-                    f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
-                    f"• Electrode shape: {electrode_shape}\n"
-                    f"• Dimensions: {dimensions} mm\n"
-                    f"• Thickness: {thickness} mm"
+                for mc in montage_configs:
+                    jobs.append((subject, mc, current_str))
+
+            if not jobs:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning",
+                    "No valid simulations could be prepared. Check your selections."
                 )
-            else:
-                details = (
-                    f"This will run FLEX-SEARCH simulations for:\n\n"
-                    f"• {len(selected_subjects)} subject(s)\n"
-                    f"• {len(flex_montage_configs)} flex-search montage(s)\n"
-                )
+                return
 
-                # Show which electrode types are selected
-                if use_mapped and use_optimized:
-                    details += "• Using both mapped electrode positions and optimized XYZ coordinates\n"
-                elif use_mapped:
-                    details += "• Using mapped electrode positions (will use EEG net from optimization)\n"
-                elif use_optimized:
-                    details += (
-                        "• Using optimized XYZ coordinates (no EEG net required)\n"
-                    )
-
-                current_details = f"• Current Channel 1: {current_ma_1} mA\n• Current Channel 2: {current_ma_2} mA\n"
-                if self.sim_mode_multipolar.isChecked():
-                    current_details += f"• Current Channel 3: {current_ma_3} mA\n• Current Channel 4: {current_ma_4} mA\n"
-
-                details += (
-                    f"\nParameters:\n"
-                    f"• Simulation type: {conductivity}\n"
-                    f"{current_details}"
-                    f"• Electrode shape: {electrode_shape}\n"
-                    f"• Dimensions: {dimensions} mm\n"
-                    f"• Thickness: {thickness} mm"
-                )
-
+            # ── Confirmation dialog ────────────────────────────────────────
+            job_lines = []
+            for subject, mc, current_str in jobs:
+                job_lines.append(f"  * {subject} | {mc.name} | {mc.eeg_net} | {current_str} mA")
+            details = (
+                f"This will run {len(jobs)} simulation(s):\n\n"
+                + "\n".join(job_lines[:15])
+                + (f"\n  ... and {len(jobs)-15} more" if len(jobs) > 15 else "")
+                + f"\n\nGlobal Parameters:\n"
+                f"* Anisotropy: {conductivity}\n"
+                f"* Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
+            )
             if not ConfirmationDialog.confirm(
                 self,
                 title="Confirm Simulation",
@@ -1763,280 +1245,62 @@ class SimulatorTab(QtWidgets.QWidget):
             ):
                 return
 
-            # Check for existing simulation directories and ask for overwrite confirmation
+            # ── Check for existing output directories ──────────────────────
             existing_dirs = []
-            for subject_id in selected_subjects:
-                if is_montage_mode:
-                    montages_to_check = selected_montages
-                elif is_freehand_mode:
-                    montages_to_check = [
-                        cfg.get("name") for cfg in freehand_configs if cfg
-                    ]
-                else:
-                    montages_to_check = [
-                        cfg["montage"]["name"]
-                        for cfg in flex_montage_configs
-                        if cfg["subject_id"] == subject_id
-                    ]
+            for subject_id, mc, _ in jobs:
+                simulations_dir = self.pm.path_optional("simulations", subject_id=subject_id)
+                montage_dir = os.path.join(simulations_dir or "", mc.name)
+                if simulations_dir and os.path.exists(montage_dir):
+                    existing_dirs.append(f"{subject_id}/{mc.name}")
 
-                for montage_name in montages_to_check:
-                    # Get the subject's Simulations directory
-                    simulations_dir = self.pm.path_optional(
-                        "simulations", subject_id=subject_id
-                    )
-                    montage_dir = os.path.join(simulations_dir or "", montage_name)
-                    if simulations_dir and os.path.exists(montage_dir):
-                        existing_dirs.append(f"{subject_id}/{montage_name}")
-
-            # If any directories exist, ask for confirmation to overwrite
             if existing_dirs:
-                existing_list = "\n".join(
-                    [f"  • {d}" for d in existing_dirs[:10]]
-                )  # Show max 10
+                existing_list = "\n".join([f"  * {d}" for d in existing_dirs[:10]])
                 if len(existing_dirs) > 10:
                     existing_list += f"\n  ... and {len(existing_dirs) - 10} more"
-
                 if not ConfirmationDialog.confirm(
                     self,
                     title="Overwrite Existing Simulations?",
-                    message=f"The following simulation directories already exist and will be overwritten:",
-                    details=f"{existing_list}\n\nDo you want to continue and overwrite these simulations?",
+                    message="The following simulation directories already exist and will be overwritten:",
+                    details=f"{existing_list}\n\nDo you want to continue?",
                 ):
                     return
 
-                # User confirmed - delete the existing directories to avoid SimNIBS errors
                 self.update_output("Removing existing simulation directories...")
-                for subject_id in selected_subjects:
-                    if is_montage_mode:
-                        montages_to_delete = selected_montages
-                    elif is_freehand_mode:
-                        montages_to_delete = [
-                            cfg.get("name") for cfg in freehand_configs if cfg
-                        ]
-                    else:
-                        montages_to_delete = [
-                            cfg["montage"]["name"]
-                            for cfg in flex_montage_configs
-                            if cfg["subject_id"] == subject_id
-                        ]
-
-                    for montage_name in montages_to_delete:
-                        # Get the subject's Simulations directory
-                        simulations_dir = self.pm.path_optional(
-                            "simulations", subject_id=subject_id
-                        )
-                        montage_dir = os.path.join(simulations_dir or "", montage_name)
-                        if simulations_dir and os.path.exists(montage_dir):
-                            try:
-                                shutil.rmtree(montage_dir)
-                                self.update_output(
-                                    f"  Removed: {subject_id}/{montage_name}"
-                                )
-                            except Exception as e:
-                                self.update_output(
-                                    f"  Warning: Could not remove {subject_id}/{montage_name}: {str(e)}",
-                                    "warning",
-                                )
-
-            # Build MontageConfig objects for the simulation
-            # NOTE: We will schedule per-simulation jobs (subject × montage/config).
-            # For montage mode we can cross product subjects × montages.
-            # For flex/freehand we keep subject-specific mapping if available.
-            montage_mode_montage_configs = []
-            freehand_subject_montage_pairs = []  # [(subject_id, MontageConfig)]
-            flex_subject_montage_pairs = []  # [(subject_id, MontageConfig)]
-
-            if is_montage_mode:
-                # Load regular montages from montage file
-                montage_file = self.ensure_montage_file_exists(project_dir)
-                try:
-                    with open(montage_file, "r") as f:
-                        montage_data = json.load(f)
-                except Exception:
-                    montage_data = {"nets": {}}
-
-                net_type = (
-                    "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
-                )
-
-                for montage_name in selected_montages:
-                    # Get electrode pairs from montage file
-                    electrode_pairs = None
-                    if (
-                        "nets" in montage_data
-                        and eeg_net in montage_data["nets"]
-                        and net_type in montage_data["nets"][eeg_net]
-                        and montage_name in montage_data["nets"][eeg_net][net_type]
-                    ):
-                        electrode_pairs = montage_data["nets"][eeg_net][net_type][
-                            montage_name
-                        ]
-
-                    if electrode_pairs:
-                        # Convert to tuple format for MontageConfig
-                        pairs_as_tuples = [
-                            (pair[0], pair[1]) for pair in electrode_pairs
-                        ]
-                        montage_mode_montage_configs.append(
-                            MontageConfig(
-                                name=montage_name,
-                                electrode_pairs=pairs_as_tuples,
-                                is_xyz=False,
-                                eeg_net=eeg_net,
+                for subject_id, mc, _ in jobs:
+                    simulations_dir = self.pm.path_optional("simulations", subject_id=subject_id)
+                    montage_dir = os.path.join(simulations_dir or "", mc.name)
+                    if simulations_dir and os.path.exists(montage_dir):
+                        try:
+                            shutil.rmtree(montage_dir)
+                            self.update_output(f"  Removed: {subject_id}/{mc.name}")
+                        except Exception as e:
+                            self.update_output(
+                                f"  Warning: Could not remove {subject_id}/{mc.name}: {e}",
+                                "warning"
                             )
-                        )
 
-            elif is_freehand_mode:
-                # Free-hand mode: XYZ coordinates
-                for config_data in freehand_configs:
-                    config_name = config_data.get("name", "unnamed")
-                    config_subject_id = config_data.get("subject_id")
-                    electrode_positions = config_data.get("electrode_positions", {})
-
-                    # Map dict to list of 4 XYZ coordinates in TI-expected order
-                    ordered_keys = ["E1+", "E1-", "E2+", "E2-"]
-                    coords = []
-                    try:
-                        for k in ordered_keys:
-                            if k in electrode_positions:
-                                coords.append(electrode_positions[k])
-                        if len(coords) < 4:
-                            for k in sorted(electrode_positions.keys()):
-                                if k not in ordered_keys and len(coords) < 4:
-                                    coords.append(electrode_positions.get(k))
-                    except Exception:
-                        coords = []
-
-                    if len(coords) >= 4:
-                        mc = MontageConfig(
-                            name=config_name,
-                            electrode_pairs=[
-                                (coords[0], coords[1]),
-                                (coords[2], coords[3]),
-                            ],
-                            is_xyz=True,
-                            eeg_net="freehand",
-                        )
-                        # Freehand configs are subject-specific; schedule them for that subject only.
-                        if config_subject_id:
-                            freehand_subject_montage_pairs.append(
-                                (str(config_subject_id), mc)
-                            )
-                        else:
-                            # Fallback: apply to all selected subjects (shouldn't usually happen)
-                            for sid in selected_subjects:
-                                freehand_subject_montage_pairs.append((sid, mc))
-                self.update_output(
-                    f"--- Prepared {len(freehand_subject_montage_pairs)} free-hand simulations ---"
-                )
-
-            else:
-                # Flex-search mode: convert flex_montage_configs to MontageConfig objects
-                for config in flex_montage_configs:
-                    sid = (
-                        str(config.get("subject_id"))
-                        if config.get("subject_id")
-                        else None
-                    )
-                    montage = config["montage"]
-                    montage_name = montage["name"]
-                    montage_type = montage["type"]
-
-                    if montage_type == "flex_mapped":
-                        # Electrode names from EEG cap
-                        pairs = montage["pairs"]
-                        mc = MontageConfig(
-                            name=montage_name,
-                            electrode_pairs=[
-                                (pairs[0][0], pairs[0][1]),
-                                (pairs[1][0], pairs[1][1]),
-                            ],
-                            is_xyz=False,
-                            eeg_net=config["eeg_net"],
-                        )
-                    elif montage_type == "flex_optimized":
-                        # XYZ coordinates
-                        positions = montage["electrode_positions"]
-                        mc = MontageConfig(
-                            name=montage_name,
-                            electrode_pairs=[
-                                (positions[0], positions[1]),
-                                (positions[2], positions[3]),
-                            ],
-                            is_xyz=True,
-                            eeg_net=None,
-                        )
-                    else:
-                        mc = None
-
-                    if mc and sid:
-                        flex_subject_montage_pairs.append((sid, mc))
-
-                self.update_output(
-                    f"--- Prepared {len(flex_subject_montage_pairs)} flex simulations ---"
-                )
-
-            # Persist run context for cleanup/termination decisions
-            self._current_run_subjects = selected_subjects[:]
-            self._current_run_is_montage = is_montage_mode
-            # Persist run mode so we can label per-job "Beginning simulation..." lines.
-            if is_montage_mode:
-                self._current_run_mode = "montage"
-            elif is_freehand_mode:
-                self._current_run_mode = "freehand"
-            else:
-                self._current_run_mode = "flex"
-            if is_montage_mode:
-                self._current_run_montages = selected_montages[:]
-            elif is_freehand_mode:
-                self._current_run_montages = [
-                    cfg.get("name") for cfg in freehand_configs if cfg
-                ]
-            else:
-                self._current_run_montages = [
-                    cfg["montage"]["name"] for cfg in flex_montage_configs
-                ]
+            # ── Store run context ──────────────────────────────────────────
+            unique_subjects = list(dict.fromkeys(s for s, _, _ in jobs))
+            unique_montages = list(dict.fromkeys(mc.name for _, mc, _ in jobs))
+            self._current_run_subjects = unique_subjects
+            self._current_run_montages = unique_montages
+            self._current_run_is_montage = True
+            self._current_run_mode = "mixed"
             self._run_start_time = time.time()
-            self._project_dir_path_current = self.pm.project_dir
+            self._project_dir_path_current = project_dir
 
-            # ------------------------------------------------------------------
-            # Build simulation job queue (simulation = subject × montage/config)
-            # ------------------------------------------------------------------
-            jobs = []
-            if is_montage_mode:
-                for sid in selected_subjects:
-                    for mc in montage_mode_montage_configs:
-                        jobs.append((sid, mc))
-            elif is_freehand_mode:
-                jobs = list(freehand_subject_montage_pairs)
-            else:
-                # Flex-search jobs already carry subject_id
-                # Optionally filter by selected_subjects (UI selection) for safety
-                selected_set = set(selected_subjects)
-                jobs = [
-                    (sid, mc)
-                    for (sid, mc) in flex_subject_montage_pairs
-                    if sid in selected_set
-                ]
+            # Store for report generation
+            self._last_jobs = jobs[:]
+            self._last_conductivity = conductivity
+            self._last_electrode_shape = electrode_shape
+            self._last_dimensions = dimensions
+            self._last_thickness = thickness
 
+            # ── Concurrency ────────────────────────────────────────────────
             total_simulations = len(jobs)
-            if total_simulations == 0:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Warning",
-                    "No valid simulations could be prepared (check montage/config selections).",
-                )
-                return
-
-            # Determine concurrency:
-            # - Parallel should kick in when 2+ simulations are selected (subject × montage/config).
-            # - We use the workers spinbox as the max concurrent jobs when enabled,
-            #   otherwise default to 2-way parallel once we have 2+ jobs.
             if total_simulations >= 2:
                 if self.parallel_checkbox.isChecked():
-                    self._max_concurrent_jobs = max(
-                        1, int(self.parallel_workers_spin.value())
-                    )
+                    self._max_concurrent_jobs = max(1, int(self.parallel_workers_spin.value()))
                 else:
                     self._max_concurrent_jobs = 2
             else:
@@ -2046,215 +1310,84 @@ class SimulatorTab(QtWidgets.QWidget):
             self._active_processes = set()
             self._process_to_job = {}
 
-            # Display simulation configuration
+            # ── Console summary ────────────────────────────────────────────
             self.update_output("--- SIMULATION CONFIGURATION ---")
-            self.update_output(f"Subjects: {', '.join(selected_subjects)}")
-            self.update_output(f"Simulation type: {conductivity}")
-            self.update_output("Subprocess execution: enabled (terminable)")
-            # Debug-only: keep this for troubleshooting, but do not show in normal mode.
-            self.update_output(
-                f"Total simulations (subject × montage): {total_simulations}", "debug"
-            )
-            if self._max_concurrent_jobs > 1:
-                self.update_output(
-                    f"Parallel job execution: enabled ({min(self._max_concurrent_jobs, total_simulations)} concurrent)",
-                    "debug",
-                )
-            else:
-                self.update_output(
-                    "Parallel job execution: disabled (sequential)", "debug"
-                )
-
-            if is_montage_mode:
-                self.update_output(
-                    f"Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}"
-                )
-                self.update_output(f"EEG Net: {eeg_net}")
-                self.update_output(f"Montages: {', '.join(selected_montages)}")
-            elif is_freehand_mode:
-                # Free-hand configuration display
-                config_names = [
-                    config_data.get("name", "unnamed")
-                    for config_data in freehand_configs
-                ]
-                self.update_output(
-                    f"Free-hand configurations: {', '.join(config_names)}"
-                )
-                for config_data in freehand_configs:
-                    config_name = config_data.get("name", "unnamed")
-                    stim_type = config_data.get("type", "U")
-                    electrode_positions = config_data.get("electrode_positions", {})
-                    mode_text = "Unipolar" if stim_type == "U" else "Multipolar"
-                    self.update_output(
-                        f"  {config_name}: {mode_text}, {len(electrode_positions)} electrodes"
-                    )
-            else:
-                self.update_output(
-                    f"Flex-search montages: {', '.join([config['montage']['name'] for config in flex_montage_configs])}"
-                )
-
-                # Determine electrode types based on checkboxes
-                electrode_types = []
-                if self.flex_use_mapped.isChecked():
-                    electrode_types.append("mapped")
-                if self.flex_use_optimized.isChecked():
-                    electrode_types.append("optimized")
-                electrode_type_text = (
-                    ", ".join(electrode_types) if electrode_types else "none"
-                )
-
-                self.update_output(f"Electrode type: {electrode_type_text}")
-
-            if self.sim_mode_multipolar.isChecked():
-                self.update_output(
-                    f"Current Ch1/Ch2/Ch3/Ch4: {current_ma_1}/{current_ma_2}/{current_ma_3}/{current_ma_4} mA"
-                )
-            else:
-                self.update_output(f"Current Ch1/Ch2: {current_ma_1}/{current_ma_2} mA")
-            self.update_output(
-                f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
-            )
+            self.update_output(f"Total jobs: {total_simulations}")
+            self.update_output(f"Subjects: {', '.join(unique_subjects)}")
+            self.update_output(f"Anisotropy: {conductivity}")
+            self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
             self.update_output("--- STARTING SIMULATION (Subprocess) ---")
 
-            # Initialize report generator for this simulation session
-            self.simulation_session_id = datetime.datetime.now().strftime(
-                "%Y%m%d_%H%M%S"
-            )
-            project_dir_path = self.pm.project_dir
-
+            # ── Report generator ───────────────────────────────────────────
+            self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             self.report_generator = SimulationReportGenerator(
-                project_dir=project_dir_path,
+                project_dir=project_dir,
                 simulation_session_id=self.simulation_session_id,
             )
-
-            # Add simulation parameters to report (including custom conductivities)
             if self.report_generator:
+                first_current = jobs[0][2] if jobs else "1.0,1.0"
+                first_eeg_net = jobs[0][1].eeg_net if jobs else "GSN-HydroCel-185.csv"
+                current_parts = first_current.split(",")
                 self.report_generator.add_simulation_parameters(
                     conductivity_type=conductivity,
-                    simulation_mode=sim_mode,
-                    eeg_net=eeg_net,
-                    intensity_ch1=current_ma_1,
-                    intensity_ch2=current_ma_2,
-                    intensity_ch3=current_ma_3,
-                    intensity_ch4=current_ma_4,
+                    simulation_mode="U",
+                    eeg_net=first_eeg_net,
+                    intensity_ch1=float(current_parts[0]) if current_parts else 1.0,
+                    intensity_ch2=float(current_parts[1]) if len(current_parts) > 1 else 1.0,
+                    intensity_ch3=None,
+                    intensity_ch4=None,
                     quiet_mode=False,
                     conductivities=self._get_conductivities_for_report(),
                 )
-
-                # Add electrode parameters to report
-                dim_parts = dimensions.split(",")
+                dim_p = dimensions.split(",")
                 self.report_generator.add_electrode_parameters(
                     shape=electrode_shape,
-                    dimensions=[float(dim_parts[0]), float(dim_parts[1])],
+                    dimensions=[float(dim_p[0]), float(dim_p[1])],
                     thickness=float(thickness),
                 )
+                for subject_id in unique_subjects:
+                    m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
+                    self.report_generator.add_subject(subject_id, m2m_path, "processing")
 
-                # Add subjects to report
-                for subject_id in selected_subjects:
-                    bids_subject_id = f"sub-{subject_id}"
-                    m2m_path = os.path.join(
-                        project_dir_path,
-                        "derivatives",
-                        "SimNIBS",
-                        bids_subject_id,
-                        f"m2m_{subject_id}",
-                    )
-                    self.report_generator.add_subject(
-                        subject_id, m2m_path, "processing"
-                    )
-
-                # Add montages to report
-                montage_type = "unipolar" if sim_mode == "U" else "multipolar"
-
-                # Load actual electrode pairs from montage file
-                montage_file = self.ensure_montage_file_exists(project_dir_path)
-                try:
-                    with open(montage_file, "r") as f:
-                        montage_data = json.load(f)
-                except Exception:
-                    montage_data = {"nets": {}}
-
-                for montage_name in selected_montages:
-                    # Try to get actual electrode pairs from the montage file
-                    electrode_pairs = [["E1", "E2"]]  # Default fallback
-
-                    # Look for the montage in the appropriate net and type
-                    net_type = (
-                        "uni_polar_montages"
-                        if sim_mode == "U"
-                        else "multi_polar_montages"
-                    )
-
-                    if (
-                        "nets" in montage_data
-                        and eeg_net in montage_data["nets"]
-                        and net_type in montage_data["nets"][eeg_net]
-                        and montage_name in montage_data["nets"][eeg_net][net_type]
-                    ):
-                        electrode_pairs = montage_data["nets"][eeg_net][net_type][
-                            montage_name
-                        ]
-
-                    self.report_generator.add_montage(
-                        montage_name=montage_name,
-                        electrode_pairs=electrode_pairs,
-                        montage_type=montage_type,
-                    )
-
-            # Disable UI controls during simulation and set button states
+            # ── Enable stop button, disable controls ───────────────────────
             self.disable_controls()
             self.action_buttons.set_running(True)
-
-            # Set tab as busy (with stop_btn parameter for proper state management)
             if hasattr(self, "parent") and self.parent:
-                keep_enabled_widgets = (
-                    [self.console_widget.debug_checkbox]
-                    if hasattr(self, "console_widget")
-                    else []
-                )
-                # Keep Clear Console available during runs
-                if hasattr(self, "console_widget") and hasattr(
-                    self.console_widget, "clear_btn"
-                ):
+                keep_enabled_widgets = []
+                if hasattr(self, "console_widget"):
+                    keep_enabled_widgets.append(self.console_widget.debug_checkbox)
+                if hasattr(self, "console_widget") and hasattr(self.console_widget, "clear_btn"):
                     keep_enabled_widgets.append(self.console_widget.clear_btn)
                 self.parent.set_tab_busy(
-                    self,
-                    True,
+                    self, True,
                     message="A simulation is running...",
                     stop_btn=self.stop_btn,
                     keep_enabled=keep_enabled_widgets,
                 )
 
             self.simulation_running = True
-
-            # Parse electrode dimensions
-            dim_parts = dimensions.split(",")
-            electrode_dims = [float(dim_parts[0]), float(dim_parts[1])]
-
-            # Run simulations as a job queue (each job is one subject × one montage/config)
             self._had_errors_during_run = False
-            self._simulation_finished_called = False  # Reset flag for new simulation
+            self._simulation_finished_called = False
 
-            # Store simulation parameters for use in thread
+            # Store global sim params (used in _start_single_simulation_job)
+            dim_parts2 = dimensions.split(",")
+            electrode_dims = [float(dim_parts2[0]), float(dim_parts2[1])]
             self._sim_params = {
                 "conductivity": conductivity,
-                "current": current,
+                "current": jobs[0][2] if jobs else "1.0,1.0",  # fallback; per-job overrides used
                 "electrode_shape": electrode_shape,
                 "electrode_dims": electrode_dims,
                 "thickness": float(thickness),
-                "eeg_net": eeg_net,
                 "project_dir": project_dir,
                 "parallel_enabled": self.parallel_checkbox.isChecked(),
                 "parallel_workers": self.parallel_workers_spin.value(),
             }
 
-            # Start processing jobs
             self._start_next_simulation_jobs()
 
         except Exception as e:
             self.update_output(f"Error starting simulation: {str(e)}", "error")
             import traceback
-
             self.update_output(traceback.format_exc(), "error")
             self.simulation_finished()
 
@@ -2267,27 +1400,22 @@ class SimulatorTab(QtWidgets.QWidget):
         while (
             self._job_queue and len(self._active_processes) < self._max_concurrent_jobs
         ):
-            subject_id, montage_cfg = self._job_queue.pop(0)
-            self._start_single_simulation_job(subject_id, montage_cfg)
+            subject_id, montage_cfg, current_str = self._job_queue.pop(0)
+            self._start_single_simulation_job(subject_id, montage_cfg, current_str)
 
         # If nothing is running and queue is empty, we're done
         if not self._job_queue and not self._active_processes:
             self.simulation_finished()
 
-    def _start_single_simulation_job(self, subject_id: str, montage_cfg: MontageConfig):
+    def _start_single_simulation_job(self, subject_id: str, montage_cfg: MontageConfig, current_str: str = None):
         """Start a single simulation job (one subject × one montage/config) in a subprocess."""
         try:
-            # Normal-mode header (Flex-Search-like): show context once per job.
-            # NOTE: This runs in the GUI process, so it will appear before any subprocess logs.
-            run_mode = getattr(self, "_current_run_mode", None) or (
-                "montage"
-                if self.sim_type_montage.isChecked()
-                else ("freehand" if self.sim_type_freehand.isChecked() else "flex")
-            )
+            run_mode = getattr(self, "_current_run_mode", "montage")
             mode_label = {
                 "montage": "montage mode",
                 "freehand": "freehand mode",
                 "flex": "flex mode",
+                "mixed": "simulation",
             }.get(run_mode, str(run_mode))
             self.update_output(
                 f"Beginning simulation for subject: {subject_id} | Simulation: {montage_cfg.name} ({mode_label})",
@@ -2299,13 +1427,15 @@ class SimulatorTab(QtWidgets.QWidget):
                 subject_id=subject_id,
                 project_dir=self._sim_params["project_dir"],
                 conductivity_type=ConductivityType(self._sim_params["conductivity"]),
-                intensities=IntensityConfig.from_string(self._sim_params["current"]),
+                intensities=IntensityConfig.from_string(
+                    current_str if current_str else self._sim_params["current"]
+                ),
                 electrode=ElectrodeConfig(
                     shape=self._sim_params["electrode_shape"],
                     dimensions=self._sim_params["electrode_dims"],
                     thickness=self._sim_params["thickness"],
                 ),
-                eeg_net=self._sim_params["eeg_net"],
+                eeg_net=montage_cfg.eeg_net,
                 # IMPORTANT: now that we parallelize at the job level, we disable in-process montage parallelism.
                 parallel=ParallelConfig(enabled=False, max_workers=0),
             )
@@ -2489,107 +1619,33 @@ class SimulatorTab(QtWidgets.QWidget):
         self.enable_controls()
 
     def auto_generate_simulation_report(self):
-        """Auto-generate individual simulation reports for each subject-montage combination."""
+        """Auto-generate individual simulation reports for each completed job."""
         try:
-            # Get project directory using path manager
             project_dir = self.pm.project_dir
+            conductivity = getattr(self, "_last_conductivity", self.sim_type_combo.currentData())
+            electrode_shape = getattr(self, "_last_electrode_shape", "ellipse")
+            dimensions = getattr(self, "_last_dimensions", "8,8")
+            thickness = getattr(self, "_last_thickness", "4")
 
-            # Get selected subjects and montages
-            selected_subjects = [
-                item.text() for item in self.subject_list.selectedItems()
-            ]
-            if not selected_subjects:
-                self.update_output("Error: No subjects selected", "error")
+            # Build subject->[(montage_name, current_str, eeg_net)] mapping from completed jobs
+            last_jobs = getattr(self, "_last_jobs", [])
+            subject_montage_map = {}  # subject_id -> [(montage_name, current_str, eeg_net)]
+            for subject_id, mc, current_str in last_jobs:
+                if subject_id not in subject_montage_map:
+                    subject_montage_map[subject_id] = []
+                subject_montage_map[subject_id].append((mc.name, current_str, mc.eeg_net))
+
+            if not subject_montage_map:
+                self.update_output("No completed jobs to report on.", "warning")
                 return
 
-            # Get selected montages based on simulation type
-            if self.sim_type_montage.isChecked():
-                selected_montages = [
-                    item.data(QtCore.Qt.UserRole)
-                    for item in self.montage_list.selectedItems()
-                ]
-                if not selected_montages:
-                    self.update_output("Error: No montages selected", "error")
-                    return
-                simulation_mode = "montage"
-            else:
-                # For flex-search, get montages from flex-search list
-                selected_flex_data = [
-                    item.data(QtCore.Qt.UserRole)
-                    for item in self.flex_search_list.selectedItems()
-                ]
-                if not selected_flex_data:
-                    self.update_output(
-                        "Error: No flex-search outputs selected", "error"
-                    )
-                    return
-                simulation_mode = "flex"
-
-            # Generate individual reports for each subject-montage combination
             total_reports = 0
             successful_reports = 0
 
-            for subject_id in selected_subjects:
-                if simulation_mode == "montage":
-                    # Regular montage mode
-                    montages_to_process = selected_montages
-                    eeg_net = self.eeg_net_combo.currentText()
-                else:
-                    # Flex-search mode - filter by subject
-                    subject_flex_data = [
-                        data
-                        for data in selected_flex_data
-                        if data.get("subject_id") == subject_id
-                    ]
-                    montages_to_process = []
-
-                    # Process flex montages for this subject
-                    for flex_data in subject_flex_data:
-                        search_name = flex_data["search_name"]
-
-                        # Check which electrode types are selected
-                        if self.flex_use_mapped.isChecked():
-                            montages_to_process.append(
-                                self._parse_flex_search_name(search_name, "mapped")
-                            )
-                        if self.flex_use_optimized.isChecked():
-                            montages_to_process.append(
-                                self._parse_flex_search_name(search_name, "optimized")
-                            )
-
-                    # Get EEG net from first flex data for this subject
-                    if subject_flex_data:
-                        try:
-                            search_name = subject_flex_data[0]["search_name"]
-                            flex_search_dir = self.pm.path_optional(
-                                "flex_search_run",
-                                subject_id=subject_id,
-                                search_name=search_name,
-                            )
-                            if not flex_search_dir:
-                                self.update_output(
-                                    f"Error: flex-search folder not found for {subject_id} | {search_name}",
-                                    "error",
-                                )
-                                continue
-                            mapping_file = (
-                                os.path.join(flex_search_dir, "electrode_mapping.json")
-                                if flex_search_dir
-                                else None
-                            )
-
-                            if mapping_file and os.path.exists(mapping_file):
-                                with open(mapping_file, "r") as f:
-                                    mapping_data = json.load(f)
-                                    eeg_net = mapping_data.get(
-                                        "eeg_net", "GSN-HydroCel-185.csv"
-                                    )
-                            else:
-                                eeg_net = "GSN-HydroCel-185.csv"
-                        except Exception:
-                            eeg_net = "GSN-HydroCel-185.csv"
-                    else:
-                        eeg_net = "GSN-HydroCel-185.csv"
+            for subject_id, montage_list in subject_montage_map.items():
+                montages_to_process = [name for name, _, _ in montage_list]
+                currents_map = {name: cur for name, cur, _ in montage_list}
+                eeg_net_map = {name: net for name, _, net in montage_list}
 
                 # Generate individual report for each montage for this subject
                 for montage_name in montages_to_process:
@@ -2607,28 +1663,27 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Add simulation parameters
+                        cur = currents_map.get(montage_name, "1.0,1.0")
+                        cur_parts = cur.split(",")
+                        intensity_ch1 = float(cur_parts[0]) if cur_parts else 1.0
+                        intensity_ch2 = float(cur_parts[1]) if len(cur_parts) > 1 else 1.0
+                        job_eeg_net = eeg_net_map.get(montage_name, "GSN-HydroCel-185.csv")
                         report_generator.add_simulation_parameters(
-                            conductivity_type=self.sim_type_combo.currentData(),
-                            simulation_mode=(
-                                "U" if self.sim_mode_unipolar.isChecked() else "M"
-                            ),
-                            eeg_net=eeg_net,
-                            intensity_ch1=float(self.current_input_1.text() or "5.0"),
-                            intensity_ch2=float(self.current_input_2.text() or "5.0"),
+                            conductivity_type=conductivity,
+                            simulation_mode="U",
+                            eeg_net=job_eeg_net,
+                            intensity_ch1=intensity_ch1,
+                            intensity_ch2=intensity_ch2,
                             quiet_mode=True,
                             conductivities=self._get_conductivities_for_report(),
                         )
 
                         # Add electrode parameters
-                        dim_parts = (self.dimensions_input.text() or "8,8").split(",")
+                        dim_parts = dimensions.split(",")
                         report_generator.add_electrode_parameters(
-                            shape=(
-                                "rect"
-                                if self.electrode_shape_rect.isChecked()
-                                else "ellipse"
-                            ),
+                            shape=electrode_shape,
                             dimensions=[float(dim_parts[0]), float(dim_parts[1])],
-                            thickness=float(self.thickness_input.text() or "4"),
+                            thickness=float(thickness),
                         )
 
                         # Add this specific subject
@@ -2640,11 +1695,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         report_generator.add_montage(
                             montage_name=montage_name,
                             electrode_pairs=[["E1", "E2"]],  # Default pairs
-                            montage_type=(
-                                "unipolar"
-                                if self.sim_mode_unipolar.isChecked()
-                                else "multipolar"
-                            ),
+                            montage_type="unipolar",
                         )
 
                         # Get expected output files for this specific combination
@@ -2719,92 +1770,53 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def disable_controls(self):
         """Disable all controls except the stop button."""
-        # Disable all buttons
-        self.list_subjects_btn.setEnabled(False)
-        self.select_all_subjects_btn.setEnabled(False)
-        self.clear_subject_selection_btn.setEnabled(False)
-        self.list_montages_btn.setEnabled(False)
-        self.clear_montage_selection_btn.setEnabled(False)
-        self.add_new_montage_btn.setEnabled(False)
-        self.remove_montage_btn.setEnabled(False)
-
-        # Disable all inputs
+        self.add_job_btn.setEnabled(False)
+        self.remove_job_btn.setEnabled(False)
+        self.jobs_scroll.setEnabled(False)
+        for card in self._job_cards:
+            card.setEnabled(False)
+        self.selection_list.setEnabled(False)
+        self.refresh_selection_btn.setEnabled(False)
+        self.clear_selection_btn.setEnabled(False)
+        self.add_montage_sel_btn.setEnabled(False)
+        self.remove_montage_sel_btn.setEnabled(False)
         self.sim_type_combo.setEnabled(False)
-        self.sim_type_montage.setEnabled(False)
-        self.sim_type_flex.setEnabled(False)
-        self.eeg_net_combo.setEnabled(False)
-        self.sim_mode_unipolar.setEnabled(False)
-        self.sim_mode_multipolar.setEnabled(False)
-        self.current_input_1.setEnabled(False)
-        self.current_input_2.setEnabled(False)
-        self.current_input_3.setEnabled(False)
-        self.current_input_4.setEnabled(False)
+        self.conductivity_editor_btn.setEnabled(False)
         self.electrode_shape_rect.setEnabled(False)
         self.electrode_shape_ellipse.setEnabled(False)
         self.dimensions_input.setEnabled(False)
         self.thickness_input.setEnabled(False)
-
-        # Disable list widgets
-        self.subject_list.setEnabled(False)
-        self.montage_list.setEnabled(False)
-        self.flex_search_list.setEnabled(False)
-
-        # Disable flex-search controls
-        self.refresh_flex_btn.setEnabled(False)
-        self.clear_flex_selection_btn.setEnabled(False)
-        self.flex_use_mapped.setEnabled(False)
-        self.flex_use_optimized.setEnabled(False)
+        self.parallel_checkbox.setEnabled(False)
+        self.parallel_workers_spin.setEnabled(False)
 
     def enable_controls(self):
         """Re-enable all controls."""
-        # Enable all buttons
-        self.list_subjects_btn.setEnabled(True)
-        self.select_all_subjects_btn.setEnabled(True)
-        self.clear_subject_selection_btn.setEnabled(True)
-        self.list_montages_btn.setEnabled(True)
-        self.clear_montage_selection_btn.setEnabled(True)
-        self.add_new_montage_btn.setEnabled(True)
-        self.remove_montage_btn.setEnabled(True)
-
-        # Enable all inputs
+        self.add_job_btn.setEnabled(True)
+        self.remove_job_btn.setEnabled(True)
+        self.jobs_scroll.setEnabled(True)
+        for card in self._job_cards:
+            card.setEnabled(True)
+        self.selection_list.setEnabled(True)
+        self.refresh_selection_btn.setEnabled(True)
+        self.clear_selection_btn.setEnabled(True)
+        self.add_montage_sel_btn.setEnabled(True)
+        self.remove_montage_sel_btn.setEnabled(True)
         self.sim_type_combo.setEnabled(True)
-        self.sim_type_montage.setEnabled(True)
-        self.sim_type_flex.setEnabled(True)
-        self.eeg_net_combo.setEnabled(True)
-        self.sim_mode_unipolar.setEnabled(True)
-        self.sim_mode_multipolar.setEnabled(True)
-        self.current_input_1.setEnabled(True)
-        self.current_input_2.setEnabled(True)
-        self.current_input_3.setEnabled(True)
-        self.current_input_4.setEnabled(True)
+        self.conductivity_editor_btn.setEnabled(True)
         self.electrode_shape_rect.setEnabled(True)
         self.electrode_shape_ellipse.setEnabled(True)
         self.dimensions_input.setEnabled(True)
         self.thickness_input.setEnabled(True)
-
-        # Enable list widgets
-        self.subject_list.setEnabled(True)
-        self.montage_list.setEnabled(True)
-        self.flex_search_list.setEnabled(True)
-
-        # Enable flex-search controls
-        self.refresh_flex_btn.setEnabled(True)
-        self.clear_flex_selection_btn.setEnabled(True)
-        self.flex_use_mapped.setEnabled(True)
-        self.flex_use_optimized.setEnabled(True)
+        self.parallel_checkbox.setEnabled(True)
+        self.parallel_workers_spin.setEnabled(self.parallel_checkbox.isChecked())
 
     def update_current_inputs_visibility(self):
-        """Update the visibility of current input channels based on simulation mode."""
-        is_multipolar = self.sim_mode_multipolar.isChecked()
-
-        # Show/hide channels 3 and 4 based on multipolar mode
-        for widget in self.multipolar_current_widgets:
-            widget.setVisible(is_multipolar)
+        """No-op stub kept for backward compatibility."""
+        pass
 
     def update_electrode_inputs(self, checked):
-        """Update the electrode input form based on the selected simulation mode.
-        This only affects which montages are shown in the list."""
-        self.update_montage_list(checked)
+        """No-op stub kept for backward compatibility."""
+        pass
 
     def clear_console(self):
         """Clear the output console."""
@@ -3260,16 +2272,16 @@ class SimulatorTab(QtWidgets.QWidget):
     def remove_selected_montage(self):
         """Remove the selected montage from the montage list file."""
         try:
-            # Get selected montage
-            selected_items = self.montage_list.selectedItems()
+            # Get selected montage from the per-job selection list
+            selected_items = self.selection_list.selectedItems()
             if not selected_items:
                 QtWidgets.QMessageBox.warning(
                     self, "Warning", "Please select a montage to remove."
                 )
                 return
 
-            # Get the montage name from UserRole data
-            montage_name = selected_items[0].data(QtCore.Qt.UserRole)
+            # Get the montage name as plain text
+            montage_name = selected_items[0].text()
             if not montage_name:
                 QtWidgets.QMessageBox.warning(
                     self, "Warning", "Invalid montage selection."
@@ -3296,11 +2308,14 @@ class SimulatorTab(QtWidgets.QWidget):
                 with open(montage_file, "r") as f:
                     montage_data = json.load(f)
 
-                # Get current net and mode
+                # Get current net and mode from the active job row
                 current_net = self.eeg_net_combo.currentText()
+                row = self._selection_row
+                mode_combo = self.jobs_table.cellWidget(row, 2) if row >= 0 else None
+                mode_text = mode_combo.currentText() if mode_combo else "Unipolar"
                 montage_type = (
                     "uni_polar_montages"
-                    if self.sim_mode_unipolar.isChecked()
+                    if mode_text == "Unipolar"
                     else "multi_polar_montages"
                 )
 
@@ -3321,8 +2336,8 @@ class SimulatorTab(QtWidgets.QWidget):
                         f"Removed montage '{montage_name}' from {montage_type}"
                     )
 
-                    # Remove the item from the list widget
-                    self.montage_list.takeItem(self.montage_list.row(selected_items[0]))
+                    # Refresh the selection list to reflect the change
+                    self._refresh_selection_list()
                 else:
                     QtWidgets.QMessageBox.warning(
                         self, "Warning", f"Montage '{montage_name}' not found."
@@ -3809,7 +2824,7 @@ class AddMontageDialog(QtWidgets.QDialog):
 
         # Add title for electrode list
         electrode_title = QtWidgets.QLabel("Available Electrodes")
-        electrode_title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        electrode_title.setStyleSheet("font-weight: bold; font-size: 10pt;")
         right_layout.addWidget(electrode_title)
 
         # Add search box

@@ -623,7 +623,6 @@ class ExSearchTab(QtWidgets.QWidget):
     ):
         """Log comprehensive pipeline configuration to the ex-search log file."""
         try:
-
             # Get the log file from environment
             log_file = env.get("TI_LOG_FILE")
             if not log_file:
@@ -752,7 +751,6 @@ class ExSearchTab(QtWidgets.QWidget):
     def log_roi_configuration(self, current_roi, roi_name, x, y, z, env):
         """Log ROI-specific configuration details."""
         try:
-
             # Get the log file from environment
             log_file = env.get("TI_LOG_FILE")
             if not log_file:
@@ -861,12 +859,12 @@ class ExSearchTab(QtWidgets.QWidget):
                                     )["net_name"]
                                     output_dir = f"{roi_name}_{eeg_net}"
                                     completion_logger.info(
-                                        f"  {i+1}. {roi_file} → derivatives/{output_dir}/"
+                                        f"  {i + 1}. {roi_file} → derivatives/{output_dir}/"
                                     )
                                 else:
-                                    completion_logger.info(f"  {i+1}. {roi_file}")
+                                    completion_logger.info(f"  {i + 1}. {roi_file}")
                             except (KeyError, AttributeError, RuntimeError):
-                                completion_logger.info(f"  {i+1}. {roi_file}")
+                                completion_logger.info(f"  {i + 1}. {roi_file}")
 
                     # Log electrode configuration summary
                     if hasattr(self, "e1_plus") and hasattr(self, "e1_minus"):
@@ -927,6 +925,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create a scroll area for the form (matching other tabs)
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(600)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(10, 10, 10, 10)
@@ -1197,7 +1196,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -1216,11 +1215,11 @@ class ExSearchTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=180,
-            max_height=None,
+            min_height=400,
+            max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget)
+        main_layout.addWidget(self.console_widget, 2)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
@@ -2626,7 +2625,7 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
         # Title and description
         title_label = QtWidgets.QLabel("Select EEG Net for Leadfield Creation")
         title_label.setStyleSheet(
-            "font-weight: bold; font-size: 14px; margin-bottom: 10px;"
+            "font-weight: bold; font-size: 10pt; margin-bottom: 8px;"
         )
         layout.addWidget(title_label)
 
@@ -2765,7 +2764,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
             f"Available Electrodes ({len(self.electrodes)} total)"
         )
         title_label.setStyleSheet(
-            "font-weight: bold; font-size: 14px; margin-bottom: 10px;"
+            "font-weight: bold; font-size: 10pt; margin-bottom: 8px;"
         )
         layout.addWidget(title_label)
 
@@ -2802,7 +2801,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
         self.selection_info = QtWidgets.QLabel(
             "Tip: You can select multiple electrodes and copy them"
         )
-        self.selection_info.setStyleSheet("color: #666; font-size: 11px;")
+        self.selection_info.setStyleSheet("color: #666; font-size: 8pt;")
         layout.addWidget(self.selection_info)
 
         # Buttons
