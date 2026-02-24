@@ -53,6 +53,8 @@ htmlcov/
 # Claude
 CLAUDE.md
 .claude
+memory/agent-state.md
+.worktrees/
 
 # Benchmarking
 benchmark_results/
