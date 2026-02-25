@@ -13,7 +13,8 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.core import get_path_manager
-from tit.gui.style import FONT_MONOSPACE, _gfx_tokens  # graphics tokens
+from tit.gui.style import _gfx_tokens  # graphics tokens
+from tit.gui.components.console import ConsoleWidget
 
 
 class NiftiViewerTab(QtWidgets.QWidget):
@@ -265,7 +266,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Refresh button
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
         sim_block_layout.addWidget(self.refresh_btn, 5, 0, 1, 4)
 
@@ -305,12 +305,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
         pair_buttons_layout = QtWidgets.QHBoxLayout()
 
         self.add_pair_btn = QtWidgets.QPushButton("+ Add Pair")
-        self.add_pair_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.add_pair_btn.clicked.connect(self.add_pair_row)
         pair_buttons_layout.addWidget(self.add_pair_btn)
 
         self.quick_add_btn = QtWidgets.QPushButton("Quick Add")
-        self.quick_add_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.quick_add_btn.setToolTip(
             "Add the same simulation to multiple subjects at once"
         )
@@ -318,7 +316,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         pair_buttons_layout.addWidget(self.quick_add_btn)
 
         self.clear_pairs_btn = QtWidgets.QPushButton("Clear All")
-        self.clear_pairs_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.clear_pairs_btn.clicked.connect(self.clear_all_pairs)
         pair_buttons_layout.addWidget(self.clear_pairs_btn)
 
@@ -409,59 +406,29 @@ class NiftiViewerTab(QtWidgets.QWidget):
         button_layout.setSpacing(10)
 
         self.load_btn = QtWidgets.QPushButton("Load Subject Data")
-        self.load_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.load_btn.clicked.connect(self.load_subject_data)
         button_layout.addWidget(self.load_btn)
 
         load_additional_btn = QtWidgets.QPushButton("Load Additional NIfTIs")
-        load_additional_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         load_additional_btn.clicked.connect(self.load_custom_nifti)
         button_layout.addWidget(load_additional_btn)
 
         reload_btn = QtWidgets.QPushButton("Reload Current View")
-        reload_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         reload_btn.clicked.connect(self.reload_current_view)
         button_layout.addWidget(reload_btn)
-
-        clear_console_btn = QtWidgets.QPushButton("Clear Console")
-        clear_console_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
-        clear_console_btn.clicked.connect(self.clear_console)
-        button_layout.addWidget(clear_console_btn)
 
         button_layout.addStretch()
         main_layout.addLayout(button_layout)
 
-        # Console
-        self.info_area = QtWidgets.QTextEdit()
-        self.info_area.setReadOnly(True)
-        self.info_area.setMinimumHeight(200)
-        self.info_area.setStyleSheet(
-            f"""
-            QTextEdit {{
-                background-color: #1e1e1e;
-                color: #f0f0f0;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: {FONT_MONOSPACE};
-                border: 1px solid #3c3c3c;
-                border-radius: 5px;
-                padding: 8px;
-            }}
-        """
+        # Console — uses the shared ConsoleWidget so font size and style follow
+        # the app-level GraphicsConfig settings (Settings → Graphics → Console size).
+        self.console_widget = ConsoleWidget(
+            parent=self,
+            show_clear_button=True,
+            show_debug_checkbox=False,
+            console_label=None,
         )
-        self.info_area.setAcceptRichText(True)
-        self.info_area.setText(
-            "NIfTI Viewer using Freeview\n\n"
-            "Single Subject Mode:\n"
-            "1. Select a subject from the dropdown\n"
-            "2. Select a simulation and configure options\n"
-            "3. Click 'Load Subject Data' to view in subject space\n\n"
-            "Group Mode:\n"
-            "1. Add subject-simulation pairs using '+ Add Pair' or '📋 Quick Add'\n"
-            "2. Optionally select an MNI atlas overlay\n"
-            "3. Configure visualization options\n"
-            "4. Click 'Load Subject Data' to view group analysis in MNI space"
-        )
-        main_layout.addWidget(self.info_area)
+        main_layout.addWidget(self.console_widget)
 
         # Connect signals
         self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
@@ -550,7 +517,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 if subject_dir
                 else "unknown location"
             )
-            self.info_area.append(f"\nNo Simulations directory found at {sim_base}")
+            self.console_widget.update_console(
+                f"No Simulations directory found at {sim_base}", "warning"
+            )
             return
 
         # Add simulations to combo box
@@ -594,13 +563,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Add available regions to combo box
             self.analysis_region_combo.addItems(regions)
 
-            self.info_area.append(
-                f"\nFound {len(regions)} voxel analysis regions for simulation {simulation_name}"
+            self.console_widget.update_console(
+                f"Found {len(regions)} voxel analysis regions for simulation {simulation_name}",
+                "info",
             )
         else:
-            self.info_area.append(
-                f"\nNo voxel analyses found for simulation {simulation_name}"
-            )
+            pass  # No voxel analyses available — not worth surfacing in the console
 
     def on_mode_changed(self):
         """Handle mode change between Single Subject and Group."""
@@ -637,8 +605,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         try:
             return self.pm.list_simulations(subject_id)
         except Exception as e:
-            self.info_area.append(
-                f"\nError getting simulations for subject {subject_id}: {str(e)}"
+            self.console_widget.update_console(
+                f"Error getting simulations for subject {subject_id}: {str(e)}", "error"
             )
             return []
 
@@ -652,7 +620,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         try:
             subjects = self.pm.list_subjects()
         except Exception as e:
-            self.info_area.append(f"\nError getting subjects: {str(e)}")
+            self.console_widget.update_console(
+                f"Error getting subjects: {str(e)}", "error"
+            )
             subjects = []
         subject_combo.addItems(subjects)
         subject_combo.currentTextChanged.connect(
@@ -711,7 +681,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         try:
             subjects = self.pm.list_subjects()
         except Exception as e:
-            self.info_area.append(f"\nError getting subjects: {str(e)}")
+            self.console_widget.update_console(
+                f"Error getting subjects: {str(e)}", "error"
+            )
             subjects = []
         for subject in subjects:
             all_sims.update(self.get_simulations_for_subject(subject))
@@ -727,7 +699,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         try:
             all_subjects = self.pm.list_subjects()
         except Exception as e:
-            self.info_area.append(f"\nError getting subjects: {str(e)}")
+            self.console_widget.update_console(
+                f"Error getting subjects: {str(e)}", "error"
+            )
             all_subjects = []
         for subject in all_subjects:
             subject_list.addItem(subject)
@@ -764,8 +738,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 # Check if this subject has the selected simulation
                 available_sims = self.get_simulations_for_subject(subject_id)
                 if selected_simulation not in available_sims:
-                    self.info_area.append(
-                        f"\nWarning: Subject {subject_id} does not have simulation {selected_simulation}"
+                    self.console_widget.update_console(
+                        f"Warning: Subject {subject_id} does not have simulation {selected_simulation}",
+                        "warning",
                     )
                     continue
 
@@ -811,7 +786,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
                 added_count += 1
 
-            self.info_area.append(f"\nAdded {added_count} subject-simulation pairs")
+            self.console_widget.update_console(
+                f"Added {added_count} subject-simulation pairs", "success"
+            )
 
     def validate_pair(self, subject_id, simulation_name):
         """Validate that a subject-simulation pair has MNI files available.
@@ -844,7 +821,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
     def load_group_data(self):
         """Load group visualization with multiple subject-simulation pairs."""
-        self.info_area.clear()
+        self.console_widget.clear_console()
 
         # Get all pairs from the table
         pairs = []
@@ -890,9 +867,11 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     "colormap": "grayscale",
                 }
             )
-            self.info_area.append("Loading MNI152 template")
+            self.console_widget.update_console("Loading MNI152 template", "info")
         else:
-            self.info_area.append(f"Warning: MNI template not found at {mni_template}")
+            self.console_widget.update_console(
+                f"Warning: MNI template not found at {mni_template}", "warning"
+            )
 
         # Add MNI atlas if selected
         if self.group_atlas_combo.currentIndex() > 0:  # Skip "None"
@@ -916,15 +895,18 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     lut_path = atlas_path.replace(".nii.gz", ".txt")
                     if os.path.exists(lut_path):
                         atlas_spec["lut_file"] = lut_path
-                        self.info_area.append(
-                            f"Loading MNI atlas: {atlas_name} with lookup table"
+                        self.console_widget.update_console(
+                            f"Loading MNI atlas: {atlas_name} with lookup table", "info"
                         )
                     else:
-                        self.info_area.append(
-                            f"Loading MNI atlas: {atlas_name} (lookup table not found)"
+                        self.console_widget.update_console(
+                            f"Loading MNI atlas: {atlas_name} (lookup table not found)",
+                            "info",
                         )
                 else:
-                    self.info_area.append(f"Loading MNI atlas: {atlas_name}")
+                    self.console_widget.update_console(
+                        f"Loading MNI atlas: {atlas_name}", "info"
+                    )
 
                 file_specs.append(atlas_spec)
 
@@ -938,7 +920,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             is_valid, result = self.validate_pair(subject_id, simulation_name)
 
             if not is_valid:
-                self.info_area.append(f"\n{result}")
+                self.console_widget.update_console(result, "warning")
                 continue
 
             nifti_dir = result
@@ -975,8 +957,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     }
                 )
 
-                self.info_area.append(
-                    f"Loading: sub-{subject_id}/{simulation_name} - {basename}"
+                self.console_widget.update_console(
+                    f"Loading: sub-{subject_id}/{simulation_name} - {basename}", "info"
                 )
 
             valid_pairs += 1
@@ -989,8 +971,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             )
             return
 
-        self.info_area.append(
-            f"\nLoaded {valid_pairs} subject-simulation pairs in MNI space"
+        self.console_widget.update_console(
+            f"Loaded {valid_pairs} subject-simulation pairs in MNI space", "success"
         )
 
         # Launch Freeview
@@ -1004,7 +986,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         # Single subject mode
-        self.info_area.clear()  # Clear console before printing output
+        self.console_widget.clear_console()
         if self.subject_combo.count() == 0:
             QtWidgets.QMessageBox.warning(self, "Warning", "No subjects available")
             return
@@ -1051,7 +1033,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 }
             )
         else:
-            self.info_area.append(f"\nWarning: T1 file not found at {t1_file}")
+            self.console_widget.update_console(
+                f"Warning: T1 file not found at {t1_file}", "warning"
+            )
 
         # Add atlas if selected and available
         if self.atlas_combo.isEnabled() and self.atlas_combo.currentText():
@@ -1092,10 +1076,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
                         "opacity": atlas_opacity,
                     }
                 )
-                self.info_area.append(f"\nLoading {atlas_source} atlas: {atlas_name}")
+                self.console_widget.update_console(
+                    f"Loading {atlas_source} atlas: {atlas_name}", "info"
+                )
             else:
-                self.info_area.append(
-                    f"\nWarning: Atlas file not found at {atlas_file}"
+                self.console_widget.update_console(
+                    f"Warning: Atlas file not found at {atlas_file}", "warning"
                 )
 
         # Add voxel analysis if selected and available
@@ -1147,16 +1133,17 @@ class NiftiViewerTab(QtWidgets.QWidget):
                             "opacity": analysis_opacity,
                         }
                     )
-                    self.info_area.append(
-                        f"\nLoading voxel analysis: {os.path.basename(roi_file)}"
+                    self.console_widget.update_console(
+                        f"Loading voxel analysis: {os.path.basename(roi_file)}", "info"
                     )
                 else:
-                    self.info_area.append(
-                        f"\nWarning: No analysis file found for region {region_name}"
+                    self.console_widget.update_console(
+                        f"Warning: No analysis file found for region {region_name}",
+                        "warning",
                     )
             else:
-                self.info_area.append(
-                    f"\nWarning: Analysis directory not found at {analysis_dir}"
+                self.console_widget.update_console(
+                    f"Warning: Analysis directory not found at {analysis_dir}", "warning"
                 )
 
         # Add simulation results
@@ -1235,12 +1222,13 @@ class NiftiViewerTab(QtWidgets.QWidget):
                                 "threshold_max": threshold_max,
                             }
                         )
-                        self.info_area.append(
-                            f"\nLoading high frequency field: {basename}"
+                        self.console_widget.update_console(
+                            f"Loading high frequency field: {basename}", "info"
                         )
                 else:
-                    self.info_area.append(
-                        f"\nWarning: High frequency directory not found at {high_freq_dir}"
+                    self.console_widget.update_console(
+                        f"Warning: High frequency directory not found at {high_freq_dir}",
+                        "warning",
                     )
 
         if not any(
@@ -1351,23 +1339,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Update UI
             self.status_label.setText(f"Viewing {len(freeview_args)} files")
 
-            # Update info area with file details
-            self.info_area.clear()
-            self.info_area.append("Currently viewing:")
+            # Update console with file details
+            self.console_widget.clear_console()
+            self.console_widget.update_console("Currently viewing:", "info")
 
             # Use original paths for display
             for i, file_path in enumerate(self.current_paths):
                 try:
                     file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
                     basename = os.path.basename(file_path)
-                    self.info_area.append(f"{i+1}. {basename} ({file_size:.2f} MB)")
+                    self.console_widget.update_console(
+                        f"{i+1}. {basename} ({file_size:.2f} MB)"
+                    )
                 except (OSError, ValueError) as e:
                     # If there's an error getting file size (e.g., due to options in the path)
                     basename = os.path.basename(file_path.split(":")[0])
-                    self.info_area.append(f"{i+1}. {basename}")
+                    self.console_widget.update_console(f"{i+1}. {basename}")
 
-            self.info_area.append(
-                "\nFreeview is now running. Use its interface to navigate the volumes."
+            self.console_widget.update_console(
+                "Freeview is now running. Use its interface to navigate the volumes.",
+                "success",
             )
 
         except Exception as e:
@@ -1398,10 +1389,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.terminate_freeview()
         super(NiftiViewerTab, self).closeEvent(event)
 
-    def clear_console(self):
-        """Clear the info_area console output."""
-        self.info_area.clear()
-
     def on_subject_changed(self):
         """Handle subject selection changes."""
         self.check_freesurfer_atlases()
@@ -1422,6 +1409,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_opacity_slider.setEnabled(is_subject_space)
 
         if not is_subject_space:
-            self.info_area.append(
-                "\nNote: analysis option is only available in Subject space"
+            self.console_widget.update_console(
+                "Note: analysis option is only available in Subject space", "info"
             )

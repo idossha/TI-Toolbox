@@ -69,6 +69,7 @@ class ConsoleWidget(QtWidgets.QWidget):
         _gfx = _get_gfx()
         if min_height == 200:   # default sentinel
             min_height = _gfx.console_min_height
+        self._console_font_size = _gfx.font_size_console
 
         # Store configuration
         self.show_clear_button = show_clear_button
@@ -147,16 +148,16 @@ class ConsoleWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
         self.console.setStyleSheet(
-            """
-            QTextEdit {
+            f"""
+            QTextEdit {{
                 background-color: #1e1e1e;
                 color: #f0f0f0;
                 font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 5pt;
+                font-size: {self._console_font_size}pt;
                 border: 1px solid #3c3c3c;
                 border-radius: 5px;
                 padding: 8px;
-            }
+            }}
         """
         )
         self.console.setAcceptRichText(True)
