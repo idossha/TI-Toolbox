@@ -27,6 +27,7 @@ EXTENSION_DESCRIPTION = (
 )
 
 from tit.core import get_path_manager
+from tit.gui.style import FONT_MONOSPACE  # graphics tokens
 
 
 class NotesWindow(QtWidgets.QDialog):
@@ -151,15 +152,15 @@ class NotesWindow(QtWidgets.QDialog):
         self.notes_display = QtWidgets.QTextEdit()
         self.notes_display.setReadOnly(True)
         self.notes_display.setStyleSheet(
-            """
-            QTextEdit {
+            f"""
+            QTextEdit {{
                 font-family: monospace;
-                font-size: 12px;
+                font-size: {FONT_MONOSPACE};
                 background-color: #f9f9f9;
                 border: 1px solid #ccc;
                 border-radius: 5px;
                 padding: 10px;
-            }
+            }}
         """
         )
         display_layout.addWidget(self.notes_display)
@@ -173,13 +174,13 @@ class NotesWindow(QtWidgets.QDialog):
         self.note_input.setMaximumHeight(100)
         self.note_input.setPlaceholderText("Type your note here...")
         self.note_input.setStyleSheet(
-            """
-            QTextEdit {
-                font-size: 12px;
+            f"""
+            QTextEdit {{
+                font-size: {FONT_MONOSPACE};
                 border: 1px solid #ccc;
                 border-radius: 5px;
                 padding: 5px;
-            }
+            }}
         """
         )
         input_layout.addWidget(self.note_input)

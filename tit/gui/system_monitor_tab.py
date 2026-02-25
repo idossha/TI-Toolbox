@@ -19,6 +19,7 @@ from collections import deque
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
 from PyQt5.QtWidgets import QHeaderView
+from tit.gui.style import FONT_MD, FONT_SECTION  # graphics tokens
 
 import matplotlib
 
@@ -294,7 +295,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         # Title and description
         title_label = QtWidgets.QLabel("System Monitor")
-        title_label.setStyleSheet("font-size: 7pt; font-weight: bold;")
+        title_label.setStyleSheet(f"font-size: {FONT_SECTION}; font-weight: bold;")
 
         description_label = QtWidgets.QLabel(
             "Monitor toolbox-related processes including pre-processing, simulations, and optimizations."
@@ -311,11 +312,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         # CPU usage
         self.cpu_label = QtWidgets.QLabel("CPU: 0%")
-        self.cpu_label.setStyleSheet("font-weight: bold; font-size: 5pt;")
+        self.cpu_label.setStyleSheet(f"font-weight: bold; font-size: {FONT_MD};")
 
         # Memory usage
         self.memory_label = QtWidgets.QLabel("Memory: 0%")
-        self.memory_label.setStyleSheet("font-weight: bold; font-size: 5pt;")
+        self.memory_label.setStyleSheet(f"font-weight: bold; font-size: {FONT_MD};")
 
         # Last update
         self.update_label = QtWidgets.QLabel("Last Update: --:--:--")

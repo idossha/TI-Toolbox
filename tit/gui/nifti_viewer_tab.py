@@ -13,6 +13,7 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.core import get_path_manager
+from tit.gui.style import FONT_MONOSPACE, _gfx_tokens  # graphics tokens
 
 
 class NiftiViewerTab(QtWidgets.QWidget):
@@ -201,7 +202,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         atlas_controls.addWidget(QtWidgets.QLabel("Opacity:"))
         self.atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.atlas_opacity_slider.setRange(0, 100)
-        self.atlas_opacity_slider.setValue(50)
+        self.atlas_opacity_slider.setValue(_gfx_tokens.nifti_atlas_opacity)
         self.atlas_opacity_slider.setEnabled(False)
         atlas_controls.addWidget(self.atlas_opacity_slider)
         self.atlas_opacity_label = QtWidgets.QLabel("0.50")
@@ -241,7 +242,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         analysis_controls.addWidget(QtWidgets.QLabel("Opacity:"))
         self.analysis_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.analysis_opacity_slider.setRange(0, 100)
-        self.analysis_opacity_slider.setValue(70)
+        self.analysis_opacity_slider.setValue(_gfx_tokens.nifti_field_opacity)
         self.analysis_opacity_slider.setEnabled(False)
         analysis_controls.addWidget(self.analysis_opacity_slider)
         self.analysis_opacity_label = QtWidgets.QLabel("0.70")
@@ -338,7 +339,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         group_atlas_layout.addWidget(QtWidgets.QLabel("Opacity:"))
         self.group_atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.group_atlas_opacity_slider.setRange(0, 100)
-        self.group_atlas_opacity_slider.setValue(50)
+        self.group_atlas_opacity_slider.setValue(_gfx_tokens.nifti_atlas_opacity)
         group_atlas_layout.addWidget(self.group_atlas_opacity_slider)
         self.group_atlas_opacity_label = QtWidgets.QLabel("0.50")
         group_atlas_layout.addWidget(self.group_atlas_opacity_label)
@@ -369,7 +370,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         vis_layout.addWidget(QtWidgets.QLabel("Opacity:"))
         self.opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(70)
+        self.opacity_slider.setValue(_gfx_tokens.nifti_field_opacity)
         vis_layout.addWidget(self.opacity_slider)
         self.opacity_label = QtWidgets.QLabel("0.70")
         vis_layout.addWidget(self.opacity_label)
@@ -435,16 +436,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.info_area.setReadOnly(True)
         self.info_area.setMinimumHeight(200)
         self.info_area.setStyleSheet(
-            """
-            QTextEdit {
+            f"""
+            QTextEdit {{
                 background-color: #1e1e1e;
                 color: #f0f0f0;
                 font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 13px;
+                font-size: {FONT_MONOSPACE};
                 border: 1px solid #3c3c3c;
                 border-radius: 5px;
                 padding: 8px;
-            }
+            }}
         """
         )
         self.info_area.setAcceptRichText(True)

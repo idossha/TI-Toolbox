@@ -21,6 +21,7 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager, constants as const
 from tit.pre.structural import run_pipeline
 from tit.pre.common import CommandRunner, PreprocessCancelled
+from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
 
 
 class QSIPrepConfigDialog(QtWidgets.QDialog):
@@ -199,7 +200,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         specs_layout = QtWidgets.QVBoxLayout(specs_group)
 
         specs_label = QtWidgets.QLabel("Select reconstruction pipelines to run:")
-        specs_label.setStyleSheet("color: #888888; font-size: 8pt;")
+        specs_label.setStyleSheet(f"color: #888888; font-size: {FONT_HELP};")
         specs_layout.addWidget(specs_label)
 
         self.spec_checkboxes = {}
@@ -476,7 +477,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # Create a scroll area for the form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(600)
+        scroll_area.setMinimumHeight(200)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -484,9 +485,9 @@ class PreProcessTab(QtWidgets.QWidget):
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Processing... Only the Stop button is available")
         self.status_label.setStyleSheet(
-            "QLabel { background-color: white; color: #f44336;"
-            " padding: 4px 8px; border-radius: 3px;"
-            " font-weight: bold; font-size: 10pt; }"
+            f"QLabel {{ background-color: white; color: #f44336;"
+            f" padding: 4px 8px; border-radius: 3px;"
+            f" font-weight: bold; font-size: {FONT_SUBHEADING}; }}"
         )
         self.status_label.setAlignment(QtCore.Qt.AlignCenter)
         self.status_label.hide()  # Initially hidden
@@ -582,7 +583,7 @@ class PreProcessTab(QtWidgets.QWidget):
         parallel_comment = QtWidgets.QLabel(
             f"   {available_cores} cores available on this system"
         )
-        parallel_comment.setStyleSheet("color: #888888; font-size: 4pt;")
+        parallel_comment.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
         options_group_layout.addWidget(parallel_comment)
 
         # Enable spinbox based on checkbox
@@ -613,7 +614,7 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.addWidget(dwi_separator)
 
         dwi_label = QtWidgets.QLabel("DWI Processing (Docker)")
-        dwi_label.setStyleSheet("color: #888888; font-size: 4pt; font-weight: normal;")
+        dwi_label.setStyleSheet(f"color: #888888; font-size: {FONT_SM}; font-weight: normal;")
         options_group_layout.addWidget(dwi_label)
 
         # QSIPrep option with gear button
@@ -680,7 +681,6 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -699,11 +699,17 @@ class PreProcessTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=400,
-            max_height=600,
+            min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget, 2)
+
+        # Vertical splitter: config panel (top) | console (bottom)
+        _v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        _v_splitter.setChildrenCollapsible(False)
+        _v_splitter.addWidget(scroll_area)
+        _v_splitter.addWidget(self.console_widget)
+        _v_splitter.setSizes([600, 400])
+        main_layout.addWidget(_v_splitter)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)

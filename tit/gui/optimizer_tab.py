@@ -6,6 +6,7 @@ Optimize Tab - Combined interface for Ex-Search and Flex-Search
 """
 
 from PyQt5 import QtWidgets, QtCore
+from tit.gui.style import FONT_MD  # graphics tokens  # noqa: F401
 
 
 class OptimizerTab(QtWidgets.QWidget):
@@ -25,7 +26,7 @@ class OptimizerTab(QtWidgets.QWidget):
 
         # Add label
         label = QtWidgets.QLabel("Select Optimization Method:")
-        label.setStyleSheet("font-weight: bold; font-size: 5pt;")
+        label.setStyleSheet("font-weight: bold;")
         selector_layout.addWidget(label)
 
         # Create dropdown menu

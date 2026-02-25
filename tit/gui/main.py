@@ -91,6 +91,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extensions_config_path = self.get_extensions_config_path()
         self.ensure_extensions_config()
 
+        from tit.gui.graphics_config import get_graphics_config
+        self._gfx = get_graphics_config()
+
         self.setup_ui()
         # Load saved extensions after UI is set up
         self.load_saved_extensions()
@@ -160,7 +163,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Reduce tab size: set font and override padding directly on the widget
         tab_font = QtGui.QFont()
-        tab_font.setPointSize(7)
+        tab_font.setPointSize(self._gfx.font_size_tab)
         self.tab_widget.tabBar().setFont(tab_font)
         self.tab_widget.tabBar().setStyleSheet(
             "QTabBar::tab { padding: 8px 16px; min-width: 60px; }"
@@ -172,20 +175,9 @@ class MainWindow(QtWidgets.QMainWindow):
         main_layout.addWidget(self.tab_widget)
 
         # Set window properties and center on screen.
-        # Adaptive sizing: 54% of available width (clamped 750–1143),
-        # 80% of available height (clamped 700–1000). Falls back to 786×800.
-        try:
-            from PyQt5.QtGui import QGuiApplication
-
-            screen = QGuiApplication.primaryScreen()
-            if screen is not None:
-                available = screen.availableGeometry()
-                init_w = max(750, min(1143, int(available.width() * 0.54)))
-                init_h = max(700, min(1000, int(available.height() * 0.80)))
-            else:
-                init_w, init_h = 786, 800
-        except Exception:
-            init_w, init_h = 786, 800
+        # Dimensions come from the persisted GraphicsConfig (set in __init__).
+        init_w = self._gfx.window_width
+        init_h = self._gfx.window_height
 
         self.resize(init_w, init_h)
         # Minimum width = 85% of initial width, floor of 643px.
@@ -523,9 +515,13 @@ def main():
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
     app = QtWidgets.QApplication(sys.argv)
 
-    # Set application style and apply shared design tokens
-    app.setStyle("Fusion")
-    app.setStyleSheet(APP_STYLESHEET)
+    # Set application style and apply shared design tokens.
+    # _NarrowSpinStyle wraps Fusion and narrows spinbox button columns without
+    # breaking native arrow rendering (CSS ::up-button overrides suppress glyphs).
+    from tit.gui.style import build_stylesheet, _NarrowSpinStyle
+    from tit.gui.graphics_config import get_graphics_config
+    app.setStyle(_NarrowSpinStyle("fusion"))
+    app.setStyleSheet(build_stylesheet(get_graphics_config()))
 
     # Set application icon if available
     icon_path = os.path.join(

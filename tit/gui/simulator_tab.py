@@ -26,6 +26,7 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import detect_message_type_from_content
 from tit.core import get_path_manager, constants as const
 from tit.reporting import SimulationReportGenerator
+from tit.gui.style import FONT_MD, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
 
 # Import the refactored simulation dataclasses
 from tit.sim import (
@@ -272,7 +273,7 @@ class SimulatorTab(QtWidgets.QWidget):
         # Scroll area for the top form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(800)
+        scroll_area.setMinimumHeight(200)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -460,7 +461,6 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Set scroll content
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area, 3)
 
         # Run/Stop buttons
         self.action_buttons = RunStopButtons(
@@ -477,11 +477,17 @@ class SimulatorTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=400,
-            max_height=600,
+            min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget, 2)
+
+        # Vertical splitter: config panel (top) | console (bottom)
+        _v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        _v_splitter.setChildrenCollapsible(False)
+        _v_splitter.addWidget(scroll_area)
+        _v_splitter.addWidget(self.console_widget)
+        _v_splitter.setSizes([600, 400])
+        main_layout.addWidget(_v_splitter)
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
         self.output_console = self.console_widget.get_console_widget()
 
@@ -2824,7 +2830,7 @@ class AddMontageDialog(QtWidgets.QDialog):
 
         # Add title for electrode list
         electrode_title = QtWidgets.QLabel("Available Electrodes")
-        electrode_title.setStyleSheet("font-weight: bold; font-size: 10pt;")
+        electrode_title.setStyleSheet(f"font-weight: bold; font-size: {FONT_SUBHEADING};")
         right_layout.addWidget(electrode_title)
 
         # Add search box
@@ -3055,26 +3061,26 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
             item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
             self.table.setItem(row, 3, item)
         self.table.setStyleSheet(
-            """
-            QTableWidget {
+            f"""
+            QTableWidget {{
                 background-color: white;
                 alternate-background-color: #f5f5f5;
                 selection-background-color: #2196F3;
                 selection-color: white;
                 gridline-color: #e0e0e0;
                 border: none;
-            }
-            QHeaderView::section {
+            }}
+            QHeaderView::section {{
                 background-color: #4a4a4a;
                 color: white;
                 padding: 4px;
                 border: none;
                 font-weight: bold;
-            }
-            QTableWidget::item {
+            }}
+            QTableWidget::item {{
                 padding: 1px;
-                font-size: 11px;
-            }
+                font-size: {FONT_MD};
+            }}
         """
         )
         self.table.setAlternatingRowColors(True)

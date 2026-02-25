@@ -63,6 +63,13 @@ class ConsoleWidget(QtWidgets.QWidget):
         self.parent = parent
         self.debug_mode = False
 
+        # Use GraphicsConfig minimum height when the caller leaves min_height
+        # at its default sentinel value of 200.
+        from tit.gui.graphics_config import get_graphics_config as _get_gfx
+        _gfx = _get_gfx()
+        if min_height == 200:   # default sentinel
+            min_height = _gfx.console_min_height
+
         # Store configuration
         self.show_clear_button = show_clear_button
         self.show_debug_checkbox = show_debug_checkbox
@@ -73,12 +80,10 @@ class ConsoleWidget(QtWidgets.QWidget):
 
         self.setup_ui()
 
-        # Apply height constraints to the outer widget so the QTextEdit always
-        # fills the full console area regardless of parent layout.
+        # Apply a minimum height so the console is always usable.
+        # No maximum height is set — the console grows freely with the window.
         if self.min_height:
             self.setMinimumHeight(self.min_height)
-        if self.max_height:
-            self.setMaximumHeight(self.max_height)
 
     def setup_ui(self):
         """Set up the console UI components."""

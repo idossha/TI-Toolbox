@@ -27,6 +27,7 @@ from tit.core import constants as const
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.logger import get_logger
+from tit.gui.style import FONT_NOTE  # graphics tokens
 from tit.tools.extract_labels import extract_labels_from_nifti
 from tit.tools.nifti_to_mesh import nifti_to_mesh
 
@@ -488,7 +489,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet(
-            "color: #555; font-size: 9pt; padding: 10px; background-color: #f0f0f0; border-radius: 5px;"
+            f"color: #555; font-size: {FONT_NOTE}; padding: 10px; background-color: #f0f0f0; border-radius: 5px;"
         )
         config.addWidget(info_label, r, 0, 1, 4)
 

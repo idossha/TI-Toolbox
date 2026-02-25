@@ -8,6 +8,7 @@ This module provides an acknowledgments tab to properly cite all tools and resou
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt
+from tit.gui.style import FONT_SUBHEADING  # graphics tokens
 
 
 class AcknowledgmentsTab(QtWidgets.QWidget):
@@ -128,7 +129,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         """Add a section to the acknowledgments layout."""
         # Create a group box for this acknowledgment
         group_box = QtWidgets.QGroupBox(title)
-        group_box.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
+        group_box.setStyleSheet(f"QGroupBox {{ font-weight: bold; font-size: {FONT_SUBHEADING}; }}")
 
         group_layout = QtWidgets.QVBoxLayout(group_box)
 

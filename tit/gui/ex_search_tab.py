@@ -31,6 +31,7 @@ from tit.opt.ex import (
     delete_roi,
     get_roi_coordinates,
 )
+from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
@@ -905,17 +906,17 @@ class ExSearchTab(QtWidgets.QWidget):
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Processing... Only the Stop button is available")
         self.status_label.setStyleSheet(
-            """
-            QLabel {
+            f"""
+            QLabel {{
                 background-color: white;
                 color: #f44336;
                 padding: 5px 10px;
                 border-radius: 3px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: {FONT_MONOSPACE};
                 min-height: 15px;
                 max-height: 15px;
-            }
+            }}
         """
         )
         self.status_label.setAlignment(QtCore.Qt.AlignCenter)
@@ -925,7 +926,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create a scroll area for the form (matching other tabs)
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(600)
+        scroll_area.setMinimumHeight(200)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(10, 10, 10, 10)
@@ -1196,7 +1197,6 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -1215,11 +1215,17 @@ class ExSearchTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=400,
-            max_height=600,
+            min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget, 2)
+
+        # Vertical splitter: config panel (top) | console (bottom)
+        _v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        _v_splitter.setChildrenCollapsible(False)
+        _v_splitter.addWidget(scroll_area)
+        _v_splitter.addWidget(self.console_widget)
+        _v_splitter.setSizes([600, 400])
+        main_layout.addWidget(_v_splitter)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
@@ -2368,33 +2374,33 @@ class ExSearchTab(QtWidgets.QWidget):
         self.status_label.setText(message)
         if error:
             self.status_label.setStyleSheet(
-                """
-                QLabel {
+                f"""
+                QLabel {{
                     background-color: white;
                     color: #f44336;
                     padding: 5px 10px;
                     border-radius: 3px;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {FONT_MONOSPACE};
                     min-height: 15px;
                     max-height: 15px;
-                }
+                }}
             """
             )
         else:
             # Use same red color for processing status as other tabs
             self.status_label.setStyleSheet(
-                """
-                QLabel {
+                f"""
+                QLabel {{
                     background-color: white;
                     color: #f44336;
                     padding: 5px 10px;
                     border-radius: 3px;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {FONT_MONOSPACE};
                     min-height: 15px;
                     max-height: 15px;
-                }
+                }}
             """
             )
         self.status_label.show()
@@ -2625,7 +2631,7 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
         # Title and description
         title_label = QtWidgets.QLabel("Select EEG Net for Leadfield Creation")
         title_label.setStyleSheet(
-            "font-weight: bold; font-size: 10pt; margin-bottom: 8px;"
+            f"font-weight: bold; font-size: {FONT_SUBHEADING}; margin-bottom: 8px;"
         )
         layout.addWidget(title_label)
 
@@ -2764,7 +2770,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
             f"Available Electrodes ({len(self.electrodes)} total)"
         )
         title_label.setStyleSheet(
-            "font-weight: bold; font-size: 10pt; margin-bottom: 8px;"
+            f"font-weight: bold; font-size: {FONT_SUBHEADING}; margin-bottom: 8px;"
         )
         layout.addWidget(title_label)
 
@@ -2801,7 +2807,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
         self.selection_info = QtWidgets.QLabel(
             "Tip: You can select multiple electrodes and copy them"
         )
-        self.selection_info.setStyleSheet("color: #666; font-size: 8pt;")
+        self.selection_info.setStyleSheet(f"color: #666; font-size: {FONT_HELP};")
         layout.addWidget(self.selection_info)
 
         # Buttons

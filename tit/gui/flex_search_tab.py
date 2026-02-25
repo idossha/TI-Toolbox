@@ -22,6 +22,7 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager, constants as const
 from tit.core.process import get_child_pids
 from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
+from tit.gui.style import FONT_HELP, FONT_MONOSPACE, _gfx_tokens  # graphics tokens
 
 
 class FlexSearchThread(QtCore.QThread):
@@ -526,7 +527,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(600)
+        scroll_area.setMinimumHeight(200)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(
@@ -668,7 +669,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             "Coordinates will be treated as MNI space and transformed to each subject's native space."
         )
         self.mni_info_label.setStyleSheet(
-            "background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: 8pt;"
+            f"background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: {FONT_HELP};"
         )
         self.mni_info_label.setWordWrap(True)
         self.mni_info_label.setVisible(False)
@@ -743,7 +744,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         adaptive_help = QtWidgets.QLabel(
             "Automatically determines thresholds by first running mean optimization to find achievable intensity."
         )
-        adaptive_help.setStyleSheet("font-size: 8pt; color: gray;")
+        adaptive_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
         adaptive_help.setWordWrap(True)
         focality_layout.addRow(adaptive_help)
 
@@ -764,7 +765,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         threshold_help = QtWidgets.QLabel(
             "Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min."
         )
-        threshold_help.setStyleSheet("font-size: 8pt; color: gray;")
+        threshold_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
         focality_layout.addRow(threshold_help)
         focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
 
@@ -900,7 +901,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_layout.addWidget(self.stability_group)
 
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area, 3)
 
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(
@@ -919,11 +919,17 @@ class FlexSearchTab(QtWidgets.QWidget):
             show_clear_button=True,
             show_debug_checkbox=True,
             console_label="Output:",
-            min_height=400,
-            max_height=600,
+            min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget, 2)
+
+        # Vertical splitter: config panel (top) | console (bottom)
+        _v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        _v_splitter.setChildrenCollapsible(False)
+        _v_splitter.addWidget(scroll_area)
+        _v_splitter.addWidget(self.console_widget)
+        _v_splitter.setSizes([600, 400])
+        main_layout.addWidget(_v_splitter)
 
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
@@ -2523,7 +2529,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         text = QtWidgets.QTextEdit()
         text.setReadOnly(True)
         text.setFont(
-            QtGui.QFont("Consolas", 10)
+            QtGui.QFont("Consolas", _gfx_tokens.font_size_monospace)
         )  # Use monospace font for better alignment
         text.setText(output)
         layout.addWidget(text)
