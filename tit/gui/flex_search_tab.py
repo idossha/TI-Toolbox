@@ -401,11 +401,34 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.threshold_input = QtWidgets.QLineEdit()
         self.threshold_input.setPlaceholderText("e.g. 0.2 or 0.2,0.5")
 
-        # Adaptive focality controls
-        self.adaptive_focality_checkbox = QtWidgets.QCheckBox("Use Adaptive Thresholds")
-        self.adaptive_focality_checkbox.setToolTip(
-            "Automatically determine thresholds based on achievable intensity from mean optimization"
-        )
+        # Focality mode selector (three-way: Manual / Adaptive / Pareto Sweep)
+        self.mode_manual_radio = QtWidgets.QRadioButton("Manual Thresholds")
+        self.mode_adaptive_radio = QtWidgets.QRadioButton("Adaptive (single run)")
+        self.mode_pareto_radio = QtWidgets.QRadioButton("Pareto Sweep")
+        self.focality_mode_group = QtWidgets.QButtonGroup()
+        self.focality_mode_group.addButton(self.mode_manual_radio, 0)
+        self.focality_mode_group.addButton(self.mode_adaptive_radio, 1)
+        self.focality_mode_group.addButton(self.mode_pareto_radio, 2)
+        self.mode_adaptive_radio.setChecked(True)  # default
+
+        # Pareto sweep input widgets
+        self.roi_pcts_input = QtWidgets.QLineEdit("80")
+        self.roi_pcts_input.setPlaceholderText("e.g. 80 or 80,70")
+
+        self.nonroi_pcts_input = QtWidgets.QLineEdit("20,30,40")
+        self.nonroi_pcts_input.setPlaceholderText("e.g. 20,30,40")
+
+        self.sweep_preview_label = QtWidgets.QLabel("\u2192 3 combinations will be run")
+        self.sweep_preview_label.setStyleSheet("color: gray; font-style: italic;")
+
+        # Pareto sweep state variables
+        self._sweep_roi_pcts = []
+        self._sweep_nonroi_pcts = []
+        self._sweep_params = {}
+        self._sweep_points = []
+        self._sweep_queue = None  # deque, set before sweep starts
+        self._sweep_result = None
+        self._current_sweep_point = None
 
         self.nonroi_percentage_input = QtWidgets.QDoubleSpinBox()
         self.nonroi_percentage_input.setRange(1, 99)
@@ -494,9 +517,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
-        self.adaptive_focality_checkbox.toggled.connect(
-            self._update_adaptive_focality_controls
+        self.focality_mode_group.buttonClicked.connect(
+            self._update_focality_mode_visibility
         )
+        self.roi_pcts_input.textChanged.connect(self._update_sweep_preview)
+        self.nonroi_pcts_input.textChanged.connect(self._update_sweep_preview)
         self.run_mapped_simulation_checkbox.toggled.connect(
             self._update_mapping_options
         )
@@ -737,18 +762,44 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Focality Options group
         focality_layout = QtWidgets.QFormLayout(self.focality_group)
 
-        # Adaptive focality section
-        focality_layout.addRow(self.adaptive_focality_checkbox)
+        # --- Mode selector row ---
+        mode_selector_widget = QtWidgets.QWidget()
+        mode_selector_layout = QtWidgets.QHBoxLayout(mode_selector_widget)
+        mode_selector_layout.setContentsMargins(0, 0, 0, 0)
+        mode_selector_layout.addWidget(self.mode_manual_radio)
+        mode_selector_layout.addWidget(self.mode_adaptive_radio)
+        mode_selector_layout.addWidget(self.mode_pareto_radio)
+        mode_selector_layout.addStretch()
+        focality_layout.addRow(QtWidgets.QLabel("Mode:"), mode_selector_widget)
 
-        # Adaptive help text
+        # --- Pareto sweep widget (shown only in Pareto mode) ---
+        self.pareto_widget = QtWidgets.QWidget()
+        pareto_layout = QtWidgets.QFormLayout(self.pareto_widget)
+        pareto_layout.setContentsMargins(0, 4, 0, 4)
+        pareto_layout.setVerticalSpacing(4)
+        pareto_layout.addRow(
+            QtWidgets.QLabel("ROI thresholds (%):"), self.roi_pcts_input
+        )
+        pareto_layout.addRow(
+            QtWidgets.QLabel("Non-ROI thresholds (%):"), self.nonroi_pcts_input
+        )
+        pareto_layout.addRow(self.sweep_preview_label)
+        focality_layout.addRow(self.pareto_widget)
+        self.pareto_widget.setVisible(False)
+
+        # --- Adaptive widget (shown only in Adaptive mode) ---
+        self.adaptive_widget = QtWidgets.QWidget()
+        adaptive_widget_layout = QtWidgets.QFormLayout(self.adaptive_widget)
+        adaptive_widget_layout.setContentsMargins(0, 4, 0, 4)
+        adaptive_widget_layout.setVerticalSpacing(4)
+
         adaptive_help = QtWidgets.QLabel(
             "Automatically determines thresholds by first running mean optimization to find achievable intensity."
         )
         adaptive_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
         adaptive_help.setWordWrap(True)
-        focality_layout.addRow(adaptive_help)
+        adaptive_widget_layout.addRow(adaptive_help)
 
-        # Adaptive percentage controls
         adaptive_percentages_widget = QtWidgets.QWidget()
         adaptive_percentages_layout = QtWidgets.QHBoxLayout(adaptive_percentages_widget)
         adaptive_percentages_layout.addWidget(QtWidgets.QLabel("Non-ROI:"))
@@ -756,17 +807,24 @@ class FlexSearchTab(QtWidgets.QWidget):
         adaptive_percentages_layout.addWidget(QtWidgets.QLabel("ROI:"))
         adaptive_percentages_layout.addWidget(self.roi_percentage_input)
         adaptive_percentages_layout.addStretch()
-        focality_layout.addRow(
+        adaptive_widget_layout.addRow(
             QtWidgets.QLabel("Adaptive Percentages:"), adaptive_percentages_widget
         )
+        focality_layout.addRow(self.adaptive_widget)
+        self.adaptive_widget.setVisible(True)  # default mode is Adaptive
 
-        # Manual threshold input
+        # Manual threshold input (shown only in Manual mode)
         focality_layout.addRow(self.threshold_label, self.threshold_input)
-        threshold_help = QtWidgets.QLabel(
+        self.threshold_help = QtWidgets.QLabel(
             "Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min."
         )
-        threshold_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
-        focality_layout.addRow(threshold_help)
+        self.threshold_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
+        focality_layout.addRow(self.threshold_help)
+        # Hide manual widgets by default (Adaptive is default)
+        self.threshold_input.setVisible(False)
+        self.threshold_label.setVisible(False)
+        self.threshold_help.setVisible(False)
+
         focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
 
         # Non-ROI Spherical
@@ -1643,9 +1701,103 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Focality options
             if goal == "focality":
-                # Check if adaptive mode is enabled
-                if self.adaptive_focality_checkbox.isChecked():
-                    # Validate adaptive percentage values
+                nonroi_method = self.nonroi_method_combo.currentData()
+                if self._is_pareto_sweep_mode():
+                    # --- Pareto Sweep mode ---
+                    grid_inputs = self._validate_sweep_inputs()
+                    if grid_inputs is None:
+                        return False
+                    roi_pcts, nonroi_pcts = grid_inputs
+                    if not nonroi_method:
+                        self.output_text.append(
+                            "Error: Non-ROI method required for Pareto Sweep."
+                        )
+                        return False
+                    # Set non-ROI env vars before delegating (pareto sweep copies env per run)
+                    if nonroi_method == "specific":
+                        if roi_params["method"] == "spherical":
+                            env["NON_ROI_X"] = str(self.nonroi_x_input.value())
+                            env["NON_ROI_Y"] = str(self.nonroi_y_input.value())
+                            env["NON_ROI_Z"] = str(self.nonroi_z_input.value())
+                            env["NON_ROI_RADIUS"] = str(
+                                self.nonroi_radius_input.value()
+                            )
+                            env["USE_MNI_COORDS_NON_ROI"] = env.get(
+                                "USE_MNI_COORDS", "false"
+                            )
+                        elif roi_params["method"] == "atlas":
+                            nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
+                            nonroi_atlas_base_name = self.atlas_display_map.get(
+                                nonroi_atlas_display, nonroi_atlas_display
+                            )
+                            if "_" in nonroi_atlas_base_name:
+                                nonroi_atlas_type = nonroi_atlas_base_name.split(
+                                    "_", 1
+                                )[-1]
+                            else:
+                                nonroi_atlas_type = nonroi_atlas_base_name
+                            nonroi_atlas_name = f"{subject_id}_{nonroi_atlas_type}"
+                            nonroi_hemi = (
+                                "lh"
+                                if self.nonroi_hemi_combo.currentIndex() == 0
+                                else "rh"
+                            )
+                            nonroi_label_val = self.nonroi_label_input.value()
+                            nonroi_atlas_path_arg = os.path.join(
+                                script_project_dir,
+                                "derivatives",
+                                "SimNIBS",
+                                f"sub-{subject_id}",
+                                f"m2m_{subject_id}",
+                                "segmentation",
+                                f"{nonroi_hemi}.{nonroi_atlas_name}.annot",
+                            )
+                            env["NON_ROI_ATLAS_PATH"] = nonroi_atlas_path_arg
+                            env["NON_ROI_HEMISPHERE"] = nonroi_hemi
+                            env["NON_ROI_LABEL"] = str(nonroi_label_val)
+                        else:  # subcortical volume for non-ROI
+                            nonroi_volume_atlas = (
+                                self.nonroi_volume_atlas_combo.currentText()
+                            )
+                            nonroi_volume_label_val = (
+                                self.nonroi_volume_label_input.value()
+                            )
+                            seg_dir_for_env = os.path.join(
+                                script_project_dir,
+                                "derivatives",
+                                "SimNIBS",
+                                f"sub-{subject_id}",
+                                f"m2m_{subject_id}",
+                                "segmentation",
+                            )
+                            nonroi_volume_atlas_path = os.path.join(
+                                seg_dir_for_env, nonroi_volume_atlas
+                            )
+                            if os.path.isfile(nonroi_volume_atlas_path):
+                                env["VOLUME_NON_ROI_ATLAS_PATH"] = (
+                                    nonroi_volume_atlas_path
+                                )
+                            else:
+                                self.output_text.append(
+                                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}"
+                                )
+                            env["VOLUME_NON_ROI_LABEL"] = str(nonroi_volume_label_val)
+                    return self._run_pareto_sweep_optimization(
+                        subject_id,
+                        roi_params,
+                        postproc,
+                        eeg_net,
+                        electrode_current,
+                        electrode_shape,
+                        dimensions,
+                        thickness,
+                        env,
+                        cmd[:-2],  # Remove roi-method and its value from base cmd
+                        roi_pcts,
+                        nonroi_pcts,
+                    )
+                elif self.mode_adaptive_radio.isChecked():
+                    # --- Adaptive (single run) mode ---
                     nonroi_pct = self.nonroi_percentage_input.value()
                     roi_pct = self.roi_percentage_input.value()
 
@@ -1681,9 +1833,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                         cmd[:-2],  # Remove roi-method and its value from base cmd
                     )
                 else:
-                    # Standard focality optimization
+                    # --- Manual threshold mode ---
                     thresholds = self.threshold_input.text().strip()
-                    nonroi_method = self.nonroi_method_combo.currentData()
                     if not thresholds:
                         self.output_text.append(
                             "Error: Please enter threshold(s) for focality."
@@ -2277,50 +2428,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         if is_focality:
             self.nonroi_method_combo.setCurrentIndex(0)
             self.nonroi_stacked.setVisible(False)
-            # Initialize adaptive controls visibility
-            self._update_adaptive_focality_controls()
+            # Initialize mode-based controls visibility
+            self._update_focality_mode_visibility()
+
+    def _update_focality_mode_visibility(self):
+        """Update visibility of Manual / Adaptive / Pareto Sweep controls."""
+        is_manual = self.mode_manual_radio.isChecked()
+        is_adaptive = self.mode_adaptive_radio.isChecked()
+        is_pareto = self.mode_pareto_radio.isChecked()
+        self.pareto_widget.setVisible(is_pareto)
+        self.adaptive_widget.setVisible(is_adaptive)
+        self.threshold_input.setVisible(is_manual)
+        self.threshold_label.setVisible(is_manual)
+        if hasattr(self, "threshold_help"):
+            self.threshold_help.setVisible(is_manual)
 
     def _update_adaptive_focality_controls(self):
         """Update visibility of adaptive vs manual threshold controls."""
-        is_adaptive = self.adaptive_focality_checkbox.isChecked()
-
-        # Show/hide controls based on adaptive mode
-        self.threshold_input.setVisible(not is_adaptive)
-        self.threshold_label.setVisible(not is_adaptive)
+        is_adaptive = self.mode_adaptive_radio.isChecked()
 
         # Enable/disable percentage inputs based on adaptive mode and optimization state
         adaptive_enabled = is_adaptive and not self.optimization_running
         self.nonroi_percentage_input.setEnabled(adaptive_enabled)
         self.roi_percentage_input.setEnabled(adaptive_enabled)
-
-        # Update help text visibility based on mode
-        for i in range(self.focality_group.layout().rowCount()):
-            # Hide/show adaptive help text
-            item = self.focality_group.layout().itemAt(
-                i, QtWidgets.QFormLayout.SpanningRole
-            )
-            if item and item.widget() and isinstance(item.widget(), QtWidgets.QLabel):
-                if "Automatically determines thresholds" in item.widget().text():
-                    item.widget().setVisible(is_adaptive)
-                elif "Single value:" in item.widget().text():
-                    item.widget().setVisible(not is_adaptive)
-
-            # Hide/show adaptive percentage controls
-            item = self.focality_group.layout().itemAt(
-                i, QtWidgets.QFormLayout.FieldRole
-            )
-            if item and item.widget():
-                label_item = self.focality_group.layout().itemAt(
-                    i, QtWidgets.QFormLayout.LabelRole
-                )
-                if (
-                    label_item
-                    and label_item.widget()
-                    and isinstance(label_item.widget(), QtWidgets.QLabel)
-                ):
-                    if "Adaptive Percentages:" in label_item.widget().text():
-                        label_item.widget().setVisible(is_adaptive)
-                        item.widget().setVisible(is_adaptive)
 
     def _update_nonroi_stacked(self):
         if self.nonroi_method_combo.currentData() == "everything_else":
@@ -2604,7 +2734,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Disable focality options if visible
         if self.focality_group.isVisible():
-            self.adaptive_focality_checkbox.setEnabled(False)
+            self.mode_manual_radio.setEnabled(False)
+            self.mode_adaptive_radio.setEnabled(False)
+            self.mode_pareto_radio.setEnabled(False)
             self.nonroi_percentage_input.setEnabled(False)
             self.roi_percentage_input.setEnabled(False)
             self.threshold_input.setEnabled(False)
@@ -2693,7 +2825,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Enable focality options if visible
         if self.focality_group.isVisible():
-            self.adaptive_focality_checkbox.setEnabled(True)
+            self.mode_manual_radio.setEnabled(True)
+            self.mode_adaptive_radio.setEnabled(True)
+            self.mode_pareto_radio.setEnabled(True)
             self.nonroi_percentage_input.setEnabled(True)
             self.roi_percentage_input.setEnabled(True)
             self.threshold_input.setEnabled(True)
@@ -2733,6 +2867,332 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.enable_controls()  # Re-enable all controls
         if hasattr(self, "parent") and self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
+    # ------------------------------------------------------------------ #
+    #  Pareto Sweep helpers                                               #
+    # ------------------------------------------------------------------ #
+
+    def _is_pareto_sweep_mode(self) -> bool:
+        """Return True when the Pareto Sweep radio button is selected."""
+        return self.mode_pareto_radio.isChecked()
+
+    def _parse_pct_list(self, text: str) -> list:
+        """Parse '80,70' -> [80.0, 70.0]. Raises ValueError on bad input."""
+        parts = [p.strip() for p in text.split(",") if p.strip()]
+        if not parts:
+            raise ValueError("Empty list")
+        values = [float(p) for p in parts]
+        for v in values:
+            if not (0 < v < 100):
+                raise ValueError(f"Value {v} out of range (0, 100)")
+        return values
+
+    def _update_sweep_preview(self):
+        """Recomputes N combinations and updates self.sweep_preview_label."""
+        try:
+            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+            n = len(roi_pcts) * len(nonroi_pcts)
+            self.sweep_preview_label.setText(
+                f"\u2192 {n} combination{'s' if n != 1 else ''} will be run"
+            )
+            self.sweep_preview_label.setStyleSheet("color: gray; font-style: italic;")
+        except ValueError:
+            self.sweep_preview_label.setText("\u2192 invalid input")
+            self.sweep_preview_label.setStyleSheet("color: red; font-style: italic;")
+
+    def _validate_sweep_inputs(self):
+        """Parse and validate ROI%/non-ROI% lists. Returns (roi_pcts, nonroi_pcts) or None."""
+        from tit.opt.flex.pareto_sweep import validate_grid
+
+        try:
+            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+            validate_grid(roi_pcts, nonroi_pcts)
+            return roi_pcts, nonroi_pcts
+        except ValueError as e:
+            self.output_text.append(f"Error: {e}")
+            return None
+
+    def _run_pareto_sweep_optimization(
+        self,
+        subject_id,
+        roi_params,
+        postproc,
+        eeg_net,
+        electrode_current,
+        electrode_shape,
+        dimensions,
+        thickness,
+        env,
+        base_cmd,
+        roi_pcts,
+        nonroi_pcts,
+    ):
+        """
+        Entry point for Pareto Sweep mode.
+        Step 1: run mean optimization (identical to adaptive step 1).
+        On completion, delegates to _on_pareto_mean_finished.
+        """
+        from collections import deque
+
+        # Reset all sweep state for a fresh run
+        self._sweep_roi_pcts = roi_pcts
+        self._sweep_nonroi_pcts = nonroi_pcts
+        self._sweep_params = {
+            "subject_id": subject_id,
+            "roi_params": roi_params,
+            "postproc": postproc,
+            "eeg_net": eeg_net,
+            "electrode_current": electrode_current,
+            "electrode_shape": electrode_shape,
+            "dimensions": dimensions,
+            "thickness": thickness,
+            "env": env,
+            "base_cmd": base_cmd,
+        }
+        self._sweep_points = []
+        self._sweep_queue = deque()
+        self._sweep_result = None
+        self._current_sweep_point = None
+        self.achievable_intensity = None
+
+        # Build mean cmd (same pattern as existing adaptive step 1)
+        mean_cmd = base_cmd + [
+            "--roi-method",
+            roi_params["method"],
+            "--goal",
+            "mean",
+            "--postproc",
+            postproc,
+        ]
+        if self.run_mapped_simulation_checkbox.isChecked():
+            mean_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
+
+        self.update_output(
+            "\U0001f504 Pareto Sweep: Step 1/2 \u2014 Finding achievable ROI intensity (mean optimization)"
+        )
+
+        self.optimization_thread = FlexSearchThread(mean_cmd, env)
+        self.optimization_thread.output_signal.connect(
+            self._process_mean_optimization_output
+        )
+        self.optimization_thread.error_signal.connect(
+            lambda msg: self.update_output(msg, "error")
+        )
+        self.optimization_thread.finished.connect(self._on_pareto_mean_finished)
+        self.optimization_thread.start()
+        return True
+
+    def _on_pareto_mean_finished(self):
+        """Called when step-1 mean opt completes; builds sweep grid and starts first run."""
+        from tit.opt.flex.pareto_sweep import (
+            compute_sweep_grid,
+            ParetoSweepConfig,
+            ParetoSweepResult,
+        )
+        from collections import deque
+        import os as _os
+
+        if self.achievable_intensity is None or self.achievable_intensity <= 0:
+            self.update_output(
+                "\u274c Pareto Sweep: Could not determine achievable ROI intensity "
+                "from mean optimization. Cannot proceed with sweep.",
+                "error",
+            )
+            self.optimization_finished_early_due_to_error()
+            return
+
+        self.update_output(
+            f"\u2705 Mean optimization done. Achievable ROI intensity: "
+            f"{self.achievable_intensity:.3f} V/m"
+        )
+        self.update_output(
+            "\U0001f4ca Pareto Sweep: Step 2/2 \u2014 Running focality sweep..."
+        )
+
+        params = self._sweep_params
+        base_folder = self._get_pareto_sweep_folder(
+            params["subject_id"], params["roi_params"], params["postproc"]
+        )
+
+        self._sweep_points = compute_sweep_grid(
+            self._sweep_roi_pcts,
+            self._sweep_nonroi_pcts,
+            self.achievable_intensity,
+            base_folder,
+        )
+        cfg = ParetoSweepConfig(
+            roi_pcts=self._sweep_roi_pcts,
+            nonroi_pcts=self._sweep_nonroi_pcts,
+            achievable_roi_mean=self.achievable_intensity,
+            base_output_folder=base_folder,
+        )
+        self._sweep_result = ParetoSweepResult(config=cfg, points=self._sweep_points)
+        self._sweep_queue = deque(self._sweep_points)
+
+        self._print_progress_table()
+        self._run_next_sweep_point()
+
+    def _get_pareto_sweep_folder(self, subject_id, roi_params, postproc) -> str:
+        """Return the absolute path for the pareto sweep output folder."""
+        import os as _os
+
+        pm = get_path_manager()
+        project_dir = pm.project_dir or _os.environ.get("PROJECT_DIR", "")
+
+        postproc_map = {
+            "max_TI": "maxTI",
+            "dir_TI_normal": "normalTI",
+            "dir_TI_tangential": "tangentialTI",
+        }
+        postproc_short = postproc_map.get(postproc, postproc)
+
+        if roi_params["method"] == "spherical":
+            x, y, z = roi_params["center"]
+            radius = roi_params["radius"]
+            dirname = f"sphere_x{x}y{y}z{z}r{radius}_pareto_sweep_{postproc_short}"
+        elif roi_params["method"] == "atlas":
+            atlas_name = (
+                roi_params["atlas"].split("_")[-1]
+                if "_" in roi_params["atlas"]
+                else roi_params["atlas"]
+            )
+            hemisphere = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+            region = roi_params.get("region", "")
+            dirname = (
+                f"{hemisphere}_{atlas_name}_{region}_pareto_sweep_{postproc_short}"
+            )
+        elif roi_params["method"] == "subcortical":
+            volume_atlas_name = (
+                roi_params.get("volume_atlas", "atlas")
+                .replace(".nii.gz", "")
+                .replace(".nii", "")
+            )
+            dirname = f"subcortical_{volume_atlas_name}_pareto_sweep_{postproc_short}"
+        else:
+            dirname = f"pareto_sweep_{postproc_short}"
+
+        flex_dir = getattr(const, "DIR_FLEX_SEARCH", "flex-search")
+        return _os.path.join(
+            project_dir,
+            "derivatives",
+            "SimNIBS",
+            f"sub-{subject_id}",
+            flex_dir,
+            dirname,
+        )
+
+    def _run_next_sweep_point(self):
+        """Pop the next SweepPoint from the queue and launch a focality run for it."""
+        from tit.opt.flex.pareto_sweep import build_focality_cmd
+        import os as _os
+
+        if not self._sweep_queue:
+            self._finalize_pareto_sweep()
+            return
+
+        point = self._sweep_queue.popleft()
+        self._current_sweep_point = point
+        point.status = "running"
+
+        params = self._sweep_params
+        env = dict(params["env"])  # isolated copy per run
+        _os.makedirs(point.output_folder, exist_ok=True)
+
+        base_cmd = params["base_cmd"] + [
+            "--roi-method",
+            params["roi_params"]["method"],
+            "--postproc",
+            params["postproc"],
+            "--non-roi-method",
+            self.nonroi_method_combo.currentData() or "everything_else",
+        ]
+        if self.run_mapped_simulation_checkbox.isChecked():
+            base_cmd.extend(["--enable-mapping", "--eeg-net", params["eeg_net"]])
+
+        focality_cmd = build_focality_cmd(base_cmd, point)
+
+        n_total = len(self._sweep_points)
+        n_done = sum(1 for p in self._sweep_points if p.status in ("done", "failed"))
+        self.update_output(
+            f"\n\u25b6 Running combination {n_done + 1}/{n_total}: "
+            f"ROI={int(point.roi_pct)}%, NonROI={int(point.nonroi_pct)}% "
+            f"(thresholds: ROI={point.roi_threshold:.3f} V/m, "
+            f"NonROI={point.nonroi_threshold:.3f} V/m)"
+        )
+
+        self.optimization_thread = FlexSearchThread(focality_cmd, env)
+        self.optimization_thread.output_signal.connect(self._process_sweep_point_output)
+        self.optimization_thread.error_signal.connect(
+            lambda msg: self.update_output(msg, "error")
+        )
+        self.optimization_thread.finished.connect(self._on_sweep_point_finished)
+        self.optimization_thread.start()
+
+    def _process_sweep_point_output(self, line: str, message_type: str):
+        """Forward output and extract focality_score when available."""
+        from tit.opt.flex.pareto_sweep import parse_sweep_line
+
+        self.update_output(line, message_type)
+        if self._current_sweep_point is not None:
+            score = parse_sweep_line(line, self._sweep_params.get("postproc", "max_TI"))
+            if score is not None:
+                self._current_sweep_point.focality_score = score
+
+    def _on_sweep_point_finished(self):
+        """Mark current sweep point done/failed, reprint table, start next."""
+        if self._current_sweep_point is not None:
+            if self._current_sweep_point.focality_score is not None:
+                self._current_sweep_point.status = "done"
+            else:
+                self._current_sweep_point.status = "failed"
+            self._current_sweep_point = None
+
+        self._print_progress_table()
+        self._run_next_sweep_point()
+
+    def _print_progress_table(self):
+        """Append the current sweep progress table to the output console."""
+        from tit.opt.flex.pareto_sweep import generate_summary_text
+
+        if self._sweep_result is None:
+            return
+        sep = "\u2500" * 72
+        self.update_output(f"\n{sep}")
+        self.update_output("  Pareto Sweep Progress")
+        self.update_output(sep)
+        self.update_output(generate_summary_text(self._sweep_result))
+        self.update_output(sep)
+
+    def _finalize_pareto_sweep(self):
+        """Save results, print final summary, re-enable controls."""
+        from tit.opt.flex.pareto_sweep import save_results
+
+        done_count = sum(1 for p in self._sweep_points if p.status == "done")
+        total_count = len(self._sweep_points)
+
+        self.update_output(
+            f"\n\u2705 Pareto Sweep complete: {done_count}/{total_count} runs succeeded."
+        )
+
+        if self._sweep_result is not None:
+            try:
+                base_folder = self._sweep_result.config.base_output_folder
+                j, p, t = save_results(self._sweep_result, base_folder)
+                self.update_output("\U0001f4ca Results saved:")
+                self.update_output(f"   JSON:  {j}")
+                self.update_output(f"   Plot:  {p}")
+                self.update_output(f"   Table: {t}")
+            except Exception as e:
+                self.update_output(f"\u26a0 Could not save results: {e}", "error")
+
+        self.optimization_running = False
+        self.enable_controls()
+        if hasattr(self, "parent") and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
+    # ------------------------------------------------------------------ #
 
     def _run_adaptive_focality_optimization(
         self,
