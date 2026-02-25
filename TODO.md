@@ -14,6 +14,7 @@ To-Do List:
 
 ### Scientific
 - [ ] SAR calculation for HF signal
+- [ ] Add a swipper approach to the flex focality search
 
 ### Other
 - [ ] Integrate with openssf best practices
