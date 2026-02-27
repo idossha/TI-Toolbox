@@ -1408,6 +1408,24 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "volume_region": str(self.volume_label_value_input.value()),
             }
 
+        # Validate spherical ROI in subject space is not at the origin
+        if (
+            roi_params.get("method") == "spherical"
+            and not self.roi_space_mni.isChecked()
+        ):
+            cx, cy, cz = roi_params["center"]
+            if cx == 0.0 and cy == 0.0 and cz == 0.0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid ROI Coordinates",
+                    "The ROI center is at (0, 0, 0) in subject space.\n\n"
+                    "This position is outside the brain and will cause the "
+                    "optimization to fail with an empty-ROI error.\n\n"
+                    "Please enter valid brain coordinates in the ROI fields, "
+                    "or switch to MNI coordinates using the coordinate space selector.",
+                )
+                return
+
         # Get optimization parameters for easier access and clarity
         selected_subjects = [item.text() for item in selected_items]
         goal = self.goal_combo.currentData()

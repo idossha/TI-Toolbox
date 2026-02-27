@@ -118,6 +118,13 @@ def configure_spherical_roi(
     # Check if MNI coordinates should be used (for multiple subjects)
     use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
 
+    if roi_x == 0.0 and roi_y == 0.0 and roi_z == 0.0 and not use_mni_coords:
+        print(
+            "[flex-search] WARNING: ROI center coordinates are (0, 0, 0) in subject space. "
+            "This position is typically outside the brain mesh and the optimization will fail. "
+            "Set ROI_X, ROI_Y, ROI_Z to valid brain coordinates, or set USE_MNI_COORDS=true."
+        )
+
     if use_mni_coords:
         # Transform MNI coordinates to subject space
         print(

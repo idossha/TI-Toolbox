@@ -46,6 +46,26 @@ def run_single_optimization(
             "This error may occur during final analysis but optimization itself likely completed"
         )
         return float("inf")
+    except ValueError as exc:
+        exc_str = str(exc)
+        if "zero-size array" in exc_str:
+            logger.error("ERROR in optimization:")
+            logger.error("  Error type: ValueError (Empty ROI)")
+            logger.error(
+                "  The ROI contains no mesh points. This usually means the "
+                "ROI sphere/volume does not intersect with the brain mesh. "
+                "Please check: (1) ROI coordinates are inside the brain, "
+                "(2) coordinate space is correct (subject vs MNI), "
+                "(3) ROI radius is large enough."
+            )
+            logger.error(f"  Original SimNIBS error: {exc_str}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        else:
+            logger.error("ERROR in optimization:")
+            logger.error(f"  Error type: {type(exc).__name__}")
+            logger.error(f"  Error message: {exc_str}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        return float("inf")
     except Exception as exc:
         logger.error(f"ERROR in optimization:")
         logger.error(f"  Error type: {type(exc).__name__}")
