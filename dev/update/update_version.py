@@ -211,9 +211,9 @@ def update_releases_page(version, release_notes, release_date):
 #### Download Links
 
 **Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-{version}.deb)
 
