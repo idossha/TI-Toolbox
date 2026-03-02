@@ -261,11 +261,11 @@ def update_changelog_file(version, release_notes, release_date):
 #### Download Links
 
 **Desktop App (v{version}):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox-{version}.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`
@@ -333,9 +333,9 @@ sitemap: false
 #### Download Links
 
 **Desktop App (v{version}):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
 
