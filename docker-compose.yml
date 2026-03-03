@@ -1,7 +1,7 @@
 services:
 
   freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
+    image: idossha/ti-toolbox_freesurfer:v8.1.0
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:

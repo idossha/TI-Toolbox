@@ -5,6 +5,7 @@ import argparse
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -15,7 +16,6 @@ from typing import Optional, Tuple
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.user"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.yml"
-VERBOSE = False
 X11_MARKER_NAME = ".ti_toolbox_x11_initialized"
 X11_MARKER_DIR = Path("code/ti-toolbox/config")
 
@@ -27,14 +27,12 @@ def run(
     env: Optional[dict[str, str]] = None,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess:
-    if VERBOSE and not capture_output:
-        return subprocess.run(cmd, check=check, env=env)
     return subprocess.run(
         cmd,
         check=check,
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.PIPE if capture_output else None,
         text=True,
     )
 
@@ -55,94 +53,68 @@ def save_default_project_dir(project_dir: str) -> None:
     DEFAULT_PATHS_FILE.write_text(f'LOCAL_PROJECT_DIR="{project_dir}"\n')
 
 
-def prompt_project_dir(default_dir: str, auto_create: bool) -> Tuple[Path, bool, bool]:
-    project_dir = default_dir
-    while True:
-        if project_dir:
-            print(f"Current project directory: {project_dir}")
-            new_path = input(
-                "Press Enter to use this directory or enter a new path:\n"
-            ).strip()
-            if new_path:
-                project_dir = new_path
-        else:
-            project_dir = input("Give path to local project dir:\n").strip()
+def get_project_dir(
+    default_dir: str, provided_dir: str | None = None
+) -> Tuple[Path, bool]:
+    project_dir = provided_dir or default_dir
+    if not project_dir:
+        project_dir = input("Give path to local project dir:\n").strip()
+    else:
+        print(f"Current project directory: {project_dir}")
+        new_path = input("Press Enter to use this or enter a new path:\n").strip()
+        if new_path:
+            project_dir = new_path
 
-        project_dir = os.path.expanduser(project_dir)
-        if not project_dir:
-            print("Please provide a valid directory path.")
-            continue
-
-        path = Path(project_dir)
-        if path.exists():
-            if not path.is_dir():
-                print(f"Path exists but is not a directory: {path}")
-                continue
-            if not os.access(path, os.W_OK):
-                print(f"Warning: No write permissions in directory {path}")
-                response = (
-                    input("Do you want to continue anyway? (y/n): ").strip().lower()
-                )
-                if response != "y":
-                    continue
-            is_empty = not any(path.iterdir())
-            return path, False, is_empty
-
-        print(f"Directory does not exist: {path}")
-        if auto_create:
-            response = "y"
-        else:
-            response = input("Create it? (y/n): ").strip().lower()
-        if response == "y":
-            path.mkdir(parents=True, exist_ok=True)
-            return path, True, True
+    path = Path(os.path.expanduser(project_dir))
+    if not path.exists():
+        print(f"Error: Directory does not exist: {path}")
+        sys.exit(1)
+    if not path.is_dir():
+        print(f"Error: Path is not a directory: {path}")
+        sys.exit(1)
+    return path, not any(path.iterdir())
 
 
 def display_welcome() -> None:
-    print("Welcome to the TI-Toolbox from the Center for Sleep and Consciousness")
+    print(
+        "Welcome to the TI-Toolbox from the Center for Sleep and Consciousness @ UW-Madison"
+    )
     print("")
     print("#####################################################################")
     print("")
 
 
 def get_host_timezone() -> str:
-    try:
-        return capture(["date", "+%Z"])
-    except Exception:
-        return "UTC"
+    return capture(["date", "+%Z"])
 
 
 def check_docker_available() -> None:
-    if not shutil_which("docker"):
+    if not shutil.which("docker"):
         print("Error: Docker is not installed or not in PATH.")
         sys.exit(1)
-    try:
-        run(["docker", "info"], capture_output=True)
-    except subprocess.CalledProcessError:
+    result = subprocess.run(["docker", "info"], capture_output=True)
+    if result.returncode != 0:
         print("Error: Docker daemon is not running. Please start Docker and try again.")
         sys.exit(1)
-    try:
-        run(["docker", "compose", "version"], capture_output=True)
-    except subprocess.CalledProcessError:
+    result = subprocess.run(["docker", "compose", "version"], capture_output=True)
+    if result.returncode != 0:
         print("Error: Docker Compose (v2) is not available.")
         sys.exit(1)
 
 
 def find_xhost() -> Optional[str]:
-    for candidate in ("xhost", "/opt/X11/bin/xhost"):
-        if shutil_which(candidate):
-            return candidate
-    return None
+    return shutil.which("xhost") or shutil.which("/opt/X11/bin/xhost")
 
 
 def check_x_forwarding() -> Optional[str]:
     system = platform.system()
-    if system == "Linux":
-        os.environ.setdefault("DISPLAY", ":0")
-        return find_xhost()
-    if system == "Darwin":
-        os.environ["DISPLAY"] = "host.docker.internal:0"
-        return find_xhost()
+    dispatch = {
+        "Linux": (":0", find_xhost),
+        "Darwin": ("host.docker.internal:0", find_xhost),
+        "Windows": ("host.docker.internal:0", None),
+    }
+    display, xhost = dispatch[system]
+    os.environ["DISPLAY"] = display
     if system == "Windows":
         print(
             "Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:"
@@ -153,38 +125,29 @@ def check_x_forwarding() -> Optional[str]:
         print("")
         input("Press Enter to continue once X server is configured...")
         return None
-    print("Unsupported OS for X11 display configuration.")
-    sys.exit(1)
+    return xhost() if xhost else None
 
 
 def set_display_env() -> None:
     system = platform.system()
-    if system == "Linux":
-        os.environ.setdefault("DISPLAY", ":0")
-    elif system in ("Darwin", "Windows"):
-        os.environ["DISPLAY"] = "host.docker.internal:0"
-    else:
-        print("Unsupported OS for X11 display configuration.")
-        sys.exit(1)
+    os.environ["DISPLAY"] = (
+        "host.docker.internal:0"
+        if system in ("Darwin", "Windows")
+        else os.environ.setdefault("DISPLAY", ":0")
+    )
 
 
 def allow_xhost(xhost_bin: Optional[str]) -> None:
     if not xhost_bin:
         return
-    system = platform.system()
-    if system == "Linux":
-        run([xhost_bin, "+"], check=False, capture_output=True)
-    elif system in ("Darwin", "Windows"):
-        env = os.environ.copy()
+    env = os.environ.copy()
+    if platform.system() != "Darwin":
         env["DISPLAY"] = ":0"
-        run([xhost_bin, "+"], check=False, env=env, capture_output=True)
+    run([xhost_bin, "+"], check=False, env=env, capture_output=True)
 
 
 def xquartz_command() -> str:
-    try:
-        return capture(["ps", "-ax", "-o", "command="])
-    except Exception:
-        return ""
+    return capture(["ps", "-ax", "-o", "command="])
 
 
 def x11_marker_path(project_dir: Path) -> Path:
@@ -277,21 +240,16 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
     if not images:
         return
 
-    try:
-        existing = set(
-            capture(
-                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
-            ).splitlines()
-        )
-    except Exception:
-        existing = set()
-
+    existing = set(
+        capture(
+            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
+        ).splitlines()
+    )
     missing = [image for image in images if image not in existing]
     if not missing:
         return
 
     print("Pulling required Docker images...")
-    # Show progress like docker does
     subprocess.run(
         ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env
     )
@@ -408,58 +366,25 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     )
 
 
-def shutil_which(cmd: str) -> Optional[str]:
-    for path in os.environ.get("PATH", "").split(os.pathsep):
-        full = Path(path) / cmd
-        if full.exists() and os.access(full, os.X_OK):
-            return str(full)
-    return None
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TI-Toolbox CLI loader")
     parser.add_argument("--project-dir", help="Path to the local project directory")
-    parser.add_argument(
-        "--yes", action="store_true", help="Auto-create missing project directory"
-    )
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     return parser.parse_args()
 
 
 def main() -> None:
     if not DOCKER_COMPOSE_FILE.exists():
-        print(
-            f"Error: docker-compose.yml not found in {SCRIPT_DIR}. Please make sure the file is present."
-        )
+        print(f"Error: docker-compose.yml not found in {SCRIPT_DIR}. Please make sure the file is present.")
         sys.exit(1)
 
-    global VERBOSE
     args = parse_args()
-    VERBOSE = args.verbose
 
     check_docker_available()
     xhost_bin = check_x_forwarding()
     display_welcome()
 
     default_dir = load_default_project_dir()
-    is_new_project = False
-    if args.project_dir:
-        project_dir = Path(os.path.expanduser(args.project_dir))
-        if not project_dir.exists():
-            if args.yes:
-                project_dir.mkdir(parents=True, exist_ok=True)
-                is_new_project = True
-            else:
-                print(f"Directory does not exist: {project_dir}")
-                sys.exit(1)
-        elif project_dir.is_dir():
-            is_new_project = not any(project_dir.iterdir())
-        else:
-            print(f"Path exists but is not a directory: {project_dir}")
-            sys.exit(1)
-    else:
-        project_dir, created, is_empty = prompt_project_dir(default_dir, args.yes)
-        is_new_project = created or is_empty
+    project_dir, is_new_project = get_project_dir(default_dir, args.project_dir)
 
     save_default_project_dir(str(project_dir))
 
