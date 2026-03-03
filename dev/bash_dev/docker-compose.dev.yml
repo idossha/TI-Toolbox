@@ -1,7 +1,7 @@
 services:
 
   freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
+    image: idossha/ti-toolbox_freesurfer:v8.1.0
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
@@ -23,12 +23,6 @@ services:
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
-      # LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-}
-      # LIBGL_ALWAYS_INDIRECT: ${LIBGL_ALWAYS_INDIRECT:-}
-      # QT_X11_NO_MITSHM: ${QT_X11_NO_MITSHM:-}
-      # QT_OPENGL: ${QT_OPENGL:-}
-      # TI_GUI_QGL_FALLBACK: ${TI_GUI_QGL_FALLBACK:-}
-      # Matplotlib backend for headless plotting
       MPLBACKEND: "Agg"
 
       FREESURFER_HOME: /usr/local/freesurfer
