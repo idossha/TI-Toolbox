@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from collections import deque
 from dataclasses import dataclass, field
 from itertools import product
@@ -312,34 +313,91 @@ def generate_summary_text(result: ParetoSweepResult) -> str:
     return "\n".join(lines)
 
 
+def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> Optional[str]:
+    """Copy the best run's optimizer output into *base_folder* and delete numbered subdirs.
+
+    The "best" run is the one with the most negative ``focality_score`` (i.e.
+    ``min(focality_score)``).
+
+    Args:
+        result: The completed sweep result.
+        base_folder: The parent pareto-sweep directory.
+
+    Returns:
+        Absolute path of the best point's temporary ``output_folder``, or
+        ``None`` if no point reached ``status == "done"``.
+    """
+    done = [
+        p
+        for p in result.points
+        if p.status == "done" and p.focality_score is not None
+    ]
+
+    if done:
+        best = min(done, key=lambda p: p.focality_score)
+        if os.path.isdir(best.output_folder):
+            for item in os.listdir(best.output_folder):
+                src = os.path.join(best.output_folder, item)
+                dst = os.path.join(base_folder, item)
+                if os.path.isfile(src):
+                    shutil.copy2(src, dst)
+                elif os.path.isdir(src):
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+        best_folder = best.output_folder
+    else:
+        best_folder = None
+
+    # Remove all numbered subdirs regardless of whether a best run was found
+    for p in result.points:
+        if os.path.isdir(p.output_folder):
+            shutil.rmtree(p.output_folder, ignore_errors=True)
+
+    return best_folder
+
+
 def save_results(result: ParetoSweepResult, output_folder: str) -> tuple:
-    """Persist the sweep results to disk.
+    """Persist the sweep results to disk and promote the best run's output.
 
-    Writes three artefacts:
+    Steps:
 
-    * ``pareto_results.json`` — structured data for all sweep points
-    * ``pareto_sweep_plot.png`` — matplotlib scatter plot
-    * ``pareto_summary.txt`` — ASCII table
+    1. Copy the best run's optimizer output files into *output_folder*.
+    2. Delete all numbered sweep subdirectories.
+    3. Write ``pareto_results.json`` and ``pareto_sweep_plot.png``.
 
     Args:
         result: The completed (or partially completed) sweep result.
-        output_folder: Directory where artefacts are written (created if
-            necessary).
+        output_folder: Parent pareto-sweep directory (created if necessary).
 
     Returns:
-        ``(json_path, plot_path, txt_path)`` — absolute paths to the three
-        written files.
+        ``(json_path, plot_path)`` — absolute paths to the two written files.
     """
     os.makedirs(output_folder, exist_ok=True)
 
+    # Promote best run's files and clean up numbered subdirs
+    _promote_best_run(result, output_folder)
+
     json_path = os.path.join(output_folder, "pareto_results.json")
     plot_path = os.path.join(output_folder, "pareto_sweep_plot.png")
-    txt_path = os.path.join(output_folder, "pareto_summary.txt")
+
+    done = [
+        p for p in result.points if p.status == "done" and p.focality_score is not None
+    ]
+    best_run = None
+    if done:
+        best_pt = min(done, key=lambda p: p.focality_score)
+        best_run = {
+            "roi_pct": best_pt.roi_pct,
+            "nonroi_pct": best_pt.nonroi_pct,
+            "focality_score": best_pt.focality_score,
+        }
 
     data = {
         "achievable_roi_mean_vm": result.config.achievable_roi_mean,
         "roi_pcts": result.config.roi_pcts,
         "nonroi_pcts": result.config.nonroi_pcts,
+        "best_run": best_run,
         "points": [
             {
                 "roi_pct": p.roi_pct,
@@ -348,7 +406,6 @@ def save_results(result: ParetoSweepResult, output_folder: str) -> tuple:
                 "nonroi_threshold_vm": p.nonroi_threshold,
                 "focality_score": p.focality_score,
                 "status": p.status,
-                "output_folder": p.output_folder,
             }
             for p in result.points
         ],
@@ -358,7 +415,4 @@ def save_results(result: ParetoSweepResult, output_folder: str) -> tuple:
 
     generate_pareto_plot(result, plot_path)
 
-    with open(txt_path, "w") as f:
-        f.write(generate_summary_text(result))
-
-    return json_path, plot_path, txt_path
+    return json_path, plot_path

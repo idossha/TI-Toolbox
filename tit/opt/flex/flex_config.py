@@ -107,6 +107,10 @@ def parse_arguments() -> argparse.Namespace:
 
     # Output control
     p.add_argument(
+        "--output-folder",
+        help="Override the output folder path (bypasses auto-generated naming).",
+    )
+    p.add_argument(
         "--run-final-electrode-simulation",
         action="store_true",
         default=False,
@@ -190,9 +194,12 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
 
     pm = get_path_manager()
     opt.subpath = pm.path("m2m", subject_id=args.subject)
-    opt.output_folder = pm.path(
-        "flex_search_run", subject_id=args.subject, search_name=utils.roi_dirname(args)
-    )
+    if getattr(args, "output_folder", None):
+        opt.output_folder = args.output_folder
+    else:
+        opt.output_folder = pm.path(
+            "flex_search_run", subject_id=args.subject, search_name=utils.roi_dirname(args)
+        )
     os.makedirs(opt.output_folder, exist_ok=True)
 
     # Configure goals and thresholds

@@ -815,26 +815,35 @@ class SimulatorTab(QtWidgets.QWidget):
         self.selection_label.setText(f"Selecting for: {subject} / {source}")
         self._update_selection_panel_buttons(source=source)
 
-        # Build item list
-        items = []
-        if source == "Montage":
-            eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
-            sim_mode = card.mode_combo.currentText()   # "U" or "M"
-            items = self._get_montage_names_for_params(eeg_net, sim_mode)
-        elif source == "Flex-Search":
-            items = self._get_flex_outputs_for_subject(subject)
-        elif source == "Freehand":
-            items = self._get_freehand_configs_for_subject(subject)
-
         saved = set(self._job_selections.get(idx, []))
 
         self.selection_list.blockSignals(True)
         self.selection_list.clear()
-        for item_text in items:
-            list_item = QtWidgets.QListWidgetItem(item_text)
-            self.selection_list.addItem(list_item)
-            if item_text in saved:
-                list_item.setSelected(True)
+
+        if source == "Montage":
+            eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
+            sim_mode = card.mode_combo.currentText()   # "U" or "M"
+            montage_entries = self._get_montage_entries_for_params(eeg_net, sim_mode)
+            for raw_name, pairs in montage_entries:
+                display_text = self._format_montage_display(raw_name, pairs)
+                list_item = QtWidgets.QListWidgetItem(display_text)
+                list_item.setData(QtCore.Qt.UserRole, raw_name)
+                self.selection_list.addItem(list_item)
+                if raw_name in saved:
+                    list_item.setSelected(True)
+        else:
+            if source == "Flex-Search":
+                items = self._get_flex_outputs_for_subject(subject)
+            elif source == "Freehand":
+                items = self._get_freehand_configs_for_subject(subject)
+            else:
+                items = []
+            for item_text in items:
+                list_item = QtWidgets.QListWidgetItem(item_text)
+                self.selection_list.addItem(list_item)
+                if item_text in saved:
+                    list_item.setSelected(True)
+
         self.selection_list.blockSignals(False)
 
     def _save_selection_for_current_row(self):
@@ -843,7 +852,8 @@ class SimulatorTab(QtWidgets.QWidget):
         if idx < 0 or idx >= len(self._job_cards):
             return
         selected_texts = [
-            item.text() for item in self.selection_list.selectedItems()
+            item.data(QtCore.Qt.UserRole) or item.text()
+            for item in self.selection_list.selectedItems()
         ]
         self._job_selections[idx] = selected_texts
         self._update_count_cell(idx)
@@ -878,6 +888,36 @@ class SimulatorTab(QtWidgets.QWidget):
         except Exception as e:
             print(f"Error getting montage names: {e}")
             return []
+
+    def _get_montage_entries_for_params(self, eeg_net, sim_mode):
+        """Return list of (name, pairs) tuples for montages matching the given EEG net and mode."""
+        try:
+            project_dir = self.pm.project_dir
+            if not project_dir:
+                return []
+            montage_file = self.ensure_montage_file_exists(project_dir)
+            with open(montage_file, "r") as f:
+                montage_data = json.load(f)
+            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+            nets = montage_data.get("nets", {})
+            if eeg_net not in nets:
+                return []
+            montages = nets[eeg_net].get(net_type, {})
+            return [(name, pairs) for name, pairs in montages.items()]
+        except Exception as e:
+            print(f"Error getting montage entries: {e}")
+            return []
+
+    @staticmethod
+    def _format_montage_display(name, pairs):
+        """Format a montage name + electrode pairs as a display string.
+
+        Example: "my_montage: ch1{E1,E2}, ch2{E3,E4}"
+        """
+        if not pairs:
+            return name
+        ch_parts = [f"ch{i + 1}{{{p[0]},{p[1]}}}" for i, p in enumerate(pairs)]
+        return f"{name}: {', '.join(ch_parts)}"
 
     def _get_flex_outputs_for_subject(self, subject_id):
         """Return list of flex-search item strings for a subject (mapped + optimized).
@@ -2286,8 +2326,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 )
                 return
 
-            # Get the montage name as plain text
-            montage_name = selected_items[0].text()
+            # Get the raw montage name (stored in UserRole to avoid formatted display text)
+            montage_name = selected_items[0].data(QtCore.Qt.UserRole) or selected_items[0].text()
             if not montage_name:
                 QtWidgets.QMessageBox.warning(
                     self, "Warning", "Invalid montage selection."
@@ -2314,14 +2354,18 @@ class SimulatorTab(QtWidgets.QWidget):
                 with open(montage_file, "r") as f:
                     montage_data = json.load(f)
 
-                # Get current net and mode from the active job row
-                current_net = self.eeg_net_combo.currentText()
-                row = self._selection_row
-                mode_combo = self.jobs_table.cellWidget(row, 2) if row >= 0 else None
-                mode_text = mode_combo.currentText() if mode_combo else "Unipolar"
+                # Get current net and mode from the active job card
+                card_idx = self._selected_card_idx
+                if card_idx >= 0 and card_idx < len(self._job_cards):
+                    active_card = self._job_cards[card_idx]
+                    current_net = active_card.eeg_net_combo.currentText()
+                    mode_text = active_card.mode_combo.currentText()  # "U" or "M"
+                else:
+                    current_net = self.eeg_net_combo.currentText()
+                    mode_text = "U"
                 montage_type = (
                     "uni_polar_montages"
-                    if mode_text == "Unipolar"
+                    if mode_text == "U"
                     else "multi_polar_montages"
                 )
 

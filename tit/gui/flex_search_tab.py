@@ -3130,6 +3130,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             base_cmd.extend(["--enable-mapping", "--eeg-net", params["eeg_net"]])
 
         focality_cmd = build_focality_cmd(base_cmd, point)
+        # Route each sweep run to its own numbered subfolder so runs don't overwrite each other
+        focality_cmd += ["--output-folder", point.output_folder]
 
         n_total = len(self._sweep_points)
         n_done = sum(1 for p in self._sweep_points if p.status in ("done", "failed"))
@@ -3197,11 +3199,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self._sweep_result is not None:
             try:
                 base_folder = self._sweep_result.config.base_output_folder
-                j, p, t = save_results(self._sweep_result, base_folder)
+                j, p = save_results(self._sweep_result, base_folder)
                 self.update_output("\U0001f4ca Results saved:")
                 self.update_output(f"   JSON:  {j}")
                 self.update_output(f"   Plot:  {p}")
-                self.update_output(f"   Table: {t}")
+                self.update_output(f"   Dir:   {base_folder}")
             except Exception as e:
                 self.update_output(f"\u26a0 Could not save results: {e}", "error")
 
