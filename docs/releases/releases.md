@@ -17,11 +17,11 @@ permalink: /releases/
 #### Download Links
 
 **Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.2.4.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-2.2.4.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.2.4_amd64.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:latest`

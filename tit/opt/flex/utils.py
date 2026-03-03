@@ -237,6 +237,23 @@ def configure_atlas_roi(
             non_roi.weight = -1
 
 
+def _resolve_roi_tissues() -> List:
+    """Resolve tissue tags from the ROI_TISSUES environment variable.
+
+    Reads ``ROI_TISSUES`` (values: ``"GM"``, ``"WM"``, ``"both"``).
+    Defaults to Gray Matter only when the variable is unset or unrecognised.
+
+    Returns:
+        List of ElementTags values to assign to ``roi.tissues``.
+    """
+    value = os.getenv("ROI_TISSUES", "GM").strip().upper()
+    if value == "WM":
+        return [ElementTags.WM]
+    if value == "BOTH":
+        return [ElementTags.WM, ElementTags.GM]
+    return [ElementTags.GM]
+
+
 def configure_subcortical_roi(
     opt: opt_struct.TesFlexOptimization, args: argparse.Namespace
 ) -> None:
@@ -253,14 +270,14 @@ def configure_subcortical_roi(
     if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
         raise SystemExit(f"Volume atlas file not found: {volume_atlas_path}")
 
+    tissues = _resolve_roi_tissues()
+
     roi = opt.add_roi()
     roi.method = "volume"
     roi.mask_space = ["subject"]
     roi.mask_path = [volume_atlas_path]
     roi.mask_value = [label_val]
-
-    # Add some additional properties that might help with volume ROI processing
-    roi.tissues = [ElementTags.GM]  # Gray matter tissue for volume ROI
+    roi.tissues = tissues
 
     if args.goal == "focality":
         non_roi = opt.add_roi()
@@ -272,7 +289,7 @@ def configure_subcortical_roi(
             non_roi.mask_value = roi.mask_value
             non_roi.mask_operator = ["difference"]
             non_roi.weight = -1
-            non_roi.tissues = [ElementTags.GM]  # Gray matter
+            non_roi.tissues = tissues
         else:
             non_roi_label = int(os.getenv("VOLUME_NON_ROI_LABEL", "10"))
             non_roi_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH", "")
@@ -284,7 +301,7 @@ def configure_subcortical_roi(
             non_roi.mask_path = [non_roi_atlas_path]
             non_roi.mask_value = [non_roi_label]
             non_roi.weight = -1
-            non_roi.tissues = [ElementTags.GM]  # Gray matter
+            non_roi.tissues = tissues
 
 
 def find_subject_atlases(

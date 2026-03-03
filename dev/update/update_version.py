@@ -13,35 +13,28 @@ from pathlib import Path
 
 def update_file_content(file_path, patterns):
     """Update patterns in a file"""
-    if not os.path.exists(file_path):
-        print(f"⚠️  Warning: {file_path} not found")
-        return False
 
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
 
-        original_content = content
+    original_content = content
 
-        for pattern, replacement in patterns:
-            content = re.sub(pattern, replacement, content)
+    for pattern, replacement in patterns:
+        content = re.sub(pattern, replacement, content)
 
-        if content != original_content:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            print(f"✅ Updated: {file_path}")
-            return True
-        else:
-            print(f"ℹ️  No changes needed: {file_path}")
-            return False
-    except Exception as e:
-        print(f"❌ Error updating {file_path}: {e}")
+    if content != original_content:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"Updated: {file_path}")
+        return True
+    else:
+        print(f"No changes needed: {file_path}")
         return False
 
 
 def update_version(new_version):
     """Update version across all project files"""
-    print(f"🚀 Updating version to {new_version}")
+    print(f"Updating version to {new_version}")
     print("=" * 50)
 
     release_date = datetime.now().strftime("%B %d, %Y")
@@ -104,12 +97,12 @@ def update_version(new_version):
             updated_files.append(file_path)
 
     print("\n" + "=" * 50)
-    print(f"🎉 Version update complete!")
-    print(f"📝 Updated {len(updated_files)} core files:")
+    print(f"Version update complete!")
+    print(f"Updated {len(updated_files)} core files:")
     for file_path in updated_files:
         print(f"   • {file_path}")
 
-    print(f"\n📋 Additional automated updates:")
+    print(f"\n Additional automated updates:")
     print(f"   • Updated main releases page (docs/releases/releases.md)")
     print(f"   • Updated changelog (docs/releases/changelog.md)")
     print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
@@ -126,12 +119,9 @@ def update_version(new_version):
 
 def update_dataset_descriptions(new_version):
     """Update Docker image versions in dataset description JSON files"""
-    print(f"\n🔧 Updating dataset description JSON files...")
+    print(f"\nUpdating dataset description JSON files...")
 
     dataset_descriptions_dir = "resources/dataset_descriptions"
-    if not os.path.exists(dataset_descriptions_dir):
-        print(f"⚠️  Warning: {dataset_descriptions_dir} not found")
-        return
 
     # Find all JSON files in the dataset_descriptions directory
     json_files = [
@@ -142,65 +132,44 @@ def update_dataset_descriptions(new_version):
     for json_file in json_files:
         file_path = os.path.join(dataset_descriptions_dir, json_file)
 
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
 
-            original_content = content
+        original_content = content
 
-            # Update only the SimNIBS Docker image tag (dynamically based on new version)
-            # Pattern to match Docker image tags in the JSON files
-            patterns = [
-                (
-                    r'"Tag": "idossha/simnibs:[^"]*"',
-                    f'"Tag": "idossha/simnibs:v{new_version}"',
-                ),
-            ]
+        # Update only the SimNIBS Docker image tag (dynamically based on new version)
+        # Pattern to match Docker image tags in the JSON files
+        patterns = [
+            (
+                r'"Tag": "idossha/simnibs:[^"]*"',
+                f'"Tag": "idossha/simnibs:v{new_version}"',
+            ),
+        ]
 
-            for pattern, replacement in patterns:
-                content = re.sub(pattern, replacement, content)
+        for pattern, replacement in patterns:
+            content = re.sub(pattern, replacement, content)
 
-            if content != original_content:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                print(f"✅ Updated: {file_path}")
-                updated_count += 1
-            else:
-                print(f"ℹ️  No changes needed: {file_path}")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"Updated: {file_path}")
 
-        except Exception as e:
-            print(f"❌ Error updating {file_path}: {e}")
-
-    print(f"📊 Updated {updated_count} dataset description JSON files")
+    print(f"Updated {updated_count} dataset description JSON files")
 
 
 def add_release_to_changelog(version, release_notes=""):
     """Add a new release entry to both releases page and changelog"""
     release_date = datetime.now().strftime("%B %d, %Y")
 
-    # Update main releases page
     update_releases_page(version, release_notes, release_date)
-
-    # Update changelog
     update_changelog_file(version, release_notes, release_date)
-
-    # Create individual version file
     create_individual_version_file(version, release_notes, release_date)
-
-    # Update navigation
     update_navigation(version)
-
-    # Update previous release titles
     update_previous_release_titles(version)
 
 
 def update_releases_page(version, release_notes, release_date):
     """Update the main releases page"""
     releases_file = "docs/releases/releases.md"
-
-    if not os.path.exists(releases_file):
-        print(f"⚠️  Warning: {releases_file} not found")
-        return
 
     new_release_section = f"""### v{version} (Latest Release)
 
@@ -211,9 +180,9 @@ def update_releases_page(version, release_notes, release_date):
 #### Download Links
 
 **Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-{version}.deb)
 
@@ -223,34 +192,24 @@ def update_releases_page(version, release_notes, release_date):
 
 For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/)."""
 
-    try:
-        with open(releases_file, "r", encoding="utf-8") as f:
-            content = f.read()
+    with open(releases_file, "r", encoding="utf-8") as f:
+        content = f.read()
 
-        # Replace the current latest release section
-        pattern = r"### v\d+\.\d+\.\d+ \(Latest Release\).*?(?=---|\n##|\Z)"
+    # Replace the current latest release section
+    pattern = r"### v\d+\.\d+\.\d+ \(Latest Release\).*?(?=---|\n##|\Z)"
 
-        if re.search(pattern, content, re.DOTALL):
-            new_content = re.sub(pattern, new_release_section, content, flags=re.DOTALL)
+    new_content = re.sub(pattern, new_release_section, content, flags=re.DOTALL)
 
-            with open(releases_file, "w", encoding="utf-8") as f:
-                f.write(new_content)
+    with open(releases_file, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
-            print(f"✅ Updated latest release in {releases_file}")
-        else:
-            print(f"⚠️  Could not find existing release pattern in {releases_file}")
+    print(f"Updated latest release in {releases_file}")
 
-    except Exception as e:
-        print(f"❌ Error updating releases file: {e}")
 
 
 def update_changelog_file(version, release_notes, release_date):
     """Update the changelog file"""
     changelog_file = "docs/releases/changelog.md"
-
-    if not os.path.exists(changelog_file):
-        print(f"⚠️  Warning: {changelog_file} not found")
-        return
 
     new_changelog_section = f"""### v{version} (Latest Release)
 
@@ -261,11 +220,11 @@ def update_changelog_file(version, release_notes, release_date):
 #### Download Links
 
 **Desktop App (v{version}):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox-{version}.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`
@@ -274,41 +233,37 @@ def update_changelog_file(version, release_notes, release_date):
 ---
 """
 
-    try:
-        with open(changelog_file, "r", encoding="utf-8") as f:
-            content = f.read()
+    with open(changelog_file, "r", encoding="utf-8") as f:
+        content = f.read()
 
-        # Remove "(Latest Release)" from the current latest version to demote it
-        content = re.sub(
-            r"### v(\d+\.\d+\.\d+) \(Latest Release\)", r"### v\1", content
-        )
+    # Remove "(Latest Release)" from the current latest version to demote it
+    content = re.sub(
+        r"### v(\d+\.\d+\.\d+) \(Latest Release\)", r"### v\1", content
+    )
 
-        # Insert new release section after the front matter (after the first ---)
-        lines = content.split("\n")
-        insert_index = -1
-        for i, line in enumerate(lines):
-            if (
-                line.strip() == "---" and i > 5
-            ):  # Find the first --- after the front matter
-                insert_index = i + 1
-                break
+    # Insert new release section after the front matter (after the first ---)
+    lines = content.split("\n")
+    insert_index = -1
+    for i, line in enumerate(lines):
+        if (
+            line.strip() == "---" and i > 5
+        ):  # Find the first --- after the front matter
+            insert_index = i + 1
+            break
 
-        if insert_index > 0:
-            # Split the new section into lines and insert them
-            new_lines = new_changelog_section.split("\n")
-            for i, new_line in enumerate(reversed(new_lines)):
-                if new_line.strip():  # Only insert non-empty lines
-                    lines.insert(insert_index, new_line)
+    if insert_index > 0:
+        # Split the new section into lines and insert them
+        new_lines = new_changelog_section.split("\n")
+        for i, new_line in enumerate(reversed(new_lines)):
+            if new_line.strip():  # Only insert non-empty lines
+                lines.insert(insert_index, new_line)
 
-            new_content = "\n".join(lines)
-            with open(changelog_file, "w", encoding="utf-8") as f:
-                f.write(new_content)
-            print(f"✅ Updated changelog in {changelog_file}")
-        else:
-            print(f"❌ Could not find insertion point in changelog")
-
-    except Exception as e:
-        print(f"❌ Error updating changelog: {e}")
+        new_content = "\n".join(lines)
+        with open(changelog_file, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print(f"Updated changelog in {changelog_file}")
+    else:
+        print(f"Could not find insertion point in changelog")
 
 
 def create_individual_version_file(version, release_notes, release_date):
@@ -333,9 +288,9 @@ sitemap: false
 #### Download Links
 
 **Desktop App (v{version}):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-x64.dmg) ·
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-Setup.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
 
@@ -357,64 +312,49 @@ If you encounter issues with this release:
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 """
 
-    try:
-        with open(version_file, "w", encoding="utf-8") as f:
-            f.write(version_content)
-        print(f"✅ Created individual version file: {version_file}")
-    except Exception as e:
-        print(f"❌ Error creating version file {version_file}: {e}")
+    with open(version_file, "w", encoding="utf-8") as f:
+        f.write(version_content)
+    print(f"Created individual version file: {version_file}")
 
 
 def update_navigation(version):
     """Update the releases sidebar navigation in the releases layout"""
     layout_file = "docs/_layouts/releases.html"
 
-    if not os.path.exists(layout_file):
-        print(f"⚠️  Warning: {layout_file} not found")
+    with open(layout_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    current_latest_pattern = r"Latest \(v[\d\.]+\)"
+    new_latest = f"Latest (v{version})"
+    content = re.sub(current_latest_pattern, new_latest, content)
+
+    # Add new version to the version history section
+    # Find the line with the first version link and add the new version before it
+    version_link = f"        <li><a href=\"{{{{ site.baseurl }}}}/releases/v{version}/\" {{% if page.url == '/releases/v{version}/' or page.url == '/TI-Toolbox/releases/v{version}/' %}}class=\"active\"{{% endif %}}>v{version}</a></li>"
+
+    if f"/releases/v{version}/" in content:
+        print(f"Version v{version} already in releases sidebar")
         return
 
-    try:
-        with open(layout_file, "r", encoding="utf-8") as f:
-            content = f.read()
+    # Find the first version link in the history and insert new version before it
+    lines = content.split("\n")
+    for i, line in enumerate(lines):
+        if "<h4>Version History</h4>" in line:
+            # Insert the new version link after the "Version History" header
+            lines.insert(i + 1, version_link)
+            break
 
-        # Update the "Latest (vX.X.X)" link
-        current_latest_pattern = r"Latest \(v[\d\.]+\)"
-        new_latest = f"Latest (v{version})"
-        content = re.sub(current_latest_pattern, new_latest, content)
+    new_content = "\n".join(lines)
+    with open(layout_file, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
-        # Add new version to the version history section
-        # Find the line with the first version link and add the new version before it
-        version_link = f"        <li><a href=\"{{{{ site.baseurl }}}}/releases/v{version}/\" {{% if page.url == '/releases/v{version}/' or page.url == '/TI-Toolbox/releases/v{version}/' %}}class=\"active\"{{% endif %}}>v{version}</a></li>"
+    print(f"Updated releases sidebar navigation in {layout_file}")
 
-        # Check if version is already in the sidebar
-        if f"/releases/v{version}/" in content:
-            print(f"ℹ️  Version v{version} already in releases sidebar")
-            return
-
-        # Find the first version link in the history and insert new version before it
-        lines = content.split("\n")
-        for i, line in enumerate(lines):
-            if "<h4>Version History</h4>" in line:
-                # Insert the new version link after the "Version History" header
-                lines.insert(i + 1, version_link)
-                break
-
-        new_content = "\n".join(lines)
-        with open(layout_file, "w", encoding="utf-8") as f:
-            f.write(new_content)
-
-        print(f"✅ Updated releases sidebar navigation in {layout_file}")
-
-    except Exception as e:
-        print(f"❌ Error updating releases sidebar: {e}")
 
 
 def update_previous_release_titles(version):
     """Remove 'Latest Release' from previous version files and ensure nav_exclude"""
     releases_dir = "docs/releases"
-
-    if not os.path.exists(releases_dir):
-        return
 
     # Get all version files except the current one
     version_files = [
@@ -457,28 +397,24 @@ def update_previous_release_titles(version):
             if updated_content != content:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(updated_content)
-                print(f"✅ Updated {version_file}")
+                print(f"Updated {version_file}")
 
         except Exception as e:
-            print(f"⚠️  Could not update {version_file}: {e}")
+            print(f"Could not update {version_file}: {e}")
 
 
 def get_release_info():
     """Interactive prompt to collect release information"""
-    print("\n📝 Release Information Collection")
+    print("\nRelease Information Collection")
     print("=" * 50)
 
-    # Get version
     while True:
         version = input("\nEnter version number (e.g., 2.0.1): ").strip()
         if re.match(r"^\d+\.\d+\.\d+$", version):
             break
-        print("❌ Invalid version format. Please use X.Y.Z format (e.g., 2.0.1)")
+        print("Invalid version format. Please use X.Y.Z format (e.g., 2.0.1)")
 
-    # Get additions
-    print(
-        "\n📦 Additions (Enter each addition on a new line, press Enter twice when done):"
-    )
+    print("\n Additions (Enter each addition on a new line, press Enter twice when done):")
     additions = []
     while True:
         line = input().strip()
@@ -487,8 +423,7 @@ def get_release_info():
         if line:  # Only add non-empty lines
             additions.append(line)
 
-    # Get fixes
-    print("\n🔧 Fixes (Enter each fix on a new line, press Enter twice when done):")
+    print("\n Fixes (Enter each fix on a new line, press Enter twice when done):")
     fixes = []
     while True:
         line = input().strip()
@@ -523,49 +458,33 @@ def main():
         print("  1. Enter the new version number")
         print("  2. List additions (one per line)")
         print("  3. List fixes (one per line)")
-        print(
-            "\nThe script will then update all necessary files and create release notes."
-        )
+        print("\nThe script will then update all necessary files and create release notes.")
         sys.exit(0)
 
-    # Get release information interactively
     new_version, release_notes = get_release_info()
 
-    # Change to script directory
-    script_dir = Path(
-        __file__
-    ).parent.parent.parent  # Go up to project root (dev/update/ -> dev/ -> root)
+    script_dir = Path(__file__).parent.parent.parent  # Go up to project root (dev/update/ -> dev/ -> root)
     os.chdir(script_dir)
 
-    # Update version in all files
     update_version(new_version)
 
-    # Add release to changelog
     add_release_to_changelog(new_version, release_notes)
 
-    print("\n💡 Next steps:")
+    print("\nNext steps:")
     print(f"   1. Review all changes: git diff")
-    print(
-        f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'"
-    )
+    print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
     print(f"   3. Create a release tag: git tag v{new_version}")
     print(f"   4. Push changes: git push && git push --tags")
     print(f"   5. Build and push Docker image to Docker Hub")
-    print(
-        f"   6. Create GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new"
-    )
-    print(f"\n🚀 Release documentation automatically updated:")
+    print(f"   6. Create GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
+    print(f"\nRelease documentation automatically updated:")
     print(f"   • Main releases page shows v{new_version} as latest")
     print(f"   • Changelog includes full release history")
     print(f"   • Releases sidebar updated with v{new_version} in version history")
     print(f"   • Individual release page created with proper links")
-    print(
-        f"   • Dataset description JSON files updated with new SimNIBS Docker image version"
-    )
+    print(f"   • Dataset description JSON files updated with new SimNIBS Docker image version")
     print(f"   • Docker Compose files updated with new image tags")
-    print(
-        f"   • Electron Desktop App files updated (package.json, index.html, docker-compose.yml)"
-    )
+    print(f"   • Electron Desktop App files updated (package.json, index.html, docker-compose.yml)")
 
 
 if __name__ == "__main__":

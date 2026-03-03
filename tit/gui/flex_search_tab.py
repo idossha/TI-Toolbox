@@ -493,9 +493,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         self.list_volume_regions_btn = QtWidgets.QPushButton("List Regions")
 
+        # Tissue type selector for subcortical ROI
+        self.roi_tissue_combo = QtWidgets.QComboBox()
+        self.roi_tissue_combo.addItem("Gray Matter (GM)", "GM")
+        self.roi_tissue_combo.addItem("White Matter (WM)", "WM")
+        self.roi_tissue_combo.addItem("GM + WM (both)", "both")
+        self.roi_tissue_combo.setToolTip(
+            "Tissue compartment(s) to include when evaluating the volume ROI. "
+            "GM is appropriate for most subcortical targets (e.g. thalamus, hippocampus). "
+            "WM or Both can be used when the target overlaps white-matter tracts."
+        )
+
         # Labels for subcortical controls
         self.volume_atlas_label = QtWidgets.QLabel("Volume Atlas:")
         self.volume_label_value_label = QtWidgets.QLabel("Region Label Value:")
+        self.roi_tissue_label = QtWidgets.QLabel("Tissue Type:")
 
         # Set up the UI
         self.setup_ui()
@@ -754,6 +766,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         subcortical_roi_layout.addRow(
             self.volume_label_value_label, self.volume_label_value_input
         )
+        subcortical_roi_layout.addRow(self.roi_tissue_label, self.roi_tissue_combo)
         self.roi_stacked_widget.addWidget(self.subcortical_roi_widget)
 
         roi_method_layout_main.addWidget(self.roi_stacked_widget)
@@ -1406,6 +1419,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "method": "subcortical",
                 "volume_atlas": self.volume_atlas_combo.currentText(),
                 "volume_region": str(self.volume_label_value_input.value()),
+                "tissues": self.roi_tissue_combo.currentData(),
             }
 
         # Validate spherical ROI in subject space is not at the origin
@@ -1676,6 +1690,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path_for_env}"
                     )
                 env["VOLUME_ROI_LABEL"] = str(roi_params["volume_region"])
+                env["ROI_TISSUES"] = roi_params.get("tissues", "GM")
 
             # Build the command
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
