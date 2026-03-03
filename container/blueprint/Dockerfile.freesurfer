@@ -29,10 +29,10 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p $FREESURFER_HOME
 
 # Download and install FreeSurfer
-RUN wget --progress=bar:force:noscroll https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.4.1/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -P /tmp \
-    && tar -xzf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz -C /tmp \
+RUN wget --progress=bar:force:noscroll https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/8.1.0/freesurfer-linux-centos8_x86_64-8.1.0.tar.gz -P /tmp \
+    && tar -xzf /tmp/freesurfer-linux-centos8_x86_64-8.1.0.tar.gz -C /tmp \
     && mv /tmp/freesurfer/* $FREESURFER_HOME/ \
-    && rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
+    && rm -rf /tmp/freesurfer /tmp/freesurfer-linux-centos8_x86_64-8.1.0.tar.gz
 
 # Copy the FreeSurfer license
 COPY license.txt $FREESURFER_HOME/license.txt
