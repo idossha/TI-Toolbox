@@ -38,6 +38,43 @@ def _find_anat_files(subject_id: str) -> tuple[Optional[Path], Optional[Path]]:
     )
 
 
+def _run_subcortical_segmentations(
+    subject_id: str,
+    fs_subjects_root: Path,
+    *,
+    logger,
+    runner: Optional[CommandRunner] = None,
+) -> None:
+    """Run thalamic nuclei and hippocampal subfield segmentations.
+
+    These are separate FreeSurfer modules that extend the standard recon-all
+    output with fine-grained nuclear parcellations. Failures are non-fatal —
+    a warning is logged and the pipeline continues.
+    """
+    fs_subject = f"sub-{subject_id}"
+    env = {**os.environ, "SUBJECTS_DIR": str(fs_subjects_root)}
+
+    segmentations = [
+        ("segmentThalamicNuclei.sh", "thalamic nuclei"),
+        ("segmentHA_T1.sh", "hippocampal subfields"),
+    ]
+
+    for script, label in segmentations:
+
+        cmd = [script, fs_subject]
+        logger.info(f"Segmenting {label} for {fs_subject}")
+        if runner:
+            exit_code = runner.run(cmd, logger=logger, env=env)
+        else:
+            exit_code = subprocess.call(cmd, env=env)
+
+        if exit_code != 0:
+            logger.warning(
+                f"{script} exited with code {exit_code}; "
+                f"{label} segmentation may be incomplete."
+            )
+
+
 def _validate_freesurfer_env(logger) -> None:
     """Validate that FreeSurfer environment is properly configured."""
     fs_home = os.environ.get("FREESURFER_HOME")
@@ -131,3 +168,7 @@ def run_recon_all(
         raise PreprocessError(
             f"recon-all failed for subject {subject_id} (exit {exit_code})."
         )
+
+    _run_subcortical_segmentations(
+        subject_id, fs_subjects_root, logger=logger, runner=runner
+    )
