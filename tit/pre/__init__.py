@@ -12,6 +12,7 @@ from .recon_all import run_recon_all
 from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
+from .utils import discover_subjects, check_m2m_exists
 
 __all__ = [
     "run_pipeline",
@@ -22,4 +23,6 @@ __all__ = [
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti_tensor",
+    "discover_subjects",
+    "check_m2m_exists",
 ]

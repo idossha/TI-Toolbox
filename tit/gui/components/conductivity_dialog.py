@@ -37,8 +37,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
         info_label = QtWidgets.QLabel(
             "Double-click on a value in the 'Value (S/m)' column to edit it."
         )
-        info_label.setStyleSheet(
-            """
+        info_label.setStyleSheet("""
             QLabel {
                 background-color: #f0f0f0;
                 color: #333;
@@ -46,8 +45,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
                 border-bottom: 1px solid #ddd;
                 font-style: italic;
             }
-        """
-        )
+        """)
         layout.addWidget(info_label)
 
         # Table
@@ -93,8 +91,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
             item = QtWidgets.QTableWidgetItem(ref)
             item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
             self.table.setItem(row, 3, item)
-        self.table.setStyleSheet(
-            f"""
+        self.table.setStyleSheet(f"""
             QTableWidget {{
                 background-color: white;
                 alternate-background-color: #f5f5f5;
@@ -114,8 +111,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
                 padding: 1px;
                 font-size: {FONT_MD};
             }}
-        """
-        )
+        """)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
@@ -135,8 +131,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
         button_container.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
-        button_container.setStyleSheet(
-            """
+        button_container.setStyleSheet("""
             QWidget {
                 background-color: #f0f0f0;
                 border-top: 1px solid #ddd;
@@ -153,8 +148,7 @@ class ConductivityEditorDialog(QtWidgets.QDialog):
                 background-color: #f5f5f5;
                 border: 1px solid #ccc;
             }
-        """
-        )
+        """)
         button_layout = QtWidgets.QHBoxLayout(button_container)
         button_layout.setContentsMargins(10, 0, 10, 0)
         button_layout.setSpacing(0)

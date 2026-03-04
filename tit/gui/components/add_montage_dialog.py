@@ -175,7 +175,9 @@ class AddMontageDialog(QtWidgets.QDialog):
 
         # Add title for electrode list
         electrode_title = QtWidgets.QLabel("Available Electrodes")
-        electrode_title.setStyleSheet(f"font-weight: bold; font-size: {FONT_SUBHEADING};")
+        electrode_title.setStyleSheet(
+            f"font-weight: bold; font-size: {FONT_SUBHEADING};"
+        )
         right_layout.addWidget(electrode_title)
 
         # Add search box
@@ -187,8 +189,7 @@ class AddMontageDialog(QtWidgets.QDialog):
         # Add electrode list widget
         self.electrode_list = QtWidgets.QListWidget()
         self.electrode_list.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        self.electrode_list.setStyleSheet(
-            """
+        self.electrode_list.setStyleSheet("""
             QListWidget {
                 background-color: #f5f5f5;
                 border: 1px solid #ddd;
@@ -199,8 +200,7 @@ class AddMontageDialog(QtWidgets.QDialog):
                 padding: 5px;
                 border-bottom: 1px solid #eee;
             }
-        """
-        )
+        """)
         right_layout.addWidget(self.electrode_list)
 
         # Add right widget to main layout
