@@ -14,16 +14,9 @@ from typing import Any, Optional
 
 def suppress_matplotlib_findfont_noise() -> None:
     """
-    Reduce extremely noisy font discovery messages in minimal/headless environments.
-
-    Matplotlib's font manager can emit many `findfont:` warnings to stderr when
-    common system fonts are missing (common inside Docker images). This doesn't
-    affect correctness of the plots, but clutters CLI output and logs.
+    No-op: matplotlib.font_manager silencing is now handled by tit.logger.setup_logging()
+    in its third-party quieting loop.
     """
-    import logging
-
-    # Font discovery messages come from this logger in most matplotlib versions.
-    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 
 def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:

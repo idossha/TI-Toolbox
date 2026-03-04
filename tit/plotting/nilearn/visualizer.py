@@ -55,7 +55,7 @@ class NilearnVisualizer:
 
     def _setup_output_directory(self):
         """Set up the output directory for visualizations."""
-        derivatives_dir = self.pm.path("derivatives")
+        derivatives_dir = self.pm.derivatives()
         self.output_dir = os.path.join(
             derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS
         )
@@ -75,9 +75,7 @@ class NilearnVisualizer:
         sim_files = {}
 
         for sim_name in simulations:
-            sim_dir = self.pm.path_optional(
-                "simulation", subject_id=subject_id, simulation_name=sim_name
-            )
+            sim_dir = self.pm.simulation(subject_id, sim_name)
             if sim_dir:
                 # Look for TI max files in the niftis directory
                 nifti_dir = os.path.join(sim_dir, "TI", "niftis")
