@@ -30,10 +30,10 @@ RUN wget --progress=bar:force:noscroll https://surfer.nmr.mgh.harvard.edu/pub/di
     && apt-get install -y /tmp/freesurfer_ubuntu22-8.1.0_amd64.deb \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# The .deb installs to /usr/local/freesurfer/8.1.0 — create a stable path
-RUN ln -s /usr/local/freesurfer/8.1.0 /opt/freesurfer
+# The .deb installs to /usr/local/freesurfer/8.1.0 — symlink to standard path
+RUN ln -s /usr/local/freesurfer/8.1.0 /usr/local/freesurfer
 
-ENV FREESURFER_HOME=/opt/freesurfer
+ENV FREESURFER_HOME=/usr/local/freesurfer
 
 # Copy the FreeSurfer license
 COPY license.txt $FREESURFER_HOME/license.txt
