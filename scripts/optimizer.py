@@ -9,8 +9,8 @@ EEG_NET = "GSN-HydroCel-128.csv"
 
 # ── Leadfield ─────────────────────────────────────────────────────────────────
 
-lfg = LeadfieldGenerator(SUBJECT_ID, electrode_cap="GSN-HydroCel-128")
-lf = LFG.generate()
+lfg = LeadfieldGenerator(SUBJECT_ID, electrode_cap="EEG10-10_UI_Jurak_2007")
+lf = lfg.generate()
 
 # ── Flex-search ───────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ flex_config = FlexConfig(
     roi=SphericalROI(x=0, y=0, z=0, radius=10.0),
 )
 
-run_flex_search(flex_config)
+# run_flex_search(flex_config)
 
 # ── Exhaustive search ─────────────────────────────────────────────────────────
 

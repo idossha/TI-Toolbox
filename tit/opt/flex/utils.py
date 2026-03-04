@@ -155,14 +155,9 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
         log.info(
             f"Transforming MNI coordinates [{roi_x}, {roi_y}, {roi_z}] to subject space"
         )
-        try:
-            m2m_path = opt.subpath
-            subject_coords = mni2subject_coords([roi_x, roi_y, roi_z], m2m_path)
-            roi.roi_sphere_center = subject_coords
-            log.info(f"Transformed coordinates: {subject_coords}")
-        except Exception as e:
-            log.error(f"Failed to transform MNI coordinates to subject space: {e}")
-            raise SystemExit(f"MNI coordinate transformation failed: {e}")
+        subject_coords = mni2subject_coords([roi_x, roi_y, roi_z], opt.subpath)
+        roi.roi_sphere_center = subject_coords
+        log.info(f"Transformed coordinates: {subject_coords}")
     else:
         roi.roi_sphere_center = [roi_x, roi_y, roi_z]
 
@@ -192,20 +187,9 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
                 log.info(
                     f"Transforming non-ROI MNI coordinates [{nx}, {ny}, {nz}] to subject space"
                 )
-                try:
-                    m2m_path = opt.subpath
-                    non_roi_subject_coords = mni2subject_coords([nx, ny, nz], m2m_path)
-                    non_roi.roi_sphere_center = non_roi_subject_coords
-                    log.info(
-                        f"Transformed non-ROI coordinates: {non_roi_subject_coords}"
-                    )
-                except Exception as e:
-                    log.error(
-                        f"Failed to transform non-ROI MNI coordinates to subject space: {e}"
-                    )
-                    raise SystemExit(
-                        f"Non-ROI MNI coordinate transformation failed: {e}"
-                    )
+                non_roi_subject_coords = mni2subject_coords([nx, ny, nz], opt.subpath)
+                non_roi.roi_sphere_center = non_roi_subject_coords
+                log.info(f"Transformed non-ROI coordinates: {non_roi_subject_coords}")
             else:
                 non_roi.roi_sphere_center = [nx, ny, nz]
 
@@ -286,7 +270,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
     label_val = roi_spec.label
 
     if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
-        raise SystemExit(f"Volume atlas file not found: {volume_atlas_path}")
+        raise FileNotFoundError(f"Volume atlas file not found: {volume_atlas_path}")
 
     tissues = _resolve_roi_tissues(config)
 
@@ -313,8 +297,8 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
             if not non_roi_spec.atlas_path or not os.path.isfile(
                 non_roi_spec.atlas_path
             ):
-                raise SystemExit(
-                    f"Non-ROI volume atlas file not found: {non_roi_spec.atlas_path}"
+                raise FileNotFoundError(
+                    f"Non-ROI volume atlas not found: {non_roi_spec.atlas_path}"
                 )
             non_roi.mask_space = ["subject"]
             non_roi.mask_path = [non_roi_spec.atlas_path]
@@ -399,12 +383,9 @@ def list_atlas_regions(annot_path: str) -> List[Tuple[int, str]]:
     """
     import nibabel.freesurfer.io as fsio
 
-    try:
-        labels, ctab, names = fsio.read_annot(annot_path)
-        regions = []
-        for i, name in enumerate(names):
-            region_name = name.decode("utf-8") if isinstance(name, bytes) else str(name)
-            regions.append((i, region_name))
-        return regions
-    except Exception as e:
-        raise RuntimeError(f"Failed to read atlas file {annot_path}: {e}")
+    labels, ctab, names = fsio.read_annot(annot_path)
+    regions = []
+    for i, name in enumerate(names):
+        region_name = name.decode("utf-8") if isinstance(name, bytes) else str(name)
+        regions.append((i, region_name))
+    return regions

@@ -96,6 +96,8 @@ class FlexConfig:
     electrode: FlexElectrodeConfig
     roi: ROISpec
 
+    anisotropy_type: str = "scalar"
+
     # ── focality ──
     non_roi_method: Optional[NonROIMethod] = None
     non_roi: Optional[ROISpec] = None

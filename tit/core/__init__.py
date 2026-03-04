@@ -1,8 +1,6 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-# Import main components for easy access
-from . import utils
 
 from .roi import (
     calculate_roi_metrics,
