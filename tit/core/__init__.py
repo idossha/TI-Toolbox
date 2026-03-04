@@ -2,23 +2,21 @@
 # -*- coding: utf-8 -*-
 
 # Import main components for easy access
-from .. import constants
 from . import utils
-from ..paths import (
-    PathManager,
-    get_path_manager,
-    reset_path_manager,
+
+from .roi import (
+    calculate_roi_metrics,
+    find_grey_matter_indices,
+    find_roi_element_indices,
 )
+
 
 # Define public API
 __all__ = [
-    # Constants module
-    "constants",
     # Utils module
+    "find_roi_element_indices",
+    "find_grey_matter_indices",
+    "calculate_roi_metrics",
     "utils",
-    # Path management classes
-    "PathManager",
-    # Path management functions
-    "get_path_manager",
-    "reset_path_manager",
 ]
+
