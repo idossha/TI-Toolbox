@@ -251,19 +251,6 @@ class ProcessingStepReportlet(BaseReportlet):
             }
         )
 
-    def _format_duration(self, seconds: Optional[float]) -> str:
-        """Format duration in human-readable form."""
-        if seconds is None:
-            return "—"
-        if seconds < 60:
-            return f"{seconds:.1f}s"
-        elif seconds < 3600:
-            minutes = seconds / 60
-            return f"{minutes:.1f}m"
-        else:
-            hours = seconds / 3600
-            return f"{hours:.1f}h"
-
     def _get_status_icon(self, status: str) -> str:
         """Get status icon character."""
         icons = {
@@ -289,7 +276,15 @@ class ProcessingStepReportlet(BaseReportlet):
             step_id = f"{self.reportlet_id}-step-{i}"
             status = step.get("status", "pending")
             icon = self._get_status_icon(status)
-            duration = self._format_duration(step.get("duration"))
+            s = step.get("duration")
+            if s is None:
+                duration = "—"
+            elif s < 60:
+                duration = f"{s:.1f}s"
+            elif s < 3600:
+                duration = f"{s / 60:.1f}m"
+            else:
+                duration = f"{s / 3600:.1f}h"
 
             # Build parameters section
             params_html = ""
