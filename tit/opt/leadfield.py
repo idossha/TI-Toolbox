@@ -93,7 +93,9 @@ class LeadfieldGenerator:
 
         tissues = [1, 2]
         m2m_dir = Path(self.pm.m2m(self.subject_id))
-        output_dir = Path(output_dir or self.pm.ensure(self.pm.leadfields(self.subject_id)))
+        output_dir = Path(
+            output_dir or self.pm.ensure(self.pm.leadfields(self.subject_id))
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self._cleanup(output_dir, m2m_dir)
@@ -105,12 +107,16 @@ class LeadfieldGenerator:
         tdcs_lf.interpolation = None
         tdcs_lf.map_to_surf = False
         tdcs_lf.tissues = tissues
-        tdcs_lf.eeg_cap = str(Path(self.pm.eeg_positions(self.subject_id)) / f"{self.electrode_cap}.csv")
+        tdcs_lf.eeg_cap = str(
+            Path(self.pm.eeg_positions(self.subject_id)) / f"{self.electrode_cap}.csv"
+        )
 
         if self._termination_flag and self._termination_flag():
             raise InterruptedError("Leadfield generation cancelled before starting")
 
-        self._log(f"Generating leadfield for {self.subject_id} (cap={self.electrode_cap})")
+        self._log(
+            f"Generating leadfield for {self.subject_id} (cap={self.electrode_cap})"
+        )
         simnibs.run_simnibs(tdcs_lf)
 
         if self._termination_flag and self._termination_flag():
@@ -151,7 +157,7 @@ class LeadfieldGenerator:
 
             for prefix in (f"{sid}_", sid):
                 if net_name.startswith(prefix):
-                    net_name = net_name[len(prefix):]
+                    net_name = net_name[len(prefix) :]
                     break
 
             net_name = net_name.strip("_") or "unknown"
@@ -173,5 +179,3 @@ class LeadfieldGenerator:
         cap_name = cap_name or self.electrode_cap
         eeg_pos = eeg_positions(str(self.pm.m2m(self.subject_id)), cap_name=cap_name)
         return sorted(eeg_pos.keys())
-
-

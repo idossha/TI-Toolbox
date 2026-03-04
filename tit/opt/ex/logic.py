@@ -1,33 +1,26 @@
 """
 Core algorithms for TI Exhaustive Search.
 
-This module contains the combinatorial algorithms used for generating
-current ratios and electrode montages for optimization.
+Combinatorial logic for generating current ratios and electrode montages.
 """
 
 from itertools import product
 
 
 def generate_current_ratios(total_current, current_step, channel_limit):
-    """Generate valid current ratio combinations for TI stimulation.
-
-    Args:
-        total_current (float): Total current in milliamps
-        current_step (float): Step size for current increments in milliamps
-        channel_limit (float): Maximum current per channel in milliamps
+    """Generate valid current ratio pairs for TI stimulation.
 
     Returns:
         tuple: (ratios, channel_limit_exceeded)
             - ratios: List of (ch1_current, ch2_current) tuples
-            - channel_limit_exceeded: Boolean indicating if limit was exceeded
+            - channel_limit_exceeded: bool
     """
-    ratios, epsilon = [], current_step * 0.01
+    ratios = []
+    epsilon = current_step * 0.01
     min_current = max(total_current - channel_limit, current_step)
-    if min_current < current_step - epsilon:
+    channel_limit_exceeded = min_current < current_step - epsilon
+    if channel_limit_exceeded:
         min_current = current_step
-        channel_limit_exceeded = True
-    else:
-        channel_limit_exceeded = False
 
     current_ch1 = channel_limit
     while current_ch1 >= min_current - epsilon:
@@ -44,63 +37,35 @@ def generate_current_ratios(total_current, current_step, channel_limit):
     return ratios, channel_limit_exceeded
 
 
-def calculate_total_combinations(
-    e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
-):
-    """Calculate total number of montage combinations to be tested.
-
-    Args:
-        e1_plus (list): E1+ electrode names
-        e1_minus (list): E1- electrode names
-        e2_plus (list): E2+ electrode names
-        e2_minus (list): E2- electrode names
-        current_ratios (list): List of (ch1_current, ch2_current) tuples
-        all_combinations (bool): If True, test all valid electrode combinations
-
-    Returns:
-        int: Total number of combinations to test
-    """
+def _electrode_combinations(e1_plus, e1_minus, e2_plus, e2_minus, all_combinations):
+    """Yield valid electrode 4-tuples."""
     if all_combinations:
-        electrode_combinations = [
-            (e1p, e1m, e2p, e2m)
-            for e1p, e1m, e2p, e2m in product(e1_plus, repeat=4)
-            if len(set([e1p, e1m, e2p, e2m])) == 4
-        ]
-        return len(electrode_combinations) * len(current_ratios)
-    return (
-        len(e1_plus)
-        * len(e1_minus)
-        * len(e2_plus)
-        * len(e2_minus)
-        * len(current_ratios)
-    )
+        for combo in product(e1_plus, repeat=4):
+            if len(set(combo)) == 4:
+                yield combo
+    else:
+        yield from product(e1_plus, e1_minus, e2_plus, e2_minus)
 
 
 def generate_montage_combinations(
     e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
 ):
-    """Generate electrode montage combinations for testing.
+    """Yield (e1p, e1m, e2p, e2m, (ch1_mA, ch2_mA)) tuples."""
+    for electrodes in _electrode_combinations(
+        e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+    ):
+        for ratio in current_ratios:
+            yield (*electrodes, ratio)
 
-    Args:
-        e1_plus (list): E1+ electrode names
-        e1_minus (list): E1- electrode names
-        e2_plus (list): E2+ electrode names
-        e2_minus (list): E2- electrode names
-        current_ratios (list): List of (ch1_current, ch2_current) tuples
-        all_combinations (bool): If True, generate all valid electrode combinations
 
-    Yields:
-        tuple: (e1_plus, e1_minus, e2_plus, e2_minus, current_ch1, current_ch2)
-    """
-    if all_combinations:
-        electrode_combinations = [
-            (e1p, e1m, e2p, e2m)
-            for e1p, e1m, e2p, e2m in product(e1_plus, repeat=4)
-            if len(set([e1p, e1m, e2p, e2m])) == 4
-        ]
-        for electrode_combo in electrode_combinations:
-            for current_ratio in current_ratios:
-                yield (*electrode_combo, current_ratio)
-    else:
-        for combo in product(e1_plus, e1_minus, e2_plus, e2_minus, current_ratios):
-            yield combo
+def count_combinations(
+    e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+):
+    """Count total montage combinations without materializing them."""
+    n_electrodes = sum(
+        1
+        for _ in _electrode_combinations(
+            e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+        )
+    )
+    return n_electrodes * len(current_ratios)
