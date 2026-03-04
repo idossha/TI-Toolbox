@@ -17,7 +17,7 @@ import shutil
 from copy import deepcopy
 
 import numpy as np
-from simnibs import ElementTags, mesh_io, run_simnibs, sim_struct
+from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit.core.calc import get_TI_vectors
@@ -33,10 +33,7 @@ from tit.sim.utils import (
     transform_to_nifti,
 )
 
-_TAGS_KEEP = np.hstack((
-    np.arange(ElementTags.TH_START,         ElementTags.SALINE_START - 1),
-    np.arange(ElementTags.TH_SURFACE_START, ElementTags.SALINE_TH_SURFACE_START - 1),
-))
+_TAGS_KEEP = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
 
 
 class mTISimulation:

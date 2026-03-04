@@ -28,18 +28,11 @@ def main(
                 ├── m2m_{subject_id}/
                 └── Simulations/
     """
-    # Load the original mesh
     full_mesh = mesh_io.read_msh(input_file)
-
-    # Extract grey matter mesh (tag #2)
     gm_mesh = full_mesh.crop_mesh(tags=[2])
-
-    # Extract white matter mesh (tag #1)
     wm_mesh = full_mesh.crop_mesh(tags=[1])
 
-    # Prepare output file paths
     if project_dir and subject_id:
-        # Use BIDS directory structure
         derivatives_dir = os.path.join(project_dir, "derivatives")
         simnibs_dir = os.path.join(derivatives_dir, "SimNIBS", f"sub-{subject_id}")
         output_base = os.path.join(simnibs_dir, "Simulations")

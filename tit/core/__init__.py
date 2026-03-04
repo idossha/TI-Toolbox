@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 # Import main components for easy access
-from . import constants
+from .. import constants
 from . import utils
-from .paths import (
+from ..paths import (
     PathManager,
     get_path_manager,
     reset_path_manager,

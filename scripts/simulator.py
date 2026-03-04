@@ -18,10 +18,11 @@ config = SimulationConfig(
         dimensions=[8.0, 8.0],   
         thickness=4.0,            
         sponge_thickness=2.0)
+)
 
 montages = load_montages(
     montage_names=["L_Insula"],
     project_dir=PROJECT_DIR,
     eeg_net="GSN-HydroCel-185.csv")
 
-results = run_simulation(config, montages)
+run_simulation(config, montages)

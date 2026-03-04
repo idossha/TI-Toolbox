@@ -17,7 +17,7 @@ import os
 from copy import deepcopy
 
 import numpy as np
-from simnibs import ElementTags, mesh_io, run_simnibs, sim_struct
+from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit.paths import get_path_manager
@@ -33,11 +33,12 @@ from tit.sim.utils import (
     transform_to_nifti,
 )
 
-# Brain tissue crop mask — same convention as SimNIBS TI example
-_TAGS_KEEP = np.hstack((
-    np.arange(ElementTags.TH_START,         ElementTags.SALINE_START - 1),
-    np.arange(ElementTags.TH_SURFACE_START, ElementTags.SALINE_TH_SURFACE_START - 1),
-))
+# Brain tissue crop mask — keeps tissue volume elements (1-99) and tissue
+# surface elements (1001-1099). Hardcoded ranges match the proven approach
+# from the previous TI-toolbox release; using ElementTags constants produced
+# a wider range that caught electrode-adjacent elements whose counts differ
+# between the two placements, causing TI.get_maxTI's shape assertion to fail.
+_TAGS_KEEP = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
 
 
 class TISimulation:
@@ -176,11 +177,8 @@ class TISimulation:
         ef2 = m2.field["E"]
         TImax = TI.get_maxTI(ef1.value, ef2.value)
 
-        # Build output mesh: individual E magnitudes + TI_max
         mout = deepcopy(m1)
         mout.elmdata = []
-        mout.add_element_field(ef1.norm(), "magnE - pair 1")
-        mout.add_element_field(ef2.norm(), "magnE - pair 2")
         mout.add_element_field(TImax, "TI_max")
 
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")

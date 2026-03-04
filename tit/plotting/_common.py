@@ -20,13 +20,10 @@ def suppress_matplotlib_findfont_noise() -> None:
     common system fonts are missing (common inside Docker images). This doesn't
     affect correctness of the plots, but clutters CLI output and logs.
     """
-    try:
-        import logging
+    import logging
 
-        # Font discovery messages come from this logger in most matplotlib versions.
-        logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
-    except Exception:
-        return
+    # Font discovery messages come from this logger in most matplotlib versions.
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 
 def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
@@ -37,36 +34,25 @@ def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
     - This should be called BEFORE importing matplotlib.pyplot.
     - If a backend is already active, we do not force-change it.
     """
-    try:
-        import os
+    import os
+    import matplotlib
 
-        # If the user already set a backend, respect it.
-        os.environ.setdefault("MPLBACKEND", backend)
+    os.environ.setdefault("MPLBACKEND", backend)
 
-        import matplotlib
+    # Silence noisy `findfont:` chatter (safe even if pyplot was already imported).
+    suppress_matplotlib_findfont_noise()
 
-        # Silence noisy `findfont:` chatter (safe even if pyplot was already imported).
-        suppress_matplotlib_findfont_noise()
-
-        current = str(matplotlib.get_backend() or "")
-        if current and current.lower() != backend.lower():
-            # Backend already selected; don't override.
-            return
-
-        # If matplotlib is not yet configured, set it.
-        try:
-            matplotlib.use(backend)  # type: ignore[attr-defined]
-        except Exception:
-            # Backend may already be set or pyplot already imported.
-            return
-    except Exception:
-        # Matplotlib not installed or failed to configure; callers should handle.
+    current = str(matplotlib.get_backend() or "")
+    if current and current.lower() != backend.lower():
+        # Backend already selected; don't override.
         return
+
+    matplotlib.use(backend)  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True)
 class SaveFigOptions:
-    dpi: int = 300
+    dpi: int = 600
     bbox_inches: str = "tight"
     facecolor: str = "white"
     edgecolor: str = "none"
@@ -92,10 +78,8 @@ def savefig_close(
         edgecolor=opts.edgecolor,
         format=fmt,
     )
-    try:
-        import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-        plt.close(fig)
-    except Exception:
-        pass
+    plt.close(fig)
+
     return output_file

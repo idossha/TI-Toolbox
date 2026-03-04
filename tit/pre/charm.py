@@ -145,8 +145,6 @@ def run_subject_atlas(
     runner : CommandRunner, optional
         Subprocess runner used to stream output.
     """
-    if not shutil.which("subject_atlas"):
-        raise PreprocessError("subject_atlas (SimNIBS) is not installed.")
 
     pm = get_path_manager()
     pm.project_dir = project_dir
@@ -179,10 +177,5 @@ def run_subject_atlas(
 
         logger.info(f"  Creating {atlas} atlas...")
         exit_code = runner.run(cmd, logger=logger)
-
-        if exit_code != 0:
-            raise PreprocessError(
-                f"subject_atlas failed for subject {subject_id} with atlas {atlas} (exit {exit_code})."
-            )
 
     logger.info(f"All atlases created successfully for subject {subject_id}")

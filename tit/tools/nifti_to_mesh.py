@@ -112,14 +112,9 @@ def nifti_to_mesh(
 
 def save_stl(verts, faces, filename):
     """Save mesh as binary STL format."""
-    try:
-        from stl import mesh as stl_mesh
-    except ImportError:
-        raise ImportError(
-            "stl package required for STL output. Install with: pip install numpy-stl"
-        )
+    
+    from stl import mesh as stl_mesh
 
-    # Create the mesh
     surface = stl_mesh.Mesh(np.zeros(faces.shape[0], dtype=stl_mesh.Mesh.dtype))
     for i, f in enumerate(faces):
         for j in range(3):

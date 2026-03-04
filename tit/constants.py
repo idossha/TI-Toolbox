@@ -108,10 +108,7 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 
 # Field names for analysis
 FIELD_TIMAX = "TImax"
-FIELD_NORMJ = "normJ"
-FIELD_NORME = "normE"
 FIELD_E_NORMAL = "E_normal"
-FIELD_MAGNITUDE = "magnitude"
 
 # Tissue region indices (SimNIBS convention)
 REGION_WHITE_MATTER = 1
@@ -136,7 +133,6 @@ DEFAULT_RADIUS_MM = 5.0
 SIM_TYPE_TI = "TI"
 SIM_TYPE_MTI = "mTI"
 SIM_TYPE_TDCS = "tDCS"
-SIM_TYPE_TES = "tES"
 
 # Simulation modes
 SIM_MODE_NORMAL = "normal"
@@ -146,11 +142,10 @@ SIM_MODE_DEBUG = "debug"
 # Electrode shapes
 ELECTRODE_SHAPE_ELLIPSE = "ellipse"
 ELECTRODE_SHAPE_RECT = "rect"
-ELECTRODE_SHAPE_CUSTOM = "custom"
 
 # Default electrode parameters
 DEFAULT_ELECTRODE_THICKNESS = 4.0  # mm
-DEFAULT_ELECTRODE_RADIUS = 5.0  # mm
+DEFAULT_ELECTRODE_RADIUS = 4.0  # mm
 DEFAULT_INTENSITY = 1.0  # mA
 
 # ============================================================================
@@ -246,7 +241,6 @@ REPORT_TYPE_GROUP = "group"
 # Report formats
 REPORT_FORMAT_HTML = "html"
 REPORT_FORMAT_PDF = "pdf"
-REPORT_FORMAT_MARKDOWN = "markdown"
 
 # ============================================================================
 # TIMESTAMP FORMATS
@@ -264,8 +258,6 @@ TIMESTAMP_FORMAT_TIME_ONLY = "%H:%M:%S"
 # External tools
 TOOL_SIMNIBS = "SimNIBS"
 TOOL_FREESURFER = "FreeSurfer"
-TOOL_FSL = "FSL"
-TOOL_DCMTK = "dcmtk"
 
 # ============================================================================
 # ERROR MESSAGES
@@ -351,11 +343,6 @@ PLATFORM_LINUX = "Linux"
 PLATFORM_DARWIN = "Darwin"
 PLATFORM_WINDOWS = "Windows"
 
-# CPU/Memory thresholds
-CPU_WARNING_THRESHOLD = 90  # percent
-MEMORY_WARNING_THRESHOLD = 90  # percent
-DISK_WARNING_THRESHOLD = 90  # percent
-
 # ============================================================================
 # REGEX PATTERNS
 # ============================================================================
@@ -369,25 +356,6 @@ PATTERN_MONTAGE_NAME = r"^[a-zA-Z0-9_-]+$"
 # Coordinate pattern (matches numbers with optional decimal and sign)
 PATTERN_COORDINATE = r"^-?\d+\.?\d*$"
 
-# ============================================================================
-# DEFAULT CONFIGURATIONS
-# ============================================================================
-
-# Default montage configuration
-DEFAULT_MONTAGE_CONFIG = {
-    "nets": {
-        FILE_EGI_TEMPLATE: {MONTAGE_TYPE_UNI_POLAR: {}, MONTAGE_TYPE_MULTI_POLAR: {}}
-    }
-}
-
-# Default analyzer configuration
-DEFAULT_ANALYZER_CONFIG = {
-    "space": {"default": "mesh", "prompt": "enable"},
-    "analysis_type": {"default": "spherical", "prompt": "enable"},
-    "radius": {"default": DEFAULT_RADIUS_MM, "prompt": "enable"},
-    "percentiles": {"default": DEFAULT_PERCENTILES, "prompt": "disable"},
-    "focality_cutoffs": {"default": DEFAULT_FOCALITY_CUTOFFS, "prompt": "disable"},
-}
 
 # ============================================================================
 # QSI (QSIPrep/QSIRecon) INTEGRATION

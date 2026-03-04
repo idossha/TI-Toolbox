@@ -182,22 +182,15 @@ def run_montage_visualization(
         logger.info(f"Skipping montage visualization for {eeg_net} mode")
         return
 
-    script = os.path.join(os.path.dirname(__file__), "visualize-montage.sh")
-
+    from tit.tools.montage_visualizer import visualize_montage
     sim_mode_str = "U" if simulation_mode == SimulationMode.TI else "M"
-    env = {**os.environ, "PROJECT_DIR_NAME": os.path.basename(project_dir)}
-    cmd = ["bash", script, sim_mode_str, eeg_net, output_dir]
-
-    if electrode_pairs:
-        pairs_str = ",".join(f"{p[0]}-{p[1]}" for p in electrode_pairs)
-        cmd += ["--pairs", f"{montage_name}:{pairs_str}"]
-    else:
-        cmd.insert(2, montage_name)
-
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
-    if result.returncode != 0:
-        logger.warning(f"Montage visualization warning: {result.stderr}")
-
+    visualize_montage(
+        montage_name=montage_name,
+        electrode_pairs=electrode_pairs or [],
+        eeg_net=eeg_net,
+        output_dir=output_dir,
+        sim_mode=sim_mode_str,
+    )
 
 # ---------------------------------------------------------------------------
 # Simulation config file
@@ -315,9 +308,12 @@ def run_simulation(
             cls = TISimulation if montage.simulation_mode == SimulationMode.TI else mTISimulation
             results.append(cls(config, montage, logger).run(simulation_dir))
         except Exception as exc:
-            logger.error(f"Failed: {montage.name} — {exc}\n{traceback.format_exc()}")
+            tb = traceback.format_exc()
+            logger.error(f"Failed: {montage.name} — {exc}\n{tb}")
+            import sys
+            print(f"\n[TRACEBACK] {montage.name}:\n{tb}", file=sys.stderr)
             results.append({"montage_name": montage.name, "montage_type": montage.simulation_mode.value,
-                            "status": "failed", "error": str(exc)})
+                            "status": "failed", "error": str(exc) or repr(exc)})
     if progress_callback:
         progress_callback(total, total, "Complete")
     return results

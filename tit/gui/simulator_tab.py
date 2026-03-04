@@ -10,32 +10,38 @@ import os
 import json
 import re
 import subprocess
-import signal
-import sys
 import time
-from pathlib import Path
 import datetime
-import tempfile
 import shutil
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.gui.components.base_thread import detect_message_type_from_content
-from tit.core import get_path_manager, constants as const
+from tit.gui.components.add_montage_dialog import AddMontageDialog
+from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
+from tit.core import get_path_manager
 from tit.reporting import SimulationReportGenerator
-from tit.gui.style import FONT_MD, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
 
 # Import the refactored simulation dataclasses
 from tit.sim import (
     SimulationConfig,
     ElectrodeConfig,
     IntensityConfig,
+    LabelMontage,
+    XYZMontage,
     MontageConfig,
     ConductivityType,
     ParallelConfig,
+)
+from tit.sim.utils import (
+    list_montage_names,
+    load_montages,
+    load_montage_data,
+    save_montage_data,
+    ensure_montage_file,
+    upsert_montage,
 )
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
@@ -53,181 +59,45 @@ def strip_ansi_codes(text: str) -> str:
     return cleaned
 
 
-class SubprocessSimulationProcess(QtCore.QObject):
-    """
-    Run the simulation pipeline in a separate process (QProcess) so it can be hard-killed.
+class SimulationThread(QtCore.QThread):
+    """Run tit.sim.run_simulation() in a background thread, streaming output to the GUI."""
 
-    Interface intentionally mirrors the old thread usage:
-    - output_signal(str, str)
-    - error_signal(str)
-    - finished (Qt signal)
-    - start()
-    - terminate_simulation() / terminate_process()
-    - get_results()
-    """
+    output_signal = QtCore.pyqtSignal(str, str)  # (message, msg_type)
+    finished_signal = QtCore.pyqtSignal(list)  # list[dict] results
 
-    output_signal = QtCore.pyqtSignal(str, str)
-    error_signal = QtCore.pyqtSignal(str)
-    finished = QtCore.pyqtSignal()
+    def __init__(self, config, montages, log_file, parent=None):
+        super().__init__(parent)
+        self.config = config
+        self.montages = montages
+        self.log_file = log_file
 
-    def __init__(self, payload: dict, parent_tab=None):
-        super().__init__(parent_tab)
-        self.parent_tab = parent_tab
-        self.payload = payload
+    def run(self):
+        import logging
+        from tit.sim.utils import run_simulation, _make_file_logger
+        from tit.gui.components.base_thread import detect_message_type_from_content
 
-        self._temp_dir = tempfile.mkdtemp(prefix="ti_sim_qprocess_")
-        self._config_path = os.path.join(self._temp_dir, "sim_config.json")
-        self._results_path = os.path.join(self._temp_dir, "sim_results.json")
+        logger = _make_file_logger("SimulationThread", self.log_file)
 
-        self._results = []
-        self._log_file = None
-        self._terminated = False
-        self._buffer = ""
+        class _QtHandler(logging.Handler):
+            def __init__(self, emit_fn):
+                super().__init__()
+                self._emit = emit_fn
 
-        self.qprocess = QtCore.QProcess(self)
-        self.qprocess.setProcessChannelMode(QtCore.QProcess.MergedChannels)
-        self.qprocess.readyReadStandardOutput.connect(self._on_ready_read)
-        self.qprocess.errorOccurred.connect(self._on_error)
-        self.qprocess.finished.connect(self._on_finished)
+            def emit(self, record):
+                msg = strip_ansi_codes(self.format(record))
+                if msg.strip():
+                    self._emit(msg, detect_message_type_from_content(msg))
 
-        # Ensure unbuffered python output for real-time GUI streaming
-        env = QtCore.QProcessEnvironment.systemEnvironment()
-        env.insert("PYTHONUNBUFFERED", "1")
-        env.insert("PYTHONFAULTHANDLER", "1")
-        self.qprocess.setProcessEnvironment(env)
+        handler = _QtHandler(self.output_signal.emit)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
 
-    def start(self):
-        """Start the subprocess simulation."""
-        try:
-            with open(self._config_path, "w") as f:
-                json.dump(self.payload, f)
-
-            program = "simnibs_python"
-            args = [
-                "-m",
-                "tit.sim.subprocess_runner",
-                "--config",
-                self._config_path,
-                "--results",
-                self._results_path,
-            ]
-            self.qprocess.start(program, args)
-        except Exception as e:
-            self.error_signal.emit(f"Failed to start simulation subprocess: {e}")
-            self.finished.emit()
-
-    def _emit_line(self, line: str):
-        line = strip_ansi_codes(line)
-        if not line.strip():
-            return
-        msg_type = detect_message_type_from_content(line)
-        self.output_signal.emit(line, msg_type)
-
-    def _on_ready_read(self):
-        try:
-            data = bytes(self.qprocess.readAllStandardOutput()).decode(errors="replace")
-        except Exception:
-            data = ""
-        if not data:
-            return
-        self._buffer += data
-        while "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
-            self._emit_line(line)
-
-    def _on_error(self, _err):
-        try:
-            msg = (
-                f"Subprocess error occurred (state={self.qprocess.state()} code={_err})"
-            )
-        except Exception:
-            msg = "Subprocess error occurred"
-        self.error_signal.emit(msg)
-
-    def _read_results_file(self):
-        if not os.path.exists(self._results_path):
-            return None
-        try:
-            with open(self._results_path, "r") as f:
-                return json.load(f)
-        except Exception:
-            return None
-
-    def _cleanup_temp(self):
-        # Use ignore_errors=True parameter - no need for try-except
-        shutil.rmtree(self._temp_dir, ignore_errors=True)
-
-    def _on_finished(self, exit_code, exit_status):
-        # Flush any remaining buffered output
-        if self._buffer.strip():
-            for line in self._buffer.splitlines():
-                self._emit_line(line)
-        self._buffer = ""
-
-        payload = self._read_results_file() or {}
-        self._log_file = payload.get("log_file")
-
-        results = payload.get("results")
-        if isinstance(results, list):
-            self._results = results
-        else:
-            # Fall back to a single failed result if process ended unexpectedly
-            if (
-                exit_code != 0
-                or exit_status != QtCore.QProcess.NormalExit
-                or payload.get("status") == "failed"
-            ):
-                err = (
-                    payload.get("error")
-                    or f"Simulation subprocess failed (exit_code={exit_code})"
-                )
-                self._results = [
-                    {"montage_name": "unknown", "status": "failed", "error": err}
-                ]
-            else:
-                self._results = []
-
-        # Clean temp files after parsing results
-        self._cleanup_temp()
-        self.finished.emit()
-
-    def get_results(self):
-        return self._results
-
-    def get_log_file(self):
-        return self._log_file
-
-    def terminate_process(self):
-        """Alias used by some error-abort code paths."""
-        return self.terminate_simulation()
+        results = run_simulation(self.config, self.montages, logger=logger)
+        self.finished_signal.emit(results)
 
     def terminate_simulation(self):
-        """
-        Hard-stop the simulation.
-
-        We SIGKILL the *process group* (Linux container), ensuring child workers die too.
-        The runner sets its own pgid = pid, so killpg(pid) targets the full tree.
-        """
-        self._terminated = True
-        try:
-            pid = int(self.qprocess.processId())
-        except Exception:
-            pid = 0
-
-        # Hard kill process group first (best-effort)
-        if pid > 0 and os.name != "nt":
-            try:
-                os.killpg(pid, signal.SIGKILL)
-            except (ProcessLookupError, OSError):
-                pass  # Process group may already be terminated
-
-        # Also kill the main process
-        try:
-            if self.qprocess.state() != QtCore.QProcess.NotRunning:
-                self.qprocess.kill()
-        except (RuntimeError, OSError):
-            pass  # QProcess may already be destroyed or process already dead
-        return True
+        self.terminate()
+        self.wait()
 
 
 class SimulatorTab(QtWidgets.QWidget):
@@ -237,7 +107,7 @@ class SimulatorTab(QtWidgets.QWidget):
         super(SimulatorTab, self).__init__(parent)
         self.parent = parent
         self.simulation_running = False
-        self.simulation_process = None
+        self.sim_thread = None
         self.custom_conductivities = {}  # keys: int tissue number, values: float
         self.report_generator = None
         self.simulation_session_id = None
@@ -246,15 +116,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self._current_run_subjects = []
         self._current_run_is_montage = True
         self._current_run_montages = []
-        # Job-based execution (simulation = subject × montage/config)
-        self._job_queue = []
-        self._active_processes = set()
-        self._process_to_job = {}
-        self._max_concurrent_jobs = 1
         self._run_start_time = None
         self._project_dir_path_current = None
         # Per-job selection state
-        self._job_selections = {}   # row_index -> list[str] of selected item texts
+        self._job_selections = {}  # row_index -> list[str] of selected item texts
         self._job_cards: list = []
         self._selected_card_idx: int = -1
         # Initialize debug mode (default to False)
@@ -293,7 +158,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.jobs_layout = QtWidgets.QVBoxLayout(self.jobs_container)
         self.jobs_layout.setContentsMargins(4, 4, 4, 4)
         self.jobs_layout.setSpacing(4)
-        self.jobs_layout.addStretch()   # keeps cards pushed to top
+        self.jobs_layout.addStretch()  # keeps cards pushed to top
         self.jobs_scroll.setWidget(self.jobs_container)
         jobs_outer.addWidget(self.jobs_scroll)
 
@@ -415,13 +280,12 @@ class SimulatorTab(QtWidgets.QWidget):
         self.parallel_workers_label = QtWidgets.QLabel("Workers:")
         self.parallel_workers_label.setEnabled(False)
 
-        import os as _os
-        default_workers = max(1, (_os.cpu_count() or 4) // 2)
+        default_workers = max(1, (os.cpu_count() or 4) // 2)
         self.parallel_workers_spin = QtWidgets.QSpinBox()
-        self.parallel_workers_spin.setRange(1, _os.cpu_count() or 8)
+        self.parallel_workers_spin.setRange(1, os.cpu_count() or 8)
         self.parallel_workers_spin.setValue(default_workers)
         self.parallel_workers_spin.setToolTip(
-            f"Number of parallel workers (CPU cores: {_os.cpu_count() or 'unknown'})"
+            f"Number of parallel workers (CPU cores: {os.cpu_count() or 'unknown'})"
         )
         self.parallel_workers_spin.setEnabled(False)
         self.parallel_workers_spin.setMinimumWidth(52)
@@ -446,8 +310,8 @@ class SimulatorTab(QtWidgets.QWidget):
         right_layout = QtWidgets.QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(4)
-        right_layout.addWidget(selection_group, 1)   # stretch=1: takes remaining height
-        right_layout.addWidget(global_group, 0)      # stretch=0: compact, natural height
+        right_layout.addWidget(selection_group, 1)  # stretch=1: takes remaining height
+        right_layout.addWidget(global_group, 0)  # stretch=0: compact, natural height
 
         # Outer horizontal splitter: Jobs (left, full height) | right panel
         outer_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
@@ -562,7 +426,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.eeg_net_combo.addItem("GSN-HydroCel-185.csv")
 
             # Refresh subject and EEG net combos in existing job cards
-            eeg_nets = [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]
+            eeg_nets = [
+                self.eeg_net_combo.itemText(i)
+                for i in range(self.eeg_net_combo.count())
+            ]
             for card in self._job_cards:
                 current_subj = card.subject_combo.currentText()
                 card.subject_combo.blockSignals(True)
@@ -594,8 +461,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
     # ── Job table management ────────────────────────────────────────────────
 
-    def _add_job_row(self, subject=None, source="Montage", mode="U",
-                     currents="1.0,1.0", eeg_net=None):
+    def _add_job_row(
+        self, subject=None, source="Montage", mode="U", currents="1.0,1.0", eeg_net=None
+    ):
         """Append a new simulation job card to the list."""
         idx = len(self._job_cards)
         self._job_selections[idx] = []
@@ -811,7 +679,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
         card = self._job_cards[idx]
         subject = card.subject_combo.currentText()
-        source = card.source_combo.currentText()   # "Montage" | "Flex-Search" | "Freehand"
+        source = (
+            card.source_combo.currentText()
+        )  # "Montage" | "Flex-Search" | "Freehand"
         self.selection_label.setText(f"Selecting for: {subject} / {source}")
         self._update_selection_panel_buttons(source=source)
 
@@ -865,7 +735,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _update_selection_panel_buttons(self, source):
         """Show/hide montage-specific buttons based on current source."""
-        is_montage = (source == "Montage")
+        is_montage = source == "Montage"
         self.add_montage_sel_btn.setVisible(is_montage)
         self.remove_montage_sel_btn.setVisible(is_montage)
 
@@ -877,14 +747,7 @@ class SimulatorTab(QtWidgets.QWidget):
             project_dir = self.pm.project_dir
             if not project_dir:
                 return []
-            montage_file = self.ensure_montage_file_exists(project_dir)
-            with open(montage_file, "r") as f:
-                montage_data = json.load(f)
-            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
-            nets = montage_data.get("nets", {})
-            if eeg_net not in nets:
-                return []
-            return list(nets[eeg_net].get(net_type, {}).keys())
+            return list_montage_names(project_dir, eeg_net, mode=sim_mode)
         except Exception as e:
             print(f"Error getting montage names: {e}")
             return []
@@ -935,7 +798,9 @@ class SimulatorTab(QtWidgets.QWidget):
                 items.append(f"{search_name} [mapped]")
                 # [optimized] only if the optimized_positions key is present
                 positions_file = self.pm.path_optional(
-                    "flex_electrode_positions", subject_id=subject_id, search_name=search_name
+                    "flex_electrode_positions",
+                    subject_id=subject_id,
+                    search_name=search_name,
                 )
                 if positions_file and os.path.isfile(positions_file):
                     try:
@@ -975,46 +840,33 @@ class SimulatorTab(QtWidgets.QWidget):
 
     # ── MontageConfig builders ──────────────────────────────────────────────
 
-    def _build_montage_configs_for_row(self, subject, source, sim_mode, selected_items, eeg_net):
+    def _build_montage_configs_for_row(
+        self, subject, source, sim_mode, selected_items, eeg_net
+    ):
         """Build list of MontageConfig objects for a single job row."""
         configs = []
         if source == "montage":
-            configs = self._build_montage_configs_from_names(selected_items, eeg_net, sim_mode)
+            configs = self._build_montage_configs_from_names(
+                selected_items, eeg_net, sim_mode
+            )
         elif source == "flex-search":
-            configs = self._build_montage_configs_from_flex(subject, selected_items, eeg_net)
+            configs = self._build_montage_configs_from_flex(
+                subject, selected_items, eeg_net
+            )
         elif source == "freehand":
             configs = self._build_montage_configs_from_freehand(subject, selected_items)
         return configs
 
     def _build_montage_configs_from_names(self, montage_names, eeg_net, sim_mode):
         """Build MontageConfig list from montage names."""
-        configs = []
         try:
             project_dir = self.pm.project_dir
-            montage_file = self.ensure_montage_file_exists(project_dir)
-            with open(montage_file, "r") as f:
-                montage_data = json.load(f)
-            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
-            for montage_name in montage_names:
-                electrode_pairs = None
-                if (
-                    "nets" in montage_data
-                    and eeg_net in montage_data["nets"]
-                    and net_type in montage_data["nets"][eeg_net]
-                    and montage_name in montage_data["nets"][eeg_net][net_type]
-                ):
-                    electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
-                if electrode_pairs:
-                    pairs_as_tuples = [(pair[0], pair[1]) for pair in electrode_pairs]
-                    configs.append(MontageConfig(
-                        name=montage_name,
-                        electrode_pairs=pairs_as_tuples,
-                        is_xyz=False,
-                        eeg_net=eeg_net,
-                    ))
+            return load_montages(
+                montage_names, project_dir, eeg_net, include_flex=False
+            )
         except Exception as e:
             self.update_output(f"Error building montage configs: {e}", "error")
-        return configs
+            return []
 
     def _build_montage_configs_from_flex(self, subject_id, selected_items, eeg_net):
         """Build MontageConfig list from flex-search selection items."""
@@ -1023,10 +875,10 @@ class SimulatorTab(QtWidgets.QWidget):
             try:
                 # Parse "search_name [mapped]" or "search_name [optimized]"
                 if item_text.endswith(" [mapped]"):
-                    search_name = item_text[:-len(" [mapped]")]
+                    search_name = item_text[: -len(" [mapped]")]
                     electrode_type = "mapped"
                 elif item_text.endswith(" [optimized]"):
-                    search_name = item_text[:-len(" [optimized]")]
+                    search_name = item_text[: -len(" [optimized]")]
                     electrode_type = "optimized"
                 else:
                     search_name = item_text
@@ -1037,18 +889,25 @@ class SimulatorTab(QtWidgets.QWidget):
                 )
                 if not flex_search_dir:
                     self.update_output(
-                        f"Flex-search folder not found for {subject_id} | {search_name}", "error"
+                        f"Flex-search folder not found for {subject_id} | {search_name}",
+                        "error",
                     )
                     continue
 
-                positions_file = os.path.join(flex_search_dir, "electrode_positions.json")
+                positions_file = os.path.join(
+                    flex_search_dir, "electrode_positions.json"
+                )
 
                 if electrode_type == "mapped":
                     # Need to map to EEG cap
-                    eeg_positions_dir = self.pm.path_optional("eeg_positions", subject_id=subject_id)
+                    eeg_positions_dir = self.pm.path_optional(
+                        "eeg_positions", subject_id=subject_id
+                    )
                     eeg_net_path = os.path.join(eeg_positions_dir or "", eeg_net)
                     if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
-                        self.update_output(f"EEG net file not found: {eeg_net_path}", "error")
+                        self.update_output(
+                            f"EEG net file not found: {eeg_net_path}", "error"
+                        )
                         continue
 
                     # Run electrode mapping
@@ -1057,24 +916,43 @@ class SimulatorTab(QtWidgets.QWidget):
                         f'electrode_mapping_{eeg_net.replace(".csv", "")}.json',
                     )
                     self.update_output(
-                        f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...", "info"
+                        f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...",
+                        "info",
                     )
                     map_electrodes_path = os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)), "tools", "map_electrodes.py"
+                        os.path.dirname(os.path.dirname(__file__)),
+                        "tools",
+                        "map_electrodes.py",
                     )
                     try:
                         subprocess.run(
-                            ["simnibs_python", map_electrodes_path, "-i", positions_file,
-                             "-n", eeg_net_path, "-o", mapping_file],
-                            capture_output=True, text=True, check=True,
+                            [
+                                "simnibs_python",
+                                map_electrodes_path,
+                                "-i",
+                                positions_file,
+                                "-n",
+                                eeg_net_path,
+                                "-o",
+                                mapping_file,
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=True,
                         )
-                        self.update_output(f"Electrode mapping completed for {search_name}", "info")
+                        self.update_output(
+                            f"Electrode mapping completed for {search_name}", "info"
+                        )
                     except subprocess.CalledProcessError as e:
-                        self.update_output(f"Error mapping electrodes: {e.stderr}", "error")
+                        self.update_output(
+                            f"Error mapping electrodes: {e.stderr}", "error"
+                        )
                         continue
 
                     if not os.path.exists(mapping_file):
-                        self.update_output(f"Mapping file was not created: {mapping_file}", "error")
+                        self.update_output(
+                            f"Mapping file was not created: {mapping_file}", "error"
+                        )
                         continue
 
                     with open(mapping_file, "r") as f:
@@ -1082,20 +960,24 @@ class SimulatorTab(QtWidgets.QWidget):
                     mapped_labels = mapping_data.get("mapped_labels", [])
                     if len(mapped_labels) < 4:
                         self.update_output(
-                            f"Not enough electrodes for TI in {search_name} (need >=4)", "error"
+                            f"Not enough electrodes for TI in {search_name} (need >=4)",
+                            "error",
                         )
                         continue
 
                     montage_name = self._parse_flex_search_name(search_name, "mapped")
                     if montage_name.startswith("flex_"):
                         electrodes = mapped_labels[:4]
-                        configs.append(MontageConfig(
-                            name=montage_name,
-                            electrode_pairs=[(electrodes[0], electrodes[1]),
-                                            (electrodes[2], electrodes[3])],
-                            is_xyz=False,
-                            eeg_net=eeg_net,
-                        ))
+                        configs.append(
+                            LabelMontage(
+                                name=montage_name,
+                                electrode_pairs=[
+                                    (electrodes[0], electrodes[1]),
+                                    (electrodes[2], electrodes[3]),
+                                ],
+                                eeg_net=eeg_net,
+                            )
+                        )
 
                 else:  # optimized
                     with open(positions_file, "r") as f:
@@ -1106,18 +988,24 @@ class SimulatorTab(QtWidgets.QWidget):
                             f"Not enough optimized electrodes in {search_name}", "error"
                         )
                         continue
-                    montage_name = self._parse_flex_search_name(search_name, "optimized")
+                    montage_name = self._parse_flex_search_name(
+                        search_name, "optimized"
+                    )
                     if montage_name.startswith("flex_"):
                         positions = optimized_positions[:4]
-                        configs.append(MontageConfig(
-                            name=montage_name,
-                            electrode_pairs=[(positions[0], positions[1]),
-                                            (positions[2], positions[3])],
-                            is_xyz=True,
-                            eeg_net=None,
-                        ))
+                        configs.append(
+                            XYZMontage(
+                                name=montage_name,
+                                electrode_pairs=[
+                                    (positions[0], positions[1]),
+                                    (positions[2], positions[3]),
+                                ],
+                            )
+                        )
             except Exception as e:
-                self.update_output(f"Error processing flex item '{item_text}': {e}", "error")
+                self.update_output(
+                    f"Error processing flex item '{item_text}': {e}", "error"
+                )
         return configs
 
     def _build_montage_configs_from_freehand(self, subject_id, selected_names):
@@ -1140,7 +1028,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     try:
                         with open(config_path, "r") as f:
                             config_data = json.load(f)
-                        config_name = config_data.get("name", config_file.replace(".json", ""))
+                        config_name = config_data.get(
+                            "name", config_file.replace(".json", "")
+                        )
                         if config_name != name:
                             continue
                         electrode_positions = config_data.get("electrode_positions", {})
@@ -1154,12 +1044,16 @@ class SimulatorTab(QtWidgets.QWidget):
                                 if k not in ordered_keys and len(coords) < 4:
                                     coords.append(electrode_positions.get(k))
                         if len(coords) >= 4:
-                            configs.append(MontageConfig(
-                                name=name,
-                                electrode_pairs=[(coords[0], coords[1]), (coords[2], coords[3])],
-                                is_xyz=True,
-                                eeg_net="freehand",
-                            ))
+                            configs.append(
+                                XYZMontage(
+                                    name=name,
+                                    electrode_pairs=[
+                                        (coords[0], coords[1]),
+                                        (coords[2], coords[3]),
+                                    ],
+                                    eeg_net="freehand",
+                                )
+                            )
                         break
                     except Exception as e:
                         print(f"Error loading freehand config {config_file}: {e}")
@@ -1171,51 +1065,23 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
-        from tit.sim import utils as sim_utils
-        return sim_utils.ensure_montage_file(project_dir)
+        return ensure_montage_file(project_dir)
 
     def update_montage_list(self, checked=None):
         """Refresh the selection list (called after adding montage)."""
         self._refresh_selection_list()
 
-    def _format_montage_label_html(self, montage_name, pairs, is_unipolar=True):
-        """Format montage label for the list widget using HTML for a professional look."""
-        if not pairs or not isinstance(pairs, list):
-            return f"<b>{montage_name}</b>"
-        channel_labels = []
-        for idx, pair in enumerate(pairs):
-            if isinstance(pair, list) and len(pair) == 2:
-                ch_num = f"ch{idx+1}:"
-                e1 = f"<span style='color:#55aaff;'>{pair[0]}</span>"
-                e2 = f"<span style='color:#ff5555;'>{pair[1]}</span>"
-                channel = f"{ch_num} {e1} <b>↔</b> {e2}"
-                channel_labels.append(channel)
-        return f"<b>{montage_name}</b>  |  " + "   +   ".join(channel_labels)
-
-    def _format_electrode_pairs(self, pairs):
-        """Format electrode pairs for display in a clean way."""
-        if not pairs:
-            return "No electrode pairs"
-        formatted_pairs = []
-        for pair in pairs:
-            if isinstance(pair, list) and len(pair) >= 2:
-                formatted_pair = (
-                    f'<span style="color: #55aaff;">{pair[0]}</span>'
-                    f'<span style="color: #aaaaaa;">-></span>'
-                    f'<span style="color: #ff5555;">{pair[1]}</span>'
-                )
-                formatted_pairs.append(formatted_pair)
-        return ", ".join(formatted_pairs)
-
     def run_simulation(self):
         """Run the simulation with the per-job table configuration."""
         try:
             # ── Collect jobs from table ────────────────────────────────────
-            raw_jobs = []  # (subject_id, source, sim_mode, current_str, eeg_net, selected_items)
+            raw_jobs = (
+                []
+            )  # (subject_id, source, sim_mode, current_str, eeg_net, selected_items)
             for i, card in enumerate(self._job_cards):
                 subject = card.subject_combo.currentText().strip()
                 source = card.source_combo.currentText().lower()
-                sim_mode = card.mode_combo.currentText()   # "U" or "M"
+                sim_mode = card.mode_combo.currentText()  # "U" or "M"
                 row_eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
                 selected = self._job_selections.get(i, [])
                 if not selected:
@@ -1224,19 +1090,24 @@ class SimulatorTab(QtWidgets.QWidget):
                     "1.0,1.0,1.0,1.0" if sim_mode == "M" else "1.0,1.0"
                 )
                 current_str = raw
-                raw_jobs.append((subject, source, sim_mode, current_str, row_eeg_net, selected))
+                raw_jobs.append(
+                    (subject, source, sim_mode, current_str, row_eeg_net, selected)
+                )
 
             if not raw_jobs:
                 QtWidgets.QMessageBox.warning(
-                    self, "Warning",
-                    "No jobs configured. Add rows with subjects and selected montages/configs."
+                    self,
+                    "Warning",
+                    "No jobs configured. Add rows with subjects and selected montages/configs.",
                 )
                 return
 
             # ── Read global params ─────────────────────────────────────────
             project_dir = self.pm.project_dir
             conductivity = self.sim_type_combo.currentData()
-            electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            electrode_shape = (
+                "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            )
             dimensions = self.dimensions_input.text() or "8,8"
             thickness = self.thickness_input.text() or "4"
 
@@ -1250,14 +1121,22 @@ class SimulatorTab(QtWidgets.QWidget):
                 float(thickness)
             except ValueError:
                 QtWidgets.QMessageBox.warning(
-                    self, "Warning",
-                    "Please enter valid numeric values for dimensions and thickness."
+                    self,
+                    "Warning",
+                    "Please enter valid numeric values for dimensions and thickness.",
                 )
                 return
 
             # ── Build MontageConfig objects for each job row ───────────────
-            jobs = []   # (subject_id, MontageConfig, current_str)
-            for subject, source, sim_mode, current_str, row_eeg_net, selected in raw_jobs:
+            jobs = []  # (subject_id, MontageConfig, current_str)
+            for (
+                subject,
+                source,
+                sim_mode,
+                current_str,
+                row_eeg_net,
+                selected,
+            ) in raw_jobs:
                 montage_configs = self._build_montage_configs_for_row(
                     subject, source, sim_mode, selected, row_eeg_net
                 )
@@ -1266,15 +1145,18 @@ class SimulatorTab(QtWidgets.QWidget):
 
             if not jobs:
                 QtWidgets.QMessageBox.warning(
-                    self, "Warning",
-                    "No valid simulations could be prepared. Check your selections."
+                    self,
+                    "Warning",
+                    "No valid simulations could be prepared. Check your selections.",
                 )
                 return
 
             # ── Confirmation dialog ────────────────────────────────────────
             job_lines = []
             for subject, mc, current_str in jobs:
-                job_lines.append(f"  * {subject} | {mc.name} | {mc.eeg_net} | {current_str} mA")
+                job_lines.append(
+                    f"  * {subject} | {mc.name} | {mc.eeg_net} | {current_str} mA"
+                )
             details = (
                 f"This will run {len(jobs)} simulation(s):\n\n"
                 + "\n".join(job_lines[:15])
@@ -1294,7 +1176,9 @@ class SimulatorTab(QtWidgets.QWidget):
             # ── Check for existing output directories ──────────────────────
             existing_dirs = []
             for subject_id, mc, _ in jobs:
-                simulations_dir = self.pm.path_optional("simulations", subject_id=subject_id)
+                simulations_dir = self.pm.path_optional(
+                    "simulations", subject_id=subject_id
+                )
                 montage_dir = os.path.join(simulations_dir or "", mc.name)
                 if simulations_dir and os.path.exists(montage_dir):
                     existing_dirs.append(f"{subject_id}/{mc.name}")
@@ -1313,7 +1197,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
                 self.update_output("Removing existing simulation directories...")
                 for subject_id, mc, _ in jobs:
-                    simulations_dir = self.pm.path_optional("simulations", subject_id=subject_id)
+                    simulations_dir = self.pm.path_optional(
+                        "simulations", subject_id=subject_id
+                    )
                     montage_dir = os.path.join(simulations_dir or "", mc.name)
                     if simulations_dir and os.path.exists(montage_dir):
                         try:
@@ -1322,7 +1208,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         except Exception as e:
                             self.update_output(
                                 f"  Warning: Could not remove {subject_id}/{mc.name}: {e}",
-                                "warning"
+                                "warning",
                             )
 
             # ── Store run context ──────────────────────────────────────────
@@ -1331,7 +1217,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self._current_run_subjects = unique_subjects
             self._current_run_montages = unique_montages
             self._current_run_is_montage = True
-            self._current_run_mode = "mixed"
             self._run_start_time = time.time()
             self._project_dir_path_current = project_dir
 
@@ -1342,30 +1227,21 @@ class SimulatorTab(QtWidgets.QWidget):
             self._last_dimensions = dimensions
             self._last_thickness = thickness
 
-            # ── Concurrency ────────────────────────────────────────────────
-            total_simulations = len(jobs)
-            if total_simulations >= 2:
-                if self.parallel_checkbox.isChecked():
-                    self._max_concurrent_jobs = max(1, int(self.parallel_workers_spin.value()))
-                else:
-                    self._max_concurrent_jobs = 2
-            else:
-                self._max_concurrent_jobs = 1
-
-            self._job_queue = jobs[:]
-            self._active_processes = set()
-            self._process_to_job = {}
-
             # ── Console summary ────────────────────────────────────────────
+            total_simulations = len(jobs)
             self.update_output("--- SIMULATION CONFIGURATION ---")
             self.update_output(f"Total jobs: {total_simulations}")
             self.update_output(f"Subjects: {', '.join(unique_subjects)}")
             self.update_output(f"Anisotropy: {conductivity}")
-            self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
-            self.update_output("--- STARTING SIMULATION (Subprocess) ---")
+            self.update_output(
+                f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
+            )
+            self.update_output("--- STARTING SIMULATION ---")
 
             # ── Report generator ───────────────────────────────────────────
-            self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.simulation_session_id = datetime.datetime.now().strftime(
+                "%Y%m%d_%H%M%S"
+            )
             self.report_generator = SimulationReportGenerator(
                 project_dir=project_dir,
                 simulation_session_id=self.simulation_session_id,
@@ -1379,7 +1255,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     simulation_mode="U",
                     eeg_net=first_eeg_net,
                     intensity_ch1=float(current_parts[0]) if current_parts else 1.0,
-                    intensity_ch2=float(current_parts[1]) if len(current_parts) > 1 else 1.0,
+                    intensity_ch2=(
+                        float(current_parts[1]) if len(current_parts) > 1 else 1.0
+                    ),
                     intensity_ch3=None,
                     intensity_ch4=None,
                     quiet_mode=False,
@@ -1393,7 +1271,9 @@ class SimulatorTab(QtWidgets.QWidget):
                 )
                 for subject_id in unique_subjects:
                     m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
-                    self.report_generator.add_subject(subject_id, m2m_path, "processing")
+                    self.report_generator.add_subject(
+                        subject_id, m2m_path, "processing"
+                    )
 
             # ── Enable stop button, disable controls ───────────────────────
             self.disable_controls()
@@ -1402,10 +1282,13 @@ class SimulatorTab(QtWidgets.QWidget):
                 keep_enabled_widgets = []
                 if hasattr(self, "console_widget"):
                     keep_enabled_widgets.append(self.console_widget.debug_checkbox)
-                if hasattr(self, "console_widget") and hasattr(self.console_widget, "clear_btn"):
+                if hasattr(self, "console_widget") and hasattr(
+                    self.console_widget, "clear_btn"
+                ):
                     keep_enabled_widgets.append(self.console_widget.clear_btn)
                 self.parent.set_tab_busy(
-                    self, True,
+                    self,
+                    True,
                     message="A simulation is running...",
                     stop_btn=self.stop_btn,
                     keep_enabled=keep_enabled_widgets,
@@ -1415,173 +1298,78 @@ class SimulatorTab(QtWidgets.QWidget):
             self._had_errors_during_run = False
             self._simulation_finished_called = False
 
-            # Store global sim params (used in _start_single_simulation_job)
+            # ── Build SimulationConfig and MontageConfig list ──────────────
             dim_parts2 = dimensions.split(",")
             electrode_dims = [float(dim_parts2[0]), float(dim_parts2[1])]
-            self._sim_params = {
-                "conductivity": conductivity,
-                "current": jobs[0][2] if jobs else "1.0,1.0",  # fallback; per-job overrides used
-                "electrode_shape": electrode_shape,
-                "electrode_dims": electrode_dims,
-                "thickness": float(thickness),
-                "project_dir": project_dir,
-                "parallel_enabled": self.parallel_checkbox.isChecked(),
-                "parallel_workers": self.parallel_workers_spin.value(),
-            }
 
-            self._start_next_simulation_jobs()
+            # All jobs share the same config (intensities differ per job but run_simulation
+            # accepts per-montage overrides; here we handle each unique subject+current
+            # combination by grouping and launching one thread per unique (subject, current).
+            # For simplicity (matching old one-job-at-a-time semantic), we run all jobs
+            # through a single thread that iterates sequentially (or in parallel via ParallelConfig).
+            parallel_enabled = self.parallel_checkbox.isChecked()
+            parallel_workers = (
+                int(self.parallel_workers_spin.value()) if parallel_enabled else 1
+            )
+
+            # Use the first job's subject_id/current for the top-level config;
+            # each MontageConfig carries its own eeg_net. run_simulation() accepts a
+            # list of montages and iterates over them using config for shared params.
+            first_subject, first_mc, first_current = jobs[0]
+            sim_config = SimulationConfig(
+                subject_id=first_subject,
+                project_dir=project_dir,
+                conductivity_type=ConductivityType(conductivity),
+                intensities=IntensityConfig.from_string(first_current),
+                electrode=ElectrodeConfig(
+                    shape=electrode_shape,
+                    dimensions=electrode_dims,
+                    thickness=float(thickness),
+                ),
+                parallel=ParallelConfig(
+                    enabled=parallel_enabled and len(jobs) > 1,
+                    max_workers=parallel_workers,
+                ),
+            )
+            montage_list = [mc for _, mc, _ in jobs]
+
+            # ── Log file ───────────────────────────────────────────────────
+            log_dir = self.pm.path("ti_logs", subject_id=first_subject)
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(
+                log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
+            )
+
+            # ── Launch SimulationThread ─────────────────────────────────────
+            self.sim_thread = SimulationThread(
+                sim_config, montage_list, log_file, parent=self
+            )
+            self.sim_thread.output_signal.connect(self._handle_thread_output)
+            self.sim_thread.finished_signal.connect(self._on_simulation_done)
+            self.sim_thread.start()
 
         except Exception as e:
             self.update_output(f"Error starting simulation: {str(e)}", "error")
             import traceback
+
             self.update_output(traceback.format_exc(), "error")
             self.simulation_finished()
 
-    def _start_next_simulation_jobs(self):
-        """Start as many simulation jobs as allowed by the concurrency limit."""
-        if not getattr(self, "simulation_running", False):
+    def _on_simulation_done(self, results: list):
+        """Handle completion of the SimulationThread."""
+        # If the run was aborted (user stop or error abort), do not continue.
+        if not getattr(self, "simulation_running", False) or getattr(
+            self, "_aborting_due_to_error", False
+        ):
             return
 
-        # Fill up to concurrency
-        while (
-            self._job_queue and len(self._active_processes) < self._max_concurrent_jobs
-        ):
-            subject_id, montage_cfg, current_str = self._job_queue.pop(0)
-            self._start_single_simulation_job(subject_id, montage_cfg, current_str)
-
-        # If nothing is running and queue is empty, we're done
-        if not self._job_queue and not self._active_processes:
-            self.simulation_finished()
-
-    def _start_single_simulation_job(self, subject_id: str, montage_cfg: MontageConfig, current_str: str = None):
-        """Start a single simulation job (one subject × one montage/config) in a subprocess."""
-        try:
-            run_mode = getattr(self, "_current_run_mode", "montage")
-            mode_label = {
-                "montage": "montage mode",
-                "freehand": "freehand mode",
-                "flex": "flex mode",
-                "mixed": "simulation",
-            }.get(run_mode, str(run_mode))
-            self.update_output(
-                f"Beginning simulation for subject: {subject_id} | Simulation: {montage_cfg.name} ({mode_label})",
-                "info",
-            )
-
-            # Build SimulationConfig for this job
-            config = SimulationConfig(
-                subject_id=subject_id,
-                project_dir=self._sim_params["project_dir"],
-                conductivity_type=ConductivityType(self._sim_params["conductivity"]),
-                intensities=IntensityConfig.from_string(
-                    current_str if current_str else self._sim_params["current"]
-                ),
-                electrode=ElectrodeConfig(
-                    shape=self._sim_params["electrode_shape"],
-                    dimensions=self._sim_params["electrode_dims"],
-                    thickness=self._sim_params["thickness"],
-                ),
-                eeg_net=montage_cfg.eeg_net,
-                # IMPORTANT: now that we parallelize at the job level, we disable in-process montage parallelism.
-                parallel=ParallelConfig(enabled=False, max_workers=0),
-            )
-
-            payload = {
-                "debug": bool(getattr(self, "debug_mode", False)),
-                "config": {
-                    "subject_id": config.subject_id,
-                    "project_dir": config.project_dir,
-                    "conductivity_type": config.conductivity_type.value,
-                    "intensities": {
-                        "pair1": config.intensities.pair1,
-                        "pair2": config.intensities.pair2,
-                        "pair3": config.intensities.pair3,
-                        "pair4": config.intensities.pair4,
-                    },
-                    "electrode": {
-                        "shape": config.electrode.shape,
-                        "dimensions": list(config.electrode.dimensions),
-                        "thickness": config.electrode.thickness,
-                        "sponge_thickness": config.electrode.sponge_thickness,
-                    },
-                    "eeg_net": config.eeg_net,
-                    "parallel": {
-                        "enabled": False,
-                        "max_workers": 0,
-                    },
-                },
-                "montages": [
-                    {
-                        "name": montage_cfg.name,
-                        "electrode_pairs": [
-                            list(p) for p in montage_cfg.electrode_pairs
-                        ],
-                        "is_xyz": bool(getattr(montage_cfg, "is_xyz", False)),
-                        "eeg_net": montage_cfg.eeg_net,
-                    }
-                ],
-            }
-
-            proc = SubprocessSimulationProcess(
-                payload=payload,
-                parent_tab=self,
-            )
-            self._active_processes.add(proc)
-            self._process_to_job[proc] = (subject_id, montage_cfg.name)
-
-            # Announce job start (debug only to avoid spam)
-            if getattr(self, "debug_mode", False):
-                self.update_output(
-                    f"[DEBUG] Starting job: sub-{subject_id} × {montage_cfg.name}",
-                    "command",
-                )
-
-            proc.output_signal.connect(self._handle_thread_output)
-            proc.error_signal.connect(
-                lambda msg: self._handle_thread_output(msg, "error")
-            )
-            proc.finished.connect(lambda p=proc: self._on_simulation_job_finished(p))
-            proc.start()
-
-        except Exception as e:
-            self.update_output(
-                f"Error starting simulation job for {subject_id} - {montage_cfg.name}: {e}",
-                "error",
-            )
-            self._had_errors_during_run = True
-
-    def _on_simulation_job_finished(self, proc):
-        """Handle completion of a single simulation job subprocess."""
-        try:
-            if proc in self._active_processes:
-                self._active_processes.remove(proc)
-            job = self._process_to_job.pop(proc, None)
-
-            # If the run was aborted (user stop or error abort), do not continue.
-            if not getattr(self, "simulation_running", False) or getattr(
-                self, "_aborting_due_to_error", False
-            ):
-                return
-
-            # Record whether job produced failures
-            try:
-                results = proc.get_results() or []
-                for r in results:
-                    if r.get("status") == "failed":
-                        self._had_errors_during_run = True
-                        break
-            except Exception:
+        # Record whether any montage produced a failure
+        for r in results:
+            if r.get("status") == "failed":
                 self._had_errors_during_run = True
+                break
 
-            # Continue scheduling
-            self._start_next_simulation_jobs()
-
-        except Exception:
-            # If job completion handler fails, mark error and try to proceed.
-            self._had_errors_during_run = True
-            self._start_next_simulation_jobs()
-
-    # NOTE: Old per-subject completion handler removed in favor of job-based scheduling.
+        self.simulation_finished()
 
     def simulation_finished(self):
         """Handle simulation completion."""
@@ -1630,26 +1418,6 @@ class SimulatorTab(QtWidgets.QWidget):
         # Clean up temporary completion files
         self.cleanup_temporary_files()
 
-        # Clean up any remaining temporary flex montage files (CLI should have cleaned most)
-        if hasattr(self, "temp_flex_files"):
-            remaining_files = 0
-            for temp_file in self.temp_flex_files:
-                try:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                        remaining_files += 1
-                        self.update_output(f"[CLEANUP] Removed temp file: {temp_file}")
-                except Exception as e:
-                    self.update_output(
-                        f"[WARNING] Could not clean up flex file {temp_file}: {str(e)}",
-                        "warning",
-                    )
-            if remaining_files > 0:
-                self.update_output(
-                    f"[CLEANUP] Removed {remaining_files} remaining temp files"
-                )
-            delattr(self, "temp_flex_files")
-
         self.simulation_running = False
         self._aborting_due_to_error = False
 
@@ -1668,18 +1436,24 @@ class SimulatorTab(QtWidgets.QWidget):
         """Auto-generate individual simulation reports for each completed job."""
         try:
             project_dir = self.pm.project_dir
-            conductivity = getattr(self, "_last_conductivity", self.sim_type_combo.currentData())
+            conductivity = getattr(
+                self, "_last_conductivity", self.sim_type_combo.currentData()
+            )
             electrode_shape = getattr(self, "_last_electrode_shape", "ellipse")
             dimensions = getattr(self, "_last_dimensions", "8,8")
             thickness = getattr(self, "_last_thickness", "4")
 
             # Build subject->[(montage_name, current_str, eeg_net)] mapping from completed jobs
             last_jobs = getattr(self, "_last_jobs", [])
-            subject_montage_map = {}  # subject_id -> [(montage_name, current_str, eeg_net)]
+            subject_montage_map = (
+                {}
+            )  # subject_id -> [(montage_name, current_str, eeg_net)]
             for subject_id, mc, current_str in last_jobs:
                 if subject_id not in subject_montage_map:
                     subject_montage_map[subject_id] = []
-                subject_montage_map[subject_id].append((mc.name, current_str, mc.eeg_net))
+                subject_montage_map[subject_id].append(
+                    (mc.name, current_str, mc.eeg_net)
+                )
 
             if not subject_montage_map:
                 self.update_output("No completed jobs to report on.", "warning")
@@ -1712,8 +1486,12 @@ class SimulatorTab(QtWidgets.QWidget):
                         cur = currents_map.get(montage_name, "1.0,1.0")
                         cur_parts = cur.split(",")
                         intensity_ch1 = float(cur_parts[0]) if cur_parts else 1.0
-                        intensity_ch2 = float(cur_parts[1]) if len(cur_parts) > 1 else 1.0
-                        job_eeg_net = eeg_net_map.get(montage_name, "GSN-HydroCel-185.csv")
+                        intensity_ch2 = (
+                            float(cur_parts[1]) if len(cur_parts) > 1 else 1.0
+                        )
+                        job_eeg_net = eeg_net_map.get(
+                            montage_name, "GSN-HydroCel-185.csv"
+                        )
                         report_generator.add_simulation_parameters(
                             conductivity_type=conductivity,
                             simulation_mode="U",
@@ -1856,14 +1634,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.parallel_checkbox.setEnabled(True)
         self.parallel_workers_spin.setEnabled(self.parallel_checkbox.isChecked())
 
-    def update_current_inputs_visibility(self):
-        """No-op stub kept for backward compatibility."""
-        pass
-
-    def update_electrode_inputs(self, checked):
-        """No-op stub kept for backward compatibility."""
-        pass
-
     def clear_console(self):
         """Clear the output console."""
         self.output_console.clear()
@@ -1873,92 +1643,26 @@ class SimulatorTab(QtWidgets.QWidget):
         # Mark as not running immediately to avoid triggering auto-abort logic from late output.
         self.simulation_running = False
 
-        # Kill all active simulation subprocesses (hard stop)
-        try:
-            for proc in list(getattr(self, "_active_processes", set())):
-                try:
-                    proc.terminate_simulation()
-                except (RuntimeError, OSError, AttributeError):
-                    pass  # Process may already be terminated or object destroyed
-            self._active_processes = set()
-            self._process_to_job = {}
-            self._job_queue = []
-        except AttributeError:
-            pass  # Attributes may not exist during early initialization or cleanup
+        # Terminate the background simulation thread (hard stop)
+        if self.sim_thread and self.sim_thread.isRunning():
+            self.sim_thread.terminate_simulation()
 
-        if hasattr(self, "simulation_process") and self.simulation_process:
-            # Mark as not running immediately to avoid triggering auto-abort logic from late output.
-            # Show stopping message
-            self.update_output("Stopping simulation...")
-            self.output_console.append(
-                '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>'
-            )
+        # Show stopping message
+        self.update_output("Stopping simulation...")
+        self.output_console.append(
+            '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>'
+        )
 
-            # Terminate the simulation
-            terminated = self.simulation_process.terminate_simulation()
-
-            if terminated:
-                self.update_output("Simulation process terminated successfully.")
-            else:
-                self.update_output(
-                    "Failed to terminate simulation process or process already completed."
-                )
-
-            # Reset UI state
-            self.run_btn.setText("Run Simulation")
-            self.action_buttons.set_running(False)
-
-            # Clear parent tab's busy state (with stop_btn parameter for proper state management)
-            if hasattr(self, "parent") and self.parent:
-                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
-
-            # Clean up temporary flex montage files
-            if hasattr(self, "temp_flex_files"):
-                remaining_files = 0
-                for temp_file in self.temp_flex_files:
-                    try:
-                        if os.path.exists(temp_file):
-                            os.remove(temp_file)
-                            remaining_files += 1
-                            self.update_output(
-                                f"[CLEANUP] Removed temp file: {temp_file}"
-                            )
-                    except Exception as e:
-                        self.update_output(
-                            f"[WARNING] Could not clean up flex file {temp_file}: {str(e)}",
-                            "warning",
-                        )
-                if remaining_files > 0:
-                    self.update_output(
-                        f"[CLEANUP] Removed {remaining_files} temp files after stop"
-                    )
-                delattr(self, "temp_flex_files")
-
-            # Re-enable all controls
-            self.enable_controls()
-        else:
-            # If we were using job-based processes only, still show stop UI feedback + reset.
-            self.update_output("Stopping simulation...")
-            self.output_console.append(
-                '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>'
-            )
-            self.run_btn.setText("Run Simulation")
-            self.action_buttons.set_running(False)
-            if hasattr(self, "parent") and self.parent:
-                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
-            self.enable_controls()
+        # Reset UI state
+        self.run_btn.setText("Run Simulation")
+        self.action_buttons.set_running(False)
+        if hasattr(self, "parent") and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+        self.enable_controls()
 
     def validate_electrode(self, electrode):
         """Validate electrode name is not empty."""
         return bool(electrode and electrode.strip())
-
-    def validate_current(self, current):
-        """Validate current value is a number."""
-        try:
-            float(current)
-            return True
-        except ValueError:
-            return False
 
     def update_output(self, text, message_type="default"):
         """Update the console output with colored text, preserving original formatting."""
@@ -2176,19 +1880,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     "[ERROR] Error detected. Aborting simulation and cleaning up partial outputs...",
                     "error",
                 )
-                # Terminate any running process(es)
-                try:
-                    # Job-based: kill all active procs and clear queue
-                    for proc in list(getattr(self, "_active_processes", set())):
-                        try:
-                            proc.terminate_simulation()
-                        except (RuntimeError, OSError, AttributeError):
-                            pass  # Process may already be terminated or object destroyed
-                    self._active_processes = set()
-                    self._process_to_job = {}
-                    self._job_queue = []
-                except AttributeError:
-                    pass  # Attributes may not exist during early initialization
+                # Terminate the simulation thread
+                if self.sim_thread and self.sim_thread.isRunning():
+                    self.sim_thread.terminate_simulation()
                 # Perform cleanup of outputs generated so far
                 try:
                     self._cleanup_partial_outputs()
@@ -2284,18 +1978,17 @@ class SimulatorTab(QtWidgets.QWidget):
 
             # Get project directory using path manager
             project_dir = self.pm.project_dir
-            from tit.sim import utils as sim_utils
 
             # Persist montage via shared sim utils (reused by CLI + GUI)
             target_net = montage_data["target_net"]
-            sim_utils.upsert_montage(
+            upsert_montage(
                 project_dir=project_dir,
                 eeg_net=target_net,
                 montage_name=montage_data["name"],
                 electrode_pairs=montage_data["electrode_pairs"],
                 mode=("U" if montage_data["is_unipolar"] else "M"),
             )
-            montage_file = sim_utils.montage_list_path(project_dir)
+            montage_file = ensure_montage_file(project_dir)
 
             # Format pairs for display
             pairs_text = ", ".join(
@@ -2347,13 +2040,6 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Get project directory using path manager
                 project_dir = self.pm.project_dir
 
-                # Ensure montage file exists and get its path
-                montage_file = self.ensure_montage_file_exists(project_dir)
-
-                # Load existing montage data
-                with open(montage_file, "r") as f:
-                    montage_data = json.load(f)
-
                 # Get current net and mode from the active job card
                 card_idx = self._selected_card_idx
                 if card_idx >= 0 and card_idx < len(self._job_cards):
@@ -2369,18 +2055,17 @@ class SimulatorTab(QtWidgets.QWidget):
                     else "multi_polar_montages"
                 )
 
+                # Load, mutate, save via the shared API
+                montage_data = load_montage_data(project_dir)
+
                 # Remove the montage if it exists
                 if (
-                    current_net in montage_data["nets"]
+                    current_net in montage_data.get("nets", {})
                     and montage_type in montage_data["nets"][current_net]
                     and montage_name in montage_data["nets"][current_net][montage_type]
                 ):
-
                     del montage_data["nets"][current_net][montage_type][montage_name]
-
-                    # Save the updated montage data
-                    with open(montage_file, "w") as f:
-                        json.dump(montage_data, f, indent=4)
+                    save_montage_data(project_dir, montage_data)
 
                     self.update_output(
                         f"Removed montage '{montage_name}' from {montage_type}"
@@ -2648,574 +2333,3 @@ class SimulatorTab(QtWidgets.QWidget):
                 "warning",
             )
             return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
-
-    def cleanup_old_simulation_directories(self, subject_id):
-        """
-        Clean up old simulation directories that might interfere with flex-search discovery.
-        Only removes directories that don't have recent simulation results.
-        """
-        try:
-            # Get simulation directory using path manager
-            simulation_dir = self.pm.path_optional("simulations", subject_id=subject_id)
-
-            if not simulation_dir or not os.path.isdir(simulation_dir):
-                return
-
-            # Get current time
-            current_time = time.time()
-            cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
-
-            for item in os.listdir(simulation_dir):
-                item_path = os.path.join(simulation_dir, item)
-
-                # Skip tmp directory and files
-                if not os.path.isdir(item_path) or item == "tmp":
-                    continue
-
-                # Check if directory is old and potentially stale
-                try:
-                    dir_mtime = os.path.getmtime(item_path)
-
-                    # If directory is older than cutoff and doesn't have recent TI results, consider removing
-                    if dir_mtime < cutoff_time:
-                        ti_mesh_path = os.path.join(item_path, "TI", "mesh")
-
-                        # Check if it has valid TI results
-                        has_valid_results = False
-                        if os.path.exists(ti_mesh_path):
-                            for file in os.listdir(ti_mesh_path):
-                                if (
-                                    file.endswith("_TI.msh")
-                                    and os.path.getmtime(
-                                        os.path.join(ti_mesh_path, file)
-                                    )
-                                    > cutoff_time
-                                ):
-                                    has_valid_results = True
-                                    break
-
-                        # If no valid recent results, ask user if they want to clean up
-                        if not has_valid_results:
-                            self.update_output(
-                                f"Found old simulation directory: {item} (last modified: {datetime.datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M')})",
-                                "info",
-                            )
-                            # For now, just warn - in the future could add cleanup logic
-
-                except Exception as e:
-                    self.update_output(
-                        f"Warning: Could not check directory {item}: {e}", "warning"
-                    )
-
-        except Exception as e:
-            self.update_output(
-                f"Warning: Could not clean up old directories: {e}", "warning"
-            )
-
-
-class AddMontageDialog(QtWidgets.QDialog):
-    """Dialog for adding new montages."""
-
-    def __init__(self, parent=None):
-        super(AddMontageDialog, self).__init__(parent)
-        self.parent = parent
-        # Get path manager from parent if available
-        if parent and hasattr(parent, "pm"):
-            self.pm = parent.pm
-        else:
-            self.pm = get_path_manager()
-        self.setup_ui()
-
-        # Connect radio buttons to update electrode inputs
-        self.mode_unipolar.toggled.connect(self.update_electrode_inputs)
-
-    def setup_ui(self):
-        """Set up the dialog UI."""
-        self.setWindowTitle("Add New Montage")
-        self.setModal(True)
-        self.resize(800, 500)  # Made wider to accommodate the side panel
-
-        # Create main horizontal layout
-        main_layout = QtWidgets.QHBoxLayout(self)
-
-        # Left side (original form)
-        left_widget = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(left_widget)
-
-        # Create form layout for better organization
-        form_layout = QtWidgets.QFormLayout()
-
-        # Montage name
-        self.name_input = QtWidgets.QLineEdit()
-        form_layout.addRow("Montage Name:", self.name_input)
-
-        # Target EEG Net selection with Show Electrodes button
-        net_layout = QtWidgets.QHBoxLayout()
-        self.net_combo = QtWidgets.QComboBox()
-        # Copy items from parent's EEG net combo
-        if self.parent and hasattr(self.parent, "eeg_net_combo"):
-            for i in range(self.parent.eeg_net_combo.count()):
-                self.net_combo.addItem(self.parent.eeg_net_combo.itemText(i))
-        # Set current net to match parent's selection
-        if self.parent and hasattr(self.parent, "eeg_net_combo"):
-            current_net = self.parent.eeg_net_combo.currentText()
-            index = self.net_combo.findText(current_net)
-            if index >= 0:
-                self.net_combo.setCurrentIndex(index)
-
-        self.show_electrodes_btn = QtWidgets.QPushButton("Show Electrodes")
-        self.show_electrodes_btn.clicked.connect(self.toggle_electrode_list)
-        net_layout.addWidget(self.net_combo)
-        net_layout.addWidget(self.show_electrodes_btn)
-        form_layout.addRow("Target EEG Net:", net_layout)
-
-        # Add form layout to main layout
-        layout.addLayout(form_layout)
-
-        # Simulation mode (Unipolar/Multipolar)
-        mode_group = QtWidgets.QGroupBox("Montage Type")
-        mode_layout = QtWidgets.QHBoxLayout(mode_group)
-        self.mode_unipolar = QtWidgets.QRadioButton("Unipolar")
-        self.mode_multipolar = QtWidgets.QRadioButton("Multipolar")
-        self.mode_unipolar.setChecked(True)  # Default to unipolar
-        mode_layout.addWidget(self.mode_unipolar)
-        mode_layout.addWidget(self.mode_multipolar)
-        layout.addWidget(mode_group)
-
-        # Create a stacked widget for electrode inputs
-        self.electrode_stack = QtWidgets.QStackedWidget()
-
-        # Unipolar electrode pairs (two pairs)
-        uni_widget = QtWidgets.QWidget()
-        uni_layout = QtWidgets.QVBoxLayout(uni_widget)
-
-        # Add a label for the unipolar electrode section
-        uni_label = QtWidgets.QLabel("Unipolar Electrode Pairs:")
-        uni_label.setStyleSheet("font-weight: bold;")
-        uni_layout.addWidget(uni_label)
-
-        # Pair 1
-        uni_pair1_layout = QtWidgets.QHBoxLayout()
-        self.uni_pair1_label = QtWidgets.QLabel("Pair 1:")
-        self.uni_pair1_e1 = QtWidgets.QLineEdit()
-        self.uni_pair1_e1.setPlaceholderText("E10")
-        self.uni_pair1_e2 = QtWidgets.QLineEdit()
-        self.uni_pair1_e2.setPlaceholderText("E11")
-        uni_pair1_layout.addWidget(self.uni_pair1_label)
-        uni_pair1_layout.addWidget(self.uni_pair1_e1)
-        uni_pair1_layout.addWidget(QtWidgets.QLabel("↔"))
-        uni_pair1_layout.addWidget(self.uni_pair1_e2)
-        uni_layout.addLayout(uni_pair1_layout)
-
-        # Pair 2
-        uni_pair2_layout = QtWidgets.QHBoxLayout()
-        self.uni_pair2_label = QtWidgets.QLabel("Pair 2:")
-        self.uni_pair2_e1 = QtWidgets.QLineEdit()
-        self.uni_pair2_e1.setPlaceholderText("E12")
-        self.uni_pair2_e2 = QtWidgets.QLineEdit()
-        self.uni_pair2_e2.setPlaceholderText("E13")
-        uni_pair2_layout.addWidget(self.uni_pair2_label)
-        uni_pair2_layout.addWidget(self.uni_pair2_e1)
-        uni_pair2_layout.addWidget(QtWidgets.QLabel("↔"))
-        uni_pair2_layout.addWidget(self.uni_pair2_e2)
-        uni_layout.addLayout(uni_pair2_layout)
-
-        # Multipolar electrode pairs (four pairs)
-        multi_widget = QtWidgets.QWidget()
-        multi_layout = QtWidgets.QVBoxLayout(multi_widget)
-
-        # Add a label for the multipolar electrode section
-        multi_label = QtWidgets.QLabel("Multipolar Electrode Pairs:")
-        multi_label.setStyleSheet("font-weight: bold;")
-        multi_layout.addWidget(multi_label)
-
-        # Create pairs for multipolar mode
-        self.multi_pairs = []
-        for i in range(1, 5):
-            pair_layout = QtWidgets.QHBoxLayout()
-            pair_label = QtWidgets.QLabel(f"Pair {i}:")
-            e1 = QtWidgets.QLineEdit()
-            e1.setPlaceholderText(f"E{10+2*(i-1)}")
-            e2 = QtWidgets.QLineEdit()
-            e2.setPlaceholderText(f"E{11+2*(i-1)}")
-
-            pair_layout.addWidget(pair_label)
-            pair_layout.addWidget(e1)
-            pair_layout.addWidget(QtWidgets.QLabel("↔"))
-            pair_layout.addWidget(e2)
-            multi_layout.addLayout(pair_layout)
-
-            # Store references
-            self.multi_pairs.append((e1, e2))
-
-        # Add the widgets to the stacked widget
-        self.electrode_stack.addWidget(uni_widget)
-        self.electrode_stack.addWidget(multi_widget)
-        layout.addWidget(self.electrode_stack)
-
-        # Add some spacing
-        layout.addSpacing(10)
-
-        # Buttons
-        button_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-        # Add left widget to main layout
-        main_layout.addWidget(left_widget)
-
-        # Right side (electrode list panel)
-        self.right_widget = QtWidgets.QWidget()
-        self.right_widget.setVisible(False)  # Initially hidden
-        right_layout = QtWidgets.QVBoxLayout(self.right_widget)
-
-        # Add title for electrode list
-        electrode_title = QtWidgets.QLabel("Available Electrodes")
-        electrode_title.setStyleSheet(f"font-weight: bold; font-size: {FONT_SUBHEADING};")
-        right_layout.addWidget(electrode_title)
-
-        # Add search box
-        self.search_box = QtWidgets.QLineEdit()
-        self.search_box.setPlaceholderText("Search electrodes...")
-        self.search_box.textChanged.connect(self.filter_electrodes)
-        right_layout.addWidget(self.search_box)
-
-        # Add electrode list widget
-        self.electrode_list = QtWidgets.QListWidget()
-        self.electrode_list.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        self.electrode_list.setStyleSheet(
-            """
-            QListWidget {
-                background-color: #f5f5f5;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 5px;
-            }
-            QListWidget::item {
-                padding: 5px;
-                border-bottom: 1px solid #eee;
-            }
-        """
-        )
-        right_layout.addWidget(self.electrode_list)
-
-        # Add right widget to main layout
-        main_layout.addWidget(self.right_widget)
-
-        # Connect net selection change to update electrode list
-        self.net_combo.currentTextChanged.connect(self.update_electrode_list)
-
-    def toggle_electrode_list(self):
-        """Toggle the visibility of the electrode list panel."""
-        if self.right_widget.isVisible():
-            self.right_widget.setVisible(False)
-            self.show_electrodes_btn.setText("Show Electrodes")
-            self.resize(500, self.height())  # Return to original width
-        else:
-            self.right_widget.setVisible(True)
-            self.show_electrodes_btn.setText("Hide Electrodes")
-            self.resize(800, self.height())  # Expand width
-            self.update_electrode_list()
-
-    def update_electrode_list(self):
-        """Update the list of available electrodes based on the selected net."""
-        try:
-            self.electrode_list.clear()
-            net_file = self.net_combo.currentText()
-
-            if not net_file:
-                return
-
-            # Get SimNIBS directory using path manager
-            simnibs_dir = self.pm.path_optional("simnibs")
-            if not simnibs_dir or not os.path.isdir(simnibs_dir):
-                return
-
-            subject_found = False
-
-            # Look through all subject directories
-            for subject_dir in os.listdir(simnibs_dir):
-                if subject_dir.startswith("sub-"):
-                    subject_id = subject_dir[4:]  # Remove 'sub-' prefix
-                    m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
-                    if m2m_dir and os.path.isdir(m2m_dir):
-                        # Use LeadfieldGenerator to get electrode names (handles both formats)
-                        try:
-                            from tit.opt.leadfield import LeadfieldGenerator
-
-                            gen = LeadfieldGenerator(m2m_dir)
-
-                            # Clean net file name (remove .csv extension if present)
-                            clean_net_name = (
-                                net_file.replace(".csv", "")
-                                if net_file.endswith(".csv")
-                                else net_file
-                            )
-
-                            # Get electrodes using the fixed method
-                            electrodes = gen.get_electrode_names_from_cap(
-                                cap_name=clean_net_name
-                            )
-
-                            if electrodes:
-                                subject_found = True
-                                # Add to list widget (already sorted by get_electrode_names_from_cap)
-                                for electrode in electrodes:
-                                    self.electrode_list.addItem(electrode)
-                                break
-                        except (FileNotFoundError, ValueError):
-                            # Try next subject
-                            continue
-
-            if not subject_found:
-                self.electrode_list.addItem("No electrode positions found")
-
-        except Exception as e:
-            self.electrode_list.addItem(f"Error loading electrodes: {str(e)}")
-
-    def filter_electrodes(self, text):
-        """Filter the electrode list based on search text."""
-        for i in range(self.electrode_list.count()):
-            item = self.electrode_list.item(i)
-            item.setHidden(text.lower() not in item.text().lower())
-
-    def get_montage_data(self):
-        """Get montage data entered in the dialog."""
-        name = self.name_input.text().strip()
-        is_unipolar = self.mode_unipolar.isChecked()
-        target_net = self.net_combo.currentText()
-
-        electrode_pairs = []
-
-        if is_unipolar:
-            # Get unipolar pairs
-            pair1_e1 = self.uni_pair1_e1.text().strip()
-            pair1_e2 = self.uni_pair1_e2.text().strip()
-            pair2_e1 = self.uni_pair2_e1.text().strip()
-            pair2_e2 = self.uni_pair2_e2.text().strip()
-
-            if pair1_e1 and pair1_e2:
-                electrode_pairs.append([pair1_e1, pair1_e2])
-            if pair2_e1 and pair2_e2:
-                electrode_pairs.append([pair2_e1, pair2_e2])
-        else:
-            # Get multipolar pairs
-            for e1, e2 in self.multi_pairs:
-                e1_text = e1.text().strip()
-                e2_text = e2.text().strip()
-                if e1_text and e2_text:
-                    electrode_pairs.append([e1_text, e2_text])
-
-        return {
-            "name": name,
-            "is_unipolar": is_unipolar,
-            "target_net": target_net,
-            "electrode_pairs": electrode_pairs,
-        }
-
-    def update_electrode_inputs(self, checked):
-        """Update the electrode input view based on the selected mode."""
-        if checked:  # Unipolar selected
-            self.electrode_stack.setCurrentIndex(0)
-        else:  # Multipolar selected
-            self.electrode_stack.setCurrentIndex(1)
-
-
-class ConductivityEditorDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None, custom_conductivities=None):
-        super(ConductivityEditorDialog, self).__init__(parent)
-        self.setWindowTitle("Tissue Conductivity Editor")
-        # Use integer keys for tissue numbers
-        self.custom_conductivities = {
-            int(k): v for k, v in (custom_conductivities or {}).items()
-        }
-        self.setup_ui()
-
-    def setup_ui(self):
-        # Remove fixed size, use resize and minimum size for flexibility
-        self.resize(900, 480)
-        self.setMinimumSize(800, 400)
-
-        # Main layout, no margins or spacing
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # Info label
-        info_label = QtWidgets.QLabel(
-            "Double-click on a value in the 'Value (S/m)' column to edit it."
-        )
-        info_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #f0f0f0;
-                color: #333;
-                padding: 4px 8px 4px 8px;
-                border-bottom: 1px solid #ddd;
-                font-style: italic;
-            }
-        """
-        )
-        layout.addWidget(info_label)
-
-        # Table
-        self.table = QtWidgets.QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(
-            ["Tissue Number", "Tissue Name", "Value (S/m)", "Reference"]
-        )
-        self.table.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
-        )
-
-        self.tissue_data = [
-            (1, "White Matter", 0.126, "Wagner et al., 2004"),
-            (2, "Gray Matter", 0.275, "Wagner et al., 2004"),
-            (3, "CSF", 1.654, "Wagner et al., 2004"),
-            (4, "Bone", 0.01, "Wagner et al., 2004"),
-            (5, "Scalp", 0.465, "Wagner et al., 2004"),
-            (6, "Eye balls", 0.5, "Opitz et al., 2015"),
-            (7, "Compact Bone", 0.008, "Opitz et al., 2015"),
-            (8, "Spongy Bone", 0.025, "Opitz et al., 2015"),
-            (9, "Blood", 0.6, "Gabriel et al., 2009"),
-            (10, "Muscle", 0.16, "Gabriel et al., 2009"),
-            (
-                100,
-                "Silicone Rubber",
-                29.4,
-                "NeuroConn electrodes: Wacker Elastosil R 570/60 RUSS",
-            ),
-            (500, "Saline", 1.0, "Saturnino et al., 2015"),
-        ]
-        self.table.setRowCount(len(self.tissue_data))
-        for row, (number, name, value, ref) in enumerate(self.tissue_data):
-            item = QtWidgets.QTableWidgetItem(str(number))
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
-            self.table.setItem(row, 0, item)
-            item = QtWidgets.QTableWidgetItem(name)
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
-            self.table.setItem(row, 1, item)
-            item = QtWidgets.QTableWidgetItem(str(value))
-            item.setBackground(QtGui.QColor("#f0f8ff"))
-            self.table.setItem(row, 2, item)
-            item = QtWidgets.QTableWidgetItem(ref)
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
-            self.table.setItem(row, 3, item)
-        self.table.setStyleSheet(
-            f"""
-            QTableWidget {{
-                background-color: white;
-                alternate-background-color: #f5f5f5;
-                selection-background-color: #2196F3;
-                selection-color: white;
-                gridline-color: #e0e0e0;
-                border: none;
-            }}
-            QHeaderView::section {{
-                background-color: #4a4a4a;
-                color: white;
-                padding: 4px;
-                border: none;
-                font-weight: bold;
-            }}
-            QTableWidget::item {{
-                padding: 1px;
-                font-size: {FONT_MD};
-            }}
-        """
-        )
-        self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.table.setEditTriggers(
-            QtWidgets.QAbstractItemView.DoubleClicked
-            | QtWidgets.QAbstractItemView.EditKeyPressed
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
-        )
-        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
-        self.table.verticalHeader().setDefaultSectionSize(28)
-        layout.addWidget(self.table)
-
-        # Button container
-        button_container = QtWidgets.QWidget()
-        button_container.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        button_container.setStyleSheet(
-            """
-            QWidget {
-                background-color: #f0f0f0;
-                border-top: 1px solid #ddd;
-            }
-            QPushButton {
-                min-width: 100px;
-                padding: 6px 12px;
-                margin: 6px;
-                background-color: #ffffff;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #f5f5f5;
-                border: 1px solid #ccc;
-            }
-        """
-        )
-        button_layout = QtWidgets.QHBoxLayout(button_container)
-        button_layout.setContentsMargins(10, 0, 10, 0)
-        button_layout.setSpacing(0)
-        save_btn = QtWidgets.QPushButton("Save")
-        reset_btn = QtWidgets.QPushButton("Reset to Defaults")
-        cancel_btn = QtWidgets.QPushButton("Cancel")
-        button_layout.addStretch()
-        button_layout.addWidget(save_btn)
-        button_layout.addWidget(reset_btn)
-        button_layout.addWidget(cancel_btn)
-        save_btn.clicked.connect(self.save_conductivities)
-        reset_btn.clicked.connect(self.reset_to_defaults)
-        cancel_btn.clicked.connect(self.reject)
-        layout.addWidget(button_container)
-
-        # After populating the table, override values with custom_conductivities if present
-        for row, (number, name, value, ref) in enumerate(self.tissue_data):
-            if self.custom_conductivities.get(number) is not None:
-                self.table.item(row, 2).setText(str(self.custom_conductivities[number]))
-
-    def save_conductivities(self):
-        """Save the modified conductivity values."""
-        modified_values = {}
-        for row in range(self.table.rowCount()):
-            tissue_num = int(self.table.item(row, 0).text())
-            try:
-                value = float(self.table.item(row, 2).text())
-                if value <= 0:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Invalid Value",
-                        f"Conductivity value for tissue {tissue_num} must be positive.",
-                    )
-                    return
-                modified_values[tissue_num] = value
-                os.environ[f"TISSUE_COND_{tissue_num}"] = str(value)
-            except ValueError:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Invalid Value",
-                    f"Invalid conductivity value for tissue {tissue_num}. Please enter a valid number.",
-                )
-                return
-        self.custom_conductivities = modified_values
-        self.accept()
-
-    def reset_to_defaults(self):
-        """Reset all values to their defaults."""
-        for row, (number, _, value, _) in enumerate(self.tissue_data):
-            self.table.item(row, 2).setText(str(value))
-
-    def get_conductivities(self):
-        return self.custom_conductivities.copy()

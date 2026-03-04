@@ -10,6 +10,9 @@ __author__ = "TI-Toolbox Team"
 
 # Logging utilities
 from . import logger as log
+from . import paths, constants
+
+
 
 # For backward compatibility, also expose individual functions
 from .logger import (
@@ -35,4 +38,6 @@ __all__ = [
     "get_file_only_logger",
     "get_logger",
     "suppress_console_output",
+    "paths",
+    "constants",
 ]
