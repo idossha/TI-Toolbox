@@ -55,8 +55,7 @@ from .reporting import generate_summary, generate_correlation_summary
 from tit.core import get_path_manager
 from tit.core import constants as const
 from tit.core import nifti
-from tit import logger as logging_util
-
+import logging as _logging_stdlib
 
 # ==============================================================================
 # UNIFIED DATA LOADING
@@ -328,7 +327,9 @@ DEFAULT_CONFIG_CORRELATION = {
 # ==============================================================================
 
 
-def setup_logging(output_dir, analysis_type="group_comparison", callback_handler=None):
+def _configure_run_logger(
+    output_dir, analysis_type="group_comparison", callback_handler=None
+):
     """
     Set up logging for unified analysis
 
@@ -348,8 +349,7 @@ def setup_logging(output_dir, analysis_type="group_comparison", callback_handler
     log_file : str
         Path to log file
     """
-    if logging_util is None:
-        raise ImportError("logging_util module not available")
+    from tit.logger import add_file_handler
 
     # Create timestamp for log file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -357,16 +357,13 @@ def setup_logging(output_dir, analysis_type="group_comparison", callback_handler
 
     # Create logger
     logger_name = f"{'GroupComparison' if analysis_type == 'group_comparison' else 'Correlation'}Analysis"
-    logger = logging_util.get_logger(logger_name, log_file, overwrite=True)
+    logger = _logging_stdlib.getLogger(logger_name)
+    logger.setLevel(_logging_stdlib.DEBUG)
+    add_file_handler(log_file, level="DEBUG", logger_name=logger_name)
 
-    # If callback handler provided (for GUI), suppress console output and add callback
+    # If callback handler provided (for GUI), add it directly
     if callback_handler:
-        logging_util.suppress_console_output(logger)
         logger.addHandler(callback_handler)
-
-    # Configure external loggers
-    external_loggers = ["scipy", "numpy", "nibabel", "pandas", "matplotlib"]
-    logging_util.configure_external_loggers(external_loggers, logger)
 
     return logger, log_file
 
@@ -440,7 +437,7 @@ def run_analysis(
     pm = get_path_manager() if get_path_manager else None
     if pm:
         project_dir = pm.project_dir
-        derivatives_dir = pm.get_derivatives_dir()
+        derivatives_dir = pm.derivatives()
         output_dir = os.path.join(
             derivatives_dir, const.DIR_TI_TOOLBOX, "stats", analysis_type, analysis_name
         )
@@ -454,9 +451,11 @@ def run_analysis(
 
     # Set up logging
     if callback_handler:
-        logger, log_file = setup_logging(output_dir, analysis_type, callback_handler)
+        logger, log_file = _configure_run_logger(
+            output_dir, analysis_type, callback_handler
+        )
     else:
-        logger, log_file = setup_logging(output_dir, analysis_type)
+        logger, log_file = _configure_run_logger(output_dir, analysis_type)
 
     # Log header
     analysis_title = (

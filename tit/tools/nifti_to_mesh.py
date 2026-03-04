@@ -112,7 +112,7 @@ def nifti_to_mesh(
 
 def save_stl(verts, faces, filename):
     """Save mesh as binary STL format."""
-    
+
     from stl import mesh as stl_mesh
 
     surface = stl_mesh.Mesh(np.zeros(faces.shape[0], dtype=stl_mesh.Mesh.dtype))

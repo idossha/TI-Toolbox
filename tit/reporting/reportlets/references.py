@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 
 from ..core.base import ReferencesReportlet
 
-
 # Default TI-Toolbox references
 DEFAULT_REFERENCES: List[Dict[str, str]] = [
     # ==========================================================================

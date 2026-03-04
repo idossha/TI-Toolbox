@@ -51,21 +51,22 @@ class TISimulation:
     """
 
     def __init__(self, config: SimulationConfig, montage: MontageConfig, logger):
-        self.config  = config
+        self.config = config
         self.montage = montage
-        self.logger  = logger
-        self.pm      = get_path_manager()
-        self.m2m_dir = self.pm.path("m2m", subject_id=config.subject_id)
+        self.logger = logger
+        self.pm = get_path_manager()
+        self.m2m_dir = self.pm.m2m(config.subject_id)
 
     def run(self, simulation_dir: str) -> dict:
         """Execute the full pipeline. Returns a result dict."""
-        montage_dir = self.pm.path(
-            "simulation",
-            subject_id=self.config.subject_id,
-            simulation_name=self.montage.name,
+        montage_dir = self.pm.simulation(
+            self.config.subject_id,
+            self.montage.name,
         )
         dirs = setup_montage_directories(montage_dir, SimulationMode.TI)
-        create_simulation_config_file(self.config, self.montage, dirs["documentation"], self.logger)
+        create_simulation_config_file(
+            self.config, self.montage, dirs["documentation"], self.logger
+        )
 
         viz_pairs = None if self.montage.is_xyz else self.montage.electrode_pairs
 
@@ -89,33 +90,31 @@ class TISimulation:
         return {
             "montage_name": self.montage.name,
             "montage_type": "TI",
-            "status":       "completed",
-            "output_mesh":  output_mesh,
+            "status": "completed",
+            "output_mesh": output_mesh,
         }
 
-    # ------------------------------------------------------------------
-    # Session building
-    # ------------------------------------------------------------------
+    # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
         """Build SimNIBS SESSION for 2-pair TI."""
         cfg = self.config
         S = sim_struct.SESSION()
-        S.subpath  = self.m2m_dir
+        S.subpath = self.m2m_dir
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
         S.anisotropy_type = cfg.conductivity_type.value
-        S.pathfem  = output_dir
-        S.map_to_surf   = cfg.map_to_surf
-        S.map_to_vol    = cfg.map_to_vol
-        S.map_to_mni    = cfg.map_to_mni
-        S.map_to_fsavg  = cfg.map_to_fsavg
-        S.open_in_gmsh  = cfg.open_in_gmsh
+        S.pathfem = output_dir
+        S.map_to_surf = cfg.map_to_surf
+        S.map_to_vol = cfg.map_to_vol
+        S.map_to_mni = cfg.map_to_mni
+        S.map_to_fsavg = cfg.map_to_fsavg
+        S.open_in_gmsh = cfg.open_in_gmsh
         S.tissues_in_niftis = cfg.tissues_in_niftis
 
         if not self.montage.is_xyz:
             eeg_net = self.montage.eeg_net
             S.eeg_cap = os.path.join(
-                self.pm.path("eeg_positions", subject_id=cfg.subject_id), eeg_net
+                self.pm.eeg_positions(cfg.subject_id), eeg_net
             )
 
         tensor = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
@@ -131,7 +130,7 @@ class TISimulation:
         for idx, pos in enumerate(self.montage.electrode_pairs[0]):
             el = tdcs1.add_electrode()
             el.channelnr = idx + 1
-            el.centre    = pos
+            el.centre = pos
             self._configure_electrode(el)
 
         # Pair 2 — deepcopy from pair 1, update centres and current
@@ -145,9 +144,9 @@ class TISimulation:
 
     def _configure_electrode(self, electrode) -> None:
         el_cfg = self.config.electrode
-        electrode.shape      = el_cfg.shape
+        electrode.shape = el_cfg.shape
         electrode.dimensions = el_cfg.dimensions
-        electrode.thickness  = [el_cfg.thickness, el_cfg.sponge_thickness]
+        electrode.thickness = [el_cfg.thickness, el_cfg.sponge_thickness]
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         for i in range(len(tdcs.cond)):
@@ -155,12 +154,10 @@ class TISimulation:
             if env_var in os.environ:
                 tdcs.cond[i].value = float(os.environ[env_var])
 
-    # ------------------------------------------------------------------
-    # Post-processing
-    # ------------------------------------------------------------------
+    # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
-        sid  = self.config.subject_id
+        sid = self.config.subject_id
         cond = self.config.conductivity_type.value
         name = self.montage.name
 
@@ -186,11 +183,15 @@ class TISimulation:
         self._calculate_ti_normal(dirs["hf_dir"], dirs["ti_mesh"], name)
 
         self.logger.info("Field extraction: Started")
-        extract_fields(ti_path, dirs["ti_mesh"], f"{name}_TI", self.m2m_dir, sid, self.logger)
+        extract_fields(
+            ti_path, dirs["ti_mesh"], f"{name}_TI", self.m2m_dir, sid, self.logger
+        )
         self.logger.info("Field extraction: ✓ Complete")
 
         self.logger.info("NIfTI transformation: Started")
-        transform_to_nifti(dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger)
+        transform_to_nifti(
+            dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger
+        )
         self.logger.info("NIfTI transformation: ✓ Complete")
 
         self._organize_files(dirs)
@@ -198,9 +199,11 @@ class TISimulation:
 
         return ti_path
 
-    def _calculate_ti_normal(self, hf_dir: str, output_dir: str, montage_name: str) -> None:
+    def _calculate_ti_normal(
+        self, hf_dir: str, output_dir: str, montage_name: str
+    ) -> None:
         """Compute TI_normal on the cortical surface (requires surface overlays from SimNIBS)."""
-        sid  = self.config.subject_id
+        sid = self.config.subject_id
         cond = self.config.conductivity_type.value
         overlays = os.path.join(hf_dir, "subject_overlays")
         c1 = os.path.join(overlays, f"{sid}_TDCS_1_{cond}_central.msh")
@@ -235,22 +238,40 @@ class TISimulation:
         for pattern in ("TDCS_1", "TDCS_2"):
             for ext in (".geo", "scalar.msh", "scalar.msh.opt"):
                 for f in glob.glob(os.path.join(hf, f"*{pattern}*{ext}")):
-                    safe_move(f, os.path.join(dirs["hf_mesh"], os.path.basename(f)), self.logger)
+                    safe_move(
+                        f,
+                        os.path.join(dirs["hf_mesh"], os.path.basename(f)),
+                        self.logger,
+                    )
 
         vols = os.path.join(hf, "subject_volumes")
         for fname in os.listdir(vols):
-            safe_move(os.path.join(vols, fname), os.path.join(dirs["hf_niftis"], fname), self.logger)
+            safe_move(
+                os.path.join(vols, fname),
+                os.path.join(dirs["hf_niftis"], fname),
+                self.logger,
+            )
         safe_rmdir(vols, self.logger)
 
         overlays = os.path.join(hf, "subject_overlays")
         for fname in os.listdir(overlays):
-            safe_move(os.path.join(overlays, fname),
-                      os.path.join(dirs["ti_surface_overlays"], fname), self.logger)
+            safe_move(
+                os.path.join(overlays, fname),
+                os.path.join(dirs["ti_surface_overlays"], fname),
+                self.logger,
+            )
         safe_rmdir(overlays, self.logger)
 
-        safe_move(os.path.join(hf, "fields_summary.txt"),
-                  os.path.join(dirs["hf_analysis"], "fields_summary.txt"), self.logger)
+        safe_move(
+            os.path.join(hf, "fields_summary.txt"),
+            os.path.join(dirs["hf_analysis"], "fields_summary.txt"),
+            self.logger,
+        )
 
         for pattern in ("simnibs_simulation_*.log", "simnibs_simulation_*.mat"):
             for f in glob.glob(os.path.join(hf, pattern)):
-                safe_move(f, os.path.join(dirs["documentation"], os.path.basename(f)), self.logger)
+                safe_move(
+                    f,
+                    os.path.join(dirs["documentation"], os.path.basename(f)),
+                    self.logger,
+                )

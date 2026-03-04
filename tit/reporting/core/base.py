@@ -109,14 +109,12 @@ class MetadataReportlet(BaseReportlet):
         for key, value in self.data.items():
             formatted_key = key.replace("_", " ").title()
             formatted_value = self._format_value(value)
-            cards.append(
-                f"""
+            cards.append(f"""
                 <div class="metadata-card">
                     <div class="card-label">{formatted_key}</div>
                     <div class="card-value">{formatted_value}</div>
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
         return f"""
@@ -559,8 +557,7 @@ class ErrorReportlet(BaseReportlet):
             )
             step_html = f'<span class="error-step">Step: {step}</span>' if step else ""
 
-            message_items.append(
-                f"""
+            message_items.append(f"""
                 <div class="message-item {severity}">
                     <span class="severity-icon">{icon}</span>
                     <div class="message-content">
@@ -569,8 +566,7 @@ class ErrorReportlet(BaseReportlet):
                         {step_html}
                     </div>
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
@@ -648,14 +644,12 @@ class ReferencesReportlet(BaseReportlet):
                 url_link = f'<a href="{ref["url"]}" target="_blank">[Link]</a>'
                 citation = f"{citation} {url_link}"
 
-            ref_items.append(
-                f"""
+            ref_items.append(f"""
                 <li class="reference-item" id="ref-{key}">
                     <span class="ref-key">[{key}]</span>
                     <span class="ref-citation">{citation}</span>
                 </li>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>"
 

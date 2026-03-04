@@ -18,7 +18,6 @@ from joblib import Parallel, delayed
 import multiprocessing
 import gc
 
-
 # ==============================================================================
 # P-VALUE COMPUTATION (MNE-style)
 # ==============================================================================

@@ -106,7 +106,7 @@ class ExampleDataManager:
         # Check project status file if it exists to see if example data was already copied
         pm = get_path_manager()
         pm.project_dir = str(self.project_dir)
-        status_file = Path(pm.path("ti_toolbox_status"))
+        status_file = Path(pm.project_status())
         if status_file.exists():
             try:
                 import json
@@ -199,11 +199,11 @@ class ExampleDataManager:
         pm.project_dir = str(self.project_dir)
 
         core_dirs = [
-            pm.ensure_dir("sourcedata"),
-            pm.ensure_dir("ti_toolbox"),
-            pm.ensure_dir("simnibs"),
-            pm.ensure_dir("freesurfer"),
-            pm.ensure_dir("ti_toolbox_config"),
+            pm.ensure(pm.sourcedata()),
+            pm.ensure(pm.ti_toolbox()),
+            pm.ensure(pm.simnibs()),
+            pm.ensure(pm.freesurfer()),
+            pm.ensure(pm.config_dir()),
         ]
 
         for dir_path in core_dirs:
@@ -279,7 +279,7 @@ class ExampleDataManager:
             # Create the status directory if it doesn't exist
             pm = get_path_manager()
             pm.project_dir = str(self.project_dir)
-            status_dir = Path(pm.ensure_dir("ti_toolbox_info"))
+            status_dir = Path(pm.ensure(pm.config_dir()))
             status_dir.mkdir(parents=True, exist_ok=True)
 
             status_file = status_dir / "project_status.json"

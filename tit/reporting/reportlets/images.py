@@ -118,15 +118,13 @@ class SliceSeriesReportlet(BaseReportlet):
             label = slice_data.get("label", "")
             label_html = f'<span class="slice-label">{label}</span>' if label else ""
 
-            slice_images.append(
-                f"""
+            slice_images.append(f"""
                 <div class="slice-image">
                     <img src="data:{mime_type};base64,{slice_data["base64"]}"
                          alt="{label or 'Brain slice'}" />
                     {label_html}
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
         caption_html = (
@@ -270,16 +268,14 @@ class MontageImageReportlet(BaseReportlet):
                         intensity_str = f"{float(intensity_value):.2f} mA"
                     except (TypeError, ValueError):
                         intensity_str = str(intensity_value)
-                rows.append(
-                    f"""
+                rows.append(f"""
                     <tr>
                         <td>{pair.get("name", "")}</td>
                         <td>{pair.get("electrode1", "")}</td>
                         <td>{pair.get("electrode2", "")}</td>
                         <td>{intensity_str}</td>
                     </tr>
-                    """
-                )
+                    """)
 
             pairs_html = f"""
             <div class="electrode-pairs">
@@ -423,25 +419,21 @@ class MultiViewBrainReportlet(BaseReportlet):
         view_panels = []
         for view_name, base64_data in self.views.items():
             if base64_data:
-                view_panels.append(
-                    f"""
+                view_panels.append(f"""
                     <div class="view-panel {view_name}">
                         <div class="view-label">{view_name.capitalize()}</div>
                         <img src="data:image/png;base64,{base64_data}"
                              alt="{view_name} view"
                              class="view-image" />
                     </div>
-                    """
-                )
+                    """)
             else:
-                view_panels.append(
-                    f"""
+                view_panels.append(f"""
                     <div class="view-panel {view_name}">
                         <div class="view-label">{view_name.capitalize()}</div>
                         <div class="view-placeholder">Not available</div>
                     </div>
-                    """
-                )
+                    """)
 
         caption_html = (
             f'<p class="multiview-caption">{self.caption}</p>' if self.caption else ""

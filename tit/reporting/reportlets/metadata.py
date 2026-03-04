@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional, Union
 from ..core.base import BaseReportlet
 from ..core.protocols import ReportletType, StatusType
 
-
 # Default TI conductivity values with sources
 DEFAULT_CONDUCTIVITIES = {
     "white_matter": {
@@ -335,8 +334,7 @@ class ProcessingStepReportlet(BaseReportlet):
                     f'<p class="step-description">{step["description"]}</p>'
                 )
 
-            step_items.append(
-                f"""
+            step_items.append(f"""
                 <div class="processing-step" id="{step_id}">
                     <div class="step-header" onclick="toggleStep('{step_id}')">
                         <span class="step-status {status}">{icon}</span>
@@ -350,8 +348,7 @@ class ProcessingStepReportlet(BaseReportlet):
                         {error_html}
                     </div>
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
@@ -462,16 +459,14 @@ class SummaryCardsReportlet(BaseReportlet):
             )
             style = f'border-top-color: {card["color"]};' if card.get("color") else ""
 
-            card_items.append(
-                f"""
+            card_items.append(f"""
                 <div class="summary-card" style="{style}">
                     {icon_html}
                     <div class="card-label">{card["label"]}</div>
                     <div class="card-value">{card["value"]}</div>
                     {subtitle_html}
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 
@@ -569,23 +564,19 @@ class ParameterListReportlet(BaseReportlet):
             for name, value in params.items():
                 formatted_name = name.replace("_", " ").title()
                 formatted_value = self._format_value(value)
-                rows.append(
-                    f"""<tr>
+                rows.append(f"""<tr>
                         <td class="param-name">{formatted_name}</td>
                         <td class="param-value">{formatted_value}</td>
-                    </tr>"""
-                )
+                    </tr>""")
 
-            category_sections.append(
-                f"""
+            category_sections.append(f"""
                 <div class="parameter-category">
                     <h4>{category}</h4>
                     <table class="data-table compact">
                         <tbody>{"".join(rows)}</tbody>
                     </table>
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 

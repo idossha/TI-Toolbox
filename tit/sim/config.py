@@ -23,7 +23,7 @@ class ConductivityType(Enum):
 class ElectrodeConfig:
     """
     Electrode shape and dimensions.
-    
+
     Attributes:
         shape (str): Electrode shape. Defaults to "ellipse", but can be "rect".
         dimensions (List[float]): Electrode dimensions. Defaults to [8.0, 8.0].
@@ -40,7 +40,7 @@ class ElectrodeConfig:
 @dataclass
 class IntensityConfig:
     """
-    Per-pair current intensities in mA. 
+    Per-pair current intensities in mA.
     TI uses pair1+pair2; mTI uses all four.
     """
 
@@ -77,7 +77,9 @@ class LabelMontage:
             return SimulationMode.TI
         if n >= 4:
             return SimulationMode.MTI
-        raise ValueError(f"Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI).")
+        raise ValueError(
+            f"Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI)."
+        )
 
     @property
     def num_pairs(self) -> int:
@@ -100,7 +102,9 @@ class XYZMontage:
             return SimulationMode.TI
         if n >= 4:
             return SimulationMode.MTI
-        raise ValueError(f"Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI).")
+        raise ValueError(
+            f"Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI)."
+        )
 
     @property
     def num_pairs(self) -> int:
@@ -109,20 +113,6 @@ class XYZMontage:
 
 # Union alias — use for type annotations; instantiate LabelMontage or XYZMontage directly.
 MontageConfig = Union[LabelMontage, XYZMontage]
-
-
-@dataclass
-class ParallelConfig:
-    enabled: bool = False
-    max_workers: int = 0
-
-    def __post_init__(self):
-        if self.max_workers <= 0:
-            self.max_workers = min(4, max(1, (os.cpu_count() or 4) // 2))
-
-    @property
-    def effective_workers(self) -> int:
-        return self.max_workers
 
 
 @dataclass
@@ -137,11 +127,3 @@ class SimulationConfig:
     map_to_mni: bool = True
     map_to_fsavg: bool = False
     tissues_in_niftis: str = "all"
-    open_in_gmsh: bool = False
-    parallel: ParallelConfig = field(default_factory=ParallelConfig)
-
-    def __post_init__(self):
-        if isinstance(self.conductivity_type, str):
-            self.conductivity_type = ConductivityType(self.conductivity_type)
-        if isinstance(self.parallel, dict):
-            self.parallel = ParallelConfig(**self.parallel)

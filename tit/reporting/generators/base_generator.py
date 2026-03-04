@@ -20,7 +20,6 @@ from ..core.base import ErrorReportlet
 from ..reportlets.references import TIToolboxReferencesReportlet
 from ..reportlets.text import MethodsBoilerplateReportlet
 
-
 # BIDS constants
 REPORTS_BASE_DIR = "derivatives/ti-toolbox/reports"
 BIDS_VERSION = "1.8.0"

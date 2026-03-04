@@ -18,25 +18,30 @@ from typing import Dict, List, Optional, Tuple
 _RESOURCES_DIR = "/ti-toolbox/resources/amv"
 
 _COORD_FILES: Dict[str, str] = {
-    "GSN-HydroCel-185.csv":        "GSN-256.csv",
-    "GSN-HydroCel-256.csv":        "GSN-256.csv",
-    "GSN-HydroCel-185":            "GSN-256.csv",
-    "EEG10-10_UI_Jurak_2007.csv":  "10-10.csv",
-    "EEG10-10_Cutini_2011.csv":    "10-10.csv",
-    "EEG10-20_Okamoto_2004.csv":   "10-10.csv",
+    "GSN-HydroCel-185.csv": "GSN-256.csv",
+    "GSN-HydroCel-256.csv": "GSN-256.csv",
+    "GSN-HydroCel-185": "GSN-256.csv",
+    "EEG10-10_UI_Jurak_2007.csv": "10-10.csv",
+    "EEG10-10_Cutini_2011.csv": "10-10.csv",
+    "EEG10-20_Okamoto_2004.csv": "10-10.csv",
     "EEG10-10_Neuroelectrics.csv": "10-10.csv",
 }
 
-_SKIP_NETS = {"easycap_BC_TMS64_X21.csv", "EEG10-20_extended_SPM12",
-              "freehand", "flex_mode"}
+_SKIP_NETS = {
+    "easycap_BC_TMS64_X21.csv",
+    "EEG10-20_extended_SPM12",
+    "freehand",
+    "flex_mode",
+}
 
 _COLORS = ["blue", "red", "green", "purple", "orange", "cyan", "chocolate", "violet"]
-_RINGS  = [f"pair{i}ring.png" for i in range(1, 9)]
+_RINGS = [f"pair{i}ring.png" for i in range(1, 9)]
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_coordinates(eeg_net: str) -> Optional[Dict[str, Tuple[int, int]]]:
     """Return {electrode_label: (x, y)} for the given EEG net, or None if unsupported."""
@@ -50,12 +55,24 @@ def _load_coordinates(eeg_net: str) -> Optional[Dict[str, Tuple[int, int]]]:
 
 
 def _overlay_ring(image: str, x: int, y: int, color: str, ring: str) -> None:
-    subprocess.run([
-        "convert", image,
-        "(", ring, "-fill", color, "-colorize", "100,100,100", ")",
-        "-geometry", f"+{x - 50}+{y - 50}",
-        "-composite", image,
-    ], check=True)
+    subprocess.run(
+        [
+            "convert",
+            image,
+            "(",
+            ring,
+            "-fill",
+            color,
+            "-colorize",
+            "100,100,100",
+            ")",
+            "-geometry",
+            f"+{x - 50}+{y - 50}",
+            "-composite",
+            image,
+        ],
+        check=True,
+    )
 
 
 def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> None:
@@ -68,17 +85,28 @@ def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> Non
     ex, ey = x2 - ux * 15, y2 - uy * 15
     cx = (sx + ex) / 2 + (-dy / dist) * dist * 0.25
     cy = (sy + ey) / 2 + (dx / dist) * dist * 0.25
-    subprocess.run([
-        "convert", image,
-        "-stroke", color, "-strokewidth", "3", "-fill", "none",
-        "-draw", f"bezier {sx},{sy} {cx},{cy} {ex},{ey}",
-        image,
-    ], check=True)
+    subprocess.run(
+        [
+            "convert",
+            image,
+            "-stroke",
+            color,
+            "-strokewidth",
+            "3",
+            "-fill",
+            "none",
+            "-draw",
+            f"bezier {sx},{sy} {cx},{cy} {ex},{ey}",
+            image,
+        ],
+        check=True,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def visualize_montage(
     montage_name: str,
@@ -107,7 +135,9 @@ def visualize_montage(
     os.makedirs(output_dir, exist_ok=True)
 
     if sim_mode == "U":
-        out_image = os.path.join(output_dir, f"{montage_name}_highlighted_visualization.png")
+        out_image = os.path.join(
+            output_dir, f"{montage_name}_highlighted_visualization.png"
+        )
         subprocess.run(["cp", template, out_image], check=True)
     else:
         out_image = os.path.join(output_dir, "combined_montage_visualization.png")
@@ -117,7 +147,7 @@ def visualize_montage(
     for i, pair in enumerate(electrode_pairs):
         e1, e2 = pair
         color = _COLORS[i % len(_COLORS)]
-        ring  = os.path.join(_RESOURCES_DIR, _RINGS[i % len(_RINGS)])
+        ring = os.path.join(_RESOURCES_DIR, _RINGS[i % len(_RINGS)])
         if e1 in coords:
             _overlay_ring(out_image, *coords[e1], color, ring)
         if e2 in coords:

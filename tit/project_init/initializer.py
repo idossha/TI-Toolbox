@@ -7,7 +7,6 @@ from typing import Iterable
 
 from . import example_data_manager
 
-
 MARKER_FILES = (
     "code/ti-toolbox/config/.initialized",
     "code/ti-toolbox/config/project_status.json",

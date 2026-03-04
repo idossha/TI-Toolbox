@@ -13,31 +13,12 @@ from . import logger as log
 from . import paths, constants
 
 
-
-# For backward compatibility, also expose individual functions
-from .logger import (
-    CallbackHandler,
-    FlushingFileHandler,
-    FlushingStreamHandler,
-    HostTimestampFormatter,
-    add_callback_handler,
-    configure_external_loggers,
-    get_file_only_logger,
-    get_logger,
-    suppress_console_output,
-)
+from .logger import setup_logging, add_file_handler
 
 __all__ = [
     "log",
-    "CallbackHandler",
-    "FlushingFileHandler",
-    "FlushingStreamHandler",
-    "HostTimestampFormatter",
-    "add_callback_handler",
-    "configure_external_loggers",
-    "get_file_only_logger",
-    "get_logger",
-    "suppress_console_output",
+    "setup_logging",
+    "add_file_handler",
     "paths",
     "constants",
 ]

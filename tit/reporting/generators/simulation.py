@@ -314,9 +314,7 @@ class SimulationReportGenerator(BaseReportGenerator):
 
         pm = get_path_manager()
         pm.project_dir = str(self.project_dir)
-        montage_dir = Path(
-            pm.path("simulation", subject_id=subject_id, simulation_name=montage_name)
-        )
+        montage_dir = Path(pm.simulation(subject_id, montage_name))
 
         preferred_subdir = "mTI" if self._is_multipolar(montage_type) else "TI"
         candidate_dirs = [

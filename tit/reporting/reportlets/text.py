@@ -341,14 +341,12 @@ class CommandLogReportlet(BaseReportlet):
             if cmd.get("output"):
                 output_html = f'<div class="command-output">{self._escape_html(cmd["output"])}</div>'
 
-            command_items.append(
-                f"""
+            command_items.append(f"""
                 <div class="command-item {status_class}">
                     <div class="command-prompt">$ {self._escape_html(cmd["command"])}</div>
                     {output_html}
                 </div>
-                """
-            )
+                """)
 
         title_html = f"<h3>{self._title}</h3>" if self._title else ""
 

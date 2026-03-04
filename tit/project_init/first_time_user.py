@@ -22,7 +22,7 @@ def get_status_file_path():
     The file will be stored in /mnt/PROJECT_DIR_NAME/code/ti-toolbox/config/project_status.json
     """
     pm = get_path_manager()
-    return pm.path("ti_toolbox_status")
+    return pm.project_status()
 
 
 def initialize_project_status(project_dir):
@@ -34,19 +34,19 @@ def initialize_project_status(project_dir):
     pm = get_path_manager()
     pm.project_dir = project_dir
 
-    status_file = pm.path("ti_toolbox_status")
-    info_dir = pm.path("ti_toolbox_info")
+    status_file = pm.project_status()
+    info_dir = pm.config_dir()
 
     # Create info directory if it doesn't exist
-    pm.ensure_dir("ti_toolbox_info")
+    pm.ensure(pm.config_dir())
 
     # Ensure core BIDS directories exist
     core_dirs = [
-        pm.ensure_dir("sourcedata"),
-        pm.ensure_dir("ti_toolbox"),
-        pm.ensure_dir("simnibs"),
-        pm.ensure_dir("freesurfer"),
-        pm.ensure_dir("ti_toolbox_config"),
+        pm.ensure(pm.sourcedata()),
+        pm.ensure(pm.ti_toolbox()),
+        pm.ensure(pm.simnibs()),
+        pm.ensure(pm.freesurfer()),
+        pm.ensure(pm.config_dir()),
     ]
 
     # Default status data
@@ -80,7 +80,7 @@ def get_project_status():
     Returns the status data dictionary or None if initialization fails.
     """
     pm = get_path_manager()
-    status_file = pm.path_optional("ti_toolbox_status")
+    status_file = pm.project_status()
 
     if not status_file or not os.path.exists(status_file):
         project_dir = os.environ.get("PROJECT_DIR", "")
@@ -103,7 +103,7 @@ def update_project_status(updates):
         bool: True if update was successful, False otherwise
     """
     pm = get_path_manager()
-    status_file = pm.path_optional("ti_toolbox_status")
+    status_file = pm.project_status()
     current_status = get_project_status()
 
     if not current_status:
