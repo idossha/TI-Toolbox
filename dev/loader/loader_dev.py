@@ -146,7 +146,7 @@ def set_macos_opengl_env(env: dict[str, str]) -> None:
 
 
 def initialize_volumes() -> None:
-    for volume in ("ti-toolbox_freesurfer_data"):
+    for volume in ("ti-toolbox_freesurfer_data",):
         result = subprocess.run(
             ["docker", "volume", "inspect", volume],
             stdout=subprocess.DEVNULL,
