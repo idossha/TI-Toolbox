@@ -20,7 +20,7 @@ _RESOURCES_DIR = "/ti-toolbox/resources/amv"
 _COORD_FILES: Dict[str, str] = {
     "GSN-HydroCel-185.csv":        "GSN-256.csv",
     "GSN-HydroCel-256.csv":        "GSN-256.csv",
-    "GSN-HydroCel-185":            "GSN-256.csv",  # legacy alias
+    "GSN-HydroCel-185":            "GSN-256.csv",
     "EEG10-10_UI_Jurak_2007.csv":  "10-10.csv",
     "EEG10-10_Cutini_2011.csv":    "10-10.csv",
     "EEG10-20_Okamoto_2004.csv":   "10-10.csv",
@@ -115,8 +115,6 @@ def visualize_montage(
             subprocess.run(["cp", template, out_image], check=True)
 
     for i, pair in enumerate(electrode_pairs):
-        if len(pair) != 2:
-            continue
         e1, e2 = pair
         color = _COLORS[i % len(_COLORS)]
         ring  = os.path.join(_RESOURCES_DIR, _RINGS[i % len(_RINGS)])

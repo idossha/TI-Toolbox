@@ -28,7 +28,7 @@ from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.logger import get_logger
 from tit.gui.style import FONT_NOTE  # graphics tokens
-from tit.tools.extract_labels import extract_labels_from_nifti
+from tit.tools.extract_labels import extract_labels
 from tit.tools.nifti_to_mesh import nifti_to_mesh
 
 # Repo/package path helper used to invoke bundled CLI/blender scripts in subprocesses.
@@ -1359,9 +1359,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     # If labels specified, extract them first
                     if labels is not None:
                         temp_nifti = os.path.join(output_dir, "temp_extracted.nii.gz")
-                        extracted_path = extract_labels_from_nifti(
-                            nifti_path, labels, temp_nifti
-                        )
+                        extracted_path = extract_labels(nifti_path, labels, temp_nifti)
                         input_file = extracted_path
                         self.logger.info(f"Extracted labels to: {extracted_path}")
                     else:
