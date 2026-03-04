@@ -1,89 +1,6 @@
 import csv, json, os, re
 
 
-class OutputAlgorithms:
-    @staticmethod
-    def create_csv_data(results, roi_name):
-        csv_data = [
-            [
-                "Montage",
-                "Current_Ch1_mA",
-                "Current_Ch2_mA",
-                "TImax_ROI",
-                "TImean_ROI",
-                "TImean_GM",
-                "Focality",
-                "Composite_Index",
-                "n_elements",
-            ]
-        ]
-
-        timax_values, timean_values, focality_values, composite_values = [], [], [], []
-
-        for mesh_name, data in results.items():
-            formatted_name = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace(
-                "_and_", " <> "
-            )
-
-            ti_max = data.get(f"{roi_name}_TImax_ROI")
-            ti_mean = data.get(f"{roi_name}_TImean_ROI")
-            ti_mean_gm = data.get(f"{roi_name}_TImean_GM")
-            focality = data.get(f"{roi_name}_Focality")
-
-            composite_index = (
-                ti_mean * focality
-                if ti_mean is not None and focality is not None
-                else None
-            )
-
-            csv_data.append(
-                [
-                    formatted_name,
-                    f"{data.get('current_ch1_mA', 0):.1f}",
-                    f"{data.get('current_ch2_mA', 0):.1f}",
-                    f"{ti_max:.4f}" if ti_max is not None else "",
-                    f"{ti_mean:.4f}" if ti_mean is not None else "",
-                    f"{ti_mean_gm:.4f}" if ti_mean_gm is not None else "",
-                    f"{focality:.4f}" if focality is not None else "",
-                    f"{composite_index:.4f}" if composite_index is not None else "",
-                    data.get(f"{roi_name}_n_elements", 0),
-                ]
-            )
-
-            if ti_max is not None:
-                timax_values.append(ti_max)
-            if ti_mean is not None:
-                timean_values.append(ti_mean)
-            if focality is not None:
-                focality_values.append(focality)
-            if composite_index is not None:
-                composite_values.append(composite_index)
-
-        return csv_data, timax_values, timean_values, focality_values, composite_values
-
-
-class VisualizationAlgorithms:
-    @staticmethod
-    def create_histogram_data(timax_values, timean_values, focality_values):
-        return {
-            "timax": timax_values,
-            "timean": timean_values,
-            "focality": focality_values,
-        }
-
-    @staticmethod
-    def create_scatter_data(results, roi_name):
-        intensity, focality, composite = [], [], []
-        for data in results.values():
-            ti_mean = data.get(f"{roi_name}_TImean_ROI")
-            foc = data.get(f"{roi_name}_Focality")
-            if ti_mean is not None and foc is not None:
-                intensity.append(ti_mean)
-                focality.append(foc)
-                composite.append(ti_mean * foc)
-        return intensity, focality, composite
-
-
 class ResultsProcessor:
     def __init__(self, results, output_dir, roi_name, logger):
         self.results, self.output_dir, self.roi_name, self.logger = (
@@ -186,7 +103,7 @@ class ResultsVisualizer:
             if saved:
                 self.logger.info(f"Histogram visualization saved: {saved}")
             return saved
-        except:
+        except Exception:
             return None
 
     def create_scatter_plot(self, results, roi_name):
@@ -218,7 +135,7 @@ class ResultsVisualizer:
             if saved:
                 self.logger.info(f"Scatter visualization saved: {saved}")
             return saved
-        except:
+        except Exception:
             return None
 
     def generate_visualizations(

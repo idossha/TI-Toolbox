@@ -15,7 +15,7 @@ from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
+from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
@@ -153,9 +153,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_nets = {}
         self.atlases = {}
         self.volume_atlases = {}
-
-        # Initialize debug mode (default to False)
-        self.debug_mode = False
 
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_list = QtWidgets.QListWidget()
@@ -988,7 +985,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
@@ -1001,9 +997,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         _v_splitter.addWidget(self.console_widget)
         _v_splitter.setSizes([600, 400])
         main_layout.addWidget(_v_splitter)
-
-        # Connect the debug checkbox to set_debug_mode method
-        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
 
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
@@ -1032,25 +1025,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Set PROJECT_DIR for other components that might need it
         os.environ["PROJECT_DIR"] = project_dir
 
-        # Only show subject discovery messages in debug mode
-        if self.debug_mode:
-            self.output_text.append(f"Looking for subjects in: {project_dir}")
-
         # Get subjects using path_manager
         self.subjects = pm.list_subjects()
         for subject_id in self.subjects:
             self.subject_list.addItem(subject_id)
-
-        # Console output: subjects found (only in debug mode)
-        if self.debug_mode:
-            self.output_text.append("\n=== Subjects Found ===")
-            if not self.subjects:
-                self.output_text.append("No subjects found.")
-            else:
-                for subject_id in self.subjects:
-                    self.output_text.append(f"- {subject_id}")
-
-            self.output_text.append("")
 
         # Trigger EEG net refresh for the first subject
         if self.subjects:
@@ -1090,7 +1068,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append("Error: Could not detect project directory")
             return
 
-        eeg_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
+        eeg_dir = pm.eeg_positions(subject_id)
 
         try:
             if eeg_dir and Path(eeg_dir).is_dir():
@@ -1112,19 +1090,11 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.skin_net_combo.setCurrentIndex(0)
                 else:
                     # No nets found, add default
-                    if self.debug_mode:
-                        self.output_text.append(
-                            f"No EEG net templates found for subject {subject_id}."
-                        )
                     self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
                     self.skin_net_combo.addItem(
                         "GSN-HydroCel-185"
                     )  # Default option for skin visualization
             else:
-                if self.debug_mode:
-                    self.output_text.append(
-                        f"EEG positions directory not found for subject {subject_id}."
-                    )
                 self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
                 self.skin_net_combo.addItem(
                     "GSN-HydroCel-185"
@@ -1173,16 +1143,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                 if atlas_name in rh_atlases:
                     self.atlases[("rh", atlas_name)] = rh_atlases[atlas_name]
 
-            if all_atlas_names:
-                if self.debug_mode:
-                    self.output_text.append(
-                        f"Found {len(all_atlas_names)} unique atlases for subject {subject_id}."
-                    )
-            else:
-                if self.debug_mode:
-                    self.output_text.append(
-                        f"No atlas files found for subject {subject_id}."
-                    )
+            if not all_atlas_names:
+                pass  # No atlas files found; user will see empty combo
         except Exception as e:
             self.output_text.append(f"Error scanning for atlas files: {str(e)}")
         # Also update non-ROI atlas combo
@@ -1209,7 +1171,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append("Error: Could not detect project directory")
             return
 
-        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        m2m_dir = pm.m2m(subject_id)
         if not m2m_dir:
             self.output_text.append(f"No m2m directory found for subject {subject_id}.")
             return
@@ -1225,16 +1187,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.volume_atlas_combo.addItem("labeling.nii.gz")
 
                 # Check if LUT file exists
-                if labeling_lut_file.is_file():
-                    if self.debug_mode:
-                        self.output_text.append(
-                            f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz with LUT file."
-                        )
-                else:
-                    if self.debug_mode:
-                        self.output_text.append(
-                            f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz (warning: no LUT file found)."
-                        )
+                if not labeling_lut_file.is_file():
+                    self.output_text.append(
+                        f"Warning: labeling.nii.gz found for subject {subject_id} but no LUT file."
+                    )
             else:
                 self.output_text.append(
                     f"No subcortical segmentation found for subject {subject_id}. Expected: {labeling_file}"
@@ -1701,9 +1657,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                 )
                 return False
 
-            # Pass debug mode setting to control summary output
-            env["DEBUG_MODE"] = "true" if self.debug_mode else "false"
-
             cmd = [
                 "simnibs_python",
                 "-m",
@@ -1991,27 +1944,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                         )
                         cmd.extend(["--skin-visualization-net", default_path])
 
-            # Only show setup messages in debug mode
-            if self.debug_mode:
-                self.output_text.append(
-                    f"Running optimization for subject {subject_id} (this may take a while)..."
-                )
-                self.output_text.append("Command: " + " ".join(cmd))
-                self.output_text.append("Environment for subprocess will include:")
-                for k, v in env.items():
-                    if (
-                        k.startswith("ROI")
-                        or k.startswith("VOLUME")
-                        or k
-                        in [
-                            "PROJECT_DIR",
-                            "SUBJECT_ID",
-                            "ATLAS_PATH",
-                            "SELECTED_HEMISPHERE",
-                        ]
-                    ):
-                        self.output_text.append(f"  {k}: {v}")
-
             # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
             if (
                 not hasattr(self, "selected_subjects")
@@ -2125,58 +2057,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         if not text.strip():
             return
 
-        # Filter messages based on debug mode
-        if not self.debug_mode:
-            # In non-debug mode, only show important messages
-            if not is_important_message(text, message_type, "flexsearch"):
-                return
-            # Colorize summary lines: blue for starts, white for completes, green for final
-            lower = text.lower()
-            is_final = lower.startswith("└─") or "completed successfully" in lower
-            is_start = lower.startswith("beginning ") or ": starting" in lower
-            is_complete = (
-                ("✓ complete" in lower)
-                or ("results available in:" in lower)
-                or ("saved to" in lower)
-            )
-            color = "#55ff55" if is_final else ("#55aaff" if is_start else "#ffffff")
-            # Preserve line breaks and spacing by converting to HTML
-            text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
-            formatted_text = f'<span style="color: {color};">{text_html}</span>'
-            scrollbar = self.output_text.verticalScrollBar()
-            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-            self.output_text.append(formatted_text)
-            if at_bottom:
-                self.output_text.ensureCursorVisible()
-            QtWidgets.QApplication.processEvents()
-            return
-
-            # Additional filtering for setup/configuration messages that shouldn't appear in debug mode
-            setup_patterns = [
-                "Looking for subjects in:",
-                "=== Subjects Found ===",
-                "Found ",  # This catches "Found 3 unique atlases", "Found 9 EEG net templates", etc.
-                "EEG net templates for subject",
-                "unique atlases for subject",
-                "subcortical segmentation for subject",
-                "Running optimization for subject",
-                "Command: ",
-                "Environment for subprocess will include:",
-                "PROJECT_DIR:",
-                "SUBJECT_ID:",
-                "ROI_X:",
-                "ROI_Y:",
-                "ROI_Z:",
-                "ROI_RADIUS:",
-                "labeling.nii.gz with LUT file",  # Catches subcortical segmentation messages
-                "with LUT file",  # Additional catch for LUT file messages
-                "atlases for subject",  # More specific catch for atlas messages
-                "segmentation for subject",  # More specific catch for segmentation messages
-            ]
-
-            if any(pattern in text for pattern in setup_patterns):
-                return
-
         # Preserve line breaks and spacing in the text by converting to HTML
         # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
         text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
@@ -2218,10 +2098,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
 
         QtWidgets.QApplication.processEvents()
-
-    def set_debug_mode(self, debug_mode):
-        """Set debug mode for output filtering."""
-        self.debug_mode = debug_mode
 
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
@@ -2381,11 +2257,11 @@ class FlexSearchTab(QtWidgets.QWidget):
 
                 # Look for T1 NIfTI files in multiple locations
                 t1_paths = []
-                m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+                m2m_dir = pm.m2m(subject_id)
                 if m2m_dir:
                     t1_paths.append(str(Path(m2m_dir) / "T1.nii.gz"))
 
-                bids_anat_dir = pm.path_optional("bids_anat", subject_id=subject_id)
+                bids_anat_dir = pm.bids_anat(subject_id)
                 if bids_anat_dir:
                     t1_paths.append(
                         str(Path(bids_anat_dir) / f"sub-{subject_id}_T1w.nii.gz")
@@ -2613,7 +2489,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             return
 
-        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        m2m_dir = pm.m2m(subject_id)
         if not m2m_dir:
             QtWidgets.QMessageBox.warning(
                 self,
@@ -2936,7 +2812,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _validate_sweep_inputs(self):
         """Parse and validate ROI%/non-ROI% lists. Returns (roi_pcts, nonroi_pcts) or None."""
-        from tit.opt.flex.pareto_sweep import validate_grid
+        from tit.opt.flex.pareto import validate_grid
 
         try:
             roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
@@ -3019,7 +2895,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _on_pareto_mean_finished(self):
         """Called when step-1 mean opt completes; builds sweep grid and starts first run."""
-        from tit.opt.flex.pareto_sweep import (
+        from tit.opt.flex.pareto import (
             compute_sweep_grid,
             ParetoSweepConfig,
             ParetoSweepResult,
@@ -3118,7 +2994,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _run_next_sweep_point(self):
         """Pop the next SweepPoint from the queue and launch a focality run for it."""
-        from tit.opt.flex.pareto_sweep import build_focality_cmd
+        from tit.opt.flex.pareto import build_focality_cmd
         import os as _os
 
         if not self._sweep_queue:
@@ -3167,7 +3043,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _process_sweep_point_output(self, line: str, message_type: str):
         """Forward output and extract focality_score when available."""
-        from tit.opt.flex.pareto_sweep import parse_sweep_line
+        from tit.opt.flex.pareto import parse_sweep_line
 
         self.update_output(line, message_type)
         if self._current_sweep_point is not None:
@@ -3189,7 +3065,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _print_progress_table(self):
         """Append the current sweep progress table to the output console."""
-        from tit.opt.flex.pareto_sweep import generate_summary_text
+        from tit.opt.flex.pareto import generate_summary_text
 
         if self._sweep_result is None:
             return
@@ -3202,7 +3078,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _finalize_pareto_sweep(self):
         """Save results, print final summary, re-enable controls."""
-        from tit.opt.flex.pareto_sweep import save_results
+        from tit.opt.flex.pareto import save_results
 
         done_count = sum(1 for p in self._sweep_points if p.status == "done")
         total_count = len(self._sweep_points)

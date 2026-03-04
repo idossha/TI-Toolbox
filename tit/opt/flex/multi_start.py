@@ -10,22 +10,81 @@ This module handles multi-start optimization logic, including:
 
 from __future__ import annotations
 
-import numpy as np
-from simnibs import opt_struct
-
 import os
 import shutil
 import time
 import traceback
-from typing import Optional
-import argparse
-
 from logging import Logger
+from typing import Optional
+
+import numpy as np
+
+from tit.opt.config import (
+    AtlasROI,
+    FlexConfig,
+    SphericalROI,
+    SubcorticalROI,
+)
+
+# ---------------------------------------------------------------------------
+# ROI description helper
+# ---------------------------------------------------------------------------
 
 
-def run_single_optimization(
-    opt: opt_struct.TesFlexOptimization, cpus: Optional[int], logger: Logger
-) -> float:
+def describe_roi(roi) -> dict:
+    """Return a flat dictionary describing an ROI specification.
+
+    Works with the unified ``ROISpec`` types (``SphericalROI``,
+    ``AtlasROI``, ``SubcorticalROI``).  The returned dict always
+    contains a ``"method"`` key (``"spherical"``, ``"atlas"``, or
+    ``"subcortical"``).
+
+    Args:
+        roi: An ``ROISpec`` instance (``SphericalROI``, ``AtlasROI``,
+            or ``SubcorticalROI``).
+
+    Returns:
+        Dictionary with method-specific description keys.
+
+    Raises:
+        ValueError: If ``roi`` is not a recognised ROI type.
+    """
+    if isinstance(roi, SphericalROI):
+        coord_space = "MNI" if roi.use_mni else "subject"
+        return {
+            "method": "spherical",
+            "coord_space": coord_space,
+            "center": (roi.x, roi.y, roi.z),
+            "radius": roi.radius,
+            "use_mni": roi.use_mni,
+        }
+    elif isinstance(roi, AtlasROI):
+        atlas_basename = os.path.basename(roi.atlas_path) if roi.atlas_path else "N/A"
+        return {
+            "method": "atlas",
+            "atlas_basename": atlas_basename,
+            "atlas_path": roi.atlas_path or "N/A",
+            "label": roi.label,
+            "hemisphere": roi.hemisphere,
+        }
+    elif isinstance(roi, SubcorticalROI):
+        atlas_basename = os.path.basename(roi.atlas_path) if roi.atlas_path else "N/A"
+        return {
+            "method": "subcortical",
+            "atlas_basename": atlas_basename,
+            "atlas_path": roi.atlas_path or "N/A",
+            "label": roi.label,
+        }
+    else:
+        raise ValueError(f"Unknown ROI type: {type(roi)}")
+
+
+# ---------------------------------------------------------------------------
+# Core multi-start helpers (unchanged)
+# ---------------------------------------------------------------------------
+
+
+def run_single_optimization(opt, cpus: Optional[int], logger: Logger) -> float:
     """Run a single optimization and return the function value.
 
     Args:
@@ -67,7 +126,7 @@ def run_single_optimization(
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
         return float("inf")
     except Exception as exc:
-        logger.error(f"ERROR in optimization:")
+        logger.error("ERROR in optimization:")
         logger.error(f"  Error type: {type(exc).__name__}")
         logger.error(f"  Error message: {str(exc)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
@@ -156,7 +215,7 @@ def copy_best_solution(
     logger.debug(f"Copying best solution to: {base_output_folder}")
 
     if not os.path.exists(best_folder):
-        logger.error("✗ Best solution folder not found")
+        logger.error("Best solution folder not found")
         return False
 
     try:
@@ -172,10 +231,10 @@ def copy_best_solution(
                     os.remove(dst)
                 shutil.copy2(src, dst)
 
-        logger.debug("✓ Best solution successfully copied to final output directory")
+        logger.debug("Best solution successfully copied to final output directory")
         return True
     except Exception as exc:
-        logger.error(f"✗ Failed to copy best solution: {exc}")
+        logger.error(f"Failed to copy best solution: {exc}")
         return False
 
 
@@ -207,7 +266,7 @@ def cleanup_temporary_directories(
             try:
                 if os.path.exists(folder_to_remove):
                     shutil.rmtree(folder_to_remove)
-                logger.debug(f"✓ Removed temporary directory for run {run_number}")
+                logger.debug(f"Removed temporary directory for run {run_number}")
                 break
             except Exception as exc:
                 if attempt == 0:  # First attempt failed, wait and retry
@@ -215,435 +274,327 @@ def cleanup_temporary_directories(
                     continue
                 else:  # Second attempt failed
                     logger.warning(
-                        f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}"
+                        f"Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}"
                     )
                     cleanup_success = False
 
     if cleanup_success:
-        logger.debug("✓ All temporary directories cleaned up successfully")
+        logger.debug("All temporary directories cleaned up successfully")
     else:
         logger.warning(
-            "⚠ Some temporary directories could not be removed (results still valid)"
+            "Some temporary directories could not be removed (results still valid)"
         )
 
     return cleanup_success
 
 
-def create_multistart_summary_file(
+# ---------------------------------------------------------------------------
+# Summary file generation
+# ---------------------------------------------------------------------------
+
+
+def _format_config_section(config: FlexConfig) -> str:
+    """Format the shared configuration section for summary files.
+
+    Covers optimization parameters, electrode settings, ROI/non-ROI
+    descriptions, and mapping configuration.
+
+    Args:
+        config: FlexConfig instance.
+
+    Returns:
+        Multi-line string with the formatted configuration section.
+    """
+    lines: list[str] = []
+
+    # Optimization configuration
+    lines.append("OPTIMIZATION CONFIGURATION:")
+    lines.append("-" * 40)
+
+    roi_info = describe_roi(config.roi)
+    lines.append(f"Goal: {config.goal}")
+    lines.append(f"Post-processing: {config.postproc}")
+    lines.append(f"ROI Method: {roi_info['method']}")
+    lines.append(f"EEG Net: {config.eeg_net}")
+    lines.append(f"Electrode Shape: {config.electrode.shape}")
+    lines.append(f"Electrode Dimensions: {config.electrode.dimensions}mm")
+    lines.append(f"Electrode Thickness: {config.electrode.thickness}mm")
+    lines.append(f"Electrode Current: {config.current_mA}mA")
+    lines.append(
+        f"Run Final Electrode Simulation: {config.run_final_electrode_simulation}"
+    )
+    lines.append("")
+
+    # ROI details
+    lines.append("ROI CONFIGURATION:")
+    lines.append("-" * 40)
+
+    if roi_info["method"] == "spherical":
+        coord_space = roi_info["coord_space"]
+        cx, cy, cz = roi_info["center"]
+        lines.append(f"ROI Center ({coord_space} space): ({cx}, {cy}, {cz})")
+        lines.append(f"ROI Radius: {roi_info['radius']}mm")
+        if roi_info["use_mni"]:
+            lines.append("Note: MNI coordinates transformed to subject space")
+    elif roi_info["method"] == "atlas":
+        lines.append(f"Surface Atlas File: {roi_info['atlas_basename']}")
+        lines.append(f"Surface Atlas Path: {roi_info['atlas_path']}")
+        lines.append(f"ROI Label: {roi_info['label']}")
+        lines.append(f"Hemisphere: {roi_info['hemisphere']}")
+    elif roi_info["method"] == "subcortical":
+        lines.append(f"Volume Atlas File: {roi_info['atlas_basename']}")
+        lines.append(f"Volume Atlas Path: {roi_info['atlas_path']}")
+        lines.append(f"Volume ROI Label: {roi_info['label']}")
+
+    # Focality-specific non-ROI parameters
+    if config.goal == "focality":
+        lines.append("")
+        lines.append("NON-ROI CONFIGURATION (Focality):")
+        lines.append("-" * 40)
+        lines.append(f"Non-ROI Method: {config.non_roi_method}")
+        lines.append(f"Threshold Values: {config.thresholds}")
+
+        if config.non_roi_method == "everything_else":
+            lines.append("Non-ROI: Everything else (complement of ROI)")
+        elif config.non_roi is not None:
+            nr_info = describe_roi(config.non_roi)
+            if nr_info["method"] == "spherical":
+                cx, cy, cz = nr_info["center"]
+                lines.append(f"Non-ROI Center: ({cx}, {cy}, {cz})")
+                lines.append(f"Non-ROI Radius: {nr_info['radius']}mm")
+            elif nr_info["method"] == "atlas":
+                lines.append(f"Non-ROI Atlas File: {nr_info['atlas_basename']}")
+                lines.append(f"Non-ROI Atlas Path: {nr_info['atlas_path']}")
+                lines.append(f"Non-ROI Label: {nr_info['label']}")
+            elif nr_info["method"] == "subcortical":
+                lines.append(f"Non-ROI Volume Atlas File: {nr_info['atlas_basename']}")
+                lines.append(f"Non-ROI Volume Atlas Path: {nr_info['atlas_path']}")
+                lines.append(f"Non-ROI Volume Label: {nr_info['label']}")
+
+    lines.append("")
+    lines.append(f"Electrode Mapping: {config.enable_mapping}")
+    if config.enable_mapping:
+        lines.append(f"Run Mapped Simulation: {not config.disable_mapping_simulation}")
+
+    return "\n".join(lines)
+
+
+def create_summary_file(
     summary_file: str,
-    args: argparse.Namespace,
+    config: FlexConfig,
+    start_time: float,
+    *,
+    is_multistart: bool = False,
+    n_multistart: int = 1,
+    optim_funvalue_list: Optional[np.ndarray] = None,
+    best_opt_idx: int = 0,
+    valid_runs: Optional[list] = None,
+    failed_runs: Optional[list] = None,
+    function_value: Optional[float] = None,
+) -> None:
+    """Create a detailed summary file for optimization results.
+
+    This unified function handles both single-run and multi-start
+    summaries.  For a single run, pass ``is_multistart=False`` and
+    supply ``function_value``.  For multi-start, pass
+    ``is_multistart=True`` with the run-level arrays.
+
+    Args:
+        summary_file: Path to the summary file to create.
+        config: FlexConfig instance.
+        start_time: Session start time (``time.time()`` epoch).
+        is_multistart: Whether this is a multi-start summary.
+        n_multistart: Number of optimization runs (multi-start only).
+        optim_funvalue_list: Array of function values per run
+            (multi-start only).
+        best_opt_idx: Index of the best optimisation run
+            (multi-start only).
+        valid_runs: List of ``(run_number, function_value)`` tuples
+            (multi-start only).
+        failed_runs: List of failed run numbers (multi-start only).
+        function_value: Final function value (single-run only).
+    """
+    total_duration = time.time() - start_time
+    title = (
+        "MULTI-START OPTIMIZATION SUMMARY" if is_multistart else "OPTIMIZATION SUMMARY"
+    )
+    duration_label = (
+        "Total session duration" if is_multistart else "Total optimization duration"
+    )
+
+    with open(summary_file, "w") as f:
+        f.write("=" * 80 + "\n")
+        f.write(f"{title}\n")
+        f.write("=" * 80 + "\n")
+        f.write(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Subject: {config.subject_id}\n")
+        f.write(f"Project: {config.project_dir}\n")
+        f.write(f"{duration_label}: {total_duration:.1f} seconds\n")
+        f.write("\n")
+
+        # Shared configuration section
+        f.write(_format_config_section(config))
+        f.write("\n")
+
+        # Algorithm parameters
+        f.write("\nALGORITHM PARAMETERS:\n")
+        f.write("-" * 40 + "\n")
+        if is_multistart:
+            f.write(f"Number of Runs (Multi-start): {n_multistart}\n")
+        f.write(
+            f"Max Iterations: {config.max_iterations if config.max_iterations is not None else 'Default'}\n"
+        )
+        f.write(
+            f"Population Size: {config.population_size if config.population_size is not None else 'Default'}\n"
+        )
+        f.write(f"CPU Cores: {config.cpus if config.cpus is not None else 'Default'}\n")
+        f.write("\n")
+
+        if is_multistart:
+            _write_multistart_results(
+                f,
+                n_multistart,
+                optim_funvalue_list,
+                best_opt_idx,
+                valid_runs or [],
+                failed_runs or [],
+                summary_file,
+            )
+        else:
+            # Single-run result
+            fv = function_value if function_value is not None else 0.0
+            f.write("OPTIMIZATION RESULT:\n")
+            f.write("-" * 20 + "\n")
+            f.write(f"Final function value: {fv:.6f}\n")
+            f.write("Optimization type: Single run (no multi-start)\n")
+            f.write("\n")
+
+        f.write("For detailed optimization logs, refer to the main log file.\n")
+        f.write(
+            "For visualization and analysis, use the generated field maps and summary files.\n"
+        )
+        f.write("=" * 80 + "\n")
+
+
+def _write_multistart_results(
+    f,
     n_multistart: int,
     optim_funvalue_list: np.ndarray,
     best_opt_idx: int,
     valid_runs: list,
     failed_runs: list,
-    start_time: float,
-) -> None:
-    """Create a detailed summary file for multi-start optimization results.
-
-    Args:
-        summary_file: Path to the summary file to create
-        args: Parsed command line arguments
-        n_multistart: Number of optimization runs
-        optim_funvalue_list: Array of function values for each run
-        best_opt_idx: Index of the best optimization run
-        valid_runs: List of (run_number, function_value) tuples for valid runs
-        failed_runs: List of run numbers that failed
-        start_time: Session start time
-    """
-    total_duration = time.time() - start_time
-
-    with open(summary_file, "w") as f:
-        f.write("=" * 80 + "\n")
-        f.write("MULTI-START OPTIMIZATION SUMMARY\n")
-        f.write("=" * 80 + "\n")
-        f.write(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Subject: {args.subject}\n")
-        f.write(f"Total session duration: {total_duration:.1f} seconds\n")
-        f.write("\n")
-
-        # Environment variables
-        f.write("ENVIRONMENT VARIABLES:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"PROJECT_DIR: {os.getenv('PROJECT_DIR', 'N/A')}\n")
-        f.write(f"SUBJECT_ID: {os.getenv('SUBJECT_ID', args.subject)}\n")
-        f.write("\n")
-
-        # Optimization configuration
-        f.write("OPTIMIZATION CONFIGURATION:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"Goal: {args.goal}\n")
-        f.write(f"Post-processing: {args.postproc}\n")
-        f.write(f"ROI Method: {args.roi_method}\n")
-        f.write(f"EEG Net: {args.eeg_net}\n")
-        f.write(f"Electrode Shape: {args.electrode_shape}\n")
-        f.write(f"Electrode Dimensions: {args.dimensions}mm\n")
-        f.write(f"Electrode Thickness: {args.thickness}mm\n")
-        f.write(f"Electrode Current: {args.current}mA\n")
-        run_final_sim = (
-            args.run_final_electrode_simulation
-            and not args.skip_final_electrode_simulation
-        )
-        f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
-        f.write("\n")
-
-        # ROI-specific details
-        f.write("ROI CONFIGURATION:\n")
-        f.write("-" * 40 + "\n")
-        if args.roi_method == "spherical":
-            roi_coords = (
-                f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
-            )
-            roi_radius = os.getenv("ROI_RADIUS")
-            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
-            coord_space = "MNI" if use_mni_coords else "subject"
-            f.write(f"ROI Center ({coord_space} space): {roi_coords}\n")
-            f.write(f"ROI Radius: {roi_radius}mm\n")
-            if use_mni_coords:
-                f.write("Note: MNI coordinates transformed to subject space\n")
-        elif args.roi_method == "atlas":
-            atlas_path = os.getenv("ATLAS_PATH")
-            roi_label = os.getenv("ROI_LABEL")
-            hemisphere = os.getenv("SELECTED_HEMISPHERE")
-            f.write(
-                f"Surface Atlas File: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n"
-            )
-            f.write(f"Surface Atlas Path: {atlas_path if atlas_path else 'N/A'}\n")
-            f.write(f"ROI Label: {roi_label}\n")
-            f.write(f"Hemisphere: {hemisphere}\n")
-        elif args.roi_method == "subcortical":
-            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
-            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-            f.write(
-                f"Volume Atlas File: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n"
-            )
-            f.write(
-                f"Volume Atlas Path: {volume_atlas_path if volume_atlas_path else 'N/A'}\n"
-            )
-            f.write(f"Volume ROI Label: {volume_roi_label}\n")
-
-        # Focality-specific parameters
-        if args.goal == "focality":
-            f.write("\nNON-ROI CONFIGURATION (Focality):\n")
-            f.write("-" * 40 + "\n")
-            f.write(f"Non-ROI Method: {args.non_roi_method}\n")
-            f.write(f"Threshold Values: {args.thresholds}\n")
-            # Include non-ROI details
-            if args.roi_method == "spherical":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_coords = f"({os.getenv('NON_ROI_X', 'N/A')}, {os.getenv('NON_ROI_Y', 'N/A')}, {os.getenv('NON_ROI_Z', 'N/A')})"
-                    non_roi_radius = os.getenv("NON_ROI_RADIUS", "N/A")
-                    f.write(f"Non-ROI Center: {non_roi_coords}\n")
-                    f.write(f"Non-ROI Radius: {non_roi_radius}mm\n")
-            elif args.roi_method == "atlas":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
-                    non_roi_label = os.getenv("NON_ROI_LABEL")
-                    f.write(
-                        f"Non-ROI Atlas File: {os.path.basename(non_roi_atlas_path) if non_roi_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(
-                        f"Non-ROI Atlas Path: {non_roi_atlas_path if non_roi_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(f"Non-ROI Label: {non_roi_label}\n")
-            elif args.roi_method == "subcortical":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_volume_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
-                    non_roi_volume_label = os.getenv("VOLUME_NON_ROI_LABEL")
-                    f.write(
-                        f"Non-ROI Volume Atlas File: {os.path.basename(non_roi_volume_atlas_path) if non_roi_volume_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(
-                        f"Non-ROI Volume Atlas Path: {non_roi_volume_atlas_path if non_roi_volume_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(f"Non-ROI Volume Label: {non_roi_volume_label}\n")
-
-        f.write("\n")
-        f.write(f"Electrode Mapping: {args.enable_mapping}\n")
-        if args.enable_mapping:
-            f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
-
-        # Algorithm parameters
-        f.write("\nALGORITHM PARAMETERS:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"Number of Runs (Multi-start): {n_multistart}\n")
-        f.write(
-            f"Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}\n"
-        )
-        f.write(
-            f"Population Size: {args.population_size if args.population_size is not None else 'Default'}\n"
-        )
-        f.write(f"CPU Cores: {args.cpus if args.cpus is not None else 'Default'}\n")
-        f.write("\n")
-
-        # Multi-start results
-        f.write("MULTI-START OPTIMIZATION RESULTS:\n")
-        f.write("=" * 50 + "\n")
-        f.write(f"Total runs attempted: {n_multistart}\n")
-        f.write(f"Valid runs: {len(valid_runs)}\n")
-        f.write(f"Failed runs: {len(failed_runs)}\n")
-        f.write("\n")
-
-        # Detailed run results
-        f.write("DETAILED RUN RESULTS:\n")
-        f.write("-" * 30 + "\n")
-        f.write(f"{'Run #':<6} {'Status':<10} {'Function Value':<15} {'Notes'}\n")
-        f.write("-" * 60 + "\n")
-
-        for i_opt, func_val in enumerate(optim_funvalue_list):
-            run_number = i_opt + 1
-            if func_val == float("inf"):
-                status = "FAILED"
-                func_val_str = "N/A"
-                notes = "Optimization failed - see logs for details"
-            else:
-                if i_opt == best_opt_idx:
-                    status = "BEST"
-                    notes = "Selected as final solution"
-                else:
-                    status = "VALID"
-                    notes = "Discarded (higher function value)"
-                func_val_str = f"{func_val:.6f}"
-
-            f.write(f"{run_number:<6} {status:<10} {func_val_str:<15} {notes}\n")
-
-        f.write("\n")
-
-        # Statistics for valid runs
-        if len(valid_runs) > 1:
-            valid_func_values = [val for _, val in valid_runs]
-            best_value = min(valid_func_values)
-            worst_value = max(valid_func_values)
-            mean_value = np.mean(valid_func_values)
-            std_value = np.std(valid_func_values)
-            improvement = (
-                ((worst_value - best_value) / abs(worst_value)) * 100
-                if worst_value != 0
-                else 0
-            )
-
-            f.write("STATISTICAL ANALYSIS (Valid Runs Only):\n")
-            f.write("-" * 40 + "\n")
-            f.write(f"Best function value: {best_value:.6f}\n")
-            f.write(f"Worst function value: {worst_value:.6f}\n")
-            f.write(f"Mean function value: {mean_value:.6f}\n")
-            f.write(f"Standard deviation: {std_value:.6f}\n")
-            f.write(f"Improvement over worst: {improvement:.2f}%\n")
-            f.write(f"Function value range: {worst_value - best_value:.6f}\n")
-            f.write("\n")
-
-        # Best solution details
-        f.write("SELECTED SOLUTION:\n")
-        f.write("-" * 20 + "\n")
-        f.write(f"Run number: {best_opt_idx + 1}\n")
-        f.write(f"Function value: {optim_funvalue_list[best_opt_idx]:.6f}\n")
-        f.write(f"Output folder: {os.path.basename(os.path.dirname(summary_file))}\n")
-        f.write("\n")
-
-        # Failed runs details
-        if failed_runs:
-            f.write("FAILED RUNS ANALYSIS:\n")
-            f.write("-" * 25 + "\n")
-            f.write(f"Failed run numbers: {failed_runs}\n")
-            f.write("Common causes of failure:\n")
-            f.write("- Optimization convergence issues\n")
-            f.write("- Numerical instabilities\n")
-            f.write("- Memory or computational resource limits\n")
-            f.write("- ROI or mesh processing errors\n")
-            f.write("Check the main log file for specific error details.\n")
-            f.write("\n")
-
-        # Recommendations
-        f.write("RECOMMENDATIONS:\n")
-        f.write("-" * 15 + "\n")
-        if len(valid_runs) < n_multistart:
-            failure_rate = len(failed_runs) / n_multistart * 100
-            f.write(f"• {failure_rate:.1f}% of runs failed. Consider:\n")
-            f.write(
-                "  - Adjusting optimization parameters (population size, iterations)\n"
-            )
-            f.write("  - Checking ROI definition and mesh quality\n")
-            f.write("  - Reducing computational complexity\n")
-
-        if len(valid_runs) > 1:
-            cv = std_value / abs(mean_value) if mean_value != 0 else 0
-            if cv > 0.1:  # High variability
-                f.write(f"• High variability in results (CV={cv:.3f}). Consider:\n")
-                f.write("  - Increasing number of optimization runs\n")
-                f.write("  - Adjusting optimization algorithm parameters\n")
-                f.write("  - Verifying problem setup and constraints\n")
-            else:
-                f.write(f"• Good consistency across runs (CV={cv:.3f})\n")
-                f.write("  - Results appear reliable\n")
-                f.write("  - Consider using fewer runs for similar problems\n")
-
-        f.write("\n")
-        f.write("For detailed optimization logs, refer to the main log file.\n")
-        f.write(
-            "For visualization and analysis, use the generated field maps and summary files.\n"
-        )
-        f.write("=" * 80 + "\n")
-
-
-def create_single_optimization_summary_file(
     summary_file: str,
-    args: argparse.Namespace,
-    function_value: float,
-    start_time: float,
 ) -> None:
-    """Create a summary file for single optimization results.
+    """Write the multi-start specific results section.
 
     Args:
-        summary_file: Path to the summary file to create
-        args: Parsed command line arguments
-        function_value: Final function value
-        start_time: Session start time
+        f: Open file handle.
+        n_multistart: Number of runs.
+        optim_funvalue_list: Array of function values.
+        best_opt_idx: Index of the best run.
+        valid_runs: Valid run tuples.
+        failed_runs: Failed run numbers.
+        summary_file: Path to the summary file (for folder name).
     """
-    total_duration = time.time() - start_time
+    f.write("MULTI-START OPTIMIZATION RESULTS:\n")
+    f.write("=" * 50 + "\n")
+    f.write(f"Total runs attempted: {n_multistart}\n")
+    f.write(f"Valid runs: {len(valid_runs)}\n")
+    f.write(f"Failed runs: {len(failed_runs)}\n")
+    f.write("\n")
 
-    with open(summary_file, "w") as f:
-        f.write("=" * 80 + "\n")
-        f.write("OPTIMIZATION SUMMARY\n")
-        f.write("=" * 80 + "\n")
-        f.write(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Subject: {args.subject}\n")
-        f.write(f"Total optimization duration: {total_duration:.1f} seconds\n")
-        f.write("\n")
+    # Detailed run results
+    f.write("DETAILED RUN RESULTS:\n")
+    f.write("-" * 30 + "\n")
+    f.write(f"{'Run #':<6} {'Status':<10} {'Function Value':<15} {'Notes'}\n")
+    f.write("-" * 60 + "\n")
 
-        # Environment variables
-        f.write("ENVIRONMENT VARIABLES:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"PROJECT_DIR: {os.getenv('PROJECT_DIR', 'N/A')}\n")
-        f.write(f"SUBJECT_ID: {os.getenv('SUBJECT_ID', args.subject)}\n")
-        f.write("\n")
+    for i_opt, func_val in enumerate(optim_funvalue_list):
+        run_number = i_opt + 1
+        if func_val == float("inf"):
+            status = "FAILED"
+            func_val_str = "N/A"
+            notes = "Optimization failed - see logs for details"
+        else:
+            if i_opt == best_opt_idx:
+                status = "BEST"
+                notes = "Selected as final solution"
+            else:
+                status = "VALID"
+                notes = "Discarded (higher function value)"
+            func_val_str = f"{func_val:.6f}"
 
-        # Optimization configuration
-        f.write("OPTIMIZATION CONFIGURATION:\n")
-        f.write("-" * 40 + "\n")
-        f.write(f"Goal: {args.goal}\n")
-        f.write(f"Post-processing: {args.postproc}\n")
-        f.write(f"ROI Method: {args.roi_method}\n")
-        f.write(f"EEG Net: {args.eeg_net}\n")
-        f.write(f"Electrode Shape: {args.electrode_shape}\n")
-        f.write(f"Electrode Dimensions: {args.dimensions}mm\n")
-        f.write(f"Electrode Thickness: {args.thickness}mm\n")
-        f.write(f"Electrode Current: {args.current}mA\n")
-        run_final_sim = (
-            args.run_final_electrode_simulation
-            and not args.skip_final_electrode_simulation
+        f.write(f"{run_number:<6} {status:<10} {func_val_str:<15} {notes}\n")
+
+    f.write("\n")
+
+    # Statistics for valid runs
+    if len(valid_runs) > 1:
+        valid_func_values = [val for _, val in valid_runs]
+        best_value = min(valid_func_values)
+        worst_value = max(valid_func_values)
+        mean_value = np.mean(valid_func_values)
+        std_value = np.std(valid_func_values)
+        improvement = (
+            ((worst_value - best_value) / abs(worst_value)) * 100
+            if worst_value != 0
+            else 0
         )
-        f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
-        f.write("\n")
 
-        # ROI-specific details
-        f.write("ROI CONFIGURATION:\n")
+        f.write("STATISTICAL ANALYSIS (Valid Runs Only):\n")
         f.write("-" * 40 + "\n")
-        if args.roi_method == "spherical":
-            roi_coords = (
-                f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
-            )
-            roi_radius = os.getenv("ROI_RADIUS")
-            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
-            coord_space = "MNI" if use_mni_coords else "subject"
-            f.write(f"ROI Center ({coord_space} space): {roi_coords}\n")
-            f.write(f"ROI Radius: {roi_radius}mm\n")
-            if use_mni_coords:
-                f.write("Note: MNI coordinates transformed to subject space\n")
-        elif args.roi_method == "atlas":
-            atlas_path = os.getenv("ATLAS_PATH")
-            roi_label = os.getenv("ROI_LABEL")
-            hemisphere = os.getenv("SELECTED_HEMISPHERE")
-            f.write(
-                f"Surface Atlas File: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n"
-            )
-            f.write(f"Surface Atlas Path: {atlas_path if atlas_path else 'N/A'}\n")
-            f.write(f"ROI Label: {roi_label}\n")
-            f.write(f"Hemisphere: {hemisphere}\n")
-        elif args.roi_method == "subcortical":
-            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
-            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-            f.write(
-                f"Volume Atlas File: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n"
-            )
-            f.write(
-                f"Volume Atlas Path: {volume_atlas_path if volume_atlas_path else 'N/A'}\n"
-            )
-            f.write(f"Volume ROI Label: {volume_roi_label}\n")
-
-        # Focality-specific parameters
-        if args.goal == "focality":
-            f.write("\nNON-ROI CONFIGURATION (Focality):\n")
-            f.write("-" * 40 + "\n")
-            f.write(f"Non-ROI Method: {args.non_roi_method}\n")
-            f.write(f"Threshold Values: {args.thresholds}\n")
-            # Include non-ROI details
-            if args.roi_method == "spherical":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_coords = f"({os.getenv('NON_ROI_X', 'N/A')}, {os.getenv('NON_ROI_Y', 'N/A')}, {os.getenv('NON_ROI_Z', 'N/A')})"
-                    non_roi_radius = os.getenv("NON_ROI_RADIUS", "N/A")
-                    f.write(f"Non-ROI Center: {non_roi_coords}\n")
-                    f.write(f"Non-ROI Radius: {non_roi_radius}mm\n")
-            elif args.roi_method == "atlas":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
-                    non_roi_label = os.getenv("NON_ROI_LABEL")
-                    f.write(
-                        f"Non-ROI Atlas File: {os.path.basename(non_roi_atlas_path) if non_roi_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(
-                        f"Non-ROI Atlas Path: {non_roi_atlas_path if non_roi_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(f"Non-ROI Label: {non_roi_label}\n")
-            elif args.roi_method == "subcortical":
-                if args.non_roi_method == "everything_else":
-                    f.write("Non-ROI: Everything else (complement of ROI)\n")
-                else:
-                    non_roi_volume_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
-                    non_roi_volume_label = os.getenv("VOLUME_NON_ROI_LABEL")
-                    f.write(
-                        f"Non-ROI Volume Atlas File: {os.path.basename(non_roi_volume_atlas_path) if non_roi_volume_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(
-                        f"Non-ROI Volume Atlas Path: {non_roi_volume_atlas_path if non_roi_volume_atlas_path else 'N/A'}\n"
-                    )
-                    f.write(f"Non-ROI Volume Label: {non_roi_volume_label}\n")
-
-        f.write("\n")
-        f.write(f"Electrode Mapping: {args.enable_mapping}\n")
-        if args.enable_mapping:
-            f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
-
-        # Algorithm parameters
-        f.write("\nALGORITHM PARAMETERS:\n")
-        f.write("-" * 40 + "\n")
-        f.write(
-            f"Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}\n"
-        )
-        f.write(
-            f"Population Size: {args.population_size if args.population_size is not None else 'Default'}\n"
-        )
-        f.write(f"CPU Cores: {args.cpus if args.cpus is not None else 'Default'}\n")
+        f.write(f"Best function value: {best_value:.6f}\n")
+        f.write(f"Worst function value: {worst_value:.6f}\n")
+        f.write(f"Mean function value: {mean_value:.6f}\n")
+        f.write(f"Standard deviation: {std_value:.6f}\n")
+        f.write(f"Improvement over worst: {improvement:.2f}%\n")
+        f.write(f"Function value range: {worst_value - best_value:.6f}\n")
         f.write("\n")
 
-        # Optimization result
-        f.write("OPTIMIZATION RESULT:\n")
-        f.write("-" * 20 + "\n")
-        f.write(f"Final function value: {function_value:.6f}\n")
-        f.write(f"Optimization type: Single run (no multi-start)\n")
+    # Best solution details
+    f.write("SELECTED SOLUTION:\n")
+    f.write("-" * 20 + "\n")
+    f.write(f"Run number: {best_opt_idx + 1}\n")
+    f.write(f"Function value: {optim_funvalue_list[best_opt_idx]:.6f}\n")
+    f.write(f"Output folder: {os.path.basename(os.path.dirname(summary_file))}\n")
+    f.write("\n")
+
+    # Failed runs details
+    if failed_runs:
+        f.write("FAILED RUNS ANALYSIS:\n")
+        f.write("-" * 25 + "\n")
+        f.write(f"Failed run numbers: {failed_runs}\n")
+        f.write("Common causes of failure:\n")
+        f.write("- Optimization convergence issues\n")
+        f.write("- Numerical instabilities\n")
+        f.write("- Memory or computational resource limits\n")
+        f.write("- ROI or mesh processing errors\n")
+        f.write("Check the main log file for specific error details.\n")
         f.write("\n")
 
-        f.write("For detailed optimization logs, refer to the main log file.\n")
-        f.write(
-            "For visualization and analysis, use the generated field maps and summary files.\n"
-        )
-        f.write("=" * 80 + "\n")
+    # Recommendations
+    f.write("RECOMMENDATIONS:\n")
+    f.write("-" * 15 + "\n")
+    if len(valid_runs) < n_multistart:
+        failure_rate = len(failed_runs) / n_multistart * 100
+        f.write(f"- {failure_rate:.1f}% of runs failed. Consider:\n")
+        f.write("  - Adjusting optimization parameters (population size, iterations)\n")
+        f.write("  - Checking ROI definition and mesh quality\n")
+        f.write("  - Reducing computational complexity\n")
+
+    if len(valid_runs) > 1:
+        valid_func_values = [val for _, val in valid_runs]
+        mean_value = np.mean(valid_func_values)
+        std_value = np.std(valid_func_values)
+        cv = std_value / abs(mean_value) if mean_value != 0 else 0
+        if cv > 0.1:  # High variability
+            f.write(f"- High variability in results (CV={cv:.3f}). Consider:\n")
+            f.write("  - Increasing number of optimization runs\n")
+            f.write("  - Adjusting optimization algorithm parameters\n")
+            f.write("  - Verifying problem setup and constraints\n")
+        else:
+            f.write(f"- Good consistency across runs (CV={cv:.3f})\n")
+            f.write("  - Results appear reliable\n")
+            f.write("  - Consider using fewer runs for similar problems\n")
+
+    f.write("\n")
