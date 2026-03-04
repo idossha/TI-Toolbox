@@ -1,44 +1,30 @@
-#!/usr/bin/env simnibs_python
-"""
-Temporal Interference (TI) Simulation Module
+"""TI/mTI simulation public API."""
 
-This module provides a unified interface for running TI and mTI simulations.
-It automatically detects the simulation type based on montage configuration.
-"""
-
-from .simulator import (
-    run_simulation,
-    setup_montage_directories,
-    run_montage_visualization,
-)
-from .config import (
+from tit.sim.config import (
     SimulationConfig,
     ElectrodeConfig,
     IntensityConfig,
+    LabelMontage,
+    XYZMontage,
     MontageConfig,
     SimulationMode,
     ConductivityType,
     ParallelConfig,
 )
-from .montage_loader import load_montages
-from .post_processor import PostProcessor
-from .session_builder import SessionBuilder
+from tit.sim.utils import (
+    run_simulation,
+    load_montages,
+    list_montage_names,
+    load_montage_data,
+    save_montage_data,
+    ensure_montage_file,
+    upsert_montage,
+)
 
 __all__ = [
-    # Main entry point
-    "run_simulation",
-    "setup_montage_directories",
-    "run_montage_visualization",
-    # Configuration classes
-    "SimulationConfig",
-    "ElectrodeConfig",
-    "IntensityConfig",
-    "MontageConfig",
-    "SimulationMode",
-    "ConductivityType",
-    "ParallelConfig",
-    # Utilities
-    "load_montages",
-    "PostProcessor",
-    "SessionBuilder",
+    "SimulationConfig", "ElectrodeConfig", "IntensityConfig",
+    "LabelMontage", "XYZMontage", "MontageConfig",
+    "SimulationMode", "ConductivityType", "ParallelConfig",
+    "run_simulation", "load_montages", "list_montage_names",
+    "load_montage_data", "save_montage_data", "ensure_montage_file", "upsert_montage",
 ]
