@@ -21,6 +21,16 @@ class ConductivityType(Enum):
 
 @dataclass
 class ElectrodeConfig:
+    """
+    Electrode shape and dimensions.
+    
+    Attributes:
+        shape (str): Electrode shape. Defaults to "ellipse", but can be "rect".
+        dimensions (List[float]): Electrode dimensions. Defaults to [8.0, 8.0].
+        thickness (float): Electrode thickness (saline). Defaults to 4.0.
+        sponge_thickness (float): Electrode sponge thickness. Defaults to 2.0.
+    """
+
     shape: str = "ellipse"
     dimensions: List[float] = field(default_factory=lambda: [8.0, 8.0])
     thickness: float = 4.0
@@ -29,7 +39,10 @@ class ElectrodeConfig:
 
 @dataclass
 class IntensityConfig:
-    """Per-pair current intensities in mA. TI uses pair1+pair2; mTI uses all four."""
+    """
+    Per-pair current intensities in mA. 
+    TI uses pair1+pair2; mTI uses all four.
+    """
 
     pair1: float = 1.0
     pair2: float = 1.0

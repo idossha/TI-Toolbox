@@ -35,9 +35,6 @@ from tit.sim.utils import (
 
 # Brain tissue crop mask — keeps tissue volume elements (1-99) and tissue
 # surface elements (1001-1099). Hardcoded ranges match the proven approach
-# from the previous TI-toolbox release; using ElementTags constants produced
-# a wider range that caught electrode-adjacent elements whose counts differ
-# between the two placements, causing TI.get_maxTI's shape assertion to fail.
 _TAGS_KEEP = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
 
 
