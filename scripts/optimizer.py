@@ -1,11 +1,18 @@
 #!/usr/bin/env simnibs_python
 
 from tit.opt import *
+from tit.opt.leadfield import LeadfieldGenerator
 
 PROJECT_DIR = "/mnt/000/"
 SUBJECT_ID = "101"
+EEG_NET = "GSN-HydroCel-128.csv"
 
-# ── Flex-search ──────────────────────────────────────────────────────────────
+# ── Leadfield ─────────────────────────────────────────────────────────────────
+
+lfg = LeadfieldGenerator(SUBJECT_ID, electrode_cap="GSN-HydroCel-128")
+lf = LFG.generate()
+
+# ── Flex-search ───────────────────────────────────────────────────────────────
 
 flex_config = FlexConfig(
     subject_id=SUBJECT_ID,
@@ -19,13 +26,12 @@ flex_config = FlexConfig(
 
 run_flex_search(flex_config)
 
-# ── Exhaustive search ────────────────────────────────────────────────────────
+# ── Exhaustive search ─────────────────────────────────────────────────────────
 
 ex_config = ExConfig(
     subject_id=SUBJECT_ID,
     project_dir=PROJECT_DIR,
-    leadfield_hdf=f"/mnt/000/derivatives/SimNIBS/sub-{SUBJECT_ID}/leadfields/"
-    f"{SUBJECT_ID}_leadfield_GSN-HydroCel-128.hdf5",
+    leadfield_hdf=lf,
     roi_name="my_roi.csv",
     electrodes=BucketElectrodes(
         e1_plus=["C3"],
