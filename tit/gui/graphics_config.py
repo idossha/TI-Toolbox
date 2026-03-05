@@ -39,10 +39,10 @@ class GraphicsConfig:
     """
 
     # ---- Window ------------------------------------------------------------
-    window_width: int = 1143
+    window_width: int = 1200
     """Initial main-window width in pixels."""
 
-    window_height: int = 1000
+    window_height: int = 800
     """Initial main-window height in pixels."""
 
     # ---- Console -----------------------------------------------------------
@@ -56,34 +56,34 @@ class GraphicsConfig:
     font_scale: float = 1.0
     """Multiplier applied to all font-size tokens (0.5–2.0)."""
 
-    font_size_body: int = 5
+    font_size_body: int = 3
     """Body text / form fields font size in pt (maps to FONT_MD)."""
 
-    font_size_heading: int = 5
+    font_size_heading: int = 3
     """Section headings / group-box titles font size in pt (maps to FONT_LG)."""
 
-    font_size_console: int = 5
+    font_size_console: int = 3
     """Console output font size in pt."""
 
-    font_size_tab: int = 7
+    font_size_tab: int = 3
     """Tab-bar label font size in pt."""
 
-    font_size_sm: int = 4
+    font_size_sm: int = 3
     """Very small hint/caption text (e.g. pre-processing parallel-job comments)."""
 
-    font_size_help: int = 8
+    font_size_help: int = 3
     """Help / annotation text below form controls."""
 
-    font_size_section_title: int = 7
+    font_size_section_title: int = 3
     """Intra-tab section/panel title labels."""
 
-    font_size_subheading: int = 10
+    font_size_subheading: int = 3
     """Emphasized section headings (dialog group boxes, electrode titles, status labels)."""
 
-    font_size_monospace: int = 10
+    font_size_monospace: int = 3
     """Fixed-width text views (NIfTI viewer output, Quick Notes, rich-text widgets)."""
 
-    font_size_note: int = 9
+    font_size_note: int = 3
     """Note and info labels (e.g. 'Changes apply on next launch')."""
 
     # ---- NIfTI Viewer ----------------------------------------------------------
@@ -137,10 +137,10 @@ def _config_path() -> Optional[Path]:
     initialised yet — e.g. when the application starts without a project.
     """
     try:
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         pm = get_path_manager()
-        config_dir = Path(pm.ensure_dir("ti_toolbox_config"))
+        config_dir = Path(pm.ensure(pm.config_dir()))
         return config_dir / "graphics.json"
     except Exception:
         return None

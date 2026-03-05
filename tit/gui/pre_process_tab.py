@@ -15,15 +15,23 @@ import multiprocessing
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite, is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.core import get_path_manager, constants as const
+from tit.paths import get_path_manager
+from tit import constants as const
 from tit.pre.structural import run_pipeline
-from tit.pre.common import CommandRunner, PreprocessCancelled
+from tit.pre.utils import CommandRunner, PreprocessCancelled
 from tit.pre import discover_subjects, check_m2m_exists
-from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
-from tit.gui.components.qsi_config_dialogs import QSIPrepConfigDialog, QSIReconConfigDialog
+from tit.gui.style import (
+    FONT_SM,
+    FONT_HELP,
+    FONT_SUBHEADING,
+    _gfx_tokens,
+)  # graphics tokens
+from tit.gui.components.qsi_config_dialogs import (
+    QSIPrepConfigDialog,
+    QSIReconConfigDialog,
+)
 
 
 class PreProcessThread(QtCore.QThread):
@@ -48,8 +56,6 @@ class PreProcessThread(QtCore.QThread):
         qsiprep_config: dict = None,
         qsi_recon_config: dict = None,
         extract_dti: bool = False,
-        debug_mode: bool,
-        overwrite_outputs: bool,
     ):
         super().__init__()
         self.project_dir = project_dir
@@ -65,8 +71,6 @@ class PreProcessThread(QtCore.QThread):
         self.qsiprep_config = qsiprep_config
         self.qsi_recon_config = qsi_recon_config
         self.extract_dti = extract_dti
-        self.debug_mode = debug_mode
-        self.overwrite_outputs = overwrite_outputs
         self.stop_event = threading.Event()
         self.runner = CommandRunner(stop_event=self.stop_event)
 
@@ -94,9 +98,6 @@ class PreProcessThread(QtCore.QThread):
                 qsiprep_config=self.qsiprep_config,
                 qsi_recon_config=self.qsi_recon_config,
                 extract_dti=self.extract_dti,
-                debug=self.debug_mode,
-                overwrite=self.overwrite_outputs,
-                prompt_overwrite=False,
                 stop_event=self.stop_event,
                 logger_callback=callback,
                 runner=self.runner,
@@ -136,10 +137,6 @@ class PreProcessTab(QtWidgets.QWidget):
 
         self.processing_running = False
         self.processing_thread = None
-        # Initialize debug mode (default to False)
-        self.debug_mode = False
-        # Initialize summary mode state and timers for non-debug summaries
-        self.SUMMARY_MODE = True
         self.PROC_START_TIME = None
         self.STEP_START_TIMES = {}
         self._preproc_had_failures = False
@@ -292,7 +289,9 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.addWidget(dwi_separator)
 
         dwi_label = QtWidgets.QLabel("DWI Processing (Docker)")
-        dwi_label.setStyleSheet(f"color: #888888; font-size: {FONT_SM}; font-weight: normal;")
+        dwi_label.setStyleSheet(
+            f"color: #888888; font-size: {FONT_SM}; font-weight: normal;"
+        )
         options_group_layout.addWidget(dwi_label)
 
         # QSIPrep option with gear button
@@ -375,7 +374,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
@@ -388,9 +386,6 @@ class PreProcessTab(QtWidgets.QWidget):
         _v_splitter.addWidget(self.console_widget)
         _v_splitter.setSizes([600, 400])
         main_layout.addWidget(_v_splitter)
-
-        # Connect the debug checkbox to set_debug_mode method
-        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
 
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
@@ -446,17 +441,9 @@ class PreProcessTab(QtWidgets.QWidget):
         self.qsirecon_config_btn.setEnabled(not is_processing)
         self.extract_dti_cb.setEnabled(not is_processing)
 
-        # Keep debug checkbox enabled during processing
-        if hasattr(self, "console_widget") and hasattr(
-            self.console_widget, "debug_checkbox"
-        ):
-            self.console_widget.debug_checkbox.setEnabled(True)
-
         # Update status label
         if is_processing:
-            self.status_label.setText(
-                "Processing... Stop button and Debug Mode are available"
-            )
+            self.status_label.setText("Processing... Only the Stop button is available")
             self.status_label.show()
         else:
             self.status_label.hide()
@@ -503,7 +490,8 @@ class PreProcessTab(QtWidgets.QWidget):
         ):
             # Check if m2m folders already exist for selected subjects
             missing_m2m_subjects = [
-                sid for sid in selected_subjects
+                sid
+                for sid in selected_subjects
                 if not check_m2m_exists(self.project_dir, sid)
             ]
 
@@ -520,45 +508,6 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
-        # Check for existing output directories and confirm overwrite
-        overwrite_outputs = False
-        for subject_id in selected_subjects:
-            bids_subject_id = f"sub-{subject_id}"
-
-            # Check NIfTI output directory if DICOM conversion is enabled
-            if self.convert_dicom_cb.isChecked():
-                nifti_dir = os.path.join(self.project_dir, bids_subject_id, "anat")
-                if os.path.exists(nifti_dir):
-                    if not confirm_overwrite(self, nifti_dir, "NIfTI output directory"):
-                        return
-                    overwrite_outputs = True
-
-            # Check FreeSurfer output directory if recon-all is enabled
-            if self.run_recon_cb.isChecked():
-                freesurfer_dir = os.path.join(
-                    self.project_dir, "derivatives", "freesurfer", bids_subject_id
-                )
-                if os.path.exists(freesurfer_dir):
-                    if not confirm_overwrite(
-                        self, freesurfer_dir, "FreeSurfer output directory"
-                    ):
-                        return
-                    overwrite_outputs = True
-
-            # Check m2m output directory if m2m creation is enabled
-            if self.create_m2m_cb.isChecked():
-                m2m_dir = os.path.join(
-                    self.project_dir,
-                    "derivatives",
-                    "SimNIBS",
-                    bids_subject_id,
-                    f"m2m_{subject_id}",
-                )
-                if os.path.exists(m2m_dir):
-                    if not confirm_overwrite(self, m2m_dir, "m2m output directory"):
-                        return
-                    overwrite_outputs = True
-
         # Show confirmation dialog
         details = (
             f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n"
@@ -569,8 +518,7 @@ class PreProcessTab(QtWidgets.QWidget):
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
-            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}\n"
-            + f"- Debug mode: {'Yes' if self.debug_mode else 'No'}"
+            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}"
         )
 
         if not ConfirmationDialog.confirm(
@@ -605,7 +553,6 @@ class PreProcessTab(QtWidgets.QWidget):
             f"- Run QSIRecon: {self.run_qsirecon_cb.isChecked()}", "debug"
         )
         self.update_output(f"- Extract DTI: {self.extract_dti_cb.isChecked()}", "debug")
-        self.update_output(f"- Debug mode: {self.debug_mode}", "debug")
 
         # Get QSI recon config
         qsi_recon_config = None
@@ -632,8 +579,6 @@ class PreProcessTab(QtWidgets.QWidget):
             qsiprep_config=qsiprep_config,
             qsi_recon_config=qsi_recon_config,
             extract_dti=self.extract_dti_cb.isChecked(),
-            debug_mode=self.debug_mode,
-            overwrite_outputs=overwrite_outputs,
         )
         self.processing_thread.output_signal.connect(self.update_output)
         self.processing_thread.error_signal.connect(
@@ -667,41 +612,6 @@ class PreProcessTab(QtWidgets.QWidget):
     def update_output(self, text, message_type="default"):
         """Update the console output with colored text."""
         if not text.strip():
-            return
-
-        # Filter messages based on debug mode
-        if not self.debug_mode:
-            # In non-debug mode, only show important messages
-            if not is_important_message(text, message_type, "preprocess"):
-                return
-            # Debounce exact duplicates
-            if text == self._last_plain_output_line:
-                return
-            # Colorize summary lines: blue for starts, white for completes, green for final
-            lower = text.lower()
-            is_final = lower.startswith("└─") or "completed successfully" in lower
-            # Treat "Beginning ...", ": Started", and "├─ ...: Started" as task starts
-            is_start = (
-                lower.startswith("beginning ")
-                or ": started" in lower
-                or lower.startswith("├─ ")
-                and "started" in lower
-            )
-            # Treat ✓ Complete, saved/results lines as completes
-            is_complete = (
-                ("✓ complete" in lower)
-                or ("results available in:" in lower)
-                or ("saved to" in lower)
-            )
-            color = "#55ff55" if is_final else ("#55aaff" if is_start else "#ffffff")
-            formatted_text = f'<span style="color: {color};">{text}</span>'
-            scrollbar = self.output_text.verticalScrollBar()
-            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-            self.output_text.append(formatted_text)
-            if at_bottom:
-                self.output_text.ensureCursorVisible()
-            self._last_plain_output_line = text
-            QtWidgets.QApplication.processEvents()
             return
 
         # Format the output based on message type from thread
@@ -743,32 +653,6 @@ class PreProcessTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
 
         QtWidgets.QApplication.processEvents()
-
-    # ------- Summary helpers -------
-    def _format_duration_plain(self, start_time):
-        if not start_time:
-            return "0s"
-        elapsed = time.time() - start_time
-        if elapsed < 60:
-            return f"{int(elapsed)}s"
-        return f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
-
-    def set_debug_mode(self, debug_mode):
-        """Set debug mode for output filtering."""
-        old_debug_mode = self.debug_mode
-        self.debug_mode = debug_mode
-        self.SUMMARY_MODE = not debug_mode
-
-        # Notify user about the mode change if processing is running
-        if self.processing_running and old_debug_mode != debug_mode:
-            if debug_mode:
-                self.update_output(
-                    "\n=== Debug mode enabled - showing detailed output ===", "info"
-                )
-            else:
-                self.update_output(
-                    "\n=== Debug mode disabled - showing summary only ===", "info"
-                )
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""

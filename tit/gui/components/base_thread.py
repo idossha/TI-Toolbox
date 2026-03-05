@@ -59,106 +59,33 @@ from PyQt5 import QtCore
 
 
 def detect_message_type_from_content(text):
+    """Classify a subprocess output line for GUI color display.
+
+    This is intentionally simple — structured log levels are not available
+    for raw subprocess output, so we use heuristics.
+
+    Returns one of: 'error', 'warning', 'success', 'info', 'debug', 'command', 'default'
     """
-    Intelligent message type detection from text content.
+    t = text.lower()
 
-    This is a standalone utility function that can be used by any component
-    (threads, handlers, etc.) to classify messages for GUI display.
-
-    Priority order (matching original SimulationThread logic):
-    1. Explicit error/warning tags or prefixes
-    2. Explicit level tags ([INFO], [DEBUG], etc.) for external logger compatibility
-    3. Command/execution keywords (executing:, running, command)
-    4. Success indicators (✓, completed successfully)
-    5. Progress/status messages (processing:, starting)
-    6. Section headers (===, ---)
-    7. Error keywords (error:, exception, traceback, failed)
-    8. Additional warning/debug/info patterns
-    9. Default (regular informational messages)
-
-    Args:
-        text: The message text to classify (should be cleaned of ANSI codes)
-
-    Returns:
-        str: Message type - 'error', 'warning', 'info', 'debug', 'success', 'command', or 'default'
-
-    Examples:
-        >>> detect_message_type_from_content("[ERROR] File not found")
-        'error'
-        >>> detect_message_type_from_content("✓ Completed: montage_1")
-        'success'
-        >>> detect_message_type_from_content("Processing: subject_01 (1/5)")
-        'info'
-    """
-    text_lower = text.lower()
-
-    # Priority 1: Explicit error/warning tags or prefixes
-    is_error_tag = "[ERROR]" in text or "ERROR:" in text
-    if is_error_tag:
+    # Explicit tags take priority
+    if "[error]" in t or "error:" in t or "traceback" in t or "exception" in t:
         return "error"
-    elif "[WARNING]" in text or "Warning:" in text:
+    if "✗ failed" in t or t.startswith("failed:") or t.startswith("critical:"):
+        return "error"
+    if "[warning]" in t or "warning:" in t or "warn:" in t:
         return "warning"
-
-    # Priority 2: Explicit level tags (for compatibility with external loggers)
-    elif "[INFO]" in text:
-        return "info"
-    elif "[DEBUG]" in text:
+    if "[debug]" in t or "debug:" in t or "verbose:" in t:
         return "debug"
-
-    # Priority 3: Content-based detection for command/execution messages
-    elif any(keyword in text_lower for keyword in ["executing:", "running", "command"]):
-        return "command"
-
-    # Priority 4: Success indicators
-    elif (
-        text.startswith("[SUCCESS]")
-        or ("completed successfully" in text_lower and "debug" not in text_lower)
-        or ("✓ completed:" in text_lower)
-        or (text_lower.startswith("✓") and "completed" in text_lower)
-        or ("✓ complete" in text_lower)
-    ):
+    if "✓" in text or "completed successfully" in t or "[success]" in t:
         return "success"
-
-    # Priority 5: Progress/status messages (processing, starting)
-    elif any(
-        keyword in text_lower
-        for keyword in ["processing:", "starting", "processing subject"]
-    ):
-        return "info"
-
-    # Priority 6: Section headers and structural elements
-    elif "===" in text or text.startswith("---"):
+    if "===" in text or text.startswith("---"):
         return "command"
-
-    # Priority 7: Error keywords (more specific to avoid false positives)
-    elif (
-        text_lower.startswith("error:")
-        or text_lower.startswith("critical:")
-        or "exception" in text_lower
-        or "traceback" in text_lower
-        or text_lower.startswith("failed:")
-        or "✗ failed:" in text_lower
-    ):
-        return "error"
-
-    # Priority 8: Additional warning patterns
-    elif any(keyword in text_lower for keyword in ["warning:", "warn:", "caution"]):
-        return "warning"
-
-    # Priority 9: Additional debug patterns
-    elif any(keyword in text_lower for keyword in ["debug:", "verbose:"]):
-        return "debug"
-
-    # Priority 10: Additional info patterns for common operations
-    elif any(
-        keyword in text_lower
-        for keyword in ["generating", "loading", "saving", "creating"]
+    if any(
+        k in t for k in ("processing:", "starting", "loading", "saving", "generating")
     ):
         return "info"
-
-    # Default: regular informational messages (displayed in white)
-    else:
-        return "default"
+    return "default"
 
 
 class BaseProcessThread(QtCore.QThread):

@@ -11,14 +11,14 @@ import json
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 
 # Extension metadata (required)
 EXTENSION_NAME = "Subject Info Viewer"
 EXTENSION_DESCRIPTION = "View details for subjects in your project directory."
 
-from tit.core import get_path_manager
-from tit.core import constants as const
+from tit.paths import get_path_manager
+from tit import constants as const
 
 
 class SubjectInfoWindow(QtWidgets.QDialog):
@@ -288,9 +288,8 @@ class SubjectInfoWindow(QtWidgets.QDialog):
 
         try:
             # Create export directory and file
-            pm = get_path_manager()
-            pm.project_dir = str(self.project_dir)
-            export_dir = Path(pm.ensure_dir("ti_toolbox")) / "subjects-viewer"
+            pm = get_path_manager(str(self.project_dir))
+            export_dir = Path(pm.ensure(pm.ti_toolbox())) / "subjects-viewer"
             export_dir.mkdir(parents=True, exist_ok=True)
             export_dir.mkdir(parents=True, exist_ok=True)
 

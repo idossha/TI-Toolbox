@@ -26,7 +26,7 @@ EXTENSION_DESCRIPTION = (
     "Take quick notes during your analysis sessions with timestamps."
 )
 
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 from tit.gui.style import FONT_MONOSPACE  # graphics tokens
 
 
@@ -151,8 +151,7 @@ class NotesWindow(QtWidgets.QDialog):
 
         self.notes_display = QtWidgets.QTextEdit()
         self.notes_display.setReadOnly(True)
-        self.notes_display.setStyleSheet(
-            f"""
+        self.notes_display.setStyleSheet(f"""
             QTextEdit {{
                 font-family: monospace;
                 font-size: {FONT_MONOSPACE};
@@ -161,8 +160,7 @@ class NotesWindow(QtWidgets.QDialog):
                 border-radius: 5px;
                 padding: 10px;
             }}
-        """
-        )
+        """)
         display_layout.addWidget(self.notes_display)
         layout.addWidget(display_group)
 
@@ -173,16 +171,14 @@ class NotesWindow(QtWidgets.QDialog):
         self.note_input = QtWidgets.QTextEdit()
         self.note_input.setMaximumHeight(100)
         self.note_input.setPlaceholderText("Type your note here...")
-        self.note_input.setStyleSheet(
-            f"""
+        self.note_input.setStyleSheet(f"""
             QTextEdit {{
                 font-size: {FONT_MONOSPACE};
                 border: 1px solid #ccc;
                 border-radius: 5px;
                 padding: 5px;
             }}
-        """
-        )
+        """)
         input_layout.addWidget(self.note_input)
 
         # Button row

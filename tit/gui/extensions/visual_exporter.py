@@ -22,11 +22,11 @@ from PyQt5 import QtWidgets, QtCore
 EXTENSION_NAME = "3D Visual Exporter"
 EXTENSION_DESCRIPTION = "Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D visualization"
 
-from tit.core import get_path_manager
-from tit.core import constants as const
+from tit.paths import get_path_manager
+from tit import constants as const
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.logger import get_logger
+import logging as _std_logging
 from tit.gui.style import FONT_NOTE  # graphics tokens
 from tit.tools.extract_labels import extract_labels
 from tit.tools.nifti_to_mesh import nifti_to_mesh
@@ -202,7 +202,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=150,
             max_height=None,
@@ -552,9 +551,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         try:
             self.subjects_list = self.pm.list_subjects()
             for subject_id in self.subjects_list:
-                sim_dir = self.pm.path_optional(
-                    "simnibs_subject", subject_id=subject_id
-                )
+                sim_dir = self.pm.sub(subject_id)
                 if sim_dir:
                     s = self.pm.list_simulations(subject_id)
                     self.simulations_dict[subject_id] = s
@@ -584,9 +581,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
             self.subjects_list = self.pm.list_subjects()
             for subject_id in self.subjects_list:
-                sim_dir = self.pm.path_optional(
-                    "simnibs_subject", subject_id=subject_id
-                )
+                sim_dir = self.pm.sub(subject_id)
                 if sim_dir:
                     s = self.pm.list_simulations(subject_id)
                     self.simulations_dict[subject_id] = s
@@ -622,7 +617,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
             # Update sub-cortical NIfTI path
             if current_subject and hasattr(self, "subcort_nifti_edit"):
-                m2m_dir = self.pm.path_optional("m2m", subject_id=current_subject)
+                m2m_dir = self.pm.m2m(current_subject)
                 if m2m_dir and os.path.isdir(m2m_dir):
                     default_path = str(
                         Path(m2m_dir) / "segmentation" / "labeling.nii.gz"
@@ -644,7 +639,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self._refresh_regions()
         # Set default sub-cortical NIfTI path
         if self.pm and subject_id and hasattr(self, "subcort_nifti_edit"):
-            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir = self.pm.m2m(subject_id)
             if m2m_dir and os.path.isdir(m2m_dir):
                 default_path = str(Path(m2m_dir) / "segmentation" / "labeling.nii.gz")
                 self.subcort_nifti_edit.setText(default_path)
@@ -742,7 +737,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Default to m2m segmentation directory
         subject_id = self.subject_combo.currentText().strip()
         if self.pm and subject_id:
-            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir = self.pm.m2m(subject_id)
             if m2m_dir and os.path.isdir(m2m_dir):
                 init_dir = str(Path(m2m_dir) / "segmentation")
             else:
@@ -771,7 +766,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Find the labeling_LUT.txt file
         lut_path = None
         if self.pm:
-            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir = self.pm.m2m(subject_id)
             if m2m_dir and os.path.isdir(m2m_dir):
                 potential_path = Path(m2m_dir) / "segmentation" / "labeling_LUT.txt"
                 if potential_path.exists():
@@ -897,9 +892,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
     def _simulation_dir(self, subject_id: str, simulation_name: str):
         if not self.pm:
             return None
-        return self.pm.path_optional(
-            "simulation", subject_id=subject_id, simulation_name=simulation_name
-        )
+        return self.pm.simulation(subject_id, simulation_name)
 
     def _visual_exports_dir(self, subject_id: str, simulation_name: str):
         project_dir = self._get_project_dir()
@@ -931,7 +924,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
     def _m2m_dir(self, subject_id: str):
         if not self.pm:
             return None
-        return self.pm.path_optional("m2m", subject_id=subject_id)
+        return self.pm.m2m(subject_id)
 
     # Surface mesh ensuring and caching
     def _ensure_central_surface(self, subject_id: str, simulation_name: str) -> str:
@@ -941,12 +934,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Paths from PathManager
         if not self.pm:
             raise ValueError("PathManager not available")
-        central_path = self.pm.path(
-            "ti_central_surface", subject_id=subject_id, simulation_name=simulation_name
-        )
-        ti_mesh_path = self.pm.path(
-            "ti_mesh", subject_id=subject_id, simulation_name=simulation_name
-        )
+        central_path = self.pm.ti_central_surface(subject_id, simulation_name)
+        ti_mesh_path = self.pm.ti_mesh(subject_id, simulation_name)
         surfaces_dir = os.path.dirname(central_path)
         os.makedirs(surfaces_dir, exist_ok=True)
         if os.path.exists(central_path):
@@ -1081,22 +1070,31 @@ class VisualExporterWidget(QtWidgets.QWidget):
             )
 
         # Create logger with file handler and GUI console callback handler
-        from tit.logger import CallbackHandler
+        from tit.logger import add_file_handler
 
         # Create base logger with file output only
-        self.logger = get_logger(
-            "visual_exporter", log_file=log_file, overwrite=True, console=False
-        )
+        self.logger = _std_logging.getLogger("visual_exporter")
+        self.logger.setLevel(_std_logging.DEBUG)
+        if log_file:
+            add_file_handler(log_file, level="DEBUG", logger_name="visual_exporter")
 
         # Add GUI console callback handler for real-time output in GUI
-        gui_handler = CallbackHandler(self._update_output)
+        class _CallbackHandler(logging.Handler):
+            def __init__(self, callback):
+                super().__init__()
+                self._callback = callback
+
+            def emit(self, record):
+                try:
+                    self._callback(self.format(record))
+                except Exception:
+                    pass
+
+        gui_handler = _CallbackHandler(self._update_output)
         gui_handler.setLevel(logging.INFO)  # Show INFO and above in GUI console
         # Use simple format for GUI (no timestamp/level prefix - that's added by console widget)
         gui_handler.setFormatter(logging.Formatter("%(message)s"))
         self.logger.addHandler(gui_handler)
-
-        # Ensure file handler captures everything (DEBUG level)
-        self.logger.setLevel(logging.DEBUG)
 
         # Log header (in file only, not in GUI console)
         # Use debug level so it doesn't appear in GUI console
@@ -1318,7 +1316,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 if not nifti_path:
                     # Use default path
                     if self.pm:
-                        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+                        m2m_dir = self.pm.m2m(subject_id)
                         if m2m_dir and os.path.isdir(m2m_dir):
                             nifti_path = str(
                                 Path(m2m_dir) / "segmentation" / "labeling.nii.gz"

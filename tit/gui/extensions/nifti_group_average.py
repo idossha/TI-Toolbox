@@ -19,9 +19,9 @@ EXTENSION_NAME = "NIfTI Group Averaging"
 EXTENSION_DESCRIPTION = "Compute group averages of NIfTI files"
 
 
-from tit.core import get_path_manager
-from tit.core import constants as const
-from tit.core import nifti
+from tit.paths import get_path_manager
+from tit import constants as const
+from tit.stats import nifti
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
@@ -67,8 +67,7 @@ class SubjectRow(QtWidgets.QWidget):
         # Remove button
         remove_btn = QtWidgets.QPushButton("✕")
         remove_btn.setFixedWidth(30)
-        remove_btn.setStyleSheet(
-            """
+        remove_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -78,8 +77,7 @@ class SubjectRow(QtWidgets.QWidget):
             QPushButton:hover {
                 background-color: #d32f2f;
             }
-        """
-        )
+        """)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
         layout.addWidget(remove_btn)
 
@@ -256,7 +254,6 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
             self.console_widget = ConsoleWidget(
                 parent=self,
                 show_clear_button=True,
-                show_debug_checkbox=True,
                 console_label="Output:",
                 min_height=150,
                 max_height=150,
@@ -310,7 +307,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
             for subject_id in self.subjects_list:
                 simulations = self.pm.list_simulations(subject_id)
                 # Filter for only Simulations directory contents
-                sim_path = self.pm.path_optional("simulations", subject_id=subject_id)
+                sim_path = self.pm.simulations(subject_id)
                 if sim_path and os.path.isdir(sim_path):
                     sims = [
                         d

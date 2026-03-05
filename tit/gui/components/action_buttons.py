@@ -44,8 +44,7 @@ class RunStopButtons(QtWidgets.QWidget):
 
         # Run button (Green)
         self.run_btn = QtWidgets.QPushButton(self.run_text)
-        self.run_btn.setStyleSheet(
-            """
+        self.run_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
@@ -63,14 +62,12 @@ class RunStopButtons(QtWidgets.QWidget):
                 background-color: #cccccc;
                 color: #888888;
             }
-        """
-        )
+        """)
         layout.addWidget(self.run_btn)
 
         # Stop button (Red)
         self.stop_btn = QtWidgets.QPushButton(self.stop_text)
-        self.stop_btn.setStyleSheet(
-            """
+        self.stop_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -88,8 +85,7 @@ class RunStopButtons(QtWidgets.QWidget):
                 background-color: #cccccc;
                 color: #888888;
             }
-        """
-        )
+        """)
         self.stop_btn.setEnabled(False)  # Initially disabled
         layout.addWidget(self.stop_btn)
 

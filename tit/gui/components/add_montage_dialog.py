@@ -10,7 +10,7 @@ import os
 
 from PyQt5 import QtWidgets
 
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 from tit.gui.style import FONT_SUBHEADING
 
 
@@ -231,7 +231,7 @@ class AddMontageDialog(QtWidgets.QDialog):
                 return
 
             # Get SimNIBS directory using path manager
-            simnibs_dir = self.pm.path_optional("simnibs")
+            simnibs_dir = self.pm.simnibs()
             if not simnibs_dir or not os.path.isdir(simnibs_dir):
                 return
 
@@ -241,13 +241,13 @@ class AddMontageDialog(QtWidgets.QDialog):
             for subject_dir in os.listdir(simnibs_dir):
                 if subject_dir.startswith("sub-"):
                     subject_id = subject_dir[4:]  # Remove 'sub-' prefix
-                    m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+                    m2m_dir = self.pm.m2m(subject_id)
                     if m2m_dir and os.path.isdir(m2m_dir):
                         # Use LeadfieldGenerator to get electrode names (handles both formats)
                         try:
                             from tit.opt.leadfield import LeadfieldGenerator
 
-                            gen = LeadfieldGenerator(m2m_dir)
+                            gen = LeadfieldGenerator(subject_id)
 
                             # Clean net file name (remove .csv extension if present)
                             clean_net_name = (
@@ -256,14 +256,13 @@ class AddMontageDialog(QtWidgets.QDialog):
                                 else net_file
                             )
 
-                            # Get electrodes using the fixed method
-                            electrodes = gen.get_electrode_names_from_cap(
+                            electrodes = gen.get_electrode_names(
                                 cap_name=clean_net_name
                             )
 
                             if electrodes:
                                 subject_found = True
-                                # Add to list widget (already sorted by get_electrode_names_from_cap)
+                                # Add to list widget (already sorted)
                                 for electrode in electrodes:
                                     self.electrode_list.addItem(electrode)
                                 break

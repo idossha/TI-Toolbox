@@ -19,9 +19,8 @@ EXTENSION_DESCRIPTION = (
     "unified cluster-based permutation testing for group comparisons and correlations."
 )
 
-from tit.core import get_path_manager
-from tit.core import constants as const
-from tit import logger as logging_util
+from tit.paths import get_path_manager
+from tit import constants as const
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
@@ -73,8 +72,7 @@ class SubjectRow(QtWidgets.QWidget):
         # Remove button
         self.remove_btn = QtWidgets.QPushButton("✕")
         self.remove_btn.setFixedWidth(30)
-        self.remove_btn.setStyleSheet(
-            """
+        self.remove_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -84,8 +82,7 @@ class SubjectRow(QtWidgets.QWidget):
             QPushButton:hover {
                 background-color: #d32f2f;
             }
-        """
-        )
+        """)
         self.remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
         layout.addWidget(self.remove_btn)
 
@@ -254,7 +251,6 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.console_widget = ConsoleWidget(
                 parent=self,
                 show_clear_button=True,
-                show_debug_checkbox=True,
                 console_label="Output:",
                 min_height=150,
                 max_height=None,
@@ -508,7 +504,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             for subject_id in self.subjects_list:
                 simulations = self.pm.list_simulations(subject_id)
                 # Filter for only Simulations directory contents
-                sim_path = self.pm.path_optional("simulations", subject_id=subject_id)
+                sim_path = self.pm.simulations(subject_id)
                 if os.path.exists(sim_path):
                     sims = [
                         d
@@ -1092,46 +1088,106 @@ class AnalysisThread(QtCore.QThread):
     def run(self):
         """Run the analysis"""
         try:
-            # Import unified permutation_analysis module
-            from stats import permutation_analysis
+            from tit.stats import (
+                GroupComparisonConfig,
+                CorrelationConfig,
+                GroupSubject,
+                CorrelationSubject,
+                run_group_comparison,
+                run_correlation,
+            )
+            from tit.paths import get_path_manager
 
             # Set up callback handler for GUI console integration
-            callback_handler = None
-            if logging_util:
-                # Create a custom handler that emits signals to the main thread
-                class GUILogHandler(logging.Handler):
-                    def __init__(self, emit_signal_func):
-                        super().__init__()
-                        self.emit_signal = emit_signal_func
-                        self._is_gui_handler = (
-                            True  # Mark as GUI handler to skip copying
-                        )
+            class GUILogHandler(logging.Handler):
+                def __init__(self, emit_signal_func):
+                    super().__init__()
+                    self.emit_signal = emit_signal_func
 
-                    def emit(self, record):
-                        try:
-                            msg = self.format(record)
-                            # Emit signal instead of directly calling GUI methods
-                            self.emit_signal(msg)
-                        except Exception:
-                            self.handleError(record)
+                def emit(self, record):
+                    try:
+                        msg = self.format(record)
+                        self.emit_signal(msg)
+                    except Exception:
+                        self.handleError(record)
 
-                def emit_output_signal(message):
-                    self.output_signal.emit(message)
+            def emit_output_signal(message):
+                self.output_signal.emit(message)
 
-                callback_handler = GUILogHandler(emit_output_signal)
+            callback_handler = GUILogHandler(emit_output_signal)
 
-            # Ensure analysis type is set in config (default to group_comparison for backward compatibility)
-            if "analysis_type" not in self.config:
-                self.config["analysis_type"] = "group_comparison"
+            pm = get_path_manager()
+            project_dir = pm.project_dir or "/mnt"
+            analysis_type = self.config.get("analysis_type", "group_comparison")
 
-            # Run analysis with callback handler for logging integration
-            results = permutation_analysis.run_analysis(
-                subject_configs=self.subject_configs,
-                analysis_name=self.analysis_name,
-                config=self.config,
-                callback_handler=callback_handler,
-                stop_callback=lambda: self.stop_requested,
-            )
+            pattern = self.config.get("nifti_file_pattern") or None
+
+            if analysis_type == "group_comparison":
+                subjects = [
+                    GroupSubject(
+                        subject_id=s["subject_id"],
+                        simulation_name=s["simulation_name"],
+                        response=int(s["response"]),
+                    )
+                    for s in self.subject_configs
+                ]
+                typed_config = GroupComparisonConfig(
+                    project_dir=project_dir,
+                    analysis_name=self.analysis_name,
+                    subjects=subjects,
+                    test_type=self.config.get("test_type", "unpaired"),
+                    alternative=self.config.get("alternative", "two-sided"),
+                    cluster_threshold=float(self.config.get("cluster_threshold", 0.05)),
+                    cluster_stat=self.config.get("cluster_stat", "mass"),
+                    n_permutations=int(self.config.get("n_permutations", 1000)),
+                    alpha=float(self.config.get("alpha", 0.05)),
+                    n_jobs=int(self.config.get("n_jobs", -1)),
+                    nifti_file_pattern=pattern,
+                )
+                result = run_group_comparison(
+                    typed_config,
+                    callback_handler=callback_handler,
+                    stop_callback=lambda: self.stop_requested,
+                )
+            else:
+                subjects = [
+                    CorrelationSubject(
+                        subject_id=s["subject_id"],
+                        simulation_name=s["simulation_name"],
+                        effect_size=float(s["effect_size"]),
+                        weight=float(s.get("weight", 1.0)),
+                    )
+                    for s in self.subject_configs
+                ]
+                typed_config = CorrelationConfig(
+                    project_dir=project_dir,
+                    analysis_name=self.analysis_name,
+                    subjects=subjects,
+                    correlation_type=self.config.get("correlation_type", "pearson"),
+                    cluster_threshold=float(self.config.get("cluster_threshold", 0.05)),
+                    cluster_stat=self.config.get("cluster_stat", "mass"),
+                    n_permutations=int(self.config.get("n_permutations", 1000)),
+                    alpha=float(self.config.get("alpha", 0.05)),
+                    n_jobs=int(self.config.get("n_jobs", -1)),
+                    use_weights=bool(self.config.get("use_weights", True)),
+                    nifti_file_pattern=pattern,
+                )
+                result = run_correlation(
+                    typed_config,
+                    callback_handler=callback_handler,
+                    stop_callback=lambda: self.stop_requested,
+                )
+
+            # Convert dataclass result to dict for GUI compatibility
+            results = {
+                "output_dir": result.output_dir,
+                "n_significant_clusters": result.n_significant_clusters,
+                "n_significant_voxels": result.n_significant_voxels,
+                "cluster_threshold": result.cluster_threshold,
+                "analysis_time": result.analysis_time,
+                "clusters": result.clusters,
+                "log_file": result.log_file,
+            }
 
             self.finished_signal.emit(results)
 

@@ -19,8 +19,9 @@ from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
-from tit.core import get_path_manager, constants as const
-from tit.core.process import get_child_pids
+from tit.paths import get_path_manager
+from tit import constants as const
+from tit.gui.process import get_child_pids
 from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
 from tit.gui.style import FONT_HELP, FONT_MONOSPACE, _gfx_tokens  # graphics tokens
 

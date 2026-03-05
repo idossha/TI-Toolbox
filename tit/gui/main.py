@@ -18,8 +18,9 @@ import sys
 import warnings
 from pathlib import Path
 
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 from tit.gui.style import APP_STYLESHEET
+from tit.logger import setup_logging
 
 # Suppress specific SIP deprecation warning originating from PyQt/SIP internals
 warnings.filterwarnings(
@@ -53,7 +54,7 @@ from tit.gui.nifti_viewer_tab import NiftiViewerTab
 from tit.gui.analyzer_tab import AnalyzerTab
 from tit.gui.optimizer_tab import OptimizerTab
 from tit.gui.settings_menu import SettingsMenuButton, ExtensionsButton
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -92,6 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ensure_extensions_config()
 
         from tit.gui.graphics_config import get_graphics_config
+
         self._gfx = get_graphics_config()
 
         self.setup_ui()
@@ -209,7 +211,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def get_extensions_config_path(self):
         """Get the path to the extensions configuration file."""
         # Ensure the config directory exists and return the extensions config path
-        config_dir = Path(self.pm.ensure_dir("ti_toolbox_config"))
+        config_dir = Path(self.pm.ensure(self.pm.config_dir()))
         config_path = config_dir / "extensions.json"
 
         return config_path
@@ -510,6 +512,8 @@ def check_for_update(current_version, parent_window=None):
 
 def main():
     """Main entry point for the application."""
+    setup_logging(level=os.environ.get("TI_LOG_LEVEL", "INFO"))
+
     # Enable HiDPI scaling BEFORE creating QApplication (Qt5 hard requirement).
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
@@ -520,6 +524,7 @@ def main():
     # breaking native arrow rendering (CSS ::up-button overrides suppress glyphs).
     from tit.gui.style import build_stylesheet, _NarrowSpinStyle
     from tit.gui.graphics_config import get_graphics_config
+
     app.setStyle(_NarrowSpinStyle("fusion"))
     app.setStyleSheet(build_stylesheet(get_graphics_config()))
 

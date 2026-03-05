@@ -63,11 +63,11 @@ def build_stylesheet(config=None):
         config = GraphicsConfig()
 
     # Derive the four font-size tokens from config values.
-    font_md = f"{config.font_size_body}pt"      # body text / form fields
-    font_lg = f"{config.font_size_heading}pt"   # section headings / group boxes
+    font_md = f"{config.font_size_body}pt"  # body text / form fields
+    font_lg = f"{config.font_size_heading}pt"  # section headings / group boxes
     font_console = f"{config.font_size_console}pt"  # console output (unused in
-                                                    # global sheet but available)
-    font_tab = f"{config.font_size_tab}pt"      # tab-bar labels
+    # global sheet but available)
+    font_tab = f"{config.font_size_tab}pt"  # tab-bar labels
 
     return f"""
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
@@ -297,17 +297,18 @@ APP_STYLESHEET = build_stylesheet()
 # Import these in other GUI files instead of using literal "Xpt" strings.
 # ---------------------------------------------------------------------------
 from tit.gui.graphics_config import get_graphics_config as _get_gfx_tokens  # noqa: E402
+
 _gfx_tok = _get_gfx_tokens()
 
-FONT_SM         = f"{_gfx_tok.font_size_sm}pt"
-FONT_MD         = f"{_gfx_tok.font_size_body}pt"
-FONT_LG         = f"{_gfx_tok.font_size_heading}pt"
-FONT_XL         = f"{_gfx_tok.font_size_tab}pt"
-FONT_HELP       = f"{_gfx_tok.font_size_help}pt"
-FONT_SECTION    = f"{_gfx_tok.font_size_section_title}pt"
+FONT_SM = f"{_gfx_tok.font_size_sm}pt"
+FONT_MD = f"{_gfx_tok.font_size_body}pt"
+FONT_LG = f"{_gfx_tok.font_size_heading}pt"
+FONT_XL = f"{_gfx_tok.font_size_tab}pt"
+FONT_HELP = f"{_gfx_tok.font_size_help}pt"
+FONT_SECTION = f"{_gfx_tok.font_size_section_title}pt"
 FONT_SUBHEADING = f"{_gfx_tok.font_size_subheading}pt"
-FONT_MONOSPACE  = f"{_gfx_tok.font_size_monospace}pt"
-FONT_NOTE       = f"{_gfx_tok.font_size_note}pt"
+FONT_MONOSPACE = f"{_gfx_tok.font_size_monospace}pt"
+FONT_NOTE = f"{_gfx_tok.font_size_note}pt"
 
 _gfx_tokens = _gfx_tok  # public alias for QFont size lookups
 
@@ -340,9 +341,9 @@ class _NarrowSpinStyle(_QtW.QProxyStyle):
             return rect
 
         # Ask the parent style for the native button width once.
-        native_btn_w = super().subControlRect(
-            cc, opt, _QtW.QStyle.SC_SpinBoxUp, widget
-        ).width()
+        native_btn_w = (
+            super().subControlRect(cc, opt, _QtW.QStyle.SC_SpinBoxUp, widget).width()
+        )
         delta = native_btn_w - self._TARGET_BTN_W
         if delta <= 0:
             return rect  # already narrow enough

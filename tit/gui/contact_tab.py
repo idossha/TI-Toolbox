@@ -179,8 +179,7 @@ class ContactTab(QtWidgets.QWidget):
 
         practices = QtWidgets.QTextEdit()
         practices.setReadOnly(True)
-        practices.setHtml(
-            """
+        practices.setHtml("""
         <h3>When Reporting Bugs:</h3>
         <ul>
             <li><b>Be specific:</b> Include a clear, concise title that summarizes the issue</li>
@@ -206,8 +205,7 @@ class ContactTab(QtWidgets.QWidget):
             <li><b>Include tests:</b> Add tests for new functionality when possible</li>
             <li><b>Update documentation:</b> Ensure docs reflect your changes</li>
         </ul>
-        """
-        )
+        """)
         practices.setMinimumHeight(250)
         layout.addWidget(practices)
 

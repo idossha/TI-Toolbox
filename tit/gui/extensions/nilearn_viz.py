@@ -18,8 +18,8 @@ import numpy as np
 from nilearn import datasets
 from PyQt5 import QtWidgets, QtCore
 
-from tit.core import get_path_manager
-from tit.core.nifti import load_group_data_ti_toolbox
+from tit.paths import get_path_manager
+from tit.stats.nifti import load_group_data_ti_toolbox
 from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
 from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 from tit.gui.components.console import ConsoleWidget
@@ -522,7 +522,6 @@ class PublicationImageDialog(QtWidgets.QDialog):
         self.console = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=False,
             console_label="Output:",
             min_height=200,
             max_height=None,

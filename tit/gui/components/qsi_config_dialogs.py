@@ -7,7 +7,7 @@ import multiprocessing
 
 from PyQt5 import QtWidgets
 
-from tit.core import constants as const
+from tit import constants as const
 from tit.gui.style import FONT_SM, FONT_HELP
 
 

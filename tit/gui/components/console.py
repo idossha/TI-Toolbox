@@ -31,7 +31,6 @@ class ConsoleWidget(QtWidgets.QWidget):
     Features:
     - Dark-themed console output (QTextEdit)
     - Optional Clear Console button
-    - Optional Debug Mode checkbox
     - Auto-scrolling when user is at bottom
     - Colored output based on message type
     - ANSI escape sequence handling
@@ -41,7 +40,6 @@ class ConsoleWidget(QtWidgets.QWidget):
         self,
         parent=None,
         show_clear_button=True,
-        show_debug_checkbox=True,
         console_label="Output:",
         min_height=200,
         max_height=None,
@@ -53,7 +51,6 @@ class ConsoleWidget(QtWidgets.QWidget):
         Args:
             parent: Parent widget
             show_clear_button: Whether to show the Clear Console button
-            show_debug_checkbox: Whether to show the Debug Mode checkbox
             console_label: Label text for the console (None to hide)
             min_height: Minimum height of the console in pixels
             max_height: Maximum height of the console in pixels (None for unlimited)
@@ -61,19 +58,18 @@ class ConsoleWidget(QtWidgets.QWidget):
         """
         super(ConsoleWidget, self).__init__(parent)
         self.parent = parent
-        self.debug_mode = False
 
         # Use GraphicsConfig minimum height when the caller leaves min_height
         # at its default sentinel value of 200.
         from tit.gui.graphics_config import get_graphics_config as _get_gfx
+
         _gfx = _get_gfx()
-        if min_height == 200:   # default sentinel
+        if min_height == 200:  # default sentinel
             min_height = _gfx.console_min_height
         self._console_font_size = _gfx.font_size_console
 
         # Store configuration
         self.show_clear_button = show_clear_button
-        self.show_debug_checkbox = show_debug_checkbox
         self.console_label = console_label
         self.min_height = min_height
         self.max_height = max_height
@@ -118,25 +114,6 @@ class ConsoleWidget(QtWidgets.QWidget):
             )
             header_layout.addWidget(self.clear_btn)
 
-        # Debug mode checkbox
-        if self.show_debug_checkbox:
-            self.debug_checkbox = QtWidgets.QCheckBox("Debug Mode")
-            self.debug_checkbox.setChecked(self.debug_mode)
-            self.debug_checkbox.setToolTip(
-                "Toggle debug mode:\n"
-                "• ON: Show all detailed logging information\n"
-                "• OFF: Show only key operational steps"
-            )
-            self.debug_checkbox.toggled.connect(self.toggle_debug_mode)
-            self.debug_checkbox.setStyleSheet(
-                "QCheckBox { font-weight: bold; margin-left: 8px; }"
-                " QCheckBox::indicator:unchecked { border: 2px solid #cccccc;"
-                "  background-color: white; border-radius: 3px; }"
-                " QCheckBox::indicator:checked  { border: 2px solid #4CAF50;"
-                "  background-color: #4CAF50; border-radius: 3px; }"
-            )
-            header_layout.addWidget(self.debug_checkbox)
-
         layout.addLayout(header_layout)
 
         # Console output with dark theme.
@@ -147,8 +124,7 @@ class ConsoleWidget(QtWidgets.QWidget):
         self.console.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
-        self.console.setStyleSheet(
-            f"""
+        self.console.setStyleSheet(f"""
             QTextEdit {{
                 background-color: #1e1e1e;
                 color: #f0f0f0;
@@ -158,22 +134,11 @@ class ConsoleWidget(QtWidgets.QWidget):
                 border-radius: 5px;
                 padding: 8px;
             }}
-        """
-        )
+        """)
         self.console.setAcceptRichText(True)
         # stretch=1 ensures the QTextEdit fills all remaining vertical space
         # within whatever height the outer ConsoleWidget is given.
         layout.addWidget(self.console, 1)
-
-    def toggle_debug_mode(self):
-        """Toggle debug mode for verbose output."""
-        self.debug_mode = self.debug_checkbox.isChecked()
-        if self.debug_mode:
-            self.update_console("Debug mode enabled - showing all messages", "info")
-        else:
-            self.update_console(
-                "Debug mode disabled - showing important messages only", "info"
-            )
 
     def clear_console(self):
         """Clear the console output."""
@@ -194,10 +159,6 @@ class ConsoleWidget(QtWidgets.QWidget):
 
         # Strip ANSI escape sequences before any formatting
         text = strip_ansi_codes(text)
-
-        # Filter verbose messages if not in debug mode
-        if not self.debug_mode and message_type == "debug":
-            return
 
         # Format the output based on message type
         if message_type == "error":
@@ -257,13 +218,3 @@ class ConsoleWidget(QtWidgets.QWidget):
     def get_console_widget(self):
         """Return the underlying QTextEdit console widget."""
         return self.console
-
-    def is_debug_mode(self):
-        """Return whether debug mode is currently enabled."""
-        return self.debug_mode
-
-    def set_debug_mode(self, enabled):
-        """Programmatically set debug mode."""
-        self.debug_mode = enabled
-        if self.show_debug_checkbox:
-            self.debug_checkbox.setChecked(enabled)

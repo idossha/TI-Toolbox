@@ -16,12 +16,11 @@ import shutil
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.add_montage_dialog import AddMontageDialog
 from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 from tit.reporting import SimulationReportGenerator
 
 # Import the refactored simulation dataclasses
@@ -33,7 +32,6 @@ from tit.sim import (
     XYZMontage,
     MontageConfig,
     ConductivityType,
-    ParallelConfig,
 )
 from tit.sim.utils import (
     list_montage_names,
@@ -122,8 +120,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self._job_selections = {}  # row_index -> list[str] of selected item texts
         self._job_cards: list = []
         self._selected_card_idx: int = -1
-        # Initialize debug mode (default to False)
-        self.debug_mode = False
         # Initialize path manager
         self.pm = get_path_manager()
         self.setup_ui()
@@ -270,38 +266,6 @@ class SimulatorTab(QtWidgets.QWidget):
         row2b.addStretch()
         global_layout.addLayout(row2b)
 
-        # Row 3: Parallel execution
-        row3 = QtWidgets.QHBoxLayout()
-        self.parallel_checkbox = QtWidgets.QCheckBox("Parallel Execution")
-        self.parallel_checkbox.setToolTip(
-            "Run multiple montage simulations in parallel using multiple CPU cores"
-        )
-        self.parallel_checkbox.setChecked(False)
-        self.parallel_workers_label = QtWidgets.QLabel("Workers:")
-        self.parallel_workers_label.setEnabled(False)
-
-        default_workers = max(1, (os.cpu_count() or 4) // 2)
-        self.parallel_workers_spin = QtWidgets.QSpinBox()
-        self.parallel_workers_spin.setRange(1, os.cpu_count() or 8)
-        self.parallel_workers_spin.setValue(default_workers)
-        self.parallel_workers_spin.setToolTip(
-            f"Number of parallel workers (CPU cores: {os.cpu_count() or 'unknown'})"
-        )
-        self.parallel_workers_spin.setEnabled(False)
-        self.parallel_workers_spin.setMinimumWidth(52)
-        self.parallel_workers_spin.setSizePolicy(
-            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
-        )
-        self.parallel_checkbox.toggled.connect(
-            lambda checked: (
-                self.parallel_workers_label.setEnabled(checked),
-                self.parallel_workers_spin.setEnabled(checked),
-            )
-        )
-        row3.addWidget(self.parallel_checkbox)
-        row3.addWidget(self.parallel_workers_label)
-        row3.addWidget(self.parallel_workers_spin)
-        row3.addStretch()
         global_layout.addLayout(row3)
 
         # ── Assemble 2-column layout ───────────────────────────────────────
@@ -339,7 +303,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
@@ -352,7 +315,6 @@ class SimulatorTab(QtWidgets.QWidget):
         _v_splitter.addWidget(self.console_widget)
         _v_splitter.setSizes([600, 400])
         main_layout.addWidget(_v_splitter)
-        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
         self.output_console = self.console_widget.get_console_widget()
 
         # Hidden legacy group (AddMontageDialog compatibility)
@@ -692,7 +654,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
         if source == "Montage":
             eeg_net = card.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
-            sim_mode = card.mode_combo.currentText()   # "U" or "M"
+            sim_mode = card.mode_combo.currentText()  # "U" or "M"
             montage_entries = self._get_montage_entries_for_params(eeg_net, sim_mode)
             for raw_name, pairs in montage_entries:
                 display_text = self._format_montage_display(raw_name, pairs)
@@ -761,7 +723,9 @@ class SimulatorTab(QtWidgets.QWidget):
             montage_file = self.ensure_montage_file_exists(project_dir)
             with open(montage_file, "r") as f:
                 montage_data = json.load(f)
-            net_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+            net_type = (
+                "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+            )
             nets = montage_data.get("nets", {})
             if eeg_net not in nets:
                 return []
@@ -792,15 +756,13 @@ class SimulatorTab(QtWidgets.QWidget):
         items = []
         try:
             # Use PathManager helper which already filters for electrode_positions.json
-            run_names = self.pm.list_flex_search_runs(subject_id=subject_id)
+            run_names = self.pm.list_flex_search_runs(subject_id)
             for search_name in run_names:
                 # [mapped] is always available – mapping to EEG cap happens at sim time
                 items.append(f"{search_name} [mapped]")
                 # [optimized] only if the optimized_positions key is present
-                positions_file = self.pm.path_optional(
-                    "flex_electrode_positions",
-                    subject_id=subject_id,
-                    search_name=search_name,
+                positions_file = self.pm.flex_electrode_positions(
+                    subject_id, search_name
                 )
                 if positions_file and os.path.isfile(positions_file):
                     try:
@@ -818,7 +780,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Return list of freehand config names for a subject."""
         items = []
         try:
-            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir = self.pm.m2m(subject_id)
             if not m2m_dir or not os.path.isdir(m2m_dir):
                 return items
             stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
@@ -884,9 +846,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     search_name = item_text
                     electrode_type = "mapped"
 
-                flex_search_dir = self.pm.path_optional(
-                    "flex_search_run", subject_id=subject_id, search_name=search_name
-                )
+                flex_search_dir = self.pm.flex_search_run(subject_id, search_name)
                 if not flex_search_dir:
                     self.update_output(
                         f"Flex-search folder not found for {subject_id} | {search_name}",
@@ -900,9 +860,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
                 if electrode_type == "mapped":
                     # Need to map to EEG cap
-                    eeg_positions_dir = self.pm.path_optional(
-                        "eeg_positions", subject_id=subject_id
-                    )
+                    eeg_positions_dir = self.pm.eeg_positions(subject_id)
                     eeg_net_path = os.path.join(eeg_positions_dir or "", eeg_net)
                     if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
                         self.update_output(
@@ -1012,7 +970,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Build MontageConfig list from freehand config names."""
         configs = []
         try:
-            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir = self.pm.m2m(subject_id)
             if not m2m_dir:
                 return configs
             stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
@@ -1176,9 +1134,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # ── Check for existing output directories ──────────────────────
             existing_dirs = []
             for subject_id, mc, _ in jobs:
-                simulations_dir = self.pm.path_optional(
-                    "simulations", subject_id=subject_id
-                )
+                simulations_dir = self.pm.simulations(subject_id)
                 montage_dir = os.path.join(simulations_dir or "", mc.name)
                 if simulations_dir and os.path.exists(montage_dir):
                     existing_dirs.append(f"{subject_id}/{mc.name}")
@@ -1197,9 +1153,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
                 self.update_output("Removing existing simulation directories...")
                 for subject_id, mc, _ in jobs:
-                    simulations_dir = self.pm.path_optional(
-                        "simulations", subject_id=subject_id
-                    )
+                    simulations_dir = self.pm.simulations(subject_id)
                     montage_dir = os.path.join(simulations_dir or "", mc.name)
                     if simulations_dir and os.path.exists(montage_dir):
                         try:
@@ -1270,7 +1224,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     thickness=float(thickness),
                 )
                 for subject_id in unique_subjects:
-                    m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
+                    m2m_path = self.pm.m2m(subject_id)
                     self.report_generator.add_subject(
                         subject_id, m2m_path, "processing"
                     )
@@ -1306,11 +1260,6 @@ class SimulatorTab(QtWidgets.QWidget):
             # accepts per-montage overrides; here we handle each unique subject+current
             # combination by grouping and launching one thread per unique (subject, current).
             # For simplicity (matching old one-job-at-a-time semantic), we run all jobs
-            # through a single thread that iterates sequentially (or in parallel via ParallelConfig).
-            parallel_enabled = self.parallel_checkbox.isChecked()
-            parallel_workers = (
-                int(self.parallel_workers_spin.value()) if parallel_enabled else 1
-            )
 
             # Use the first job's subject_id/current for the top-level config;
             # each MontageConfig carries its own eeg_net. run_simulation() accepts a
@@ -1326,15 +1275,11 @@ class SimulatorTab(QtWidgets.QWidget):
                     dimensions=electrode_dims,
                     thickness=float(thickness),
                 ),
-                parallel=ParallelConfig(
-                    enabled=parallel_enabled and len(jobs) > 1,
-                    max_workers=parallel_workers,
-                ),
             )
             montage_list = [mc for _, mc, _ in jobs]
 
             # ── Log file ───────────────────────────────────────────────────
-            log_dir = self.pm.path("ti_logs", subject_id=first_subject)
+            log_dir = self.pm.logs(first_subject)
             os.makedirs(log_dir, exist_ok=True)
             log_file = os.path.join(
                 log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
@@ -1382,23 +1327,22 @@ class SimulatorTab(QtWidgets.QWidget):
 
         self._simulation_finished_called = True
 
-        if self.debug_mode:
-            if self._had_errors_during_run:
-                self.output_console.append(
-                    '<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>'
-                )
-                if hasattr(self, "_first_error_line") and getattr(
-                    self, "_first_error_line", None
-                ):
-                    safe_err = strip_ansi_codes(self._first_error_line)
-                    self.update_output(f"First error detected: {safe_err}", "error")
-            else:
-                self.output_console.append(
-                    '<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>'
-                )
+        if self._had_errors_during_run:
             self.output_console.append(
-                '<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>'
+                '<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>'
             )
+            if hasattr(self, "_first_error_line") and getattr(
+                self, "_first_error_line", None
+            ):
+                safe_err = strip_ansi_codes(self._first_error_line)
+                self.update_output(f"First error detected: {safe_err}", "error")
+        else:
+            self.output_console.append(
+                '<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>'
+            )
+        self.output_console.append(
+            '<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>'
+        )
 
         # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
         if not self._had_errors_during_run:
@@ -1512,7 +1456,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
                         # Add this specific subject
                         bids_subject_id = f"sub-{subject_id}"
-                        m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
+                        m2m_path = self.pm.m2m(subject_id)
                         report_generator.add_subject(subject_id, m2m_path, "completed")
 
                         # Add this specific montage
@@ -1523,11 +1467,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Get expected output files for this specific combination
-                        simulations_dir = self.pm.path_optional(
-                            "simulation",
-                            subject_id=subject_id,
-                            simulation_name=montage_name,
-                        )
+                        simulations_dir = self.pm.simulation(subject_id, montage_name)
                         ti_dir = (
                             os.path.join(simulations_dir, "TI")
                             if simulations_dir
@@ -1578,7 +1518,7 @@ class SimulatorTab(QtWidgets.QWidget):
             )
 
             if successful_reports > 0:
-                reports_dir = self.pm.path_optional("ti_reports")
+                reports_dir = self.pm.reports()
                 self.update_output(f"[INFO] Reports saved in: {reports_dir}")
 
                 # Open the reports directory instead of individual files
@@ -1610,8 +1550,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_shape_ellipse.setEnabled(False)
         self.dimensions_input.setEnabled(False)
         self.thickness_input.setEnabled(False)
-        self.parallel_checkbox.setEnabled(False)
-        self.parallel_workers_spin.setEnabled(False)
 
     def enable_controls(self):
         """Re-enable all controls."""
@@ -1631,8 +1569,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_shape_ellipse.setEnabled(True)
         self.dimensions_input.setEnabled(True)
         self.thickness_input.setEnabled(True)
-        self.parallel_checkbox.setEnabled(True)
-        self.parallel_workers_spin.setEnabled(self.parallel_checkbox.isChecked())
 
     def clear_console(self):
         """Clear the output console."""
@@ -1671,50 +1607,6 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Strip ANSI escape sequences before any formatting
         text = strip_ansi_codes(text)
-
-        # Filter messages based on debug mode
-        if not self.debug_mode:
-            # Format simulator progress output in a tree-like structure (Flex-Search-like).
-            # This runs before filtering so the prefixed text still matches the important patterns.
-            tree_step_prefixes = (
-                "Montage visualization:",
-                "SimNIBS simulation:",
-                "Results processing:",
-                "Field extraction:",
-                "NIfTI transformation:",
-            )
-            if (
-                text.startswith(tree_step_prefixes)
-                and not text.startswith("├─")
-                and not text.startswith("└─")
-            ):
-                text = f"├─ {text}"
-
-            # Match Flex-Search behavior: in non-debug mode, only show messages that
-            # utils.py classifies as important for the 'simulator' tab.
-            if not is_important_message(text, message_type, "simulator"):
-                return
-
-            # Colorize summary lines: blue for starts, white for completes, green for final
-            lower = text.lower()
-            is_final = lower.startswith("└─") or "completed successfully" in lower
-            is_start = lower.startswith("beginning ") or ": starting" in lower
-            is_complete = (
-                ("✓ complete" in lower)
-                or ("results saved to" in lower)
-                or ("saved to" in lower)
-            )
-            color = "#55ff55" if is_final else ("#55aaff" if is_start else "#ffffff")
-            # Preserve line breaks and spacing by converting to HTML
-            text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
-            formatted_text = f'<span style="color: {color};">{text_html}</span>'
-            scrollbar = self.output_console.verticalScrollBar()
-            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-            self.output_console.append(formatted_text)
-            if at_bottom:
-                self.output_console.ensureCursorVisible()
-            QtWidgets.QApplication.processEvents()
-            return
 
         # Preserve line breaks and spacing in the text by converting to HTML
         # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
@@ -1757,13 +1649,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.ensureCursorVisible()
 
         QtWidgets.QApplication.processEvents()
-
-    def set_debug_mode(self, debug_mode):
-        """Set debug mode for output filtering."""
-        self.debug_mode = debug_mode
-        # Sync with console widget's internal state if it exists
-        if hasattr(self, "console_widget"):
-            self.console_widget.debug_mode = debug_mode
 
     def _open_file_safely(self, file_path):
         """Safely open a file in the default application, with fallbacks for different environments."""
@@ -1898,7 +1783,7 @@ class SimulatorTab(QtWidgets.QWidget):
     def _cleanup_partial_outputs(self):
         """Remove files/directories created during a failed simulation run."""
         for subject_id in self._current_run_subjects or []:
-            sim_root = self.pm.path_optional("simulations", subject_id=subject_id)
+            sim_root = self.pm.simulations(subject_id)
             if not sim_root:
                 continue
             # Remove tmp directory entirely
@@ -1917,7 +1802,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         f"[CLEANUP] Removed partial montage outputs: {montage_dir}"
                     )
             # Mark log files created during this failed run as errored by renaming them
-            logs_dir = self.pm.path("ti_logs", subject_id=subject_id)
+            logs_dir = self.pm.logs(subject_id)
             if os.path.isdir(logs_dir):
                 try:
                     for fname in list(os.listdir(logs_dir)):
@@ -2020,7 +1905,9 @@ class SimulatorTab(QtWidgets.QWidget):
                 return
 
             # Get the raw montage name (stored in UserRole to avoid formatted display text)
-            montage_name = selected_items[0].data(QtCore.Qt.UserRole) or selected_items[0].text()
+            montage_name = (
+                selected_items[0].data(QtCore.Qt.UserRole) or selected_items[0].text()
+            )
             if not montage_name:
                 QtWidgets.QMessageBox.warning(
                     self, "Warning", "Invalid montage selection."
@@ -2050,9 +1937,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     current_net = self.eeg_net_combo.currentText()
                     mode_text = "U"
                 montage_type = (
-                    "uni_polar_montages"
-                    if mode_text == "U"
-                    else "multi_polar_montages"
+                    "uni_polar_montages" if mode_text == "U" else "multi_polar_montages"
                 )
 
                 # Load, mutate, save via the shared API
@@ -2149,7 +2034,7 @@ class SimulatorTab(QtWidgets.QWidget):
         try:
             # Get project directory using path manager
             project_dir = self.pm.project_dir
-            derivatives_dir = self.pm.get_derivatives_dir()
+            derivatives_dir = self.pm.derivatives()
             temp_dir = (
                 os.path.join(derivatives_dir, "temp") if derivatives_dir else None
             )

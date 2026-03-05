@@ -22,16 +22,16 @@ from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.core import get_path_manager
-from tit.core.process import get_child_pids
+from tit.paths import get_path_manager
+from tit.gui.process import get_child_pids
 from tit import logger as logging_util
-from tit.opt.ex import (
-    get_available_rois,
-    create_roi_from_coordinates,
-    delete_roi,
-    get_roi_coordinates,
-)
-from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SUBHEADING, _gfx_tokens  # graphics tokens
+from tit.opt.ex.engine import ExSearchEngine
+from tit.gui.style import (
+    FONT_HELP,
+    FONT_MONOSPACE,
+    FONT_SUBHEADING,
+    _gfx_tokens,
+)  # graphics tokens
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
@@ -905,8 +905,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Add status label at the top
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Processing... Only the Stop button is available")
-        self.status_label.setStyleSheet(
-            f"""
+        self.status_label.setStyleSheet(f"""
             QLabel {{
                 background-color: white;
                 color: #f44336;
@@ -917,8 +916,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 min-height: 15px;
                 max-height: 15px;
             }}
-        """
-        )
+        """)
         self.status_label.setAlignment(QtCore.Qt.AlignCenter)
         self.status_label.hide()  # Initially hidden
         main_layout.addWidget(self.status_label)
@@ -1607,14 +1605,14 @@ class ExSearchTab(QtWidgets.QWidget):
             self.roi_list.clear()
 
             # Get available ROIs using the shared utility
-            available_rois = get_available_rois(subject_id)
+            available_rois = ExSearchEngine.get_available_rois(subject_id)
 
             # Display ROIs with coordinates
             for roi_name in sorted(available_rois):
                 display_name = roi_name.replace(".csv", "")
 
                 # Get coordinates using the shared utility
-                coords = get_roi_coordinates(subject_id, roi_name)
+                coords = ExSearchEngine.get_roi_coordinates(subject_id, roi_name)
                 if coords:
                     coord_str = ", ".join([f"{c:.2f}" for c in coords])
                     self.roi_list.addItem(f"{display_name}: {coord_str}")
@@ -1656,7 +1654,9 @@ class ExSearchTab(QtWidgets.QWidget):
                     roi_display = item.text()
                     roi_name = roi_display.split(":")[0].strip()
 
-                    success, message = delete_roi(selected_subject, roi_name)
+                    success, message = ExSearchEngine.delete_roi(
+                        selected_subject, roi_name
+                    )
                     if not success:
                         self.update_status(
                             f"Error removing ROI '{roi_name}': {message}", error=True
@@ -2373,8 +2373,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         self.status_label.setText(message)
         if error:
-            self.status_label.setStyleSheet(
-                f"""
+            self.status_label.setStyleSheet(f"""
                 QLabel {{
                     background-color: white;
                     color: #f44336;
@@ -2385,12 +2384,10 @@ class ExSearchTab(QtWidgets.QWidget):
                     min-height: 15px;
                     max-height: 15px;
                 }}
-            """
-            )
+            """)
         else:
             # Use same red color for processing status as other tabs
-            self.status_label.setStyleSheet(
-                f"""
+            self.status_label.setStyleSheet(f"""
                 QLabel {{
                     background-color: white;
                     color: #f44336;
@@ -2401,8 +2398,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     min-height: 15px;
                     max-height: 15px;
                 }}
-            """
-            )
+            """)
         self.status_label.show()
 
     def disable_controls(self):
@@ -2594,9 +2590,7 @@ class AddROIDialog(QtWidgets.QDialog):
             y = self.y_coord.value()
             z = self.z_coord.value()
 
-            success, message = create_roi_from_coordinates(
-                subject_id, roi_name, x, y, z
-            )
+            success, message = ExSearchEngine.create_roi(subject_id, roi_name, x, y, z)
             if not success:
                 QtWidgets.QMessageBox.critical(self, "Error", message)
                 return
@@ -2673,8 +2667,7 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
 
         # Show Electrodes button
         self.show_electrodes_btn = QtWidgets.QPushButton("Show Electrodes")
-        self.show_electrodes_btn.setStyleSheet(
-            """
+        self.show_electrodes_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2196F3;
                 color: white;
@@ -2686,8 +2679,7 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
             QPushButton:hover {
                 background-color: #1976D2;
             }
-        """
-        )
+        """)
         self.show_electrodes_btn.clicked.connect(self.show_electrodes)
         layout.addWidget(self.show_electrodes_btn)
 
@@ -2814,8 +2806,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
         button_layout = QtWidgets.QHBoxLayout()
 
         self.copy_selected_btn = QtWidgets.QPushButton("Copy Selected")
-        self.copy_selected_btn.setStyleSheet(
-            """
+        self.copy_selected_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
@@ -2826,8 +2817,7 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
             QPushButton:hover {
                 background-color: #45a049;
             }
-        """
-        )
+        """)
         self.copy_selected_btn.clicked.connect(self.copy_selected_electrodes)
         button_layout.addWidget(self.copy_selected_btn)
 

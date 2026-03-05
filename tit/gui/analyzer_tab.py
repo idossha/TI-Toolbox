@@ -15,11 +15,11 @@ import psutil
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
+from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.core import get_path_manager
-from tit.core.process import get_child_pids
+from tit.paths import get_path_manager
+from tit.gui.process import get_child_pids
 
 
 class AnalysisThread(QtCore.QThread):
@@ -220,10 +220,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Initialize PathManager
         self.pm = get_path_manager()
 
-        # Initialize debug mode (default to False)
-        self.debug_mode = False
-        # Initialize summary mode state and timers for non-debug summaries
-        self.SUMMARY_MODE = True
         self.ANALYSIS_START_TIME = None
         self.STEP_START_TIMES = {}
         self._last_output_dir = None
@@ -244,15 +240,26 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_group.addButton(self.space_mesh)
         self.space_group.addButton(self.space_voxel)
 
+        # Tissue type selector
+        self.tissue_combo = QtWidgets.QComboBox()
+        self.tissue_combo.addItem("Gray Matter (GM)", "GM")
+        self.tissue_combo.addItem("White Matter (WM)", "WM")
+        self.tissue_combo.addItem("GM + WM (both)", "both")
+        self.tissue_combo.setToolTip(
+            "Tissue compartment(s) to include in the analysis.\n"
+            "GM: gray matter only (default, cortical & subcortical GM).\n"
+            "WM: white matter only (voxel space only).\n"
+            "Both: GM and WM combined (voxel space only).\n"
+            "Note: mesh analysis always uses the GM cortical surface."
+        )
+
         self.status_label = QtWidgets.QLabel()
-        self.status_label.setStyleSheet(
-            """
+        self.status_label.setStyleSheet("""
             QLabel {
                 background-color: white; color: #f44336; padding: 5px 10px;
                 border-radius: 3px; font-weight: bold;
             }
-        """
-        )
+        """)
         self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
         self.status_label.hide()
         main_layout.addWidget(self.status_label)
@@ -322,16 +329,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=400,
             max_height=600,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
         main_layout.addWidget(self.console_widget, 2)
-
-        # Connect the debug checkbox to set_debug_mode method
-        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
 
         # Reference to underlying console for backward compatibility
         self.output_console = self.console_widget.get_console_widget()
@@ -737,6 +740,18 @@ class AnalyzerTab(QtWidgets.QWidget):
         space_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(space_layout)
 
+        # Tissue type row
+        tissue_layout = QtWidgets.QHBoxLayout()
+        tissue_layout.setSpacing(10)
+        tissue_label = QtWidgets.QLabel("Tissue:")
+        tissue_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        tissue_layout.addWidget(tissue_label)
+        tissue_layout.addWidget(self.tissue_combo)
+        tissue_layout.addStretch()
+        analysis_params_layout.addLayout(tissue_layout)
+
         # Type selection row (separate from Space) - distribute evenly across width
         type_layout = QtWidgets.QHBoxLayout()
         type_layout.setSpacing(10)
@@ -779,12 +794,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
 
-        self.whole_head_check = QtWidgets.QCheckBox("All")
-        self.whole_head_check.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        self.whole_head_check.stateChanged.connect(self.toggle_region_input)
-
         self.show_regions_btn = QtWidgets.QPushButton("List Regions")
         self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
         self.show_regions_btn.clicked.connect(self.show_available_regions)
@@ -795,8 +804,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         region_row.addWidget(self.region_label)
         region_row.addWidget(self.region_input)
-        region_row.addSpacing(5)
-        region_row.addWidget(self.whole_head_check)
         region_row.addSpacing(5)
         region_row.addWidget(self.show_regions_btn)
         region_row.addStretch()
@@ -1024,9 +1031,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not subject_id:
             return atlas_files
 
-        freesurfer_mri_dir = self.pm.path_optional(
-            "freesurfer_mri", subject_id=subject_id
-        )
+        freesurfer_mri_dir = self.pm.freesurfer_mri(subject_id)
 
         atlases_to_check = ["aparc.DKTatlas+aseg.mgz", "aparc.a2009s+aseg.mgz"]
 
@@ -1039,7 +1044,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     atlas_files.append((atlas_filename, full_path))
 
         # Check for SimNIBS labeling.nii.gz atlas
-        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+        m2m_dir = self.pm.m2m(subject_id)
         if m2m_dir and os.path.isdir(m2m_dir):
             labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
             if os.path.exists(labeling_path):
@@ -1176,24 +1181,15 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Voxel cortical: only enable if we have valid atlases
                 cortical_controls_enabled = has_valid_atlas and requires_atlas
 
-        # Update whole head checkbox
-        # Should be enabled for cortical analysis, but disabled if no valid atlas in voxel mode
-        whole_head_enabled = is_cortical and cortical_controls_enabled
-        self.whole_head_check.setEnabled(whole_head_enabled)
-
         # Update region input controls
-        # Should be enabled for cortical analysis when not whole head, but only if atlas controls are enabled
-        region_enabled = (
-            cortical_controls_enabled and not self.whole_head_check.isChecked()
-        )
+        # Should be enabled for cortical analysis, but only if atlas controls are enabled
+        region_enabled = cortical_controls_enabled
         self.region_label.setEnabled(region_enabled)
         self.region_input.setEnabled(region_enabled)
 
         # Update show regions button
-        # Should be enabled for cortical analysis when not whole head, but only if we have valid atlases
-        can_list_regions = (
-            cortical_controls_enabled and not self.whole_head_check.isChecked()
-        )
+        # Should be enabled for cortical analysis, but only if we have valid atlases
+        can_list_regions = cortical_controls_enabled
         self.show_regions_btn.setEnabled(can_list_regions)
 
     def browse_atlas(self):
@@ -1201,7 +1197,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         selected_subjects = self.get_selected_subjects()
         if selected_subjects:
             subject_id = selected_subjects[0]
-            m2m_dir_path = self.pm.path_optional("m2m", subject_id=subject_id)
+            m2m_dir_path = self.pm.m2m(subject_id)
             if m2m_dir_path and os.path.isdir(m2m_dir_path):  # Check existence
                 initial_dir = os.path.join(m2m_dir_path, "segmentation")
 
@@ -1238,9 +1234,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Update button state after selection/addition
             can_list_regions = (
-                self.atlas_combo.isEnabled()
-                and self.type_cortical.isChecked()
-                and not self.whole_head_check.isChecked()
+                self.atlas_combo.isEnabled() and self.type_cortical.isChecked()
             )
             self.show_regions_btn.setEnabled(can_list_regions)
 
@@ -1449,7 +1443,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.region_label.setEnabled(False)
                 self.region_input.setEnabled(False)
                 self.show_regions_btn.setEnabled(False)
-                self.whole_head_check.setEnabled(False)
                 return  # Skip the centralized update, as we've set everything explicitly
 
         # Update all related controls using centralized method
@@ -1647,14 +1640,11 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
-            if (
-                not self.whole_head_check.isChecked()
-                and not self.region_input.text().strip()
-            ):
+            if not self.region_input.text().strip():
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Warning",
-                    "Please enter a region name or select whole head analysis.",
+                    "Please enter a region name for cortical analysis.",
                 )
                 return False
         return True
@@ -1758,17 +1748,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 self._summary_printed = set()
 
-            # Summary-mode: headline and initial step (guard against duplicates)
-            if self.SUMMARY_MODE and not getattr(self, "_summary_started", False):
-                # Record output dir for later summary line
+            # Record output dir for later summary line (guard against duplicates)
+            if not getattr(self, "_summary_started", False):
                 self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
                 # Mark started to avoid duplicated blocks
                 # Note: The analyzer process will print all the step messages via its logging functions
                 self._summary_started = True
-            else:
-                self.update_output(f"Running single subject analysis for: {subject_id}")
-                self.update_output(f"Montage: {simulation_name}")
-                self.update_output(f"Command: {' '.join(cmd)}")
 
             self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
             self.optimization_process.output_signal.connect(
@@ -1787,7 +1772,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.analysis_finished(success=False)
 
     def run_group_analysis(self):
-        """Run group analysis using the group_analyzer.py script."""
+        """Run group analysis using the Analyzer API."""
         try:
             # Build the group analyzer command
             cmd = self.build_group_analyzer_command()
@@ -1812,36 +1797,21 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 self._summary_printed = set()
 
-            if self.SUMMARY_MODE:
-                # For group we still provide a concise start message
-                pairs_summary = []
-                for row in range(self.pairs_table.rowCount()):
-                    subject_combo = self.pairs_table.cellWidget(row, 0)
-                    sim_combo = self.pairs_table.cellWidget(row, 1)
-                    if subject_combo and sim_combo:
-                        subject_id = subject_combo.currentText()
-                        simulation_name = sim_combo.currentText()
-                        if subject_id and simulation_name:
-                            pairs_summary.append(f"{subject_id}({simulation_name})")
-                self.ANALYSIS_START_TIME = time.time()
-                self.update_output(
-                    f"Beginning group analysis for pairs: {', '.join(pairs_summary)}"
-                )
-                self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
-            else:
-                pairs_summary = []
-                for row in range(self.pairs_table.rowCount()):
-                    subject_combo = self.pairs_table.cellWidget(row, 0)
-                    sim_combo = self.pairs_table.cellWidget(row, 1)
-                    if subject_combo and sim_combo:
-                        subject_id = subject_combo.currentText()
-                        simulation_name = sim_combo.currentText()
-                        if subject_id and simulation_name:
-                            pairs_summary.append(f"{subject_id}({simulation_name})")
-                self.update_output(
-                    f"Starting group analysis for pairs: {', '.join(pairs_summary)}"
-                )
-                self.update_output(f"Command: {' '.join(cmd)}")
+            # Provide a concise start message
+            pairs_summary = []
+            for row in range(self.pairs_table.rowCount()):
+                subject_combo = self.pairs_table.cellWidget(row, 0)
+                sim_combo = self.pairs_table.cellWidget(row, 1)
+                if subject_combo and sim_combo:
+                    subject_id = subject_combo.currentText()
+                    simulation_name = sim_combo.currentText()
+                    if subject_id and simulation_name:
+                        pairs_summary.append(f"{subject_id}({simulation_name})")
+            self.ANALYSIS_START_TIME = time.time()
+            self.update_output(
+                f"Beginning group analysis for pairs: {', '.join(pairs_summary)}"
+            )
+            self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
 
             # Create and start thread
             self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
@@ -1858,74 +1828,21 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.analysis_finished(success=False)
 
     def build_group_analyzer_command(self):
-        """Build command to run group_analyzer.py with all selected subjects."""
+        """Build command to run group analysis using the new Analyzer API via subprocess."""
         try:
-            # Prefer module execution so imports resolve to the repo sources (not an older installed package).
-            cmd = ["simnibs_python", "-m", "tit.analyzer.group_analyzer"]
-
-            # Build base command with temporary output directory (group_analyzer.py will create the actual organized directories)
             project_dir = self.pm.project_dir
             if not project_dir:
                 self.update_output("Error: Could not determine project directory")
                 return None
-            temp_output_dir = self.pm.path_optional("simnibs")
 
-            cmd.extend(
-                [
-                    "--space",
-                    "mesh" if self.space_mesh.isChecked() else "voxel",
-                    "--analysis_type",
-                    "spherical" if self.type_spherical.isChecked() else "cortical",
-                    "--output_dir",
-                    temp_output_dir,
-                ]
+            space = "mesh" if self.space_mesh.isChecked() else "voxel"
+            analysis_type = (
+                "spherical" if self.type_spherical.isChecked() else "cortical"
             )
 
-            # Field name is now hardcoded to TI_max in the main analyzer
-
-            # Add analysis-specific parameters
-            if self.type_spherical.isChecked():
-                coords = [
-                    self.coord_x.text().strip() or "0",
-                    self.coord_y.text().strip() or "0",
-                    self.coord_z.text().strip() or "0",
-                ]
-                radius = self.radius_input.text().strip() or "5"
-                cmd.extend(["--coordinates"] + coords)
-                cmd.extend(["--radius", radius])
-
-                # Add coordinate space specification
-                coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
-                cmd.extend(["--coordinate-space", coord_space])
-            else:  # cortical
-                if self.space_mesh.isChecked():
-                    atlas_name = self.atlas_name_combo.currentText()
-                    if not atlas_name:
-                        self.update_output(
-                            "Error: Atlas name is required for mesh cortical analysis."
-                        )
-                        return None
-                    cmd.extend(["--atlas_name", atlas_name])
-
-                if self.whole_head_check.isChecked():
-                    cmd.append("--whole_head")
-                else:
-                    region = self.region_input.text().strip()
-                    if not region:
-                        self.update_output(
-                            "Error: Region name is required for cortical analysis."
-                        )
-                        return None
-                    cmd.extend(["--region", region])
-
-            # Always enable visualizations
-            cmd.append("--visualize")
-
-            # Add quiet flag if not in debug mode
-            if not self.debug_mode:
-                cmd.append("--quiet")
-
-            # Add subject specifications from pairs table
+            # Collect subject-simulation pairs and validate m2m directories
+            subject_ids = []
+            simulation_names = []
             for row in range(self.pairs_table.rowCount()):
                 subject_combo = self.pairs_table.cellWidget(row, 0)
                 sim_combo = self.pairs_table.cellWidget(row, 1)
@@ -1944,8 +1861,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                         f"Error: Invalid subject-simulation pair in row {row + 1}"
                     )
                     return None
-                # Get m2m path
-                m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
+
+                m2m_path = self.pm.m2m(subject_id)
                 if not m2m_path or not os.path.isdir(m2m_path):
                     self.update_output(
                         f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.",
@@ -1953,72 +1870,91 @@ class AnalyzerTab(QtWidgets.QWidget):
                     )
                     return None
 
-                # Construct field path or montage name based on analysis space
+                subject_ids.append(subject_id)
+                simulation_names.append(simulation_name)
+
+            # Verify all simulations are the same (required by run_group_analysis API)
+            unique_sims = set(simulation_names)
+            if len(unique_sims) != 1:
+                self.update_output(
+                    "Error: Group analysis requires all subjects to use the same simulation/montage. "
+                    f"Found: {', '.join(sorted(unique_sims))}"
+                )
+                return None
+            simulation = simulation_names[0]
+
+            # Build analysis-specific kwargs for the script
+            if analysis_type == "spherical":
+                coords = (
+                    float(self.coord_x.text().strip() or "0"),
+                    float(self.coord_y.text().strip() or "0"),
+                    float(self.coord_z.text().strip() or "0"),
+                )
+                radius = float(self.radius_input.text().strip() or "5")
+                coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
+
+                analysis_kwargs = (
+                    f"    center=({coords[0]}, {coords[1]}, {coords[2]}),\n"
+                    f"    radius={radius},\n"
+                    f"    coordinate_space={coord_space!r},\n"
+                )
+            else:  # cortical
                 if self.space_mesh.isChecked():
-                    # For mesh analysis, use montage name (same as single subject analysis)
-                    field_path = simulation_name  # This will be treated as montage name by group_analyzer.py
+                    atlas_name = self.atlas_name_combo.currentText()
+                    if not atlas_name:
+                        self.update_output(
+                            "Error: Atlas name is required for mesh cortical analysis."
+                        )
+                        return None
                 else:
-                    # For voxel analysis, look for appropriate NIfTI file
-                    base_sim_dir = self.pm.path_optional(
-                        "simulation",
-                        subject_id=subject_id,
-                        simulation_name=simulation_name,
-                    )
-                    nifti_dir = (
-                        os.path.join(base_sim_dir, "mTI", "niftis")
-                        if os.path.exists(os.path.join(base_sim_dir, "mTI", "niftis"))
-                        else os.path.join(base_sim_dir, "TI", "niftis")
-                    )
-                    # Prefer grey matter files, then any other file
-                    grey_files = (
-                        [
-                            f
-                            for f in os.listdir(nifti_dir)
-                            if f.startswith("grey_") and not f.endswith("_MNI.nii.gz")
-                        ]
-                        if os.path.exists(nifti_dir)
-                        else []
-                    )
-                    if grey_files:
-                        field_path = os.path.join(nifti_dir, grey_files[0])
-                    else:
-                        # Fallback to any NIfTI file
-                        nii_files = (
-                            [
-                                f
-                                for f in os.listdir(nifti_dir)
-                                if f.endswith(".nii") or f.endswith(".nii.gz")
-                            ]
-                            if os.path.exists(nifti_dir)
-                            else []
-                        )
-                        if nii_files:
-                            field_path = os.path.join(nifti_dir, nii_files[0])
-                        else:
-                            field_path = None
-
-                    if not field_path or not os.path.exists(field_path):
+                    atlas_name = self.atlas_combo.currentText()
+                    if not atlas_name:
                         self.update_output(
-                            f"Error: Field file not found for subject {subject_id}, simulation {simulation_name} (expected: {field_path})"
+                            "Error: Atlas is required for cortical analysis."
                         )
                         return None
+                    # Strip file extension for voxel atlas name
+                    for ext in (".mgz", ".nii.gz", ".nii"):
+                        if atlas_name.endswith(ext):
+                            atlas_name = atlas_name[: -len(ext)]
+                            break
 
-                # Build subject specification
-                subject_spec = [subject_id, m2m_path, field_path]
+                region = self.region_input.text().strip()
+                if not region:
+                    self.update_output(
+                        "Error: Region name is required for cortical analysis."
+                    )
+                    return None
 
-                # For voxel cortical analysis, add atlas path
-                if self.space_voxel.isChecked() and self.type_cortical.isChecked():
-                    atlas_config = self.group_atlas_config.get(subject_id, {})
-                    atlas_path = atlas_config.get("path")
-                    if not atlas_path or not os.path.exists(atlas_path):
-                        self.update_output(
-                            f"Error: Atlas file not found for subject {subject_id}"
-                        )
-                        return None
-                    subject_spec.append(atlas_path)
+                analysis_kwargs = (
+                    f"    atlas={atlas_name!r},\n" f"    region={region!r},\n"
+                )
 
-                cmd.extend(["--subject"] + subject_spec)
+            temp_output_dir = self.pm.simnibs()
+            subject_ids_repr = repr(subject_ids)
 
+            # Build an inline Python script that calls the new group analysis API
+            script = (
+                "import logging, sys, os\n"
+                "logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)\n"
+                f"os.environ['PROJECT_DIR'] = {project_dir!r}\n"
+                "from tit.analyzer import run_group_analysis\n"
+                f"result = run_group_analysis(\n"
+                f"    subject_ids={subject_ids_repr},\n"
+                f"    simulation={simulation!r},\n"
+                f"    space={space!r},\n"
+                f"    analysis_type={analysis_type!r},\n"
+                f"{analysis_kwargs}"
+                f"    visualize=True,\n"
+                f"    output_dir={temp_output_dir!r},\n"
+                f")\n"
+                "print(f'Group summary CSV: {result.summary_csv_path}')\n"
+                "if result.comparison_plot_path:\n"
+                "    print(f'Comparison plot: {result.comparison_plot_path}')\n"
+                "print('Group analysis completed successfully.')\n"
+            )
+
+            cmd = ["simnibs_python", "-c", script]
             return cmd
 
         except Exception as e:
@@ -2061,10 +1997,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
-            if self.whole_head_check.isChecked():
-                details += "- Analysis Target: Whole Head\n"
-            else:
-                details += f"- Region: {self.region_input.text()}\n"
+            details += f"- Region: {self.region_input.text()}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2100,10 +2033,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
             else:
                 details += f"- Voxel Atlas: Common atlas configuration\n"
-            if self.whole_head_check.isChecked():
-                details += "- Analysis Target: Whole Head (for all)\n"
-            else:
-                details += f"- Region: {self.region_input.text()} (for all)\n"
+            details += f"- Region: {self.region_input.text()} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2128,10 +2058,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         self._processing_analysis_finished_lock = True
         try:
             if success:
-                if (
-                    self.SUMMARY_MODE
-                    and getattr(self, "_summary_started", False)
-                    and not getattr(self, "_summary_finished", False)
+                if getattr(self, "_summary_started", False) and not getattr(
+                    self, "_summary_finished", False
                 ):
                     # Note: The analyzer process already prints all step completion messages via its logging functions.
                     # We just need to mark that the summary is finished to avoid duplicate processing.
@@ -2180,10 +2108,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                     '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process failed or was cancelled by user.</span></div>'
                 )
 
-            if not self.SUMMARY_MODE:
-                self.output_console.append(
-                    '<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>'
-                )
             self.analysis_running = False
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
@@ -2249,117 +2173,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self, text, message_type="default"
     ):  # This is the method used by AnalysisThread's signal
         if not text or not text.strip():
-            return
-
-        # Filter messages based on debug mode
-        if not self.debug_mode:
-            # In non-debug mode, only show important messages
-            if not is_important_message(text, message_type, "analyzer"):
-                return
-            # In non-debug (summary) mode, colorize lines and deduplicate
-            scrollbar = self.output_console.verticalScrollBar()
-            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-
-            # Safety check: ensure the attribute exists before accessing it
-            if not hasattr(self, "_last_plain_output_line"):
-                self._last_plain_output_line = None
-
-            if text == self._last_plain_output_line:
-                return
-
-            # Safety check: ensure the _summary_printed attribute exists
-            if not hasattr(self, "_summary_printed"):
-                self._summary_printed = set()
-
-            low = text.lower().strip()
-            # Guard against duplicate summary lines (whether from our own calls or subprocess echo)
-            if (
-                low.startswith("beginning analysis for subject:")
-                and "headline" in self._summary_printed
-            ):
-                return
-            if (
-                low.startswith("├─ field data loading: started")
-                and "field_start" in self._summary_printed
-            ):
-                return
-            if (
-                low.startswith("├─ field data loading: ✓ complete")
-                and "field_done" in self._summary_printed
-            ):
-                return
-            if (
-                low.startswith("├─ cortical analysis: started")
-                or low.startswith("├─ spherical analysis: started")
-            ) and "analysis_start" in self._summary_printed:
-                return
-            if (
-                low.startswith("├─ cortical analysis: ✓ complete")
-                or low.startswith("├─ spherical analysis: ✓ complete")
-            ) and "analysis_done" in self._summary_printed:
-                return
-            if (
-                low.startswith("├─ results saving: started")
-                and "results_start" in self._summary_printed
-            ):
-                return
-            if (
-                low.startswith("├─ results saving: ✓ complete")
-                and "results_done" in self._summary_printed
-            ):
-                return
-            if (
-                low.startswith("└─ analysis completed successfully for subject:")
-                and "final" in self._summary_printed
-            ):
-                return
-            # Colorize summary lines: blue for starts, green for completes, bright green for final
-            is_final = low.startswith("└─") or "completed successfully" in low
-            is_start = (
-                low.startswith("beginning ")
-                or ": started" in low
-                or ": starting" in low
-                or "starting..." in low
-            )
-            is_complete = (
-                ("✓ complete" in low)
-                or ("results available in:" in low)
-                or ("saved to" in low)
-            )
-            color = (
-                "#55ff55"
-                if is_final
-                else (
-                    "#55aaff" if is_start else ("#88ff88" if is_complete else "#ffffff")
-                )
-            )
-            formatted = f'<span style="color: {color};">{text}</span>'
-            self.output_console.append(formatted)
-            self._last_plain_output_line = text
-            # Mark printed flags for summary lines
-            if low.startswith("beginning analysis for subject:"):
-                self._summary_printed.add("headline")
-            elif low.startswith("├─ field data loading: started"):
-                self._summary_printed.add("field_start")
-            elif low.startswith("├─ field data loading: ✓ complete"):
-                self._summary_printed.add("field_done")
-            elif low.startswith("├─ cortical analysis: started") or low.startswith(
-                "├─ spherical analysis: started"
-            ):
-                self._summary_printed.add("analysis_start")
-            elif low.startswith("├─ cortical analysis: ✓ complete") or low.startswith(
-                "├─ spherical analysis: ✓ complete"
-            ):
-                self._summary_printed.add("analysis_done")
-            elif low.startswith("├─ results saving: started"):
-                self._summary_printed.add("results_start")
-            elif low.startswith("├─ results saving: ✓ complete"):
-                self._summary_printed.add("results_done")
-            elif low.startswith("└─ analysis completed successfully for subject:"):
-                self._summary_printed.add("final")
-            if at_bottom:
-                self.output_console.ensureCursorVisible()
-                scrollbar.setValue(scrollbar.maximum())
             return
 
         # Format the output based on message type from thread
@@ -2440,20 +2253,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Avoid calling processEvents() here to prevent re-entrant recursion when many
         # queued output signals arrive rapidly.
 
-    def set_debug_mode(self, debug_mode):
-        """Set debug mode for output filtering."""
-        self.debug_mode = debug_mode
-        self.SUMMARY_MODE = not debug_mode
-
     # ===== Summary-mode helpers =====
-    def _format_duration(self, start_time):
-        if not start_time:
-            return "0s"
-        elapsed = time.time() - start_time
-        if elapsed < 60:
-            return f"{int(elapsed)}s"
-        return f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
-
     def _build_start_details(self, subject_id):
         if self.type_cortical.isChecked():
             if self.space_mesh.isChecked():
@@ -2462,11 +2262,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas = os.path.basename(self.atlas_combo.currentText() or "").split(
                     "."
                 )[0]
-            region = (
-                "WholeHead"
-                if self.whole_head_check.isChecked()
-                else (self.region_input.text().strip() or "region")
-            )
+            region = self.region_input.text().strip() or "region"
             return f"Cortical: {atlas}.{region}"
         else:
             coords = (
@@ -2481,6 +2277,15 @@ class AnalyzerTab(QtWidgets.QWidget):
             if "--output_dir" in cmd:
                 idx = cmd.index("--output_dir")
                 return cmd[idx + 1] if idx + 1 < len(cmd) else None
+            # For inline -c scripts, try to extract output_dir from the script text
+            if "-c" in cmd:
+                idx = cmd.index("-c")
+                if idx + 1 < len(cmd):
+                    import re
+
+                    m = re.search(r"output_dir=['\"]([^'\"]+)['\"]", cmd[idx + 1])
+                    if m:
+                        return m.group(1)
         except Exception:
             return None
         return None
@@ -2507,7 +2312,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_combo,
             self.show_regions_btn,
             self.region_input,
-            self.whole_head_check,
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, "setEnabled"):
@@ -2541,14 +2345,13 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.coord_z,
             self.radius_input,
             self.view_in_freeview_btn,
-            # atlas_name_combo, atlas_combo, show_regions_btn, region_input, whole_head_check handled by update_atlas_visibility
+            # atlas_name_combo, atlas_combo, show_regions_btn, region_input handled by update_atlas_visibility
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, "setEnabled"):
                 widget.setEnabled(True)
 
         # Force enable these controls first, then let update_atlas_visibility handle proper state
-        self.whole_head_check.setEnabled(True)
         self.region_input.setEnabled(True)
         self.region_label.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
@@ -2591,7 +2394,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     )
                     return
                 atlas_type_display = atlas_name_simnibs
-                m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+                m2m_dir = self.pm.m2m(subject_id)
                 if not m2m_dir or not os.path.isdir(m2m_dir):
                     QtWidgets.QMessageBox.critical(
                         self, "Error", f"m2m dir not found: {subject_id}."
@@ -2825,7 +2628,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 # Single mode or non-spherical: load subject's T1
                 subject_id = selected_subjects[0]
-                m2m_dir_path = self.pm.path_optional("m2m", subject_id=subject_id)
+                m2m_dir_path = self.pm.m2m(subject_id)
                 if not m2m_dir_path or not os.path.isdir(m2m_dir_path):
                     QtWidgets.QMessageBox.warning(
                         self, "Error", f"m2m dir not found for {subject_id}."
@@ -2982,7 +2785,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             return
 
         # Look specifically in Analyses/Mesh/ for mesh analysis folders (centralized via PathManager)
-        mesh_dir = self.pm.get_analysis_space_dir(subject_id, simulation_name, "mesh")
+        mesh_dir = self.pm.analysis_dir(subject_id, simulation_name, "mesh")
 
         if not mesh_dir or not os.path.exists(mesh_dir):
             return
@@ -3022,7 +2825,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             return
 
         # Find the analysis directory in Analyses/Mesh/ and look for .msh files
-        mesh_dir = self.pm.get_analysis_space_dir(subject_id, simulation_name, "mesh")
+        mesh_dir = self.pm.analysis_dir(subject_id, simulation_name, "mesh")
         analysis_dir = os.path.join(mesh_dir, analysis_name) if mesh_dir else None
 
         if not analysis_dir or not os.path.exists(analysis_dir):
@@ -3062,15 +2865,32 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Error launching Gmsh: {e}")
 
     def build_single_analysis_command(self, subject_id, simulation_name):
-        """Build command to run main_analyzer.py for a single subject."""
+        """Build command to run single-subject analysis using the new Analyzer API via subprocess."""
         try:
             project_dir = self.pm.project_dir
             if not project_dir:
                 self.update_output("Error: Could not determine project directory")
                 return None
 
-            # Centralize analysis folder naming in PathManager so GUI/CLI match.
-            if self.type_spherical.isChecked():
+            space = "mesh" if self.space_mesh.isChecked() else "voxel"
+            analysis_type = (
+                "spherical" if self.type_spherical.isChecked() else "cortical"
+            )
+
+            if simulation_name == "Select montage...":
+                return None
+
+            # Validate m2m directory exists
+            m2m_path = self.pm.m2m(subject_id)
+            if not m2m_path or not os.path.isdir(m2m_path):
+                self.update_output(
+                    f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.",
+                    "error",
+                )
+                return None
+
+            # Build output directory using PathManager for overwrite confirmation
+            if analysis_type == "spherical":
                 coords = [
                     float(self.coord_x.text().strip() or "0"),
                     float(self.coord_y.text().strip() or "0"),
@@ -3078,10 +2898,12 @@ class AnalyzerTab(QtWidgets.QWidget):
                 ]
                 radius_val = float(self.radius_input.text().strip() or "5")
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
-                target_info = self.pm.spherical_analysis_name(
-                    coords[0], coords[1], coords[2], radius_val, coord_space
-                )
-            else:  # Cortical
+            else:
+                coords = None
+                radius_val = None
+                coord_space = "subject"
+
+            if analysis_type == "cortical":
                 if self.space_mesh.isChecked():
                     atlas_name = self.atlas_name_combo.currentText()
                     atlas_path = None
@@ -3090,80 +2912,31 @@ class AnalyzerTab(QtWidgets.QWidget):
                     atlas_path = self.atlas_combo.currentData()
                     if not atlas_name and not atlas_path:
                         return None
-                target_info = self.pm.cortical_analysis_name(
-                    whole_head=self.whole_head_check.isChecked(),
-                    region=(
-                        self.region_input.text().strip()
-                        if not self.whole_head_check.isChecked()
-                        else None
-                    ),
-                    atlas_name=atlas_name,
-                    atlas_path=atlas_path,
-                )
 
-            # Field name is now hardcoded to TI_max
-
-            analysis_space_folder = "Mesh" if self.space_mesh.isChecked() else "Voxel"
-            if simulation_name == "Select montage...":
-                return None
-
-            # Build output directory using PathManager
-            sim_dir = self.pm.path_optional(
-                "simulation", subject_id=subject_id, simulation_name=simulation_name
-            )
-            if not sim_dir:
-                self.update_output(
-                    f"Error: Could not find simulation directory for {subject_id}, {simulation_name}"
-                )
-                return None
-            # Centralize output dir structure in PathManager.
-            output_dir = self.pm.get_analysis_output_dir(
-                subject_id=subject_id,
-                simulation_name=simulation_name,
-                space="mesh" if self.space_mesh.isChecked() else "voxel",
-                analysis_type=(
-                    "spherical" if self.type_spherical.isChecked() else "cortical"
-                ),
-                coordinates=(
-                    [
-                        float(self.coord_x.text().strip() or "0"),
-                        float(self.coord_y.text().strip() or "0"),
-                        float(self.coord_z.text().strip() or "0"),
-                    ]
-                    if self.type_spherical.isChecked()
-                    else None
-                ),
-                radius=(
-                    float(self.radius_input.text().strip() or "5")
-                    if self.type_spherical.isChecked()
-                    else None
-                ),
-                coordinate_space=(
-                    "MNI" if self.coord_space_mni.isChecked() else "subject"
-                ),
-                whole_head=self.whole_head_check.isChecked(),
-                region=(
-                    self.region_input.text().strip()
-                    if (
-                        not self.type_spherical.isChecked()
-                        and not self.whole_head_check.isChecked()
+                region = self.region_input.text().strip()
+                if not region:
+                    self.update_output(
+                        "Error: Region name is required for cortical analysis."
                     )
-                    else None
-                ),
-                atlas_name=(
-                    self.atlas_name_combo.currentText()
-                    if (
-                        not self.type_spherical.isChecked()
-                        and self.space_mesh.isChecked()
-                    )
-                    else self.atlas_combo.currentText()
-                ),
+                    return None
+            else:
+                atlas_name = None
+                atlas_path = None
+                region = None
+
+            output_dir = self.pm.analysis_output_dir(
+                sid=subject_id,
+                sim=simulation_name,
+                space=space,
+                analysis_type=analysis_type,
+                coordinates=coords,
+                radius=radius_val,
+                coordinate_space=coord_space,
+                region=region,
+                atlas_name=(atlas_name if analysis_type == "cortical" else None),
                 atlas_path=(
-                    self.atlas_combo.currentData()
-                    if (
-                        not self.type_spherical.isChecked()
-                        and not self.space_mesh.isChecked()
-                    )
+                    atlas_path
+                    if analysis_type == "cortical" and not self.space_mesh.isChecked()
                     else None
                 ),
             )
@@ -3177,81 +2950,53 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return None
             os.makedirs(output_dir, exist_ok=True)
 
-            # Prefer module execution so imports resolve to the repo sources (not an older installed package).
-            # This keeps GUI and CLI behavior identical.
-            cmd = ["simnibs_python", "-m", "tit.analyzer.main_analyzer"]
-
-            m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
-            if not m2m_path or not os.path.isdir(m2m_path):
-                self.update_output(
-                    f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.",
-                    "error",
+            # Build analysis call for the inline script
+            if analysis_type == "spherical":
+                analysis_call = (
+                    f"result = analyzer.analyze_sphere(\n"
+                    f"    center=({coords[0]}, {coords[1]}, {coords[2]}),\n"
+                    f"    radius={radius_val},\n"
+                    f"    coordinate_space={coord_space!r},\n"
+                    f"    visualize=True,\n"
+                    f")\n"
                 )
-                return None
+            else:  # cortical
+                # For voxel atlas, strip extension to get atlas name for the API
+                atlas_for_api = atlas_name
+                if atlas_for_api and not self.space_mesh.isChecked():
+                    for ext in (".mgz", ".nii.gz", ".nii"):
+                        if atlas_for_api.endswith(ext):
+                            atlas_for_api = atlas_for_api[: -len(ext)]
+                            break
+                analysis_call = (
+                    f"result = analyzer.analyze_cortex(\n"
+                    f"    atlas={atlas_for_api!r},\n"
+                    f"    region={region!r},\n"
+                    f"    visualize=True,\n"
+                    f")\n"
+                )
 
-            cmd.extend(
-                [
-                    "--m2m_subject_path",
-                    m2m_path,
-                    "--space",
-                    "mesh" if self.space_mesh.isChecked() else "voxel",
-                    "--analysis_type",
-                    "spherical" if self.type_spherical.isChecked() else "cortical",
-                    "--output_dir",
-                    output_dir,
-                ]
+            # Build an inline Python script that calls the new Analyzer API
+            script = (
+                "import logging, sys, os\n"
+                "logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)\n"
+                f"os.environ['PROJECT_DIR'] = {project_dir!r}\n"
+                "from tit.analyzer import Analyzer\n"
+                f"analyzer = Analyzer(\n"
+                f"    subject_id={subject_id!r},\n"
+                f"    simulation={simulation_name!r},\n"
+                f"    space={space!r},\n"
+                f"    output_dir={output_dir!r},\n"
+                f")\n"
+                f"{analysis_call}"
+                "print(f'ROI Mean: {result.roi_mean:.6f}')\n"
+                "print(f'ROI Max: {result.roi_max:.6f}')\n"
+                "print(f'ROI Focality: {result.roi_focality:.6f}')\n"
+                "print(f'GM Mean: {result.gm_mean:.6f}')\n"
+                "print('Analysis completed successfully.')\n"
             )
 
-            # Add field path or montage name based on analysis space
-            if self.space_mesh.isChecked():
-                cmd.extend(["--montage_name", simulation_name])
-            else:
-                # For voxel analysis, automatically select field path using backend logic
-                from tit.analyzer.field_selector import select_field_file
-
-                try:
-                    voxel_field_path, _ = select_field_file(
-                        m2m_path, simulation_name, "voxel"
-                    )
-                    cmd.extend(["--field_path", voxel_field_path])
-                except FileNotFoundError as e:
-                    self.update_output(f"Error: {e}")
-                    return None
-
-            if self.type_spherical.isChecked():
-                coords_str = [
-                    self.coord_x.text().strip() or "0",
-                    self.coord_y.text().strip() or "0",
-                    self.coord_z.text().strip() or "0",
-                ]
-                cmd.extend(["--coordinates"] + coords_str)
-                cmd.extend(["--radius", self.radius_input.text().strip() or "5"])
-
-                # Add coordinate space specification
-                coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
-                cmd.extend(["--coordinate-space", coord_space])
-            else:  # Cortical
-                if self.space_mesh.isChecked():
-                    cmd.extend(["--atlas_name", self.atlas_name_combo.currentText()])
-                else:  # Voxel Cortical
-                    atlas_path_for_script = self.atlas_combo.currentData()
-
-                    if not atlas_path_for_script:
-                        return None
-                    cmd.extend(["--atlas_path", atlas_path_for_script])
-
-                if self.whole_head_check.isChecked():
-                    cmd.append("--whole_head")
-                else:
-                    cmd.extend(["--region", self.region_input.text().strip()])
-
-            # Field name and field path are now handled in the main command building above
-            cmd.append("--visualize")
-
-            # Add quiet flag if not in debug mode
-            if not self.debug_mode:
-                cmd.append("--quiet")
-
+            cmd = ["simnibs_python", "-c", script]
             return cmd
         except Exception:
             return None

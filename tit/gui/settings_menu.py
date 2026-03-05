@@ -385,8 +385,7 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         """Set up the gear button and menu."""
         # Set gear icon (using Unicode gear symbol)
         self.setText("⚙")  # Gear emoji/symbol
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QPushButton {{
                 font-size: {_gfx_tokens.icon_size_gear}px;
                 border: none;
@@ -400,8 +399,7 @@ class SettingsMenuButton(QtWidgets.QPushButton):
             QPushButton::menu-indicator {{
                 width: 0px;
             }}
-        """
-        )
+        """)
         self.setToolTip("Settings and Information")
         self.setCursor(QtCore.Qt.PointingHandCursor)
 
@@ -468,8 +466,7 @@ class ExtensionsButton(QtWidgets.QPushButton):
         self.setText(
             "◳"
         )  # Square with top right quadrant - represents extensions/modules
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QPushButton {{
                 font-size: {_gfx_tokens.icon_size_extensions}px;
                 font-weight: bold;
@@ -481,8 +478,7 @@ class ExtensionsButton(QtWidgets.QPushButton):
                 background: rgba(0, 0, 0, 0.1);
                 border-radius: 3px;
             }}
-        """
-        )
+        """)
         self.setToolTip("Extensions")
         self.setCursor(QtCore.Qt.PointingHandCursor)
 

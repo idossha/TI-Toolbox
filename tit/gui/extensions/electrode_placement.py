@@ -76,7 +76,7 @@ try:
 except Exception:
     pass
 
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 
 PATH_MANAGER_AVAILABLE = True
 
@@ -659,9 +659,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
             return
 
         # Get m2m directory
-        m2m_dir = self.path_manager.path_optional(
-            "m2m", subject_id=self.current_subject
-        )
+        m2m_dir = self.path_manager.m2m(self.current_subject)
         if not m2m_dir or not os.path.isdir(m2m_dir):
             QMessageBox.critical(
                 self,
@@ -706,12 +704,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
             QMessageBox.warning(self, "Warning", "No EEG cap selected")
             return
 
-        eeg_pos_dir = (
-            self.path_manager.path_optional(
-                "eeg_positions", subject_id=self.current_subject
-            )
-            or ""
-        )
+        eeg_pos_dir = self.path_manager.eeg_positions(self.current_subject) or ""
         cap_path = os.path.join(eeg_pos_dir, cap_file)
 
         success, count = self.gl_widget.loadEEGCap(cap_path)
