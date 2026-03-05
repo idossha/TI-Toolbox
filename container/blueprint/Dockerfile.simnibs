@@ -144,7 +144,18 @@ ENV PATH="/root/SimNIBS-4.6/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
 # Install additional Python packages to simnibs_python
-RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn scikit-image numpy-stl click bpy
+# - Scientific / visualization stack used by tit modules
+RUN simnibs_python -m pip install \
+    meshio \
+    nilearn \
+    PyOpenGL-accelerate \
+    trimesh \
+    seaborn \
+    scikit-image \
+    numpy-stl \
+    click \
+    bpy \
+    psutil
 
 
 # Install Neovim v.0.11.0 from source 
