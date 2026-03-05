@@ -5,36 +5,14 @@ SimNIBS charm (m2m) creation + subject atlas segmentation.
 
 from __future__ import annotations
 
-import os
-import shutil
 from pathlib import Path
 from typing import Optional
 
-from tit.core import get_path_manager
-from .common import CommandRunner, PreprocessError
-from tit.core.overwrite import get_overwrite_policy
+from tit.paths import get_path_manager
+from .utils import CommandRunner, PreprocessError, _find_anat_files
 
 # All available atlases for subject_atlas command
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
-
-
-def _find_anat_files(subject_id: str) -> tuple[Optional[Path], Optional[Path]]:
-    """Find T1 and T2 weighted anatomical NIfTI files.
-
-    Looks for exact BIDS filenames produced by DICOM conversion:
-    sub-{subject_id}_T1w.nii.gz and sub-{subject_id}_T2w.nii.gz
-    """
-    pm = get_path_manager()
-    bids_anat_dir = Path(pm.path("bids_anat", subject_id=subject_id))
-
-    t1_file = bids_anat_dir / f"sub-{subject_id}_T1w.nii.gz"
-    t2_file = bids_anat_dir / f"sub-{subject_id}_T2w.nii.gz"
-
-    # Return only if files exist
-    return (
-        t1_file if t1_file.exists() else None,
-        t2_file if t2_file.exists() else None,
-    )
 
 
 def run_charm(
@@ -42,8 +20,6 @@ def run_charm(
     subject_id: str,
     *,
     logger,
-    overwrite: Optional[bool] = None,
-    prompt_overwrite: Optional[bool] = None,
     runner: Optional[CommandRunner] = None,
 ) -> None:
     """Run SimNIBS charm for a subject.
@@ -56,58 +32,27 @@ def run_charm(
         Subject identifier without the `sub-` prefix.
     logger : logging.Logger
         Logger used for progress and command output.
-    overwrite : bool, optional
-        Force overwrite of existing outputs.
-    prompt_overwrite : bool, optional
-        Allow interactive overwrite prompt.
     runner : CommandRunner, optional
         Subprocess runner used to stream output.
     """
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
-    simnibs_subject_dir = Path(pm.path("simnibs_subject", subject_id=subject_id))
+    simnibs_subject_dir = Path(pm.sub(subject_id))
     simnibs_subject_dir.mkdir(parents=True, exist_ok=True)
-    m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
+    m2m_dir = Path(pm.m2m(subject_id))
 
     t1_file, t2_file = _find_anat_files(subject_id)
     if not t1_file:
-        bids_anat_dir = Path(pm.path("bids_anat", subject_id=subject_id))
+        bids_anat_dir = Path(pm.bids_anat(subject_id))
         raise PreprocessError(f"No T1 image found in {bids_anat_dir}")
 
-    policy = get_overwrite_policy(overwrite, prompt_overwrite)
-    forcerun = False
-    existing_m2m = None
     if m2m_dir.exists():
-        existing_m2m = m2m_dir
-    if existing_m2m is not None:
-        if policy.overwrite:
-            forcerun = True
-            logger.warning(f"m2m output exists at {existing_m2m}; using --forcerun.")
-        elif policy.prompt and os.isatty(0):
-            ans = (
-                input(
-                    f"m2m output already exists for sub-{subject_id}. Re-run and overwrite? [y/N]: "
-                )
-                .strip()
-                .lower()
-            )
-            if ans in {"y", "yes"}:
-                forcerun = True
-                logger.warning(
-                    f"User confirmed overwrite for sub-{subject_id}; using --forcerun."
-                )
-            else:
-                logger.warning(f"Skipping charm for sub-{subject_id} (outputs exist).")
-                return
-        else:
-            logger.warning(f"Skipping charm for sub-{subject_id} (outputs exist).")
-            return
+        raise PreprocessError(
+            f"m2m output already exists at {m2m_dir}. "
+            "Remove the directory manually before rerunning."
+        )
 
-    cmd = ["charm"]
-    if forcerun:
-        cmd.append("--forcerun")
-    cmd += ["--forcesform", subject_id, str(t1_file)]
+    cmd = ["charm", "--forcesform", subject_id, str(t1_file)]
     if t2_file:
         cmd.append(str(t2_file))
 
@@ -146,9 +91,8 @@ def run_subject_atlas(
         Subprocess runner used to stream output.
     """
 
-    pm = get_path_manager()
-    pm.project_dir = project_dir
-    m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
+    pm = get_path_manager(project_dir)
+    m2m_dir = Path(pm.m2m(subject_id))
 
     if not m2m_dir.exists():
         raise PreprocessError(f"m2m folder not found at {m2m_dir}. Run charm first.")

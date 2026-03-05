@@ -12,14 +12,14 @@ import shutil
 import numpy as np
 
 from tit.opt.config import FlexConfig, FlexResult
+from tit.paths import get_path_manager
 from . import builder
-import tit.paths
 
 
-def run_flex_search(config: FlexConfig, logger=None) -> FlexResult:
+def run_flex_search(config: FlexConfig) -> FlexResult:
     """Run flex-search optimization from a typed FlexConfig."""
-    
-    paths.project_dir = config.project_dir
+
+    get_path_manager(config.project_dir)
 
     logger = logging.getLogger(__name__)
 

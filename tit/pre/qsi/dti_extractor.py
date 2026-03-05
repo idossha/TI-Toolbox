@@ -25,9 +25,9 @@ from typing import Optional, Tuple, List, Dict
 
 import numpy as np
 
-from tit.core import constants as const, get_path_manager
-from tit.pre.common import PreprocessError
-
+from tit import constants as const
+from tit.paths import get_path_manager
+from tit.pre.utils import PreprocessError
 
 # ============================================================================
 # DSI STUDIO TENSOR COMPONENT MAPPING
@@ -633,7 +633,6 @@ def extract_dti_tensor(
     *,
     logger: logging.Logger,
     source: str = "qsirecon",
-    overwrite: bool = False,
     skip_registration: bool = False,
 ) -> Path:
     """
@@ -653,8 +652,6 @@ def extract_dti_tensor(
     source : str, optional
         Source of DTI tensor. Currently only 'qsirecon' is supported.
         Default: 'qsirecon'.
-    overwrite : bool, optional
-        Whether to overwrite existing tensor file. Default: False.
     skip_registration : bool, optional
         If True, skip registration to SimNIBS T1 space. Use this if the
         tensor is already in the correct space. Default: False.
@@ -675,11 +672,10 @@ def extract_dti_tensor(
     logger.info(f"Extracting DTI tensor for subject {subject_id}")
 
     # Get paths
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
-    m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
-    if not m2m_dir or not os.path.isdir(m2m_dir):
+    m2m_dir = pm.m2m(subject_id)
+    if not os.path.isdir(m2m_dir):
         raise PreprocessError(
             f"m2m directory not found for subject {subject_id}. "
             "Run SimNIBS charm first."
@@ -688,9 +684,11 @@ def extract_dti_tensor(
     output_path = Path(m2m_dir) / const.FILE_DTI_TENSOR
 
     # Check for existing output
-    if output_path.exists() and not overwrite:
-        logger.info(f"DTI tensor already exists: {output_path}")
-        return output_path
+    if output_path.exists():
+        raise PreprocessError(
+            f"DTI tensor already exists at {output_path}. "
+            "Remove the file manually before rerunning."
+        )
 
     # Find source tensor
     if source != "qsirecon":
@@ -813,11 +811,10 @@ def check_dti_tensor_exists(project_dir: str, subject_id: str) -> bool:
     bool
         True if the DTI tensor file exists in the m2m directory.
     """
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
-    m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
-    if not m2m_dir:
+    m2m_dir = pm.m2m(subject_id)
+    if not os.path.isdir(m2m_dir):
         return False
 
     tensor_path = Path(m2m_dir) / const.FILE_DTI_TENSOR

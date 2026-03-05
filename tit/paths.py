@@ -281,7 +281,8 @@ class PathManager:
             return []
 
         caps = [
-            f for f in os.listdir(eeg_pos_dir)
+            f
+            for f in os.listdir(eeg_pos_dir)
             if f.endswith(const.EXT_CSV) and not f.startswith(".")
         ]
         caps.sort()
@@ -398,11 +399,13 @@ class PathManager:
 _path_manager_instance: Optional[PathManager] = None
 
 
-def get_path_manager() -> PathManager:
+def get_path_manager(project_dir: Optional[str] = None) -> PathManager:
     """Return the global PathManager singleton."""
     global _path_manager_instance
     if _path_manager_instance is None:
         _path_manager_instance = PathManager()
+    if project_dir is not None:
+        _path_manager_instance.project_dir = project_dir
     return _path_manager_instance
 
 

@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 from tit.paths import get_path_manager
+from tit import constants as const
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +52,10 @@ def _select_mesh(sim_dir: Path, simulation: str, is_mti: bool) -> tuple[Path, st
     """Resolve a mesh (.msh) field file."""
     if is_mti:
         mesh_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI.msh"
-        field_name = "TI_Max"
+        field_name = const.FIELD_MTI_MAX
     else:
         mesh_path = sim_dir / "TI" / "mesh" / f"{simulation}_TI.msh"
-        field_name = "TI_max"
+        field_name = const.FIELD_TI_MAX
 
     if not mesh_path.exists():
         raise FileNotFoundError(f"Mesh field file not found: {mesh_path}")
@@ -67,7 +68,7 @@ def _select_voxel(sim_dir: Path, is_mti: bool) -> tuple[Path, str]:
     """Resolve a voxel (.nii.gz) field file."""
     subdir = "mTI" if is_mti else "TI"
     nifti_dir = sim_dir / subdir / "niftis"
-    field_name = "TI_Max" if is_mti else "TI_max"
+    field_name = const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX
 
     if not nifti_dir.is_dir():
         raise FileNotFoundError(f"NIfTI directory not found: {nifti_dir}")

@@ -20,6 +20,7 @@ import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
+from tit import constants as const
 from tit.paths import get_path_manager
 from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode
 from tit.sim.utils import (
@@ -33,9 +34,9 @@ from tit.sim.utils import (
     transform_to_nifti,
 )
 
-# Brain tissue crop mask — keeps tissue volume elements (1-99) and tissue
-# surface elements (1001-1099). Hardcoded ranges match the proven approach
-_TAGS_KEEP = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
+# Brain tissue crop mask — keeps tissue volume elements and surface elements
+# Ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
+_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
 
 class TISimulation:
@@ -113,9 +114,7 @@ class TISimulation:
 
         if not self.montage.is_xyz:
             eeg_net = self.montage.eeg_net
-            S.eeg_cap = os.path.join(
-                self.pm.eeg_positions(cfg.subject_id), eeg_net
-            )
+            S.eeg_cap = os.path.join(self.pm.eeg_positions(cfg.subject_id), eeg_net)
 
         tensor = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
         if os.path.exists(tensor):
@@ -241,7 +240,6 @@ class TISimulation:
                     safe_move(
                         f,
                         os.path.join(dirs["hf_mesh"], os.path.basename(f)),
-                        self.logger,
                     )
 
         vols = os.path.join(hf, "subject_volumes")
@@ -249,23 +247,20 @@ class TISimulation:
             safe_move(
                 os.path.join(vols, fname),
                 os.path.join(dirs["hf_niftis"], fname),
-                self.logger,
             )
-        safe_rmdir(vols, self.logger)
+        safe_rmdir(vols)
 
         overlays = os.path.join(hf, "subject_overlays")
         for fname in os.listdir(overlays):
             safe_move(
                 os.path.join(overlays, fname),
                 os.path.join(dirs["ti_surface_overlays"], fname),
-                self.logger,
             )
-        safe_rmdir(overlays, self.logger)
+        safe_rmdir(overlays)
 
         safe_move(
             os.path.join(hf, "fields_summary.txt"),
             os.path.join(dirs["hf_analysis"], "fields_summary.txt"),
-            self.logger,
         )
 
         for pattern in ("simnibs_simulation_*.log", "simnibs_simulation_*.mat"):
@@ -273,5 +268,4 @@ class TISimulation:
                 safe_move(
                     f,
                     os.path.join(dirs["documentation"], os.path.basename(f)),
-                    self.logger,
                 )

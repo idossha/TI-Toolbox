@@ -16,8 +16,8 @@ import nibabel as nib
 import numpy as np
 from scipy import ndimage
 
-from tit.core import get_path_manager
-from .common import CommandRunner, PreprocessError
+from tit.paths import get_path_manager
+from .utils import CommandRunner, PreprocessError
 
 # Tissue configurations
 TISSUE_CONFIGS = {
@@ -125,7 +125,7 @@ class TissueAnalyzer:
                                 continue
                 self.logger.debug(f"Loaded {len(label_names)} labels from {lut_path}")
                 return label_names
-            except Exception as e:
+            except OSError as e:
                 self.logger.debug(f"Failed to load LUT: {e}")
 
         return label_names
@@ -690,14 +690,13 @@ def run_tissue_analysis(
     dict
         Analysis results for each tissue type.
     """
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
-    label_path = Path(pm.path("tissue_labeling", subject_id=subject_id))
+    label_path = Path(pm.tissue_labeling(subject_id))
     if not label_path.exists():
         raise PreprocessError(f"Labeling.nii.gz not found: {label_path}")
 
-    output_root = Path(pm.ensure_dir("tissue_analysis_output", subject_id=subject_id))
+    output_root = Path(pm.ensure(pm.tissue_analysis_output(subject_id)))
     results = {}
 
     for tissue in tissues:
@@ -706,11 +705,7 @@ def run_tissue_analysis(
             continue
 
         output_dir = output_root / f"{tissue}_analysis"
-        try:
-            analyzer = TissueAnalyzer(label_path, output_dir, tissue, logger)
-            results[tissue] = analyzer.analyze()
-        except Exception as e:
-            logger.error(f"Failed to analyze {tissue}: {e}")
-            raise PreprocessError(f"Tissue analysis failed for {subject_id} ({tissue})")
+        analyzer = TissueAnalyzer(label_path, output_dir, tissue, logger)
+        results[tissue] = analyzer.analyze()
 
     return results

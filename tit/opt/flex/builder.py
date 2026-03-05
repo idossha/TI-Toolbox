@@ -46,7 +46,7 @@ def build_optimization(config: FlexConfig):
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
         ElectrodeArrayPair,
     )
-    from tit.core import get_path_manager
+    from tit.paths import get_path_manager
 
     opt = opt_struct.TesFlexOptimization()
 

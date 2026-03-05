@@ -9,36 +9,27 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Optional
 
-from tit.core import constants as const
-from tit.core import get_path_manager
+from tit import constants as const
+from tit.paths import get_path_manager
 from .charm import run_charm, run_subject_atlas
-from .common import (
+from .utils import (
     CommandRunner,
     PreprocessCancelled,
     PreprocessError,
     ensure_dataset_descriptions,
     ensure_subject_dirs,
     build_logger,
-    get_overwrite_policy,
 )
 from .dicom2nifti import run_dicom_to_nifti
-from .recon_all import run_recon_all
+from .recon_all import run_recon_all, run_subcortical_segmentations
 from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 
 
-def _run_step(label: str, func, logger) -> bool:
+def _run_step(label: str, func, logger) -> None:
     logger.info(f"├─ {label}: Started")
-    try:
-        func()
-    except PreprocessCancelled:
-        raise
-    except Exception as exc:
-        logger.error(f"{label} failed: {exc}")
-        logger.info(f"├─ {label}: ✗ Failed")
-        return False
+    func()
     logger.info(f"├─ {label}: ✓ Complete")
-    return True
 
 
 def _run_subject_pipeline(
@@ -55,98 +46,83 @@ def _run_subject_pipeline(
     qsiprep_config: Optional[dict],
     qsi_recon_config: Optional[dict],
     extract_dti_step: bool,
+    run_subcortical: bool,
     debug: bool,
-    overwrite: Optional[bool],
-    prompt_overwrite: Optional[bool],
     runner: CommandRunner,
     callback: Optional[callable],
-) -> bool:
+) -> None:
     logger = build_logger(
         "preprocess",
         subject_id,
         project_dir,
-        debug=debug,
         console=callback is None,
-        callback=callback,
     )
 
     logger.info(f"Beginning pre-processing for subject: {subject_id}")
 
-    overall_success = True
-    policy = get_overwrite_policy(overwrite, prompt_overwrite)
-
     if run_recon and not convert_dicom and not create_m2m:
-        overall_success &= _run_step(
+        _run_step(
             "FreeSurfer recon-all",
             lambda: run_recon_all(
                 project_dir,
                 subject_id,
                 logger=logger,
                 parallel=not parallel_recon,
-                overwrite=policy.overwrite,
-                prompt_overwrite=policy.prompt,
                 runner=runner,
             ),
             logger,
         )
     else:
         if convert_dicom:
-            overall_success &= _run_step(
+            _run_step(
                 "DICOM conversion",
                 lambda: run_dicom_to_nifti(
                     project_dir,
                     subject_id,
                     logger=logger,
-                    overwrite=policy.overwrite,
-                    prompt_overwrite=policy.prompt,
                     runner=runner,
                 ),
                 logger,
             )
 
         if create_m2m:
-            overall_success &= _run_step(
+            _run_step(
                 "SimNIBS charm",
                 lambda: run_charm(
                     project_dir,
                     subject_id,
                     logger=logger,
-                    overwrite=policy.overwrite,
-                    prompt_overwrite=policy.prompt,
                     runner=runner,
                 ),
                 logger,
             )
             # Run subject_atlas after charm completes to create .annot files
-            if overall_success:
-                overall_success &= _run_step(
-                    "Subject atlas segmentation",
-                    lambda: run_subject_atlas(
-                        project_dir,
-                        subject_id,
-                        logger=logger,
-                        runner=runner,
-                    ),
-                    logger,
-                )
+            _run_step(
+                "Subject atlas segmentation",
+                lambda: run_subject_atlas(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                    runner=runner,
+                ),
+                logger,
+            )
 
         if run_recon:
-            overall_success &= _run_step(
+            _run_step(
                 "FreeSurfer recon-all",
                 lambda: run_recon_all(
                     project_dir,
                     subject_id,
                     logger=logger,
                     parallel=not parallel_recon,
-                    overwrite=policy.overwrite,
-                    prompt_overwrite=policy.prompt,
                     runner=runner,
                 ),
                 logger,
             )
 
     if run_tissue:
-        overall_success &= _run_step(
+        _run_step(
             "Tissue analysis",
             lambda: run_tissue_analysis(
                 project_dir,
@@ -160,7 +136,7 @@ def _run_subject_pipeline(
     # QSI pipeline steps (DWI preprocessing)
     if run_qsiprep_step:
         qsiprep_cfg = qsiprep_config or {}
-        overall_success &= _run_step(
+        _run_step(
             "QSIPrep DWI preprocessing",
             lambda: run_qsiprep(
                 project_dir,
@@ -178,7 +154,6 @@ def _run_subject_pipeline(
                 skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
                 denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
                 unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
-                overwrite=policy.overwrite,
                 runner=runner,
             ),
             logger,
@@ -189,7 +164,7 @@ def _run_subject_pipeline(
         recon_cfg = qsi_recon_config or {}
         recon_specs = recon_cfg.get("recon_specs") if recon_cfg else None
         atlases = recon_cfg.get("atlases") if recon_cfg else None
-        overall_success &= _run_step(
+        _run_step(
             "QSIRecon reconstruction",
             lambda: run_qsirecon(
                 project_dir,
@@ -203,32 +178,35 @@ def _run_subject_pipeline(
                 omp_threads=recon_cfg.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS),
                 image_tag=recon_cfg.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG),
                 skip_odf_reports=recon_cfg.get("skip_odf_reports", True),
-                overwrite=policy.overwrite,
                 runner=runner,
             ),
             logger,
         )
 
     if extract_dti_step:
-        overall_success &= _run_step(
+        _run_step(
             "DTI tensor extraction",
             lambda: extract_dti_tensor(
                 project_dir,
                 subject_id,
                 logger=logger,
-                overwrite=policy.overwrite if policy.overwrite else False,
             ),
             logger,
         )
 
-    if overall_success:
-        logger.info(
-            f"└─ Pre-processing completed successfully for subject: {subject_id}"
+    if run_subcortical:
+        _run_step(
+            "Subcortical segmentations",
+            lambda: run_subcortical_segmentations(
+                project_dir,
+                subject_id,
+                logger=logger,
+                runner=runner,
+            ),
+            logger,
         )
-    else:
-        logger.info(f"└─ Pre-processing failed for subject: {subject_id}")
 
-    return overall_success
+    logger.info(f"└─ Pre-processing completed successfully for subject: {subject_id}")
 
 
 def run_pipeline(
@@ -246,9 +224,8 @@ def run_pipeline(
     qsiprep_config: Optional[dict] = None,
     qsi_recon_config: Optional[dict] = None,
     extract_dti: bool = False,
+    run_subcortical_segmentations: bool = False,
     debug: bool = False,
-    overwrite: Optional[bool] = None,
-    prompt_overwrite: Optional[bool] = None,
     stop_event: Optional[object] = None,
     logger_callback: Optional[callable] = None,
     runner: Optional[CommandRunner] = None,
@@ -281,12 +258,10 @@ def run_pipeline(
         QSIRecon reconstruction specs to run. Default: ['dipy_dki'].
     extract_dti : bool, optional
         Extract DTI tensor for SimNIBS anisotropic conductivity.
+    run_subcortical_segmentations : bool, optional
+        Run thalamic nuclei and hippocampal subfield segmentations (standalone).
     debug : bool, optional
         Enable verbose logging.
-    overwrite : bool, optional
-        Force overwrite of existing outputs.
-    prompt_overwrite : bool, optional
-        Allow interactive overwrite prompt.
     stop_event : object, optional
         Event used to cancel running steps.
     logger_callback : callable, optional
@@ -303,8 +278,7 @@ def run_pipeline(
     if not subject_list:
         raise PreprocessError("No subjects provided.")
 
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
     for sid in subject_list:
         ensure_subject_dirs(project_dir, sid)
@@ -320,35 +294,27 @@ def run_pipeline(
         runner = CommandRunner(stop_event=stop_event)
     elif stop_event is not None and runner.stop_event is not stop_event:
         runner.stop_event = stop_event
-    overall_success = True
 
     if parallel_recon and run_recon and len(subject_list) > 1:
         for sid in subject_list:
-            try:
-                success = _run_subject_pipeline(
-                    project_dir,
-                    sid,
-                    convert_dicom=convert_dicom,
-                    run_recon=False,
-                    parallel_recon=parallel_recon,
-                    create_m2m=create_m2m,
-                    run_tissue=False,
-                    run_qsiprep_step=False,
-                    run_qsirecon_step=False,
-                    qsiprep_config=qsiprep_config,
-                    qsi_recon_config=qsi_recon_config,
-                    extract_dti_step=False,
-                    debug=debug,
-                    overwrite=overwrite,
-                    prompt_overwrite=prompt_overwrite,
-                    runner=runner,
-                    callback=logger_callback,
-                )
-                overall_success &= success
-            except PreprocessCancelled:
-                raise
-            except Exception:
-                overall_success = False
+            _run_subject_pipeline(
+                project_dir,
+                sid,
+                convert_dicom=convert_dicom,
+                run_recon=False,
+                parallel_recon=parallel_recon,
+                create_m2m=create_m2m,
+                run_tissue=False,
+                run_qsiprep_step=False,
+                run_qsirecon_step=False,
+                qsiprep_config=qsiprep_config,
+                qsi_recon_config=qsi_recon_config,
+                extract_dti_step=False,
+                run_subcortical=False,
+                debug=debug,
+                runner=runner,
+                callback=logger_callback,
+            )
 
         max_workers = parallel_cores or os.cpu_count() or 1
         max_workers = min(max_workers, len(subject_list))
@@ -370,188 +336,172 @@ def run_pipeline(
                         qsiprep_config=qsiprep_config,
                         qsi_recon_config=qsi_recon_config,
                         extract_dti_step=False,
+                        run_subcortical=False,
                         debug=debug,
-                        overwrite=overwrite,
-                        prompt_overwrite=prompt_overwrite,
                         runner=runner,
                         callback=logger_callback,
                     )
                 )
 
             for future in as_completed(futures):
-                try:
-                    overall_success &= future.result()
-                except PreprocessCancelled:
-                    raise
-                except Exception:
-                    overall_success = False
+                future.result()
+
         if run_tissue_analysis:
             for sid in subject_list:
-                try:
-                    success = _run_subject_pipeline(
-                        project_dir,
-                        sid,
-                        convert_dicom=False,
-                        run_recon=False,
-                        parallel_recon=parallel_recon,
-                        create_m2m=False,
-                        run_tissue=True,
-                        run_qsiprep_step=False,
-                        run_qsirecon_step=False,
-                        qsiprep_config=qsiprep_config,
-                        qsi_recon_config=qsi_recon_config,
-                        extract_dti_step=False,
-                        debug=debug,
-                        overwrite=overwrite,
-                        prompt_overwrite=prompt_overwrite,
-                        runner=runner,
-                        callback=logger_callback,
-                    )
-                    overall_success &= success
-                except PreprocessCancelled:
-                    raise
-                except Exception:
-                    overall_success = False
+                _run_subject_pipeline(
+                    project_dir,
+                    sid,
+                    convert_dicom=False,
+                    run_recon=False,
+                    parallel_recon=parallel_recon,
+                    create_m2m=False,
+                    run_tissue=True,
+                    run_qsiprep_step=False,
+                    run_qsirecon_step=False,
+                    qsiprep_config=qsiprep_config,
+                    qsi_recon_config=qsi_recon_config,
+                    extract_dti_step=False,
+                    run_subcortical=False,
+                    debug=debug,
+                    runner=runner,
+                    callback=logger_callback,
+                )
         # Run QSI steps after tissue analysis (if enabled)
         if run_qsiprep or run_qsirecon or extract_dti:
             for sid in subject_list:
-                try:
-                    success = _run_subject_pipeline(
-                        project_dir,
-                        sid,
-                        convert_dicom=False,
-                        run_recon=False,
-                        parallel_recon=parallel_recon,
-                        create_m2m=False,
-                        run_tissue=False,
-                        run_qsiprep_step=run_qsiprep,
-                        run_qsirecon_step=run_qsirecon,
-                        qsiprep_config=qsiprep_config,
-                        qsi_recon_config=qsi_recon_config,
-                        extract_dti_step=extract_dti,
-                        debug=debug,
-                        overwrite=overwrite,
-                        prompt_overwrite=prompt_overwrite,
-                        runner=runner,
-                        callback=logger_callback,
-                    )
-                    overall_success &= success
-                except PreprocessCancelled:
-                    raise
-                except Exception:
-                    overall_success = False
-    else:
-        for sid in subject_list:
-            try:
-                success = _run_subject_pipeline(
+                _run_subject_pipeline(
                     project_dir,
                     sid,
-                    convert_dicom=convert_dicom,
-                    run_recon=run_recon,
+                    convert_dicom=False,
+                    run_recon=False,
                     parallel_recon=parallel_recon,
-                    create_m2m=create_m2m,
-                    run_tissue=run_tissue_analysis,
+                    create_m2m=False,
+                    run_tissue=False,
                     run_qsiprep_step=run_qsiprep,
                     run_qsirecon_step=run_qsirecon,
                     qsiprep_config=qsiprep_config,
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=extract_dti,
+                    run_subcortical=False,
                     debug=debug,
-                    overwrite=overwrite,
-                    prompt_overwrite=prompt_overwrite,
                     runner=runner,
                     callback=logger_callback,
                 )
-                overall_success &= success
-            except PreprocessCancelled:
-                raise
-            except Exception:
-                overall_success = False
+        if run_subcortical_segmentations:
+            for sid in subject_list:
+                _run_subject_pipeline(
+                    project_dir,
+                    sid,
+                    convert_dicom=False,
+                    run_recon=False,
+                    parallel_recon=parallel_recon,
+                    create_m2m=False,
+                    run_tissue=False,
+                    run_qsiprep_step=False,
+                    run_qsirecon_step=False,
+                    qsiprep_config=qsiprep_config,
+                    qsi_recon_config=qsi_recon_config,
+                    extract_dti_step=False,
+                    run_subcortical=True,
+                    debug=debug,
+                    runner=runner,
+                    callback=logger_callback,
+                )
+    else:
+        for sid in subject_list:
+            _run_subject_pipeline(
+                project_dir,
+                sid,
+                convert_dicom=convert_dicom,
+                run_recon=run_recon,
+                parallel_recon=parallel_recon,
+                create_m2m=create_m2m,
+                run_tissue=run_tissue_analysis,
+                run_qsiprep_step=run_qsiprep,
+                run_qsirecon_step=run_qsirecon,
+                qsiprep_config=qsiprep_config,
+                qsi_recon_config=qsi_recon_config,
+                extract_dti_step=extract_dti,
+                run_subcortical=run_subcortical_segmentations,
+                debug=debug,
+                runner=runner,
+                callback=logger_callback,
+            )
 
     # Generate HTML reports for each subject
-    try:
-        from tit.reporting import PreprocessingReportGenerator
+    from tit.reporting import PreprocessingReportGenerator
 
-        for sid in subject_list:
-            try:
-                report_gen = PreprocessingReportGenerator(
-                    project_dir=project_dir,
-                    subject_id=sid,
-                )
+    for sid in subject_list:
+        report_gen = PreprocessingReportGenerator(
+            project_dir=project_dir,
+            subject_id=sid,
+        )
 
-                # Add processing steps based on what was run
-                if convert_dicom:
-                    report_gen.add_processing_step(
-                        step_name="DICOM Conversion",
-                        description="Convert DICOM files to NIfTI format",
-                        status="completed" if overall_success else "failed",
-                    )
+        # Add processing steps based on what was run
+        if convert_dicom:
+            report_gen.add_processing_step(
+                step_name="DICOM Conversion",
+                description="Convert DICOM files to NIfTI format",
+                status="completed",
+            )
 
-                if create_m2m:
-                    report_gen.add_processing_step(
-                        step_name="SimNIBS charm",
-                        description="Create head mesh model for simulations",
-                        status="completed" if overall_success else "failed",
-                    )
-                    report_gen.add_processing_step(
-                        step_name="Subject Atlas Segmentation",
-                        description="Generate atlas-based parcellation",
-                        status="completed" if overall_success else "failed",
-                    )
+        if create_m2m:
+            report_gen.add_processing_step(
+                step_name="SimNIBS charm",
+                description="Create head mesh model for simulations",
+                status="completed",
+            )
+            report_gen.add_processing_step(
+                step_name="Subject Atlas Segmentation",
+                description="Generate atlas-based parcellation",
+                status="completed",
+            )
 
-                if run_recon:
-                    report_gen.add_processing_step(
-                        step_name="FreeSurfer recon-all",
-                        description="Cortical surface reconstruction",
-                        status="completed" if overall_success else "failed",
-                    )
+        if run_recon:
+            report_gen.add_processing_step(
+                step_name="FreeSurfer recon-all",
+                description="Cortical surface reconstruction",
+                status="completed",
+            )
 
-                if run_tissue_analysis:
-                    report_gen.add_processing_step(
-                        step_name="Tissue Analysis",
-                        description="Tissue segmentation and analysis",
-                        status="completed" if overall_success else "failed",
-                    )
+        if run_tissue_analysis:
+            report_gen.add_processing_step(
+                step_name="Tissue Analysis",
+                description="Tissue segmentation and analysis",
+                status="completed",
+            )
 
-                if run_qsiprep:
-                    report_gen.add_processing_step(
-                        step_name="QSIPrep",
-                        description="Diffusion MRI preprocessing",
-                        status="completed" if overall_success else "failed",
-                    )
+        if run_qsiprep:
+            report_gen.add_processing_step(
+                step_name="QSIPrep",
+                description="Diffusion MRI preprocessing",
+                status="completed",
+            )
 
-                if run_qsirecon:
-                    report_gen.add_processing_step(
-                        step_name="QSIRecon",
-                        description="Diffusion MRI reconstruction",
-                        status="completed" if overall_success else "failed",
-                    )
+        if run_qsirecon:
+            report_gen.add_processing_step(
+                step_name="QSIRecon",
+                description="Diffusion MRI reconstruction",
+                status="completed",
+            )
 
-                if extract_dti:
-                    report_gen.add_processing_step(
-                        step_name="DTI Tensor Extraction",
-                        description="Extract DTI tensors for anisotropic conductivity",
-                        status="completed" if overall_success else "failed",
-                    )
+        if extract_dti:
+            report_gen.add_processing_step(
+                step_name="DTI Tensor Extraction",
+                description="Extract DTI tensors for anisotropic conductivity",
+                status="completed",
+            )
 
-                # Auto-scan for data
-                report_gen.scan_for_data()
+        if run_subcortical_segmentations:
+            report_gen.add_processing_step(
+                step_name="Subcortical Segmentations",
+                description="Thalamic nuclei and hippocampal subfield segmentations",
+                status="completed",
+            )
 
-                # Generate report
-                report_path = report_gen.generate()
+        report_gen.scan_for_data()
+        report_path = report_gen.generate()
+        if logger_callback:
+            logger_callback(f"Report generated: {report_path}", "info")
 
-                # Log report generation via callback if available
-                if logger_callback:
-                    logger_callback(f"Report generated: {report_path}", "info")
-
-            except Exception as e:
-                if logger_callback:
-                    logger_callback(
-                        f"Warning: Could not generate report for {sid}: {e}",
-                        "warning",
-                    )
-
-    except ImportError:
-        pass  # Reporting module not available
-
-    return 0 if overall_success else 1
+    return 0

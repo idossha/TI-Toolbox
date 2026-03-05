@@ -110,6 +110,11 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TIMAX = "TImax"
 FIELD_E_NORMAL = "E_normal"
 
+# Field names (SimNIBS convention)
+FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
+FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
+FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
+
 # Tissue region indices (SimNIBS convention)
 REGION_WHITE_MATTER = 1
 REGION_GRAY_MATTER = 2
@@ -147,6 +152,13 @@ ELECTRODE_SHAPE_RECT = "rect"
 DEFAULT_ELECTRODE_THICKNESS = 4.0  # mm
 DEFAULT_ELECTRODE_RADIUS = 4.0  # mm
 DEFAULT_INTENSITY = 1.0  # mA
+
+# Mesh tissue tag ranges for brain cropping
+BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))
+
+# Tissue tag values
+GM_TISSUE_TAG = 2  # Grey matter element tag in SimNIBS meshes
+WM_TISSUE_TAG = 1  # White matter element tag in SimNIBS meshes
 
 # ============================================================================
 # ATLAS NAMES

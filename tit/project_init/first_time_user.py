@@ -7,7 +7,7 @@ import os.path
 from datetime import datetime
 
 from tit import __version__
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -31,8 +31,7 @@ def initialize_project_status(project_dir):
     This is called when a new project is created or when the status file is missing.
     Creates the BIDS-compliant directory structure and initializes project tracking.
     """
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
 
     status_file = pm.project_status()
     info_dir = pm.config_dir()

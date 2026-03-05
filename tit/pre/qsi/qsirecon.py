@@ -14,9 +14,8 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from tit.core import constants as const
-from tit.core.overwrite import OverwritePolicy, should_overwrite_path
-from tit.pre.common import CommandRunner, PreprocessError
+from tit import constants as const
+from tit.pre.utils import CommandRunner, PreprocessError
 
 from .config import QSIReconConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
@@ -36,7 +35,6 @@ def run_qsirecon(
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS,
     image_tag: str = const.QSI_DEFAULT_IMAGE_TAG,
     skip_odf_reports: bool = True,
-    overwrite: Optional[bool] = None,
     runner: Optional[CommandRunner] = None,
 ) -> None:
     """
@@ -74,8 +72,6 @@ def run_qsirecon(
         QSIRecon Docker image tag. Default: '1.1.1'.
     skip_odf_reports : bool, optional
         Skip ODF report generation. Default: True.
-    overwrite : Optional[bool], optional
-        If True, overwrite existing outputs. If False, skip if outputs exist.
     runner : Optional[CommandRunner], optional
         Command runner for subprocess execution.
 
@@ -149,9 +145,11 @@ def run_qsirecon(
         # QSIRecon outputs are organized by recon spec
         spec_output_dir = output_base / f"sub-{subject_id}"
 
-        if spec_output_dir.exists() and overwrite is False:
-            logger.info(f"QSIRecon output exists for {subject_id}/{spec}, skipping")
-            continue
+        if spec_output_dir.exists():
+            raise PreprocessError(
+                f"QSIRecon output already exists at {spec_output_dir}. "
+                "Remove the directory manually before rerunning."
+            )
 
         try:
             cmd = builder.build_qsirecon_cmd(config, spec)

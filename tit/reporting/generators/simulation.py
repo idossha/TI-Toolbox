@@ -19,7 +19,7 @@ from ..reportlets.metadata import (
     ParameterListReportlet,
 )
 from .base_generator import BaseReportGenerator
-from tit.core import get_path_manager
+from tit.paths import get_path_manager
 
 
 class SimulationReportGenerator(BaseReportGenerator):
@@ -312,8 +312,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         if not subject_id:
             return None
 
-        pm = get_path_manager()
-        pm.project_dir = str(self.project_dir)
+        pm = get_path_manager(str(self.project_dir))
         montage_dir = Path(pm.simulation(subject_id, montage_name))
 
         preferred_subdir = "mTI" if self._is_multipolar(montage_type) else "TI"

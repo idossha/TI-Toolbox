@@ -104,8 +104,7 @@ class ExampleDataManager:
             return False
 
         # Check project status file if it exists to see if example data was already copied
-        pm = get_path_manager()
-        pm.project_dir = str(self.project_dir)
+        pm = get_path_manager(str(self.project_dir))
         status_file = Path(pm.project_status())
         if status_file.exists():
             try:
@@ -195,8 +194,7 @@ class ExampleDataManager:
         logger.info(f"Copying example data to new project: {self.project_dir}")
 
         # Initialize path manager and ensure core BIDS directories exist
-        pm = get_path_manager()
-        pm.project_dir = str(self.project_dir)
+        pm = get_path_manager(str(self.project_dir))
 
         core_dirs = [
             pm.ensure(pm.sourcedata()),
@@ -277,8 +275,7 @@ class ExampleDataManager:
             from datetime import datetime
 
             # Create the status directory if it doesn't exist
-            pm = get_path_manager()
-            pm.project_dir = str(self.project_dir)
+            pm = get_path_manager(str(self.project_dir))
             status_dir = Path(pm.ensure(pm.config_dir()))
             status_dir.mkdir(parents=True, exist_ok=True)
 

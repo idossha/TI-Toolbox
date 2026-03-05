@@ -8,7 +8,7 @@ tissue analysis, and DWI preprocessing via QSIPrep/QSIRecon.
 
 from .structural import run_pipeline
 from .dicom2nifti import run_dicom_to_nifti
-from .recon_all import run_recon_all
+from .recon_all import run_recon_all, run_subcortical_segmentations
 from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
@@ -18,6 +18,7 @@ __all__ = [
     "run_pipeline",
     "run_dicom_to_nifti",
     "run_recon_all",
+    "run_subcortical_segmentations",
     "run_charm",
     "run_tissue_analysis",
     "run_qsiprep",

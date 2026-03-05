@@ -74,8 +74,12 @@ def run_group_analysis(
     log_file = out / f"group_analysis_{timestamp}.log"
     add_file_handler(log_file)
 
-    logger.info("Group analysis started: %d subjects, space=%s, type=%s",
-                len(subject_ids), space, analysis_type)
+    logger.info(
+        "Group analysis started: %d subjects, space=%s, type=%s",
+        len(subject_ids),
+        space,
+        analysis_type,
+    )
 
     dispatch: dict[str, callable] = {
         "spherical": lambda a: a.analyze_sphere(

@@ -15,10 +15,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from tit.core import constants as const
+from tit import constants as const
 from .config import QSIPrepConfig, QSIReconConfig
 from .utils import (
-    check_docker_available,
     get_host_project_dir,
     get_freesurfer_license_path,
     get_inherited_dood_resources,
@@ -70,9 +69,6 @@ class DockerCommandBuilder:
         paths: Optional[DockerPaths] = None,
     ) -> None:
         # Validate Docker availability
-        available, message = check_docker_available()
-        if not available:
-            raise DockerBuildError(f"Docker is not available: {message}")
 
         self.project_dir = project_dir
         self.paths = paths or DockerPaths()

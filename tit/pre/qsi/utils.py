@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 
-from tit.core import constants as const
+from tit import constants as const
 
 
 def resolve_host_project_path(container_path: str) -> str:
@@ -90,37 +90,6 @@ def get_host_project_dir() -> str:
             "This is required for spawning sibling Docker containers."
         )
     return local_project_dir
-
-
-def check_docker_available() -> Tuple[bool, str]:
-    """
-    Check if Docker CLI is available and the Docker daemon is running.
-
-    Returns
-    -------
-    Tuple[bool, str]
-        (is_available, message) tuple. If not available, message contains
-        the error description.
-    """
-    # Check if docker command exists
-    if not shutil.which("docker"):
-        return False, "Docker CLI not found in PATH"
-
-    # Check if Docker daemon is running
-    try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return False, f"Docker daemon not responding: {result.stderr.strip()}"
-        return True, "Docker is available"
-    except subprocess.TimeoutExpired:
-        return False, "Docker daemon timed out"
-    except Exception as e:
-        return False, f"Failed to check Docker: {e}"
 
 
 def check_image_exists(image: str, tag: str) -> bool:
@@ -290,28 +259,7 @@ def get_freesurfer_license_path() -> Optional[str]:
     """
     # Check environment variable
     fs_license = os.environ.get("FS_LICENSE")
-    if fs_license and os.path.isfile(fs_license):
-        return fs_license
-
-    # Check FREESURFER_HOME
-    fs_home = os.environ.get("FREESURFER_HOME")
-    if fs_home:
-        license_path = os.path.join(fs_home, "license.txt")
-        if os.path.isfile(license_path):
-            return license_path
-
-    # Check common locations
-    common_paths = [
-        "/usr/local/freesurfer/license.txt",
-        "/opt/freesurfer/license.txt",
-        os.path.expanduser("~/.freesurfer/license.txt"),
-    ]
-
-    for path in common_paths:
-        if os.path.isfile(path):
-            return path
-
-    return None
+    return fs_license
 
 
 def format_memory_limit(memory_gb: int) -> str:

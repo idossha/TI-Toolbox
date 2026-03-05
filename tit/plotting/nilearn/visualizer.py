@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 import warnings
 
-from tit.core import get_path_manager
-from tit.core.constants import DIR_NILEARN_VISUALS
+from tit.paths import get_path_manager
+from tit.constants import DIR_NILEARN_VISUALS
 
 warnings.filterwarnings("ignore")
 

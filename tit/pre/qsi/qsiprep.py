@@ -15,9 +15,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from tit.core import constants as const
-from tit.core.overwrite import OverwritePolicy, should_overwrite_path
-from tit.pre.common import CommandRunner, PreprocessError
+from tit import constants as const
+from tit.pre.utils import CommandRunner, PreprocessError
 
 from .config import QSIPrepConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
@@ -41,7 +40,6 @@ def run_qsiprep(
     skip_bids_validation: bool = True,
     denoise_method: str = "dwidenoise",
     unringing_method: str = "mrdegibbs",
-    overwrite: Optional[bool] = None,
     runner: Optional[CommandRunner] = None,
 ) -> None:
     """
@@ -74,9 +72,6 @@ def run_qsiprep(
         Denoising method. Default: 'dwidenoise'.
     unringing_method : str, optional
         Unringing method. Default: 'mrdegibbs'.
-    overwrite : Optional[bool], optional
-        If True, overwrite existing outputs. If False, skip if outputs exist.
-        If None, will check and potentially error.
     runner : Optional[CommandRunner], optional
         Command runner for subprocess execution.
 
@@ -98,17 +93,10 @@ def run_qsiprep(
     if output_dir.exists():
         existing_valid, _ = validate_qsiprep_output(project_dir, subject_id)
         if existing_valid:
-            if overwrite is False:
-                logger.info(f"QSIPrep output exists for {subject_id}, skipping")
-                return
-            elif overwrite is None:
-                # Check using overwrite policy
-                policy = OverwritePolicy(overwrite=False, prompt=False)
-                if not should_overwrite_path(
-                    output_dir, policy=policy, logger=logger, label="QSIPrep output"
-                ):
-                    logger.info(f"QSIPrep output exists for {subject_id}, skipping")
-                    return
+            raise PreprocessError(
+                f"QSIPrep output already exists at {output_dir}. "
+                "Remove the directory manually before rerunning."
+            )
 
     # Create output directories
     output_dir.parent.mkdir(parents=True, exist_ok=True)

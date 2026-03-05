@@ -113,7 +113,12 @@ class Analyzer:
         log_file = Path(logs_dir) / f"analyzer_{simulation}_{timestamp}.log"
         self._log_handler = add_file_handler(log_file)
 
-        logger.info("Analyzer initialised: subject=%s sim=%s space=%s", subject_id, simulation, space)
+        logger.info(
+            "Analyzer initialised: subject=%s sim=%s space=%s",
+            subject_id,
+            simulation,
+            space,
+        )
 
         # Cached lazily
         self._surface_mesh = None

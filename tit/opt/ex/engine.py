@@ -1,22 +1,22 @@
 """Single-class exhaustive search engine.
 
 Replaces: runner.py (5 classes), roi_utils.py (4 functions).
-Direct SimNIBS usage — no tit.core.roi wrappers needed except calculate_roi_metrics.
+Direct SimNIBS usage — ROI metrics are computed inline.
 """
 
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import signal
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
-from tit.core.roi import calculate_roi_metrics
 from .logic import (
     count_combinations,
     generate_current_ratios,
@@ -31,7 +31,9 @@ class ExSearchEngine:
     simulation loop, and ROI CRUD.
     """
 
-    def __init__(self, leadfield_hdf: str, roi_file: str, roi_name: str, logger: Any):
+    def __init__(
+        self, leadfield_hdf: str, roi_file: str, roi_name: str, logger: logging.Logger
+    ):
         self.leadfield_hdf = leadfield_hdf
         self.roi_file = roi_file
         self.roi_name = roi_name
@@ -122,19 +124,31 @@ class ExSearchEngine:
         ef2 = TI.get_field([e2_plus, e2_minus, current_ch2_mA / 1000], lf, idx)
         ti_max_full = TI.get_maxTI(ef1, ef2)
 
-        metrics = calculate_roi_metrics(
-            ti_max_full[self.roi_indices],
-            self.roi_volumes,
-            ti_field_gm=ti_max_full[self.gm_indices],
-            gm_volumes=self.gm_volumes,
-        )
+        field_roi = ti_max_full[self.roi_indices]
+        field_gm = ti_max_full[self.gm_indices]
+
+        n_elements = int(len(field_roi))
+        if n_elements == 0:
+            roi_max = 0.0
+            roi_mean = 0.0
+            gm_mean = 0.0
+            focality = 0.0
+        else:
+            roi_max = float(np.max(field_roi))
+            roi_mean = float(np.average(field_roi, weights=self.roi_volumes))
+            if len(field_gm) > 0:
+                gm_mean = float(np.average(field_gm, weights=self.gm_volumes))
+                focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
+            else:
+                gm_mean = 0.0
+                focality = 0.0
 
         return {
-            f"{self.roi_name}_TImax_ROI": metrics["TImax_ROI"],
-            f"{self.roi_name}_TImean_ROI": metrics["TImean_ROI"],
-            f"{self.roi_name}_TImean_GM": metrics.get("TImean_GM", 0.0),
-            f"{self.roi_name}_Focality": metrics.get("Focality", 0.0),
-            f"{self.roi_name}_n_elements": metrics["n_elements"],
+            f"{self.roi_name}_TImax_ROI": roi_max,
+            f"{self.roi_name}_TImean_ROI": roi_mean,
+            f"{self.roi_name}_TImean_GM": gm_mean,
+            f"{self.roi_name}_Focality": focality,
+            f"{self.roi_name}_n_elements": n_elements,
             "current_ch1_mA": current_ch1_mA,
             "current_ch2_mA": current_ch2_mA,
         }
@@ -243,7 +257,7 @@ class ExSearchEngine:
     @staticmethod
     def get_available_rois(subject_id: str) -> List[str]:
         """List ROI CSV files for a subject."""
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         roi_dir = Path(get_path_manager().rois(subject_id))
         return sorted(p.name for p in roi_dir.glob("*.csv"))
@@ -257,7 +271,7 @@ class ExSearchEngine:
         z: float,
     ) -> Tuple[bool, str]:
         """Create an ROI CSV from coordinates."""
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         roi_dir = Path(get_path_manager().rois(subject_id))
         roi_dir.mkdir(parents=True, exist_ok=True)
@@ -284,7 +298,7 @@ class ExSearchEngine:
     @staticmethod
     def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
         """Delete an ROI file and remove from roi_list.txt."""
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         roi_dir = Path(get_path_manager().rois(subject_id))
 
@@ -312,7 +326,7 @@ class ExSearchEngine:
         roi_name: str,
     ) -> Optional[Tuple[float, float, float]]:
         """Read ROI center coordinates from CSV."""
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         roi_dir = Path(get_path_manager().rois(subject_id))
 

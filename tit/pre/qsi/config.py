@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from tit.core import constants as const
+from tit import constants as const
 
 
 class ReconSpec(str, Enum):

@@ -40,8 +40,7 @@ from tit.sim.config import (
 
 
 def _montage_list_path(project_dir: str) -> str:
-    pm = get_path_manager()
-    pm.project_dir = project_dir
+    pm = get_path_manager(project_dir)
     return os.path.join(pm.config_dir(), const.FILE_MONTAGE_LIST)
 
 
@@ -320,11 +319,11 @@ def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
         logger.warning(f"T1 MNI conversion warning: {result.stderr}")
 
 
-def safe_move(src: str, dest: str, logger) -> None:
+def safe_move(src: str, dest: str) -> None:
     shutil.move(src, dest)
 
 
-def safe_rmdir(path: str, logger) -> None:
+def safe_rmdir(path: str) -> None:
     if os.path.isdir(path):
         os.rmdir(path)
 

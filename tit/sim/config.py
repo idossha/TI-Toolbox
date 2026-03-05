@@ -126,4 +126,5 @@ class SimulationConfig:
     map_to_vol: bool = True
     map_to_mni: bool = True
     map_to_fsavg: bool = False
+    open_in_gmsh: bool = False
     tissues_in_niftis: str = "all"

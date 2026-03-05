@@ -326,7 +326,7 @@ def find_subject_atlases(
         Dictionary mapping atlas names (e.g., 'DK40') to file paths
     """
     if project_dir is None:
-        from tit.core import get_path_manager
+        from tit.paths import get_path_manager
 
         pm = get_path_manager()
         project_dir = pm.project_dir

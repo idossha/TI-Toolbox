@@ -21,8 +21,7 @@ from .results import process_and_save
 def run_ex_search(config: ExConfig) -> ExResult:
     """Run exhaustive search from a typed config object."""
 
-    pm = get_path_manager()
-    pm.project_dir = config.project_dir
+    pm = get_path_manager(config.project_dir)
 
     logs_dir = pm.logs(config.subject_id)
     os.makedirs(logs_dir, exist_ok=True)
