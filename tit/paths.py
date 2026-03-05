@@ -109,6 +109,9 @@ class PathManager:
     def stats_data(self) -> str:
         return os.path.join(self.ti_toolbox(), "stats", "data")
 
+    def stats_output(self, analysis_type: str, analysis_name: str) -> str:
+        return os.path.join(self.ti_toolbox(), "stats", analysis_type, analysis_name)
+
     def logs_group(self) -> str:
         return os.path.join(self.ti_toolbox(), "logs", "group_analysis")
 

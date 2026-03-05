@@ -36,10 +36,8 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from tit.cli.base import ArgumentDefinition, InteractivePrompt, BaseCLI
-from tit.core import get_path_manager
-from tit.core import constants as const
-from tit import logger as logging_util
-
+from tit.paths import get_path_manager
+from tit import constants as const
 
 logger = logging.getLogger("tit.cli.vis_blender")
 
@@ -218,11 +216,17 @@ class VisBlenderCLI(BaseCLI):
 def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.Logger:
     """Configure console + optional file logging with consistent formatting."""
     root_name = "tit.cli.vis_blender"
-    log = logging_util.get_logger(
-        root_name, log_file=log_file, overwrite=True, console=True
-    )
+    log = logging.getLogger(root_name)
+
+    if log_file:
+        from tit.logger import add_file_handler
+
+        add_file_handler(
+            log_file, level="DEBUG" if verbose else "INFO", logger_name=root_name
+        )
 
     if verbose:
+        log.setLevel(logging.DEBUG)
         for h in list(log.handlers):
             try:
                 h.setLevel(logging.DEBUG)
