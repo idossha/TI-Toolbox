@@ -16,10 +16,11 @@ import shutil
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.components.console import ConsoleWidget
+from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.add_montage_dialog import AddMontageDialog
 from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
+from tit.gui.utils import strip_ansi_codes, open_file, open_directory
 from tit.paths import get_path_manager
 from tit.reporting import SimulationReportGenerator
 
@@ -41,20 +42,6 @@ from tit.sim.utils import (
     ensure_montage_file,
     upsert_montage,
 )
-
-# Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
-ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
-
-
-def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI color/control sequences from a string."""
-    if not text:
-        return text
-    # Remove standard CSI sequences
-    cleaned = ANSI_ESCAPE_PATTERN.sub("", text)
-    # Remove any stray ESC characters that might remain
-    cleaned = cleaned.replace("\x1b", "")
-    return cleaned
 
 
 class SimulationThread(QtCore.QThread):
@@ -111,6 +98,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.simulation_session_id = None
         self._had_errors_during_run = False
         self._aborting_due_to_error = False
+        self._first_error_line = None
+        self._simulation_finished_called = False
         self._current_run_subjects = []
         self._current_run_is_montage = True
         self._current_run_montages = []
@@ -411,14 +400,14 @@ class SimulatorTab(QtWidgets.QWidget):
                     card.eeg_net_combo.setCurrentIndex(idx)
                 card.eeg_net_combo.blockSignals(False)
 
-        except Exception as e:
+        except OSError as e:
             print(f"Error loading subjects: {e}")
 
     def _get_available_subjects(self):
         """Return sorted list of available subject IDs."""
         try:
             return self.pm.list_subjects()
-        except Exception:
+        except OSError:
             return []
 
     # ── Job table management ────────────────────────────────────────────────
@@ -710,7 +699,7 @@ class SimulatorTab(QtWidgets.QWidget):
             if not project_dir:
                 return []
             return list_montage_names(project_dir, eeg_net, mode=sim_mode)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             print(f"Error getting montage names: {e}")
             return []
 
@@ -731,7 +720,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 return []
             montages = nets[eeg_net].get(net_type, {})
             return [(name, pairs) for name, pairs in montages.items()]
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             print(f"Error getting montage entries: {e}")
             return []
 
@@ -770,9 +759,9 @@ class SimulatorTab(QtWidgets.QWidget):
                             pos_data = json.load(f)
                         if pos_data.get("optimized_positions"):
                             items.append(f"{search_name} [optimized]")
-                    except Exception:
+                    except (OSError, json.JSONDecodeError):
                         pass
-        except Exception as e:
+        except OSError as e:
             print(f"Error getting flex outputs for {subject_id}: {e}")
         return items
 
@@ -794,9 +783,9 @@ class SimulatorTab(QtWidgets.QWidget):
                             config_data = json.load(f)
                         name = config_data.get("name", config_file.replace(".json", ""))
                         items.append(name)
-                    except Exception:
+                    except (OSError, json.JSONDecodeError):
                         items.append(config_file.replace(".json", ""))
-        except Exception as e:
+        except OSError as e:
             print(f"Error getting freehand configs for {subject_id}: {e}")
         return items
 
@@ -826,7 +815,7 @@ class SimulatorTab(QtWidgets.QWidget):
             return load_montages(
                 montage_names, project_dir, eeg_net, include_flex=False
             )
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             self.update_output(f"Error building montage configs: {e}", "error")
             return []
 
@@ -960,7 +949,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                 ],
                             )
                         )
-            except Exception as e:
+            except (ValueError, IndexError, KeyError) as e:
                 self.update_output(
                     f"Error processing flex item '{item_text}': {e}", "error"
                 )
@@ -1013,9 +1002,9 @@ class SimulatorTab(QtWidgets.QWidget):
                                 )
                             )
                         break
-                    except Exception as e:
+                    except (OSError, json.JSONDecodeError, KeyError) as e:
                         print(f"Error loading freehand config {config_file}: {e}")
-        except Exception as e:
+        except OSError as e:
             self.update_output(f"Error building freehand configs: {e}", "error")
         return configs
 
@@ -1159,7 +1148,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         try:
                             shutil.rmtree(montage_dir)
                             self.update_output(f"  Removed: {subject_id}/{mc.name}")
-                        except Exception as e:
+                        except OSError as e:
                             self.update_output(
                                 f"  Warning: Could not remove {subject_id}/{mc.name}: {e}",
                                 "warning",
@@ -1232,14 +1221,11 @@ class SimulatorTab(QtWidgets.QWidget):
             # ── Enable stop button, disable controls ───────────────────────
             self.disable_controls()
             self.action_buttons.set_running(True)
-            if hasattr(self, "parent") and self.parent:
-                keep_enabled_widgets = []
-                if hasattr(self, "console_widget"):
-                    keep_enabled_widgets.append(self.console_widget.debug_checkbox)
-                if hasattr(self, "console_widget") and hasattr(
-                    self.console_widget, "clear_btn"
-                ):
-                    keep_enabled_widgets.append(self.console_widget.clear_btn)
+            if self.parent:
+                keep_enabled_widgets = [
+                    self.console_widget.debug_checkbox,
+                    self.console_widget.clear_btn,
+                ]
                 self.parent.set_tab_busy(
                     self,
                     True,
@@ -1293,7 +1279,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.sim_thread.finished_signal.connect(self._on_simulation_done)
             self.sim_thread.start()
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(f"Error starting simulation: {str(e)}", "error")
             import traceback
 
@@ -1319,10 +1305,7 @@ class SimulatorTab(QtWidgets.QWidget):
     def simulation_finished(self):
         """Handle simulation completion."""
         # Prevent double calling
-        if (
-            hasattr(self, "_simulation_finished_called")
-            and self._simulation_finished_called
-        ):
+        if self._simulation_finished_called:
             return
 
         self._simulation_finished_called = True
@@ -1331,9 +1314,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.append(
                 '<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>'
             )
-            if hasattr(self, "_first_error_line") and getattr(
-                self, "_first_error_line", None
-            ):
+            if self._first_error_line:
                 safe_err = strip_ansi_codes(self._first_error_line)
                 self.update_output(f"First error detected: {safe_err}", "error")
         else:
@@ -1354,7 +1335,7 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             try:
                 self._cleanup_partial_outputs()
-            except Exception as cleanup_exc:
+            except OSError as cleanup_exc:
                 self.update_output(
                     f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", "warning"
                 )
@@ -1370,7 +1351,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.action_buttons.set_running(False)
 
         # Clear parent tab's busy state (with stop_btn parameter for proper state management)
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
         # Re-enable all controls
@@ -1506,7 +1487,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             f"[SUCCESS] Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}"
                         )
 
-                    except Exception as e:
+                    except (OSError, ValueError, RuntimeError) as e:
                         self.update_output(
                             f"[ERROR] Error generating report for {subject_id}-{montage_name}: {str(e)}",
                             "error",
@@ -1524,7 +1505,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Open the reports directory instead of individual files
                 self._open_directory_safely(reports_dir)
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             self.update_output(
                 f"[ERROR] Error generating simulation reports: {str(e)}", "error"
             )
@@ -1592,7 +1573,7 @@ class SimulatorTab(QtWidgets.QWidget):
         # Reset UI state
         self.run_btn.setText("Run Simulation")
         self.action_buttons.set_running(False)
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         self.enable_controls()
 
@@ -1609,139 +1590,41 @@ class SimulatorTab(QtWidgets.QWidget):
         text = strip_ansi_codes(text)
 
         # Preserve line breaks and spacing in the text by converting to HTML
-        # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
         text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
 
-        # Format the output based on message type from thread
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text_html}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text_html}</span>'
-        elif message_type == "debug":
-            formatted_text = f'<span style="color: #7f7f7f;">{text_html}</span>'
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text_html}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text_html}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text_html}</span>'
+        # Use shared color mapping for known message types
+        if message_type in ("error", "warning", "debug", "command", "success", "info"):
+            formatted_text = format_message(text_html, message_type)
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
                 formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text_html}</span></div>'
             elif text.strip().startswith("-"):
-                # Indented list items
                 formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">&nbsp;&nbsp;{text_html}</span>'
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text_html}</span>'
+                formatted_text = format_message(text_html, "default")
 
-        # Check if user is at the bottom of the console before appending
-        scrollbar = self.output_console.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
-
-        # Append to the console with HTML formatting
-        self.output_console.append(formatted_text)
-
-        # Only auto-scroll if user was already at the bottom
-        if at_bottom:
-            self.output_console.ensureCursorVisible()
-
-        QtWidgets.QApplication.processEvents()
+        append_with_autoscroll(self.output_console, formatted_text)
 
     def _open_file_safely(self, file_path):
-        """Safely open a file in the default application, with fallbacks for different environments."""
-        import webbrowser
-        import platform
-
+        """Safely open a file in the default application."""
         try:
-            # First try webbrowser (works on most systems)
-            webbrowser.open("file://" + os.path.abspath(file_path))
+            open_file(file_path)
             self.update_output("[INFO] File opened in default application")
-        except Exception as e:
-            # Fallback: try platform-specific commands
-            try:
-                system = platform.system().lower()
-                if system == "linux":
-                    # Try xdg-open first, then common browsers
-                    try:
-                        subprocess.run(["xdg-open", file_path], check=True)
-                        self.update_output("[INFO] File opened with xdg-open")
-                    except (subprocess.CalledProcessError, FileNotFoundError):
-                        # Try common browsers as fallback
-                        browsers = ["firefox", "chromium", "google-chrome", "chrome"]
-                        opened = False
-                        for browser in browsers:
-                            try:
-                                subprocess.run([browser, file_path], check=True)
-                                self.update_output(f"[INFO] File opened with {browser}")
-                                opened = True
-                                break
-                            except (subprocess.CalledProcessError, FileNotFoundError):
-                                continue
-                        if not opened:
-                            self.update_output(
-                                f"[WARNING] File generated but couldn't open automatically: {file_path}"
-                            )
-                elif system == "darwin":  # macOS
-                    subprocess.run(["open", file_path], check=True)
-                    self.update_output("[INFO] File opened with macOS open command")
-                elif system == "windows":
-                    os.startfile(file_path)
-                    self.update_output("[INFO] File opened with Windows startfile")
-                else:
-                    self.update_output(
-                        f"[WARNING] File generated but couldn't open automatically: {file_path}"
-                    )
-            except Exception as e2:
-                self.update_output(
-                    f"[WARNING] File generated but couldn't open automatically: {file_path}"
-                )
-                self.update_output(f"[DEBUG] Open error: {str(e2)}")
+        except OSError:
+            self.update_output(
+                f"[WARNING] File generated but couldn't open automatically: {file_path}"
+            )
 
     def _open_directory_safely(self, dir_path):
-        """Safely open a directory in the file manager, with fallbacks for different environments."""
-        import platform
-
+        """Safely open a directory in the file manager."""
         try:
-            system = platform.system().lower()
-            if system == "linux":
-                # Try xdg-open first, then common file managers
-                try:
-                    subprocess.run(["xdg-open", dir_path], check=True)
-                    self.update_output("[INFO] Directory opened with xdg-open")
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    # Try common file managers as fallback
-                    file_managers = ["nautilus", "dolphin", "thunar", "pcmanfm", "nemo"]
-                    opened = False
-                    for fm in file_managers:
-                        try:
-                            subprocess.run([fm, dir_path], check=True)
-                            self.update_output(f"[INFO] Directory opened with {fm}")
-                            opened = True
-                            break
-                        except (subprocess.CalledProcessError, FileNotFoundError):
-                            continue
-                    if not opened:
-                        self.update_output(
-                            f"[WARNING] Directory available but couldn't open file manager: {dir_path}"
-                        )
-            elif system == "darwin":  # macOS
-                subprocess.run(["open", dir_path], check=True)
-                self.update_output("[INFO] Directory opened with macOS open command")
-            elif system == "windows":
-                os.startfile(dir_path)
-                self.update_output("[INFO] Directory opened with Windows Explorer")
-            else:
-                self.update_output(
-                    f"[WARNING] Directory available but couldn't open file manager: {dir_path}"
-                )
-        except Exception as e:
+            open_directory(dir_path)
+            self.update_output("[INFO] Directory opened in file manager")
+        except OSError:
             self.update_output(
                 f"[WARNING] Directory available but couldn't open file manager: {dir_path}"
             )
-            self.update_output(f"[DEBUG] Open error: {str(e)}")
 
     def _handle_thread_output(self, text, message_type="default"):
         """Internal handler to track errors and forward to UI update."""
@@ -1754,9 +1637,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # Allow process to continue, but mark that there were errors
             self._had_errors_during_run = True
             # Remember the first triggering error line for reporting
-            if not hasattr(self, "_first_error_line") or not getattr(
-                self, "_first_error_line", None
-            ):
+            if not self._first_error_line:
                 self._first_error_line = text
             # Abort immediately on first error
             if not self._aborting_due_to_error:
@@ -1771,7 +1652,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Perform cleanup of outputs generated so far
                 try:
                     self._cleanup_partial_outputs()
-                except Exception as cleanup_exc:
+                except OSError as cleanup_exc:
                     self.update_output(
                         f"[WARNING] Cleanup encountered an issue: {cleanup_exc}",
                         "warning",
@@ -1963,7 +1844,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         self, "Warning", f"Montage '{montage_name}' not found."
                     )
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Error removing montage: {str(e)}"
             )
@@ -2064,8 +1945,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         else:
                             # If it's our session, clean it up immediately
                             if (
-                                hasattr(self, "simulation_session_id")
-                                and self.simulation_session_id
+                                self.simulation_session_id
                                 and self.simulation_session_id in filename
                             ):
                                 os.remove(file_path)
@@ -2073,7 +1953,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                 self.update_output(
                                     f"[CLEANUP] Removed session file: {filename}"
                                 )
-                    except Exception as e:
+                    except OSError as e:
                         self.update_output(
                             f"[WARNING] Could not clean up {filename}: {str(e)}",
                             "warning",
@@ -2092,7 +1972,7 @@ class SimulatorTab(QtWidgets.QWidget):
             except OSError:
                 pass  # Directory not empty or permission issue, ignore
 
-        except Exception as e:
+        except OSError as e:
             self.update_output(f"[ERROR] Error during cleanup: {str(e)}", "warning")
 
     def _parse_flex_search_name(self, search_name, electrode_type):
@@ -2212,7 +2092,7 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
 
-        except Exception as e:
+        except (ValueError, IndexError) as e:
             self.update_output(
                 f"Warning: Could not parse flex search name '{search_name}': {e}",
                 "warning",

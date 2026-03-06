@@ -20,18 +20,17 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
-from tit.gui.components.console import ConsoleWidget
+from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
+from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
-from tit.gui.process import get_child_pids
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
 from tit.gui.style import (
     FONT_HELP,
     FONT_MONOSPACE,
     FONT_SUBHEADING,
-    _gfx_tokens,
-)  # graphics tokens
+)
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
@@ -253,189 +252,15 @@ class LeadfieldGenerationThread(QtCore.QThread):
             pass
 
 
-class ExSearchThread(QtCore.QThread):
+class ExSearchThread(BaseProcessThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
 
-    # Signal to emit output text with message type
-    output_signal = QtCore.pyqtSignal(str, str)
-    error_signal = QtCore.pyqtSignal(str)
-
     def __init__(self, cmd, env=None):
-        """Initialize the thread with the command to run and environment variables."""
-        super(ExSearchThread, self).__init__()
-        self.cmd = cmd
-        self.env = env or os.environ.copy()
-        self.process = None
-        self.terminated = False
-        self.input_data = None
-
-    def set_input_data(self, input_data):
-        """Set input data to be passed to the process."""
-        self.input_data = input_data
+        super().__init__(cmd=cmd, env=env)
 
     def run(self):
-        """Run the ex-search command in a separate thread."""
-        try:
-            # Debug: show command and environment highlights
-            try:
-                dbg_env = {
-                    k: self.env.get(k)
-                    for k in [
-                        "PROJECT_DIR_NAME",
-                        "SUBJECT_NAME",
-                        "SELECTED_EEG_NET",
-                        "TI_LOG_FILE",
-                        "LEADFIELD_HDF",
-                        "ROI_NAME",
-                    ]
-                }
-                self.output_signal.emit(
-                    f"[DEBUG] Launching process: {' '.join(self.cmd)}", "debug"
-                )
-                self.output_signal.emit(f"[DEBUG] Env highlights: {dbg_env}", "debug")
-            except Exception:
-                # Debug output may fail - continue with process launch
-                pass
-            self.process = subprocess.Popen(
-                self.cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout to prevent blocking
-                stdin=subprocess.PIPE if self.input_data else None,
-                universal_newlines=True,
-                bufsize=1,
-                env=self.env,
-            )
-            try:
-                self.output_signal.emit(
-                    f"[DEBUG] Spawned PID: {self.process.pid}", "debug"
-                )
-            except Exception:
-                # Debug output may fail - continue with process execution
-                pass
-
-            # If input data is provided, send it to the process
-            if self.input_data:
-                self.output_signal.emit(
-                    "[DEBUG] Sending stdin to child process", "debug"
-                )
-                # Send all input data at once as a single string
-                input_string = "\n".join(self.input_data) + "\n"
-                try:
-                    self.process.stdin.write(input_string)
-                    self.process.stdin.flush()
-                except (BrokenPipeError, OSError):
-                    # Process may have exited or closed stdin
-                    pass
-                finally:
-                    try:
-                        self.process.stdin.close()
-                    except (BrokenPipeError, OSError):
-                        pass
-
-            # Real-time output display with message type detection
-            for line in iter(self.process.stdout.readline, ""):
-                if self.terminated:
-                    break
-                if line:
-                    line_stripped = line.strip()
-
-                    # Detect message type based on content
-                    if any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["error:", "critical:", "failed", "exception"]
-                    ):
-                        message_type = "error"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["warning:", "warn"]
-                    ):
-                        message_type = "warning"
-                    elif any(
-                        keyword in line_stripped.lower() for keyword in ["debug:"]
-                    ):
-                        message_type = "debug"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["executing:", "running", "command"]
-                    ):
-                        message_type = "command"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in [
-                            "completed successfully",
-                            "completed.",
-                            "successfully",
-                            "completed:",
-                        ]
-                    ):
-                        message_type = "success"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["processing", "starting"]
-                    ):
-                        message_type = "info"
-                    else:
-                        message_type = "default"
-
-                    self.output_signal.emit(line_stripped, message_type)
-
-            # Check process completion
-            if not self.terminated:
-                returncode = self.process.wait()
-                self.output_signal.emit(
-                    f"[DEBUG] Process exited with code {returncode}", "debug"
-                )
-                if returncode != 0:
-                    self.error_signal.emit(
-                        f"Process returned non-zero exit code: {returncode}"
-                    )
-
-        except Exception as e:
-            try:
-                import traceback
-
-                tb = traceback.format_exc()
-                self.error_signal.emit(f"Error running process: {str(e)}\n{tb}")
-                self.output_signal.emit(
-                    f"[DEBUG] Exception in ExSearchThread.run: {str(e)}", "debug"
-                )
-            except Exception:
-                self.error_signal.emit(f"Error running process: {str(e)}")
-        finally:
-            # Ensure process is cleaned up
-            if self.process:
-                try:
-                    self.process.stdout.close()
-                    if self.process.stdin:
-                        self.process.stdin.close()
-                except (OSError, AttributeError):
-                    pass
-
-    def terminate_process(self):
-        """Terminate the running process."""
-        if self.process and self.process.poll() is None:
-            self.terminated = True
-            if os.name == "nt":  # Windows
-                subprocess.call(["taskkill", "/F", "/T", "/PID", str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                import signal
-
-                try:
-                    parent_pid = self.process.pid
-                    child_pids = get_child_pids(parent_pid)
-                    for pid in child_pids:
-                        os.kill(pid, signal.SIGTERM)
-                except (OSError, ValueError):
-                    pass
-
-                self.process.terminate()
-                try:
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self.process.kill()
-
-            return True
-        return False
+        """Run the ex-search command via BaseProcessThread.execute_process()."""
+        self.execute_process()
 
 
 class ExSearchTab(QtWidgets.QWidget):
@@ -448,6 +273,13 @@ class ExSearchTab(QtWidgets.QWidget):
         self.optimization_process = None
         self.leadfield_generating = False
         self.leadfield_thread = None
+        self.roi_processing_queue = []
+        self._shared_log_file = None
+        self.e1_plus = []
+        self.e1_minus = []
+        self.e2_plus = []
+        self.e2_minus = []
+        self.current_roi_index = 0
         # Initialize debug mode (default to False)
         self.debug_mode = False
         # Initialize summary mode and timing trackers for non-debug summaries
@@ -604,7 +436,7 @@ class ExSearchTab(QtWidgets.QWidget):
             time_stamp = time.strftime("%Y%m%d_%H%M%S")
 
             # Get project directory structure
-            pm = self.pm if hasattr(self, "pm") else get_path_manager()
+            pm = self.pm
             log_dir = pm.path("ti_logs", subject_id=subject_id)
             os.makedirs(log_dir, exist_ok=True)
 
@@ -613,7 +445,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             return log_file
 
-        except Exception as e:
+        except OSError as e:
             self.update_output(
                 f"Warning: Could not create log file: {str(e)}", "warning"
             )
@@ -744,7 +576,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             config_logger.info("=" * 80)
 
-        except Exception as e:
+        except OSError as e:
             self.update_output(
                 f"Warning: Could not log configuration details: {str(e)}", "warning"
             )
@@ -796,7 +628,7 @@ class ExSearchTab(QtWidgets.QWidget):
             )
             roi_logger.info("-" * 60)
 
-        except Exception as e:
+        except OSError as e:
             self.update_output(
                 f"Warning: Could not log ROI configuration: {str(e)}", "warning"
             )
@@ -813,7 +645,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
 
             # Create log file path same way as before
-            pm = self.pm if hasattr(self, "pm") else get_path_manager()
+            pm = self.pm
             log_dir = pm.path("ti_logs", subject_id=subject_id)
 
             # Find the most recent ex_search log file
@@ -845,7 +677,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     )
 
                     # List all processed ROIs and their output directories
-                    if hasattr(self, "roi_processing_queue"):
+                    if self.roi_processing_queue:
                         completion_logger.info("Processed ROIs:")
                         for i, roi_file in enumerate(self.roi_processing_queue):
                             roi_name = roi_file.replace(".csv", "")
@@ -868,7 +700,7 @@ class ExSearchTab(QtWidgets.QWidget):
                                 completion_logger.info(f"  {i + 1}. {roi_file}")
 
                     # Log electrode configuration summary
-                    if hasattr(self, "e1_plus") and hasattr(self, "e1_minus"):
+                    if self.e1_plus and self.e1_minus:
                         completion_logger.info("Electrode Configuration:")
                         completion_logger.info(
                             f"  Total electrode combinations per ROI: {len(self.e1_plus)}"
@@ -893,7 +725,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     completion_logger.info("Ex-search pipeline completed successfully!")
                     completion_logger.info("=" * 80)
 
-        except Exception as e:
+        except OSError as e:
             self.update_output(
                 f"Warning: Could not log completion summary: {str(e)}", "warning"
             )
@@ -1308,7 +1140,7 @@ class ExSearchTab(QtWidgets.QWidget):
         try:
             from tit.opt.leadfield import LeadfieldGenerator
 
-            pm = self.pm if hasattr(self, "pm") else get_path_manager()
+            pm = self.pm
 
             # Get list of subjects
             subjects = []
@@ -1336,7 +1168,7 @@ class ExSearchTab(QtWidgets.QWidget):
                             net_names = [net_name for net_name, _, _ in leadfields]
                             subjects_with_leadfields[subject_id] = net_names
                             total_leadfields += len(leadfields)
-                except Exception:
+                except (OSError, ValueError):
                     # Skip subjects with errors in leadfield listing - continue with other subjects
                     pass
 
@@ -1367,7 +1199,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
                 self.update_output("4. Click 'Run Ex-Search'")
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             if self.debug_mode:
                 self.update_output(f"Error during initial setup: {str(e)}")
 
@@ -1383,7 +1215,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         try:
             # Get subject's m2m directory for LeadfieldGenerator
-            pm = self.pm if hasattr(self, "pm") else get_path_manager()
+            pm = self.pm
             m2m_dir = pm.path("m2m", subject_id=subject_id)
 
             # Use LeadfieldGenerator to list available leadfields
@@ -1409,7 +1241,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 no_leadfields_item.setForeground(QtGui.QColor("#666"))
                 self.leadfield_list.addItem(no_leadfields_item)
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.update_status(f"Error refreshing leadfields: {str(e)}", error=True)
 
     def on_leadfield_selection_changed(self):
@@ -1432,7 +1264,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
     def get_available_eeg_nets(self, subject_id):
         """Get available EEG nets for a subject."""
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         eeg_positions_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
 
         eeg_nets = []
@@ -1567,7 +1399,7 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_id = self.subject_combo.currentText()
 
         # Use consolidated helper function
-        pm = self.pm if hasattr(self, "pm") else None
+        pm = self.pm
         _get_and_display_electrodes(subject_id, net_name, self, path_manager=pm)
 
     def list_subjects(self):
@@ -1575,14 +1407,12 @@ class ExSearchTab(QtWidgets.QWidget):
         self.subject_combo.clear()
         project_dir = (
             self.pm.project_dir
-            if hasattr(self, "pm")
-            else get_path_manager().project_dir
         )
         if not project_dir or not os.path.exists(project_dir):
             self.update_status("No project directory selected", error=True)
             return
 
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         subjects = pm.list_subjects()
 
         if not subjects:
@@ -1621,7 +1451,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             if self.debug_mode:
                 self.update_output(f"Found {len(available_rois)} ROI file(s)")
-        except Exception as e:
+        except OSError as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
 
     def show_add_roi_dialog(self):
@@ -1664,7 +1494,7 @@ class ExSearchTab(QtWidgets.QWidget):
                         return
 
                 self.update_roi_list()
-            except Exception as e:
+            except OSError as e:
                 self.update_status(f"Error removing ROI: {str(e)}", error=True)
 
     def parse_electrode_input(self, text):
@@ -1749,10 +1579,8 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_id = self.subject_combo.currentText()
         project_dir = (
             self.pm.project_dir
-            if hasattr(self, "pm")
-            else get_path_manager().project_dir
         )
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
 
         # Get electrode configurations based on mode (needed for confirmation dialog)
@@ -1904,7 +1732,7 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_hdf5_path = leadfield_data["hdf5_path"]
 
         # Get ROI coordinates for environment variables
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
         roi_dir = pm.path_optional("m2m_rois", subject_id=subject_id)
         roi_file = os.path.join(roi_dir, current_roi)
@@ -1917,7 +1745,7 @@ class ExSearchTab(QtWidgets.QWidget):
             if self.debug_mode:
                 self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
                 self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.update_output(
                 f"Error reading ROI file {current_roi}: {str(e)}", "error"
             )
@@ -1980,7 +1808,7 @@ class ExSearchTab(QtWidgets.QWidget):
             )
         else:
             # Ensure log file is passed to subsequent ROI processing
-            if hasattr(self, "_shared_log_file"):
+            if self._shared_log_file:
                 env["TI_LOG_FILE"] = self._shared_log_file
 
         if self.debug_mode:
@@ -2016,7 +1844,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 try:
                     shutil.rmtree(roi_output_dir)
                     self.update_output(f"Removed existing directory: {output_dir_name}")
-                except Exception as e:
+                except OSError as e:
                     self.update_output(
                         f"Error removing existing directory: {str(e)}", "error"
                     )
@@ -2085,7 +1913,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Create directory name: roi_leadfield format
         output_dir_name = f"{roi_name}_{eeg_net_name}"
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
         mesh_dir = (
             os.path.join(ex_search_dir, output_dir_name) if ex_search_dir else None
@@ -2140,7 +1968,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             self.optimization_process.start()
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.update_output(f"Error setting up ROI analysis: {str(e)}", "error")
             # Skip to mesh processing
             self.run_current_roi_mesh_processing(
@@ -2171,7 +1999,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
             if os.path.exists(temp_roi_list):
                 os.remove(temp_roi_list)
-        except Exception as e:
+        except OSError as e:
             self.update_output(
                 f"Warning: Could not remove temporary file {temp_roi_list}: {str(e)}",
                 "warning",
@@ -2249,10 +2077,8 @@ class ExSearchTab(QtWidgets.QWidget):
         total_rois = len(self.roi_processing_queue)
         project_dir = (
             self.pm.project_dir
-            if hasattr(self, "pm")
-            else get_path_manager().project_dir
         )
-        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        pm = self.pm
         ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
 
         self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
@@ -2302,60 +2128,26 @@ class ExSearchTab(QtWidgets.QWidget):
             lower = text.lower()
             is_final = lower.startswith("└─") or "completed successfully" in lower
             is_start = lower.startswith("beginning ") or ": starting" in lower
-            is_complete = (
-                ("✓ complete" in lower)
-                or ("results available in:" in lower)
-                or ("saved to" in lower)
-            )
             color = "#55ff55" if is_final else ("#55aaff" if is_start else "#ffffff")
             formatted_text = f'<span style="color: {color};">{text}</span>'
-            scrollbar = self.console_output.verticalScrollBar()
-            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-            self.console_output.append(formatted_text)
-            if at_bottom:
-                self.console_output.ensureCursorVisible()
-            QtWidgets.QApplication.processEvents()
+            append_with_autoscroll(self.console_output, formatted_text)
             return
 
-        # Format the output based on message type from thread
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == "debug":
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        # Use shared color mapping for known message types
+        if message_type in ("error", "warning", "debug", "command", "success", "info"):
+            formatted_text = format_message(text, message_type)
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
                 formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
             elif text.strip().startswith("-"):
-                # Indented list items
                 formatted_text = (
                     f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
                 )
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                formatted_text = format_message(text, "default")
 
-        # Check if user is at the bottom of the console before appending
-        scrollbar = self.console_output.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
-
-        # Append to the console with HTML formatting
-        self.console_output.append(formatted_text)
-
-        # Only auto-scroll if user was already at the bottom
-        if at_bottom:
-            self.console_output.ensureCursorVisible()
-
-        QtWidgets.QApplication.processEvents()
+        append_with_autoscroll(self.console_output, formatted_text)
 
     def set_debug_mode(self, debug_mode):
         """Set debug mode for output filtering."""
@@ -2429,10 +2221,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.create_leadfield_btn.setEnabled(False)
 
         # Keep debug checkbox enabled during processing
-        if hasattr(self, "console_widget") and hasattr(
-            self.console_widget, "debug_checkbox"
-        ):
-            self.console_widget.debug_checkbox.setEnabled(True)
+        self.console_widget.debug_checkbox.setEnabled(True)
 
         # Show status label when processing starts
         if self.leadfield_generating:
@@ -2548,12 +2337,8 @@ class AddROIDialog(QtWidgets.QDialog):
                     self, "Error", "Please select a subject first"
                 )
                 return
-            project_dir = (
-                self.pm.project_dir
-                if hasattr(self, "pm")
-                else get_path_manager().project_dir
-            )
-            pm = self.pm if hasattr(self, "pm") else get_path_manager()
+            project_dir = self.pm.project_dir
+            pm = self.pm
             t1_path = pm.path("t1", subject_id=subject_id)
             if not os.path.isfile(t1_path):
                 QtWidgets.QMessageBox.warning(
@@ -2563,7 +2348,7 @@ class AddROIDialog(QtWidgets.QDialog):
             import subprocess
 
             subprocess.Popen(["freeview", t1_path])
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Failed to launch Freeview: {str(e)}"
             )
@@ -2597,7 +2382,7 @@ class AddROIDialog(QtWidgets.QDialog):
 
             super().accept()
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Failed to create ROI: {str(e)}"
             )

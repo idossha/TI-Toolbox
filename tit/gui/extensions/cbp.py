@@ -814,10 +814,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             return
 
         # Disable run button, enable stop button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_stop()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(False)
+        self.action_buttons.enable_stop()
 
         # Lock GUI interface during processing
         if (
@@ -887,10 +884,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.enable_controls()
 
             # Re-enable run button
-            if hasattr(self, "action_buttons"):
-                self.action_buttons.enable_run()
-            elif hasattr(self, "run_btn"):
-                self.run_btn.setEnabled(True)
+            self.action_buttons.enable_run()
 
     def on_output(self, message):
         """Handle output from analysis thread"""
@@ -910,10 +904,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.enable_controls()
 
         # Re-enable run button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_run()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(True)
+        self.action_buttons.enable_run()
 
         # Check if analysis was stopped by user
         if results.get("stopped_by_user", False):
@@ -959,10 +950,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.enable_controls()
 
         # Re-enable run button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_run()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(True)
+        self.action_buttons.enable_run()
 
         self.update_output("\n" + "=" * 50, "error")
         self.update_output("ERROR!", "error")

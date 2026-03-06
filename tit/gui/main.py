@@ -40,7 +40,7 @@ if sys.platform.startswith("linux") and "XDG_RUNTIME_DIR" not in os.environ:
         os.makedirs(runtime_dir, exist_ok=True)
         os.chmod(runtime_dir, 0o700)
         os.environ["XDG_RUNTIME_DIR"] = runtime_dir
-    except Exception:
+    except OSError:
         # Fallback: set the env var even if directory ops fail; Qt will still stop warning
         os.environ["XDG_RUNTIME_DIR"] = "/tmp"
 
@@ -92,10 +92,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extensions_config_path = self.get_extensions_config_path()
         self.ensure_extensions_config()
 
-        from tit.gui.graphics_config import get_graphics_config
-
-        self._gfx = get_graphics_config()
-
         self.setup_ui()
         # Load saved extensions after UI is set up
         self.load_saved_extensions()
@@ -144,6 +140,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect analyzer tab signals
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
+        self._processing_analysis_completion = False
 
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
@@ -163,13 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Always show scroll arrows when tabs overflow the bar
         self.tab_widget.tabBar().setUsesScrollButtons(True)
 
-        # Reduce tab size: set font and override padding directly on the widget
-        tab_font = QtGui.QFont()
-        tab_font.setPointSize(self._gfx.font_size_tab)
-        self.tab_widget.tabBar().setFont(tab_font)
-        self.tab_widget.tabBar().setStyleSheet(
-            "QTabBar::tab { padding: 8px 16px; min-width: 60px; }"
-        )
+        # Tab font size is set via the global stylesheet; no per-widget override needed.
 
         # Track the core tabs (non-closable tabs)
         self.core_tab_count = self.tab_widget.count()
@@ -177,13 +168,10 @@ class MainWindow(QtWidgets.QMainWindow):
         main_layout.addWidget(self.tab_widget)
 
         # Set window properties and center on screen.
-        # Dimensions come from the persisted GraphicsConfig (set in __init__).
-        init_w = self._gfx.window_width
-        init_h = self._gfx.window_height
+        from tit.gui.style import WINDOW_WIDTH, WINDOW_HEIGHT
 
-        self.resize(init_w, init_h)
-        # Minimum width = 85% of initial width, floor of 643px.
-        self.setMinimumWidth(max(643, int(init_w * 0.85)))
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.setMinimumWidth(max(643, int(WINDOW_WIDTH * 0.85)))
         self.center_on_screen()
 
     def center_on_screen(self):
@@ -224,7 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 with open(self.extensions_config_path, "w") as f:
                     json.dump(default_config, f, indent=2)
-            except Exception as e:
+            except (OSError, json.JSONDecodeError) as e:
                 print(f"Warning: Could not create extensions config: {e}")
 
     def load_extensions_config(self):
@@ -233,7 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.extensions_config_path.exists():
                 with open(self.extensions_config_path, "r") as f:
                     return json.load(f)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"Warning: Could not load extensions config: {e}")
 
         return {"extensions": {}}
@@ -246,7 +234,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             with open(self.extensions_config_path, "w") as f:
                 json.dump(config, f, indent=2)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"Warning: Could not save extension state: {e}")
 
     def load_saved_extensions(self):
@@ -317,15 +305,14 @@ class MainWindow(QtWidgets.QMainWindow):
                             f"Warning: Could not load extension {extension_name}: {e}"
                         )
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             print(f"Warning: Could not load saved extensions: {e}")
 
     def closeEvent(self, event):
         """Handle window close event."""
         # Allow programmatic forced shutdown without prompting
         if getattr(self, "_force_exit", False):
-            if hasattr(self, "system_monitor_tab"):
-                self.system_monitor_tab.stop_monitoring()
+            self.system_monitor_tab.stop_monitoring()
             event.accept()
             return
         reply = QtWidgets.QMessageBox.question(
@@ -338,8 +325,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if reply == QtWidgets.QMessageBox.Yes:
             # Clean up system monitor thread before closing
-            if hasattr(self, "system_monitor_tab"):
-                self.system_monitor_tab.stop_monitoring()
+            self.system_monitor_tab.stop_monitoring()
             event.accept()
         else:
             event.ignore()
@@ -385,7 +371,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not hasattr(tab_widget, "_busy_message_label"):
             msg_label = QtWidgets.QLabel(tab_widget)
             msg_label.setStyleSheet(
-                "color: #d9534f; font-size: 5pt; font-weight: bold; padding: 4px 0 4px 0;"
+                "color: #d9534f; font-size: 10pt; font-weight: bold; padding: 4px 0 4px 0;"
             )
             msg_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             msg_label.hide()
@@ -408,13 +394,12 @@ class MainWindow(QtWidgets.QMainWindow):
             if hasattr(tab, "_busy_overlay"):
                 tab._busy_overlay.setGeometry(tab.rect())
         # Also check the sub-tabs within optimize_tab
-        if hasattr(self, "optimizer_tab"):
-            for sub_tab in [
-                self.optimizer_tab.flex_search_tab,
-                self.optimizer_tab.ex_search_tab,
-            ]:
-                if hasattr(sub_tab, "_busy_overlay"):
-                    sub_tab._busy_overlay.setGeometry(sub_tab.rect())
+        for sub_tab in [
+            self.optimizer_tab.flex_search_tab,
+            self.optimizer_tab.ex_search_tab,
+        ]:
+            if hasattr(sub_tab, "_busy_overlay"):
+                sub_tab._busy_overlay.setGeometry(sub_tab.rect())
         super().resizeEvent(event)
         # Optionally, keep window centered after resize (uncomment if desired):
         # self.center_on_screen()
@@ -422,10 +407,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
         """Handle analysis completion by updating relevant tabs."""
         # Guard against recursive calls
-        if (
-            hasattr(self, "_processing_analysis_completion")
-            and self._processing_analysis_completion
-        ):
+        if self._processing_analysis_completion:
             return
 
         self._processing_analysis_completion = True
@@ -505,9 +487,8 @@ def check_for_update(current_version, parent_window=None):
                         # Move the dialog to the center
                         msg_box.move(x, y)
                     msg_box.exec_()
-    except Exception as e:
-        print(f"Error checking for updates: {e}")  # Print to console for debugging
-        pass  # Continue execution
+    except (OSError, ValueError, KeyError) as e:
+        print(f"Error checking for updates: {e}")
 
 
 def main():
@@ -523,10 +504,9 @@ def main():
     # _NarrowSpinStyle wraps Fusion and narrows spinbox button columns without
     # breaking native arrow rendering (CSS ::up-button overrides suppress glyphs).
     from tit.gui.style import build_stylesheet, _NarrowSpinStyle
-    from tit.gui.graphics_config import get_graphics_config
 
     app.setStyle(_NarrowSpinStyle("fusion"))
-    app.setStyleSheet(build_stylesheet(get_graphics_config()))
+    app.setStyleSheet(build_stylesheet())
 
     # Set application icon if available
     icon_path = os.path.join(
@@ -552,8 +532,8 @@ def main():
                 setattr(window, "_force_exit", True)
                 if window.isVisible():
                     window.close()
-            except Exception:
-                pass
+            except RuntimeError:
+                pass  # Qt objects may already be destroyed
             app.quit()
 
         QtCore.QTimer.singleShot(0, _quit)
@@ -561,7 +541,7 @@ def main():
     def _signal_handler(signum, frame):
         try:
             print("\033[0;31mClosing TI-Toolbox GUI...\033[0m")
-        except Exception:
+        except OSError:
             pass
         request_graceful_shutdown()
 
@@ -574,24 +554,23 @@ def main():
         if sig is not None:
             try:
                 signal.signal(sig, _signal_handler)
-            except Exception:
+            except (OSError, ValueError):
                 pass
     # Handle Ctrl+Z (SIGTSTP) when available to close instead of suspending the GUI
     sigtstp = getattr(signal, "SIGTSTP", None)
     if sigtstp is not None:
         try:
             signal.signal(sigtstp, _signal_handler)
-        except Exception:
+        except (OSError, ValueError):
             pass
 
     # Best-effort cleanup on normal interpreter exit
     def _atexit():
         try:
             setattr(window, "_force_exit", True)
-            if hasattr(window, "close"):
-                window.close()
-        except Exception:
-            pass
+            window.close()
+        except RuntimeError:
+            pass  # Qt objects may already be destroyed at interpreter shutdown
 
     atexit.register(_atexit)
 

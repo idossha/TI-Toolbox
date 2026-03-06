@@ -112,7 +112,7 @@ class ProcessMonitorThread(QThread):
 
                 time.sleep(self.update_interval)
 
-            except Exception as e:
+            except (psutil.Error, OSError) as e:
                 print(f"Error in process monitoring: {e}")
                 time.sleep(self.update_interval)
 
@@ -174,7 +174,7 @@ class ProcessMonitorThread(QThread):
                 ):
                     continue
 
-        except Exception as e:
+        except (psutil.Error, OSError) as e:
             print(f"Error getting process list: {e}")
 
         # Sort by CPU usage (descending)
@@ -226,7 +226,7 @@ class ProcessMonitorThread(QThread):
                                     "status": "running",
                                 }
                                 relevant_processes.append(process_data)
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             print(f"Error in fallback process detection: {e}")
 
         return relevant_processes
@@ -479,11 +479,10 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.cpu_data.clear()
         self.memory_data.clear()
         self.time_data.clear()
-        if hasattr(self, "cpu_line"):
-            self.cpu_line.set_data([], [])
-            self.memory_line.set_data([], [])
-            self.cpu_canvas.draw()
-            self.memory_canvas.draw()
+        self.cpu_line.set_data([], [])
+        self.memory_line.set_data([], [])
+        self.cpu_canvas.draw()
+        self.memory_canvas.draw()
 
     def toggle_monitoring(self):
         """Toggle monitoring on/off."""
@@ -517,8 +516,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.update_label.setText(f"Last Update: {stats['timestamp']}")
 
         # Update graphs
-        if hasattr(self, "cpu_line"):
-            self.update_graphs(stats)
+        self.update_graphs(stats)
 
     def update_graphs(self, stats):
         """Update the real-time graphs with new data."""
@@ -667,7 +665,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.information(
                     self, "Success", f"Process {pid} terminated successfully."
                 )
-            except Exception as e:
+            except (psutil.Error, OSError) as e:
                 QtWidgets.QMessageBox.critical(
                     self, "Error", f"Failed to terminate process {pid}:\n{str(e)}"
                 )

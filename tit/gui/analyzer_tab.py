@@ -10,166 +10,26 @@ import traceback
 import time
 import os
 import subprocess
-import psutil
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite
-from tit.gui.components.console import ConsoleWidget
+from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
+from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
-from tit.gui.process import get_child_pids
 
 
-class AnalysisThread(QtCore.QThread):
+class AnalysisThread(BaseProcessThread):
     """Thread to run analysis in background to prevent GUI freezing."""
 
-    # Signal to emit output text with message type
-    output_signal = QtCore.pyqtSignal(str, str)
-
     def __init__(self, cmd, env=None, cwd=None):
-        """Initialize the thread with the command to run and environment variables."""
-        super(AnalysisThread, self).__init__()
-        self.cmd = cmd
-        self.env = env or os.environ.copy()
-        self.cwd = cwd
-        self.process = None
-        self.terminated = False  # Flag to indicate if termination was requested
-
-    def _strip_ansi_codes(self, text):
-        """Remove ANSI color codes from text."""
-        import re
-
-        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-        return ansi_escape.sub("", text)
+        super().__init__(cmd=cmd, env=env, cwd=cwd)
 
     def run(self):
-        """Run the analysis command in a separate thread."""
-        try:
-            # Set up Python unbuffered output
-            self.env["PYTHONUNBUFFERED"] = "1"
-            self.env["PYTHONFAULTHANDLER"] = "1"
-
-            self.process = subprocess.Popen(
-                self.cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout to avoid file descriptor issues
-                universal_newlines=True,
-                bufsize=1,
-                env=self.env,
-                cwd=self.cwd,
-                preexec_fn=None if os.name == "nt" else os.setsid,
-                creationflags=(
-                    subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-                ),
-            )
-
-            # Simple line-by-line reading without select() to avoid file descriptor issues
-            for line in iter(self.process.stdout.readline, ""):
-                if self.terminated:
-                    break
-                if line:
-                    line_stripped = line.strip()
-                    if line_stripped:
-                        cleaned_line = self._strip_ansi_codes(line_stripped)
-                        # Determine message type based on bracketed tags first, then content
-                        if "[ERROR]" in cleaned_line or "ERROR:" in cleaned_line:
-                            message_type = "error"
-                        elif "[WARNING]" in cleaned_line or "Warning:" in cleaned_line:
-                            message_type = "warning"
-                        elif "[INFO]" in cleaned_line:
-                            message_type = "info"
-                        elif "[DEBUG]" in cleaned_line:
-                            message_type = "debug"
-                        elif "[SUCCESS]" in cleaned_line:
-                            message_type = "success"
-                        elif any(
-                            keyword in cleaned_line.lower()
-                            for keyword in [
-                                "error:",
-                                "critical:",
-                                "failed",
-                                "exception",
-                            ]
-                        ):
-                            message_type = "error"
-                        elif any(
-                            keyword in cleaned_line.lower()
-                            for keyword in ["warning:", "warn"]
-                        ):
-                            message_type = "warning"
-                        elif any(
-                            keyword in cleaned_line.lower()
-                            for keyword in ["executing:", "running", "command"]
-                        ):
-                            message_type = "command"
-                        elif any(
-                            keyword in cleaned_line.lower()
-                            for keyword in [
-                                "completed successfully",
-                                "completed.",
-                                "successfully",
-                                "completed:",
-                            ]
-                        ):
-                            message_type = "success"
-                        elif any(
-                            keyword in cleaned_line.lower()
-                            for keyword in ["processing", "starting", "generating"]
-                        ):
-                            message_type = "info"
-                        else:
-                            message_type = "default"
-
-                        self.output_signal.emit(cleaned_line, message_type)
-
-            # Wait for process completion if not terminated
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    self.output_signal.emit(
-                        f"Error: Process returned non-zero exit code {returncode}",
-                        "error",
-                    )
-
-        except Exception as e:
-            self.output_signal.emit(f"Error running analysis: {str(e)}", "error")
-
-    def terminate_process(self):
-        """Terminate the running process."""
-        if self.process and self.process.poll() is None:  # Process is still running
-            self.terminated = True  # Set flag
-            if os.name == "nt":  # Windows
-                # Terminate the entire process tree
-                subprocess.call(["taskkill", "/F", "/T", "/PID", str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                import signal
-
-                # Try to terminate child processes too using psutil (secure)
-                try:
-                    parent_pid = self.process.pid
-                    child_pids = get_child_pids(parent_pid)
-                    for pid_val in child_pids:
-                        try:
-                            os.kill(pid_val, signal.SIGTERM)
-                        except OSError:
-                            pass  # Process might have already exited
-                except (ProcessLookupError, OSError, psutil.Error):
-                    # Best-effort cleanup of child processes - may fail if processes already terminated
-                    pass
-
-                # Kill the main process
-                self.process.terminate()  # Send SIGTERM
-                try:
-                    # Wait for a short time for graceful termination
-                    self.process.wait(timeout=2)  # seconds
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't terminate gracefully
-                    self.process.kill()  # Send SIGKILL
-
-            return True  # Termination was attempted
-        return False  # Process was not running or already finished
+        """Run the analysis command via BaseProcessThread.execute_process()."""
+        self.execute_process()
 
 
 class AnalyzerTab(QtWidgets.QWidget):
@@ -180,34 +40,21 @@ class AnalyzerTab(QtWidgets.QWidget):
     @property
     def is_group_mode(self):
         """Determine if we're in group mode based on number of selected pairs."""
-        if hasattr(self, "pairs_table") and self.pairs_table:
+        if self.pairs_table:
             return self.pairs_table.rowCount() > 1
         return False
 
     def on_pairs_changed(self):
         """Handle changes to subject-simulation pairs - update UI accordingly."""
-        try:
-            # Update coordinate space labels based on new mode
-            if hasattr(self, "_update_coordinate_space_labels"):
-                self._update_coordinate_space_labels()
-            # Update atlas visibility and options
-            if hasattr(self, "update_atlas_combo"):
-                self.update_atlas_combo()
-            if (
-                self.is_group_mode
-                and hasattr(self, "type_cortical")
-                and self.type_cortical.isChecked()
-            ):
-                if hasattr(self, "update_group_atlas_options"):
-                    self.update_group_atlas_options()
-            if hasattr(self, "update_atlas_visibility"):
-                self.update_atlas_visibility()
-            # Update gmsh subjects when pairs change
-            if hasattr(self, "update_gmsh_subjects"):
-                self.update_gmsh_subjects()
-        except Exception as e:
-            # Silently ignore errors during UI setup to prevent GUI initialization failures
-            pass
+        # Update coordinate space labels based on new mode
+        self._update_coordinate_space_labels()
+        # Update atlas visibility and options
+        self.update_atlas_combo()
+        if self.is_group_mode and self.type_cortical.isChecked():
+            self.update_group_atlas_options()
+        self.update_atlas_visibility()
+        # Update gmsh subjects when pairs change
+        self.update_gmsh_subjects()
 
     def __init__(self, parent=None):
         super(AnalyzerTab, self).__init__(parent)
@@ -1767,7 +1614,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             )
             self._thread_started = True
             self.optimization_process.start()
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(f"Error preparing single analysis: {str(e)}")
             self.analysis_finished(success=False)
 
@@ -1823,7 +1670,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             )
             self.optimization_process.start()
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(f"Error preparing group analysis: {str(e)}")
             self.analysis_finished(success=False)
 
@@ -1957,7 +1804,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             cmd = ["simnibs_python", "-c", script]
             return cmd
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             self.update_output(f"Error building group analyzer command: {str(e)}")
             return None
 
@@ -2175,21 +2022,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not text or not text.strip():
             return
 
-        # Format the output based on message type from thread
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == "debug":
-            formatted_text = (
-                f'<span style="color: #7f7f7f;"><i>{text}</i></span>'  # Italic grey
-            )
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        # Use shared color mapping for known message types
+        if message_type == "debug":
+            # Analyzer uses italic for debug messages
+            formatted_text = f'<span style="color: #7f7f7f;"><i>{text}</i></span>'
+        elif message_type in ("error", "warning", "command", "success", "info"):
+            formatted_text = format_message(text, message_type)
         else:
             # Fallback to content-based formatting for backward compatibility
             # Group analysis specific patterns
@@ -2220,38 +2058,21 @@ class AnalyzerTab(QtWidgets.QWidget):
                     "Focality:",
                 ]
             ):
-                # Extract the value type and the numeric value
                 parts = text.split(":")
                 if len(parts) == 2:
                     value_type, value = parts
                     formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
                 else:
-                    formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                    formatted_text = format_message(text, "default")
             elif text.strip().startswith("-"):
-                # Indented list items
                 formatted_text = (
                     f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
                 )
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                formatted_text = format_message(text, "default")
 
-        # Check if user is at the bottom of the console before appending
-        scrollbar = self.output_console.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
-
-        # Append to the console with HTML formatting
-        self.output_console.append(formatted_text)
-
-        # Only auto-scroll if user was already at the bottom
-        if at_bottom:
-            self.output_console.ensureCursorVisible()
-            # Scroll to the very bottom to show latest output
-            scrollbar.setValue(scrollbar.maximum())
-
-        # Avoid calling processEvents() here to prevent re-entrant recursion when many
-        # queued output signals arrive rapidly.
+        # Append with autoscroll; no processEvents to prevent re-entrant recursion
+        append_with_autoscroll(self.output_console, formatted_text, process_events=False)
 
     # ===== Summary-mode helpers =====
     def _build_start_details(self, subject_id):
@@ -2286,7 +2107,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     m = re.search(r"output_dir=['\"]([^'\"]+)['\"]", cmd[idx + 1])
                     if m:
                         return m.group(1)
-        except Exception:
+        except (ValueError, IndexError, AttributeError):
             return None
         return None
 
@@ -2410,7 +2231,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     regions = sorted(atlas.keys())
                     progress_dialog.setValue(80)
                     QtWidgets.QApplication.processEvents()
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     QtWidgets.QMessageBox.critical(
                         self, "Load Error", f"Load mesh atlas fail: {e}"
                     )
@@ -2566,7 +2387,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 lambda item: copy_selected_local()
             )
             dialog.exec_()
-        except Exception as e_show_regions:
+        except (OSError, ValueError, RuntimeError) as e_show_regions:
             if "progress_dialog" in locals() and progress_dialog.isVisible():
                 progress_dialog.cancel()
             QtWidgets.QMessageBox.critical(
@@ -2659,7 +2480,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(
                 self, "Error", "Freeview not found. Ensure installed and in PATH."
             )
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Failed to launch Freeview: {str(e)}"
             )
@@ -2809,7 +2630,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.gmsh_analysis_combo.addItems(sorted(mesh_analyses))
                 if len(mesh_analyses) == 1:
                     self.gmsh_analysis_combo.setCurrentIndex(0)
-        except Exception as e:
+        except OSError as e:
             self.update_output(f"Error listing mesh analyses: {e}")
 
     def launch_gmsh_simple(self):
@@ -2858,7 +2679,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(
                 self, "Error", "Gmsh not found. Please install Gmsh and add it to PATH."
             )
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Failed to launch Gmsh: {str(e)}"
             )
@@ -2998,7 +2819,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             cmd = ["simnibs_python", "-c", script]
             return cmd
-        except Exception:
+        except (OSError, ValueError, KeyError):
             return None
 
     def resizeEvent(self, event):

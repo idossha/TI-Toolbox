@@ -15,19 +15,14 @@ import multiprocessing
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.components.console import ConsoleWidget
+from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.pre.structural import run_pipeline
 from tit.pre.utils import CommandRunner, PreprocessCancelled
 from tit.pre import discover_subjects, check_m2m_exists
-from tit.gui.style import (
-    FONT_SM,
-    FONT_HELP,
-    FONT_SUBHEADING,
-    _gfx_tokens,
-)  # graphics tokens
+from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
     QSIPrepConfigDialog,
     QSIReconConfigDialog,
@@ -614,45 +609,21 @@ class PreProcessTab(QtWidgets.QWidget):
         if not text.strip():
             return
 
-        # Format the output based on message type from thread
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == "debug":
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        # Use shared color mapping for known message types
+        if message_type in ("error", "warning", "debug", "command", "success", "info"):
+            formatted_text = format_message(text, message_type)
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
                 formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
             elif text.strip().startswith("-"):
-                # Indented list items
                 formatted_text = (
                     f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
                 )
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                formatted_text = format_message(text, "default")
 
-        # Check if user is at the bottom of the console before appending
-        scrollbar = self.output_text.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
-
-        # Append to the console with HTML formatting
-        self.output_text.append(formatted_text)
-
-        # Only auto-scroll if user was already at the bottom
-        if at_bottom:
-            self.output_text.ensureCursorVisible()
-
-        QtWidgets.QApplication.processEvents()
+        append_with_autoscroll(self.output_text, formatted_text)
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""

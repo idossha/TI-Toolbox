@@ -16,127 +16,25 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite
-from tit.gui.components.console import ConsoleWidget
+from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
+from tit.gui.components.base_thread import BaseProcessThread
 
 from tit.paths import get_path_manager
 from tit import constants as const
-from tit.gui.process import get_child_pids
 from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
-from tit.gui.style import FONT_HELP, FONT_MONOSPACE, _gfx_tokens  # graphics tokens
+from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SIZE_MONOSPACE
 
 
-class FlexSearchThread(QtCore.QThread):
+class FlexSearchThread(BaseProcessThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
 
-    # Signal to emit output text with message type
-    output_signal = QtCore.pyqtSignal(str, str)
-    error_signal = QtCore.pyqtSignal(str)
-
     def __init__(self, cmd, env=None):
-        """Initialize the thread with the command to run and environment variables."""
-        super(FlexSearchThread, self).__init__()
-        self.cmd = cmd
-        self.env = env or os.environ.copy()
-        self.process = None
-        self.terminated = False
+        super().__init__(cmd=cmd, env=env)
 
     def run(self):
-        """Run the flex-search command in a separate thread."""
-        try:
-            self.process = subprocess.Popen(
-                self.cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout to prevent blocking
-                universal_newlines=True,
-                bufsize=1,
-                env=self.env,
-            )
-
-            # Real-time output display with message type detection
-            for line in iter(self.process.stdout.readline, ""):
-                if self.terminated:
-                    break
-                if line:
-                    # Detect message type based on content
-                    line_stripped = line.strip()
-                    if any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["error:", "critical:", "failed", "exception"]
-                    ):
-                        message_type = "error"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["warning:", "warn"]
-                    ):
-                        message_type = "warning"
-                    elif any(
-                        keyword in line_stripped.lower() for keyword in ["debug:"]
-                    ):
-                        message_type = "debug"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["executing:", "running", "command"]
-                    ):
-                        message_type = "command"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in [
-                            "completed successfully",
-                            "completed.",
-                            "successfully",
-                            "completed:",
-                        ]
-                    ):
-                        message_type = "success"
-                    elif any(
-                        keyword in line_stripped.lower()
-                        for keyword in ["processing", "starting"]
-                    ):
-                        message_type = "info"
-                    else:
-                        message_type = "default"
-
-                    self.output_signal.emit(line_stripped, message_type)
-
-            # Check process completion
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    self.error_signal.emit("Process returned non-zero exit code")
-
-        except Exception as e:
-            self.error_signal.emit(f"Error running flex-search: {str(e)}")
-
-    def terminate_process(self):
-        """Terminate the running process."""
-        if self.process and self.process.poll() is None:  # Process is still running
-            self.terminated = True
-            if os.name == "nt":  # Windows
-                subprocess.call(["taskkill", "/F", "/T", "/PID", str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                import signal
-
-                # Try to terminate child processes using psutil (secure)
-                try:
-                    parent_pid = self.process.pid
-                    child_pids = get_child_pids(parent_pid)
-                    for pid in child_pids:
-                        os.kill(pid, signal.SIGTERM)
-                except (OSError, ValueError):
-                    pass  # Ignore errors in finding child processes
-
-                # Kill the main process
-                self.process.terminate()
-                try:
-                    # Wait for a short time for graceful termination
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't terminate gracefully
-                    self.process.kill()
-
-            return True
-        return False
+        """Run the flex-search command via BaseProcessThread.execute_process()."""
+        self.execute_process()
 
 
 class FlexSearchTab(QtWidgets.QWidget):
@@ -148,6 +46,18 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.parent = parent
         self.optimization_running = False
         self.optimization_process = None
+
+        # Multi-subject optimization state
+        self.selected_subjects = None
+        self.current_subject_index = 0
+        self.roi_params = None
+        self.goal = None
+        self.postproc = None
+        self.eeg_net = None
+        self.electrode_current = None
+        self.electrode_shape = None
+        self.dimensions = None
+        self.thickness = None
 
         # Initialize data structures
         self.subjects = []
@@ -1101,7 +1011,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     "GSN-HydroCel-185"
                 )  # Default option for skin visualization
 
-        except Exception as e:
+        except OSError as e:
             self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
             self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
 
@@ -1146,7 +1056,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             if not all_atlas_names:
                 pass  # No atlas files found; user will see empty combo
-        except Exception as e:
+        except OSError as e:
             self.output_text.append(f"Error scanning for atlas files: {str(e)}")
         # Also update non-ROI atlas combo
         self._update_nonroi_atlas_combo()
@@ -1197,22 +1107,23 @@ class FlexSearchTab(QtWidgets.QWidget):
                     f"No subcortical segmentation found for subject {subject_id}. Expected: {labeling_file}"
                 )
 
-        except Exception as e:
+        except OSError as e:
             self.output_text.append(
                 f"Error scanning for subcortical segmentation: {str(e)}"
             )
 
     def update_roi_method(self, checked):
         """Update the ROI method inputs based on selection."""
-        if self.roi_method_spherical.isChecked():
-            self.roi_stacked_widget.setCurrentIndex(0)
-            self.view_t1_btn.setVisible(True)
-        elif self.roi_method_cortical.isChecked():
-            self.roi_stacked_widget.setCurrentIndex(1)
-            self.view_t1_btn.setVisible(False)
-        else:  # subcortical
-            self.roi_stacked_widget.setCurrentIndex(2)
-            self.view_t1_btn.setVisible(False)
+        roi_mode = {
+            self.roi_method_spherical: (0, True),
+            self.roi_method_cortical: (1, False),
+            self.roi_method_subcortical: (2, False),
+        }
+        for rb, (idx, t1_visible) in roi_mode.items():
+            if rb.isChecked():
+                self.roi_stacked_widget.setCurrentIndex(idx)
+                self.view_t1_btn.setVisible(t1_visible)
+                break
 
         # Update coordinate space labels based on selection mode
         self._update_coordinate_space_labels()
@@ -1231,8 +1142,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 )
 
                 # Show MNI info label
-                if hasattr(self, "mni_info_label"):
-                    self.mni_info_label.setVisible(True)
+                self.mni_info_label.setVisible(True)
 
                 # Update individual coordinate tooltips
                 self.roi_x_input.setToolTip("X coordinate in MNI space")
@@ -1251,8 +1161,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.roi_coords_label.setStyleSheet("")
 
                 # Hide MNI info label
-                if hasattr(self, "mni_info_label"):
-                    self.mni_info_label.setVisible(False)
+                self.mni_info_label.setVisible(False)
 
                 # Update individual coordinate tooltips
                 self.roi_x_input.setToolTip("X coordinate in subject RAS space")
@@ -1266,8 +1175,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 )
         else:
             # Hide MNI info label for non-spherical ROI methods
-            if hasattr(self, "mni_info_label"):
-                self.mni_info_label.setVisible(False)
+            self.mni_info_label.setVisible(False)
 
     def _update_multiple_subject_restrictions(self):
         """Update UI restrictions when multiple subjects are selected."""
@@ -1521,26 +1429,16 @@ class FlexSearchTab(QtWidgets.QWidget):
                 )
 
         # Clean up multi-subject state variables
-        if hasattr(self, "selected_subjects"):
-            delattr(self, "selected_subjects")
-        if hasattr(self, "current_subject_index"):
-            delattr(self, "current_subject_index")
-        if hasattr(self, "roi_params"):
-            delattr(self, "roi_params")
-        if hasattr(self, "goal"):
-            delattr(self, "goal")
-        if hasattr(self, "postproc"):
-            delattr(self, "postproc")
-        if hasattr(self, "eeg_net"):
-            delattr(self, "eeg_net")
-        if hasattr(self, "electrode_current"):
-            delattr(self, "electrode_current")
-        if hasattr(self, "electrode_shape"):
-            delattr(self, "electrode_shape")
-        if hasattr(self, "dimensions"):
-            delattr(self, "dimensions")
-        if hasattr(self, "thickness"):
-            delattr(self, "thickness")
+        self.selected_subjects = None
+        self.current_subject_index = 0
+        self.roi_params = None
+        self.goal = None
+        self.postproc = None
+        self.eeg_net = None
+        self.electrode_current = None
+        self.electrode_shape = None
+        self.dimensions = None
+        self.thickness = None
 
         # Reset state
         self.optimization_running = False
@@ -1548,7 +1446,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.stop_btn.setEnabled(False)
         self.enable_controls()
 
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     def _run_single_subject_optimization(
@@ -1947,15 +1845,11 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
             if (
-                not hasattr(self, "selected_subjects")
+                not self.selected_subjects is not None
                 or len(self.selected_subjects) == 1
             ):
-                if hasattr(self, "parent") and self.parent:
-                    keep_enabled_widgets = (
-                        [self.console_widget.debug_checkbox]
-                        if hasattr(self, "console_widget")
-                        else []
-                    )
+                if self.parent:
+                    keep_enabled_widgets = [self.console_widget.debug_checkbox]
                     self.parent.set_tab_busy(
                         self,
                         True,
@@ -1973,7 +1867,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(
                 f"Error executing optimization for subject {subject_id}: {str(e)}",
                 "error",
@@ -2005,7 +1899,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         if roi_params["method"] == "spherical":
             coord_space = (
                 "MNI"
-                if hasattr(self, "selected_subjects")
+                if self.selected_subjects is not None
                 and len(self.selected_subjects) > 1
                 else "RAS"
             )
@@ -2059,51 +1953,26 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
 
         # Preserve line breaks and spacing in the text by converting to HTML
-        # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
         text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
 
-        # Format the output based on message type from thread
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text_html}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text_html}</span>'
-        elif message_type == "debug":
-            formatted_text = f'<span style="color: #7f7f7f;">{text_html}</span>'
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text_html}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text_html}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text_html}</span>'
+        # Use shared color mapping for known message types
+        if message_type in ("error", "warning", "debug", "command", "success", "info"):
+            formatted_text = format_message(text_html, message_type)
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
                 formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text_html}</span></div>'
             elif text.strip().startswith("-"):
-                # Indented list items
                 formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">&nbsp;&nbsp;{text_html}</span>'
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text_html}</span>'
+                formatted_text = format_message(text_html, "default")
 
-        # Check if user is at the bottom of the console before appending
-        scrollbar = self.output_text.verticalScrollBar()
-        at_bottom = (
-            scrollbar.value() >= scrollbar.maximum() - 5
-        )  # Allow small tolerance
-
-        # Append to the console with HTML formatting
-        self.output_text.append(formatted_text)
-
-        # Only auto-scroll if user was already at the bottom
-        if at_bottom:
-            self.output_text.ensureCursorVisible()
-
-        QtWidgets.QApplication.processEvents()
+        append_with_autoscroll(self.output_text, formatted_text)
 
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
         # Check if this was a successful completion
-        if hasattr(self, "optimization_process") and self.optimization_process:
+        if self.optimization_process:
             if (
                 self.optimization_process.process
                 and self.optimization_process.process.returncode == 0
@@ -2113,7 +1982,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.failed_runs += 1
 
         # Move to next subject if we're in multi-subject mode
-        if hasattr(self, "selected_subjects") and len(self.selected_subjects) > 1:
+        if self.selected_subjects is not None and len(self.selected_subjects) > 1:
             self.current_subject_index += 1
             self.output_text.append(
                 f"Subject {self.current_subject_index}/{len(self.selected_subjects)} completed."
@@ -2123,7 +1992,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self._process_next_subject()
         else:
             # Single subject mode or last subject in multi-subject mode
-            if hasattr(self, "parent") and self.parent:
+            if self.parent:
                 self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
             self.optimization_running = False
             self.run_btn.setEnabled(True)
@@ -2138,7 +2007,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def stop_optimization(self):
         """Stop the running optimization process."""
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         if not self.optimization_running:
             return
@@ -2151,15 +2020,13 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.output_text.append("Failed to stop optimization.")
 
         # Reset multi-subject state if applicable
-        if hasattr(self, "selected_subjects") and len(self.selected_subjects) > 1:
+        if self.selected_subjects is not None and len(self.selected_subjects) > 1:
             self.output_text.append(
                 f"Multi-subject optimization stopped at subject {self.current_subject_index + 1}/{len(self.selected_subjects)}."
             )
             # Clear multi-subject state
-            if hasattr(self, "selected_subjects"):
-                delattr(self, "selected_subjects")
-            if hasattr(self, "current_subject_index"):
-                delattr(self, "current_subject_index")
+            self.selected_subjects = None
+            self.current_subject_index = 0
 
         self.optimization_running = False
         self.run_btn.setEnabled(True)
@@ -2239,7 +2106,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         "Error",
                         "Freeview not found. Please install FreeSurfer or ensure it's in your PATH",
                     )
-                except Exception as e:
+                except (OSError, subprocess.SubprocessError) as e:
                     QtWidgets.QMessageBox.warning(
                         self, "Error", f"Failed to launch Freeview: {str(e)}"
                     )
@@ -2298,12 +2165,12 @@ class FlexSearchTab(QtWidgets.QWidget):
                         "Error",
                         "Freeview not found. Please install FreeSurfer or ensure it's in your PATH",
                     )
-                except Exception as e:
+                except (OSError, subprocess.SubprocessError) as e:
                     QtWidgets.QMessageBox.warning(
                         self, "Error", f"Failed to launch Freeview: {str(e)}"
                     )
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             QtWidgets.QMessageBox.warning(
                 self, "Error", f"Error loading image in Freeview: {str(e)}"
             )
@@ -2350,7 +2217,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.adaptive_widget.setVisible(is_adaptive)
         self.threshold_input.setVisible(is_manual)
         self.threshold_label.setVisible(is_manual)
-        if hasattr(self, "threshold_help"):
+        if self.threshold_help:
             self.threshold_help.setVisible(is_manual)
 
     def _update_adaptive_focality_controls(self):
@@ -2367,12 +2234,15 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.nonroi_stacked.setVisible(False)
         else:
             self.nonroi_stacked.setVisible(True)
-            if self.roi_method_spherical.isChecked():
-                self.nonroi_stacked.setCurrentIndex(0)  # Spherical non-ROI
-            elif self.roi_method_cortical.isChecked():
-                self.nonroi_stacked.setCurrentIndex(1)  # Atlas non-ROI
-            else:  # subcortical
-                self.nonroi_stacked.setCurrentIndex(2)  # Volume non-ROI
+            nonroi_index = {
+                self.roi_method_spherical: 0,
+                self.roi_method_cortical: 1,
+                self.roi_method_subcortical: 2,
+            }
+            for rb, idx in nonroi_index.items():
+                if rb.isChecked():
+                    self.nonroi_stacked.setCurrentIndex(idx)
+                    break
 
     def _update_nonroi_atlas_combo(self):
         self.nonroi_atlas_combo.clear()
@@ -2426,7 +2296,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 output_lines.append(f"{idx:3d}: {name}")
             output = "\n".join(output_lines)
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
             return
 
@@ -2548,7 +2418,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                             except (ValueError, IndexError):
                                 continue  # Skip malformed lines
 
-        except Exception as e:
+        except OSError as e:
             QtWidgets.QMessageBox.warning(
                 self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
             )
@@ -2569,7 +2439,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         text = QtWidgets.QTextEdit()
         text.setReadOnly(True)
         text.setFont(
-            QtGui.QFont("Consolas", _gfx_tokens.font_size_monospace)
+            QtGui.QFont("Consolas", FONT_SIZE_MONOSPACE)
         )  # Use monospace font for better alignment
         text.setText(output)
         layout.addWidget(text)
@@ -2679,10 +2549,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.visualize_skin_checkbox.setEnabled(False)
 
         # Keep debug checkbox enabled during processing
-        if hasattr(self, "console_widget") and hasattr(
-            self.console_widget, "debug_checkbox"
-        ):
-            self.console_widget.debug_checkbox.setEnabled(True)
+        self.console_widget.debug_checkbox.setEnabled(True)
 
     def enable_controls(self):
         """Enable all input controls after optimization."""
@@ -2775,7 +2642,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.enable_controls()  # Re-enable all controls
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     # ------------------------------------------------------------------ #
@@ -3096,12 +2963,12 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.update_output(f"   JSON:  {j}")
                 self.update_output(f"   Plot:  {p}")
                 self.update_output(f"   Dir:   {base_folder}")
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 self.update_output(f"\u26a0 Could not save results: {e}", "error")
 
         self.optimization_running = False
         self.enable_controls()
-        if hasattr(self, "parent") and self.parent:
+        if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     # ------------------------------------------------------------------ #
@@ -3176,7 +3043,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(
                 f"❌ Error in adaptive focality optimization: {str(e)}", "error"
             )
@@ -3338,7 +3205,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.optimization_thread.finished.connect(self.optimization_finished)
             self.optimization_thread.start()
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(
                 f"❌ Error calculating adaptive thresholds: {str(e)}", "error"
             )
@@ -3543,7 +3410,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.optimization_thread.finished.connect(self.optimization_finished)
             self.optimization_thread.start()
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(
                 f"❌ Error calculating adaptive thresholds: {str(e)}", "error"
             )
@@ -3651,7 +3518,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             return None
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.update_output(
                 f"❌ Error extracting achievable intensity from files: {str(e)}",
                 "error",

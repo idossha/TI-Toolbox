@@ -13,7 +13,7 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.paths import get_path_manager
-from tit.gui.style import _gfx_tokens  # graphics tokens
+from tit.gui.style import NIFTI_ATLAS_OPACITY, NIFTI_FIELD_OPACITY
 from tit.gui.components.console import ConsoleWidget
 
 
@@ -25,6 +25,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.parent = parent
         self.freeview_process = None
         self.current_file = None
+        self.current_files = []
+        self.current_paths = []
         self.pm = get_path_manager()
         self.base_dir = self.find_base_dir()
         self.subject_sim_pairs = []  # Store subject-simulation pairs for group mode
@@ -201,7 +203,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         atlas_controls.addWidget(QtWidgets.QLabel("Opacity:"))
         self.atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.atlas_opacity_slider.setRange(0, 100)
-        self.atlas_opacity_slider.setValue(_gfx_tokens.nifti_atlas_opacity)
+        self.atlas_opacity_slider.setValue(NIFTI_ATLAS_OPACITY)
         self.atlas_opacity_slider.setEnabled(False)
         atlas_controls.addWidget(self.atlas_opacity_slider)
         self.atlas_opacity_label = QtWidgets.QLabel("0.50")
@@ -241,7 +243,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         analysis_controls.addWidget(QtWidgets.QLabel("Opacity:"))
         self.analysis_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.analysis_opacity_slider.setRange(0, 100)
-        self.analysis_opacity_slider.setValue(_gfx_tokens.nifti_field_opacity)
+        self.analysis_opacity_slider.setValue(NIFTI_FIELD_OPACITY)
         self.analysis_opacity_slider.setEnabled(False)
         analysis_controls.addWidget(self.analysis_opacity_slider)
         self.analysis_opacity_label = QtWidgets.QLabel("0.70")
@@ -334,7 +336,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         group_atlas_layout.addWidget(QtWidgets.QLabel("Opacity:"))
         self.group_atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.group_atlas_opacity_slider.setRange(0, 100)
-        self.group_atlas_opacity_slider.setValue(_gfx_tokens.nifti_atlas_opacity)
+        self.group_atlas_opacity_slider.setValue(NIFTI_ATLAS_OPACITY)
         group_atlas_layout.addWidget(self.group_atlas_opacity_slider)
         self.group_atlas_opacity_label = QtWidgets.QLabel("0.50")
         group_atlas_layout.addWidget(self.group_atlas_opacity_label)
@@ -365,7 +367,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         vis_layout.addWidget(QtWidgets.QLabel("Opacity:"))
         self.opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(_gfx_tokens.nifti_field_opacity)
+        self.opacity_slider.setValue(NIFTI_FIELD_OPACITY)
         vis_layout.addWidget(self.opacity_slider)
         self.opacity_label = QtWidgets.QLabel("0.70")
         vis_layout.addWidget(self.opacity_label)
@@ -418,8 +420,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         button_layout.addStretch()
         main_layout.addLayout(button_layout)
 
-        # Console — uses the shared ConsoleWidget so font size and style follow
-        # the app-level GraphicsConfig settings (Settings → Graphics → Console size).
+        # Console
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
@@ -470,7 +471,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     self.check_freesurfer_atlases()
             else:
                 self.status_label.setText("No subjects found")
-        except Exception as e:
+        except OSError as e:
             self.status_label.setText("Error scanning for subjects")
 
     def check_freesurfer_atlases(self):
@@ -599,7 +600,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Get list of available simulations for a subject."""
         try:
             return self.pm.list_simulations(subject_id)
-        except Exception as e:
+        except OSError as e:
             self.console_widget.update_console(
                 f"Error getting simulations for subject {subject_id}: {str(e)}", "error"
             )
@@ -614,7 +615,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_combo = QtWidgets.QComboBox()
         try:
             subjects = self.pm.list_subjects()
-        except Exception as e:
+        except OSError as e:
             self.console_widget.update_console(
                 f"Error getting subjects: {str(e)}", "error"
             )
@@ -675,7 +676,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         all_sims = set()
         try:
             subjects = self.pm.list_subjects()
-        except Exception as e:
+        except OSError as e:
             self.console_widget.update_console(
                 f"Error getting subjects: {str(e)}", "error"
             )
@@ -693,7 +694,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         try:
             all_subjects = self.pm.list_subjects()
-        except Exception as e:
+        except OSError as e:
             self.console_widget.update_console(
                 f"Error getting subjects: {str(e)}", "error"
             )
@@ -1350,16 +1351,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 "success",
             )
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Failed to launch Freeview: {str(e)}"
             )
 
     def reload_current_view(self):
         """Reload the current view in Freeview."""
-        if hasattr(self, "current_files") and self.current_files:
-            file_paths = self.current_paths if hasattr(self, "current_paths") else []
-            self.launch_freeview_with_files(self.current_files, file_paths)
+        if self.current_files:
+            self.launch_freeview_with_files(self.current_files, self.current_paths)
         else:
             QtWidgets.QMessageBox.warning(self, "Warning", "No files currently loaded")
 

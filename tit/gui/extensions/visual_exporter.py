@@ -686,11 +686,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Load region names for current atlas and subject m2m
         try:
             subject_id = self.subject_combo.currentText().strip()
-            atlas = (
-                self.stl_atlas_combo.currentText().strip()
-                if hasattr(self, "stl_atlas_combo")
-                else const.ATLAS_DK40
-            )
+            atlas = self.stl_atlas_combo.currentText().strip() or const.ATLAS_DK40
             m2m = self._m2m_dir(subject_id)
             if not subject_id or not atlas or not m2m:
                 return
@@ -874,14 +870,16 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
     # Mode switching
     def _on_mode_changed(self):
-        if self.rb_stl.isChecked():
-            self.stack.setCurrentIndex(0)
-        elif self.rb_vec.isChecked():
-            self.stack.setCurrentIndex(1)
-        elif self.rb_electrodes.isChecked():
-            self.stack.setCurrentIndex(2)
-        elif self.rb_subcortical.isChecked():
-            self.stack.setCurrentIndex(3)
+        mode_index = {
+            self.rb_stl: 0,
+            self.rb_vec: 1,
+            self.rb_electrodes: 2,
+            self.rb_subcortical: 3,
+        }
+        for rb, idx in mode_index.items():
+            if rb.isChecked():
+                self.stack.setCurrentIndex(idx)
+                break
 
     # Paths
     def _get_project_dir(self):
@@ -1107,11 +1105,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             commands = []
 
             if self.rb_stl.isChecked():
-                atlas = (
-                    self.stl_atlas_combo.currentText().strip()
-                    if hasattr(self, "stl_atlas_combo")
-                    else const.ATLAS_DK40
-                )
+                atlas = self.stl_atlas_combo.currentText().strip() or const.ATLAS_DK40
                 field = self.stl_field_edit.text().strip() or "TI_max"
                 central_surface = self._ensure_central_surface(
                     subject_id, simulation_name

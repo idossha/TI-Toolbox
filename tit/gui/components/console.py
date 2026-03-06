@@ -6,22 +6,66 @@ Console Widget Component
 Reusable console output widget with associated controls for TI-Toolbox GUI
 """
 
-import re
 from PyQt5 import QtWidgets, QtCore
 
-# Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
-ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+from tit.gui.utils import strip_ansi_codes
 
 
-def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI color/control sequences from a string."""
-    if not text:
-        return text
-    # Remove standard CSI sequences
-    cleaned = ANSI_ESCAPE_PATTERN.sub("", text)
-    # Remove any stray ESC characters that might remain
-    cleaned = cleaned.replace("\x1b", "")
-    return cleaned
+_COLOR_MAP = {
+    "error": ("#ff5555", True),  # (color, bold)
+    "warning": ("#ffff55", False),
+    "debug": ("#7f7f7f", False),
+    "command": ("#55aaff", False),
+    "success": ("#55ff55", True),
+    "info": ("#55ffff", False),
+    "default": ("#ffffff", False),
+}
+
+
+def format_message(text: str, message_type: str = "default") -> str:
+    """
+    Return an HTML-formatted string with color based on message_type.
+
+    Args:
+        text: The text to format (may contain HTML entities / <br> already).
+        message_type: One of 'error', 'warning', 'debug', 'command',
+                      'success', 'info', or 'default'.
+
+    Returns:
+        An HTML ``<span>`` string with the appropriate color and optional bold.
+    """
+    color, bold = _COLOR_MAP.get(message_type, _COLOR_MAP["default"])
+    if bold:
+        return f'<span style="color: {color};"><b>{text}</b></span>'
+    return f'<span style="color: {color};">{text}</span>'
+
+
+def append_with_autoscroll(text_edit, html_text: str, process_events: bool = True):
+    """
+    Append *html_text* to a QTextEdit while preserving the user's scroll position.
+
+    If the scrollbar was near the bottom before the append, the view follows
+    the new content.  Otherwise the current position is kept.
+
+    Args:
+        text_edit: A QTextEdit (or compatible) widget.
+        html_text: Pre-formatted HTML to append.
+        process_events: Whether to call ``QApplication.processEvents()``
+                        after the append (default True).
+    """
+    scrollbar = text_edit.verticalScrollBar()
+    at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+    saved_value = scrollbar.value()
+
+    text_edit.append(html_text)
+
+    if at_bottom:
+        scrollbar.setValue(scrollbar.maximum())
+    else:
+        scrollbar.setValue(saved_value)
+
+    if process_events:
+        QtWidgets.QApplication.processEvents()
 
 
 class ConsoleWidget(QtWidgets.QWidget):
@@ -59,14 +103,11 @@ class ConsoleWidget(QtWidgets.QWidget):
         super(ConsoleWidget, self).__init__(parent)
         self.parent = parent
 
-        # Use GraphicsConfig minimum height when the caller leaves min_height
-        # at its default sentinel value of 200.
-        from tit.gui.graphics_config import get_graphics_config as _get_gfx
+        from tit.gui.style import CONSOLE_MIN_HEIGHT, FONT_SIZE_CONSOLE
 
-        _gfx = _get_gfx()
         if min_height == 200:  # default sentinel
-            min_height = _gfx.console_min_height
-        self._console_font_size = _gfx.font_size_console
+            min_height = CONSOLE_MIN_HEIGHT
+        self._console_font_size = FONT_SIZE_CONSOLE
 
         # Store configuration
         self.show_clear_button = show_clear_button
@@ -160,40 +201,8 @@ class ConsoleWidget(QtWidgets.QWidget):
         # Strip ANSI escape sequences before any formatting
         text = strip_ansi_codes(text)
 
-        # Format the output based on message type
-        if message_type == "error":
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == "warning":
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == "debug":
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif message_type == "command":
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif message_type == "success":
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == "info":
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        else:
-            # Default white text
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
-
-        # Snapshot scrollbar state before append.
-        # QTextEdit.append() internally moves the cursor to the end which can
-        # cause an unsolicited scroll even when the user has scrolled up.
-        # Explicitly restoring the position afterward is the only reliable fix.
-        scrollbar = self.console.verticalScrollBar()
-        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-        saved_value = scrollbar.value()
-
-        # Append to the console with HTML formatting
-        self.console.append(formatted_text)
-
-        # Sticky-scroll: if user was at the bottom, follow new content.
-        # Otherwise, restore the exact position they were at.
-        if at_bottom:
-            scrollbar.setValue(scrollbar.maximum())
-        else:
-            scrollbar.setValue(saved_value)
+        formatted_text = format_message(text, message_type)
+        append_with_autoscroll(self.console, formatted_text, process_events=False)
 
     def append_html(self, html_text):
         """
@@ -202,18 +211,7 @@ class ConsoleWidget(QtWidgets.QWidget):
         Args:
             html_text: HTML formatted text to append
         """
-        scrollbar = self.console.verticalScrollBar()
-        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-        saved_value = scrollbar.value()
-
-        self.console.append(html_text)
-
-        if at_bottom:
-            scrollbar.setValue(scrollbar.maximum())
-        else:
-            scrollbar.setValue(saved_value)
-
-        QtWidgets.QApplication.processEvents()
+        append_with_autoscroll(self.console, html_text, process_events=True)
 
     def get_console_widget(self):
         """Return the underlying QTextEdit console widget."""

@@ -3,74 +3,86 @@
 """
 Shared design tokens and application-level stylesheet for TI-Toolbox GUI.
 
-Usage
------
-In main.py::
+All visual constants (fonts, spacing, sizes) are defined here as plain
+module-level values.  There is no user-facing settings file -- these are
+sensible defaults for the Docker container environment (96 DPI via
+QT_FONT_DPI).
 
-    from tit.gui.style import APP_STYLESHEET, SP_SM, SP_MD, SP_LG
-    app.setStyleSheet(APP_STYLESHEET)
-
-In individual widgets use SP_* for setContentsMargins / setSpacing calls so
-that layout geometry stays on the same scale.  Font sizes are in points (pt)
-so Qt maps them through the screen's logical DPI automatically.
+Qt resolves pt sizes via: pixelSize = DPI * pointSize / 72.
+At 96 DPI:  9pt = 12px, 10pt ≈ 13px, 12pt = 16px, 13pt ≈ 17px.
 """
 
+from __future__ import annotations
+
 # ---------------------------------------------------------------------------
-# Spacing scale (logical pixels — Qt scales these with AA_EnableHighDpiScaling)
+# Spacing scale (logical pixels -- Qt scales with AA_EnableHighDpiScaling)
 # ---------------------------------------------------------------------------
-SP_XS = 4  # tight inline gaps, icon padding, thin borders
-SP_SM = 8  # control padding, inner group margins
+SP_XS = 4   # tight inline gaps, icon padding, thin borders
+SP_SM = 8   # control padding, inner group margins
 SP_MD = 12  # section separation
 SP_LG = 20  # outer panel / dialog margins
 
 # ---------------------------------------------------------------------------
-# Font size scale (points — device-density-aware)
-# The module-level FONT_* constants are now computed dynamically from
-# GraphicsConfig at import time (see bottom of file).
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Application-level stylesheet builder
+# Font sizes (points -- resolved against 96 DPI in Docker)
 #
-# Covers all shared widget types so per-widget setStyleSheet() calls can be
-# removed except where a widget needs a genuinely unique style (e.g. the dark
-# console, the green Run button, the red Stop button).
+# Reference: v2.2.4 used 13-14px for body/console, which is 10-11pt @ 96 DPI.
+# ---------------------------------------------------------------------------
+FONT_SIZE_SM = 8          # small hints, captions
+FONT_SIZE_BODY = 10       # body text, form fields, labels
+FONT_SIZE_HEADING = 13    # section headings, group-box titles
+FONT_SIZE_TAB = 10        # tab-bar labels
+FONT_SIZE_CONSOLE = 10    # console output (monospace)
+FONT_SIZE_HELP = 9        # help / annotation text
+FONT_SIZE_SECTION = 12    # intra-tab section titles
+FONT_SIZE_SUBHEADING = 12 # dialog group boxes, electrode titles
+FONT_SIZE_MONOSPACE = 10  # fixed-width views (NIfTI, Quick Notes)
+FONT_SIZE_NOTE = 9        # note / info labels
+
+# Pre-built "Xpt" strings for setStyleSheet / QFont usage
+FONT_SM = f"{FONT_SIZE_SM}pt"
+FONT_MD = f"{FONT_SIZE_BODY}pt"
+FONT_LG = f"{FONT_SIZE_HEADING}pt"
+FONT_XL = f"{FONT_SIZE_TAB}pt"
+FONT_HELP = f"{FONT_SIZE_HELP}pt"
+FONT_SECTION = f"{FONT_SIZE_SECTION}pt"
+FONT_SUBHEADING = f"{FONT_SIZE_SUBHEADING}pt"
+FONT_MONOSPACE = f"{FONT_SIZE_MONOSPACE}pt"
+FONT_NOTE = f"{FONT_SIZE_NOTE}pt"
+
+# ---------------------------------------------------------------------------
+# Window / layout sizes
+# ---------------------------------------------------------------------------
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 800
+CONSOLE_MIN_HEIGHT = 200
+CONSOLE_MAX_HEIGHT = 600
+CONFIG_PANEL_MAX_HEIGHT = 600
+
+# ---------------------------------------------------------------------------
+# NIfTI viewer defaults
+# ---------------------------------------------------------------------------
+NIFTI_FIELD_OPACITY = 70   # 0-100
+NIFTI_ATLAS_OPACITY = 50   # 0-100
+
+# ---------------------------------------------------------------------------
+# Icon sizes (pixels)
+# ---------------------------------------------------------------------------
+ICON_SIZE_GEAR = 18
+ICON_SIZE_EXTENSIONS = 16
+
+# ---------------------------------------------------------------------------
+# Application-level stylesheet
 # ---------------------------------------------------------------------------
 
 
-def build_stylesheet(config=None):
-    """Build and return the application-level stylesheet string.
-
-    Parameters
-    ----------
-    config : GraphicsConfig or None
-        Visual preference settings.  When *None* the :class:`GraphicsConfig`
-        defaults are used.  The import is deferred inside the function to avoid
-        circular-import issues.
-
-    Returns
-    -------
-    str
-        A complete Qt stylesheet string with font-size tokens substituted from
-        *config*.
-    """
-    # Lazy import to avoid circular dependencies between style.py and
-    # graphics_config.py (which may in turn import from tit.core).
-    from tit.gui.graphics_config import GraphicsConfig  # noqa: PLC0415
-
-    if config is None:
-        config = GraphicsConfig()
-
-    # Derive the four font-size tokens from config values.
-    font_md = f"{config.font_size_body}pt"  # body text / form fields
-    font_lg = f"{config.font_size_heading}pt"  # section headings / group boxes
-    font_console = f"{config.font_size_console}pt"  # console output (unused in
-    # global sheet but available)
-    font_tab = f"{config.font_size_tab}pt"  # tab-bar labels
+def build_stylesheet():
+    """Build and return the application-level stylesheet string."""
+    font_md = FONT_MD
+    font_lg = FONT_LG
+    font_tab = FONT_XL
 
     return f"""
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
+/* -- Buttons ------------------------------------------------------------ */
 QPushButton {{
     padding: {SP_XS}px {SP_SM}px;
     border-radius: 3px;
@@ -83,7 +95,7 @@ QPushButton:pressed {{ background-color: #d0d0d0; }}
 QPushButton:disabled {{ color: #999999; border-color: #cccccc;
                         background-color: #f8f8f8; }}
 
-/* ── Group boxes ─────────────────────────────────────────────────────────── */
+/* -- Group boxes -------------------------------------------------------- */
 QGroupBox {{
     font-weight: bold;
     font-size: {font_lg};
@@ -99,7 +111,7 @@ QGroupBox::title {{
     padding: 0 {SP_XS}px;
 }}
 
-/* ── Input controls ──────────────────────────────────────────────────────── */
+/* -- Input controls ----------------------------------------------------- */
 QLineEdit, QSpinBox, QDoubleSpinBox {{
     padding: 3px {SP_XS}px;
     border: 1px solid #cccccc;
@@ -115,8 +127,6 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
     background-color: #f5f5f5;
     color: #888888;
 }}
-/* QComboBox kept separate — no background-color override so Fusion can
-   render the drop-button and selection area without a white box artefact. */
 QComboBox {{
     padding: 2px {SP_XS}px;
     border: 1px solid #cccccc;
@@ -127,19 +137,18 @@ QComboBox {{
 QComboBox:focus {{ border-color: #4a90d9; }}
 QComboBox:disabled {{ color: #888888; }}
 
-
-/* ── Labels ─────────────────────────────────────────────────────────────── */
+/* -- Labels ------------------------------------------------------------- */
 QLabel {{
     font-size: {font_md};
 }}
 
-/* ── Tab bar ─────────────────────────────────────────────────────────────── */
+/* -- Tab bar ------------------------------------------------------------ */
 QTabWidget::pane {{
     border: 1px solid #888888;
     border-radius: 3px;
 }}
 QTabBar::tab {{
-    padding: 8px 16px;
+    padding: 6px 14px;
     font-size: {font_tab};
     min-width: 60px;
     border: 1px solid #888888;
@@ -156,11 +165,9 @@ QTabBar::tab:selected {{
 QTabBar::tab:!selected:hover {{
     background-color: #f0f0f0;
 }}
-/* Each scroller slot — one slot per arrow button */
 QTabBar::scroller {{
     width: 24px;
 }}
-/* Scroll buttons shown when tabs overflow the bar width */
 QTabBar QToolButton {{
     background-color: #f0f0f0;
     border: 1px solid #b0b0b0;
@@ -174,7 +181,7 @@ QTabBar QToolButton:pressed  {{ background-color: #d0d0d0; }}
 QTabBar QToolButton:disabled {{ color: #cccccc; background-color: #f8f8f8;
                                 border-color: #dddddd; }}
 
-/* ── Table / list views ──────────────────────────────────────────────────── */
+/* -- Table / list views ------------------------------------------------- */
 QTableWidget, QListWidget {{
     font-size: {font_md};
     border: 1px solid #cccccc;
@@ -190,7 +197,7 @@ QHeaderView::section {{
     background-color: #f5f5f5;
 }}
 
-/* ── Check boxes / radio buttons ─────────────────────────────────────────── */
+/* -- Check boxes / radio buttons ---------------------------------------- */
 QCheckBox, QRadioButton {{
     font-size: {font_md};
     spacing: {SP_XS}px;
@@ -200,7 +207,7 @@ QCheckBox::indicator, QRadioButton::indicator {{
     height: 14px;
 }}
 
-/* ── Scroll bars ─────────────────────────────────────────────────────────── */
+/* -- Scroll bars -------------------------------------------------------- */
 QScrollBar:vertical {{
     width: 10px;
     border: none;
@@ -228,7 +235,7 @@ QScrollBar::handle:horizontal {{
 QScrollBar::handle:horizontal:hover {{ background: #a0a0a0; }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
-/* ── Tool tips ───────────────────────────────────────────────────────────── */
+/* -- Tool tips ---------------------------------------------------------- */
 QToolTip {{
     font-size: {font_md};
     padding: {SP_XS}px {SP_SM}px;
@@ -238,7 +245,7 @@ QToolTip {{
     color: #333333;
 }}
 
-/* ── Menus (gear icon dropdown etc.) ─────────────────────────────────────── */
+/* -- Menus -------------------------------------------------------------- */
 QMenu {{
     font-size: {font_md};
     padding: 2px;
@@ -251,7 +258,7 @@ QMenu::item:selected {{
     color: white;
 }}
 
-/* ── Sliders ─────────────────────────────────────────────────────────────── */
+/* -- Sliders ------------------------------------------------------------ */
 QSlider::groove:horizontal {{
     height: 4px;
     background: #cccccc;
@@ -279,49 +286,21 @@ QSlider::handle:vertical {{
     border: 1px solid #999999;
 }}
 
-/* ── SpinBox sizing ───────────────────────────────────────────────────────── */
-/* Let Fusion use its natural height so native_btn_w is large enough for
-   _NarrowSpinStyle to produce a visible delta (see bottom of this file). */
+/* -- SpinBox sizing ----------------------------------------------------- */
 QSpinBox, QDoubleSpinBox {{
     min-height: 18px;
 }}
 """
 
 
-# Module-level constant — keeps any existing ``from tit.gui.style import
-# APP_STYLESHEET`` imports working without change.
+# Pre-built stylesheet for ``from tit.gui.style import APP_STYLESHEET``.
 APP_STYLESHEET = build_stylesheet()
 
-# ---------------------------------------------------------------------------
-# Computed font constants — resolved from GraphicsConfig at import time.
-# Import these in other GUI files instead of using literal "Xpt" strings.
-# ---------------------------------------------------------------------------
-from tit.gui.graphics_config import get_graphics_config as _get_gfx_tokens  # noqa: E402
-
-_gfx_tok = _get_gfx_tokens()
-
-FONT_SM = f"{_gfx_tok.font_size_sm}pt"
-FONT_MD = f"{_gfx_tok.font_size_body}pt"
-FONT_LG = f"{_gfx_tok.font_size_heading}pt"
-FONT_XL = f"{_gfx_tok.font_size_tab}pt"
-FONT_HELP = f"{_gfx_tok.font_size_help}pt"
-FONT_SECTION = f"{_gfx_tok.font_size_section_title}pt"
-FONT_SUBHEADING = f"{_gfx_tok.font_size_subheading}pt"
-FONT_MONOSPACE = f"{_gfx_tok.font_size_monospace}pt"
-FONT_NOTE = f"{_gfx_tok.font_size_note}pt"
-
-_gfx_tokens = _gfx_tok  # public alias for QFont size lookups
 
 # ---------------------------------------------------------------------------
-# Proxy style — narrows QSpinBox / QDoubleSpinBox button column
-#
-# Styling QSpinBox::up-button via CSS on Qt5/Fusion/Linux suppresses the
-# native arrow glyph entirely (the painter is handed to the CSS engine which
-# needs an explicit image: to draw anything).  Overriding subControlRect()
-# instead only changes the geometry; Fusion's own painter still draws the
-# arrows correctly.
+# QProxyStyle for narrower spin-box buttons
 # ---------------------------------------------------------------------------
-from PyQt5 import QtWidgets as _QtW, QtCore as _QtC  # noqa: E402
+from PyQt5 import QtWidgets as _QtW  # noqa: E402
 
 
 class _NarrowSpinStyle(_QtW.QProxyStyle):
@@ -340,16 +319,13 @@ class _NarrowSpinStyle(_QtW.QProxyStyle):
         ):
             return rect
 
-        # Ask the parent style for the native button width once.
         native_btn_w = (
             super().subControlRect(cc, opt, _QtW.QStyle.SC_SpinBoxUp, widget).width()
         )
         delta = native_btn_w - self._TARGET_BTN_W
         if delta <= 0:
-            return rect  # already narrow enough
+            return rect
 
         if sc in (_QtW.QStyle.SC_SpinBoxUp, _QtW.QStyle.SC_SpinBoxDown):
-            # Shift left edge rightward → narrower column.
             return rect.adjusted(delta, 0, 0, 0)
-        # SC_SpinBoxEditField: extend right edge to reclaim the freed space.
         return rect.adjusted(0, 0, delta, 0)

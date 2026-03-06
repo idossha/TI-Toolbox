@@ -507,10 +507,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
             return
 
         # Disable run button, enable stop button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_stop()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(False)
+        self.action_buttons.enable_stop()
 
         # Clear console
         if hasattr(self, "console_widget") and self.console_widget:
@@ -539,10 +536,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
             self.update_output("Analysis stopped by user.", "warning")
 
             # Re-enable run button
-            if hasattr(self, "action_buttons"):
-                self.action_buttons.enable_run()
-            elif hasattr(self, "run_btn"):
-                self.run_btn.setEnabled(True)
+            self.action_buttons.enable_run()
 
     def on_output(self, message):
         """Handle output from analysis thread"""
@@ -551,10 +545,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
     def on_finished(self, results):
         """Handle analysis completion"""
         # Re-enable run button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_run()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(True)
+        self.action_buttons.enable_run()
 
         self.update_output("\n" + "=" * 50, "success")
         self.update_output("ANALYSIS COMPLETE!", "success")
@@ -577,10 +568,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
     def on_error(self, error_msg):
         """Handle analysis error"""
         # Re-enable run button
-        if hasattr(self, "action_buttons"):
-            self.action_buttons.enable_run()
-        elif hasattr(self, "run_btn"):
-            self.run_btn.setEnabled(True)
+        self.action_buttons.enable_run()
 
         self.update_output("\n" + "=" * 50, "error")
         self.update_output("ERROR!", "error")

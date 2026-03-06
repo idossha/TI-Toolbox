@@ -25,5 +25,5 @@ def get_child_pids(parent_pid: int) -> list:
         return [child.pid for child in children]
     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
         return []
-    except Exception:
+    except OSError:
         return []

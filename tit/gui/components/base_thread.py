@@ -52,10 +52,11 @@ This base class is designed to be reusable across all TI-Toolbox tabs and script
 """
 
 import os
-import re
 import signal
 import subprocess
 from PyQt5 import QtCore
+
+from tit.gui.utils import strip_ansi_codes as _strip_ansi_codes_util
 
 
 def detect_message_type_from_content(text):
@@ -135,23 +136,23 @@ class BaseProcessThread(QtCore.QThread):
     output_signal = QtCore.pyqtSignal(str, str)  # message, type
     error_signal = QtCore.pyqtSignal(str)
 
-    # ANSI escape sequence pattern (consolidated from multiple implementations)
-    ANSI_ESCAPE_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-
-    def __init__(self, cmd=None, env=None, parent=None):
+    def __init__(self, cmd=None, env=None, cwd=None, parent=None):
         """
         Initialize the base process thread.
 
         Args:
             cmd: Command list to execute (can be set later)
             env: Environment variables dict (defaults to os.environ.copy())
+            cwd: Working directory for the subprocess (None = inherit)
             parent: Parent QObject
         """
         super(BaseProcessThread, self).__init__(parent)
         self.cmd = cmd
         self.env = env or os.environ.copy()
+        self.cwd = cwd
         self.process = None
         self.terminated = False
+        self.input_data = None  # Optional stdin lines (list[str])
 
     def run(self):
         """
@@ -167,12 +168,21 @@ class BaseProcessThread(QtCore.QThread):
             self.error_signal.emit("No command specified for execution")
             self.finished_signal.emit(False)
 
+    def set_input_data(self, input_data):
+        """Set stdin lines to send to the subprocess after launch.
+
+        Args:
+            input_data: List of strings to write to the process stdin.
+        """
+        self.input_data = input_data
+
     def execute_process(self):
         """
         Execute the subprocess with unified handling.
 
         This method:
         - Creates subprocess with proper process group
+        - Optionally writes ``self.input_data`` to stdin
         - Streams output in real-time with ANSI stripping
         - Detects message types automatically
         - Handles process completion and errors
@@ -183,27 +193,47 @@ class BaseProcessThread(QtCore.QThread):
             self.env["PYTHONUNBUFFERED"] = "1"
             self.env["PYTHONFAULTHANDLER"] = "1"
 
+            use_stdin = bool(self.input_data)
+
             # Create process with platform-specific process group handling
             if os.name == "nt":  # Windows
                 self.process = subprocess.Popen(
                     self.cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,  # Combine streams
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.PIPE if use_stdin else None,
                     universal_newlines=True,
-                    bufsize=1,  # Line buffered
+                    bufsize=1,
                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
                     env=self.env,
+                    cwd=self.cwd,
                 )
             else:  # Unix/Linux/macOS
                 self.process = subprocess.Popen(
                     self.cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,  # Combine streams
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.PIPE if use_stdin else None,
                     universal_newlines=True,
-                    bufsize=1,  # Line buffered
-                    preexec_fn=os.setsid,  # Create new process group
+                    bufsize=1,
+                    preexec_fn=os.setsid,
                     env=self.env,
+                    cwd=self.cwd,
                 )
+
+            # Write stdin data if provided
+            if use_stdin:
+                input_string = "\n".join(self.input_data) + "\n"
+                try:
+                    self.process.stdin.write(input_string)
+                    self.process.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    pass
+                finally:
+                    try:
+                        self.process.stdin.close()
+                    except (BrokenPipeError, OSError):
+                        pass
 
             # Stream output in real-time
             if self.process.stdout:
@@ -231,35 +261,33 @@ class BaseProcessThread(QtCore.QThread):
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    # Note: Non-zero exit codes don't necessarily mean failure
-                    # (e.g., SimNIBS may return warnings). Just log it.
                     self.error_signal.emit(
                         f"Process returned non-zero exit code ({returncode})"
                     )
 
         except Exception as e:
             self.error_signal.emit(f"Error running process: {str(e)}")
+        finally:
+            # Ensure file descriptors are cleaned up
+            if self.process:
+                try:
+                    if self.process.stdout:
+                        self.process.stdout.close()
+                except OSError:
+                    pass
+                try:
+                    if self.process.stdin:
+                        self.process.stdin.close()
+                except OSError:
+                    pass
 
-    def _strip_ansi_codes(self, text):
+    @staticmethod
+    def _strip_ansi_codes(text):
+        """Remove ANSI color/control sequences from text.
+
+        Delegates to :func:`tit.gui.utils.strip_ansi_codes`.
         """
-        Remove ANSI color/control sequences from text.
-
-        Args:
-            text: String potentially containing ANSI escape codes
-
-        Returns:
-            Cleaned string with ANSI codes removed
-        """
-        if not text:
-            return text
-
-        # Remove ANSI sequences
-        cleaned = self.ANSI_ESCAPE_PATTERN.sub("", text)
-
-        # Remove any stray ESC characters
-        cleaned = cleaned.replace("\x1b", "")
-
-        return cleaned
+        return _strip_ansi_codes_util(text)
 
     def _detect_message_type(self, line_stripped, line_lower):
         """
@@ -341,7 +369,7 @@ class BaseProcessThread(QtCore.QThread):
                             # Process may have already terminated
                             pass
 
-                except Exception:
+                except (OSError, ProcessLookupError):
                     # Fallback: try to kill the main process directly
                     try:
                         self.process.terminate()
