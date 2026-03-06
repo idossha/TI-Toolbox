@@ -1,10 +1,22 @@
+import copy
+import csv
+import os
+import time
 import h5py
-import matplotlib
+import types
+import logging
+import sys
+import json
 
-matplotlib.use("Agg")  # Use non-interactive backend
+# [TI-TOOLBOX] matplotlib with non-interactive backend for headless environments
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import nibabel
+
 import numpy as np
+# [TI-TOOLBOX] nibabel for MNI mask loading in valid_skin_region
+import nibabel
+# [TI-TOOLBOX] pandas for electrode CSV parsing in skin visualization
 import pandas as pd
 import scipy.spatial
 from scipy.optimize import (
@@ -15,17 +27,8 @@ from scipy.optimize import (
     linear_sum_assignment,
 )
 
-import copy
-import csv
-import json
-import logging
-import os
-import sys
-import time
-import types
-
 from simnibs import __version__
-from simnibs.mesh_tools import mesh_io, surface
+from simnibs.mesh_tools import mesh_io, gmsh_view
 from simnibs.simulation.fem import get_dirichlet_node_index_cog
 from simnibs.simulation.onlinefem import FemTargetPointCloud, OnlineFEM
 from simnibs.utils import simnibs_logger
@@ -35,6 +38,8 @@ from simnibs.utils.roi_result_visualization import RoiResultVisualization
 from simnibs.utils.TI_utils import get_maxTI, get_dirTI
 from simnibs.utils.file_finder import SubjectFiles, Templates
 from simnibs.utils.csv_reader import read_csv_positions
+# [TI-TOOLBOX] subject2mni_coords for standalone valid_skin_region;
+# create_new_connectivity_list_point_mask for surface filtering
 from simnibs.utils.transformations import (
     subject2mni_coords,
     create_new_connectivity_list_point_mask,
@@ -43,6 +48,8 @@ from simnibs.utils.mesh_element_properties import ElementTags, tissue_names
 
 from .ellipsoid import Ellipsoid, subject2ellipsoid, ellipsoid2subject
 from .measures import AUC, integral_focality, ROC
+# [TI-TOOLBOX] valid_skin_region removed from electrode_layout import;
+# using standalone TI-toolbox implementation below instead
 from .electrode_layout import (
     ElectrodeArray,
     ElectrodeArrayPair,
@@ -100,18 +107,18 @@ class TesFlexOptimization:
             where ROI and non-ROI are combined into a single goal function value
 
     Electrode Mapping Parameters
-    ---------------------------
+    ----------------------------
     map_to_net_electrodes : bool, optional, default: False
         If True, maps optimized electrode positions to nearest positions in an EEG net.
-
+        
     run_mapped_electrodes_simulation : bool, optional, default: False
         If True, runs simulation with mapped electrode positions.
         Requires map_to_net_electrodes to be set to True.
-
+        
     net_electrode_file : str, optional, default: None
         Path to CSV file containing EEG electrode positions in SimNIBS format.
         Required if map_to_net_electrodes is True.
-
+    
     Parameters (optimizer + FEM)
     ------------------------------------
     optimizer : str, optional, default: "differential_evolution"
@@ -133,8 +140,6 @@ class TesFlexOptimization:
         starting values for optimization (will be automatically determined per default)
     detailed_results : bool, optional, default: False
         write detailed results into subfolder of output folder for visualization and control
-    visualize_valid_skin_region : bool, optional, default: False
-        create visualizations of valid skin region for electrode placement (requires detailed_results=True)
     track_focality : bool, optional, default: False
         Tracks focality for each goal function value (requires ROI and non-ROI definition)
 
@@ -149,6 +154,7 @@ class TesFlexOptimization:
         self.run_final_electrode_simulation = True
         self.open_in_gmsh = True
         self.detailed_results = False
+        # [TI-TOOLBOX] visualize valid skin region (requires detailed_results=True)
         self.visualize_valid_skin_region = False
         self._detailed_results_folder = None
         self.fn_final_sim = []
@@ -159,6 +165,7 @@ class TesFlexOptimization:
         self.run_mapped_electrodes_simulation = False
         self.net_electrode_file = None
         self.fn_mapped_sim = []
+        # [TI-TOOLBOX] removed self.electrode_mapping = None (set lazily during mapping)
 
         # headmodel
         self.fn_mesh = None
@@ -300,15 +307,16 @@ class TesFlexOptimization:
         # Calculate node areas for whole mesh
         self._mesh_nodes_areas = self._mesh.nodes_areas()
 
-        # relabel internal air
+        # [TI-TOOLBOX] simplified relabel_internal_air (removed conditional check)
         self._mesh_relabel = self._mesh.relabel_internal_air()
 
-        # make final skin surface including some additional distance
-        self._skin_surface = surface.Surface(mesh=self._mesh_relabel, labels=1005)
-        # save original skin surface nodes before filtering for valid regions
-        self._original_skin_nodes = self._skin_surface.nodes.copy()
+        # [TI-TOOLBOX] make skin surface using standalone valid_skin_region
+        # which handles MNI masking and spurious patch removal
+        skin_crop = self._mesh_relabel.crop_mesh(tags=1005)
+        # [TI-TOOLBOX] save original skin surface nodes before filtering for valid regions
+        self._original_skin_nodes = skin_crop.nodes.node_coord.copy()
         self._skin_surface = valid_skin_region(
-            skin_surface=self._skin_surface,
+            skin_surface=skin_crop,
             fn_electrode_mask=self._fn_electrode_mask,
             mesh=self._mesh_relabel,
             additional_distance=0,
@@ -316,11 +324,13 @@ class TesFlexOptimization:
 
         # get mapping between skin_surface node indices and global mesh nodes
         self._node_idx_msh = np.where(
-            np.isin(self._mesh.nodes.node_coord, self._skin_surface.nodes).all(axis=1)
+            np.isin(
+                self._mesh.nodes.node_coord, self._skin_surface.nodes.node_coord
+            ).all(axis=1)
         )[0]
 
         # fit optimal ellipsoid to valid skin points
-        self._ellipsoid.fit(points=self._skin_surface.nodes)
+        self._ellipsoid.fit(points=self._skin_surface.nodes.node_coord)
 
         # setup ROI
         ####################################################################################################
@@ -635,24 +645,14 @@ class TesFlexOptimization:
         logger.log(26, f"Number of ROIs:                   {self._n_roi}")
         logger.log(26, f"Number of Channels:               {self.n_channel_stim}")
         logger.log(26, f"ROI weights:                      {self.weights}")
-        logger.log(
-            26,
-            f"Constrain electrode locations:    {self.constrain_electrode_locations}",
-        )
+        logger.log(26, f"Constrain electrode locations:    {self.constrain_electrode_locations}")
         logger.log(26, f"Polish (local optimization):      {self.polish}")
-
-        logger.log(
-            26, f"Map to net electrodes:            {self.map_to_net_electrodes}"
-        )
+        
+        logger.log(26, f"Map to net electrodes:            {self.map_to_net_electrodes}")
         if self.map_to_net_electrodes:
-            logger.log(
-                26, f"Net electrode file:               {self.net_electrode_file}"
-            )
-            logger.log(
-                26,
-                f"Run mapped electrodes simulation: {self.run_mapped_electrodes_simulation}",
-            )
-
+            logger.log(26, f"Net electrode file:               {self.net_electrode_file}")
+            logger.log(26, f"Run mapped electrodes simulation: {self.run_mapped_electrodes_simulation}")
+        
         logger.log(26, "Optimizer settings:")
         if self._optimizer_options_std is not None:
             for key in self._optimizer_options_std:
@@ -720,63 +720,55 @@ class TesFlexOptimization:
         logger.log(26, "Electrode coordinates (Cartesian space):")
         logger.log(26, "-" * 100)
         for i_stim in range(len(self.electrode_pos_opt)):
-            logger.log(26, f"Stimulation channel {i_stim}:")
-            for i_array, _electrode_array in enumerate(
-                self.electrode[i_stim]._electrode_arrays
-            ):
-                logger.log(26, f"Array {i_array}:")
-                for i_electrode, _electrode in enumerate(_electrode_array.electrodes):
-                    logger.log(26, f"\tElectrode {i_electrode} ({_electrode.type}):")
-                    for i_row in range(4):
-                        logger.log(
-                            26,
-                            "\t\t"
-                            + sep(_electrode.posmat[i_row, 0])
-                            + f"{_electrode.posmat[i_row, 0]:.3f}, "
-                            + sep(_electrode.posmat[i_row, 1])
-                            + f"{_electrode.posmat[i_row, 1]:.3f}, "
-                            + sep(_electrode.posmat[i_row, 2])
-                            + f"{_electrode.posmat[i_row, 2]:.3f}, "
-                            + sep(_electrode.posmat[i_row, 3])
-                            + f"{_electrode.posmat[i_row, 3]:.3f}",
-                        )
-
-        if self.electrode_mapping is not None:
+           logger.log(26, f"Stimulation channel {i_stim}:")
+           for i_array, _electrode_array in enumerate(self.electrode[i_stim]._electrode_arrays):
+               logger.log(26, f"Array {i_array}:")
+               for i_electrode, _electrode in enumerate(_electrode_array.electrodes):
+                   logger.log(26, f"\tElectrode {i_electrode} ({_electrode.type}):")
+                   for i_row in range(4):
+                       logger.log(26, 
+                           "\t\t"
+                           + sep(_electrode.posmat[i_row, 0])
+                           + f"{_electrode.posmat[i_row, 0]:.3f}, "
+                           + sep(_electrode.posmat[i_row, 1])
+                           + f"{_electrode.posmat[i_row, 1]:.3f}, "
+                           + sep(_electrode.posmat[i_row, 2])
+                           + f"{_electrode.posmat[i_row, 2]:.3f}, "
+                           + sep(_electrode.posmat[i_row, 3])
+                           + f"{_electrode.posmat[i_row, 3]:.3f}"
+                       )
+                       
+        # [TI-TOOLBOX] guard with hasattr since electrode_mapping is set lazily
+        if hasattr(self, "electrode_mapping") and self.electrode_mapping is not None:
             logger.log(26, " ")
             logger.log(26, "Electrode mapping results:")
             logger.log(26, "-" * 100)
-            for i, label in enumerate(self.electrode_mapping["mapped_labels"]):
-                original_pos = self.electrode_mapping["optimized_positions"][i]
-                mapped_pos = self.electrode_mapping["mapped_positions"][i]
-                distance = self.electrode_mapping["distances"][i]
-                channel, array = self.electrode_mapping["channel_array_indices"][i]
-
+            for i, label in enumerate(self.electrode_mapping['mapped_labels']):
+                original_pos = self.electrode_mapping['optimized_positions'][i]
+                mapped_pos = self.electrode_mapping['mapped_positions'][i]
+                distance = self.electrode_mapping['distances'][i]
+                channel, array = self.electrode_mapping['channel_array_indices'][i]
+                
                 logger.log(26, f"Electrode {i} (Channel {channel}, Array {array}):")
                 logger.log(26, f"\tMapped to:    {label}")
-                logger.log(
-                    26,
-                    f"\tOriginal pos: [{original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}]",
-                )
-                logger.log(
-                    26,
-                    f"\tMapped pos:   [{mapped_pos[0]:.2f}, {mapped_pos[1]:.2f}, {mapped_pos[2]:.2f}]",
-                )
+                logger.log(26, f"\tOriginal pos: [{original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}]")
+                logger.log(26, f"\tMapped pos:   [{mapped_pos[0]:.2f}, {mapped_pos[1]:.2f}, {mapped_pos[2]:.2f}]") 
                 logger.log(26, f"\tDistance:     {distance:.2f} mm")
-
+        
     def _write_detailed_results_preopt(self):
         """write out some more results prior to optimization"""
 
         # save skin surface
         np.savetxt(
             os.path.join(self._detailed_results_folder, "skin_surface_nodes.txt"),
-            self._skin_surface.nodes,
+            self._skin_surface.nodes.node_coord,
         )
         np.savetxt(
             os.path.join(self._detailed_results_folder, "skin_surface_con.txt"),
-            self._skin_surface.tr_nodes,
+            self._skin_surface.elm.node_number_list[:, :3] - 1,
         )
 
-        # save valid and invalid skin nodes for visualization
+        # [TI-TOOLBOX] save valid and invalid skin nodes for visualization
         if hasattr(self, "_original_skin_nodes") and hasattr(
             self._skin_surface, "mask_valid_nodes"
         ):
@@ -841,8 +833,7 @@ class TesFlexOptimization:
                     coords_region,
                 )
 
-        # Create 2D visualization of valid skin region if requested
-        # This is called here to ensure it happens together with the text file output
+        # [TI-TOOLBOX] Create 2D visualization of valid skin region if requested
         if self.visualize_valid_skin_region:
             logger.info("Creating 2D visualization of valid skin region...")
             self._create_valid_skin_visualizations_from_data(
@@ -934,7 +925,6 @@ class TesFlexOptimization:
         e_plot_label = [[] for _ in range(self._n_roi)]
 
         if np.array(["TI" in _t for _t in self.e_postproc]).any():
-
             e_pp = [[0 for _ in range(self._n_roi)]]
 
             for i_roi in range(self._n_roi):
@@ -963,7 +953,6 @@ class TesFlexOptimization:
                     fn_out=fn_out,
                 )
         else:
-
             e_pp = [[0 for _ in range(self._n_roi)] for _ in range(self.n_channel_stim)]
 
             for i_roi in range(self._n_roi):
@@ -1139,6 +1128,259 @@ class TesFlexOptimization:
                         name=f"e_pp/channel_{i_stim}/e_roi_{i_roi}",
                     )
 
+    # [TI-TOOLBOX] Save optimized electrode positions to JSON
+    def _save_optimized_positions(self):
+        """
+        Saves the optimized electrode positions to a JSON file.
+        Creates electrode_positions.json with optimized positions and channel/array indices.
+        """
+        if not hasattr(self, "electrode") or self.electrode is None:
+            logger.warning("No electrode data available to save")
+            return
+
+        optimized_positions = []
+        channel_array_indices = []
+
+        for i_channel_stim in range(len(self.electrode)):
+            for i_array, electrode_array in enumerate(
+                self.electrode[i_channel_stim]._electrode_arrays
+            ):
+                actual_pos = electrode_array.electrodes[0].posmat[:3, 3].copy()
+                optimized_positions.append(actual_pos.tolist())
+                channel_array_indices.append([i_channel_stim, i_array])
+
+        json_data = {
+            "optimized_positions": optimized_positions,
+            "channel_array_indices": channel_array_indices,
+        }
+
+        positions_file = os.path.join(self.output_folder, "electrode_positions.json")
+        with open(positions_file, "w") as f:
+            json.dump(json_data, f, indent=2)
+
+        logger.info(f"Optimized electrode positions saved to: {positions_file}")
+
+    # [TI-TOOLBOX] Create 2D visualization of valid skin region
+    def _create_valid_skin_visualizations_from_data(self, original_nodes, skin_surface):
+        """
+        Create 2D visualization of valid skin region for electrode placement.
+
+        Parameters
+        ----------
+        original_nodes : np.ndarray
+            Original skin surface nodes before filtering (N x 3 array)
+        skin_surface : mesh object
+            Filtered skin surface with mask_valid_nodes attribute
+        """
+        logger.info("Creating valid skin region visualization...")
+
+        data = {}
+
+        if hasattr(skin_surface, "mask_valid_nodes"):
+            mask = skin_surface.mask_valid_nodes
+            data["valid_nodes"] = original_nodes[mask]
+            data["invalid_nodes"] = original_nodes[~mask]
+            logger.info(f"Extracted {len(data['valid_nodes'])} valid skin nodes")
+            logger.info(f"Extracted {len(data['invalid_nodes'])} invalid skin nodes")
+        else:
+            data["valid_nodes"] = skin_surface.nodes.node_coord
+            logger.info(
+                f"Using all {len(data['valid_nodes'])} nodes as valid (no mask found)"
+            )
+
+        if not data:
+            logger.warning("No skin data available for visualization")
+            return
+
+        vis_dir = os.path.join(self._detailed_results_folder, "skin_visualization")
+        os.makedirs(vis_dir, exist_ok=True)
+
+        electrodes_data = None
+        if (
+            hasattr(self, "net_electrode_file")
+            and self.net_electrode_file
+            and os.path.exists(self.net_electrode_file)
+        ):
+            try:
+                df_test = pd.read_csv(
+                    self.net_electrode_file, header=None, sep=",", nrows=1
+                )
+                has_header = False
+                try:
+                    float(df_test.iloc[0, 1])
+                    float(df_test.iloc[0, 2])
+                    float(df_test.iloc[0, 3])
+                except (ValueError, TypeError):
+                    has_header = True
+
+                skiprows = 1 if has_header else 0
+                df = pd.read_csv(
+                    self.net_electrode_file, header=None, sep=",", skiprows=skiprows
+                )
+                df.columns = ["type", "x", "y", "z", "label"]
+                electrodes = df[df["type"] == "Electrode"]
+                if len(electrodes) > 0:
+                    positions = electrodes[["x", "y", "z"]].values
+                    labels = electrodes["label"].values
+
+                    valid_mask = np.zeros(len(positions), dtype=bool)
+                    distance_threshold = 10.0
+
+                    for i, elec_pos in enumerate(positions):
+                        if "valid_nodes" in data and len(data["valid_nodes"]) > 0:
+                            distances_valid = np.linalg.norm(
+                                data["valid_nodes"] - elec_pos, axis=1
+                            )
+                            min_dist_valid = np.min(distances_valid)
+
+                            min_dist_invalid = np.inf
+                            if (
+                                "invalid_nodes" in data
+                                and len(data["invalid_nodes"]) > 0
+                            ):
+                                distances_invalid = np.linalg.norm(
+                                    data["invalid_nodes"] - elec_pos, axis=1
+                                )
+                                min_dist_invalid = np.min(distances_invalid)
+
+                            valid_mask[i] = (
+                                min_dist_valid < min_dist_invalid
+                                and min_dist_valid < distance_threshold
+                            )
+
+                    electrodes_data = {
+                        "positions": positions,
+                        "labels": labels,
+                        "valid_mask": valid_mask,
+                        "compromised_mask": ~valid_mask,
+                    }
+
+                    n_valid = np.sum(valid_mask)
+                    n_compromised = np.sum(~valid_mask)
+
+                    logger.info(
+                        f"Loaded {len(positions)} electrode positions from: {self.net_electrode_file}"
+                    )
+                    logger.info(
+                        f"Valid electrodes: {n_valid}, Compromised electrodes: {n_compromised}"
+                    )
+
+                    if n_compromised > 0:
+                        logger.warning(
+                            f"Found {n_compromised} electrodes outside valid skin region:"
+                        )
+                        for label in labels[~valid_mask]:
+                            logger.warning(f"  - Compromised electrode: {label}")
+
+            except Exception as e:
+                logger.warning(f"Error loading electrode positions: {e}")
+
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+
+        projections = [
+            ("X-Y (top)", 0, 1, "Z"),
+            ("X-Z (sagittal)", 0, 2, "Y"),
+            ("Y-Z (coronal right)", 1, 2, "X"),
+            ("Y-Z (coronal left)", 1, 2, "X"),
+        ]
+
+        for i, (title, x_idx, y_idx, z_label) in enumerate(projections):
+            ax = axes[i // 2, i % 2]
+            is_left_coronal = i == 3
+
+            if "invalid_nodes" in data:
+                ax.scatter(
+                    data["invalid_nodes"][:, x_idx],
+                    data["invalid_nodes"][:, y_idx],
+                    c="grey",
+                    alpha=1.0,
+                    s=1,
+                    label="Invalid",
+                    rasterized=True,
+                )
+
+            if "valid_nodes" in data:
+                ax.scatter(
+                    data["valid_nodes"][:, x_idx],
+                    data["valid_nodes"][:, y_idx],
+                    c="green",
+                    alpha=1.0,
+                    s=1,
+                    label="Valid",
+                    rasterized=True,
+                )
+
+            if electrodes_data:
+                positions = electrodes_data["positions"]
+                labels = electrodes_data["labels"]
+                valid_mask = electrodes_data["valid_mask"]
+                compromised_mask = electrodes_data["compromised_mask"]
+
+                if np.any(valid_mask):
+                    ax.scatter(
+                        positions[valid_mask, x_idx],
+                        positions[valid_mask, y_idx],
+                        c="blue",
+                        s=50,
+                        marker="o",
+                        label="Valid Electrodes",
+                        edgecolors="black",
+                        linewidth=1,
+                        zorder=10,
+                    )
+                    for pos, label in zip(positions[valid_mask], labels[valid_mask]):
+                        ax.annotate(
+                            label,
+                            (pos[x_idx], pos[y_idx]),
+                            fontsize=6,
+                            ha="center",
+                            va="center",
+                            zorder=11,
+                        )
+
+                if np.any(compromised_mask):
+                    ax.scatter(
+                        positions[compromised_mask, x_idx],
+                        positions[compromised_mask, y_idx],
+                        c="orange",
+                        s=50,
+                        marker="X",
+                        label="Compromised Electrodes",
+                        edgecolors="red",
+                        linewidth=1.5,
+                        zorder=10,
+                    )
+                    for pos, label in zip(
+                        positions[compromised_mask], labels[compromised_mask]
+                    ):
+                        ax.annotate(
+                            label,
+                            (pos[x_idx], pos[y_idx]),
+                            fontsize=6,
+                            ha="center",
+                            va="center",
+                            color="red",
+                            fontweight="bold",
+                            zorder=11,
+                        )
+
+            ax.set_xlabel(f"{title.split()[0]} (mm)")
+            ax.set_ylabel(f"{title.split()[1]} (mm)")
+            ax.set_title(title)
+            ax.legend()
+            ax.axis("equal")
+
+            if is_left_coronal:
+                ax.invert_xaxis()
+
+        plt.tight_layout()
+
+        pdf_path = os.path.join(vis_dir, "skin_surface_2d.pdf")
+        plt.savefig(pdf_path, dpi=600, bbox_inches="tight", format="pdf")
+        plt.close()
+
+        logger.info(f"Visualization complete. Plot saved as: {pdf_path}")
+
     def add_electrode_layout(self, electrode_type, electrode=None):
         """
         Adds an electrode to the current TESoptimize
@@ -1161,138 +1403,94 @@ class TesFlexOptimization:
         self.electrode.append(electrode)
         return electrode
 
-    def _save_optimized_positions(self):
-        """
-        Saves the optimized electrode positions to a JSON file.
-        Creates electrode_positions.json with optimized positions and channel/array indices.
-        """
-        if not hasattr(self, "electrode") or self.electrode is None:
-            logger.warning("No electrode data available to save")
-            return
-
-        # Extract electrode positions from the optimized electrodes
-        optimized_positions = []
-        channel_array_indices = []
-
-        for i_channel_stim in range(len(self.electrode)):
-            for i_array, electrode_array in enumerate(
-                self.electrode[i_channel_stim]._electrode_arrays
-            ):
-                # Get the center position from the first electrode's posmat (4x4 transformation matrix)
-                # posmat[:3, 3] contains the [x, y, z] coordinates of the electrode center
-                actual_pos = electrode_array.electrodes[0].posmat[:3, 3].copy()
-                optimized_positions.append(actual_pos.tolist())
-                channel_array_indices.append([i_channel_stim, i_array])
-
-        # Create the JSON data structure
-        json_data = {
-            "optimized_positions": optimized_positions,
-            "channel_array_indices": channel_array_indices,
-        }
-
-        # Save to file
-        positions_file = os.path.join(self.output_folder, "electrode_positions.json")
-        with open(positions_file, "w") as f:
-            json.dump(json_data, f, indent=2)
-
-        logger.info(f"Optimized electrode positions saved to: {positions_file}")
-
     def map_to_nearest_net_electrodes(self, net_csv_path=None):
         """
         Maps optimized electrode positions to the nearest available positions in a
         co-registered EEG net loaded from a CSV file.
-
+        
         Parameters
         ----------
         net_csv_path : str, optional
             Path to the CSV file containing electrode positions. If None, uses the default
             EEG cap file from the subject (self._ff_subject.eeg_cap_1010).
-
+            
         Returns
         -------
         dict
             Dictionary containing mapping information including electrode positions,
             labels, and distances.
         """
-
+        
         if net_csv_path is None:
-            if not hasattr(self._ff_subject, "eeg_cap_1010"):
-                raise ValueError(
-                    "Could not find default EEG cap. Please specify a net_csv_path or ensure subject files are properly initialized."
-                )
+            if not hasattr(self._ff_subject, 'eeg_cap_1010'):
+                raise ValueError("Could not find default EEG cap. Please specify a net_csv_path or ensure subject files are properly initialized.")
             net_csv_path = self._ff_subject.eeg_cap_1010
             logger.info(f"Using default EEG cap file: {net_csv_path}")
-
+        
         if not os.path.isfile(net_csv_path):
             raise FileNotFoundError(f"Electrode net file not found: {net_csv_path}")
-
+        
         logger.info("Loading electrode positions from CSV...")
         type_, coordinates, _, name, _, _ = read_csv_positions(net_csv_path)
-
+        
         net_positions = []
         net_labels = []
         for t, coord, n in zip(type_, coordinates, name):
-            if t in ["Electrode", "ReferenceElectrode"]:
+            if t in ['Electrode', 'ReferenceElectrode']:
                 net_positions.append(coord)
                 net_labels.append(n)
-
+        
         net_positions = np.array(net_positions)
         logger.info(f"Loaded {len(net_positions)} electrode positions from net")
-
+        
         logger.info("Extracting optimized electrode positions...")
         ideal_coords = []
         electrode_indices = []
-
+        
         for i_channel_stim in range(len(self.electrode)):
-            for i_array, electrode_array in enumerate(
-                self.electrode[i_channel_stim]._electrode_arrays
-            ):
+            for i_array, electrode_array in enumerate(self.electrode[i_channel_stim]._electrode_arrays):
                 actual_pos = electrode_array.electrodes[0].posmat[:3, 3].copy()
                 ideal_coords.append(actual_pos)
                 electrode_indices.append((i_channel_stim, i_array))
-
+        
         ideal_coords = np.array(ideal_coords)
         logger.info(f"Extracted {len(ideal_coords)} optimized electrode positions")
-
+        
         logger.info("Calculating distances and finding optimal assignment...")
-        distance_matrix = np.array(
-            [[np.linalg.norm(i - j) for j in net_positions] for i in ideal_coords]
-        )
-
+        distance_matrix = np.array([[np.linalg.norm(i - j) for j in net_positions] for i in ideal_coords])
+        
         row_ind, col_ind = linear_sum_assignment(distance_matrix)
-
+        
         mapping_result = {
-            "optimized_positions": [ideal_coords[i] for i in row_ind],
-            "mapped_positions": [net_positions[j] for j in col_ind],
-            "mapped_labels": [net_labels[j] for j in col_ind],
-            "distances": [distance_matrix[i, j] for i, j in zip(row_ind, col_ind)],
-            "channel_array_indices": [electrode_indices[i] for i in row_ind],
+            'optimized_positions': [ideal_coords[i] for i in row_ind],
+            'mapped_positions': [net_positions[j] for j in col_ind],
+            'mapped_labels': [net_labels[j] for j in col_ind],
+            'distances': [distance_matrix[i, j] for i, j in zip(row_ind, col_ind)],
+            'channel_array_indices': [electrode_indices[i] for i in row_ind]
         }
-
-        total_distance = sum(mapping_result["distances"])
+        
+        total_distance = sum(mapping_result['distances'])
         avg_distance = total_distance / len(row_ind) if row_ind.size > 0 else 0
-
+        
         self.electrode_mapping = mapping_result
-
+        
         mapping_file = os.path.join(self.output_folder, "electrode_mapping.json")
-        with open(mapping_file, "w") as f:
+        with open(mapping_file, 'w') as f:
             json_data = {
-                "optimized_positions": [
-                    pos.tolist() for pos in mapping_result["optimized_positions"]
-                ],
-                "mapped_positions": [
-                    pos.tolist() for pos in mapping_result["mapped_positions"]
-                ],
-                "mapped_labels": mapping_result["mapped_labels"],
-                "distances": mapping_result["distances"],
-                "channel_array_indices": mapping_result["channel_array_indices"],
-                "eeg_net": os.path.basename(net_csv_path),  # Add the EEG net file name
+                'optimized_positions': [pos.tolist() for pos in mapping_result['optimized_positions']],
+                'mapped_positions': [pos.tolist() for pos in mapping_result['mapped_positions']],
+                'mapped_labels': mapping_result['mapped_labels'],
+                'distances': mapping_result['distances'],
+                'channel_array_indices': mapping_result['channel_array_indices'],
+                # [TI-TOOLBOX] include the EEG net file name for reference
+                'eeg_net': os.path.basename(net_csv_path),
             }
             json.dump(json_data, f, indent=2)
-
+        
         logger.info(f"Mapping data saved to: {mapping_file}")
         return mapping_result
 
+    # [TI-TOOLBOX] added prepare_only parameter
     def run(self, cpus=None, save_mat=True, prepare_only=False):
         """
         Runs the tes optimization
@@ -1317,14 +1515,12 @@ class TesFlexOptimization:
         self._n_cpu = cpus
 
         if self.run_mapped_electrodes_simulation and not self.map_to_net_electrodes:
-            raise ValueError(
-                "When run_mapped_electrodes_simulation=True, map_to_net_electrodes must also be set to True"
-            )
+            raise ValueError("When run_mapped_electrodes_simulation=True, map_to_net_electrodes must also be set to True")
 
         if not self._prepared:
             self._prepare()
 
-        # If prepare_only is True, finish logger and return early
+        # [TI-TOOLBOX] early return if only preparation is requested
         if prepare_only:
             logger.info("Preparation complete. Skipping optimization as requested.")
             self._finish_logger()
@@ -1332,12 +1528,10 @@ class TesFlexOptimization:
 
         if not cpus is None:
             from numba import set_num_threads
-
             set_num_threads(int(cpus))
             from numba import get_num_threads
-
             logger.info(f"Numba reports {get_num_threads()} threads available")
-
+        
         # save structure in .mat format
         if save_mat:
             mat = self.to_dict()
@@ -1348,14 +1542,14 @@ class TesFlexOptimization:
                 ),
                 mat,
             )
-
+            
         # log settings in summary text
         self._log_summary_preopt()
-
+        
         # write settings and preparation details (skin surface, fitted ellipsoid, electrodes)
         if self.detailed_results:
             self._write_detailed_results_preopt()
-
+           
         # run global optimization
         ######################################################################################################
         if self.optimizer == "direct":
@@ -1382,29 +1576,22 @@ class TesFlexOptimization:
                 bounds=self._optimizer_options_std["bounds"],
                 disp=self._optimizer_options_std["disp"],
                 polish=False,
-                seed=self.seed,
+                seed=self.seed
             )  # we will decide if to polish afterwards
 
         else:
             raise NotImplementedError(
                 f"Specified optimization method: '{self.optimizer}' not implemented."
             )
-
+        
         self.optim_funvalue = result.fun
         optim_x = result.x
-
+        
         logger.info(f"Global optimization finished! Best electrode position: {optim_x}")
-        logger.log(
-            26, f"Number of function evaluations (global optimization):   {self.n_test}"
-        )
-        logger.log(
-            26, f"Number of FEM evaluations (global optimization):        {self.n_sim}"
-        )
-        logger.log(
-            26,
-            f"Goal function value (global optimization):              {self.optim_funvalue}",
-        )
-
+        logger.log(26, f"Number of function evaluations (global optimization):   {self.n_test}")
+        logger.log(26, f"Number of FEM evaluations (global optimization):        {self.n_sim}")
+        logger.log(26, f"Goal function value (global optimization):              {self.optim_funvalue}")
+        
         # run local optimization to polish results
         #######################################################################################################
         if self.polish:
@@ -1417,42 +1604,28 @@ class TesFlexOptimization:
                 jac="2-point",
                 options={"finite_diff_rel_step": 0.01},
             )
-            logger.info(
-                f"Local optimization finished! Best electrode position: {result.x}"
-            )
-
+            logger.info(f"Local optimization finished! Best electrode position: {result.x}")
+        
             if self.optim_funvalue <= result.fun:
-                logger.info(
-                    "Local optimization did not improve the results, proceeding with global optimization results."
-                )
+                logger.info("Local optimization did not improve the results, proceeding with global optimization results.")
             else:
                 optim_x = result.x
                 self.optim_funvalue = result.fun
-
+                
         # transform optimal electrode pos from array to list of list
         self.electrode_pos_opt = self.get_electrode_pos_from_array(optim_x)
-
+        
         # internally update electrodes to correspond to optimal electrode pos
         self.get_nodes_electrode(electrode_pos=self.electrode_pos_opt)
 
-        # Save optimized electrode positions to JSON file
+        # [TI-TOOLBOX] Save optimized electrode positions to JSON file
         self._save_optimized_positions()
 
-        logger.log(
-            26, f"Total number of function evaluations:                   {self.n_test}"
-        )
-        logger.log(
-            26, f"Total number of FEM evaluations:                        {self.n_sim}"
-        )
-        logger.log(
-            26,
-            f"Final goal function value:                              {self.optim_funvalue}",
-        )
-        logger.log(
-            26,
-            f"Duration (setup and optimization):                      {time.time() - start}",
-        )
-
+        logger.log(26, f"Total number of function evaluations:                   {self.n_test}")
+        logger.log(26, f"Total number of FEM evaluations:                        {self.n_sim}")
+        logger.log(26, f"Final goal function value:                              {self.optim_funvalue}")
+        logger.log(26, f"Duration (setup and optimization):                      {time.time() - start}")
+                    
         # run final simulation with real electrode including remeshing
         #########################################################################################################
         if self.run_final_electrode_simulation:
@@ -1465,63 +1638,50 @@ class TesFlexOptimization:
                     ),
                 )
                 self.fn_final_sim.append(s.run()[0])
-
+                
             # extract e-fields from FEM simulations, add extra data and show results
-            base_file_name = os.path.splitext(
-                os.path.basename(self._ff_subject.fnamehead)
-            )[0]
-            base_file_name += "_tes_flex_opt"
-
-            fn_vis, m_head, m_surf = write_visualization(
-                self.output_folder,
-                base_file_name,
-                self.roi,
-                self.fn_final_sim,
-                self.e_postproc,
-                self.goal,
-            )
-
+            base_file_name = os.path.splitext(os.path.basename(self._ff_subject.fnamehead))[0]
+            base_file_name += '_tes_flex_opt'
+            
+            fn_vis, m_head, m_surf = write_visualization(self.output_folder,
+                                                         base_file_name,
+                                                         self.roi, 
+                                                         self.fn_final_sim,
+                                                         self.e_postproc,
+                                                         self.goal)
+            
             # extract key metrics from m_head, m_surf and add to summary log
             logger.log(26, make_summary_text(m_surf, m_head))
-
+            
             if self.open_in_gmsh:
                 for i in fn_vis:
+                    # [TI-TOOLBOX] use mesh_io.open_in_gmsh instead of gmsh_view
                     mesh_io.open_in_gmsh(i, True)
-
+        
         # Map electrodes to nearest positions in EEG net and run simulation if enabled
         #########################################################################################################
         if self.map_to_net_electrodes:
-            logger.info(
-                f"Mapping optimized electrode positions to {self.net_electrode_file or 'default cap'}"
-            )
-            self.electrode_mapping = self.map_to_nearest_net_electrodes(
-                self.net_electrode_file
-            )
-
+            logger.info(f"Mapping optimized electrode positions to {self.net_electrode_file or 'default cap'}")
+            self.electrode_mapping = self.map_to_nearest_net_electrodes(self.net_electrode_file)
+            
             if self.run_mapped_electrodes_simulation:
                 logger.info("Running simulation with mapped electrodes...")
-
-                mapped_sim_folder = os.path.join(
-                    self.output_folder, "mapped_electrodes_simulation"
-                )
+                
+                mapped_sim_folder = os.path.join(self.output_folder, "mapped_electrodes_simulation")
                 os.makedirs(mapped_sim_folder, exist_ok=True)
-
+                
                 self.fn_mapped_sim = []
-
+                
                 mapped_electrodes = []
                 for i_channel_stim in range(self.n_channel_stim):
                     mapped_electrode = copy.deepcopy(self.electrode[i_channel_stim])
-
-                    for i, (channel, array) in enumerate(
-                        self.electrode_mapping["channel_array_indices"]
-                    ):
+                    
+                    for i, (channel, array) in enumerate(self.electrode_mapping['channel_array_indices']):
                         if channel == i_channel_stim:
-                            mapped_pos = self.electrode_mapping["mapped_positions"][i]
-                            label = self.electrode_mapping["mapped_labels"][i]
-                            logger.info(
-                                f"Setting up electrode at position {label}: {mapped_pos}"
-                            )
-
+                            mapped_pos = self.electrode_mapping['mapped_positions'][i]
+                            label = self.electrode_mapping['mapped_labels'][i]
+                            logger.info(f"Setting up electrode at position {label}: {mapped_pos}")
+                            
                             electrode_array = mapped_electrode._electrode_arrays[array]
 
                             def update_posmat(posmat, new_pos):
@@ -1531,54 +1691,43 @@ class TesFlexOptimization:
                                     new_posmat[:3, 3] = new_pos
                                     return new_posmat
                                 return None
-
+                            
                             for obj in [*electrode_array.electrodes, electrode_array]:
                                 obj.posmat = update_posmat(obj.posmat, mapped_pos)
-                                obj.center = (
-                                    mapped_pos.copy()
-                                    if hasattr(obj, "center")
-                                    else mapped_pos.tolist()
-                                )
+                                obj.center = mapped_pos.copy() if hasattr(obj, 'center') else mapped_pos.tolist()
 
                     mapped_electrodes.append(mapped_electrode)
-
+                
                 for i_channel_stim in range(self.n_channel_stim):
-                    logger.info(
-                        f"Running simulation for mapped channel {i_channel_stim}..."
-                    )
+                    logger.info(f"Running simulation for mapped channel {i_channel_stim}...")
                     s = create_tdcs_session_from_array(
                         electrode_array=mapped_electrodes[i_channel_stim],
                         fnamehead=self._mesh.fn,
-                        pathfem=os.path.join(
-                            mapped_sim_folder, f"mapped_sim_{i_channel_stim}"
-                        ),
+                        pathfem=os.path.join(mapped_sim_folder, f"mapped_sim_{i_channel_stim}")
                     )
                     self.fn_mapped_sim.append(s.run()[0])
-
-                base_file_name = os.path.splitext(
-                    os.path.basename(self._ff_subject.fnamehead)
-                )[0]
-                base_file_name += "_tes_mapped_opt"
-
-                logger.info(
-                    "Creating visualizations for mapped electrode simulations..."
-                )
+                
+                base_file_name = os.path.splitext(os.path.basename(self._ff_subject.fnamehead))[0]
+                base_file_name += '_tes_mapped_opt'
+                
+                logger.info("Creating visualizations for mapped electrode simulations...")
                 fn_vis_mapped, m_head_mapped, m_surf_mapped = write_visualization(
                     mapped_sim_folder,
                     base_file_name,
-                    self.roi,
+                    self.roi, 
                     self.fn_mapped_sim,
                     self.e_postproc,
-                    self.goal,
+                    self.goal
                 )
-
+                
                 logger.log(26, "=" * 100)
                 logger.log(26, "RESULTS FOR SIMULATION WITH MAPPED ELECTRODES:")
                 logger.log(26, make_summary_text(m_surf_mapped, m_head_mapped))
                 logger.log(26, "=" * 100)
-
+                
                 if self.open_in_gmsh:
                     for i in fn_vis_mapped:
+                        # [TI-TOOLBOX] use mesh_io.open_in_gmsh instead of gmsh_view
                         mesh_io.open_in_gmsh(i, True)
 
         self._log_summary_postopt()
@@ -1586,265 +1735,8 @@ class TesFlexOptimization:
         # write results details (final fields via onlineFEM with dirichlet_corrections as txt and hdf5)
         if self.detailed_results:
             self._write_detailed_results_postopt(self.optim_funvalue)
-
-        # Note: valid skin visualizations are now created during _prepare() phase
-        # No longer need to create them here after optimization
-
+        
         self._finish_logger()
-
-    def _create_valid_skin_visualizations_from_data(self, original_nodes, skin_surface):
-        """
-        Create 2D visualization of valid skin region for electrode placement.
-
-        This method works directly with in-memory data and is automatically called during
-        preparation phase, before optimization runs.
-
-        Parameters
-        ----------
-        original_nodes : np.ndarray
-            Original skin surface nodes before filtering (N x 3 array)
-        skin_surface : Surface
-            Filtered skin surface with mask_valid_nodes attribute
-        """
-        logger.info("Creating valid skin region visualization...")
-
-        # Extract valid and invalid nodes from the mask
-        data = {}
-
-        if hasattr(skin_surface, "mask_valid_nodes"):
-            mask = skin_surface.mask_valid_nodes
-            data["valid_nodes"] = original_nodes[mask]
-            data["invalid_nodes"] = original_nodes[~mask]
-            logger.info(f"Extracted {len(data['valid_nodes'])} valid skin nodes")
-            logger.info(f"Extracted {len(data['invalid_nodes'])} invalid skin nodes")
-        else:
-            # Fallback: all current nodes are valid
-            data["valid_nodes"] = skin_surface.nodes
-            logger.info(
-                f"Using all {len(data['valid_nodes'])} nodes as valid (no mask found)"
-            )
-
-        if not data:
-            logger.warning("No skin data available for visualization")
-            return
-
-        # Create output directory for plots
-        vis_dir = os.path.join(self._detailed_results_folder, "skin_visualization")
-        os.makedirs(vis_dir, exist_ok=True)
-
-        # Load electrode positions if available and check if they're in valid region
-        electrodes_data = None
-        if (
-            hasattr(self, "net_electrode_file")
-            and self.net_electrode_file
-            and os.path.exists(self.net_electrode_file)
-        ):
-            try:
-                # Read first to detect if header exists (check if first row has non-numeric x,y,z values)
-                df_test = pd.read_csv(
-                    self.net_electrode_file, header=None, sep=",", nrows=1
-                )
-                has_header = False
-                try:
-                    # Try to convert x, y, z columns (indices 1, 2, 3) to float
-                    float(df_test.iloc[0, 1])
-                    float(df_test.iloc[0, 2])
-                    float(df_test.iloc[0, 3])
-                except (ValueError, TypeError):
-                    has_header = True
-
-                # Read the full file, skipping header if it exists
-                skiprows = 1 if has_header else 0
-                df = pd.read_csv(
-                    self.net_electrode_file, header=None, sep=",", skiprows=skiprows
-                )
-                df.columns = ["type", "x", "y", "z", "label"]
-                electrodes = df[df["type"] == "Electrode"]
-                if len(electrodes) > 0:
-                    positions = electrodes[["x", "y", "z"]].values
-                    labels = electrodes["label"].values
-
-                    # Check which electrodes are in valid vs invalid regions
-                    # Find nearest skin node for each electrode using simple distance threshold
-                    valid_mask = np.zeros(len(positions), dtype=bool)
-                    distance_threshold = 10.0  # mm - electrodes within this distance are considered "on" that region
-
-                    for i, elec_pos in enumerate(positions):
-                        # Calculate distances to valid nodes
-                        if "valid_nodes" in data and len(data["valid_nodes"]) > 0:
-                            distances_valid = np.linalg.norm(
-                                data["valid_nodes"] - elec_pos, axis=1
-                            )
-                            min_dist_valid = np.min(distances_valid)
-
-                            # Calculate distances to invalid nodes
-                            min_dist_invalid = np.inf
-                            if (
-                                "invalid_nodes" in data
-                                and len(data["invalid_nodes"]) > 0
-                            ):
-                                distances_invalid = np.linalg.norm(
-                                    data["invalid_nodes"] - elec_pos, axis=1
-                                )
-                                min_dist_invalid = np.min(distances_invalid)
-
-                            # Electrode is valid if it's closer to valid region than invalid region
-                            valid_mask[i] = (
-                                min_dist_valid < min_dist_invalid
-                                and min_dist_valid < distance_threshold
-                            )
-
-                    # Separate valid and compromised electrodes
-                    valid_electrodes = valid_mask
-                    compromised_electrodes = ~valid_mask
-
-                    electrodes_data = {
-                        "positions": positions,
-                        "labels": labels,
-                        "valid_mask": valid_electrodes,
-                        "compromised_mask": compromised_electrodes,
-                    }
-
-                    n_valid = np.sum(valid_electrodes)
-                    n_compromised = np.sum(compromised_electrodes)
-
-                    logger.info(
-                        f"Loaded {len(positions)} electrode positions from: {self.net_electrode_file}"
-                    )
-                    logger.info(
-                        f"Valid electrodes: {n_valid}, Compromised electrodes: {n_compromised}"
-                    )
-
-                    # Log compromised electrodes
-                    if n_compromised > 0:
-                        logger.warning(
-                            f"Found {n_compromised} electrodes outside valid skin region:"
-                        )
-                        for label in labels[compromised_electrodes]:
-                            logger.warning(f"  - Compromised electrode: {label}")
-
-            except Exception as e:
-                logger.warning(f"Error loading electrode positions: {e}")
-
-        # Create 2D projections with 4 panels
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-
-        projections = [
-            ("X-Y (top)", 0, 1, "Z"),
-            ("X-Z (sagittal)", 0, 2, "Y"),
-            ("Y-Z (coronal right)", 1, 2, "X"),
-            ("Y-Z (coronal left)", 1, 2, "X"),  # Same axes, will flip for left view
-        ]
-
-        for i, (title, x_idx, y_idx, z_label) in enumerate(projections):
-            ax = axes[i // 2, i % 2]
-
-            # For the fourth panel (coronal left), we'll flip the x-axis direction
-            is_left_coronal = i == 3
-
-            # Plot invalid nodes first (in background) in grey - opaque
-            if "invalid_nodes" in data:
-                ax.scatter(
-                    data["invalid_nodes"][:, x_idx],
-                    data["invalid_nodes"][:, y_idx],
-                    c="grey",
-                    alpha=1.0,
-                    s=1,
-                    label="Invalid",
-                    rasterized=True,
-                )
-
-            # Plot valid nodes on top in green - opaque
-            if "valid_nodes" in data:
-                ax.scatter(
-                    data["valid_nodes"][:, x_idx],
-                    data["valid_nodes"][:, y_idx],
-                    c="green",
-                    alpha=1.0,
-                    s=1,
-                    label="Valid",
-                    rasterized=True,
-                )
-
-            # Plot electrodes if available
-            if electrodes_data:
-                positions = electrodes_data["positions"]
-                labels = electrodes_data["labels"]
-                valid_mask = electrodes_data["valid_mask"]
-                compromised_mask = electrodes_data["compromised_mask"]
-
-                # Plot valid electrodes in blue
-                if np.any(valid_mask):
-                    ax.scatter(
-                        positions[valid_mask, x_idx],
-                        positions[valid_mask, y_idx],
-                        c="blue",
-                        s=50,
-                        marker="o",
-                        label="Valid Electrodes",
-                        edgecolors="black",
-                        linewidth=1,
-                        zorder=10,
-                    )
-
-                    # Add labels for valid electrodes
-                    for pos, label in zip(positions[valid_mask], labels[valid_mask]):
-                        ax.annotate(
-                            label,
-                            (pos[x_idx], pos[y_idx]),
-                            fontsize=6,
-                            ha="center",
-                            va="center",
-                            zorder=11,
-                        )
-
-                # Plot compromised electrodes in orange
-                if np.any(compromised_mask):
-                    ax.scatter(
-                        positions[compromised_mask, x_idx],
-                        positions[compromised_mask, y_idx],
-                        c="orange",
-                        s=50,
-                        marker="X",
-                        label="Compromised Electrodes",
-                        edgecolors="red",
-                        linewidth=1.5,
-                        zorder=10,
-                    )
-
-                    # Add labels for compromised electrodes
-                    for pos, label in zip(
-                        positions[compromised_mask], labels[compromised_mask]
-                    ):
-                        ax.annotate(
-                            label,
-                            (pos[x_idx], pos[y_idx]),
-                            fontsize=6,
-                            ha="center",
-                            va="center",
-                            color="red",
-                            fontweight="bold",
-                            zorder=11,
-                        )
-
-            ax.set_xlabel(f"{title.split()[0]} (mm)")
-            ax.set_ylabel(f"{title.split()[1]} (mm)")
-            ax.set_title(title)
-            ax.legend()
-            ax.axis("equal")
-
-            # Flip x-axis for left coronal view to show the other side
-            if is_left_coronal:
-                ax.invert_xaxis()
-
-        plt.tight_layout()
-
-        # Save as PDF at 600 DPI
-        pdf_path = os.path.join(vis_dir, "skin_surface_2d.pdf")
-        plt.savefig(pdf_path, dpi=600, bbox_inches="tight", format="pdf")
-        plt.close()
-
-        logger.info(f"Visualization complete. Plot saved as: {pdf_path}")
 
     def add_roi(self, roi=None):
         """
@@ -1866,7 +1758,7 @@ class TesFlexOptimization:
         return roi
 
     def to_dict(self) -> dict:
-        """Makes a dictionary storing all settings as key value pairs
+        """ Makes a dictionary storing all settings as key value pairs
 
         Returns
         --------------------
@@ -1875,17 +1767,16 @@ class TesFlexOptimization:
         """
         # Generate dict from instance variables (excluding variables starting with _ or __)
         settings = {
-            key: value
-            for key, value in self.__dict__.items()
-            if not key.startswith("__")
-            and not key.startswith("_")
+            key:value for key, value in self.__dict__.items()
+            if not key.startswith('__')
+            and not key.startswith('_')
             and not callable(value)
             and not callable(getattr(value, "__get__", None))
             and value is not None
         }
 
         # Add class name as type (type is protected in python so it cannot be a instance variable)
-        settings["type"] = "TesFlexOptimization"
+        settings['type'] = 'TesFlexOptimization'
 
         roi_dicts = []
         for roi_class in self.roi:
@@ -1900,7 +1791,7 @@ class TesFlexOptimization:
         return settings
 
     def from_dict(self, settings: dict) -> "TesFlexOptimization":
-        """Reads parameters from a dict
+        """ Reads parameters from a dict
 
         Parameters
         ----------
@@ -1909,17 +1800,12 @@ class TesFlexOptimization:
         """
 
         for key, value in self.__dict__.items():
-            if (
-                key.startswith("__")
-                or key.startswith("_")
-                or callable(value)
-                or callable(getattr(value, "__get__", None))
-            ):
+            if key.startswith('__') or key.startswith('_') or callable(value) or callable(getattr(value, "__get__", None)):
                 continue
             setattr(self, key, settings.get(key, value))
 
         self.roi = []
-        if "roi" in settings:
+        if 'roi' in settings:
             roi_dicts = settings["roi"]
             if isinstance(roi_dicts, dict):
                 roi_dicts = [roi_dicts]
@@ -1927,17 +1813,18 @@ class TesFlexOptimization:
                 self.roi.append(RegionOfInterest(roi_dict))
 
         self.electrode = []
-        if "electrode" in settings:
+        if 'electrode' in settings:
             electrode_dicts = settings["electrode"]
             if isinstance(electrode_dicts, dict):
                 electrode_dicts = [electrode_dicts]
             for elec_dict in electrode_dicts:
-                if elec_dict["type"] == "ElectrodeArrayPair":
+                if elec_dict['type'] == 'ElectrodeArrayPair':
                     self.electrode.append(ElectrodeArrayPair().from_dict(elec_dict))
-                elif elec_dict["type"] == "CircularArray":
+                elif elec_dict['type'] == 'CircularArray':
                     self.electrode.append(CircularArray().from_dict(elec_dict))
 
         return self
+   
 
     def goal_fun(self, parameters):
         """
@@ -2029,7 +1916,6 @@ class TesFlexOptimization:
 
         # focality based goal functions
         if "focality" in self.goal or "focality_inv" in self.goal:
-
             y = np.zeros((n_effective_channels))  # one function value per channel
 
             for i_channel_stim in range(n_effective_channels):
@@ -2050,14 +1936,12 @@ class TesFlexOptimization:
 
         # Mean/Max/ etc. based goal functions
         else:
-
             y = np.zeros(
                 (n_effective_channels, self._n_roi)
             )  # one goal function value per channel and roi
 
             for i_roi in range(self._n_roi):
                 for i_channel_stim in range(n_effective_channels):
-
                     # mean electric field in the roi
                     if self.goal[i_roi] == "mean":
                         y[i_channel_stim, i_roi] = -np.mean(e[i_channel_stim][i_roi])
@@ -2145,8 +2029,10 @@ class TesFlexOptimization:
                         Nz = np.array([row[1], row[2], row[3]]).astype(float)
 
             # project nasion to skin surface and determine normal vector
+            # [TI-TOOLBOX] use tag1 == 1005 instead of get_tags(1005)
             con_skin = (
-                self._mesh.elm.node_number_list[self._mesh.elm.tag1 == 1005,][:, :3] - 1
+                self._mesh.elm.node_number_list[self._mesh.elm.tag1 == 1005,][:, :3]
+                - 1
             )
             tri_skin_center = np.mean(self._mesh.nodes.node_coord[con_skin,], axis=1)
             idx_min = np.argmin(np.linalg.norm(tri_skin_center - Nz, axis=1))
@@ -2419,7 +2305,6 @@ class TesFlexOptimization:
         # estimate optimal electrode currents from previous simulations
         for i_channel_stim in range(self.n_channel_stim):
             if self.electrode[i_channel_stim]._current_estimator is not None:
-
                 # estimate optimal currents electrode wise
                 currents_estimate = self.electrode[i_channel_stim].estimate_currents(
                     electrode_pos[i_channel_stim]
@@ -2666,6 +2551,7 @@ class TesFlexOptimization:
             for i_array, _electrode_array in enumerate(
                 self.electrode[i_channel_stim]._electrode_arrays
             ):
+                # [TI-TOOLBOX] use surface= kwarg instead of mesh=
                 ele_idx, tmp = ellipsoid2subject(
                     coords=electrode_coords_eli_eli[electrode_array_idx == i_array, :],
                     ellipsoid=self._ellipsoid,
@@ -2691,7 +2577,7 @@ class TesFlexOptimization:
                 for _electrode in _electrode_array.electrodes:
                     if _electrode.type == "spherical":
                         mask, posmat = get_node_mask_spherical_electrode(
-                            node_coords_skin=self._skin_surface.nodes,
+                            node_coords_skin=self._skin_surface.nodes.node_coord,
                             ele_coords_center=electrode_coords_subject[i_channel_stim][
                                 i_ele, :
                             ],
@@ -2700,7 +2586,7 @@ class TesFlexOptimization:
 
                     elif _electrode.type == "rectangular":
                         mask, posmat = get_node_mask_rectangular_electrode(
-                            node_coords_skin=self._skin_surface.nodes,
+                            node_coords_skin=self._skin_surface.nodes.node_coord,
                             ele_coords_center=electrode_coords_subject[i_channel_stim][
                                 i_ele, :
                             ],
@@ -2719,7 +2605,7 @@ class TesFlexOptimization:
                     _electrode.posmat = posmat
 
                     # node areas
-                    _electrode.node_area = self._skin_surface.nodes_areas[mask]
+                    _electrode.node_area = self._skin_surface.nodes_areas().value[mask]
 
                     # total effective area of all nodes
                     _electrode.area_skin = _electrode.node_area_total
@@ -2738,7 +2624,7 @@ class TesFlexOptimization:
                     _electrode.node_idx = self._node_idx_msh[mask]
 
                     # save node coords (refering to global mesh)
-                    _electrode.node_coords = self._skin_surface.nodes[mask]
+                    _electrode.node_coords = self._skin_surface.nodes.node_coord[mask]
 
                     node_coords_list[i_array_global].append(_electrode.node_coords)
 
@@ -2751,9 +2637,9 @@ class TesFlexOptimization:
                             )
                         )
                     else:
-                        node_idx_dict[i_channel_stim][
-                            _electrode.channel_id
-                        ] = _electrode.node_idx
+                        node_idx_dict[i_channel_stim][_electrode.channel_id] = (
+                            _electrode.node_idx
+                        )
 
                     i_ele += 1
 
@@ -2800,7 +2686,6 @@ class TesFlexOptimization:
         logger.info("Electrode positions valid")
         e = [[] for _ in range(self.n_channel_stim)]
         for i_channel_stim in range(self.n_channel_stim):
-
             if plot:
                 # when using Dirichlet correction, online FEM will save
                 # electrode node coords and the optimized currents to this file
@@ -2828,21 +2713,28 @@ class TesFlexOptimization:
         return e
 
 
+# [TI-TOOLBOX] Standalone valid_skin_region implementation with MNI masking
+# and spurious patch removal. Replaces the electrode_layout version to support
+# additional features like mask_valid_nodes for visualization.
 def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance=0.0):
     """
-    Determine the nodes of the scalp surface where the electrode can be applied (not ears and face etc.)
+    Determine the nodes of the scalp surface where the electrode can be applied
+    (not ears and face etc.)
 
     Parameters
     ----------
-    skin_surface : Surface object
-        Surface of the mesh (mesh_tools/surface.py)
+    skin_surface : Msh object
+        Cropped skin surface mesh (from mesh.crop_mesh(tags=1005))
     mesh : Msh object
-        Mesh object created by SimNIBS (mesh_tools/mesh_io.py)
+        Full mesh object created by SimNIBS (mesh_tools/mesh_io.py)
+    fn_electrode_mask : str
+        Path to MNI volume mask of valid electrode positions
     additional_distance : float, optional, default: 0
         Additional distance in anterior part to put between original MNI template registration
     """
-    nodes_all = copy.deepcopy(skin_surface.nodes)
-    tr_nodes_all = copy.deepcopy(skin_surface.tr_nodes)
+    nodes_all = skin_surface.nodes.node_coord.copy()
+    con_all = skin_surface.elm.node_number_list[:, :3] - 1
+
     # load mask of valid electrode positions (in MNI space)
     mask_img = nibabel.load(fn_electrode_mask)
     mask_img_data = mask_img.get_fdata()
@@ -2856,7 +2748,7 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
 
     # transform skin surface points to MNI space
     skin_nodes_mni_ras = subject2mni_coords(
-        coordinates=skin_surface.nodes,
+        coordinates=nodes_all,
         m2m_folder=os.path.split(mesh.fn)[0],
         transformation_type="nonl",
     )
@@ -2886,37 +2778,25 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
     )
 
     # get boolean mask of valid skin points
-    skin_surface.mask_valid_nodes = mask_img_data[
+    mask_valid_nodes = mask_img_data[
         skin_nodes_mni_voxel[:, 0],
         skin_nodes_mni_voxel[:, 1],
         skin_nodes_mni_voxel[:, 2],
     ].astype(bool)
 
     # remove points outside of MNI space (lower neck)
-    skin_surface.mask_valid_nodes[(skin_nodes_mni_voxel < 0).any(axis=1)] = False
+    mask_valid_nodes[(skin_nodes_mni_voxel < 0).any(axis=1)] = False
 
-    skin_surface.mask_valid_tr = np.zeros(skin_surface.tr_centers.shape).astype(bool)
-
-    unique_points = np.unique(
-        skin_surface.tr_nodes[
-            skin_surface.mask_valid_nodes[skin_surface.tr_nodes].all(axis=1), :
-        ]
-    )
-    for point in unique_points:
-        idx_where = np.where(skin_surface.tr_nodes == point)
-        skin_surface.mask_valid_tr[idx_where[0], idx_where[1]] = True
-    skin_surface.mask_valid_tr = skin_surface.mask_valid_tr.all(axis=1)
-
-    # determine connectivity list of valid skin region (creates new node and connectivity list)
-    skin_surface.nodes, skin_surface.tr_nodes = create_new_connectivity_list_point_mask(
-        points=skin_surface.nodes,
-        con=skin_surface.tr_nodes,
-        point_mask=skin_surface.mask_valid_nodes,
+    # filter nodes and connectivity using mask
+    nodes_valid, con_valid = create_new_connectivity_list_point_mask(
+        points=nodes_all,
+        con=con_all,
+        point_mask=mask_valid_nodes,
     )
 
     # identify spurious skin patches inside head and remove them
-    tri_domain = np.ones(skin_surface.tr_nodes.shape[0]).astype(int) * -1
-    point_domain = np.ones(skin_surface.nodes.shape[0]).astype(int) * -1
+    tri_domain = np.ones(con_valid.shape[0]).astype(int) * -1
+    point_domain = np.ones(nodes_valid.shape[0]).astype(int) * -1
 
     domain = 0
     while (tri_domain == -1).any():
@@ -2928,15 +2808,10 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
         while n_last != n_current:
             n_last = copy.deepcopy(n_current)
             nodes_idx_of_domain = np.unique(
-                np.append(
-                    nodes_idx_of_domain, skin_surface.tr_nodes[tri_idx_of_domain, :]
-                )
+                np.append(nodes_idx_of_domain, con_valid[tri_idx_of_domain, :])
             ).astype(int)
-            tri_idx_of_domain = np.isin(skin_surface.tr_nodes, nodes_idx_of_domain).any(
-                axis=1
-            )
+            tri_idx_of_domain = np.isin(con_valid, nodes_idx_of_domain).any(axis=1)
             n_current = np.sum(tri_idx_of_domain)
-            # print(f"domain: {domain}, n_current: {n_current}")
 
         tri_domain[tri_idx_of_domain] = domain
         point_domain[nodes_idx_of_domain] = domain
@@ -2944,38 +2819,26 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
 
     domain_idx_main = np.argmax([np.sum(point_domain == d) for d in range(domain)])
 
-    skin_surface.nodes, skin_surface.tr_nodes = create_new_connectivity_list_point_mask(
-        points=skin_surface.nodes,
-        con=skin_surface.tr_nodes,
+    nodes_final, con_final = create_new_connectivity_list_point_mask(
+        points=nodes_valid,
+        con=con_valid,
         point_mask=point_domain == domain_idx_main,
     )
 
-    # update masks
-    skin_surface.mask_valid_nodes = np.zeros(nodes_all.shape[0]).astype(bool)
+    # update mask to reflect spurious patch removal
+    final_mask = np.zeros(nodes_all.shape[0]).astype(bool)
     for i_p, p in enumerate(nodes_all):
-        if p in skin_surface.nodes:
-            skin_surface.mask_valid_nodes[i_p] = True
+        if p in nodes_final:
+            final_mask[i_p] = True
 
-    skin_surface.mask_valid_tr = np.zeros(tr_nodes_all.shape[0]).astype(bool)
-    for i_t, t in enumerate(tr_nodes_all):
-        if t in skin_surface.tr_nodes:
-            skin_surface.mask_valid_tr[i_t] = True
+    # Build a new mesh from the valid skin surface using mesh_io
+    result_mesh = mesh_io.make_surface_mesh(nodes_final, con_final + 1)
+    result_mesh.fn = mesh.fn
 
-    skin_surface.nodes_areas = skin_surface.nodes_areas[skin_surface.mask_valid_nodes]
-    skin_surface.nodes_normals = skin_surface.nodes_normals[
-        skin_surface.mask_valid_nodes, :
-    ]
-    skin_surface.surf2msh_nodes = skin_surface.surf2msh_nodes[
-        skin_surface.mask_valid_nodes
-    ]
-    skin_surface.surf2msh_triangles = skin_surface.surf2msh_triangles[
-        skin_surface.mask_valid_tr
-    ]
-    skin_surface.tr_areas = skin_surface.tr_areas[skin_surface.mask_valid_tr]
-    skin_surface.tr_centers = skin_surface.tr_centers[skin_surface.mask_valid_tr, :]
-    skin_surface.tr_normals = skin_surface.tr_normals[skin_surface.mask_valid_tr, :]
+    # Store the valid node mask on the mesh for visualization
+    result_mesh.mask_valid_nodes = final_mask
 
-    return skin_surface
+    return result_mesh
 
 
 def get_array_direction(electrode_pos, ellipsoid):
@@ -3020,7 +2883,6 @@ def get_array_direction(electrode_pos, ellipsoid):
 
 
 def get_element_properties(roi):
-
     vol = None
     node_normals = None
     if roi.method == "surface":
@@ -3074,12 +2936,11 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
         if dirvec.shape[0] == 1:
             dirvec = np.repeat(dirvec, e.shape[0], axis=0)
 
-    if (
-        type in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential"]
-        and e2 is None
-    ):
+    # [TI-TOOLBOX] added dir_TI_normal and dir_TI_tangential to TI check
+    if type in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential"] and e2 is None:
         raise ValueError("Please provide second e-field to calculate TI field!")
 
+    # [TI-TOOLBOX] validate dirvec is provided for directional types
     if (
         type in ["normal", "tangential", "dir_TI", "dir_TI_normal", "dir_TI_tangential"]
         and dirvec is None
@@ -3103,19 +2964,14 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
     elif type == "dir_TI":
         e_pp = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
 
+    # [TI-TOOLBOX] directional TI field normal component
     elif type == "dir_TI_normal":
-        # Calculate directional TI field in normal direction
-        # get_dirTI likely returns the normal component by default
         e_pp = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
 
+    # [TI-TOOLBOX] directional TI field tangential component
     elif type == "dir_TI_tangential":
-        # For tangential component, we need to calculate the TI field envelope
-        # and then extract the tangential component
-        # First get the max TI field magnitude
         max_ti = get_maxTI(E1_org=e, E2_org=e2)
-        # Get the normal component using get_dirTI
         normal_ti = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
-        # Calculate tangential component: sqrt(max_ti^2 - normal_ti^2)
         e_pp = np.sqrt(np.maximum(0, max_ti**2 - normal_ti**2))
 
     else:
@@ -3139,6 +2995,7 @@ def write_visualization(
     e_postproc = list(np.unique(e_postproc))
 
     for i in e_postproc:
+        # [TI-TOOLBOX] added dir_TI_normal and dir_TI_tangential
         if i not in [
             "max_TI",
             "dir_TI",
@@ -3269,6 +3126,7 @@ def write_visualization(
                         m_surf.add_node_field(d_avg, "average__" + metric)
                     )
 
+        # [TI-TOOLBOX] added dir_TI_normal and dir_TI_tangential to metric loop
         for metric in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential"]:
             if metric in e_postproc and n_results == 2:
                 # append maxTI, dirTI, dir_TI_normal, and dir_TI_tangential
@@ -3388,6 +3246,7 @@ def make_summary_text(m_surf, m_head, tissues_m_head=[ElementTags.GM]):
         result_field_names = {
             "max_TI",
             "dir_TI",
+            # [TI-TOOLBOX] added dir_TI_normal and dir_TI_tangential
             "dir_TI_normal",
             "dir_TI_tangential",
             "magnE",
@@ -3636,3 +3495,6 @@ def check_electrode_distance(
         )
     else:
         return True, electrode_pos_valid
+
+
+
