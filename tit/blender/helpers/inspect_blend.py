@@ -2,6 +2,7 @@
 """
 Script to inspect a Blender file and extract scene information.
 """
+
 import bpy
 import sys
 

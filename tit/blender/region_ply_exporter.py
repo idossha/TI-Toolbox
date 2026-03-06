@@ -31,7 +31,6 @@ Examples:
         --keep-meshes
 """
 
-
 import nibabel as nib
 import simnibs
 import numpy as np
@@ -52,8 +51,7 @@ import platform
 from .utils import create_roi_mesh, extract_roi_region_no_zeros
 
 # Import mesh utilities
-from tit.core.mesh import create_mesh_opt_file
-
+from tit.tools.mesh_utils import create_mesh_opt_file
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PLY Writers and Colormaps

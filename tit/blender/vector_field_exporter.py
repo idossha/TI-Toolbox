@@ -8,6 +8,7 @@ Examples:
   simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --export-ch1-ch2 --sum --ti-normal
   simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --mti tdcs3.msh tdcs4.msh
 """
+
 import numpy as np
 import simnibs
 import trimesh
@@ -17,7 +18,7 @@ import os
 import sys
 import argparse
 
-from tit.core.calc import get_TI_vectors, get_mTI_vectors
+from tit.calc import get_TI_vectors, get_mTI_vectors
 
 # Baseline visualization scaling so that user-facing defaults of 1.00 produce
 # a practical visual size without requiring large/small numeric inputs.

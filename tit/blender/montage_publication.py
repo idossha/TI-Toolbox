@@ -12,10 +12,9 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from tit.core import get_path_manager
-from tit.core import constants as const
+from tit.paths import get_path_manager
+from tit import constants as const
 from tit.blender import utils as be_utils
-from tit import logger as logging_util
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +28,18 @@ def configure_montage_loggers(parent_logger: logging.Logger) -> None:
     Args:
         parent_logger: The parent logger whose handlers should be used
     """
-    logging_util.configure_external_loggers(
-        names=[
-            "tit.blender.montage_publication",
-            "tit.blender.electrode_placement",
-            "tit.blender.utils",
-            "tit.blender.scene_setup",
-            "simnibs",
-        ],
-        parent_logger=parent_logger,
-    )
+    names = [
+        "tit.blender.montage_publication",
+        "tit.blender.electrode_placement",
+        "tit.blender.utils",
+        "tit.blender.scene_setup",
+        "simnibs",
+    ]
+    for name in names:
+        child = logging.getLogger(name)
+        child.handlers = list(parent_logger.handlers)
+        child.setLevel(parent_logger.level or logging.INFO)
+        child.propagate = False
 
 
 def _find_tetrahedral_mesh(sim_dir: str) -> str:
@@ -69,9 +70,7 @@ def _find_central_surface_mesh(
     from pathlib import Path
 
     pm = get_path_manager()
-    expected = pm.path_optional(
-        "ti_central_surface", subject_id=subject_id, simulation_name=simulation_name
-    )
+    expected = pm.ti_central_surface(subject_id, simulation_name)
     if expected and os.path.exists(expected):
         logger.debug(f"Found existing central surface: {expected}")
         return expected
@@ -93,15 +92,13 @@ def _find_central_surface_mesh(
     logger.info("Central surface not found, generating using msh2cortex...")
 
     # Get paths
-    ti_mesh_path = pm.path_optional(
-        "ti_mesh", subject_id=subject_id, simulation_name=simulation_name
-    )
+    ti_mesh_path = pm.ti_mesh(subject_id, simulation_name)
     if not ti_mesh_path or not os.path.exists(ti_mesh_path):
         raise FileNotFoundError(
             f"Volumetric TI mesh not found; expected at: {ti_mesh_path}"
         )
 
-    m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+    m2m_dir = pm.m2m(subject_id)
     if not m2m_dir or not os.path.isdir(m2m_dir):
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
 
@@ -187,7 +184,7 @@ def export_gm_stl_from_sim(
 
 def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
     pm = get_path_manager()
-    eeg_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
+    eeg_dir = pm.eeg_positions(subject_id)
     if not eeg_dir:
         raise FileNotFoundError(
             f"EEG positions directory not found for subject {subject_id}"
@@ -294,9 +291,7 @@ def build_montage_publication_blend(
     import bpy
 
     pm = get_path_manager()
-    sim_dir = pm.path_optional(
-        "simulation", subject_id=subject_id, simulation_name=simulation_name
-    )
+    sim_dir = pm.simulation(subject_id, simulation_name)
     if not sim_dir:
         raise FileNotFoundError(
             f"Simulation directory not found for {subject_id}/{simulation_name}"
@@ -344,7 +339,7 @@ def build_montage_publication_blend(
         os.path.join(os.path.dirname(__file__), "Electrode.blend")
     )
 
-    subject_m2m = pm.path_optional("m2m", subject_id=subject_id)
+    subject_m2m = pm.m2m(subject_id)
     if not subject_m2m or not os.path.isdir(subject_m2m):
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")

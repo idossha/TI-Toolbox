@@ -13,6 +13,7 @@ Dependencies:
     - simnibs
     - subprocess (for msh2cortex operations)
 """
+
 import numpy as np
 import simnibs
 

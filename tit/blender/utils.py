@@ -45,14 +45,12 @@ def load_simulation_config(
     """
 
     import json
-    from tit.core import get_path_manager
+    from tit.paths import get_path_manager
 
     pm = get_path_manager()
 
     # Construct path to config file
-    sim_dir = pm.path_optional(
-        "simulation", subject_id=subject_id, simulation_name=simulation_name
-    )
+    sim_dir = pm.simulation(subject_id, simulation_name)
     if not sim_dir:
         logger.warning(
             f"Simulation directory not found for {subject_id}/{simulation_name}"
@@ -223,7 +221,7 @@ def create_roi_mesh(
     roi_mesh.write(temp_mesh_path)
 
     # Create .opt file for Gmsh visualization
-    from tit.core.mesh import create_mesh_opt_file
+    from tit.tools.mesh_utils import create_mesh_opt_file
 
     if len(roi_field_values[roi_mask]) > 0:
         max_value = np.max(roi_field_values[roi_mask])
