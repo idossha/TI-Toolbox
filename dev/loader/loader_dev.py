@@ -266,7 +266,7 @@ def run_docker_compose(env: dict[str, str], dev_codebase_dir: Path) -> None:
     else:
         subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
 
-    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"])
+    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env)
 
 
 def display_welcome() -> None:
@@ -333,6 +333,7 @@ def main() -> None:
     env = os.environ.copy()
     env["LOCAL_PROJECT_DIR"] = str(project_dir)
     env["PROJECT_DIR_NAME"] = project_dir.name
+    env["TZ"] = capture(["date", "+%Z"])
     env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
     env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
     if platform.system() == "Darwin":
