@@ -3,6 +3,9 @@
 # Initialize .bashrc if it doesn't exist
 touch ~/.bashrc
 
+# Lock Qt font DPI to 96 for consistent pt-based sizing across displays.
+export QT_FONT_DPI=96
+
 # Source environment setup scripts
 [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
 
@@ -80,16 +83,7 @@ print_software_info() {
 # Note: CLI is Python-based; avoid chmod'ing non-existent legacy .sh scripts.
 
 # Create CLI script aliases (without .sh extension)
-alias GUI='simnibs_python -m tit.cli.gui'
-alias analyzer='simnibs_python -m tit.cli.analyzer'
-alias ex_search='simnibs_python -m tit.cli.ex_search'
-alias flex_search='simnibs_python -m tit.cli.flex_search'
-alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
-alias pre_process='simnibs_python -m tit.cli.pre_process'
-alias simulator='simnibs_python -m tit.cli.simulator'
-alias blender='simnibs_python -m tit.cli.vis_blender'
-alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
-alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
+alias GUI='simnibs_python -m tit.gui.main'
 
 # Add environment setup to .bashrc
 {
@@ -98,16 +92,7 @@ alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
     echo ""
     echo "# TI-Toolbox CLI scripts"
     echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
-    echo "alias GUI='simnibs_python -m tit.cli.gui'"
-    echo "alias analyzer='simnibs_python -m tit.cli.analyzer'"
-    echo "alias ex_search='simnibs_python -m tit.cli.ex_search'"
-    echo "alias flex_search='simnibs_python -m tit.cli.flex_search'"
-    echo "alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'"
-    echo "alias pre_process='simnibs_python -m tit.cli.pre_process'"
-    echo "alias simulator='simnibs_python -m tit.cli.simulator'"
-    echo "alias blender='simnibs_python -m tit.cli.vis_blender'"
-    echo "alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'"
-    echo "alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'"
+    echo "alias GUI='simnibs_python -m tit.gui.main'"
     echo ""
     echo "# Display software info on interactive shell"
     echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"
