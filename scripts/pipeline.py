@@ -16,7 +16,7 @@ from tit.analyzer import Analyzer
 
 PROJECT_DIR = "/mnt/000/"
 SUBJECT_ID = "101"
-EEG_NET = "GSN-HydroCel-128.csv"
+EEG_NET = "GSN-HydroCel-185.csv"
 
 # ── 1. Preprocessing ─────────────────────────────────────────────────────────
 
@@ -30,8 +30,8 @@ EEG_NET = "GSN-HydroCel-128.csv"
 
 # ── 2. Leadfield ─────────────────────────────────────────────────────────────
 
-lfg = LeadfieldGenerator(SUBJECT_ID, electrode_cap="EEG10-20_Okamoto_2004")
-lf = lfg.generate()
+# lfg = LeadfieldGenerator(SUBJECT_ID, electrode_cap="EEG10-20_Okamoto_2004")
+# lf = lfg.generate()
 
 # ── 3. Optimization ──────────────────────────────────────────────────────────
 
