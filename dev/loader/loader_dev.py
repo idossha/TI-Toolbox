@@ -6,11 +6,12 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -83,17 +84,15 @@ def prompt_dir(label: str, prompt: str, current: str) -> Path:
 
 
 def check_docker_available() -> None:
-    if not shutil_which("docker"):
+    if not shutil.which("docker"):
         print("Error: Docker is not installed or not in PATH.")
         sys.exit(1)
-    try:
-        run(["docker", "info"], capture_output=True)
-    except subprocess.CalledProcessError:
+    result = subprocess.run(["docker", "info"], capture_output=True)
+    if result.returncode != 0:
         print("Error: Docker daemon is not running. Please start Docker and try again.")
         sys.exit(1)
-    try:
-        run(["docker", "compose", "version"], capture_output=True)
-    except subprocess.CalledProcessError:
+    result = subprocess.run(["docker", "compose", "version"], capture_output=True)
+    if result.returncode != 0:
         print("Error: Docker Compose (v2) is not available.")
         sys.exit(1)
 
@@ -102,11 +101,8 @@ def check_xquartz_version() -> None:
     xquartz_app = Path("/Applications/Utilities/XQuartz.app")
     if not xquartz_app.exists():
         return
-    try:
-        version = capture(["mdls", "-name", "kMDItemVersion", str(xquartz_app)])
-        version = version.split('"')[-2] if '"' in version else version
-    except Exception:
-        return
+    version = capture(["mdls", "-name", "kMDItemVersion", str(xquartz_app)])
+    version = version.split('"')[-2] if '"' in version else version
     if version and version > "2.8.0":
         print(
             "Warning: XQuartz version is above 2.8.0. Consider 2.7.7 for compatibility."
@@ -130,9 +126,8 @@ def allow_network_clients() -> None:
 
 
 def set_display_env() -> None:
-    system = platform.system()
-    if system == "Linux":
-        os.environ.setdefault("DISPLAY", os.environ.get("DISPLAY", ""))
+    if platform.system() == "Linux":
+        os.environ.setdefault("DISPLAY", ":0")
     else:
         os.environ["DISPLAY"] = "host.docker.internal:0"
 
@@ -145,15 +140,14 @@ def set_macos_opengl_env(env: dict[str, str]) -> None:
     env["TI_GUI_QGL_FALLBACK"] = "1"
 
 
-def initialize_volumes() -> None:
-    for volume in ("ti-toolbox_freesurfer_data",):
-        result = subprocess.run(
-            ["docker", "volume", "inspect", volume],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if result.returncode != 0:
-            run(["docker", "volume", "create", volume], check=False)
+def ensure_docker_volume(volume_name: str) -> None:
+    result = subprocess.run(
+        ["docker", "volume", "inspect", volume_name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        run(["docker", "volume", "create", volume_name], check=False)
 
 
 def write_system_info(project_dir: Path) -> None:
@@ -171,11 +165,8 @@ def write_system_info(project_dir: Path) -> None:
         os.environ.get("DISPLAY", ""),
         "",
     ]
-    try:
-        docker_version = capture(["docker", "--version"])
-        lines += ["## Docker Version", docker_version, ""]
-    except Exception:
-        lines += ["## Docker Version", "Docker not found", ""]
+    docker_version = capture(["docker", "--version"])
+    lines += ["## Docker Version", docker_version, ""]
     info_file.write_text("\n".join(lines))
 
 
@@ -187,12 +178,8 @@ def read_toolbox_version() -> str:
     return match.group(1) if match else "unknown"
 
 
-def project_status_path(project_dir: Path) -> Path:
-    return project_dir / STATUS_RELATIVE_PATH
-
-
 def update_project_status(project_dir: Path) -> None:
-    status_file = project_status_path(project_dir)
+    status_file = project_dir / STATUS_RELATIVE_PATH
     status_file.parent.mkdir(parents=True, exist_ok=True)
     now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     payload = {
@@ -217,37 +204,34 @@ def update_project_status(project_dir: Path) -> None:
     status_file.write_text(json.dumps(payload, indent=2))
 
 
-def initialize_project_structure(project_dir: Path) -> bool:
+def initialize_project_structure(project_dir: Path) -> None:
     try:
         from tit.project_init import initializer
     except Exception:
-        return False
+        return
     if initializer.is_new_project(project_dir):
         initializer.initialize_project_structure(project_dir)
-        try:
-            initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
-        except Exception:
-            pass
-        return True
-    return False
+        initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
 
 
-def ensure_images_pulled(env: dict[str, str]) -> None:
+def get_compose_images() -> list[str]:
     images: list[str] = []
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
         match = re.match(r"^\s*image:\s*(\S+)\s*$", line)
         if match:
             images.append(match.group(1))
+    return images
+
+
+def ensure_images_pulled(env: dict[str, str]) -> None:
+    images = get_compose_images()
     if not images:
         return
-    try:
-        existing = set(
-            capture(
-                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
-            ).splitlines()
-        )
-    except Exception:
-        existing = set()
+    existing = set(
+        capture(
+            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
+        ).splitlines()
+    )
     missing = [image for image in images if image not in existing]
     if not missing:
         return
@@ -294,19 +278,8 @@ def display_welcome() -> None:
 
 
 def is_process_running(name: str) -> bool:
-    try:
-        output = capture(["ps", "aux"])
-    except Exception:
-        return False
+    output = capture(["ps", "aux"])
     return name.lower() in output.lower()
-
-
-def shutil_which(cmd: str) -> Optional[str]:
-    for path in os.environ.get("PATH", "").split(os.pathsep):
-        full = Path(path) / cmd
-        if full.exists() and os.access(full, os.X_OK):
-            return str(full)
-    return None
 
 
 def parse_args() -> argparse.Namespace:
@@ -324,7 +297,7 @@ def main() -> None:
     args = parse_args()
     display_welcome()
     check_docker_available()
-    initialize_volumes()
+    ensure_docker_volume("ti-toolbox_freesurfer_data")
 
     default_project, default_dev = load_default_paths()
     project_dir = (
@@ -352,11 +325,8 @@ def main() -> None:
 
     save_default_paths(str(project_dir), str(dev_codebase_dir))
 
-    is_new = initialize_project_structure(project_dir)
-    if not is_new:
-        update_project_status(project_dir)
-    else:
-        update_project_status(project_dir)
+    initialize_project_structure(project_dir)
+    update_project_status(project_dir)
 
     write_system_info(project_dir)
 
@@ -364,7 +334,6 @@ def main() -> None:
     env["LOCAL_PROJECT_DIR"] = str(project_dir)
     env["PROJECT_DIR_NAME"] = project_dir.name
     env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
-    env["DEV_CODEBASE_DIR_NAME"] = dev_codebase_dir.name
     env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
     if platform.system() == "Darwin":
         set_macos_opengl_env(env)

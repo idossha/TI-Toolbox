@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -55,7 +55,7 @@ def save_default_project_dir(project_dir: str) -> None:
 
 def get_project_dir(
     default_dir: str, provided_dir: str | None = None
-) -> Tuple[Path, bool]:
+) -> tuple[Path, bool]:
     project_dir = provided_dir or default_dir
     if not project_dir:
         project_dir = input("Give path to local project dir:\n").strip()
@@ -128,15 +128,6 @@ def check_x_forwarding() -> Optional[str]:
     return xhost() if xhost else None
 
 
-def set_display_env() -> None:
-    system = platform.system()
-    os.environ["DISPLAY"] = (
-        "host.docker.internal:0"
-        if system in ("Darwin", "Windows")
-        else os.environ.setdefault("DISPLAY", ":0")
-    )
-
-
 def allow_xhost(xhost_bin: Optional[str]) -> None:
     if not xhost_bin:
         return
@@ -144,10 +135,6 @@ def allow_xhost(xhost_bin: Optional[str]) -> None:
     if platform.system() != "Darwin":
         env["DISPLAY"] = ":0"
     run([xhost_bin, "+"], check=False, env=env, capture_output=True)
-
-
-def xquartz_command() -> str:
-    return capture(["ps", "-ax", "-o", "command="])
 
 
 def x11_marker_path(project_dir: Path) -> Path:
@@ -160,9 +147,7 @@ def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
         print("Error: XQuartz is not installed. Please install XQuartz.")
         sys.exit(1)
     if not xhost_bin:
-        print(
-            "Error: xhost is not available. Please ensure XQuartz is installed correctly."
-        )
+        print("Error: xhost is not available. Please ensure XQuartz is installed correctly.")
         sys.exit(1)
 
     Path.home().joinpath(".Xauthority").touch(exist_ok=True)
@@ -178,12 +163,12 @@ def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
         check=False,
     )
 
-    cmd = xquartz_command()
+    cmd = capture(["ps", "-ax", "-o", "command="])
     if "XQuartz" not in cmd and "Xquartz" not in cmd:
         print("Starting XQuartz...")
         run(["open", "-a", "XQuartz"], check=False)
         time.sleep(2)
-        cmd = xquartz_command()
+        cmd = capture(["ps", "-ax", "-o", "command="])
 
     if "XQuartz" not in cmd and "Xquartz" not in cmd:
         print("Error: XQuartz is not running. Start it first (open -a XQuartz).")
@@ -225,8 +210,6 @@ def ensure_docker_volume(volume_name: str) -> None:
 
 
 def get_compose_images() -> list[str]:
-    if not DOCKER_COMPOSE_FILE.exists():
-        return []
     images: list[str] = []
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
         match = re.match(r"^\s*image:\s*(\S+)\s*$", line)
@@ -283,29 +266,15 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
         "PYTHONPATH=/ti-toolbox simnibs_python - <<'PY'\n"
         "import os\n"
         "from pathlib import Path\n"
+        "from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
         "\n"
-        "def main() -> int:\n"
-        "    try:\n"
-        "        from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
-        "    except Exception as exc:\n"
-        '        print(f"  ⚠ Could not import tit.project_init in container: {exc}")\n'
-        "        return 0\n"
+        "project_dir = Path(os.environ['PROJECT_DIR'])\n"
+        "toolbox_root = Path('/ti-toolbox')\n"
         "\n"
-        "    project_dir = Path(os.environ['PROJECT_DIR'])\n"
-        "    toolbox_root = Path('/ti-toolbox')\n"
+        "if is_new_project(project_dir):\n"
+        "    initialize_project_structure(project_dir)\n"
         "\n"
-        "    try:\n"
-        "        if is_new_project(project_dir):\n"
-        "            initialize_project_structure(project_dir)\n"
-        "\n"
-        "        # Returns False when it is a no-op; that's not an error.\n"
-        "        setup_example_data(toolbox_root, project_dir)\n"
-        "    except Exception as exc:\n"
-        '        print(f"  ⚠ Project initialization failed: {exc}")\n'
-        "\n"
-        "    return 0\n"
-        "\n"
-        "raise SystemExit(main())\n"
+        "setup_example_data(toolbox_root, project_dir)\n"
         "PY",
     ]
     subprocess.run(cmd, check=False)
@@ -388,7 +357,6 @@ def main() -> None:
 
     save_default_project_dir(str(project_dir))
 
-    set_display_env()
     maybe_init_macos_x11(project_dir, is_new_project, xhost_bin)
     if platform.system() == "Linux":
         allow_xhost(xhost_bin)
