@@ -2551,11 +2551,10 @@ class TesFlexOptimization:
             for i_array, _electrode_array in enumerate(
                 self.electrode[i_channel_stim]._electrode_arrays
             ):
-                # [TI-TOOLBOX] use surface= kwarg instead of mesh=
                 ele_idx, tmp = ellipsoid2subject(
                     coords=electrode_coords_eli_eli[electrode_array_idx == i_array, :],
                     ellipsoid=self._ellipsoid,
-                    surface=self._skin_surface,
+                    mesh=self._skin_surface,
                 )
                 tmp_arrays.append(tmp)
 
