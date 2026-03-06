@@ -1,6 +1,13 @@
 #!/usr/bin/env simnibs_python
 
-from tit.sim import *
+from tit.sim import (
+    SimulationConfig,
+    ElectrodeConfig,
+    IntensityConfig,
+    ConductivityType,
+    run_simulation,
+    load_montages,
+)
 
 PROJECT_DIR = "/mnt/000/"      
 SUBJECT_ID  = "101"    

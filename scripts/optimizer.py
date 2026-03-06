@@ -1,7 +1,15 @@
 #!/usr/bin/env simnibs_python
 
-from tit.opt import *
-from tit.opt.config import PoolElectrodes
+from tit.opt import (
+    FlexConfig,
+    FlexElectrodeConfig,
+    SphericalROI,
+    run_flex_search,
+    ExConfig,
+    ExCurrentConfig,
+    PoolElectrodes,
+    run_ex_search,
+)
 from tit.opt.leadfield import LeadfieldGenerator
 
 PROJECT_DIR = "/mnt/000/"
@@ -36,7 +44,7 @@ run_flex_search(flex_config)
 #     leadfield_hdf=lf,
 #     roi_name="my_roi.csv",
 #     electrodes=PoolElectrodes(["C3", "C4", "Cz", "Pz"]),
-#     currents=ExCurrentConfig(total=1.0, step=0.1),
+#     currents=ExCurrentConfig(total_current=1.0, current_step=0.1),
 # )
 
 # run_ex_search(ex_config)

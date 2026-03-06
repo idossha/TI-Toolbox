@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 
-from tit.pre.structural import run_pipeline
+from tit.pre import run_pipeline
 
 PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["101"]

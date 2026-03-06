@@ -1,9 +1,19 @@
 #!/usr/bin/env simnibs_python
 
-from tit.logger import setup_logging
-from tit.stats import *
-
-setup_logging()
+from tit.stats import (
+    run_group_comparison,
+    run_correlation,
+    GroupComparisonConfig,
+    CorrelationConfig,
+    CorrelationSubject,
+    GroupSubject,
+    TestType,
+    Alternative,
+    ClusterStat,
+    TissueType,
+    CorrelationType,
+    load_group_subjects,
+)
 
 PROJECT_DIR = "/mnt/000/"
 

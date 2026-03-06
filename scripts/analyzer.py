@@ -1,9 +1,10 @@
 #!/usr/bin/env simnibs_python
 
-from tit.logger import setup_logging
-from tit.analyzer import *
-
-setup_logging()
+from tit.analyzer import (
+    Analyzer,
+    AnalysisResult,
+    run_group_analysis,
+)
 
 PROJECT_DIR = "/mnt/000/"
 SUBJECT_ID = "101"
