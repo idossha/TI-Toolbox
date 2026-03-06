@@ -1,0 +1,74 @@
+"""Entry point: simnibs_python -m tit.analyzer config.json"""
+
+from __future__ import annotations
+
+import json
+import sys
+
+from tit.paths import get_path_manager
+
+
+def main() -> None:
+    config_path = sys.argv[1]
+    with open(config_path) as f:
+        data = json.load(f)
+
+    project_dir = data.pop("project_dir", None)
+    if project_dir:
+        get_path_manager(project_dir)
+
+    mode = data.pop("mode", "single")
+    if mode == "group":
+        _run_group(data)
+    else:
+        _run_single(data)
+
+
+def _run_group(data: dict) -> None:
+    from tit.analyzer import run_group_analysis
+
+    run_group_analysis(
+        subject_ids=data["subject_ids"],
+        simulation=data["simulation"],
+        space=data.get("space", "mesh"),
+        analysis_type=data.get("analysis_type", "spherical"),
+        center=tuple(data["center"]) if data.get("center") else None,
+        radius=data.get("radius"),
+        coordinate_space=data.get("coordinate_space", "subject"),
+        atlas=data.get("atlas"),
+        region=data.get("region"),
+        visualize=data.get("visualize", True),
+        output_dir=data.get("output_dir"),
+    )
+
+
+def _run_single(data: dict) -> None:
+    from tit.analyzer import Analyzer
+
+    analysis_type = data.pop("analysis_type")
+    visualize = data.get("visualize", True)
+
+    analyzer = Analyzer(
+        subject_id=data["subject_id"],
+        simulation=data["simulation"],
+        space=data.get("space", "mesh"),
+        output_dir=data.get("output_dir"),
+    )
+
+    if analysis_type == "spherical":
+        analyzer.analyze_sphere(
+            center=tuple(data["center"]),
+            radius=data["radius"],
+            coordinate_space=data.get("coordinate_space", "subject"),
+            visualize=visualize,
+        )
+    elif analysis_type == "cortical":
+        analyzer.analyze_cortex(
+            atlas=data["atlas"],
+            region=data.get("region", ""),
+            visualize=visualize,
+        )
+
+
+if __name__ == "__main__":
+    main()

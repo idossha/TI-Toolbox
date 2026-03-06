@@ -260,6 +260,40 @@ class PathManager:
         )
         return subjects
 
+    def list_all_subjects(self) -> List[str]:
+        """List all subject IDs found anywhere in the project.
+
+        Merges subjects from:
+        1. ``list_subjects()`` (those with m2m directories)
+        2. ``sub-*`` directories under the project root
+        3. ``sub-*`` directories under derivatives/SimNIBS
+
+        Returns:
+            Sorted, deduplicated list of subject IDs (without 'sub-' prefix).
+        """
+        all_sids: set[str] = set(self.list_subjects())
+        root = self._root()
+
+        # Scan project root for sub-* dirs
+        if os.path.isdir(root):
+            for entry in os.scandir(root):
+                if entry.is_dir() and entry.name.startswith(const.PREFIX_SUBJECT):
+                    all_sids.add(entry.name.removeprefix(const.PREFIX_SUBJECT))
+
+        # Scan SimNIBS derivatives for sub-* dirs without m2m
+        simnibs_dir = self.simnibs()
+        if os.path.isdir(simnibs_dir):
+            for entry in os.scandir(simnibs_dir):
+                if entry.is_dir() and entry.name.startswith(const.PREFIX_SUBJECT):
+                    all_sids.add(entry.name.removeprefix(const.PREFIX_SUBJECT))
+
+        return sorted(
+            all_sids,
+            key=lambda x: [
+                int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", x)
+            ],
+        )
+
     def list_simulations(self, sid: str) -> List[str]:
         """List simulation folder names for a subject."""
         sim_root = self.simulations(sid) if self.project_dir else None

@@ -425,3 +425,76 @@ ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
 # This will be imported from version.py in the root
 # Kept here for reference
 VERSION_FILE = "version.py"
+
+# ============================================================================
+# TISSUE CONDUCTIVITY TABLE
+# ============================================================================
+
+TISSUE_PROPERTIES = [
+    {"number": 1, "name": "White Matter", "conductivity": CONDUCTIVITY_WHITE_MATTER, "reference": "Wagner et al. 2004"},
+    {"number": 2, "name": "Gray Matter", "conductivity": CONDUCTIVITY_GRAY_MATTER, "reference": "Opitz et al. 2015"},
+    {"number": 3, "name": "CSF", "conductivity": CONDUCTIVITY_CSF, "reference": "Wagner et al. 2004"},
+    {"number": 4, "name": "Bone", "conductivity": CONDUCTIVITY_BONE, "reference": "Wagner et al. 2004"},
+    {"number": 5, "name": "Scalp", "conductivity": CONDUCTIVITY_SCALP, "reference": "Wagner et al. 2004"},
+    {"number": 6, "name": "Eye balls", "conductivity": CONDUCTIVITY_EYE, "reference": "Wagner et al. 2004"},
+    {"number": 7, "name": "Compact Bone", "conductivity": CONDUCTIVITY_COMPACT_BONE, "reference": "Gabriel et al. 2009"},
+    {"number": 8, "name": "Spongy Bone", "conductivity": CONDUCTIVITY_SPONGY_BONE, "reference": "Gabriel et al. 2009"},
+    {"number": 9, "name": "Blood", "conductivity": CONDUCTIVITY_BLOOD, "reference": "Gabriel et al. 2009"},
+    {"number": 10, "name": "Muscle", "conductivity": CONDUCTIVITY_MUSCLE, "reference": "Gabriel et al. 2009"},
+    {"number": 11, "name": "Silicone Rubber", "conductivity": CONDUCTIVITY_SILICONE_RUBBER, "reference": "SimNIBS default"},
+    {"number": 12, "name": "Saline", "conductivity": CONDUCTIVITY_SALINE, "reference": "SimNIBS default"},
+]
+
+# ============================================================================
+# EEG NET DEFINITIONS
+# ============================================================================
+
+EEG_NETS = [
+    {"value": "EGI-256", "label": "EGI HydroCel 256", "electrode_count": 256},
+    {"value": "10-10", "label": "10-10 System", "electrode_count": 71},
+    {"value": "10-20", "label": "10-20 System", "electrode_count": 21},
+]
+
+# ============================================================================
+# VALIDATION BOUNDS (for frontend/API)
+# ============================================================================
+
+VALIDATION_BOUNDS = {
+    "radius": {"min": 1, "max": 50},
+    "coordinates": {"min": -150, "max": 150},
+    "current_mA": {"min": 0.1, "max": 100},
+    "max_iterations": {"min": 50, "max": 2000},
+    "population_size": {"min": 4, "max": 100},
+    "tolerance": {"min": 0.0001, "max": 1.0},
+    "parallel_cores": {"min": 1, "max": 64},
+    "electrode_thickness": {"min": 1, "max": 20},
+    "n_permutations": {"min": 100, "max": 100000},
+}
+
+# ============================================================================
+# DEFAULT PARAMETERS (for API/frontend)
+# ============================================================================
+
+DEFAULT_ELECTRODE = {
+    "shape": ELECTRODE_SHAPE_ELLIPSE,
+    "dimensions": [8.0, 8.0],
+    "thickness": DEFAULT_ELECTRODE_THICKNESS,
+    "sponge_thickness": 2.0,
+}
+
+DEFAULT_OPTIMIZATION = {
+    "max_iterations": 500,
+    "population_size": 13,
+    "tolerance": 0.1,
+    "mutation_min": 0.01,
+    "mutation_max": 0.5,
+    "recombination": 0.7,
+    "current_mA": DEFAULT_INTENSITY,
+    "n_multistart": 1,
+}
+
+DEFAULT_STATISTICS = {
+    "n_permutations": 1000,
+    "alpha": 0.05,
+    "cluster_threshold": 0.05,
+}

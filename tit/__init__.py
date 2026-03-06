@@ -8,14 +8,15 @@ TI-Toolbox
 __version__ = "2.2.4"
 __author__ = "TI-Toolbox Team"
 
-# Logging utilities
 from . import paths, constants
 
 from .logger import setup_logging, add_file_handler
+from .paths import get_path_manager
 
 __all__ = [
     "setup_logging",
     "add_file_handler",
+    "get_path_manager",
     "paths",
     "constants",
 ]
