@@ -26,6 +26,7 @@ from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
+from tit.opt.config import ExConfig, ExCurrentConfig, BucketElectrodes, PoolElectrodes
 from tit.gui.style import (
     FONT_HELP,
     FONT_MONOSPACE,
@@ -61,7 +62,7 @@ def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manage
     try:
         # Get path manager
         pm = path_manager if path_manager is not None else get_path_manager()
-        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        m2m_dir = pm.m2m(subject_id)
 
         if not m2m_dir or not os.path.isdir(m2m_dir):
             QtWidgets.QMessageBox.warning(
@@ -74,16 +75,16 @@ def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manage
         # Create LeadfieldGenerator and get electrode names
         from tit.opt.leadfield import LeadfieldGenerator
 
-        gen = LeadfieldGenerator(m2m_dir)
+        gen = LeadfieldGenerator(subject_id)
 
         # Clean cap name (remove .csv extension if present)
         clean_cap_name = (
             cap_name.replace(".csv", "") if cap_name.endswith(".csv") else cap_name
         )
 
-        # Get electrodes using get_electrode_names_from_cap
+        # Get electrodes using get_electrode_names
         try:
-            electrodes = gen.get_electrode_names_from_cap(cap_name=clean_cap_name)
+            electrodes = gen.get_electrode_names(cap_name=clean_cap_name)
         except FileNotFoundError as e:
             QtWidgets.QMessageBox.warning(
                 parent_widget,
@@ -137,7 +138,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
             self.output_signal.emit("Initializing leadfield generation...", "info")
 
             pm = get_path_manager()
-            m2m_dir = pm.path_optional("m2m", subject_id=self.subject_id)
+            m2m_dir = pm.m2m(self.subject_id)
 
             if not m2m_dir or not os.path.isdir(m2m_dir):
                 self.error_signal.emit(
@@ -148,7 +149,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
 
             # Setup log file
             time_stamp = time.strftime("%Y%m%d_%H%M%S")
-            log_dir = pm.ensure_dir("ti_logs", subject_id=self.subject_id)
+            log_dir = pm.ensure(pm.logs(self.subject_id))
             log_file = os.path.join(log_dir, f"exsearch_leadfield_{time_stamp}.log")
 
             self.output_signal.emit(f"Log file: {log_file}", "info")
@@ -157,7 +158,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
             self.output_signal.emit(f"m2m directory: {m2m_dir}", "info")
 
             # Get leadfield output directory
-            leadfield_dir = pm.ensure_dir("leadfields", subject_id=self.subject_id)
+            leadfield_dir = pm.ensure(pm.leadfields(self.subject_id))
 
             # Clean net name (remove .csv extension)
             net_name = (
@@ -194,7 +195,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 from tit.opt.leadfield import LeadfieldGenerator
 
                 self.generator = LeadfieldGenerator(
-                    m2m_dir,
+                    self.subject_id,
                     electrode_cap=net_name,
                     progress_callback=progress_callback,
                     termination_flag=termination_check,
@@ -202,12 +203,9 @@ class LeadfieldGenerationThread(QtCore.QThread):
 
                 # Generate leadfield (creates both HDF5 and NPY files)
                 self.output_signal.emit("Starting leadfield generation...", "info")
-                result = self.generator.generate_leadfield(
+                hdf5_path = self.generator.generate(
                     output_dir=leadfield_dir,
                     tissues=[1, 2],
-                    eeg_cap_path=os.path.join(
-                        m2m_dir, "eeg_positions", self.eeg_net_file
-                    ),
                 )
 
                 if self.terminated:
@@ -218,14 +216,13 @@ class LeadfieldGenerationThread(QtCore.QThread):
                     return
 
                 # Check if HDF5 file was generated successfully
-                if result["hdf5"]:
-                    hdf5_path = result["hdf5"]
+                if hdf5_path:
                     self.output_signal.emit("", "default")
                     self.output_signal.emit(
-                        f"Leadfield HDF5 saved: {os.path.basename(hdf5_path)}",
+                        f"Leadfield HDF5 saved: {os.path.basename(str(hdf5_path))}",
                         "success",
                     )
-                    self.finished_signal.emit(True, hdf5_path)
+                    self.finished_signal.emit(True, str(hdf5_path))
                 else:
                     self.error_signal.emit("Failed to generate HDF5 file")
                     self.finished_signal.emit(False, "")
@@ -437,7 +434,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             # Get project directory structure
             pm = self.pm
-            log_dir = pm.path("ti_logs", subject_id=subject_id)
+            log_dir = pm.logs(subject_id)
             os.makedirs(log_dir, exist_ok=True)
 
             # Create log file path
@@ -646,7 +643,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
             # Create log file path same way as before
             pm = self.pm
-            log_dir = pm.path("ti_logs", subject_id=subject_id)
+            log_dir = pm.logs(subject_id)
 
             # Find the most recent ex_search log file
             if os.path.exists(log_dir):
@@ -712,7 +709,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     # Note where results can be found
                     completion_logger.info("Output Location:")
                     completion_logger.info(
-                        f"  Results stored in: {project_dir}/derivatives/SimNIBS/sub-{subject_id}/derivatives/"
+                        f"  Results stored in: {self.pm.project_dir}/derivatives/SimNIBS/sub-{subject_id}/derivatives/"
                     )
                     completion_logger.info(
                         "  Each ROI has its own directory with analysis results"
@@ -1043,7 +1040,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
-            show_debug_checkbox=True,
             console_label="Output:",
             min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
@@ -1056,9 +1052,6 @@ class ExSearchTab(QtWidgets.QWidget):
         _v_splitter.addWidget(self.console_widget)
         _v_splitter.setSizes([600, 400])
         main_layout.addWidget(_v_splitter)
-
-        # Connect the debug checkbox to set_debug_mode method
-        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
 
         # Reference to underlying console for backward compatibility
         self.console_output = self.console_widget.get_console_widget()
@@ -1143,13 +1136,7 @@ class ExSearchTab(QtWidgets.QWidget):
             pm = self.pm
 
             # Get list of subjects
-            subjects = []
-            simnibs_dir = pm.path_optional("simnibs")
-            if simnibs_dir and os.path.isdir(simnibs_dir):
-                for item in os.listdir(simnibs_dir):
-                    if item.startswith("sub-"):
-                        subject_id = item[4:]  # Remove 'sub-' prefix
-                        subjects.append(subject_id)
+            subjects = pm.list_subjects()
 
             subject_count = len(subjects)
             total_leadfields = 0
@@ -1158,10 +1145,10 @@ class ExSearchTab(QtWidgets.QWidget):
             # Use LeadfieldGenerator to count leadfields for each subject
             for subject_id in subjects:
                 try:
-                    m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+                    m2m_dir = pm.m2m(subject_id)
                     if m2m_dir and os.path.isdir(m2m_dir):
-                        gen = LeadfieldGenerator(m2m_dir)
-                        leadfields = gen.list_available_leadfields_hdf5(subject_id)
+                        gen = LeadfieldGenerator(subject_id)
+                        leadfields = gen.list_leadfields(subject_id)
 
                         if leadfields:
                             # Extract net names from leadfield list
@@ -1216,13 +1203,13 @@ class ExSearchTab(QtWidgets.QWidget):
         try:
             # Get subject's m2m directory for LeadfieldGenerator
             pm = self.pm
-            m2m_dir = pm.path("m2m", subject_id=subject_id)
+            m2m_dir = pm.m2m(subject_id)
 
             # Use LeadfieldGenerator to list available leadfields
             from tit.opt.leadfield import LeadfieldGenerator
 
-            gen = LeadfieldGenerator(m2m_dir)
-            leadfields = gen.list_available_leadfields_hdf5(subject_id)
+            gen = LeadfieldGenerator(subject_id)
+            leadfields = gen.list_leadfields(subject_id)
 
             # Populate the list
             for net_name, hdf5_path, file_size in leadfields:
@@ -1265,7 +1252,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def get_available_eeg_nets(self, subject_id):
         """Get available EEG nets for a subject."""
         pm = self.pm
-        eeg_positions_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
+        eeg_positions_dir = pm.eeg_positions(subject_id)
 
         eeg_nets = []
         if eeg_positions_dir and os.path.isdir(eeg_positions_dir):
@@ -1581,7 +1568,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.pm.project_dir
         )
         pm = self.pm
-        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
+        ex_search_dir = pm.ex_search(subject_id)
 
         # Get electrode configurations based on mode (needed for confirmation dialog)
         if self.rb_all_combinations.isChecked():
@@ -1690,6 +1677,72 @@ class ExSearchTab(QtWidgets.QWidget):
         # Run the pipeline for the first ROI
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
+    def _build_ex_config(self, subject_id, project_dir, roi_name, leadfield_hdf, eeg_net):
+        """Build an ExConfig dataclass from current UI widget values.
+
+        Args:
+            subject_id: Subject identifier.
+            project_dir: Project root directory.
+            roi_name: ROI name (with or without .csv extension).
+            leadfield_hdf: Full path to the leadfield HDF5 file.
+            eeg_net: Name of the selected EEG net.
+
+        Returns:
+            ExConfig instance ready for serialization.
+        """
+        if self.use_all_combinations:
+            electrodes = PoolElectrodes(electrodes=list(self.e1_plus))
+        else:
+            electrodes = BucketElectrodes(
+                e1_plus=list(self.e1_plus),
+                e1_minus=list(self.e1_minus),
+                e2_plus=list(self.e2_plus),
+                e2_minus=list(self.e2_minus),
+            )
+
+        currents = ExCurrentConfig(
+            total_current=self.total_current_spinbox.value(),
+            current_step=self.current_step_spinbox.value(),
+            channel_limit=self.channel_limit_spinbox.value(),
+        )
+
+        return ExConfig(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            leadfield_hdf=leadfield_hdf,
+            roi_name=roi_name,
+            electrodes=electrodes,
+            currents=currents,
+            roi_radius=self.roi_radius_spinbox.value(),
+            eeg_net=eeg_net,
+        )
+
+    @staticmethod
+    def _write_ex_config(config):
+        """Serialize an ExConfig to a temporary JSON file.
+
+        Args:
+            config: ExConfig dataclass instance.
+
+        Returns:
+            Path to the written JSON config file.
+        """
+        import dataclasses
+        import tempfile
+
+        data = dataclasses.asdict(config)
+
+        # Add _type discriminator for electrode spec so __main__.py can reconstruct
+        if isinstance(config.electrodes, PoolElectrodes):
+            data["electrodes"]["_type"] = "PoolElectrodes"
+        else:
+            data["electrodes"]["_type"] = "BucketElectrodes"
+
+        fd, path = tempfile.mkstemp(suffix=".json", prefix="ex_config_")
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        return path
+
     def run_roi_pipeline(self, subject_id, project_dir, ex_search_dir, env):
         """Run the ex-search pipeline for the current ROI in the queue."""
         # Check if we have more ROIs to process
@@ -1716,10 +1769,6 @@ class ExSearchTab(QtWidgets.QWidget):
             )
             self.update_output(f"[DEBUG] ex_search_dir: {ex_search_dir}", "debug")
 
-        # Get the script directory
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ex_search_scripts_dir = os.path.join(script_dir, "opt", "ex")
-
         # Get selected leadfield information
         selected_items = self.leadfield_list.selectedItems()
         if not selected_items or not selected_items[0].data(QtCore.Qt.UserRole):
@@ -1731,10 +1780,9 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_net_name = leadfield_data["net_name"]
         selected_hdf5_path = leadfield_data["hdf5_path"]
 
-        # Get ROI coordinates for environment variables
+        # Get ROI coordinates
         pm = self.pm
-        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
-        roi_dir = pm.path_optional("m2m_rois", subject_id=subject_id)
+        roi_dir = pm.rois(subject_id)
         roi_file = os.path.join(roi_dir, current_roi)
 
         try:
@@ -1754,48 +1802,25 @@ class ExSearchTab(QtWidgets.QWidget):
             self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
             return
 
-        # Set up complete environment variables including ROI information
+        # Build ExConfig dataclass from UI state
+        ex_config = self._build_ex_config(
+            subject_id, project_dir, roi_name, selected_hdf5_path, selected_net_name,
+        )
+
+        # Minimal env — only pass through what downstream steps still need
         env = os.environ.copy()
-        env["PROJECT_DIR_NAME"] = os.path.basename(project_dir)
         env["PROJECT_DIR"] = project_dir
         env["SUBJECT_NAME"] = subject_id
-        env["SUBJECTS_DIR"] = project_dir
-        env["LEADFIELD_HDF"] = selected_hdf5_path
         env["SELECTED_EEG_NET"] = selected_net_name
         env["ROI_NAME"] = roi_name
-        env["ROI_COORDINATES"] = f"{x},{y},{z}"
-        env["SELECTED_ROI_FILE"] = current_roi
         env["ROI_DIR"] = roi_dir
-        env["ROI_RADIUS"] = str(self.roi_radius_spinbox.value())  # Get radius from UI
-        env["TOTAL_CURRENT"] = str(
-            self.total_current_spinbox.value()
-        )  # Total current from UI
-        env["CURRENT_STEP"] = str(
-            self.current_step_spinbox.value()
-        )  # Current step from UI
-        env["CHANNEL_LIMIT"] = str(
-            self.channel_limit_spinbox.value()
-        )  # Channel limit from UI
-
-        # Set electrode environment variables (space-separated)
-        if self.e1_plus:
-            env["E1_PLUS"] = " ".join(self.e1_plus)
-        if self.e1_minus:
-            env["E1_MINUS"] = " ".join(self.e1_minus)
-        if self.e2_plus:
-            env["E2_PLUS"] = " ".join(self.e2_plus)
-        if self.e2_minus:
-            env["E2_MINUS"] = " ".join(self.e2_minus)
-
-        # Set all combinations mode
-        env["ALL_COMBINATIONS"] = "1" if self.use_all_combinations else "0"
 
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
             log_file = self.create_log_file_env("ex_search", subject_id)
             if log_file:
                 env["TI_LOG_FILE"] = log_file
-                self._shared_log_file = log_file  # Store for subsequent ROI processing
+                self._shared_log_file = log_file
                 if self.debug_mode:
                     self.update_output(f"Ex-search log file: {log_file}")
 
@@ -1807,18 +1832,14 @@ class ExSearchTab(QtWidgets.QWidget):
                 subject_id, project_dir, selected_net_name, selected_hdf5_path, env
             )
         else:
-            # Ensure log file is passed to subsequent ROI processing
             if self._shared_log_file:
                 env["TI_LOG_FILE"] = self._shared_log_file
 
         if self.debug_mode:
             self.update_output(f"ROI coordinates: {x}, {y}, {z}")
             self.update_output(
-                f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'main.py')}",
-                "debug",
-            )
-            self.update_output(
-                f"[DEBUG] Env highlights: {{'LEADFIELD_HDF': env.get('LEADFIELD_HDF'), 'SELECTED_EEG_NET': env.get('SELECTED_EEG_NET'), 'TI_LOG_FILE': env.get('TI_LOG_FILE'), 'ROI_NAME': env.get('ROI_NAME')}}",
+                f"[DEBUG] ExConfig: subject={ex_config.subject_id}, roi={ex_config.roi_name}, "
+                f"eeg_net={ex_config.eeg_net}, leadfield={ex_config.leadfield_hdf}",
                 "debug",
             )
 
@@ -1849,31 +1870,21 @@ class ExSearchTab(QtWidgets.QWidget):
                         f"Error removing existing directory: {str(e)}", "error"
                     )
 
-        # Step 1: Run the TI simulation for this specific ROI
+        # Step 1: Run the exhaustive search via JSON config
         self.log_step_start("TI simulation")
         if self.debug_mode:
-            self.update_output("Step 1: Running TI simulation...")
-        ti_sim_script = os.path.join(ex_search_scripts_dir, "main.py")
+            self.update_output("Step 1: Running exhaustive search...")
 
-        # Prepare input data for the script
-        input_data = [
-            " ".join(self.e1_plus),
-            " ".join(self.e1_minus),
-            " ".join(self.e2_plus),
-            " ".join(self.e2_minus),
-            str(self.total_current_spinbox.value()),  # Total current
-            str(self.current_step_spinbox.value()),  # Current step
-            str(self.channel_limit_spinbox.value()),  # Channel limit
-        ]
+        # Serialize config to JSON and build command
+        config_path = self._write_ex_config(ex_config)
+        cmd = ["simnibs_python", "-m", "tit.opt.ex", config_path]
 
-        # Command to run main.py
-        cmd = ["simnibs_python", ti_sim_script]
-        if self.use_all_combinations:
-            cmd.append("--all-combinations")
+        if self.debug_mode:
+            self.update_output(f"[DEBUG] Config file: {config_path}", "debug")
+            self.update_output(f"[DEBUG] Command: {' '.join(cmd)}", "debug")
 
-        # Create and start thread for step 1
+        # Create and start thread for step 1 (no stdin needed)
         self.optimization_process = ExSearchThread(cmd, env)
-        self.optimization_process.set_input_data(input_data)
         self.optimization_process.output_signal.connect(self.update_output)
         self.optimization_process.error_signal.connect(
             lambda msg: self.handle_process_error(msg)
@@ -1914,10 +1925,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create directory name: roi_leadfield format
         output_dir_name = f"{roi_name}_{eeg_net_name}"
         pm = self.pm
-        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
-        mesh_dir = (
-            os.path.join(ex_search_dir, output_dir_name) if ex_search_dir else None
-        )
+        ex_search_dir = pm.ex_search(subject_id)
+        mesh_dir = os.path.join(ex_search_dir, output_dir_name)
 
         # Create temporary roi_list.txt with just the current ROI for ex_analyzer.py
         roi_dir = env.get("ROI_DIR")
@@ -2079,7 +2088,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.pm.project_dir
         )
         pm = self.pm
-        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
+        ex_search_dir = pm.ex_search(subject_id)
 
         self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
 
@@ -2095,7 +2104,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # Check if leadfield generation is running
         if self.leadfield_generating and self.leadfield_thread:
             self.leadfield_thread.terminate_process()
-            self.leadfield_thread.wait()
+            # Don't call .wait() — it blocks the GUI event loop.
+            # The finished_signal handler (leadfield_generation_finished) handles cleanup.
             self.leadfield_generating = False
             self.update_status("Leadfield generation stopped by user")
             self.update_output("Leadfield generation terminated by user", "warning")
@@ -2220,8 +2230,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.show_electrodes_leadfield_btn.setEnabled(False)
         self.create_leadfield_btn.setEnabled(False)
 
-        # Keep debug checkbox enabled during processing
-        self.console_widget.debug_checkbox.setEnabled(True)
 
         # Show status label when processing starts
         if self.leadfield_generating:
@@ -2337,9 +2345,8 @@ class AddROIDialog(QtWidgets.QDialog):
                     self, "Error", "Please select a subject first"
                 )
                 return
-            project_dir = self.pm.project_dir
-            pm = self.pm
-            t1_path = pm.path("t1", subject_id=subject_id)
+            pm = get_path_manager()
+            t1_path = pm.t1(subject_id)
             if not os.path.isfile(t1_path):
                 QtWidgets.QMessageBox.warning(
                     self, "Error", f"T1 NIfTI file not found: {t1_path}"

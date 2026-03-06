@@ -8,7 +8,7 @@ This module provides an interface for managing and launching extensions.
 import importlib.util
 from pathlib import Path
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class ExtensionCard(QtWidgets.QGroupBox):
@@ -42,7 +42,7 @@ class ExtensionCard(QtWidgets.QGroupBox):
         desc_label = QtWidgets.QLabel(self.description)
         desc_label.setWordWrap(True)
         desc_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
         )
         layout.addWidget(desc_label)
 
@@ -224,7 +224,7 @@ class ExtensionsTab(QtWidgets.QWidget):
 
         # Header
         header_label = QtWidgets.QLabel("<h1>TI-Toolbox Extensions</h1>")
-        header_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        header_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(header_label)
 
         # Description
@@ -232,24 +232,24 @@ class ExtensionsTab(QtWidgets.QWidget):
             "<p>Extensions are additional tools and utilities that extend the functionality of TI-Toolbox.</p>"
         )
         description_label.setWordWrap(True)
-        description_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        description_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(description_label)
 
         # Separator
         separator = QtWidgets.QFrame()
-        separator.setFrameShape(QtWidgets.QFrame.Shape.HLine)
-        separator.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
         main_layout.addWidget(separator)
 
         # Create scroll area for extensions
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
         # Container widget for extensions
         self.extensions_container = QtWidgets.QWidget()
         self.extensions_layout = QtWidgets.QVBoxLayout(self.extensions_container)
-        self.extensions_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.extensions_layout.setAlignment(QtCore.Qt.AlignTop)
         self.extensions_layout.setSpacing(10)
 
         scroll_area.setWidget(self.extensions_container)
@@ -268,7 +268,7 @@ class ExtensionsTab(QtWidgets.QWidget):
             no_dir_label = QtWidgets.QLabel(
                 "<p style='color: #666; font-style: italic;'>Extensions directory not found.</p>"
             )
-            no_dir_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            no_dir_label.setAlignment(QtCore.Qt.AlignCenter)
             self.extensions_layout.addWidget(no_dir_label)
             return
 
@@ -280,7 +280,7 @@ class ExtensionsTab(QtWidgets.QWidget):
                 "<p style='color: #666; font-style: italic;'>No extensions found. "
                 "Add Python scripts to the 'gui/extentions/' directory to create extensions.</p>"
             )
-            no_extensions_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            no_extensions_label.setAlignment(QtCore.Qt.AlignCenter)
             self.extensions_layout.addWidget(no_extensions_label)
             return
 
@@ -323,7 +323,7 @@ class FloatingExtensionsWindow(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("TI-Toolbox - Extensions")
         self.setMinimumSize(800, 600)
-        self.setWindowFlag(QtCore.Qt.WindowType.Window)  # Make it a proper window, not modal
+        self.setWindowFlag(QtCore.Qt.Window)  # Make it a proper window, not modal
         self.main_window = main_window or parent
         self.setup_ui()
 

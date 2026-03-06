@@ -532,7 +532,8 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
         ):
             self.update_output("\nStopping analysis...", "warning")
             self.worker_thread.terminate()
-            self.worker_thread.wait()
+            # Don't call .wait() — it blocks the GUI event loop.
+            # The finished_signal handler (on_finished) re-enables the run button.
             self.update_output("Analysis stopped by user.", "warning")
 
             # Re-enable run button

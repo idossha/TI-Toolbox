@@ -24,9 +24,4 @@ __all__ = [
     "SubjectRowManager",
 ]
 
-# SubjectRow uses PySide6 (for extensions); import lazily to avoid
-# breaking PyQt5-only environments.
-try:
-    from .subject_row import SubjectRow, SubjectRowManager
-except ImportError:
-    pass
+from .subject_row import SubjectRow, SubjectRowManager

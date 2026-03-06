@@ -82,7 +82,8 @@ class SimulationThread(QtCore.QThread):
 
     def terminate_simulation(self):
         self.terminate()
-        self.wait()
+        # Don't call .wait() here — it blocks the GUI event loop.
+        # Cleanup happens in the finished signal handler.
 
 
 class SimulatorTab(QtWidgets.QWidget):
@@ -254,8 +255,6 @@ class SimulatorTab(QtWidgets.QWidget):
         row2b.addWidget(self.thickness_input)
         row2b.addStretch()
         global_layout.addLayout(row2b)
-
-        global_layout.addLayout(row3)
 
         # ── Assemble 2-column layout ───────────────────────────────────────
         # Right panel: Montage/Flex selection on top, Global Parameters below
@@ -886,6 +885,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             capture_output=True,
                             text=True,
                             check=True,
+                            timeout=30,
                         )
                         self.update_output(
                             f"Electrode mapping completed for {search_name}", "info"
@@ -1223,7 +1223,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self.action_buttons.set_running(True)
             if self.parent:
                 keep_enabled_widgets = [
-                    self.console_widget.debug_checkbox,
                     self.console_widget.clear_btn,
                 ]
                 self.parent.set_tab_busy(

@@ -1480,11 +1480,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
             and self.worker_thread.isRunning()
         ):
             self._update_output("\nStopping…", "warning")
-            try:
-                self.worker_thread.terminate_and_wait()
-            finally:
-                self.worker_thread.terminate()
-                self.worker_thread.wait()
+            # terminate_and_wait() kills the subprocess (with timeout) inside the thread.
+            # Don't call .terminate()/.wait() on the QThread itself — that blocks the GUI.
+            # The finished_signal handler (_on_finished) re-enables the run button.
+            self.worker_thread.terminate_and_wait()
             self._update_output("Stopped by user.", "warning")
             self.action_buttons.enable_run()
 

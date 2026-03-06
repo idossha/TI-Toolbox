@@ -14,7 +14,7 @@ SubjectRowManager handles:
 
 from __future__ import annotations
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 # ---------------------------------------------------------------------------
 # Remove-button stylesheet (shared across all rows)
@@ -49,7 +49,7 @@ class SubjectRow(QtWidgets.QWidget):
         is the layout stretch factor.
     """
 
-    remove_requested = QtCore.Signal(object)
+    remove_requested = QtCore.pyqtSignal(object)
 
     def __init__(
         self,

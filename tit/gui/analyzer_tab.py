@@ -9,6 +9,8 @@ This module provides a GUI interface for the analyzer functionality.
 import traceback
 import time
 import os
+import json
+import tempfile
 import subprocess
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -46,6 +48,9 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def on_pairs_changed(self):
         """Handle changes to subject-simulation pairs - update UI accordingly."""
+        # Guard: skip if UI is not fully initialized yet
+        if not hasattr(self, "type_cortical"):
+            return
         # Update coordinate space labels based on new mode
         self._update_coordinate_space_labels()
         # Update atlas visibility and options
@@ -905,6 +910,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def update_atlas_combo(self):
         if self.is_group_mode:
+            return
+        if not hasattr(self, "atlas_combo"):
             return
 
         self.atlas_combo.clear()
@@ -1778,30 +1785,34 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
 
             temp_output_dir = self.pm.simnibs()
-            subject_ids_repr = repr(subject_ids)
 
-            # Build an inline Python script that calls the new group analysis API
-            script = (
-                "import logging, sys, os\n"
-                "logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)\n"
-                f"os.environ['PROJECT_DIR'] = {project_dir!r}\n"
-                "from tit.analyzer import run_group_analysis\n"
-                f"result = run_group_analysis(\n"
-                f"    subject_ids={subject_ids_repr},\n"
-                f"    simulation={simulation!r},\n"
-                f"    space={space!r},\n"
-                f"    analysis_type={analysis_type!r},\n"
-                f"{analysis_kwargs}"
-                f"    visualize=True,\n"
-                f"    output_dir={temp_output_dir!r},\n"
-                f")\n"
-                "print(f'Group summary CSV: {result.summary_csv_path}')\n"
-                "if result.comparison_plot_path:\n"
-                "    print(f'Comparison plot: {result.comparison_plot_path}')\n"
-                "print('Group analysis completed successfully.')\n"
+            # Build JSON config for the group analysis
+            config = {
+                "mode": "group",
+                "project_dir": project_dir,
+                "subject_ids": subject_ids,
+                "simulation": simulation,
+                "space": space,
+                "analysis_type": analysis_type,
+                "visualize": True,
+                "output_dir": temp_output_dir,
+            }
+
+            if analysis_type == "spherical":
+                config["center"] = [coords[0], coords[1], coords[2]]
+                config["radius"] = radius
+                config["coordinate_space"] = coord_space
+            else:  # cortical
+                config["atlas"] = atlas_name
+                config["region"] = region
+
+            fd, config_path = tempfile.mkstemp(
+                suffix=".json", prefix="analysis_config_"
             )
+            with os.fdopen(fd, "w") as f:
+                json.dump(config, f, indent=2)
 
-            cmd = ["simnibs_python", "-c", script]
+            cmd = ["simnibs_python", "-m", "tit.analyzer", config_path]
             return cmd
 
         except (OSError, ValueError, KeyError) as e:
@@ -2138,14 +2149,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(widget, "setEnabled"):
                 widget.setEnabled(False)
 
-        # Keep debug checkbox enabled during processing
-        if hasattr(self, "console_widget") and hasattr(
-            self.console_widget, "debug_checkbox"
-        ):
-            self.console_widget.debug_checkbox.setEnabled(True)
-
         self.status_label.setText(
-            "Processing... Stop button and Debug Mode are available."
+            "Processing... Stop button is available."
         )
         self.status_label.show()
 
@@ -2276,9 +2281,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                     print(f"Running: {' '.join(cmd_mri_segstats)}")
                     progress_dialog.setLabelText("Running mri_segstats...")
 
-                    qprocess = QtCore.QProcess(
-                        self
-                    )  # Use QProcess for non-blocking with UI updates
+                    # NOTE: The polling loop below is acceptable for mri_segstats
+                    # (a fast utility). It keeps the progress dialog responsive and
+                    # supports cancel. A full signal-based rewrite is not warranted.
+                    qprocess = QtCore.QProcess(self)
                     qprocess.setProcessChannelMode(QtCore.QProcess.MergedChannels)
                     qprocess.start(cmd_mri_segstats[0], cmd_mri_segstats[1:])
 
@@ -2771,16 +2777,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return None
             os.makedirs(output_dir, exist_ok=True)
 
-            # Build analysis call for the inline script
+            # Build JSON config for the single-subject analysis
+            config = {
+                "mode": "single",
+                "project_dir": project_dir,
+                "subject_id": subject_id,
+                "simulation": simulation_name,
+                "space": space,
+                "analysis_type": analysis_type,
+                "visualize": True,
+                "output_dir": output_dir,
+            }
+
             if analysis_type == "spherical":
-                analysis_call = (
-                    f"result = analyzer.analyze_sphere(\n"
-                    f"    center=({coords[0]}, {coords[1]}, {coords[2]}),\n"
-                    f"    radius={radius_val},\n"
-                    f"    coordinate_space={coord_space!r},\n"
-                    f"    visualize=True,\n"
-                    f")\n"
-                )
+                config["center"] = [coords[0], coords[1], coords[2]]
+                config["radius"] = radius_val
+                config["coordinate_space"] = coord_space
             else:  # cortical
                 # For voxel atlas, strip extension to get atlas name for the API
                 atlas_for_api = atlas_name
@@ -2789,35 +2801,16 @@ class AnalyzerTab(QtWidgets.QWidget):
                         if atlas_for_api.endswith(ext):
                             atlas_for_api = atlas_for_api[: -len(ext)]
                             break
-                analysis_call = (
-                    f"result = analyzer.analyze_cortex(\n"
-                    f"    atlas={atlas_for_api!r},\n"
-                    f"    region={region!r},\n"
-                    f"    visualize=True,\n"
-                    f")\n"
-                )
+                config["atlas"] = atlas_for_api
+                config["region"] = region
 
-            # Build an inline Python script that calls the new Analyzer API
-            script = (
-                "import logging, sys, os\n"
-                "logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)\n"
-                f"os.environ['PROJECT_DIR'] = {project_dir!r}\n"
-                "from tit.analyzer import Analyzer\n"
-                f"analyzer = Analyzer(\n"
-                f"    subject_id={subject_id!r},\n"
-                f"    simulation={simulation_name!r},\n"
-                f"    space={space!r},\n"
-                f"    output_dir={output_dir!r},\n"
-                f")\n"
-                f"{analysis_call}"
-                "print(f'ROI Mean: {result.roi_mean:.6f}')\n"
-                "print(f'ROI Max: {result.roi_max:.6f}')\n"
-                "print(f'ROI Focality: {result.roi_focality:.6f}')\n"
-                "print(f'GM Mean: {result.gm_mean:.6f}')\n"
-                "print('Analysis completed successfully.')\n"
+            fd, config_path = tempfile.mkstemp(
+                suffix=".json", prefix="analysis_config_"
             )
+            with os.fdopen(fd, "w") as f:
+                json.dump(config, f, indent=2)
 
-            cmd = ["simnibs_python", "-c", script]
+            cmd = ["simnibs_python", "-m", "tit.analyzer", config_path]
             return cmd
         except (OSError, ValueError, KeyError):
             return None

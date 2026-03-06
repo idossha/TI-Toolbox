@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.gui.style import ICON_SIZE_GEAR, ICON_SIZE_EXTENSIONS
 
 
@@ -113,7 +113,7 @@ class SettingsMenuButton(QtWidgets.QPushButton):
             }}
         """)
         self.setToolTip("Settings and Information")
-        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
 
         self.menu = QtWidgets.QMenu(self)
 
@@ -173,7 +173,7 @@ class ExtensionsButton(QtWidgets.QPushButton):
             }}
         """)
         self.setToolTip("Extensions")
-        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
         self.clicked.connect(self.open_extensions)
 
     def open_extensions(self):

@@ -24,6 +24,17 @@ from tit.paths import get_path_manager
 from tit import constants as const
 from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
 from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SIZE_MONOSPACE
+from tit.opt.config import (
+    FlexConfig,
+    FlexElectrodeConfig,
+    SphericalROI,
+    AtlasROI,
+    SubcorticalROI,
+    OptGoal,
+    FieldPostproc,
+    NonROIMethod,
+)
+from tit.config_io import write_config_json
 
 
 class FlexSearchThread(BaseProcessThread):
@@ -1449,6 +1460,207 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
+    # ── Config-building helpers ──────────────────────────────────────────
+
+    def _resolve_seg_dir(self, project_dir: str, subject_id: str) -> str:
+        """Return the segmentation directory for a subject."""
+        return os.path.join(
+            project_dir,
+            "derivatives",
+            "SimNIBS",
+            f"sub-{subject_id}",
+            f"m2m_{subject_id}",
+            "segmentation",
+        )
+
+    def _resolve_atlas_name_for_subject(self, display_name: str, subject_id: str) -> str:
+        """Convert a UI atlas display name to the subject-specific atlas base name.
+
+        E.g. display "DK40" with atlas_display_map entry "101_DK40" yields "102_DK40"
+        for subject_id="102".
+        """
+        atlas_base_name = self.atlas_display_map.get(display_name, display_name)
+        if "_" in atlas_base_name:
+            atlas_type = atlas_base_name.split("_", 1)[-1]
+        else:
+            atlas_type = atlas_base_name
+        return f"{subject_id}_{atlas_type}"
+
+    def _build_roi_from_ui(self, subject_id: str, project_dir: str, roi_params: dict):
+        """Build an ROI dataclass from the current UI state and roi_params dict."""
+        seg_dir = self._resolve_seg_dir(project_dir, subject_id)
+
+        if roi_params["method"] == "spherical":
+            return SphericalROI(
+                x=roi_params["center"][0],
+                y=roi_params["center"][1],
+                z=roi_params["center"][2],
+                radius=roi_params["radius"],
+                use_mni=self.roi_space_mni.isChecked(),
+            )
+        elif roi_params["method"] == "atlas":
+            atlas_name = self._resolve_atlas_name_for_subject(
+                roi_params["atlas"], subject_id
+            )
+            hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+            atlas_path = os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
+            return AtlasROI(
+                atlas_path=atlas_path,
+                label=int(roi_params["region"]),
+                hemisphere=hemi,
+            )
+        else:  # subcortical
+            volume_atlas_path = os.path.join(seg_dir, roi_params["volume_atlas"])
+            if not os.path.isfile(volume_atlas_path):
+                self.output_text.append(
+                    f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path}"
+                )
+            return SubcorticalROI(
+                atlas_path=volume_atlas_path,
+                label=int(roi_params["volume_region"]),
+                tissues=roi_params.get("tissues", "GM"),
+            )
+
+    def _build_non_roi_from_ui(self, subject_id: str, project_dir: str, roi_params: dict):
+        """Build a non-ROI spec from the focality non-ROI widgets.
+
+        Returns None if non-ROI method is 'everything_else'.
+        """
+        nonroi_method_val = self.nonroi_method_combo.currentData()
+        if nonroi_method_val != "specific":
+            return None
+
+        seg_dir = self._resolve_seg_dir(project_dir, subject_id)
+
+        if roi_params["method"] == "spherical":
+            return SphericalROI(
+                x=self.nonroi_x_input.value(),
+                y=self.nonroi_y_input.value(),
+                z=self.nonroi_z_input.value(),
+                radius=self.nonroi_radius_input.value(),
+                use_mni=self.roi_space_mni.isChecked(),
+            )
+        elif roi_params["method"] == "atlas":
+            nonroi_atlas_name = self._resolve_atlas_name_for_subject(
+                self.nonroi_atlas_combo.currentText(), subject_id
+            )
+            nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
+            nonroi_atlas_path = os.path.join(
+                seg_dir, f"{nonroi_hemi}.{nonroi_atlas_name}.annot"
+            )
+            return AtlasROI(
+                atlas_path=nonroi_atlas_path,
+                label=self.nonroi_label_input.value(),
+                hemisphere=nonroi_hemi,
+            )
+        else:  # subcortical
+            nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
+            nonroi_volume_atlas_path = os.path.join(seg_dir, nonroi_volume_atlas)
+            if not os.path.isfile(nonroi_volume_atlas_path):
+                self.output_text.append(
+                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}"
+                )
+            return SubcorticalROI(
+                atlas_path=nonroi_volume_atlas_path,
+                label=self.nonroi_volume_label_input.value(),
+                tissues="GM",
+            )
+
+    def _build_electrode_config(self, electrode_shape: str, dimensions: str, thickness: str) -> FlexElectrodeConfig:
+        """Build FlexElectrodeConfig from UI values."""
+        dims = [float(d.strip()) for d in dimensions.split(",")]
+        return FlexElectrodeConfig(
+            shape=electrode_shape,
+            dimensions=dims,
+            thickness=float(thickness),
+        )
+
+    def _build_flex_config(
+        self,
+        subject_id: str,
+        project_dir: str,
+        roi_params: dict,
+        goal: str,
+        postproc: str,
+        eeg_net: str,
+        electrode_current: float,
+        electrode_shape: str,
+        dimensions: str,
+        thickness: str,
+        thresholds: str = None,
+        output_folder: str = None,
+    ) -> FlexConfig:
+        """Build a FlexConfig dataclass from UI widget values and parameters."""
+        roi = self._build_roi_from_ui(subject_id, project_dir, roi_params)
+        electrode = self._build_electrode_config(electrode_shape, dimensions, thickness)
+
+        # Focality-specific fields
+        non_roi_method = None
+        non_roi = None
+        if goal == "focality":
+            nonroi_method_val = self.nonroi_method_combo.currentData()
+            non_roi_method = NonROIMethod(nonroi_method_val) if nonroi_method_val else NonROIMethod.EVERYTHING_ELSE
+            non_roi = self._build_non_roi_from_ui(subject_id, project_dir, roi_params)
+
+        # EEG mapping
+        enable_mapping = self.run_mapped_simulation_checkbox.isChecked()
+
+        # Skin visualization net
+        skin_net_path = None
+        if self.visualize_skin_checkbox.isChecked():
+            skin_net = self.skin_net_combo.currentText()
+            if skin_net:
+                skin_net_path = self.eeg_nets.get(skin_net)
+                if not skin_net_path:
+                    skin_net_path = os.path.join(
+                        project_dir,
+                        "derivatives",
+                        "SimNIBS",
+                        f"sub-{subject_id}",
+                        f"m2m_{subject_id}",
+                        "eeg_positions",
+                        f"{skin_net}.csv",
+                    )
+
+        # Mutation as "min,max" string
+        mutation_str = f"{self.mutation_min_input.value()},{self.mutation_max_input.value()}"
+
+        return FlexConfig(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            goal=OptGoal(goal),
+            postproc=FieldPostproc(postproc),
+            current_mA=electrode_current,
+            electrode=electrode,
+            roi=roi,
+            non_roi_method=non_roi_method,
+            non_roi=non_roi,
+            thresholds=thresholds,
+            eeg_net=eeg_net if enable_mapping else None,
+            enable_mapping=enable_mapping,
+            disable_mapping_simulation=False,
+            output_folder=output_folder,
+            run_final_electrode_simulation=self.run_final_electrode_simulation_checkbox.isChecked(),
+            n_multistart=self.n_multistart_input.value(),
+            max_iterations=self.max_iterations_input.value(),
+            population_size=self.population_size_input.value(),
+            tolerance=self.tolerance_input.value(),
+            mutation=mutation_str,
+            recombination=self.recombination_input.value(),
+            cpus=self.cpus_input.value(),
+            detailed_results=self.detailed_results_checkbox.isChecked(),
+            visualize_valid_skin_region=self.visualize_skin_checkbox.isChecked(),
+            skin_visualization_net=skin_net_path,
+        )
+
+    def _launch_flex_config(self, config: FlexConfig, env=None):
+        """Write config to JSON and return the subprocess command list."""
+        config_path = write_config_json(config, prefix="flex")
+        cmd = ["simnibs_python", "-m", "tit.opt.flex", config_path]
+        return cmd, config_path
+
+    # ── End config-building helpers ───────────────────────────────────────
+
     def _run_single_subject_optimization(
         self,
         subject_id,
@@ -1466,207 +1678,26 @@ class FlexSearchTab(QtWidgets.QWidget):
             # Don't set optimization_running here - it's managed in run_optimization
             # Don't disable controls here - they're managed in run_optimization
 
-            # Prepare environment variables
-            env = os.environ.copy()
             pm = get_path_manager()
             project_dir = pm.project_dir
             if not project_dir:
                 self.output_text.append("Error: Could not detect project directory")
                 return False
-            env["PROJECT_DIR"] = project_dir
 
-            script_project_dir = project_dir
-
-            env["SUBJECT_ID"] = subject_id
-            if roi_params["method"] == "spherical":
-                env["ROI_X"] = str(roi_params["center"][0])
-                env["ROI_Y"] = str(roi_params["center"][1])
-                env["ROI_Z"] = str(roi_params["center"][2])
-                env["ROI_RADIUS"] = str(roi_params["radius"])
-                # Indicate if these are MNI coordinates based on user selection
-                env["USE_MNI_COORDS"] = (
-                    "true" if self.roi_space_mni.isChecked() else "false"
-                )
-            elif roi_params["method"] == "atlas":
-                atlas_display_for_env = roi_params["atlas"]
-                # Extract just the atlas type (e.g., "DK40") and construct subject-specific name
-                # The atlas_display_map contains the full name from the first subject (e.g., "101_DK40")
-                # but we need to construct the correct name for the current subject (e.g., "102_DK40")
-                atlas_base_name = self.atlas_display_map.get(
-                    atlas_display_for_env, atlas_display_for_env
-                )
-
-                # Extract the atlas type by removing the subject prefix
-                # e.g., "101_DK40" → "DK40"
-                if "_" in atlas_base_name:
-                    atlas_type = atlas_base_name.split("_", 1)[
-                        -1
-                    ]  # Everything after first underscore
-                else:
-                    atlas_type = atlas_base_name  # Fallback if no underscore
-
-                # Construct the correct subject-specific atlas name
-                atlas_name_for_env = f"{subject_id}_{atlas_type}"
-
-                hemi_for_env = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
-                seg_dir_for_env = os.path.join(
-                    script_project_dir,
-                    "derivatives",
-                    "SimNIBS",
-                    f"sub-{subject_id}",
-                    f"m2m_{subject_id}",
-                    "segmentation",
-                )
-                atlas_path_for_env = os.path.join(
-                    seg_dir_for_env, f"{hemi_for_env}.{atlas_name_for_env}.annot"
-                )
-                env["ATLAS_PATH"] = atlas_path_for_env
-                env["SELECTED_HEMISPHERE"] = hemi_for_env
-                env["ROI_LABEL"] = str(roi_params["region"])
-            else:  # subcortical
-                volume_atlas_for_env = roi_params["volume_atlas"]
-                # Dynamically construct the volume atlas path for the current subject
-                # (to avoid using the wrong subject's labeling.nii.gz in multi-subject runs)
-                seg_dir_for_env = os.path.join(
-                    script_project_dir,
-                    "derivatives",
-                    "SimNIBS",
-                    f"sub-{subject_id}",
-                    f"m2m_{subject_id}",
-                    "segmentation",
-                )
-                volume_atlas_path_for_env = os.path.join(
-                    seg_dir_for_env, volume_atlas_for_env
-                )
-                if os.path.isfile(volume_atlas_path_for_env):
-                    env["VOLUME_ATLAS_PATH"] = volume_atlas_path_for_env
-                else:
-                    self.output_text.append(
-                        f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path_for_env}"
-                    )
-                env["VOLUME_ROI_LABEL"] = str(roi_params["volume_region"])
-                env["ROI_TISSUES"] = roi_params.get("tissues", "GM")
-
-            # Build the command
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            flex_module_path = os.path.join(script_dir, "opt", "flex")
-            if not os.path.isdir(flex_module_path):
-                self.output_text.append(
-                    f"Error: flex module not found at {flex_module_path}. Optimization cannot continue."
-                )
-                return False
-
-            cmd = [
-                "simnibs_python",
-                "-m",
-                "tit.opt.flex",
-                "--subject",
-                subject_id,
-                "--goal",
-                goal,
-                "--postproc",
-                postproc,
-                "--current",
-                str(electrode_current),
-                "--electrode-shape",
-                electrode_shape,
-                "--dimensions",
-                dimensions,
-                "--thickness",
-                thickness,
-                "--roi-method",
-                roi_params["method"],
-            ]
-
-            # Mapping options
-            if self.run_mapped_simulation_checkbox.isChecked():
-                cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
-                # When run_mapped_simulation is checked, we always run the mapping simulation
-                # (no need for --disable-mapping-simulation)
-
-            # Focality options
+            # Focality options — delegate to specialised orchestrators when needed
             if goal == "focality":
-                nonroi_method = self.nonroi_method_combo.currentData()
                 if self._is_pareto_sweep_mode():
                     # --- Pareto Sweep mode ---
                     grid_inputs = self._validate_sweep_inputs()
                     if grid_inputs is None:
                         return False
                     roi_pcts, nonroi_pcts = grid_inputs
+                    nonroi_method = self.nonroi_method_combo.currentData()
                     if not nonroi_method:
                         self.output_text.append(
                             "Error: Non-ROI method required for Pareto Sweep."
                         )
                         return False
-                    # Set non-ROI env vars before delegating (pareto sweep copies env per run)
-                    if nonroi_method == "specific":
-                        if roi_params["method"] == "spherical":
-                            env["NON_ROI_X"] = str(self.nonroi_x_input.value())
-                            env["NON_ROI_Y"] = str(self.nonroi_y_input.value())
-                            env["NON_ROI_Z"] = str(self.nonroi_z_input.value())
-                            env["NON_ROI_RADIUS"] = str(
-                                self.nonroi_radius_input.value()
-                            )
-                            env["USE_MNI_COORDS_NON_ROI"] = env.get(
-                                "USE_MNI_COORDS", "false"
-                            )
-                        elif roi_params["method"] == "atlas":
-                            nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-                            nonroi_atlas_base_name = self.atlas_display_map.get(
-                                nonroi_atlas_display, nonroi_atlas_display
-                            )
-                            if "_" in nonroi_atlas_base_name:
-                                nonroi_atlas_type = nonroi_atlas_base_name.split(
-                                    "_", 1
-                                )[-1]
-                            else:
-                                nonroi_atlas_type = nonroi_atlas_base_name
-                            nonroi_atlas_name = f"{subject_id}_{nonroi_atlas_type}"
-                            nonroi_hemi = (
-                                "lh"
-                                if self.nonroi_hemi_combo.currentIndex() == 0
-                                else "rh"
-                            )
-                            nonroi_label_val = self.nonroi_label_input.value()
-                            nonroi_atlas_path_arg = os.path.join(
-                                script_project_dir,
-                                "derivatives",
-                                "SimNIBS",
-                                f"sub-{subject_id}",
-                                f"m2m_{subject_id}",
-                                "segmentation",
-                                f"{nonroi_hemi}.{nonroi_atlas_name}.annot",
-                            )
-                            env["NON_ROI_ATLAS_PATH"] = nonroi_atlas_path_arg
-                            env["NON_ROI_HEMISPHERE"] = nonroi_hemi
-                            env["NON_ROI_LABEL"] = str(nonroi_label_val)
-                        else:  # subcortical volume for non-ROI
-                            nonroi_volume_atlas = (
-                                self.nonroi_volume_atlas_combo.currentText()
-                            )
-                            nonroi_volume_label_val = (
-                                self.nonroi_volume_label_input.value()
-                            )
-                            seg_dir_for_env = os.path.join(
-                                script_project_dir,
-                                "derivatives",
-                                "SimNIBS",
-                                f"sub-{subject_id}",
-                                f"m2m_{subject_id}",
-                                "segmentation",
-                            )
-                            nonroi_volume_atlas_path = os.path.join(
-                                seg_dir_for_env, nonroi_volume_atlas
-                            )
-                            if os.path.isfile(nonroi_volume_atlas_path):
-                                env["VOLUME_NON_ROI_ATLAS_PATH"] = (
-                                    nonroi_volume_atlas_path
-                                )
-                            else:
-                                self.output_text.append(
-                                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}"
-                                )
-                            env["VOLUME_NON_ROI_LABEL"] = str(nonroi_volume_label_val)
                     return self._run_pareto_sweep_optimization(
                         subject_id,
                         roi_params,
@@ -1676,8 +1707,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                         electrode_shape,
                         dimensions,
                         thickness,
-                        env,
-                        cmd[:-2],  # Remove roi-method and its value from base cmd
+                        None,  # env — no longer needed, kept for signature compat
+                        None,  # base_cmd — no longer needed
                         roi_pcts,
                         nonroi_pcts,
                     )
@@ -1704,7 +1735,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                         )
                         return False
 
-                    # Run adaptive focality optimization
                     return self._run_adaptive_focality_optimization(
                         subject_id,
                         roi_params,
@@ -1714,8 +1744,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                         electrode_shape,
                         dimensions,
                         thickness,
-                        env,
-                        cmd[:-2],  # Remove roi-method and its value from base cmd
+                        None,  # env — no longer needed
+                        None,  # base_cmd — no longer needed
                     )
                 else:
                     # --- Manual threshold mode ---
@@ -1725,123 +1755,27 @@ class FlexSearchTab(QtWidgets.QWidget):
                             "Error: Please enter threshold(s) for focality."
                         )
                         return False
-                    cmd += [
-                        "--non-roi-method",
-                        nonroi_method,
-                        "--thresholds",
-                        thresholds,
-                    ]
-                if nonroi_method == "specific":
-                    if roi_params["method"] == "spherical":
-                        env["NON_ROI_X"] = str(self.nonroi_x_input.value())
-                        env["NON_ROI_Y"] = str(self.nonroi_y_input.value())
-                        env["NON_ROI_Z"] = str(self.nonroi_z_input.value())
-                        env["NON_ROI_RADIUS"] = str(self.nonroi_radius_input.value())
-                        # Non-ROI also uses same coordinate space as ROI
-                        env["USE_MNI_COORDS_NON_ROI"] = env.get(
-                            "USE_MNI_COORDS", "false"
-                        )
-                    elif roi_params["method"] == "atlas":
-                        nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-                        # Apply same multiple-subject fix for non-ROI atlas
-                        nonroi_atlas_base_name = self.atlas_display_map.get(
-                            nonroi_atlas_display, nonroi_atlas_display
-                        )
 
-                        # Extract the atlas type by removing the subject prefix
-                        if "_" in nonroi_atlas_base_name:
-                            nonroi_atlas_type = nonroi_atlas_base_name.split("_", 1)[-1]
-                        else:
-                            nonroi_atlas_type = nonroi_atlas_base_name
+            # Build FlexConfig from UI state
+            thresholds_value = None
+            if goal == "focality" and not self._is_pareto_sweep_mode() and not self.mode_adaptive_radio.isChecked():
+                thresholds_value = self.threshold_input.text().strip() or None
 
-                        # Construct the correct subject-specific atlas name
-                        nonroi_atlas_name = f"{subject_id}_{nonroi_atlas_type}"
-
-                        nonroi_hemi = (
-                            "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-                        )
-                        nonroi_label_val = self.nonroi_label_input.value()
-                        nonroi_atlas_path_arg = os.path.join(
-                            script_project_dir,
-                            "derivatives",
-                            "SimNIBS",
-                            f"sub-{subject_id}",
-                            f"m2m_{subject_id}",
-                            "segmentation",
-                            f"{nonroi_hemi}.{nonroi_atlas_name}.annot",
-                        )
-                        env["NON_ROI_ATLAS_PATH"] = nonroi_atlas_path_arg
-                        env["NON_ROI_HEMISPHERE"] = nonroi_hemi
-                        env["NON_ROI_LABEL"] = str(nonroi_label_val)
-                    else:  # subcortical volume for non-ROI
-                        nonroi_volume_atlas = (
-                            self.nonroi_volume_atlas_combo.currentText()
-                        )
-                        nonroi_volume_label_val = self.nonroi_volume_label_input.value()
-                        # Dynamically construct the non-ROI volume atlas path for the current subject
-                        seg_dir_for_env = os.path.join(
-                            script_project_dir,
-                            "derivatives",
-                            "SimNIBS",
-                            f"sub-{subject_id}",
-                            f"m2m_{subject_id}",
-                            "segmentation",
-                        )
-                        nonroi_volume_atlas_path = os.path.join(
-                            seg_dir_for_env, nonroi_volume_atlas
-                        )
-                        if os.path.isfile(nonroi_volume_atlas_path):
-                            env["VOLUME_NON_ROI_ATLAS_PATH"] = nonroi_volume_atlas_path
-                        else:
-                            self.output_text.append(
-                                f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}"
-                            )
-                        env["VOLUME_NON_ROI_LABEL"] = str(nonroi_volume_label_val)
-
-            # Stability and Memory options
-            if not self.run_final_electrode_simulation_checkbox.isChecked():
-                cmd.append("--skip-final-electrode-simulation")
-            cmd.extend(["--n-multistart", str(self.n_multistart_input.value())])
-            cmd.extend(["--max-iterations", str(self.max_iterations_input.value())])
-            cmd.extend(["--population-size", str(self.population_size_input.value())])
-            cmd.extend(["--cpus", str(self.cpus_input.value())])
-
-            # Differential evolution optimizer parameters
-            cmd.extend(["--tolerance", str(self.tolerance_input.value())])
-
-            # Mutation parameter as "min,max" string
-            mutation_str = (
-                f"{self.mutation_min_input.value()},{self.mutation_max_input.value()}"
+            config = self._build_flex_config(
+                subject_id=subject_id,
+                project_dir=project_dir,
+                roi_params=roi_params,
+                goal=goal,
+                postproc=postproc,
+                eeg_net=eeg_net,
+                electrode_current=electrode_current,
+                electrode_shape=electrode_shape,
+                dimensions=dimensions,
+                thickness=thickness,
+                thresholds=thresholds_value,
             )
-            cmd.extend(["--mutation", mutation_str])
 
-            cmd.extend(["--recombination", str(self.recombination_input.value())])
-
-            # Detailed results flag
-            if self.detailed_results_checkbox.isChecked():
-                cmd.append("--detailed-results")
-
-            # Visualize valid skin region flag
-            if self.visualize_skin_checkbox.isChecked():
-                cmd.append("--visualize-valid-skin-region")
-                # Add skin visualization net if selected
-                skin_net = self.skin_net_combo.currentText()
-                if skin_net:
-                    skin_net_path = self.eeg_nets.get(skin_net)
-                    if skin_net_path:
-                        cmd.extend(["--skin-visualization-net", skin_net_path])
-                    else:
-                        # Fallback for default nets that don't have a file path
-                        default_path = os.path.join(
-                            script_project_dir,
-                            "derivatives",
-                            "SimNIBS",
-                            f"sub-{subject_id}",
-                            f"m2m_{subject_id}",
-                            "eeg_positions",
-                            f"{skin_net}.csv",
-                        )
-                        cmd.extend(["--skin-visualization-net", default_path])
+            cmd, config_path = self._launch_flex_config(config)
 
             # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
             if (
@@ -1849,15 +1783,13 @@ class FlexSearchTab(QtWidgets.QWidget):
                 or len(self.selected_subjects) == 1
             ):
                 if self.parent:
-                    keep_enabled_widgets = [self.console_widget.debug_checkbox]
                     self.parent.set_tab_busy(
                         self,
                         True,
                         stop_btn=self.stop_btn,
-                        keep_enabled=keep_enabled_widgets,
                     )
 
-            self.optimization_process = FlexSearchThread(cmd, env)
+            self.optimization_process = FlexSearchThread(cmd)
             self.optimization_process.output_signal.connect(self.update_output)
             self.optimization_process.error_signal.connect(
                 lambda msg: self.update_output(msg, "error")
@@ -2548,8 +2480,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.detailed_results_checkbox.setEnabled(False)
         self.visualize_skin_checkbox.setEnabled(False)
 
-        # Keep debug checkbox enabled during processing
-        self.console_widget.debug_checkbox.setEnabled(True)
 
     def enable_controls(self):
         """Enable all input controls after optimization."""
@@ -2713,6 +2643,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         """
         from collections import deque
 
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+
         # Reset all sweep state for a fresh run
         self._sweep_roi_pcts = roi_pcts
         self._sweep_nonroi_pcts = nonroi_pcts
@@ -2725,8 +2658,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             "electrode_shape": electrode_shape,
             "dimensions": dimensions,
             "thickness": thickness,
-            "env": env,
-            "base_cmd": base_cmd,
         }
         self._sweep_points = []
         self._sweep_queue = deque()
@@ -2734,23 +2665,27 @@ class FlexSearchTab(QtWidgets.QWidget):
         self._current_sweep_point = None
         self.achievable_intensity = None
 
-        # Build mean cmd (same pattern as existing adaptive step 1)
-        mean_cmd = base_cmd + [
-            "--roi-method",
-            roi_params["method"],
-            "--goal",
-            "mean",
-            "--postproc",
-            postproc,
-        ]
-        if self.run_mapped_simulation_checkbox.isChecked():
-            mean_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
+        # Build mean FlexConfig for step 1
+        mean_config = self._build_flex_config(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            roi_params=roi_params,
+            goal="mean",
+            postproc=postproc,
+            eeg_net=eeg_net,
+            electrode_current=electrode_current,
+            electrode_shape=electrode_shape,
+            dimensions=dimensions,
+            thickness=thickness,
+        )
+
+        mean_cmd, _ = self._launch_flex_config(mean_config)
 
         self.update_output(
             "\U0001f504 Pareto Sweep: Step 1/2 \u2014 Finding achievable ROI intensity (mean optimization)"
         )
 
-        self.optimization_thread = FlexSearchThread(mean_cmd, env)
+        self.optimization_thread = FlexSearchThread(mean_cmd)
         self.optimization_thread.output_signal.connect(
             self._process_mean_optimization_output
         )
@@ -2862,7 +2797,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _run_next_sweep_point(self):
         """Pop the next SweepPoint from the queue and launch a focality run for it."""
-        from tit.opt.flex.pareto import build_focality_cmd
         import os as _os
 
         if not self._sweep_queue:
@@ -2874,23 +2808,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         point.status = "running"
 
         params = self._sweep_params
-        env = dict(params["env"])  # isolated copy per run
+        pm = get_path_manager()
+        project_dir = pm.project_dir
         _os.makedirs(point.output_folder, exist_ok=True)
 
-        base_cmd = params["base_cmd"] + [
-            "--roi-method",
-            params["roi_params"]["method"],
-            "--postproc",
-            params["postproc"],
-            "--non-roi-method",
-            self.nonroi_method_combo.currentData() or "everything_else",
-        ]
-        if self.run_mapped_simulation_checkbox.isChecked():
-            base_cmd.extend(["--enable-mapping", "--eeg-net", params["eeg_net"]])
+        # Build a focality FlexConfig for this sweep point
+        sweep_thresholds = f"{point.nonroi_threshold:.3f},{point.roi_threshold:.3f}"
 
-        focality_cmd = build_focality_cmd(base_cmd, point)
-        # Route each sweep run to its own numbered subfolder so runs don't overwrite each other
-        focality_cmd += ["--output-folder", point.output_folder]
+        sweep_config = self._build_flex_config(
+            subject_id=params["subject_id"],
+            project_dir=project_dir,
+            roi_params=params["roi_params"],
+            goal="focality",
+            postproc=params["postproc"],
+            eeg_net=params["eeg_net"],
+            electrode_current=params["electrode_current"],
+            electrode_shape=params["electrode_shape"],
+            dimensions=params["dimensions"],
+            thickness=params["thickness"],
+            thresholds=sweep_thresholds,
+            output_folder=point.output_folder,
+        )
+
+        focality_cmd, _ = self._launch_flex_config(sweep_config)
 
         n_total = len(self._sweep_points)
         n_done = sum(1 for p in self._sweep_points if p.status in ("done", "failed"))
@@ -2901,7 +2841,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             f"NonROI={point.nonroi_threshold:.3f} V/m)"
         )
 
-        self.optimization_thread = FlexSearchThread(focality_cmd, env)
+        self.optimization_thread = FlexSearchThread(focality_cmd)
         self.optimization_thread.output_signal.connect(self._process_sweep_point_output)
         self.optimization_thread.error_signal.connect(
             lambda msg: self.update_output(msg, "error")
@@ -2996,7 +2936,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "📊 Step 1/2: Finding achievable intensity with mean optimization"
             )
 
-            # Store parameters for later use
+            pm = get_path_manager()
+            project_dir = pm.project_dir
+
+            # Store parameters for later use (step 2 needs them)
             self.adaptive_params = {
                 "subject_id": subject_id,
                 "roi_params": roi_params,
@@ -3006,30 +2949,29 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "electrode_shape": electrode_shape,
                 "dimensions": dimensions,
                 "thickness": thickness,
-                "env": env,
-                "base_cmd": base_cmd,
             }
 
             # Initialize achievable intensity tracking
             self.achievable_intensity = None
 
-            # Build mean optimization command
-            mean_cmd = base_cmd + [
-                "--roi-method",
-                roi_params["method"],
-                "--goal",
-                "mean",
-                "--postproc",
-                postproc,
-            ]
+            # Build a FlexConfig for the mean optimization step
+            mean_config = self._build_flex_config(
+                subject_id=subject_id,
+                project_dir=project_dir,
+                roi_params=roi_params,
+                goal="mean",
+                postproc=postproc,
+                eeg_net=eeg_net,
+                electrode_current=electrode_current,
+                electrode_shape=electrode_shape,
+                dimensions=dimensions,
+                thickness=thickness,
+            )
 
-            # Add mapping options to mean command
-            if self.run_mapped_simulation_checkbox.isChecked():
-                mean_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
-                # When run_mapped_simulation is checked, we always run the mapping simulation
+            mean_cmd, _ = self._launch_flex_config(mean_config)
 
             # Run mean optimization with enhanced output monitoring
-            self.optimization_thread = FlexSearchThread(mean_cmd, env)
+            self.optimization_thread = FlexSearchThread(mean_cmd)
             self.optimization_thread.output_signal.connect(
                 self._process_mean_optimization_output
             )
@@ -3129,8 +3071,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             electrode_shape = params["electrode_shape"]
             dimensions = params["dimensions"]
             thickness = params["thickness"]
-            env = params["env"]
-            base_cmd = params["base_cmd"]
+
+            pm = get_path_manager()
+            project_dir = pm.project_dir
 
             # Check if we captured the achievable intensity
             if self.achievable_intensity is None or self.achievable_intensity <= 0:
@@ -3170,34 +3113,27 @@ class FlexSearchTab(QtWidgets.QWidget):
                 f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
             )
 
-            # Build focality optimization command with adaptive thresholds
+            # Build focality FlexConfig with adaptive thresholds
             adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
-            nonroi_method = self.nonroi_method_combo.currentData()
 
-            focality_cmd = base_cmd + [
-                "--roi-method",
-                roi_params["method"],
-                "--goal",
-                "focality",
-                "--postproc",
-                postproc,
-                "--non-roi-method",
-                nonroi_method,
-                "--thresholds",
-                adaptive_thresholds,
-            ]
+            focality_config = self._build_flex_config(
+                subject_id=subject_id,
+                project_dir=project_dir,
+                roi_params=roi_params,
+                goal="focality",
+                postproc=postproc,
+                eeg_net=eeg_net,
+                electrode_current=electrode_current,
+                electrode_shape=electrode_shape,
+                dimensions=dimensions,
+                thickness=thickness,
+                thresholds=adaptive_thresholds,
+            )
 
-            # Add mapping options to focality command
-            if self.run_mapped_simulation_checkbox.isChecked():
-                focality_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
-                # When run_mapped_simulation is checked, we always run the mapping simulation
-
-            # Add non-ROI specific parameters if needed
-            if nonroi_method == "specific":
-                self._add_nonroi_parameters(env, roi_params, subject_id)
+            focality_cmd, _ = self._launch_flex_config(focality_config)
 
             # Run focality optimization with adaptive thresholds
-            self.optimization_thread = FlexSearchThread(focality_cmd, env)
+            self.optimization_thread = FlexSearchThread(focality_cmd)
             self.optimization_thread.output_signal.connect(self.update_output)
             self.optimization_thread.error_signal.connect(
                 lambda msg: self.update_output(msg, "error")
@@ -3253,18 +3189,27 @@ class FlexSearchTab(QtWidgets.QWidget):
             env["NON_ROI_HEMISPHERE"] = nonroi_hemi_for_env
             env["NON_ROI_LABEL"] = str(self.nonroi_label_input.value())
         elif roi_params["method"] == "subcortical":
-            nonroi_volume_atlas_display = self.nonroi_volume_atlas_combo.currentText()
-            nonroi_volume_atlas_base_name = self.volume_atlas_display_map.get(
-                nonroi_volume_atlas_display, nonroi_volume_atlas_display
-            )
+            nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
 
             script_project_dir = env["PROJECT_DIR"]
-            atlas_dir_for_env = os.path.join(script_project_dir, "assets", "atlas")
-            nonroi_volume_atlas_path_for_env = os.path.join(
-                atlas_dir_for_env, nonroi_volume_atlas_base_name
+            seg_dir_for_env = os.path.join(
+                script_project_dir,
+                "derivatives",
+                "SimNIBS",
+                f"sub-{subject_id}",
+                f"m2m_{subject_id}",
+                "segmentation",
             )
-
-            env["VOLUME_NON_ROI_ATLAS_PATH"] = nonroi_volume_atlas_path_for_env
+            nonroi_volume_atlas_path_for_env = os.path.join(
+                seg_dir_for_env, nonroi_volume_atlas
+            )
+            if os.path.isfile(nonroi_volume_atlas_path_for_env):
+                env["VOLUME_NON_ROI_ATLAS_PATH"] = nonroi_volume_atlas_path_for_env
+            else:
+                self.update_output(
+                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path_for_env}",
+                    "warning",
+                )
             env["VOLUME_NON_ROI_LABEL"] = str(self.nonroi_volume_label_input.value())
 
     def _on_mean_optimization_finished(
@@ -3284,8 +3229,8 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         try:
             # Extract achievable intensity from mean optimization results
-            achievable_intensity = self._extract_achievable_intensity(
-                subject_id, roi_params
+            achievable_intensity = self._extract_achievable_intensity_from_files(
+                subject_id, roi_params, postproc
             )
 
             if achievable_intensity is None:
@@ -3317,92 +3262,30 @@ class FlexSearchTab(QtWidgets.QWidget):
                 f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
             )
 
-            # Build focality optimization command with adaptive thresholds
+            # Build focality FlexConfig with adaptive thresholds
             adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
-            nonroi_method = self.nonroi_method_combo.currentData()
 
-            focality_cmd = base_cmd + [
-                "--roi-method",
-                roi_params["method"],
-                "--goal",
-                "focality",
-                "--postproc",
-                postproc,
-                "--non-roi-method",
-                nonroi_method,
-                "--thresholds",
-                adaptive_thresholds,
-            ]
+            pm = get_path_manager()
+            project_dir = pm.project_dir
 
-            # Add mapping options to focality command
-            if self.run_mapped_simulation_checkbox.isChecked():
-                focality_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
-                # When run_mapped_simulation is checked, we always run the mapping simulation
+            focality_config = self._build_flex_config(
+                subject_id=subject_id,
+                project_dir=project_dir,
+                roi_params=roi_params,
+                goal="focality",
+                postproc=postproc,
+                eeg_net=eeg_net,
+                electrode_current=electrode_current,
+                electrode_shape=electrode_shape,
+                dimensions=dimensions,
+                thickness=thickness,
+                thresholds=adaptive_thresholds,
+            )
 
-            # Add non-ROI specific parameters if needed
-            if nonroi_method == "specific":
-                if roi_params["method"] == "spherical":
-                    env["NON_ROI_X"] = str(self.nonroi_x_input.value())
-                    env["NON_ROI_Y"] = str(self.nonroi_y_input.value())
-                    env["NON_ROI_Z"] = str(self.nonroi_z_input.value())
-                    env["NON_ROI_RADIUS"] = str(self.nonroi_radius_input.value())
-                    env["USE_MNI_COORDS_NON_ROI"] = env.get("USE_MNI_COORDS", "false")
-                elif roi_params["method"] == "atlas":
-                    nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-                    nonroi_atlas_base_name = self.atlas_display_map.get(
-                        nonroi_atlas_display, nonroi_atlas_display
-                    )
-
-                    if "_" in nonroi_atlas_base_name:
-                        nonroi_atlas_type = nonroi_atlas_base_name.split("_", 1)[-1]
-                    else:
-                        nonroi_atlas_type = nonroi_atlas_base_name
-
-                    nonroi_atlas_name_for_env = f"{subject_id}_{nonroi_atlas_type}"
-                    nonroi_hemi_for_env = (
-                        "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-                    )
-
-                    script_project_dir = env["PROJECT_DIR"]
-                    seg_dir_for_env = os.path.join(
-                        script_project_dir,
-                        "derivatives",
-                        "SimNIBS",
-                        f"sub-{subject_id}",
-                        f"m2m_{subject_id}",
-                        "segmentation",
-                    )
-                    nonroi_atlas_path_for_env = os.path.join(
-                        seg_dir_for_env,
-                        f"{nonroi_hemi_for_env}.{nonroi_atlas_name_for_env}.annot",
-                    )
-
-                    env["NON_ROI_ATLAS_PATH"] = nonroi_atlas_path_for_env
-                    env["NON_ROI_HEMISPHERE"] = nonroi_hemi_for_env
-                    env["NON_ROI_LABEL"] = str(self.nonroi_label_input.value())
-                elif roi_params["method"] == "subcortical":
-                    nonroi_volume_atlas_display = (
-                        self.nonroi_volume_atlas_combo.currentText()
-                    )
-                    nonroi_volume_atlas_base_name = self.volume_atlas_display_map.get(
-                        nonroi_volume_atlas_display, nonroi_volume_atlas_display
-                    )
-
-                    script_project_dir = env["PROJECT_DIR"]
-                    atlas_dir_for_env = os.path.join(
-                        script_project_dir, "assets", "atlas"
-                    )
-                    nonroi_volume_atlas_path_for_env = os.path.join(
-                        atlas_dir_for_env, nonroi_volume_atlas_base_name
-                    )
-
-                    env["VOLUME_NON_ROI_ATLAS_PATH"] = nonroi_volume_atlas_path_for_env
-                    env["VOLUME_NON_ROI_LABEL"] = str(
-                        self.nonroi_volume_label_input.value()
-                    )
+            focality_cmd, _ = self._launch_flex_config(focality_config)
 
             # Run focality optimization with adaptive thresholds
-            self.optimization_thread = FlexSearchThread(focality_cmd, env)
+            self.optimization_thread = FlexSearchThread(focality_cmd)
             self.optimization_thread.output_signal.connect(self.update_output)
             self.optimization_thread.error_signal.connect(
                 lambda msg: self.update_output(msg, "error")

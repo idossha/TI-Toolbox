@@ -823,12 +823,6 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             and hasattr(self.parent_window, "set_tab_busy")
         ):
             keep_enabled = []
-            if (
-                hasattr(self, "console_widget")
-                and self.console_widget
-                and hasattr(self.console_widget, "debug_checkbox")
-            ):
-                keep_enabled = [self.console_widget.debug_checkbox]
             stop_btn = getattr(self, "action_buttons", None)
             if stop_btn:
                 stop_btn = stop_btn.get_stop_button()
@@ -865,11 +859,8 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         ):
             self.update_output("\nStopping analysis...", "warning")
             self.worker_thread.request_stop()
-            # Wait for thread to finish gracefully, but with a timeout
-            if not self.worker_thread.wait(5000):  # 5 second timeout
-                self.update_output("Force terminating analysis...", "warning")
-                self.worker_thread.terminate()
-                self.worker_thread.wait()
+            # Don't call .wait() — it blocks the GUI event loop.
+            # The finished_signal handler (on_finished) handles cleanup.
             self.update_output("Analysis stopped by user.", "warning")
 
             # Unlock GUI interface
