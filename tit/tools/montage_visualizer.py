@@ -48,8 +48,10 @@ def _load_coordinates(eeg_net: str) -> Optional[Dict[str, Tuple[int, int]]]:
     fname = _COORD_FILES.get(eeg_net)
     coords: Dict[str, Tuple[int, int]] = {}
     with open(os.path.join(_RESOURCES_DIR, fname)) as f:
-        for line in f:
+        for lineno, line in enumerate(f):
             parts = line.strip().split(",")
+            if lineno == 0 and not parts[1].replace(".", "").replace("-", "").isdigit():
+                continue  # skip header row
             coords[parts[0]] = (int(float(parts[1])), int(float(parts[2])))
     return coords
 

@@ -374,9 +374,7 @@ def run_simulation(
         except Exception as exc:
             tb = traceback.format_exc()
             logger.error(f"Failed: {montage.name} — {exc}\n{tb}")
-            import sys
-
-            print(f"\n[TRACEBACK] {montage.name}:\n{tb}", file=sys.stderr)
+            logger.error(f"[TRACEBACK] {montage.name}:\n{tb}")
             results.append(
                 {
                     "montage_name": montage.name,

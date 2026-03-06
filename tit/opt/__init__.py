@@ -1,27 +1,66 @@
-"""
-TI-Toolbox optimization package
+"""TI-Toolbox optimization package.
+
+Public API
+----------
+- ``run_flex_search(config) -> FlexResult``  — differential-evolution optimization
+- ``run_ex_search(config) -> ExResult``      — exhaustive / grid search
+
+``run_flex_search`` is imported eagerly (its SimNIBS deps are inside function
+bodies). ``run_ex_search`` is lazy because ``ex/engine.py`` imports SimNIBS at
+module level.
 """
 
 from __future__ import annotations
 
-# NOTE:
-# Keep this package import lightweight. Some optimization submodules (e.g. flex)
-# depend on optional scientific/GUI stacks that aren't available in all
-# environments (unit tests, minimal installs, etc.).
-#
-# Access `tit.opt.flex` via attribute access (lazy import) instead of importing
-# it unconditionally here.
-
-import importlib
 from typing import Any
 
-from tit.opt.config import ExConfig, ExResult
-from tit.opt.ex.ex import run_ex_search
+from tit.opt.config import (
+    FlexConfig,
+    FlexElectrodeConfig,
+    FlexResult,
+    ExConfig,
+    ExCurrentConfig,
+    ExResult,
+    SphericalROI,
+    AtlasROI,
+    SubcorticalROI,
+    BucketElectrodes,
+    PoolElectrodes,
+    OptGoal,
+    FieldPostproc,
+    NonROIMethod,
+)
+from tit.opt.flex.flex import run_flex_search
 
-__all__ = ["flex", "run_ex_search", "ExConfig", "ExResult"]
+__all__ = [
+    # Config classes
+    "FlexConfig",
+    "FlexElectrodeConfig",
+    "FlexResult",
+    "ExConfig",
+    "ExCurrentConfig",
+    "ExResult",
+    # ROI types
+    "SphericalROI",
+    "AtlasROI",
+    "SubcorticalROI",
+    # Electrode types
+    "BucketElectrodes",
+    "PoolElectrodes",
+    # Enums
+    "OptGoal",
+    "FieldPostproc",
+    "NonROIMethod",
+    # Functions
+    "run_flex_search",
+    "run_ex_search",
+]
 
 
-def __getattr__(name: str) -> Any:  # pragma: no cover
-    if name == "flex":
-        return importlib.import_module(".flex", __name__)
-    raise AttributeError(name)
+def __getattr__(name: str) -> Any:
+    """Lazy-load run_ex_search (ex/engine.py imports SimNIBS at module level)."""
+    if name == "run_ex_search":
+        from tit.opt.ex.ex import run_ex_search
+
+        return run_ex_search
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
