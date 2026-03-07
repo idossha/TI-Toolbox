@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 
 from tit.opt.config import (
@@ -29,7 +30,18 @@ def _build_electrodes(data: dict):
     return BucketElectrodes(**data)
 
 
+def _make_stdout_logger() -> None:
+    """Attach a stdout handler so log messages are captured by BaseProcessThread."""
+    logger = logging.getLogger("tit.opt.ex_search")
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+
+
 def main() -> None:
+    _make_stdout_logger()
+
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)

@@ -123,7 +123,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(600)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -166,7 +165,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         scroll_layout.addLayout(main_horizontal_layout)
         scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area, 3)
 
         # Initial call to set input widths after UI is created
         QtCore.QTimer.singleShot(100, self._update_input_widths)
@@ -187,11 +185,17 @@ class AnalyzerTab(QtWidgets.QWidget):
             parent=self,
             show_clear_button=True,
             console_label="Output:",
-            min_height=400,
-            max_height=600,
+            min_height=200,
             custom_buttons=[self.run_btn, self.stop_btn],
         )
-        main_layout.addWidget(self.console_widget, 2)
+
+        # Vertical splitter: config panel (top) | console (bottom)
+        _v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        _v_splitter.setChildrenCollapsible(False)
+        _v_splitter.addWidget(scroll_area)
+        _v_splitter.addWidget(self.console_widget)
+        _v_splitter.setSizes([600, 400])
+        main_layout.addWidget(_v_splitter)
 
         # Reference to underlying console for backward compatibility
         self.output_console = self.console_widget.get_console_widget()
