@@ -338,13 +338,14 @@ def run_simulation(
     Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
     Returns list of result dicts: montage_name, montage_type, status, output_mesh.
     """
-    pm = get_path_manager()
-    log_dir = pm.logs(config.subject_id)
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(
-        log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
-    )
-    logger = _make_file_logger("TI-Simulator", log_file)
+    if logger is None:
+        pm = get_path_manager()
+        log_dir = pm.logs(config.subject_id)
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(
+            log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
+        )
+        logger = _make_file_logger("TI-Simulator", log_file)
 
     pm = get_path_manager()
     simulation_dir = pm.simulations(config.subject_id)

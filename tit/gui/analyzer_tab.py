@@ -879,34 +879,19 @@ class AnalyzerTab(QtWidgets.QWidget):
         return right_layout
 
     def get_available_atlas_files(self, subject_id):
-        atlas_files = []
+        """Discover available voxel atlas files for a subject."""
         if not subject_id:
-            return atlas_files
+            return []
 
-        freesurfer_mri_dir = self.pm.freesurfer_mri(subject_id)
+        from tit.analyzer.atlas import list_voxel_atlases
 
-        atlases_to_check = ["aparc.DKTatlas+aseg.mgz", "aparc.a2009s+aseg.mgz"]
-
-        if freesurfer_mri_dir and os.path.isdir(
-            freesurfer_mri_dir
-        ):  # Check if subject's FS mri dir exists
-            for atlas_filename in atlases_to_check:
-                full_path = os.path.join(freesurfer_mri_dir, atlas_filename)
-                if os.path.exists(full_path):
-                    atlas_files.append((atlas_filename, full_path))
-
-        # Check for SimNIBS labeling.nii.gz atlas
-        m2m_dir = self.pm.m2m(subject_id)
-        if m2m_dir and os.path.isdir(m2m_dir):
-            labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
-            if os.path.exists(labeling_path):
-                atlas_files.append(("SimNIBS labeling", labeling_path))
-
-        if not atlas_files:
-            atlas_files.append(
-                "FreeSurfer recon-all preprocessing required for atlas generation"
-            )
-        return atlas_files
+        results = list_voxel_atlases(
+            freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
+            seg_dir=self.pm.segmentation(subject_id),
+        )
+        if not results:
+            return ["FreeSurfer recon-all preprocessing required for atlas generation"]
+        return results
 
     def update_atlas_combo(self):
         if self.is_group_mode:
@@ -2192,214 +2177,121 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.status_label.hide()
 
+    @staticmethod
+    def _list_annot_regions(seg_dir, atlas_name):
+        """Read region names from .annot files in the segmentation directory."""
+        from tit.analyzer.atlas import list_regions
+
+        return list_regions(atlas_name, seg_dir=seg_dir)
+
     def show_available_regions(self):
-        try:
-            selected_subjects = self.get_selected_subjects()
-            if not selected_subjects:
+        """Show a searchable dialog of available regions for the selected atlas."""
+        selected_subjects = self.get_selected_subjects()
+        if not selected_subjects:
+            QtWidgets.QMessageBox.warning(
+                self, "Selection Error", "Please select a subject first."
+            )
+            return
+
+        progress_dialog = QtWidgets.QProgressDialog(
+            "Loading atlas regions...", "Cancel", 0, 100, self
+        )
+        progress_dialog.setWindowTitle("Loading Atlas Regions")
+        progress_dialog.setWindowModality(QtCore.Qt.WindowModal)
+        progress_dialog.setMinimumDuration(200)
+        progress_dialog.setValue(0)
+
+        atlas_type_display, regions = "", []
+        subject_id = selected_subjects[0]
+
+        if self.space_mesh.isChecked():
+            atlas_name = self.atlas_name_combo.currentText()
+            if not atlas_name:
+                QtWidgets.QMessageBox.warning(self, "Atlas Error", "Select mesh atlas.")
+                return
+            atlas_type_display = atlas_name
+            m2m_dir = self.pm.m2m(subject_id)
+            if not os.path.isdir(m2m_dir):
+                QtWidgets.QMessageBox.critical(
+                    self, "Error", f"m2m dir not found: {subject_id}."
+                )
+                return
+
+            progress_dialog.setValue(20)
+            QtWidgets.QApplication.processEvents()
+            seg_dir = os.path.join(m2m_dir, "segmentation")
+            regions = self._list_annot_regions(seg_dir, atlas_name)
+            progress_dialog.setValue(80)
+            QtWidgets.QApplication.processEvents()
+
+        else:  # Voxel atlas
+            atlas_path = self.atlas_combo.currentData()
+            if not atlas_path or not os.path.isfile(atlas_path):
                 QtWidgets.QMessageBox.warning(
-                    self, "Selection Error", "Please select a subject first."
+                    self, "Atlas Error", "Select valid voxel atlas."
                 )
                 return
+            atlas_type_display = os.path.basename(atlas_path)
+            progress_dialog.setLabelText("Extracting voxel regions...")
+            progress_dialog.setValue(20)
+            QtWidgets.QApplication.processEvents()
 
-            progress_dialog = QtWidgets.QProgressDialog(
-                "Loading atlas regions...", "Cancel", 0, 100, self
+            from tit.analyzer.atlas import list_voxel_regions
+
+            regions = list_voxel_regions(atlas_path)
+            progress_dialog.setValue(90)
+
+        if not regions:
+            QtWidgets.QMessageBox.information(
+                self, "No Regions", f"No regions for: {atlas_type_display}"
             )
-            progress_dialog.setWindowTitle("Loading Atlas Regions")
-            progress_dialog.setWindowModality(QtCore.Qt.WindowModal)
-            progress_dialog.setMinimumDuration(200)
-            progress_dialog.setValue(0)
+            progress_dialog.cancel()
+            return
+        progress_dialog.setValue(100)
+        progress_dialog.close()
 
-            atlas_type_display, regions = "", []
-            subject_id = selected_subjects[0]
+        # Show searchable region dialog
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"Available Regions - {atlas_type_display}")
+        dialog.setMinimumWidth(400)
+        dialog.setMinimumHeight(500)
+        layout = QtWidgets.QVBoxLayout(dialog)
 
-            if self.space_mesh.isChecked():  # Mesh Atlas
-                atlas_name_simnibs = self.atlas_name_combo.currentText()
-                if not atlas_name_simnibs:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Atlas Error", "Select mesh atlas."
-                    )
-                    return
-                atlas_type_display = atlas_name_simnibs
-                m2m_dir = self.pm.m2m(subject_id)
-                if not m2m_dir or not os.path.isdir(m2m_dir):
-                    QtWidgets.QMessageBox.critical(
-                        self, "Error", f"m2m dir not found: {subject_id}."
-                    )
-                    return
+        search_input = QtWidgets.QLineEdit()
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(QtWidgets.QLabel("Search:"))
+        search_layout.addWidget(search_input)
+        layout.addLayout(search_layout)
 
-                progress_dialog.setValue(20)
-                QtWidgets.QApplication.processEvents()
-                try:
-                    import simnibs
+        list_widget = QtWidgets.QListWidget()
+        list_widget.addItems(regions)
+        layout.addWidget(list_widget)
 
-                    atlas = simnibs.subject_atlas(atlas_name_simnibs, m2m_dir)
-                    regions = sorted(atlas.keys())
-                    progress_dialog.setValue(80)
-                    QtWidgets.QApplication.processEvents()
-                except (OSError, ValueError, RuntimeError) as e:
-                    QtWidgets.QMessageBox.critical(
-                        self, "Load Error", f"Load mesh atlas fail: {e}"
-                    )
-                    progress_dialog.cancel()
-                    print(traceback.format_exc())
-                    return
-
-            else:  # Voxel Atlas
-                atlas_path = (
-                    self.atlas_combo.currentData()
-                )  # Path from single mode combo
-                if not atlas_path or not os.path.exists(atlas_path):
-                    QtWidgets.QMessageBox.warning(
-                        self, "Atlas Error", "Select valid voxel atlas."
-                    )
-                    return
-                atlas_type_display = os.path.basename(atlas_path)
-                print(f"Extracting regions from voxel atlas: {atlas_type_display}...")
-                progress_dialog.setValue(20)
-                QtWidgets.QApplication.processEvents()
-
-                # Original mri_segstats logic
-                seg_dir = os.path.dirname(atlas_path)
-                atlas_bname = os.path.splitext(os.path.basename(atlas_path))[0]
-                if atlas_bname.endswith(".nii"):
-                    atlas_bname = os.path.splitext(atlas_bname)[0]
-                labels_file = os.path.join(
-                    seg_dir, f"{atlas_bname}_labels.txt"
-                )  # Original name
-
-                if not os.path.exists(labels_file):  # Check for _labels.txt
-                    cmd_mri_segstats = [
-                        "mri_segstats",
-                        "--seg",
-                        atlas_path,
-                        "--excludeid",
-                        "0",
-                        "--ctab-default",
-                        "--sum",
-                        labels_file,
-                    ]
-                    print(f"Running: {' '.join(cmd_mri_segstats)}")
-                    progress_dialog.setLabelText("Running mri_segstats...")
-
-                    # NOTE: The polling loop below is acceptable for mri_segstats
-                    # (a fast utility). It keeps the progress dialog responsive and
-                    # supports cancel. A full signal-based rewrite is not warranted.
-                    qprocess = QtCore.QProcess(self)
-                    qprocess.setProcessChannelMode(QtCore.QProcess.MergedChannels)
-                    qprocess.start(cmd_mri_segstats[0], cmd_mri_segstats[1:])
-
-                    while (
-                        qprocess.state() == QtCore.QProcess.Starting
-                        or qprocess.state() == QtCore.QProcess.Running
-                    ):
-                        if progress_dialog.wasCanceled():
-                            qprocess.kill()
-                            print("mri_segstats cancelled.")
-                            return
-                        QtWidgets.QApplication.processEvents()
-                        QtCore.QThread.msleep(50)
-                        prog_val = progress_dialog.value()
-                        if prog_val < 70:
-                            progress_dialog.setValue(prog_val + 1)
-
-                    if (
-                        qprocess.exitStatus() != QtCore.QProcess.NormalExit
-                        or qprocess.exitCode() != 0
-                    ):
-                        output_err = qprocess.readAll().data().decode(errors="ignore")
-                        QtWidgets.QMessageBox.critical(
-                            self,
-                            "mri_segstats Error",
-                            f"mri_segstats failed:\n{output_err}",
-                        )
-                        progress_dialog.cancel()
-                        return
-                    print("mri_segstats completed.")
-                else:
-                    print(f"Using existing labels file: {labels_file}")
-
-                progress_dialog.setLabelText("Parsing regions...")
-                progress_dialog.setValue(75)
-                QtWidgets.QApplication.processEvents()
-                with open(labels_file, "r") as f_in:
-                    lines = f_in.readlines()
-
-                # Original parsing logic for mri_segstats --sum output
-                in_header_flag = True
-                for line in lines:
-                    if in_header_flag and not line.startswith("#"):
-                        in_header_flag = False
-                    if not in_header_flag and line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 5:  # StructName can have spaces
-                            region_name_val = " ".join(parts[4:])  # Original index
-                            region_id_val = parts[1]  # SegId original index
-                            regions.append(f"{region_name_val} (ID: {region_id_val})")
-                regions = sorted(list(set(regions)))
-                progress_dialog.setValue(90)
-
-            if not regions:
-                QtWidgets.QMessageBox.information(
-                    self, "No Regions", f"No regions for: {atlas_type_display}"
+        def filter_regions(text):
+            for i in range(list_widget.count()):
+                list_widget.item(i).setHidden(
+                    text.lower() not in list_widget.item(i).text().lower()
                 )
-                progress_dialog.cancel()
-                return
-            progress_dialog.setValue(95)
 
-            # Dialog display logic (original)
-            dialog = QtWidgets.QDialog(self)
-            dialog.setWindowTitle(f"Available Regions - {atlas_type_display}")
-            dialog.setMinimumWidth(400)
-            dialog.setMinimumHeight(500)
-            layout_diag = QtWidgets.QVBoxLayout(dialog)
-            search_layout_diag = QtWidgets.QHBoxLayout()
-            search_label_diag = QtWidgets.QLabel("Search:")
-            search_input_diag = QtWidgets.QLineEdit()
-            search_layout_diag.addWidget(search_label_diag)
-            search_layout_diag.addWidget(search_input_diag)
-            layout_diag.addLayout(search_layout_diag)
-            list_widget_diag = QtWidgets.QListWidget()
-            list_widget_diag.addItems(regions)
-            layout_diag.addWidget(list_widget_diag)
-            button_layout_diag = QtWidgets.QHBoxLayout()
-            copy_btn_diag = QtWidgets.QPushButton("Copy Selected")
-            close_btn_diag = QtWidgets.QPushButton("Close")
-            button_layout_diag.addWidget(copy_btn_diag)
-            button_layout_diag.addWidget(close_btn_diag)
-            layout_diag.addLayout(button_layout_diag)
-            progress_dialog.setValue(100)
-            progress_dialog.close()
+        def select_region():
+            item = list_widget.currentItem()
+            if item:
+                self.region_input.setText(item.text().split(" (ID:")[0])
+                dialog.accept()
 
-            def filter_regions_local(text_filt):
-                for i in range(list_widget_diag.count()):
-                    list_widget_diag.item(i).setHidden(
-                        text_filt.lower() not in list_widget_diag.item(i).text().lower()
-                    )
+        search_input.textChanged.connect(filter_regions)
+        list_widget.itemDoubleClicked.connect(lambda: select_region())
 
-            def copy_selected_local():
-                curr_item = list_widget_diag.currentItem()
-                if curr_item:
-                    sel_text = curr_item.text()
-                    region_name_part = sel_text.split(" (ID:")[
-                        0
-                    ]  # Extract name before ID
-                    self.region_input.setText(region_name_part)
-                    dialog.accept()
+        btn_layout = QtWidgets.QHBoxLayout()
+        copy_btn = QtWidgets.QPushButton("Copy Selected")
+        close_btn = QtWidgets.QPushButton("Close")
+        copy_btn.clicked.connect(select_region)
+        close_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(copy_btn)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
 
-            search_input_diag.textChanged.connect(filter_regions_local)
-            copy_btn_diag.clicked.connect(copy_selected_local)
-            close_btn_diag.clicked.connect(dialog.reject)
-            list_widget_diag.itemDoubleClicked.connect(
-                lambda item: copy_selected_local()
-            )
-            dialog.exec_()
-        except (OSError, ValueError, RuntimeError) as e_show_regions:
-            if "progress_dialog" in locals() and progress_dialog.isVisible():
-                progress_dialog.cancel()
-            QtWidgets.QMessageBox.critical(
-                self, "Error Showing Regions", f"Failed: {str(e_show_regions)}"
-            )
-            print(traceback.format_exc())
+        dialog.exec_()
 
     def load_t1_in_freeview(self):
         """Load subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""

@@ -199,7 +199,9 @@ def main():
                 sys.exit(1)
 
             # Load the atlas
-            atlas = simnibs.subject_atlas(args.atlas, args.m2m)
+            from simnibs.utils.transformations import subject_atlas
+
+            atlas = subject_atlas(args.atlas, args.m2m)
 
             # Process each region
             selected_regions = None

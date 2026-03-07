@@ -690,20 +690,12 @@ class VisualExporterWidget(QtWidgets.QWidget):
             m2m = self._m2m_dir(subject_id)
             if not subject_id or not atlas or not m2m:
                 return
-            # Prefer simnibs.subject_atlas if available
             try:
-                import simnibs
+                from simnibs.utils.transformations import subject_atlas
 
-                atlas_map = simnibs.subject_atlas(atlas, m2m)
-            except Exception:
-                try:
-                    from simnibs.utils.transformations import (
-                        subject_atlas as subj_atlas,
-                    )
-
-                    atlas_map = subj_atlas(atlas, m2m)
-                except Exception:
-                    atlas_map = None
+                atlas_map = subject_atlas(atlas, m2m)
+            except (ImportError, OSError, ValueError):
+                atlas_map = None
             if not atlas_map:
                 return
             names = sorted(list(atlas_map.keys()))

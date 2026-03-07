@@ -70,7 +70,9 @@ def detect_message_type_from_content(text):
     t = text.lower()
 
     # Explicit tags take priority
-    if "[error]" in t or "error:" in t or "traceback" in t or "exception" in t:
+    if "[error]" in t or "traceback" in t or "exception" in t:
+        return "error"
+    if t.startswith("error:") or t.startswith("error "):
         return "error"
     if "✗ failed" in t or t.startswith("failed:") or t.startswith("critical:"):
         return "error"

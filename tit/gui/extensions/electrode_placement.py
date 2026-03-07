@@ -81,7 +81,99 @@ from tit.paths import get_path_manager
 PATH_MANAGER_AVAILABLE = True
 
 # SimNIBS imports
-from simnibs.mesh_tools import mesh_io, surface
+from simnibs.mesh_tools import mesh_io
+
+
+class _SkinSurface:
+    """Lightweight replacement for the removed simnibs.mesh_tools.surface.Surface.
+
+    Extracts a triangular skin surface from a SimNIBS mesh and provides the
+    vertex/normal/triangle data needed by the OpenGL renderer plus a basic
+    ray-triangle intersection method.
+    """
+
+    def __init__(self, mesh, tags):
+        # Build triangle mask
+        tri_mask = mesh.elm.elm_type == 2
+        tag_mask = np.isin(mesh.elm.tag1, tags)
+        skin_mask = tri_mask & tag_mask
+
+        triangle_nodes = mesh.elm.node_number_list[skin_mask][:, :3]
+        if len(triangle_nodes) == 0:
+            raise ValueError(f"No skin triangles found for tags {tags}")
+
+        unique_node_ids = np.unique(triangle_nodes.flatten())
+        id_to_idx = {old: new for new, old in enumerate(unique_node_ids)}
+
+        # Vertex positions (SimNIBS nodes are 1-indexed)
+        self.nodes = mesh.nodes.node_coord[unique_node_ids - 1].astype(np.float64)
+
+        # Remapped triangles (indices into self.nodes)
+        self.tr_nodes = np.vectorize(id_to_idx.get)(triangle_nodes).astype(np.int32)
+
+        # Per-vertex normals (area-weighted)
+        self.nodes_normals = self._compute_normals()
+
+    # ------------------------------------------------------------------
+    def _compute_normals(self):
+        normals = np.zeros_like(self.nodes)
+        v0 = self.nodes[self.tr_nodes[:, 0]]
+        v1 = self.nodes[self.tr_nodes[:, 1]]
+        v2 = self.nodes[self.tr_nodes[:, 2]]
+        face_normals = np.cross(v1 - v0, v2 - v0)
+        for i in range(3):
+            np.add.at(normals, self.tr_nodes[:, i], face_normals)
+        lengths = np.linalg.norm(normals, axis=1, keepdims=True)
+        lengths[lengths == 0] = 1.0
+        return (normals / lengths).astype(np.float64)
+
+    # ------------------------------------------------------------------
+    def interceptRay(self, ray_origin, ray_far):
+        """Möller-Trumbore ray-triangle intersection.
+
+        Returns (point, normal) of the closest hit, or (None, None).
+        """
+        ray_origin = np.asarray(ray_origin, dtype=np.float64)
+        ray_dir = np.asarray(ray_far, dtype=np.float64) - ray_origin
+        ray_dir /= np.linalg.norm(ray_dir)
+
+        v0 = self.nodes[self.tr_nodes[:, 0]]
+        v1 = self.nodes[self.tr_nodes[:, 1]]
+        v2 = self.nodes[self.tr_nodes[:, 2]]
+
+        e1 = v1 - v0
+        e2 = v2 - v0
+        h = np.cross(ray_dir, e2)
+        a = np.einsum("ij,ij->i", e1, h)
+
+        valid = np.abs(a) > 1e-10
+        f = np.zeros_like(a)
+        f[valid] = 1.0 / a[valid]
+
+        s = ray_origin - v0
+        u = f * np.einsum("ij,ij->i", s, h)
+        valid &= (u >= 0.0) & (u <= 1.0)
+
+        q = np.cross(s, e1)
+        v = f * np.einsum("ij,ij->i", q, np.broadcast_to(ray_dir, q.shape))
+        valid &= (v >= 0.0) & (u + v <= 1.0)
+
+        t = f * np.einsum("ij,ij->i", e2, q)
+        valid &= t > 1e-10
+
+        if not np.any(valid):
+            return None, None
+
+        t_vals = t[valid]
+        closest = np.argmin(t_vals)
+        hit_idx = np.where(valid)[0][closest]
+
+        point = ray_origin + t[hit_idx] * ray_dir
+        # Interpolate normal from vertices
+        tri = self.tr_nodes[hit_idx]
+        normal = self.nodes_normals[tri].mean(axis=0)
+        normal /= np.linalg.norm(normal)
+        return point, normal
 
 
 class GLSurfaceWidget(OpenGLWidgetBase):
@@ -150,7 +242,7 @@ class GLSurfaceWidget(OpenGLWidgetBase):
 
             # Extract skin surface
             print("Extracting skin surface...")
-            self.skin_surf = surface.Surface(mesh_struct, [5, 1005])
+            self.skin_surf = _SkinSurface(mesh_struct, [5, 1005])
 
             # Create display list
             print("Creating OpenGL model...")

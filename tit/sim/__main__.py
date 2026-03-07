@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 
 from tit.paths import get_path_manager
@@ -27,6 +28,18 @@ def _build_montage(data: dict):
     return LabelMontage(electrode_pairs=pairs, **data)
 
 
+def _make_stdout_logger() -> logging.Logger:
+    """Create a logger that writes to stdout (captured by BaseProcessThread)."""
+    logger = logging.getLogger("tit.sim.subprocess")
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    return logger
+
+
 def main() -> None:
     config_path = sys.argv[1]
     with open(config_path) as f:
@@ -48,7 +61,8 @@ def main() -> None:
         **data,
     )
 
-    results = run_simulation(config, montages)
+    logger = _make_stdout_logger()
+    results = run_simulation(config, montages, logger=logger)
     failed = [r for r in results if r.get("status") == "failed"]
     sys.exit(1 if failed else 0)
 

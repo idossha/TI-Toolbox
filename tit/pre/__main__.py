@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 
 from tit.pre.structural import run_pipeline
+
+
+def _setup_stdout_logging() -> None:
+    """Add a stdout handler to the tit.pre logger hierarchy.
+
+    When running as a subprocess, BaseProcessThread captures stdout.
+    All loggers under ``tit.pre.*`` propagate up to ``tit.pre`` which
+    writes to stdout so the GUI console receives every line.
+    """
+    logger = logging.getLogger("tit.pre")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
 
 
 def main() -> None:
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)
+
+    _setup_stdout_logging()
 
     exit_code = run_pipeline(
         project_dir=data["project_dir"],

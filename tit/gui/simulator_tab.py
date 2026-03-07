@@ -21,10 +21,11 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.add_montage_dialog import AddMontageDialog
 from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
 from tit.gui.utils import strip_ansi_codes, open_file, open_directory
+from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
+from tit.config_io import serialize_config
 from tit.reporting import SimulationReportGenerator
 
-# Import the refactored simulation dataclasses
 from tit.sim import (
     SimulationConfig,
     ElectrodeConfig,
@@ -44,46 +45,17 @@ from tit.sim.utils import (
 )
 
 
-class SimulationThread(QtCore.QThread):
-    """Run tit.sim.run_simulation() in a background thread, streaming output to the GUI."""
+class SimulationThread(BaseProcessThread):
+    """Run tit.sim via subprocess, streaming output to the GUI."""
 
-    output_signal = QtCore.pyqtSignal(str, str)  # (message, msg_type)
-    finished_signal = QtCore.pyqtSignal(list)  # list[dict] results
-
-    def __init__(self, config, montages, log_file, parent=None):
-        super().__init__(parent)
-        self.config = config
-        self.montages = montages
-        self.log_file = log_file
+    def __init__(self, cmd, env=None):
+        super().__init__(cmd=cmd, env=env)
 
     def run(self):
-        import logging
-        from tit.sim.utils import run_simulation, _make_file_logger
-        from tit.gui.components.base_thread import detect_message_type_from_content
-
-        logger = _make_file_logger("SimulationThread", self.log_file)
-
-        class _QtHandler(logging.Handler):
-            def __init__(self, emit_fn):
-                super().__init__()
-                self._emit = emit_fn
-
-            def emit(self, record):
-                msg = strip_ansi_codes(self.format(record))
-                if msg.strip():
-                    self._emit(msg, detect_message_type_from_content(msg))
-
-        handler = _QtHandler(self.output_signal.emit)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-
-        results = run_simulation(self.config, self.montages, logger=logger)
-        self.finished_signal.emit(results)
+        self.execute_process()
 
     def terminate_simulation(self):
-        self.terminate()
-        # Don't call .wait() here — it blocks the GUI event loop.
-        # Cleanup happens in the finished signal handler.
+        self.terminate_process()
 
 
 class SimulatorTab(QtWidgets.QWidget):
@@ -98,8 +70,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.report_generator = None
         self.simulation_session_id = None
         self._had_errors_during_run = False
-        self._aborting_due_to_error = False
-        self._first_error_line = None
         self._simulation_finished_called = False
         self._current_run_subjects = []
         self._current_run_is_montage = True
@@ -1179,7 +1149,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(
                 f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
             )
-            self.update_output("--- STARTING SIMULATION ---")
 
             # ── Report generator ───────────────────────────────────────────
             self.simulation_session_id = datetime.datetime.now().strftime(
@@ -1263,19 +1232,21 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             montage_list = [mc for _, mc, _ in jobs]
 
-            # ── Log file ───────────────────────────────────────────────────
-            log_dir = self.pm.logs(first_subject)
-            os.makedirs(log_dir, exist_ok=True)
-            log_file = os.path.join(
-                log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
-            )
+            # ── Serialize config + montages to JSON ───────────────────────
+            import tempfile
+            config_data = serialize_config(sim_config)
+            config_data["montages"] = [serialize_config(m) for m in montage_list]
+            fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
+            with os.fdopen(fd, "w") as f:
+                json.dump(config_data, f, indent=2)
+
+            cmd = ["simnibs_python", "-m", "tit.sim", config_path]
 
             # ── Launch SimulationThread ─────────────────────────────────────
-            self.sim_thread = SimulationThread(
-                sim_config, montage_list, log_file, parent=self
-            )
+            self.sim_thread = SimulationThread(cmd)
             self.sim_thread.output_signal.connect(self._handle_thread_output)
-            self.sim_thread.finished_signal.connect(self._on_simulation_done)
+            self.sim_thread.error_signal.connect(self._handle_process_error)
+            self.sim_thread.finished.connect(self._on_simulation_done)
             self.sim_thread.start()
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
@@ -1285,19 +1256,15 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(traceback.format_exc(), "error")
             self.simulation_finished()
 
-    def _on_simulation_done(self, results: list):
-        """Handle completion of the SimulationThread."""
-        # If the run was aborted (user stop or error abort), do not continue.
-        if not getattr(self, "simulation_running", False) or getattr(
-            self, "_aborting_due_to_error", False
-        ):
-            return
+    def _handle_process_error(self, msg):
+        """Handle error_signal from the subprocess (non-zero exit code)."""
+        self._had_errors_during_run = True
+        self.update_output(msg, "error")
 
-        # Record whether any montage produced a failure
-        for r in results:
-            if r.get("status") == "failed":
-                self._had_errors_during_run = True
-                break
+    def _on_simulation_done(self):
+        """Handle completion of the SimulationThread."""
+        if not getattr(self, "simulation_running", False):
+            return
 
         self.simulation_finished()
 
@@ -1309,22 +1276,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
         self._simulation_finished_called = True
 
-        if self._had_errors_during_run:
-            self.output_console.append(
-                '<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>'
-            )
-            if self._first_error_line:
-                safe_err = strip_ansi_codes(self._first_error_line)
-                self.update_output(f"First error detected: {safe_err}", "error")
-        else:
-            self.output_console.append(
-                '<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>'
-            )
-        self.output_console.append(
-            '<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>'
-        )
-
-        # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
+        # Only auto-generate simulation report if there were no errors
         if not self._had_errors_during_run:
             self.auto_generate_simulation_report()
         else:
@@ -1343,7 +1295,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.cleanup_temporary_files()
 
         self.simulation_running = False
-        self._aborting_due_to_error = False
 
         # Reset button states using centralized method
         self.run_btn.setText("Run Simulation")
@@ -1492,16 +1443,8 @@ class SimulatorTab(QtWidgets.QWidget):
                             "error",
                         )
 
-            # Summary
-            self.update_output(
-                f"--- Generated {successful_reports}/{total_reports} individual simulation reports ---"
-            )
-
             if successful_reports > 0:
                 reports_dir = self.pm.reports()
-                self.update_output(f"[INFO] Reports saved in: {reports_dir}")
-
-                # Open the reports directory instead of individual files
                 self._open_directory_safely(reports_dir)
 
         except (OSError, ValueError, RuntimeError) as e:
@@ -1619,45 +1562,11 @@ class SimulatorTab(QtWidgets.QWidget):
         """Safely open a directory in the file manager."""
         try:
             open_directory(dir_path)
-            self.update_output("[INFO] Directory opened in file manager")
         except OSError:
-            self.update_output(
-                f"[WARNING] Directory available but couldn't open file manager: {dir_path}"
-            )
+            pass
 
     def _handle_thread_output(self, text, message_type="default"):
-        """Internal handler to track errors and forward to UI update."""
-        # If user already stopped the run, don't trigger auto-abort or follow-up actions.
-        if not getattr(self, "simulation_running", False):
-            self.update_output(text, message_type)
-            return
-
-        if message_type == "error":
-            # Allow process to continue, but mark that there were errors
-            self._had_errors_during_run = True
-            # Remember the first triggering error line for reporting
-            if not self._first_error_line:
-                self._first_error_line = text
-            # Abort immediately on first error
-            if not self._aborting_due_to_error:
-                self._aborting_due_to_error = True
-                self.update_output(
-                    "[ERROR] Error detected. Aborting simulation and cleaning up partial outputs...",
-                    "error",
-                )
-                # Terminate the simulation thread
-                if self.sim_thread and self.sim_thread.isRunning():
-                    self.sim_thread.terminate_simulation()
-                # Perform cleanup of outputs generated so far
-                try:
-                    self._cleanup_partial_outputs()
-                except OSError as cleanup_exc:
-                    self.update_output(
-                        f"[WARNING] Cleanup encountered an issue: {cleanup_exc}",
-                        "warning",
-                    )
-                # Explicitly finish simulation to reset UI state immediately
-                self.simulation_finished()
+        """Forward subprocess output to the GUI console."""
         self.update_output(text, message_type)
 
     def _cleanup_partial_outputs(self):

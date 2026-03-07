@@ -7,9 +7,10 @@ This module provides a GUI interface for the pre-processing functionality.
 Thread-safe version with deadlock prevention.
 """
 
+import json
 import os
 import glob
-import threading
+import tempfile
 import time
 import multiprocessing
 
@@ -17,10 +18,9 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
+from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit import constants as const
-from tit.pre.structural import run_pipeline
-from tit.pre.utils import CommandRunner, PreprocessCancelled
 from tit.pre import discover_subjects, check_m2m_exists
 from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
@@ -29,89 +29,14 @@ from tit.gui.components.qsi_config_dialogs import (
 )
 
 
-class PreProcessThread(QtCore.QThread):
-    """Thread to run pre-processing in background to prevent GUI freezing."""
+class PreProcessThread(BaseProcessThread):
+    """Run tit.pre via subprocess, streaming output to the GUI."""
 
-    output_signal = QtCore.pyqtSignal(str, str)  # text, message_type
-    error_signal = QtCore.pyqtSignal(str)  # error message
-
-    def __init__(
-        self,
-        project_dir: str,
-        subjects: list[str],
-        *,
-        convert_dicom: bool,
-        run_recon: bool,
-        parallel_recon: bool,
-        parallel_cores: int,
-        create_m2m: bool,
-        run_tissue_analysis: bool,
-        run_qsiprep: bool = False,
-        run_qsirecon: bool = False,
-        qsiprep_config: dict = None,
-        qsi_recon_config: dict = None,
-        extract_dti: bool = False,
-    ):
-        super().__init__()
-        self.project_dir = project_dir
-        self.subjects = subjects
-        self.convert_dicom = convert_dicom
-        self.run_recon = run_recon
-        self.parallel_recon = parallel_recon
-        self.parallel_cores = parallel_cores
-        self.create_m2m = create_m2m
-        self.run_tissue_analysis = run_tissue_analysis
-        self.run_qsiprep = run_qsiprep
-        self.run_qsirecon = run_qsirecon
-        self.qsiprep_config = qsiprep_config
-        self.qsi_recon_config = qsi_recon_config
-        self.extract_dti = extract_dti
-        self.stop_event = threading.Event()
-        self.runner = CommandRunner(stop_event=self.stop_event)
+    def __init__(self, cmd, env=None):
+        super().__init__(cmd=cmd, env=env)
 
     def run(self):
-        try:
-            self.output_signal.emit(
-                f"Starting processing for {len(self.subjects)} subjects: {', '.join(self.subjects)}",
-                "info",
-            )
-
-            def callback(message: str, msg_type: str) -> None:
-                self.output_signal.emit(message, msg_type)
-
-            exit_code = run_pipeline(
-                self.project_dir,
-                self.subjects,
-                convert_dicom=self.convert_dicom,
-                run_recon=self.run_recon,
-                parallel_recon=self.parallel_recon,
-                parallel_cores=self.parallel_cores,
-                create_m2m=self.create_m2m,
-                run_tissue_analysis=self.run_tissue_analysis,
-                run_qsiprep=self.run_qsiprep,
-                run_qsirecon=self.run_qsirecon,
-                qsiprep_config=self.qsiprep_config,
-                qsi_recon_config=self.qsi_recon_config,
-                extract_dti=self.extract_dti,
-                stop_event=self.stop_event,
-                logger_callback=callback,
-                runner=self.runner,
-            )
-
-            if exit_code != 0:
-                self.error_signal.emit(
-                    "Pre-processing completed with errors. Check logs for details."
-                )
-        except PreprocessCancelled:
-            self.output_signal.emit("Pre-processing stopped by user.", "warning")
-        except Exception as e:
-            self.error_signal.emit(f"Error running pre-processing: {str(e)}")
-
-    def terminate_process(self):
-        self.stop_event.set()
-        if self.runner:
-            self.runner.request_stop()
-        return True
+        self.execute_process()
 
 
 class PreProcessTab(QtWidgets.QWidget):
@@ -559,22 +484,29 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.run_qsiprep_cb.isChecked() and self.qsiprep_config:
             qsiprep_config = self.qsiprep_config
 
-        # Create and start the thread
-        self.processing_thread = PreProcessThread(
-            self.project_dir,
-            selected_subjects,
-            convert_dicom=self.convert_dicom_cb.isChecked(),
-            run_recon=self.run_recon_cb.isChecked(),
-            parallel_recon=self.parallel_cb.isChecked(),
-            parallel_cores=self.cores_spin.value(),
-            create_m2m=self.create_m2m_cb.isChecked(),
-            run_tissue_analysis=self.run_tissue_analyzer_cb.isChecked(),
-            run_qsiprep=self.run_qsiprep_cb.isChecked(),
-            run_qsirecon=self.run_qsirecon_cb.isChecked(),
-            qsiprep_config=qsiprep_config,
-            qsi_recon_config=qsi_recon_config,
-            extract_dti=self.extract_dti_cb.isChecked(),
-        )
+        # Serialize config to JSON and launch subprocess
+        config_data = {
+            "project_dir": self.project_dir,
+            "subject_ids": selected_subjects,
+            "convert_dicom": self.convert_dicom_cb.isChecked(),
+            "run_recon": self.run_recon_cb.isChecked(),
+            "parallel_recon": self.parallel_cb.isChecked(),
+            "parallel_cores": self.cores_spin.value(),
+            "create_m2m": self.create_m2m_cb.isChecked(),
+            "run_tissue_analysis": self.run_tissue_analyzer_cb.isChecked(),
+            "run_qsiprep": self.run_qsiprep_cb.isChecked(),
+            "run_qsirecon": self.run_qsirecon_cb.isChecked(),
+            "qsiprep_config": qsiprep_config,
+            "qsi_recon_config": qsi_recon_config,
+            "extract_dti": self.extract_dti_cb.isChecked(),
+        }
+        fd, config_path = tempfile.mkstemp(prefix="pre_", suffix=".json")
+        with os.fdopen(fd, "w") as f:
+            json.dump(config_data, f, indent=2)
+
+        cmd = ["simnibs_python", "-m", "tit.pre", config_path]
+
+        self.processing_thread = PreProcessThread(cmd)
         self.processing_thread.output_signal.connect(self.update_output)
         self.processing_thread.error_signal.connect(
             lambda msg: self.update_output(msg, "error")

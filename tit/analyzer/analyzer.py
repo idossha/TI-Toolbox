@@ -216,13 +216,13 @@ class Analyzer:
         region: str,
         visualize: bool,
     ) -> AnalysisResult:
-        import simnibs
+        from simnibs.utils.transformations import subject_atlas
 
         surface = self._load_surface_mesh()
         values = self._field_values(surface)
         node_areas = self._node_areas(surface)
 
-        atlas_map = simnibs.subject_atlas(atlas, self.m2m_path)
+        atlas_map = subject_atlas(atlas, self.m2m_path)
         mask = np.asarray(atlas_map[region], dtype=bool)
 
         return self._analyze_mesh_roi(
@@ -781,16 +781,25 @@ class Analyzer:
 
     def _resolve_voxel_atlas(self, atlas: str) -> Path:
         """Find the atlas NIfTI/MGZ file for voxel-space analysis."""
+        # If atlas is already a full path, use it directly
+        if Path(atlas).is_file():
+            return Path(atlas)
+
         fs_mri = Path(self._pm.freesurfer_mri(self.subject_id))
+        seg_dir = Path(self._pm.segmentation(self.subject_id))
         candidates = [
             fs_mri / f"{atlas}.mgz",
             fs_mri / f"{atlas}.nii.gz",
             fs_mri / f"{atlas}.nii",
+            seg_dir / f"{atlas}.nii.gz",
+            seg_dir / f"{atlas}.nii",
         ]
         for path in candidates:
             if path.exists():
                 return path
-        raise FileNotFoundError(f"Atlas file not found for '{atlas}' in {fs_mri}")
+        raise FileNotFoundError(
+            f"Atlas file not found for '{atlas}' in {fs_mri} or {seg_dir}"
+        )
 
     @staticmethod
     def _resample_if_needed(
