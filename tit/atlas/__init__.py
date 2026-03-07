@@ -7,7 +7,6 @@ region listing, and overlap analysis.
 from tit.atlas.constants import (
     BUILTIN_ATLASES,
     DK40_REGIONS,
-    FREESURFER_VOLUME_ATLASES,
     MNI_ATLAS_FILES,
     VOXEL_ATLAS_FILES,
 )
@@ -18,7 +17,6 @@ from tit.atlas.voxel import VoxelAtlasManager
 __all__ = [
     "BUILTIN_ATLASES",
     "DK40_REGIONS",
-    "FREESURFER_VOLUME_ATLASES",
     "MNI_ATLAS_FILES",
     "VOXEL_ATLAS_FILES",
     "MeshAtlasManager",

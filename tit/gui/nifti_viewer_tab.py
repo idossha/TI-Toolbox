@@ -44,13 +44,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return base_dir
 
     def detect_freesurfer_atlases(self, subject_id):
-        """Detect available Freesurfer atlases for a subject.
+        """Detect available voxel atlases for a subject.
+
+        Uses the same canonical atlas list as the analyzer and flex tabs.
 
         Args:
             subject_id: The subject ID without 'sub-' prefix
 
         Returns:
-            List of available atlas filenames
+            List of (display_name, full_path) tuples.
         """
         from tit.atlas import VoxelAtlasManager
 
@@ -59,7 +61,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=str(os.path.join(m2m_dir, "segmentation")) if m2m_dir else "",
         )
-        return mgr.detect_freesurfer_atlases()
+        return mgr.list_atlases()
 
     def detect_mni_atlases(self):
         """Detect available MNI atlases in the assets directory.
@@ -450,14 +452,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         self.atlas_combo.clear()
         if available_atlases:
-            self.atlas_combo.addItems(available_atlases)
+            for display_name, full_path in available_atlases:
+                self.atlas_combo.addItem(display_name, full_path)
             self.atlas_combo.setEnabled(True)
             self.atlas_visibility_chk.setEnabled(True)
             self.atlas_opacity_slider.setEnabled(True)
 
             # Set labeling.nii.gz as default if available
-            if "labeling.nii.gz" in available_atlases:
-                self.atlas_combo.setCurrentText("labeling.nii.gz")
+            labeling_idx = self.atlas_combo.findText("labeling.nii.gz")
+            if labeling_idx >= 0:
+                self.atlas_combo.setCurrentIndex(labeling_idx)
         else:
             self.atlas_combo.setEnabled(False)
             self.atlas_visibility_chk.setEnabled(False)
@@ -564,13 +568,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
     def get_simulations_for_subject(self, subject_id):
         """Get list of available simulations for a subject."""
-        try:
-            return self.pm.list_simulations(subject_id)
-        except OSError as e:
-            self.console_widget.update_console(
-                f"Error getting simulations for subject {subject_id}: {str(e)}", "error"
-            )
-            return []
+        return self.pm.list_simulations(subject_id)
 
     def add_pair_row(self):
         """Add a new row for subject-simulation pair selection."""
@@ -579,13 +577,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Subject combo
         subject_combo = QtWidgets.QComboBox()
-        try:
-            subjects = self.pm.list_subjects()
-        except OSError as e:
-            self.console_widget.update_console(
-                f"Error getting subjects: {str(e)}", "error"
-            )
-            subjects = []
+        subjects = self.pm.list_subjects()
         subject_combo.addItems(subjects)
         subject_combo.currentTextChanged.connect(
             lambda: self.update_sim_combo_in_row(row)
@@ -640,13 +632,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Get all unique simulations across all subjects
         all_sims = set()
-        try:
-            subjects = self.pm.list_subjects()
-        except OSError as e:
-            self.console_widget.update_console(
-                f"Error getting subjects: {str(e)}", "error"
-            )
-            subjects = []
+        subjects = self.pm.list_subjects()
         for subject in subjects:
             all_sims.update(self.get_simulations_for_subject(subject))
         sim_combo.addItems(sorted(all_sims))
@@ -658,13 +644,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_list = QtWidgets.QListWidget()
         subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
 
-        try:
-            all_subjects = self.pm.list_subjects()
-        except OSError as e:
-            self.console_widget.update_console(
-                f"Error getting subjects: {str(e)}", "error"
-            )
-            all_subjects = []
+        all_subjects = self.pm.list_subjects()
         for subject in all_subjects:
             subject_list.addItem(subject)
 
@@ -1000,26 +980,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Add atlas if selected and available
         if self.atlas_combo.isEnabled() and self.atlas_combo.currentText():
             atlas_name = self.atlas_combo.currentText()
-
-            # Determine atlas location based on filename
-            if atlas_name == "labeling.nii.gz":
-                # labeling.nii.gz is in m2m/segmentation/
-                m2m_dir = self.pm.m2m(subject_id)
-                atlas_file = (
-                    os.path.join(m2m_dir, "segmentation", atlas_name)
-                    if m2m_dir
-                    else None
-                )
-                atlas_source = "m2m segmentation"
-            else:
-                # Other atlases are in Freesurfer directory
-                freesurfer_mri_dir = self.pm.freesurfer_mri(subject_id)
-                atlas_file = (
-                    os.path.join(freesurfer_mri_dir, atlas_name)
-                    if freesurfer_mri_dir
-                    else None
-                )
-                atlas_source = "Freesurfer"
+            atlas_file = self.atlas_combo.currentData()
 
             if atlas_file and os.path.exists(atlas_file):
                 atlas_visible = 1 if self.atlas_visibility_chk.isChecked() else 0
@@ -1030,12 +991,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
                         "path": atlas_file,
                         "type": "volume",
                         "visible": atlas_visible,
-                        "colormap": "lut",  # Use lookup table colormap for segmentation
+                        "colormap": "lut",
                         "opacity": atlas_opacity,
                     }
                 )
                 self.console_widget.update_console(
-                    f"Loading {atlas_source} atlas: {atlas_name}", "info"
+                    f"Loading atlas: {atlas_name}", "info"
                 )
             else:
                 self.console_widget.update_console(

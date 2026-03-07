@@ -18,20 +18,15 @@ DK40_REGIONS = [
     "supramarginal", "temporalpole", "transversetemporal",
 ]
 
-# Voxel atlas files to look for in FreeSurfer mri/ directory
+# Voxel atlas files to look for in FreeSurfer mri/ and segmentation/ dirs.
+# Single canonical list used by analyzer, flex subcortical, and NIfTI viewer.
 VOXEL_ATLAS_FILES = [
-    "aparc.DKTatlas+aseg.mgz",
-    "aparc.a2009s+aseg.mgz",
-    "lh.hippoAmygLabels-T1.v22.CA.mgz",
-    "lh.hippoAmygLabels-T1.v22.mgz",
-]
-
-# FreeSurfer volumetric atlases for NIfTI viewer
-FREESURFER_VOLUME_ATLASES = [
     "aparc.DKTatlas+aseg.mgz",
     "aparc.a2009s+aseg.mgz",
     "aparc+aseg.mgz",
     "aseg.mgz",
+    "lh.hippoAmygLabels-T1.v22.CA.mgz",
+    "lh.hippoAmygLabels-T1.v22.mgz",
 ]
 
 # MNI atlas filenames (looked up in assets/atlas/)

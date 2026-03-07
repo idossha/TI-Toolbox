@@ -7,29 +7,25 @@ This module provides a GUI interface for the flex-search optimization tool.
 """
 
 import os
-import json
-import glob
 import subprocess
 from pathlib import Path
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.roi_picker import ROIPickerWidget
+from tit.gui.components.electrode_config import ElectrodeConfigWidget
+from tit.gui.components.solver_params import SolverParamsWidget
 
 from tit.paths import get_path_manager
 from tit import constants as const
-from tit.atlas import MeshAtlasManager, VoxelAtlasManager
-from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SIZE_MONOSPACE
+from tit.gui.style import FONT_HELP
 from tit.opt.config import (
     FlexConfig,
     FlexElectrodeConfig,
-    SphericalROI,
-    AtlasROI,
-    SubcorticalROI,
     OptGoal,
     FieldPostproc,
     NonROIMethod,
@@ -73,8 +69,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Initialize data structures
         self.subjects = []
         self.eeg_nets = {}
-        self.atlases = {}
-        self.volume_atlases = {}
 
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_list = QtWidgets.QListWidget()
@@ -83,8 +77,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         self.subject_list.setMinimumHeight(80)
         self.eeg_net_combo = QtWidgets.QComboBox()
-        self.atlas_combo = QtWidgets.QComboBox()
-        self.nonroi_atlas_combo = QtWidgets.QComboBox()
 
         # Initialize goal and postproc combo boxes
         self.goal_combo = QtWidgets.QComboBox()
@@ -109,36 +101,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
         self.clear_subjects_btn = QtWidgets.QPushButton("Clear")
         self.refresh_eeg_nets_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
 
         # Initialize labels
         self.subject_label = QtWidgets.QLabel("Subjects:")
         self.goal_label = QtWidgets.QLabel("Optimization Goal:")
         self.postproc_label = QtWidgets.QLabel("Post-processing Method:")
-        self.roi_method_label = QtWidgets.QLabel("ROI Definition Method:")
-        self.current_label = QtWidgets.QLabel("Electrode Current (mA):")
-        self.electrode_shape_label = QtWidgets.QLabel("Electrode Shape:")
-        self.dimensions_label = QtWidgets.QLabel("Dimensions (mm, x,y):")
-        self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
         self.eeg_net_label = QtWidgets.QLabel("EEG Net Template:")
-        self.roi_hemi_label = QtWidgets.QLabel("Hemisphere:")
-        self.nonroi_hemi_label = QtWidgets.QLabel("Hemisphere:")
-        self.max_iterations_label = QtWidgets.QLabel("Max Optimization Iterations:")
-        self.population_size_label = QtWidgets.QLabel("Population Size:")
-        self.cpus_label = QtWidgets.QLabel("Number of CPUs:")
-        self.threshold_label = QtWidgets.QLabel("Threshold(s) for E-field (V/m):")
-        self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
-        self.atlas_label = QtWidgets.QLabel("Atlas:")
-        self.label_value_label = QtWidgets.QLabel("Region Label Value:")
-        self.roi_coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
-        self.roi_radius_label = QtWidgets.QLabel("ROI Radius (mm):")
-        self.nonroi_coords_label = QtWidgets.QLabel("Non-ROI Center (x,y,z,mm):")
-        self.nonroi_radius_label = QtWidgets.QLabel("Non-ROI Radius (mm):")
-        self.nonroi_atlas_label = QtWidgets.QLabel("Non-ROI Atlas:")
-        self.nonroi_label_value_label = QtWidgets.QLabel("Non-ROI Label Value:")
 
         # Initialize checkboxes
-
         self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox(
             "Run simulation with mapped electrodes"
         )
@@ -149,166 +119,25 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         self.run_final_electrode_simulation_checkbox.setChecked(False)
 
-        # Initialize radio buttons
-        self.roi_method_spherical = QtWidgets.QRadioButton(
-            "Spherical (coordinates and radius)"
+        # --- Component widgets (replace inline widget creation) ---
+        self.roi_picker = ROIPickerWidget(
+            label="ROI",
+            enable_spherical=True,
+            enable_atlas=True,
+            enable_subcortical=True,
+            enable_freeview_button=True,
+            enable_mni_toggle=True,
         )
-        self.roi_method_cortical = QtWidgets.QRadioButton("Cortical")
-        self.roi_method_subcortical = QtWidgets.QRadioButton("Subcortical")
-        self.roi_method_spherical.setChecked(True)
-
-        # Initialize coordinate space radio buttons
-        self.roi_space_subject = QtWidgets.QRadioButton("Subject Space")
-        self.roi_space_mni = QtWidgets.QRadioButton("MNI Space")
-        self.roi_space_subject.setChecked(True)  # Default to subject space
-
-        # Initialize spinboxes and line edits
-
-        self.current_input = QtWidgets.QDoubleSpinBox()
-        self.current_input.setRange(0.1, 100)
-        self.current_input.setValue(1.0)
-        self.current_input.setDecimals(1)
-
-        # Initialize Freeview button for spherical ROI
-        self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
-        self.view_t1_btn.setToolTip(
-            "Open subject's T1 scan in Freeview to find RAS coordinates"
+        self.nonroi_picker = ROIPickerWidget(
+            label="Non-ROI",
+            enable_spherical=True,
+            enable_atlas=True,
+            enable_subcortical=True,
+            enable_freeview_button=False,
+            enable_mni_toggle=False,
         )
-
-        # Multi-start optimization control
-        self.n_multistart_input = QtWidgets.QSpinBox()
-        self.n_multistart_input.setRange(1, 20)
-        self.n_multistart_input.setValue(1)
-        self.n_multistart_input.setToolTip(
-            "Number of optimization runs to perform. Higher values increase chances of finding global optimum but take longer."
-        )
-        self.n_multistart_label = QtWidgets.QLabel("Number of Optimization Runs:")
-
-        self.max_iterations_input = QtWidgets.QSpinBox()
-        self.max_iterations_input.setRange(50, 2000)
-        self.max_iterations_input.setValue(500)
-        self.max_iterations_input.setToolTip(
-            "Maximum number of optimization iterations."
-        )
-
-        self.population_size_input = QtWidgets.QSpinBox()
-        self.population_size_input.setRange(4, 100)
-        self.population_size_input.setValue(13)
-        self.population_size_input.setToolTip(
-            "Number of individuals in the population for optimization."
-        )
-
-        self.cpus_input = QtWidgets.QSpinBox()
-        self.cpus_input.setRange(1, os.cpu_count() or 16)
-        self.cpus_input.setValue(1)
-        self.cpus_input.setToolTip(
-            "Number of CPU cores to use for parallel processing during optimization."
-        )
-
-        # Differential evolution optimizer parameters
-        self.tolerance_input = QtWidgets.QDoubleSpinBox()
-        self.tolerance_input.setRange(0.0001, 1.0)
-        self.tolerance_input.setValue(0.1)
-        self.tolerance_input.setDecimals(4)
-        self.tolerance_input.setSingleStep(0.01)
-        self.tolerance_input.setToolTip(
-            "Convergence tolerance for differential evolution optimizer (default: 0.1)"
-        )
-        self.tolerance_label = QtWidgets.QLabel("Tolerance:")
-
-        self.mutation_min_input = QtWidgets.QDoubleSpinBox()
-        self.mutation_min_input.setRange(0.0, 2.0)
-        self.mutation_min_input.setValue(0.01)
-        self.mutation_min_input.setDecimals(3)
-        self.mutation_min_input.setSingleStep(0.01)
-        self.mutation_min_input.setToolTip("Minimum mutation factor (default: 0.01)")
-
-        self.mutation_max_input = QtWidgets.QDoubleSpinBox()
-        self.mutation_max_input.setRange(0.0, 2.0)
-        self.mutation_max_input.setValue(0.5)
-        self.mutation_max_input.setDecimals(3)
-        self.mutation_max_input.setSingleStep(0.01)
-        self.mutation_max_input.setToolTip("Maximum mutation factor (default: 0.5)")
-        self.mutation_label = QtWidgets.QLabel("Mutation (min, max):")
-
-        self.recombination_input = QtWidgets.QDoubleSpinBox()
-        self.recombination_input.setRange(0.0, 1.0)
-        self.recombination_input.setValue(0.7)
-        self.recombination_input.setDecimals(2)
-        self.recombination_input.setSingleStep(0.05)
-        self.recombination_input.setToolTip(
-            "Recombination probability for differential evolution (default: 0.7)"
-        )
-        self.recombination_label = QtWidgets.QLabel("Recombination:")
-
-        # Detailed results checkbox
-        self.detailed_results_checkbox = QtWidgets.QCheckBox(
-            "Enable detailed results output"
-        )
-        self.detailed_results_checkbox.setChecked(False)
-        self.detailed_results_checkbox.setToolTip(
-            "Enable detailed results output (creates additional visualization and debug files)"
-        )
-
-        # Visualize valid skin region checkbox
-        self.visualize_skin_checkbox = QtWidgets.QCheckBox(
-            "Visualize valid skin region"
-        )
-        self.visualize_skin_checkbox.setChecked(False)
-        self.visualize_skin_checkbox.setToolTip(
-            "Create 2D visualizations of valid skin region for electrode placement (requires detailed results)"
-        )
-        self.visualize_skin_checkbox.setEnabled(
-            False
-        )  # Initially disabled until detailed results is checked
-
-        # EEG net selection for skin visualization
-        self.skin_net_combo = QtWidgets.QComboBox()
-        self.skin_net_combo.setEnabled(
-            False
-        )  # Initially disabled until skin visualization is checked
-        self.skin_net_combo.setToolTip(
-            "Select EEG net to visualize electrode positions on skin surface"
-        )
-        self.skin_net_label = QtWidgets.QLabel("Visualization EEG Net:")
-
-        self.roi_x_input = QtWidgets.QDoubleSpinBox()
-        self.roi_x_input.setRange(-150, 150)
-        self.roi_x_input.setValue(0)
-        self.roi_x_input.setDecimals(2)
-        self.roi_y_input = QtWidgets.QDoubleSpinBox()
-        self.roi_y_input.setRange(-150, 150)
-        self.roi_y_input.setValue(0)
-        self.roi_y_input.setDecimals(2)
-        self.roi_z_input = QtWidgets.QDoubleSpinBox()
-        self.roi_z_input.setRange(-150, 150)
-        self.roi_z_input.setValue(0)
-        self.roi_z_input.setDecimals(2)
-        self.roi_radius_input = QtWidgets.QDoubleSpinBox()
-        self.roi_radius_input.setRange(1, 50)
-        self.roi_radius_input.setValue(10)
-        self.roi_radius_input.setDecimals(2)
-
-        # Electrode shape, dimensions, and thickness
-        self.electrode_shape_rect = QtWidgets.QRadioButton("Rectangle")
-        self.electrode_shape_rect.setProperty("value", "rect")
-        self.electrode_shape_ellipse = QtWidgets.QRadioButton("Ellipse")
-        self.electrode_shape_ellipse.setProperty("value", "ellipse")
-        self.electrode_shape_ellipse.setChecked(True)  # Set default to Ellipse
-        self.dimensions_input = QtWidgets.QLineEdit()
-        self.dimensions_input.setPlaceholderText("8,8")
-        self.dimensions_input.setText("8,8")  # Set default to 8,8
-        self.thickness_input = QtWidgets.QLineEdit()
-        self.thickness_input.setPlaceholderText("4")
-        self.thickness_input.setText("4")  # Set default to 4mm
-
-        self.label_value_input = QtWidgets.QSpinBox()
-        self.label_value_input.setRange(1, 10000)
-        self.label_value_input.setValue(1)
-
-        # Initialize stacked widgets
-        self.roi_stacked_widget = QtWidgets.QStackedWidget()
-        self.nonroi_stacked = QtWidgets.QStackedWidget()
+        self.electrode_widget = ElectrodeConfigWidget()
+        self.solver_widget = SolverParamsWidget()
 
         # Initialize container widget for EEG net controls (used in _update_mapping_options)
         self.eeg_net_widget = QtWidgets.QWidget()
@@ -340,10 +169,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.sweep_preview_label = QtWidgets.QLabel("\u2192 3 combinations will be run")
         self.sweep_preview_label.setStyleSheet("color: gray; font-style: italic;")
 
+        # Focality orchestration state (shared by adaptive & pareto modes)
+        self._focality_state = {}
+        self.achievable_intensity = None
         # Pareto sweep state variables
-        self._sweep_roi_pcts = []
-        self._sweep_nonroi_pcts = []
-        self._sweep_params = {}
         self._sweep_points = []
         self._sweep_queue = None  # deque, set before sweep starts
         self._sweep_result = None
@@ -369,64 +198,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.nonroi_method_combo.addItem("Everything Else (default)", "everything_else")
         self.nonroi_method_combo.addItem("Specific Region", "specific")
 
-        # Non-ROI inputs (spherical)
-        self.nonroi_x_input = QtWidgets.QDoubleSpinBox()
-        self.nonroi_x_input.setRange(-150, 150)
-        self.nonroi_x_input.setDecimals(2)
-        self.nonroi_y_input = QtWidgets.QDoubleSpinBox()
-        self.nonroi_y_input.setRange(-150, 150)
-        self.nonroi_y_input.setDecimals(2)
-        self.nonroi_z_input = QtWidgets.QDoubleSpinBox()
-        self.nonroi_z_input.setRange(-150, 150)
-        self.nonroi_z_input.setDecimals(2)
-        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox()
-        self.nonroi_radius_input.setRange(1, 50)
-        self.nonroi_radius_input.setDecimals(2)
-
-        # Non-ROI inputs (atlas)
-        self.nonroi_hemi_combo = QtWidgets.QComboBox()
-        self.nonroi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
-        self.nonroi_label_input = QtWidgets.QSpinBox()
-        self.nonroi_label_input.setRange(1, 10000)
-        self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
-
-        # Non-ROI inputs (volume)
-        self.nonroi_volume_atlas_combo = QtWidgets.QComboBox()
-        self.nonroi_volume_label_input = QtWidgets.QSpinBox()
-        self.nonroi_volume_label_input.setRange(1, 10000)
-        self.list_nonroi_volume_regions_btn = QtWidgets.QPushButton("List Regions")
-
-        # ROI hemisphere combo and list regions button (for cortical ROI)
-        self.roi_hemi_combo = QtWidgets.QComboBox()
-        self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
-        self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
-
-        # Subcortical volume controls
-        self.volume_atlas_combo = QtWidgets.QComboBox()
-        self.refresh_volume_atlases_btn = QtWidgets.QPushButton("Refresh")
-        self.volume_label_value_input = QtWidgets.QSpinBox()
-        self.volume_label_value_input.setRange(1, 10000)
-        self.volume_label_value_input.setValue(10)
-        self.volume_label_value_input.setToolTip(
-            "Common values: 10=Left-Thalamus, 49=Right-Thalamus, 17=Left-Hippocampus, 53=Right-Hippocampus"
-        )
-        self.list_volume_regions_btn = QtWidgets.QPushButton("List Regions")
-
-        # Tissue type selector for subcortical ROI
-        self.roi_tissue_combo = QtWidgets.QComboBox()
-        self.roi_tissue_combo.addItem("Gray Matter (GM)", "GM")
-        self.roi_tissue_combo.addItem("White Matter (WM)", "WM")
-        self.roi_tissue_combo.addItem("GM + WM (both)", "both")
-        self.roi_tissue_combo.setToolTip(
-            "Tissue compartment(s) to include when evaluating the volume ROI. "
-            "GM is appropriate for most subcortical targets (e.g. thalamus, hippocampus). "
-            "WM or Both can be used when the target overlaps white-matter tracts."
-        )
-
-        # Labels for subcortical controls
-        self.volume_atlas_label = QtWidgets.QLabel("Volume Atlas:")
-        self.volume_label_value_label = QtWidgets.QLabel("Region Label Value:")
-        self.roi_tissue_label = QtWidgets.QLabel("Tissue Type:")
+        self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
 
         # Set up the UI
         self.setup_ui()
@@ -436,16 +208,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
         self.clear_subjects_btn.clicked.connect(self.clear_subject_selection)
         self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
-        self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
-        self.refresh_volume_atlases_btn.clicked.connect(
-            self.find_available_volume_atlases
-        )
-        self.list_roi_regions_btn.clicked.connect(self._list_roi_regions)
-        self.list_nonroi_regions_btn.clicked.connect(self._list_nonroi_regions)
-        self.list_volume_regions_btn.clicked.connect(self._list_volume_regions)
-        self.list_nonroi_volume_regions_btn.clicked.connect(
-            self._list_nonroi_volume_regions
-        )
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
         self.focality_mode_group.buttonClicked.connect(
@@ -457,22 +219,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             self._update_mapping_options
         )
         self.subject_list.itemSelectionChanged.connect(self.on_subject_changed)
-        self.detailed_results_checkbox.toggled.connect(
-            self._on_detailed_results_toggled
-        )
-        self.visualize_skin_checkbox.toggled.connect(self._on_visualize_skin_toggled)
         self.nonroi_method_combo.currentIndexChanged.connect(
             self._update_nonroi_stacked
         )
-        self.roi_method_spherical.toggled.connect(self.update_roi_method)
-        self.roi_method_cortical.toggled.connect(self.update_roi_method)
-        self.roi_method_subcortical.toggled.connect(self.update_roi_method)
-        self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
-        self.roi_method_cortical.toggled.connect(self._update_nonroi_stacked)
-        self.roi_method_subcortical.toggled.connect(self._update_nonroi_stacked)
-        self.roi_space_subject.toggled.connect(self._update_coordinate_space_labels)
-        self.roi_space_mni.toggled.connect(self._update_coordinate_space_labels)
-        self.view_t1_btn.clicked.connect(self.load_t1_in_freeview)
+        # When the ROI picker mode changes, also update the nonroi picker page
+        self.roi_picker.roi_changed.connect(self._sync_nonroi_mode)
 
         # Find available subjects (which will trigger finding EEG nets and atlases)
         self.find_available_subjects()
@@ -536,11 +287,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Automatic Simulations Options (formerly Electrode Mapping)
         self.mapping_group = QtWidgets.QGroupBox("Automatic Simulations (Optional)")
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
-        mapping_layout.setVerticalSpacing(2)  # Minimal vertical spacing between rows
-        mapping_layout.setContentsMargins(4, 4, 4, 4)  # Minimal margins
+        mapping_layout.setVerticalSpacing(2)
+        mapping_layout.setContentsMargins(4, 4, 4, 4)
         mapping_layout.setFieldGrowthPolicy(
             QtWidgets.QFormLayout.FieldsStayAtSizeHint
-        )  # Prevent fields from growing
+        )
 
         # Add final electrode simulation checkbox
         mapping_layout.addRow(self.run_final_electrode_simulation_checkbox)
@@ -550,7 +301,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # EEG net selection (only visible when run_mapped_simulation is checked)
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
-        eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)
         self.eeg_net_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -562,133 +313,17 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         right_column_layout.addWidget(self.mapping_group)
 
-        # Electrode Parameters
-        self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
-        electrode_params_layout = QtWidgets.QFormLayout(self.electrode_params_group)
-        electrode_params_layout.addRow(self.current_label, self.current_input)
-
-        # Electrode shape
-        shape_layout = QtWidgets.QHBoxLayout()
-        shape_layout.addWidget(self.electrode_shape_rect)
-        shape_layout.addWidget(self.electrode_shape_ellipse)
-        shape_layout.addStretch()
-        electrode_params_layout.addRow(self.electrode_shape_label, shape_layout)
-
-        # Dimensions and thickness
-        electrode_params_layout.addRow(self.dimensions_label, self.dimensions_input)
-        electrode_params_layout.addRow(self.thickness_label, self.thickness_input)
-
-        right_column_layout.addWidget(self.electrode_params_group)
+        # Electrode Parameters — use component widget
+        right_column_layout.addWidget(self.electrode_widget)
 
         top_row_layout.addWidget(right_column_widget, 1)
 
         scroll_layout.addLayout(top_row_layout)
 
+        # ROI Definition — use component widget
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
-        roi_method_layout_main = QtWidgets.QVBoxLayout(self.roi_method_group)
-        roi_method_layout_main.setSpacing(5)  # Reduce vertical spacing
-        roi_method_layout_main.setContentsMargins(10, 10, 10, 10)  # Reduce margins
-
-        # Create horizontal layout for label and radio buttons on same line
-        roi_method_header_container = QtWidgets.QWidget()
-        roi_method_header_layout = QtWidgets.QHBoxLayout(roi_method_header_container)
-        roi_method_header_layout.setContentsMargins(0, 0, 0, 0)
-        roi_method_header_layout.addWidget(self.roi_method_label)
-        roi_method_header_layout.addWidget(self.roi_method_spherical)
-        roi_method_header_layout.addWidget(self.roi_method_cortical)
-        roi_method_header_layout.addWidget(self.roi_method_subcortical)
-        roi_method_header_layout.addStretch()
-
-        roi_method_layout_main.addWidget(roi_method_header_container)
-
-        # Spherical ROI inputs
-        self.spherical_roi_widget = QtWidgets.QWidget()
-        spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
-        spherical_roi_layout.setVerticalSpacing(
-            3
-        )  # Reduce vertical spacing between form rows
-        spherical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce top/bottom margins
-
-        # Add coordinate space selection
-        space_selection_widget = QtWidgets.QWidget()
-        space_selection_layout = QtWidgets.QHBoxLayout(space_selection_widget)
-        space_selection_layout.setContentsMargins(0, 0, 0, 0)
-        space_selection_layout.addWidget(QtWidgets.QLabel("Coordinate Space:"))
-        space_selection_layout.addWidget(self.roi_space_subject)
-        space_selection_layout.addWidget(self.roi_space_mni)
-        space_selection_layout.addStretch()
-        spherical_roi_layout.addRow(space_selection_widget)
-
-        # Add info label for MNI coordinates (initially hidden)
-        self.mni_info_label = QtWidgets.QLabel()
-        self.mni_info_label.setText(
-            "Coordinates will be treated as MNI space and transformed to each subject's native space."
-        )
-        self.mni_info_label.setStyleSheet(
-            f"background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: {FONT_HELP};"
-        )
-        self.mni_info_label.setWordWrap(True)
-        self.mni_info_label.setVisible(False)
-        spherical_roi_layout.addRow(self.mni_info_label)
-
-        roi_coords_controls_widget = QtWidgets.QWidget()
-        roi_coords_controls_layout = QtWidgets.QHBoxLayout(roi_coords_controls_widget)
-        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("X:"))
-        roi_coords_controls_layout.addWidget(self.roi_x_input)
-        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("Y:"))
-        roi_coords_controls_layout.addWidget(self.roi_y_input)
-        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("Z:"))
-        roi_coords_controls_layout.addWidget(self.roi_z_input)
-        roi_coords_controls_layout.addWidget(self.view_t1_btn)
-        roi_coords_controls_layout.addStretch()
-        spherical_roi_layout.addRow(self.roi_coords_label, roi_coords_controls_widget)
-        spherical_roi_layout.addRow(self.roi_radius_label, self.roi_radius_input)
-        self.roi_stacked_widget.addWidget(self.spherical_roi_widget)
-
-        # Cortical ROI inputs
-        self.cortical_roi_widget = QtWidgets.QWidget()
-        cortical_roi_layout = QtWidgets.QFormLayout(self.cortical_roi_widget)
-        cortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
-        cortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
-
-        atlas_controls_widget = QtWidgets.QWidget()
-        atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
-        self.atlas_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        atlas_controls_inner_layout.addWidget(self.atlas_combo)
-        atlas_controls_inner_layout.addWidget(self.roi_hemi_label)
-        atlas_controls_inner_layout.addWidget(self.roi_hemi_combo)
-        atlas_controls_inner_layout.addWidget(self.refresh_atlases_btn)
-        atlas_controls_inner_layout.addWidget(self.list_roi_regions_btn)
-        atlas_controls_inner_layout.addStretch()
-        cortical_roi_layout.addRow(self.atlas_label, atlas_controls_widget)
-        cortical_roi_layout.addRow(self.label_value_label, self.label_value_input)
-        self.roi_stacked_widget.addWidget(self.cortical_roi_widget)
-
-        # Subcortical ROI inputs
-        self.subcortical_roi_widget = QtWidgets.QWidget()
-        subcortical_roi_layout = QtWidgets.QFormLayout(self.subcortical_roi_widget)
-        subcortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
-        subcortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
-
-        volume_controls_widget = QtWidgets.QWidget()
-        volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
-        self.volume_atlas_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        volume_controls_inner_layout.addWidget(self.volume_atlas_combo)
-        volume_controls_inner_layout.addWidget(self.refresh_volume_atlases_btn)
-        volume_controls_inner_layout.addWidget(self.list_volume_regions_btn)
-        volume_controls_inner_layout.addStretch()
-        subcortical_roi_layout.addRow(self.volume_atlas_label, volume_controls_widget)
-        subcortical_roi_layout.addRow(
-            self.volume_label_value_label, self.volume_label_value_input
-        )
-        subcortical_roi_layout.addRow(self.roi_tissue_label, self.roi_tissue_combo)
-        self.roi_stacked_widget.addWidget(self.subcortical_roi_widget)
-
-        roi_method_layout_main.addWidget(self.roi_stacked_widget)
+        roi_layout = QtWidgets.QVBoxLayout(self.roi_method_group)
+        roi_layout.addWidget(self.roi_picker)
         scroll_layout.addWidget(self.roi_method_group)
 
         # Focality Options group
@@ -746,6 +381,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.adaptive_widget.setVisible(True)  # default mode is Adaptive
 
         # Manual threshold input (shown only in Manual mode)
+        self.threshold_label = QtWidgets.QLabel("Threshold(s) for E-field (V/m):")
         focality_layout.addRow(self.threshold_label, self.threshold_input)
         self.threshold_help = QtWidgets.QLabel(
             "Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min."
@@ -759,136 +395,16 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
 
-        # Non-ROI Spherical
-        self.nonroi_sph_widget = QtWidgets.QWidget()
-        nonroi_sph_layout = QtWidgets.QFormLayout(self.nonroi_sph_widget)
-        nonroi_coords_controls_widget = QtWidgets.QWidget()
-        nonroi_coords_controls_layout = QtWidgets.QHBoxLayout(
-            nonroi_coords_controls_widget
-        )
-        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("X:"))
-        nonroi_coords_controls_layout.addWidget(self.nonroi_x_input)
-        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("Y:"))
-        nonroi_coords_controls_layout.addWidget(self.nonroi_y_input)
-        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("Z:"))
-        nonroi_coords_controls_layout.addWidget(self.nonroi_z_input)
-        nonroi_sph_layout.addRow(
-            self.nonroi_coords_label, nonroi_coords_controls_widget
-        )
-        nonroi_sph_layout.addRow(self.nonroi_radius_label, self.nonroi_radius_input)
-        self.nonroi_stacked.addWidget(self.nonroi_sph_widget)
-
-        # Non-ROI Atlas
-        self.nonroi_atlas_widget = QtWidgets.QWidget()
-        nonroi_atlas_layout = QtWidgets.QFormLayout(self.nonroi_atlas_widget)
-        nonroi_atlas_controls_widget = QtWidgets.QWidget()
-        nonroi_atlas_controls_inner_layout = QtWidgets.QHBoxLayout(
-            nonroi_atlas_controls_widget
-        )
-        self.nonroi_atlas_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_atlas_combo)
-        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_label)
-        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_combo)
-        nonroi_atlas_controls_inner_layout.addWidget(self.list_nonroi_regions_btn)
-        nonroi_atlas_controls_inner_layout.addStretch()
-        nonroi_atlas_layout.addRow(
-            self.nonroi_atlas_label, nonroi_atlas_controls_widget
-        )
-        nonroi_atlas_layout.addRow(
-            self.nonroi_label_value_label, self.nonroi_label_input
-        )
-        self.nonroi_stacked.addWidget(self.nonroi_atlas_widget)
-
-        # Non-ROI Volume
-        self.nonroi_volume_widget = QtWidgets.QWidget()
-        nonroi_volume_layout = QtWidgets.QFormLayout(self.nonroi_volume_widget)
-        nonroi_volume_controls_widget = QtWidgets.QWidget()
-        nonroi_volume_controls_layout = QtWidgets.QHBoxLayout(
-            nonroi_volume_controls_widget
-        )
-        self.nonroi_volume_atlas_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        nonroi_volume_controls_layout.addWidget(self.nonroi_volume_atlas_combo)
-        nonroi_volume_controls_layout.addWidget(self.list_nonroi_volume_regions_btn)
-        nonroi_volume_controls_layout.addStretch()
-        nonroi_volume_layout.addRow(
-            QtWidgets.QLabel("Non-ROI Volume Atlas:"), nonroi_volume_controls_widget
-        )
-        nonroi_volume_layout.addRow(
-            QtWidgets.QLabel("Non-ROI Volume Label:"), self.nonroi_volume_label_input
-        )
-        self.nonroi_stacked.addWidget(self.nonroi_volume_widget)
-
+        # Non-ROI region picker (if 'Specific')
         focality_layout.addRow(
-            QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked
+            QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_picker
         )
+        self.nonroi_picker.setVisible(False)
+
         scroll_layout.addWidget(self.focality_group)
 
-        self.stability_group = QtWidgets.QGroupBox("Hyper Parameters")
-        stability_layout = QtWidgets.QGridLayout(self.stability_group)
-
-        # Left column (General parameters)
-        row = 0
-        stability_layout.addWidget(self.n_multistart_label, row, 0)
-        stability_layout.addWidget(self.n_multistart_input, row, 1)
-
-        row += 1
-        stability_layout.addWidget(self.max_iterations_label, row, 0)
-        stability_layout.addWidget(self.max_iterations_input, row, 1)
-
-        row += 1
-        stability_layout.addWidget(self.population_size_label, row, 0)
-        stability_layout.addWidget(self.population_size_input, row, 1)
-
-        row += 1
-        stability_layout.addWidget(self.cpus_label, row, 0)
-        stability_layout.addWidget(self.cpus_input, row, 1)
-
-        # Right column (Differential evolution parameters)
-        row = 0
-        stability_layout.addWidget(self.tolerance_label, row, 2)
-        stability_layout.addWidget(self.tolerance_input, row, 3)
-
-        row += 1
-        stability_layout.addWidget(self.mutation_label, row, 2)
-        # Create horizontal layout for mutation min/max inputs
-        mutation_layout = QtWidgets.QHBoxLayout()
-        mutation_layout.addWidget(self.mutation_min_input)
-        mutation_layout.addWidget(QtWidgets.QLabel("to"))
-        mutation_layout.addWidget(self.mutation_max_input)
-        mutation_layout.setContentsMargins(0, 0, 0, 0)
-        mutation_widget = QtWidgets.QWidget()
-        mutation_widget.setLayout(mutation_layout)
-        stability_layout.addWidget(mutation_widget, row, 3)
-
-        row += 1
-        stability_layout.addWidget(self.recombination_label, row, 2)
-        stability_layout.addWidget(self.recombination_input, row, 3)
-
-        # Detailed results checkbox in right column below recombination
-        row += 1
-        stability_layout.addWidget(self.detailed_results_checkbox, row, 2, 1, 2)
-
-        # Visualize skin region checkbox
-        row += 1
-        stability_layout.addWidget(self.visualize_skin_checkbox, row, 2, 1, 2)
-
-        # Skin net selection (only visible when skin visualization is enabled)
-        row += 1
-        stability_layout.addWidget(self.skin_net_label, row, 2)
-        stability_layout.addWidget(self.skin_net_combo, row, 3)
-
-        # Add some spacing between columns
-        stability_layout.setColumnMinimumWidth(1, 120)
-        stability_layout.setColumnMinimumWidth(3, 120)
-        stability_layout.setColumnStretch(1, 1)
-        stability_layout.setColumnStretch(3, 1)
-        stability_layout.setHorizontalSpacing(20)
-
-        scroll_layout.addWidget(self.stability_group)
+        # Solver hyper-parameters — use component widget
+        scroll_layout.addWidget(self.solver_widget)
 
         scroll_area.setWidget(scroll_content)
 
@@ -923,10 +439,13 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
 
-        # Initialize ROI method display and focality visibility
-        self.update_roi_method(self.roi_method_spherical.isChecked())
+        # Initialize focality visibility
         self._update_focality_visibility()
         self._update_nonroi_stacked()
+
+    # ------------------------------------------------------------------ #
+    #  Subject / EEG net discovery                                        #
+    # ------------------------------------------------------------------ #
 
     def find_available_subjects(self):
         self.subjects = []
@@ -952,11 +471,13 @@ class FlexSearchTab(QtWidgets.QWidget):
         for subject_id in self.subjects:
             self.subject_list.addItem(subject_id)
 
-        # Trigger EEG net refresh for the first subject
+        # Trigger EEG net refresh and atlas refresh for the first subject
         if self.subjects:
             self.find_available_eeg_nets()
-            self.find_available_atlases()
-            self.find_available_volume_atlases()
+            # Populate atlas combos via the picker widgets
+            first_subject = self.subjects[0]
+            self.roi_picker.set_subject(first_subject, project_dir)
+            self.nonroi_picker.set_subject(first_subject, project_dir)
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""
@@ -975,7 +496,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.eeg_nets = {}
         self.eeg_net_combo.clear()
-        self.skin_net_combo.clear()
 
         # Get the first selected subject (for consistency when multiple are selected)
         selected_items = self.subject_list.selectedItems()
@@ -999,185 +519,69 @@ class FlexSearchTab(QtWidgets.QWidget):
                     net_name = eeg_file.stem
                     self.eeg_nets[net_name] = str(eeg_file)
                     self.eeg_net_combo.addItem(net_name)
-                    self.skin_net_combo.addItem(net_name)
+
+                # Also populate solver widget's skin net combo
+                skin_combo = self.solver_widget.get_skin_net_combo()
+                skin_combo.clear()
+                for net_name in self.eeg_nets:
+                    skin_combo.addItem(net_name)
 
                 # Set default for skin visualization combo
                 if "GSN-HydroCel-185" in self.eeg_nets:
-                    # If GSN-HydroCel-185 exists, select it as default
-                    index = self.skin_net_combo.findText("GSN-HydroCel-185")
+                    index = skin_combo.findText("GSN-HydroCel-185")
                     if index >= 0:
-                        self.skin_net_combo.setCurrentIndex(index)
+                        skin_combo.setCurrentIndex(index)
                 elif self.eeg_nets:
-                    # If GSN-HydroCel-185 doesn't exist but other nets do, select first one
-                    self.skin_net_combo.setCurrentIndex(0)
+                    skin_combo.setCurrentIndex(0)
                 else:
-                    # No nets found, add default
-                    self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
-                    self.skin_net_combo.addItem(
-                        "GSN-HydroCel-185"
-                    )  # Default option for skin visualization
+                    self.eeg_net_combo.addItem("GSN-HydroCel-185")
+                    skin_combo.addItem("GSN-HydroCel-185")
             else:
-                self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
-                self.skin_net_combo.addItem(
-                    "GSN-HydroCel-185"
-                )  # Default option for skin visualization
+                self.eeg_net_combo.addItem("GSN-HydroCel-185")
+                skin_combo = self.solver_widget.get_skin_net_combo()
+                skin_combo.clear()
+                skin_combo.addItem("GSN-HydroCel-185")
 
         except OSError as e:
             self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
-            self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
+            self.eeg_net_combo.addItem("GSN-HydroCel-185")
 
-    def find_available_atlases(self):
-        """Find available atlas files for the selected subject."""
-        if not self.subjects:
-            return
-        self.atlases = {}
-        self.atlas_combo.clear()
-        # Get the first selected subject (for consistency when multiple are selected)
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
-            return
+    def on_subject_changed(self):
+        """Handle subject selection change."""
+        if self.subject_list.selectedItems():
+            subject_id = self.subject_list.selectedItems()[0].text()
+            pm = get_path_manager()
+            project_dir = pm.project_dir
+            self.find_available_eeg_nets()
+            self.roi_picker.set_subject(subject_id, project_dir)
+            self.nonroi_picker.set_subject(subject_id, project_dir)
 
-        subject_id = selected_items[0].text()
-        pm = get_path_manager()
-
-        seg_dir = pm.segmentation(subject_id)
-        mesh_mgr = MeshAtlasManager(seg_dir)
-        lh_atlases = mesh_mgr.find_all_atlases("lh")
-        rh_atlases = mesh_mgr.find_all_atlases("rh")
-
-        # Combine and deduplicate atlas names (same atlas appears in both hemispheres)
-        all_atlas_names = set(lh_atlases.keys()) | set(rh_atlases.keys())
-
-        # Build the atlas mapping for GUI
-        self.atlas_display_map = {}  # Map display name to full atlas name
-        for atlas_name in sorted(all_atlas_names):
-            self.atlas_combo.addItem(atlas_name)
-            # Store the atlas name for later use (we'll resolve hemisphere when needed)
-            self.atlas_display_map[atlas_name] = atlas_name
-
-            # Store file paths for both hemispheres
-            if atlas_name in lh_atlases:
-                self.atlases[("lh", atlas_name)] = lh_atlases[atlas_name]
-            if atlas_name in rh_atlases:
-                self.atlases[("rh", atlas_name)] = rh_atlases[atlas_name]
-        # Also update non-ROI atlas combo
-        self._update_nonroi_atlas_combo()
-
-    def find_available_volume_atlases(self):
-        """Find available volume atlas files for the selected subject."""
-        if not self.subjects:
-            return
-
-        self.volume_atlases = {}
-        self.volume_atlas_combo.clear()
-
-        # Get the first selected subject (for consistency when multiple are selected)
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
-            return
-
-        subject_id = selected_items[0].text()
-
-        pm = get_path_manager()
-        project_dir = pm.project_dir
-        if not project_dir:
-            self.output_text.append("Error: Could not detect project directory")
-            return
-
-        m2m_dir = pm.m2m(subject_id)
-        if not m2m_dir:
-            self.output_text.append(f"No m2m directory found for subject {subject_id}.")
-            return
-
-        seg_dir = str(Path(m2m_dir) / "segmentation")
-        voxel_mgr = VoxelAtlasManager(seg_dir=seg_dir)
-        self.volume_atlases = voxel_mgr.find_volume_atlases()
-        for name in self.volume_atlases:
-            self.volume_atlas_combo.addItem(name)
-        if not self.volume_atlases:
-            self.output_text.append(
-                f"No subcortical segmentation found for subject {subject_id}."
-            )
-        elif not voxel_mgr.find_lut_file():
-            self.output_text.append(
-                f"Warning: labeling.nii.gz found but no LUT file."
-            )
-
-    def update_roi_method(self, checked):
-        """Update the ROI method inputs based on selection."""
-        roi_mode = {
-            self.roi_method_spherical: (0, True),
-            self.roi_method_cortical: (1, False),
-            self.roi_method_subcortical: (2, False),
-        }
-        for rb, (idx, t1_visible) in roi_mode.items():
-            if rb.isChecked():
-                self.roi_stacked_widget.setCurrentIndex(idx)
-                self.view_t1_btn.setVisible(t1_visible)
-                break
-
-        # Update coordinate space labels based on selection mode
-        self._update_coordinate_space_labels()
-
-    def _update_coordinate_space_labels(self):
-        """Update coordinate space labels and tooltips based on space selection."""
-        if self.roi_method_spherical.isChecked():
-            if self.roi_space_mni.isChecked():
-                # MNI space selected
-                self.roi_coords_label.setText("ROI Center MNI Coordinates (mm):")
-                self.roi_coords_label.setToolTip(
-                    "MNI space coordinates (will be transformed to subject space for each subject)"
-                )
-                self.roi_coords_label.setStyleSheet(
-                    "color: #007ACC; font-weight: bold;"
-                )
-
-                # Show MNI info label
-                self.mni_info_label.setVisible(True)
-
-                # Update individual coordinate tooltips
-                self.roi_x_input.setToolTip("X coordinate in MNI space")
-                self.roi_y_input.setToolTip("Y coordinate in MNI space")
-                self.roi_z_input.setToolTip("Z coordinate in MNI space")
-
-                # Update Freeview button for MNI template
-                self.view_t1_btn.setText("View MNI Template")
-                self.view_t1_btn.setToolTip(
-                    "Open MNI152 template to find MNI coordinates"
-                )
-            else:
-                # Subject space selected
-                self.roi_coords_label.setText("ROI Center RAS Coordinates (mm):")
-                self.roi_coords_label.setToolTip("Subject-specific RAS coordinates")
-                self.roi_coords_label.setStyleSheet("")
-
-                # Hide MNI info label
-                self.mni_info_label.setVisible(False)
-
-                # Update individual coordinate tooltips
-                self.roi_x_input.setToolTip("X coordinate in subject RAS space")
-                self.roi_y_input.setToolTip("Y coordinate in subject RAS space")
-                self.roi_z_input.setToolTip("Z coordinate in subject RAS space")
-
-                # Update Freeview button for subject T1
-                self.view_t1_btn.setText("View T1 in Freeview")
-                self.view_t1_btn.setToolTip(
-                    "Open subject's T1 scan in Freeview to find RAS coordinates"
-                )
-        else:
-            # Hide MNI info label for non-spherical ROI methods
-            self.mni_info_label.setVisible(False)
+        # Update multiple subject restrictions
+        self._update_multiple_subject_restrictions()
 
     def _update_multiple_subject_restrictions(self):
         """Update UI restrictions when multiple subjects are selected."""
-        selected_items = self.subject_list.selectedItems()
-        multiple_subjects = len(selected_items) > 1
-
-        # Update coordinate space labels when selection changes
-        self._update_coordinate_space_labels()
-
         # No longer disable spherical ROI for multiple subjects
         # Instead, we'll use MNI coordinates for multiple subjects
+        pass
+
+    def _sync_nonroi_mode(self):
+        """Keep the nonroi_picker on the same page as the roi_picker."""
+        roi_type = self.roi_picker.get_roi_type()
+        page_map = {"spherical": 0, "atlas": 1, "subcortical": 2}
+        idx = page_map.get(roi_type, 0)
+        self.nonroi_picker.stacked.setCurrentIndex(idx)
+        # Also check the matching radio if it exists
+        if idx == 0 and self.nonroi_picker.radio_spherical:
+            self.nonroi_picker.radio_spherical.setChecked(True)
+        elif idx == 1 and self.nonroi_picker.radio_cortical:
+            self.nonroi_picker.radio_cortical.setChecked(True)
+        elif idx == 2 and self.nonroi_picker.radio_subcortical:
+            self.nonroi_picker.radio_subcortical.setChecked(True)
+
+    # ------------------------------------------------------------------ #
+    #  Run optimization                                                   #
+    # ------------------------------------------------------------------ #
 
     def run_optimization(self):
         """Run the flex-search optimization."""
@@ -1204,9 +608,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
 
         # Check if visualize skin region is enabled but no skin net is selected
+        solver_params = self.solver_widget.get_params()
         if (
-            self.visualize_skin_checkbox.isChecked()
-            and not self.skin_net_combo.currentText()
+            solver_params["visualize_valid_skin_region"]
+            and not self.solver_widget.get_skin_net_combo().currentText()
         ):
             QtWidgets.QMessageBox.warning(
                 self,
@@ -1216,9 +621,14 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             return
 
+        # Validate ROI
+        error = self.roi_picker.validate()
+        if error:
+            QtWidgets.QMessageBox.warning(self, "Warning", error)
+            return
+
         # Check coordinate space for spherical ROI with MNI space selected
-        if self.roi_method_spherical.isChecked() and self.roi_space_mni.isChecked():
-            # Show info about MNI coordinate usage
+        if self.roi_picker.get_roi_type() == "spherical" and self.roi_picker.is_mni_space():
             reply = QtWidgets.QMessageBox.question(
                 self,
                 "MNI Coordinates",
@@ -1231,58 +641,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             if reply != QtWidgets.QMessageBox.Yes:
                 return
 
-        # Get ROI parameters based on selected method
-        if self.roi_method_spherical.isChecked():
-            roi_params = {
-                "method": "spherical",
-                "center": [
-                    self.roi_x_input.value(),
-                    self.roi_y_input.value(),
-                    self.roi_z_input.value(),
-                ],
-                "radius": self.roi_radius_input.value(),
-            }
-        elif self.roi_method_cortical.isChecked():  # cortical ROI
-            if not self.atlas_combo.currentText():
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please select an atlas for ROI."
-                )
-                return
-            if not self.label_value_input.value():
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please select a region for ROI."
-                )
-                return
+        # Get ROI parameters from picker
+        roi_params = self.roi_picker.get_roi_params()
 
-            roi_params = {
-                "method": "atlas",
-                "atlas": self.atlas_combo.currentText(),
-                "region": str(self.label_value_input.value()),
-            }
-        else:  # subcortical ROI
-            if not self.volume_atlas_combo.currentText():
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please select a volume atlas for subcortical ROI."
-                )
-                return
-            if not self.volume_label_value_input.value():
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please select a region label for subcortical ROI."
-                )
-                return
-
-            roi_params = {
-                "method": "subcortical",
-                "volume_atlas": self.volume_atlas_combo.currentText(),
-                "volume_region": str(self.volume_label_value_input.value()),
-                "tissues": self.roi_tissue_combo.currentData(),
-            }
-
-        # Validate spherical ROI in subject space is not at the origin
-        if (
-            roi_params.get("method") == "spherical"
-            and not self.roi_space_mni.isChecked()
-        ):
+        # Validate spherical ROI origin in subject space
+        if roi_params.get("method") == "spherical" and not self.roi_picker.is_mni_space():
             cx, cy, cz = roi_params["center"]
             if cx == 0.0 and cy == 0.0 and cz == 0.0:
                 QtWidgets.QMessageBox.warning(
@@ -1296,15 +659,15 @@ class FlexSearchTab(QtWidgets.QWidget):
                 )
                 return
 
-        # Get optimization parameters for easier access and clarity
+        # Get optimization parameters
         selected_subjects = [item.text() for item in selected_items]
         goal = self.goal_combo.currentData()
         postproc = self.postproc_combo.currentData()
         eeg_net = self.eeg_net_combo.currentText()
-        electrode_current = self.current_input.value()
-        electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
-        dimensions = self.dimensions_input.text() or "8,8"  # Default to 8,8 if empty
-        thickness = self.thickness_input.text() or "4"  # Default to 4 if empty
+        electrode_config, electrode_current = self.electrode_widget.get_config()
+        electrode_shape = self.electrode_widget.get_shape()
+        dimensions = self.electrode_widget.get_dimensions_text()
+        thickness = self.electrode_widget.get_thickness_text()
 
         # Show confirmation dialog
         roi_description = ""
@@ -1442,118 +805,23 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     # ── Config-building helpers ──────────────────────────────────────────
 
-    def _resolve_seg_dir(self, project_dir: str, subject_id: str) -> str:
-        """Return the segmentation directory for a subject."""
-        return os.path.join(
-            project_dir,
-            "derivatives",
-            "SimNIBS",
-            f"sub-{subject_id}",
-            f"m2m_{subject_id}",
-            "segmentation",
-        )
-
-    def _resolve_atlas_name_for_subject(self, display_name: str, subject_id: str) -> str:
-        """Convert a UI atlas display name to the subject-specific atlas base name.
-
-        E.g. display "DK40" with atlas_display_map entry "101_DK40" yields "102_DK40"
-        for subject_id="102".
-        """
-        atlas_base_name = self.atlas_display_map.get(display_name, display_name)
-        if "_" in atlas_base_name:
-            atlas_type = atlas_base_name.split("_", 1)[-1]
-        else:
-            atlas_type = atlas_base_name
-        return f"{subject_id}_{atlas_type}"
-
     def _build_roi_from_ui(self, subject_id: str, project_dir: str, roi_params: dict):
         """Build an ROI dataclass from the current UI state and roi_params dict."""
-        seg_dir = self._resolve_seg_dir(project_dir, subject_id)
-
-        if roi_params["method"] == "spherical":
-            return SphericalROI(
-                x=roi_params["center"][0],
-                y=roi_params["center"][1],
-                z=roi_params["center"][2],
-                radius=roi_params["radius"],
-                use_mni=self.roi_space_mni.isChecked(),
-            )
-        elif roi_params["method"] == "atlas":
-            atlas_name = self._resolve_atlas_name_for_subject(
-                roi_params["atlas"], subject_id
-            )
-            hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
-            atlas_path = os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
-            return AtlasROI(
-                atlas_path=atlas_path,
-                label=int(roi_params["region"]),
-                hemisphere=hemi,
-            )
-        else:  # subcortical
-            volume_atlas_path = os.path.join(seg_dir, roi_params["volume_atlas"])
-            if not os.path.isfile(volume_atlas_path):
-                self.output_text.append(
-                    f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path}"
-                )
-            return SubcorticalROI(
-                atlas_path=volume_atlas_path,
-                label=int(roi_params["volume_region"]),
-                tissues=roi_params.get("tissues", "GM"),
-            )
+        return self.roi_picker.get_roi_spec(subject_id, project_dir)
 
     def _build_non_roi_from_ui(self, subject_id: str, project_dir: str, roi_params: dict):
         """Build a non-ROI spec from the focality non-ROI widgets.
 
         Returns None if non-ROI method is 'everything_else'.
         """
-        nonroi_method_val = self.nonroi_method_combo.currentData()
-        if nonroi_method_val != "specific":
+        if self.nonroi_method_combo.currentData() != "specific":
             return None
-
-        seg_dir = self._resolve_seg_dir(project_dir, subject_id)
-
-        if roi_params["method"] == "spherical":
-            return SphericalROI(
-                x=self.nonroi_x_input.value(),
-                y=self.nonroi_y_input.value(),
-                z=self.nonroi_z_input.value(),
-                radius=self.nonroi_radius_input.value(),
-                use_mni=self.roi_space_mni.isChecked(),
-            )
-        elif roi_params["method"] == "atlas":
-            nonroi_atlas_name = self._resolve_atlas_name_for_subject(
-                self.nonroi_atlas_combo.currentText(), subject_id
-            )
-            nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-            nonroi_atlas_path = os.path.join(
-                seg_dir, f"{nonroi_hemi}.{nonroi_atlas_name}.annot"
-            )
-            return AtlasROI(
-                atlas_path=nonroi_atlas_path,
-                label=self.nonroi_label_input.value(),
-                hemisphere=nonroi_hemi,
-            )
-        else:  # subcortical
-            nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
-            nonroi_volume_atlas_path = os.path.join(seg_dir, nonroi_volume_atlas)
-            if not os.path.isfile(nonroi_volume_atlas_path):
-                self.output_text.append(
-                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}"
-                )
-            return SubcorticalROI(
-                atlas_path=nonroi_volume_atlas_path,
-                label=self.nonroi_volume_label_input.value(),
-                tissues="GM",
-            )
+        return self.nonroi_picker.get_roi_spec(subject_id, project_dir)
 
     def _build_electrode_config(self, electrode_shape: str, dimensions: str, thickness: str) -> FlexElectrodeConfig:
         """Build FlexElectrodeConfig from UI values."""
-        dims = [float(d.strip()) for d in dimensions.split(",")]
-        return FlexElectrodeConfig(
-            shape=electrode_shape,
-            dimensions=dims,
-            thickness=float(thickness),
-        )
+        config, _ = self.electrode_widget.get_config()
+        return config
 
     def _build_flex_config(
         self,
@@ -1587,8 +855,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Skin visualization net
         skin_net_path = None
-        if self.visualize_skin_checkbox.isChecked():
-            skin_net = self.skin_net_combo.currentText()
+        solver = self.solver_widget.get_params()
+        if solver["visualize_valid_skin_region"]:
+            skin_net = self.solver_widget.get_skin_net_combo().currentText()
             if skin_net:
                 skin_net_path = self.eeg_nets.get(skin_net)
                 if not skin_net_path:
@@ -1601,9 +870,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                         "eeg_positions",
                         f"{skin_net}.csv",
                     )
-
-        # Mutation as "min,max" string
-        mutation_str = f"{self.mutation_min_input.value()},{self.mutation_max_input.value()}"
 
         return FlexConfig(
             subject_id=subject_id,
@@ -1621,15 +887,15 @@ class FlexSearchTab(QtWidgets.QWidget):
             disable_mapping_simulation=False,
             output_folder=output_folder,
             run_final_electrode_simulation=self.run_final_electrode_simulation_checkbox.isChecked(),
-            n_multistart=self.n_multistart_input.value(),
-            max_iterations=self.max_iterations_input.value(),
-            population_size=self.population_size_input.value(),
-            tolerance=self.tolerance_input.value(),
-            mutation=mutation_str,
-            recombination=self.recombination_input.value(),
-            cpus=self.cpus_input.value(),
-            detailed_results=self.detailed_results_checkbox.isChecked(),
-            visualize_valid_skin_region=self.visualize_skin_checkbox.isChecked(),
+            n_multistart=solver["n_multistart"],
+            max_iterations=solver["max_iterations"],
+            population_size=solver["population_size"],
+            tolerance=solver["tolerance"],
+            mutation=solver["mutation"],
+            recombination=solver["recombination"],
+            cpus=solver["cpus"],
+            detailed_results=solver["detailed_results"],
+            visualize_valid_skin_region=solver["visualize_valid_skin_region"],
             skin_visualization_net=skin_net_path,
         )
 
@@ -1655,16 +921,13 @@ class FlexSearchTab(QtWidgets.QWidget):
     ):
         """Run optimization for a single subject. Returns True if started successfully, False otherwise."""
         try:
-            # Don't set optimization_running here - it's managed in run_optimization
-            # Don't disable controls here - they're managed in run_optimization
-
             pm = get_path_manager()
             project_dir = pm.project_dir
             if not project_dir:
                 self.output_text.append("Error: Could not detect project directory")
                 return False
 
-            # Focality options — delegate to specialised orchestrators when needed
+            # Focality options -- delegate to specialised orchestrators when needed
             if goal == "focality":
                 if self._is_pareto_sweep_mode():
                     # --- Pareto Sweep mode ---
@@ -1678,7 +941,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                             "Error: Non-ROI method required for Pareto Sweep."
                         )
                         return False
-                    return self._run_pareto_sweep_optimization(
+                    return self._start_mean_optimization(
                         subject_id,
                         roi_params,
                         postproc,
@@ -1687,10 +950,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                         electrode_shape,
                         dimensions,
                         thickness,
-                        None,  # env — no longer needed, kept for signature compat
-                        None,  # base_cmd — no longer needed
-                        roi_pcts,
-                        nonroi_pcts,
+                        mode="pareto",
+                        roi_pcts=roi_pcts,
+                        nonroi_pcts=nonroi_pcts,
                     )
                 elif self.mode_adaptive_radio.isChecked():
                     # --- Adaptive (single run) mode ---
@@ -1715,7 +977,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         )
                         return False
 
-                    return self._run_adaptive_focality_optimization(
+                    return self._start_mean_optimization(
                         subject_id,
                         roi_params,
                         postproc,
@@ -1724,8 +986,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         electrode_shape,
                         dimensions,
                         thickness,
-                        None,  # env — no longer needed
-                        None,  # base_cmd — no longer needed
+                        mode="adaptive",
                     )
                 else:
                     # --- Manual threshold mode ---
@@ -1757,7 +1018,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             cmd, config_path = self._launch_flex_config(config)
 
-            # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
+            # Only set parent busy state for single subjects
             if (
                 not self.selected_subjects is not None
                 or len(self.selected_subjects) == 1
@@ -1786,78 +1047,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             return False
 
-    def _build_confirmation_details(
-        self, subject_id, roi_params, goal, postproc, eeg_net, electrode_current
-    ):
-        """Build confirmation dialog details string."""
-        # Pull current electrode UI settings (used in details text).
-        electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
-        dimensions = self.dimensions_input.text() or "8,8"  # Default to 8,8 if empty
-        thickness = self.thickness_input.text() or "4"  # Default to 4 if empty
-
-        details = (
-            f"This will run flex-search optimization with the following parameters:\n\n"
-            + f"• Subject: {subject_id}\n"
-            + f"• EEG Net: {eeg_net}\n"
-            + f"• Optimization Goal: {self.goal_combo.currentText()} ({goal})\n"
-            + f"• Post-processing: {self.postproc_combo.currentText()} ({postproc})\n"
-            + f"• Electrode Current: {electrode_current} mA\n"
-            + f"• Electrode Shape: {electrode_shape}\n"
-            + f"• Dimensions: {dimensions} mm\n"
-            + f"• Thickness: {thickness} mm\n"
-            + f"• ROI Method: {'Spherical' if roi_params['method'] == 'spherical' else 'Cortical' if roi_params['method'] == 'atlas' else 'Subcortical'}\n"
-        )
-
-        if roi_params["method"] == "spherical":
-            coord_space = (
-                "MNI"
-                if self.selected_subjects is not None
-                and len(self.selected_subjects) > 1
-                else "RAS"
-            )
-            details += (
-                f"• ROI Center ({coord_space}): ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) mm\n"
-                + f"• ROI Radius: {roi_params['radius']} mm\n"
-            )
-            if coord_space == "MNI":
-                details += (
-                    f"• Coordinate Transformation: MNI → Subject space (automatic)\n"
-                )
-        elif roi_params["method"] == "atlas":
-            details += (
-                f"• ROI Atlas: {roi_params['atlas']}\n"
-                + f"• ROI Region: {roi_params['region']}\n"
-            )
-        else:  # subcortical
-            details += (
-                f"• Volume Atlas: {roi_params['volume_atlas']}\n"
-                + f"• Volume Region Label: {roi_params['volume_region']}\n"
-            )
-
-        if self.run_mapped_simulation_checkbox.isChecked():
-            details += f"• Electrode Mapping & Simulation: ✓ ENABLED (runs simulation with mapped electrodes)\n"
-        else:
-            details += f"• Electrode Mapping: ✗ DISABLED (continuous optimization)\n"
-
-        details += f"\nStability & Memory:\n"
-        details += f"• Number of Optimization Runs: {self.n_multistart_input.value()}\n"
-        details += f"• Max Iterations: {self.max_iterations_input.value()}\n"
-        details += f"• Population Size: {self.population_size_input.value()}\n"
-        details += f"• Number of CPUs: {self.cpus_input.value()}\n"
-
-        details += f"\nDifferential Evolution Parameters:\n"
-        details += f"• Tolerance: {self.tolerance_input.value()}\n"
-        details += f"• Mutation: [{self.mutation_min_input.value()}, {self.mutation_max_input.value()}]\n"
-        details += f"• Recombination: {self.recombination_input.value()}\n"
-
-        if self.detailed_results_checkbox.isChecked():
-            details += f"• Detailed Results: ✓ ENABLED (creates additional visualization files)\n"
-
-        if self.n_multistart_input.value() > 1:
-            details += f"\n Multi-Start Optimization: {self.n_multistart_input.value()} runs will be performed.\n"
-            details += f"The best result (minimum objective function value) will be automatically selected and kept.\n"
-
-        return details
+    # ------------------------------------------------------------------ #
+    #  Output and lifecycle                                               #
+    # ------------------------------------------------------------------ #
 
     def update_output(self, text, message_type="default"):
         """Update the console output with colored text."""
@@ -1910,8 +1102,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
-            # Remove the unwanted completion message
-            # self.output_text.append("\nOptimization process completed.")
 
     def clear_console(self):
         """Clear the output console."""
@@ -1945,147 +1135,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.stop_btn.setEnabled(False)
         self.enable_controls()
 
-    def on_subject_changed(self):
-        """Handle subject selection change."""
-        # Refresh EEG nets and atlases for the new selection
-        if self.subject_list.selectedItems():
-            self.find_available_eeg_nets()
-            self.find_available_atlases()
-            self.find_available_volume_atlases()
-
-        # Update multiple subject restrictions
-        self._update_multiple_subject_restrictions()
-
-    def load_t1_in_freeview(self):
-        """Load the subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""
-        try:
-            selected_items = self.subject_list.selectedItems()
-            if not selected_items:
-                QtWidgets.QMessageBox.warning(
-                    self, "Error", "Please select a subject first"
-                )
-                return
-
-            multiple_subjects = len(selected_items) > 1
-
-            if multiple_subjects and self.roi_method_spherical.isChecked():
-                # Multiple subjects: load MNI template
-                # Look for MNI template in common locations
-                mni_paths = [
-                    "/usr/share/fsl/data/standard/MNI152_T1_1mm.nii.gz",
-                    "/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz",
-                    "$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz",
-                    # Check project assets folder
-                    os.path.join(
-                        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "assets",
-                        "atlas",
-                        "MNI152_T1_1mm.nii.gz",
-                    ),
-                ]
-
-                mni_file = None
-                for path in mni_paths:
-                    # Expand environment variables
-                    expanded_path = os.path.expandvars(path)
-                    if os.path.isfile(expanded_path):
-                        mni_file = expanded_path
-                        break
-
-                if not mni_file:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in resources/atlas/",
-                    )
-                    return
-
-                # Launch Freeview with MNI template
-                try:
-                    subprocess.Popen(["freeview", mni_file])
-                    self.output_text.append(
-                        f"Launched Freeview with MNI152 template: {mni_file}"
-                    )
-                    self.output_text.append(
-                        "Use Freeview to find MNI coordinates and enter them in the ROI coordinates fields."
-                    )
-                    self.output_text.append(
-                        "These MNI coordinates will be automatically transformed to each subject's native space."
-                    )
-                except FileNotFoundError:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        "Freeview not found. Please install FreeSurfer or ensure it's in your PATH",
-                    )
-                except (OSError, subprocess.SubprocessError) as e:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Error", f"Failed to launch Freeview: {str(e)}"
-                    )
-            else:
-                # Single subject: load subject's T1
-                subject_id = selected_items[0].text()
-                pm = get_path_manager()
-                project_dir = pm.project_dir
-                if not project_dir:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        "Project directory not detected. Set PROJECT_DIR or PROJECT_DIR_NAME.",
-                    )
-                    return
-
-                # Look for T1 NIfTI files in multiple locations
-                t1_paths = []
-                m2m_dir = pm.m2m(subject_id)
-                if m2m_dir:
-                    t1_paths.append(str(Path(m2m_dir) / "T1.nii.gz"))
-
-                bids_anat_dir = pm.bids_anat(subject_id)
-                if bids_anat_dir:
-                    t1_paths.append(
-                        str(Path(bids_anat_dir) / f"sub-{subject_id}_T1w.nii.gz")
-                    )
-                    t1_paths.append(
-                        str(Path(bids_anat_dir) / "anat-T1w_acq-MPRAGE.nii.gz")
-                    )
-
-                t1_file = None
-                for path in t1_paths:
-                    if os.path.isfile(path):
-                        t1_file = path
-                        break
-
-                if not t1_file:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Error", f"T1 file not found for subject {subject_id}"
-                    )
-                    return
-
-                # Launch Freeview
-                try:
-                    subprocess.Popen(["freeview", t1_file])
-                    self.output_text.append(
-                        f"Launched Freeview with T1 for subject {subject_id}: {t1_file}"
-                    )
-                    self.output_text.append(
-                        "Use Freeview to find RAS coordinates and enter them in the ROI coordinates fields."
-                    )
-                except FileNotFoundError:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        "Freeview not found. Please install FreeSurfer or ensure it's in your PATH",
-                    )
-                except (OSError, subprocess.SubprocessError) as e:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Error", f"Failed to launch Freeview: {str(e)}"
-                    )
-
-        except (OSError, subprocess.SubprocessError) as e:
-            QtWidgets.QMessageBox.warning(
-                self, "Error", f"Error loading image in Freeview: {str(e)}"
-            )
+    # ------------------------------------------------------------------ #
+    #  UI visibility helpers                                              #
+    # ------------------------------------------------------------------ #
 
     def _update_mapping_options(self):
         """Update visibility of EEG net selector based on mapped simulation checkbox."""
@@ -2093,30 +1145,13 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_widget.setVisible(is_mapping_enabled)
         self.eeg_net_label.setVisible(is_mapping_enabled)
 
-    def _on_detailed_results_toggled(self):
-        """Handle detailed results checkbox state change."""
-        is_detailed_results = self.detailed_results_checkbox.isChecked()
-        self.visualize_skin_checkbox.setEnabled(is_detailed_results)
-        if not is_detailed_results:
-            self.visualize_skin_checkbox.setChecked(False)
-            # Also disable skin net combo when detailed results is disabled
-            self.skin_net_combo.setEnabled(False)
-
-    def _on_visualize_skin_toggled(self):
-        """Handle visualize skin checkbox state change."""
-        is_visualize_skin = self.visualize_skin_checkbox.isChecked()
-        self.skin_net_combo.setEnabled(is_visualize_skin)
-        # Clear selection if disabled
-        if not is_visualize_skin:
-            self.skin_net_combo.setCurrentIndex(-1)
-
     def _update_focality_visibility(self):
         is_focality = self.goal_combo.currentData() == "focality"
         self.focality_group.setVisible(is_focality)
         # Default to 'everything_else' and collapse non-ROI region
         if is_focality:
             self.nonroi_method_combo.setCurrentIndex(0)
-            self.nonroi_stacked.setVisible(False)
+            self.nonroi_picker.setVisible(False)
             # Initialize mode-based controls visibility
             self._update_focality_mode_visibility()
 
@@ -2132,426 +1167,55 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self.threshold_help:
             self.threshold_help.setVisible(is_manual)
 
-    def _update_adaptive_focality_controls(self):
-        """Update visibility of adaptive vs manual threshold controls."""
-        is_adaptive = self.mode_adaptive_radio.isChecked()
-
-        # Enable/disable percentage inputs based on adaptive mode and optimization state
-        adaptive_enabled = is_adaptive and not self.optimization_running
-        self.nonroi_percentage_input.setEnabled(adaptive_enabled)
-        self.roi_percentage_input.setEnabled(adaptive_enabled)
-
     def _update_nonroi_stacked(self):
         if self.nonroi_method_combo.currentData() == "everything_else":
-            self.nonroi_stacked.setVisible(False)
+            self.nonroi_picker.setVisible(False)
         else:
-            self.nonroi_stacked.setVisible(True)
-            nonroi_index = {
-                self.roi_method_spherical: 0,
-                self.roi_method_cortical: 1,
-                self.roi_method_subcortical: 2,
-            }
-            for rb, idx in nonroi_index.items():
-                if rb.isChecked():
-                    self.nonroi_stacked.setCurrentIndex(idx)
-                    break
+            self.nonroi_picker.setVisible(True)
 
-    def _update_nonroi_atlas_combo(self):
-        self.nonroi_atlas_combo.clear()
-        for i in range(self.atlas_combo.count()):
-            self.nonroi_atlas_combo.addItem(self.atlas_combo.itemText(i))
+    # ------------------------------------------------------------------ #
+    #  Enable / disable controls                                          #
+    # ------------------------------------------------------------------ #
 
-        # Also update volume atlas combo for non-ROI
-        self.nonroi_volume_atlas_combo.clear()
-        for i in range(self.volume_atlas_combo.count()):
-            self.nonroi_volume_atlas_combo.addItem(self.volume_atlas_combo.itemText(i))
-
-    def _list_roi_regions(self):
-        atlas = self.atlas_combo.currentText()
-        hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
-        self._show_atlas_regions_dialog(atlas, hemi)
-
-    def _list_nonroi_regions(self):
-        atlas = self.nonroi_atlas_combo.currentText()
-        hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-        self._show_atlas_regions_dialog(atlas, hemi)
-
-    def _list_volume_regions(self):
-        volume_atlas = self.volume_atlas_combo.currentText()
-        self._show_volume_regions_dialog(volume_atlas)
-
-    def _list_nonroi_volume_regions(self):
-        volume_atlas = self.nonroi_volume_atlas_combo.currentText()
-        self._show_volume_regions_dialog(volume_atlas)
-
-    def _show_atlas_regions_dialog(self, atlas_display, hemi):
-        """Show a dialog with available regions in the selected atlas."""
-        # Get the atlas file path
-        atlas_key = (hemi, atlas_display)
-        if atlas_key not in self.atlases:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Atlas File Not Found",
-                f"Could not find atlas file for {hemi}.{atlas_display}",
-            )
-            return
-
-        annot_file = self.atlases[atlas_key]
-
-        try:
-            mesh_mgr = MeshAtlasManager("")  # seg_dir not needed for reading a specific file
-            regions = mesh_mgr.list_annot_regions(annot_file)
-
-            # Format the output
-            output_lines = []
-            for idx, name in regions:
-                output_lines.append(f"{idx:3d}: {name}")
-            output = "\n".join(output_lines)
-
-        except (OSError, ValueError) as e:
-            QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
-            return
-
-        # Show output in a dialog with search
-        dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle(f"Regions in {hemi}.{atlas_display}")
-        dlg.setMinimumWidth(600)
-        layout = QtWidgets.QVBoxLayout(dlg)
-        # Search box
-        search_box = QtWidgets.QLineEdit()
-        search_box.setPlaceholderText("Search regions...")
-        layout.addWidget(search_box)
-        # Text area
-        text = QtWidgets.QTextEdit()
-        text.setReadOnly(True)
-        text.setText(output)
-        layout.addWidget(text)
-
-        # Filter function
-        def filter_regions():
-            query = search_box.text().strip().lower()
-            if not query:
-                text.setText(output)
-                return
-            filtered = "\n".join(
-                [line for line in output.splitlines() if query in line.lower()]
-            )
-            text.setText(filtered)
-
-        search_box.textChanged.connect(filter_regions)
-        btn = QtWidgets.QPushButton("Close")
-        btn.clicked.connect(dlg.accept)
-        layout.addWidget(btn)
-        dlg.exec_()
-
-    def _show_volume_regions_dialog(self, volume_atlas):
-        """Show a dialog to browse and select volume atlas regions."""
-
-        # Get the subject ID and construct LUT file path
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
-            QtWidgets.QMessageBox.warning(
-                self, "No Subject Selected", "Please select a subject."
-            )
-            return
-
-        subject_id = selected_items[0].text()
-        if not subject_id:
-            QtWidgets.QMessageBox.warning(
-                self, "No Subject Selected", "Please select a subject."
-            )
-            return
-
-        pm = get_path_manager()
-        project_dir = pm.project_dir
-        if not project_dir:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Project Directory Missing",
-                "Project directory not detected. Set PROJECT_DIR or PROJECT_DIR_NAME.",
-            )
-            return
-
-        m2m_dir = pm.m2m(subject_id)
-        if not m2m_dir:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "m2m Folder Missing",
-                f"m2m directory not found for subject {subject_id}.",
-            )
-            return
-
-        seg_dir = Path(m2m_dir) / "segmentation"
-        labeling_lut_file = seg_dir / "labeling_LUT.txt"
-
-        if not labeling_lut_file.is_file():
-            QtWidgets.QMessageBox.warning(
-                self,
-                "LUT File Not Found",
-                f"Could not find labeling_LUT.txt file at: {labeling_lut_file}",
-            )
-            return
-
-        # Read and parse the LUT file
-        try:
-            output = "Subcortical Regions (labeling.nii.gz):\n"
-            output += "=" * 50 + "\n"
-            output += f"{'ID':<4} {'Structure Name':<35} {'RGB'}\n"
-            output += "-" * 50 + "\n"
-
-            with open(labeling_lut_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        # Split by tab first, then by whitespace to handle mixed separators
-                        parts = line.split("\t")
-                        if len(parts) >= 2:  # At least ID and Name
-                            try:
-                                label_id = parts[0].strip()
-                                label_name = parts[1].strip()
-
-                                # The remaining parts might be R G B A separated by whitespace
-                                # Join remaining parts and split by whitespace
-                                remaining = (
-                                    "\t".join(parts[2:]) if len(parts) > 2 else ""
-                                )
-                                rgb_parts = remaining.split()
-
-                                if len(rgb_parts) >= 3:  # We have R, G, B values
-                                    r = rgb_parts[0]
-                                    g = rgb_parts[1]
-                                    b = rgb_parts[2]
-                                    output += f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
-                                else:
-                                    # No RGB values found, just show ID and name
-                                    output += (
-                                        f"{label_id:<4} {label_name:<35} (no color)\n"
-                                    )
-                            except (ValueError, IndexError):
-                                continue  # Skip malformed lines
-
-        except OSError as e:
-            QtWidgets.QMessageBox.warning(
-                self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
-            )
-            return
-
-        # Show output in a dialog with search
-        dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle(f"Subcortical Regions - {volume_atlas}")
-        dlg.setMinimumWidth(700)
-        layout = QtWidgets.QVBoxLayout(dlg)
-
-        # Search box
-        search_box = QtWidgets.QLineEdit()
-        search_box.setPlaceholderText("Search regions (by ID or name)...")
-        layout.addWidget(search_box)
-
-        # Text area
-        text = QtWidgets.QTextEdit()
-        text.setReadOnly(True)
-        text.setFont(
-            QtGui.QFont("Consolas", FONT_SIZE_MONOSPACE)
-        )  # Use monospace font for better alignment
-        text.setText(output)
-        layout.addWidget(text)
-
-        # Filter function
-        def filter_regions():
-            query = search_box.text().strip().lower()
-            if not query:
-                text.setText(output)
-                return
-            filtered_lines = []
-            for line in output.splitlines():
-                if query in line.lower():
-                    filtered_lines.append(line)
-            text.setText("\n".join(filtered_lines))
-
-        search_box.textChanged.connect(filter_regions)
-
-        btn = QtWidgets.QPushButton("Close")
-        btn.clicked.connect(dlg.accept)
-        layout.addWidget(btn)
-        dlg.exec_()
+    def _set_controls_enabled(self, enabled):
+        """Enable or disable all input controls."""
+        self.subject_list.setEnabled(enabled)
+        self.refresh_subjects_btn.setEnabled(enabled)
+        self.select_all_subjects_btn.setEnabled(enabled)
+        self.clear_subjects_btn.setEnabled(enabled)
+        self.goal_combo.setEnabled(enabled)
+        self.postproc_combo.setEnabled(enabled)
+        self.eeg_net_combo.setEnabled(enabled)
+        self.refresh_eeg_nets_btn.setEnabled(enabled)
+        self.run_final_electrode_simulation_checkbox.setEnabled(enabled)
+        self.run_mapped_simulation_checkbox.setEnabled(enabled)
+        self.roi_picker.set_enabled(enabled)
+        self.electrode_widget.setEnabled(enabled)
+        self.solver_widget.setEnabled(enabled)
+        if self.focality_group.isVisible():
+            self.mode_manual_radio.setEnabled(enabled)
+            self.mode_adaptive_radio.setEnabled(enabled)
+            self.mode_pareto_radio.setEnabled(enabled)
+            self.nonroi_percentage_input.setEnabled(enabled)
+            self.roi_percentage_input.setEnabled(enabled)
+            self.threshold_input.setEnabled(enabled)
+            self.nonroi_method_combo.setEnabled(enabled)
+            self.nonroi_picker.set_enabled(enabled)
 
     def disable_controls(self):
         """Disable all input controls during optimization."""
-        # Disable subject selection
-        self.subject_list.setEnabled(False)
-        self.refresh_subjects_btn.setEnabled(False)
-        self.select_all_subjects_btn.setEnabled(False)
-        self.clear_subjects_btn.setEnabled(False)
-
-        # Disable optimization parameters
-        self.goal_combo.setEnabled(False)
-        self.postproc_combo.setEnabled(False)
-        self.eeg_net_combo.setEnabled(False)
-        self.refresh_eeg_nets_btn.setEnabled(False)
-
-        # Disable electrode parameters
-        self.current_input.setEnabled(False)
-        self.electrode_shape_rect.setEnabled(False)
-        self.electrode_shape_ellipse.setEnabled(False)
-        self.dimensions_input.setEnabled(False)
-        self.thickness_input.setEnabled(False)
-
-        # Disable simulation options
-        self.run_final_electrode_simulation_checkbox.setEnabled(False)
-        self.run_mapped_simulation_checkbox.setEnabled(False)
-
-        # Disable ROI method selection
-        self.roi_method_spherical.setEnabled(False)
-        self.roi_method_cortical.setEnabled(False)
-        self.roi_method_subcortical.setEnabled(False)
-
-        # Disable ROI inputs based on method
-        if self.roi_method_spherical.isChecked():
-            self.roi_x_input.setEnabled(False)
-            self.roi_y_input.setEnabled(False)
-            self.roi_z_input.setEnabled(False)
-            self.roi_radius_input.setEnabled(False)
-            self.view_t1_btn.setEnabled(False)
-        elif self.roi_method_cortical.isChecked():
-            self.atlas_combo.setEnabled(False)
-            self.roi_hemi_combo.setEnabled(False)
-            self.refresh_atlases_btn.setEnabled(False)
-            self.list_roi_regions_btn.setEnabled(False)
-            self.label_value_input.setEnabled(False)
-        else:  # subcortical
-            self.volume_atlas_combo.setEnabled(False)
-            self.refresh_volume_atlases_btn.setEnabled(False)
-            self.list_volume_regions_btn.setEnabled(False)
-            self.volume_label_value_input.setEnabled(False)
-
-        # Disable focality options if visible
-        if self.focality_group.isVisible():
-            self.mode_manual_radio.setEnabled(False)
-            self.mode_adaptive_radio.setEnabled(False)
-            self.mode_pareto_radio.setEnabled(False)
-            self.nonroi_percentage_input.setEnabled(False)
-            self.roi_percentage_input.setEnabled(False)
-            self.threshold_input.setEnabled(False)
-            self.nonroi_method_combo.setEnabled(False)
-            if self.nonroi_method_combo.currentData() == "specific":
-                if self.roi_method_spherical.isChecked():
-                    self.nonroi_x_input.setEnabled(False)
-                    self.nonroi_y_input.setEnabled(False)
-                    self.nonroi_z_input.setEnabled(False)
-                    self.nonroi_radius_input.setEnabled(False)
-                elif self.roi_method_cortical.isChecked():
-                    self.nonroi_atlas_combo.setEnabled(False)
-                    self.nonroi_hemi_combo.setEnabled(False)
-                    self.list_nonroi_regions_btn.setEnabled(False)
-                    self.nonroi_label_input.setEnabled(False)
-                else:  # subcortical
-                    self.nonroi_volume_atlas_combo.setEnabled(False)
-                    self.list_nonroi_volume_regions_btn.setEnabled(False)
-                    self.nonroi_volume_label_input.setEnabled(False)
-
-        self.n_multistart_input.setEnabled(False)
-        self.max_iterations_input.setEnabled(False)
-        self.population_size_input.setEnabled(False)
-        self.cpus_input.setEnabled(False)
-        self.tolerance_input.setEnabled(False)
-        self.mutation_min_input.setEnabled(False)
-        self.mutation_max_input.setEnabled(False)
-        self.recombination_input.setEnabled(False)
-        self.detailed_results_checkbox.setEnabled(False)
-        self.visualize_skin_checkbox.setEnabled(False)
-
+        self._set_controls_enabled(False)
 
     def enable_controls(self):
         """Enable all input controls after optimization."""
-        # Enable subject selection
-        self.subject_list.setEnabled(True)
-        self.refresh_subjects_btn.setEnabled(True)
-        self.select_all_subjects_btn.setEnabled(True)
-        self.clear_subjects_btn.setEnabled(True)
-
-        # Enable optimization parameters
-        self.goal_combo.setEnabled(True)
-        self.postproc_combo.setEnabled(True)
-        self.eeg_net_combo.setEnabled(True)
-        self.refresh_eeg_nets_btn.setEnabled(True)
-
-        # Enable electrode parameters
-        self.current_input.setEnabled(True)
-        self.electrode_shape_rect.setEnabled(True)
-        self.electrode_shape_ellipse.setEnabled(True)
-        self.dimensions_input.setEnabled(True)
-        self.thickness_input.setEnabled(True)
-
-        # Enable simulation options
-        self.run_final_electrode_simulation_checkbox.setEnabled(True)
-        self.run_mapped_simulation_checkbox.setEnabled(True)
-
-        # Enable ROI method selection
-        self.roi_method_spherical.setEnabled(True)
-        self.roi_method_cortical.setEnabled(True)
-        self.roi_method_subcortical.setEnabled(True)
-
-        # Enable ROI inputs based on method
-        if self.roi_method_spherical.isChecked():
-            self.roi_x_input.setEnabled(True)
-            self.roi_y_input.setEnabled(True)
-            self.roi_z_input.setEnabled(True)
-            self.roi_radius_input.setEnabled(True)
-            self.view_t1_btn.setEnabled(True)
-        elif self.roi_method_cortical.isChecked():
-            self.atlas_combo.setEnabled(True)
-            self.roi_hemi_combo.setEnabled(True)
-            self.refresh_atlases_btn.setEnabled(True)
-            self.list_roi_regions_btn.setEnabled(True)
-            self.label_value_input.setEnabled(True)
-        else:  # subcortical
-            self.volume_atlas_combo.setEnabled(True)
-            self.refresh_volume_atlases_btn.setEnabled(True)
-            self.list_volume_regions_btn.setEnabled(True)
-            self.volume_label_value_input.setEnabled(True)
-
-        # Enable focality options if visible
-        if self.focality_group.isVisible():
-            self.mode_manual_radio.setEnabled(True)
-            self.mode_adaptive_radio.setEnabled(True)
-            self.mode_pareto_radio.setEnabled(True)
-            self.nonroi_percentage_input.setEnabled(True)
-            self.roi_percentage_input.setEnabled(True)
-            self.threshold_input.setEnabled(True)
-            self.nonroi_method_combo.setEnabled(True)
-            if self.nonroi_method_combo.currentData() == "specific":
-                if self.roi_method_spherical.isChecked():
-                    self.nonroi_x_input.setEnabled(True)
-                    self.nonroi_y_input.setEnabled(True)
-                    self.nonroi_z_input.setEnabled(True)
-                    self.nonroi_radius_input.setEnabled(True)
-                elif self.roi_method_cortical.isChecked():
-                    self.nonroi_atlas_combo.setEnabled(True)
-                    self.nonroi_hemi_combo.setEnabled(True)
-                    self.list_nonroi_regions_btn.setEnabled(True)
-                    self.nonroi_label_input.setEnabled(True)
-                else:  # subcortical
-                    self.nonroi_volume_atlas_combo.setEnabled(True)
-                    self.list_nonroi_volume_regions_btn.setEnabled(True)
-                    self.nonroi_volume_label_input.setEnabled(True)
-
-        self.n_multistart_input.setEnabled(True)
-        self.max_iterations_input.setEnabled(True)
-        self.population_size_input.setEnabled(True)
-        self.cpus_input.setEnabled(True)
-        self.tolerance_input.setEnabled(True)
-        self.mutation_min_input.setEnabled(True)
-        self.mutation_max_input.setEnabled(True)
-        self.recombination_input.setEnabled(True)
-        self.detailed_results_checkbox.setEnabled(True)
-        self.visualize_skin_checkbox.setEnabled(True)
+        self._set_controls_enabled(True)
 
     def optimization_finished_early_due_to_error(self):
         """Resets UI controls if optimization cannot start due to an error."""
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.enable_controls()  # Re-enable all controls
+        self.enable_controls()
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
@@ -2601,7 +1265,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append(f"Error: {e}")
             return None
 
-    def _run_pareto_sweep_optimization(
+    def _start_mean_optimization(
         self,
         subject_id,
         roi_params,
@@ -2611,112 +1275,213 @@ class FlexSearchTab(QtWidgets.QWidget):
         electrode_shape,
         dimensions,
         thickness,
-        env,
-        base_cmd,
-        roi_pcts,
-        nonroi_pcts,
+        mode,
+        roi_pcts=None,
+        nonroi_pcts=None,
     ):
         """
-        Entry point for Pareto Sweep mode.
-        Step 1: run mean optimization (identical to adaptive step 1).
-        On completion, delegates to _on_pareto_mean_finished.
+        Run mean optimization as step 1 of adaptive or pareto focality.
+
+        *mode* must be ``"adaptive"`` or ``"pareto"``.
+        For pareto mode, *roi_pcts* and *nonroi_pcts* are required.
+        On completion, delegates to ``_on_mean_optimization_finished``.
         """
         from collections import deque
 
-        pm = get_path_manager()
-        project_dir = pm.project_dir
+        try:
+            pm = get_path_manager()
+            project_dir = pm.project_dir
 
-        # Reset all sweep state for a fresh run
-        self._sweep_roi_pcts = roi_pcts
-        self._sweep_nonroi_pcts = nonroi_pcts
-        self._sweep_params = {
-            "subject_id": subject_id,
-            "roi_params": roi_params,
-            "postproc": postproc,
-            "eeg_net": eeg_net,
-            "electrode_current": electrode_current,
-            "electrode_shape": electrode_shape,
-            "dimensions": dimensions,
-            "thickness": thickness,
-        }
-        self._sweep_points = []
-        self._sweep_queue = deque()
-        self._sweep_result = None
-        self._current_sweep_point = None
-        self.achievable_intensity = None
+            # Store all parameters for step 2
+            self._focality_state = {
+                "mode": mode,
+                "subject_id": subject_id,
+                "roi_params": roi_params,
+                "postproc": postproc,
+                "eeg_net": eeg_net,
+                "electrode_current": electrode_current,
+                "electrode_shape": electrode_shape,
+                "dimensions": dimensions,
+                "thickness": thickness,
+                "roi_pcts": roi_pcts or [],
+                "nonroi_pcts": nonroi_pcts or [],
+            }
+            self.achievable_intensity = None
 
-        # Build mean FlexConfig for step 1
-        mean_config = self._build_flex_config(
-            subject_id=subject_id,
-            project_dir=project_dir,
-            roi_params=roi_params,
-            goal="mean",
-            postproc=postproc,
-            eeg_net=eeg_net,
-            electrode_current=electrode_current,
-            electrode_shape=electrode_shape,
-            dimensions=dimensions,
-            thickness=thickness,
-        )
+            # Reset pareto sweep state for a fresh run
+            self._sweep_points = []
+            self._sweep_queue = deque()
+            self._sweep_result = None
+            self._current_sweep_point = None
 
-        mean_cmd, _ = self._launch_flex_config(mean_config)
+            # Build mean FlexConfig for step 1
+            mean_config = self._build_flex_config(
+                subject_id=subject_id,
+                project_dir=project_dir,
+                roi_params=roi_params,
+                goal="mean",
+                postproc=postproc,
+                eeg_net=eeg_net,
+                electrode_current=electrode_current,
+                electrode_shape=electrode_shape,
+                dimensions=dimensions,
+                thickness=thickness,
+            )
 
-        self.update_output(
-            "\U0001f504 Pareto Sweep: Step 1/2 \u2014 Finding achievable ROI intensity (mean optimization)"
-        )
+            mean_cmd, _ = self._launch_flex_config(mean_config)
 
-        self.optimization_thread = FlexSearchThread(mean_cmd)
-        self.optimization_thread.output_signal.connect(
-            self._process_mean_optimization_output
-        )
-        self.optimization_thread.error_signal.connect(
-            lambda msg: self.update_output(msg, "error")
-        )
-        self.optimization_thread.finished.connect(self._on_pareto_mean_finished)
-        self.optimization_thread.start()
-        return True
+            label = "Pareto Sweep" if mode == "pareto" else "Adaptive Focality"
+            self.update_output(
+                f"Step 1/2 -- Finding achievable ROI intensity ({label}: mean optimization)"
+            )
 
-    def _on_pareto_mean_finished(self):
-        """Called when step-1 mean opt completes; builds sweep grid and starts first run."""
-        from tit.opt.flex.pareto import (
-            compute_sweep_grid,
-            ParetoSweepConfig,
-            ParetoSweepResult,
-        )
-        from collections import deque
-        import os as _os
+            self.optimization_thread = FlexSearchThread(mean_cmd)
+            self.optimization_thread.output_signal.connect(
+                self._process_mean_optimization_output
+            )
+            self.optimization_thread.error_signal.connect(
+                lambda msg: self.update_output(msg, "error")
+            )
+            self.optimization_thread.finished.connect(
+                self._on_mean_optimization_finished
+            )
+            self.optimization_thread.start()
+            return True
+
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
+            self.update_output(
+                f"Error starting mean optimization: {str(e)}", "error"
+            )
+            return False
+
+    # ------------------------------------------------------------------ #
+    #  Unified mean-optimization-finished dispatcher                      #
+    # ------------------------------------------------------------------ #
+
+    def _on_mean_optimization_finished(self):
+        """Dispatch to adaptive or pareto step-2 handler based on mode."""
+        state = self._focality_state
+
+        # Fallback extraction if real-time parsing missed the value
+        if self.achievable_intensity is None or self.achievable_intensity <= 0:
+            self.achievable_intensity = (
+                self._extract_achievable_intensity_from_files(
+                    state["subject_id"], state["roi_params"], state["postproc"]
+                )
+            )
 
         if self.achievable_intensity is None or self.achievable_intensity <= 0:
             self.update_output(
-                "\u274c Pareto Sweep: Could not determine achievable ROI intensity "
-                "from mean optimization. Cannot proceed with sweep.",
+                "Could not determine achievable intensity from mean optimization.",
                 "error",
             )
             self.optimization_finished_early_due_to_error()
             return
 
         self.update_output(
-            f"\u2705 Mean optimization done. Achievable ROI intensity: "
+            f"Mean optimization done. Achievable intensity: "
             f"{self.achievable_intensity:.3f} V/m"
         )
+
+        mode = state["mode"]
+        if mode == "adaptive":
+            self._run_adaptive_focality_step2()
+        elif mode == "pareto":
+            self._run_pareto_sweep_step2()
+
+    # ------------------------------------------------------------------ #
+    #  Adaptive step 2                                                    #
+    # ------------------------------------------------------------------ #
+
+    def _run_adaptive_focality_step2(self):
+        """Calculate adaptive thresholds and run focality optimization."""
+        try:
+            state = self._focality_state
+
+            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
+            roi_percentage = self.roi_percentage_input.value() / 100.0
+
+            nonroi_threshold = nonroi_percentage * self.achievable_intensity
+            roi_threshold = roi_percentage * self.achievable_intensity
+
+            self.update_output(
+                "Step 2/2: Running focality optimization with adaptive thresholds"
+            )
+            self.update_output(
+                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
+            )
+            self.update_output(
+                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
+            )
+
+            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
+
+            pm = get_path_manager()
+            focality_config = self._build_flex_config(
+                subject_id=state["subject_id"],
+                project_dir=pm.project_dir,
+                roi_params=state["roi_params"],
+                goal="focality",
+                postproc=state["postproc"],
+                eeg_net=state["eeg_net"],
+                electrode_current=state["electrode_current"],
+                electrode_shape=state["electrode_shape"],
+                dimensions=state["dimensions"],
+                thickness=state["thickness"],
+                thresholds=adaptive_thresholds,
+            )
+
+            focality_cmd, _ = self._launch_flex_config(focality_config)
+
+            self.optimization_thread = FlexSearchThread(focality_cmd)
+            self.optimization_thread.output_signal.connect(self.update_output)
+            self.optimization_thread.error_signal.connect(
+                lambda msg: self.update_output(msg, "error")
+            )
+            self.optimization_thread.finished.connect(self.optimization_finished)
+            self.optimization_thread.start()
+
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
+            self.update_output(
+                f"Error calculating adaptive thresholds: {str(e)}", "error"
+            )
+            self.optimization_finished()
+
+    # ------------------------------------------------------------------ #
+    #  Pareto step 2                                                      #
+    # ------------------------------------------------------------------ #
+
+    def _run_pareto_sweep_step2(self):
+        """Build sweep grid and start sequential focality runs."""
+        from tit.opt.flex.pareto import (
+            compute_sweep_grid,
+            ParetoSweepConfig,
+            ParetoSweepResult,
+        )
+        from collections import deque
+
+        state = self._focality_state
+
         self.update_output(
-            "\U0001f4ca Pareto Sweep: Step 2/2 \u2014 Running focality sweep..."
+            "Step 2/2 -- Running focality sweep..."
         )
 
-        params = self._sweep_params
         base_folder = self._get_pareto_sweep_folder(
-            params["subject_id"], params["roi_params"], params["postproc"]
+            state["subject_id"], state["roi_params"], state["postproc"]
         )
+
+        roi_pcts = state["roi_pcts"]
+        nonroi_pcts = state["nonroi_pcts"]
 
         self._sweep_points = compute_sweep_grid(
-            self._sweep_roi_pcts,
-            self._sweep_nonroi_pcts,
+            roi_pcts,
+            nonroi_pcts,
             self.achievable_intensity,
             base_folder,
         )
         cfg = ParetoSweepConfig(
-            roi_pcts=self._sweep_roi_pcts,
-            nonroi_pcts=self._sweep_nonroi_pcts,
+            roi_pcts=roi_pcts,
+            nonroi_pcts=nonroi_pcts,
             achievable_roi_mean=self.achievable_intensity,
             base_output_folder=base_folder,
         )
@@ -2750,7 +1515,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                 if "_" in roi_params["atlas"]
                 else roi_params["atlas"]
             )
-            hemisphere = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+            roi_p = self.roi_picker.get_roi_params()
+            hemisphere = "lh" if self.roi_picker.hemi_combo.currentIndex() == 0 else "rh"
             region = roi_params.get("region", "")
             dirname = (
                 f"{hemisphere}_{atlas_name}_{region}_pareto_sweep_{postproc_short}"
@@ -2787,7 +1553,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self._current_sweep_point = point
         point.status = "running"
 
-        params = self._sweep_params
+        state = self._focality_state
         pm = get_path_manager()
         project_dir = pm.project_dir
         _os.makedirs(point.output_folder, exist_ok=True)
@@ -2796,16 +1562,16 @@ class FlexSearchTab(QtWidgets.QWidget):
         sweep_thresholds = f"{point.nonroi_threshold:.3f},{point.roi_threshold:.3f}"
 
         sweep_config = self._build_flex_config(
-            subject_id=params["subject_id"],
+            subject_id=state["subject_id"],
             project_dir=project_dir,
-            roi_params=params["roi_params"],
+            roi_params=state["roi_params"],
             goal="focality",
-            postproc=params["postproc"],
-            eeg_net=params["eeg_net"],
-            electrode_current=params["electrode_current"],
-            electrode_shape=params["electrode_shape"],
-            dimensions=params["dimensions"],
-            thickness=params["thickness"],
+            postproc=state["postproc"],
+            eeg_net=state["eeg_net"],
+            electrode_current=state["electrode_current"],
+            electrode_shape=state["electrode_shape"],
+            dimensions=state["dimensions"],
+            thickness=state["thickness"],
             thresholds=sweep_thresholds,
             output_folder=point.output_folder,
         )
@@ -2835,7 +1601,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.update_output(line, message_type)
         if self._current_sweep_point is not None:
-            score = parse_sweep_line(line, self._sweep_params.get("postproc", "max_TI"))
+            score = parse_sweep_line(line, self._focality_state.get("postproc", "max_TI"))
             if score is not None:
                 self._current_sweep_point.focality_score = score
 
@@ -2891,86 +1657,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
-    # ------------------------------------------------------------------ #
-
-    def _run_adaptive_focality_optimization(
-        self,
-        subject_id,
-        roi_params,
-        postproc,
-        eeg_net,
-        electrode_current,
-        electrode_shape,
-        dimensions,
-        thickness,
-        env,
-        base_cmd,
-    ):
-        """Run adaptive focality optimization: first run mean optimization to get achievable intensity,
-        then calculate adaptive thresholds and run focality optimization."""
-
-        try:
-            # Step 1: Run mean optimization to get achievable intensity
-            self.update_output("🔄 Running adaptive focality optimization...")
-            self.update_output(
-                "📊 Step 1/2: Finding achievable intensity with mean optimization"
-            )
-
-            pm = get_path_manager()
-            project_dir = pm.project_dir
-
-            # Store parameters for later use (step 2 needs them)
-            self.adaptive_params = {
-                "subject_id": subject_id,
-                "roi_params": roi_params,
-                "postproc": postproc,
-                "eeg_net": eeg_net,
-                "electrode_current": electrode_current,
-                "electrode_shape": electrode_shape,
-                "dimensions": dimensions,
-                "thickness": thickness,
-            }
-
-            # Initialize achievable intensity tracking
-            self.achievable_intensity = None
-
-            # Build a FlexConfig for the mean optimization step
-            mean_config = self._build_flex_config(
-                subject_id=subject_id,
-                project_dir=project_dir,
-                roi_params=roi_params,
-                goal="mean",
-                postproc=postproc,
-                eeg_net=eeg_net,
-                electrode_current=electrode_current,
-                electrode_shape=electrode_shape,
-                dimensions=dimensions,
-                thickness=thickness,
-            )
-
-            mean_cmd, _ = self._launch_flex_config(mean_config)
-
-            # Run mean optimization with enhanced output monitoring
-            self.optimization_thread = FlexSearchThread(mean_cmd)
-            self.optimization_thread.output_signal.connect(
-                self._process_mean_optimization_output
-            )
-            self.optimization_thread.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_thread.finished.connect(
-                self._on_mean_optimization_finished_enhanced
-            )
-            self.optimization_thread.start()
-
-            return True
-
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"❌ Error in adaptive focality optimization: {str(e)}", "error"
-            )
-            return False
-
     def _process_mean_optimization_output(self, line, message_type):
         """Process mean optimization output to extract achievable intensity in real-time."""
         # Display the output normally
@@ -2986,7 +1672,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             goal_value = float(goal_value_match.group(1))
             self.achievable_intensity = -goal_value  # Convert back to positive
             self.update_output(
-                f"🎯 Detected achievable intensity: {self.achievable_intensity:.3f} V/m",
+                f"Detected achievable intensity: {self.achievable_intensity:.3f} V/m",
                 "info",
             )
 
@@ -2998,7 +1684,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             final_goal_value = float(final_goal_match.group(1))
             self.achievable_intensity = -final_goal_value  # Convert back to positive
             self.update_output(
-                f"🎯 Final achievable intensity: {self.achievable_intensity:.3f} V/m",
+                f"Final achievable intensity: {self.achievable_intensity:.3f} V/m",
                 "info",
             )
 
@@ -3016,7 +1702,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             if roi_intensity > 0:  # Only use positive values
                 self.achievable_intensity = roi_intensity
                 self.update_output(
-                    f"🎯 ROI median intensity captured: {self.achievable_intensity:.3f} V/m",
+                    f"ROI median intensity captured: {self.achievable_intensity:.3f} V/m",
                     "info",
                 )
 
@@ -3033,251 +1719,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             if roi_intensity > 0:  # Only use positive values
                 self.achievable_intensity = roi_intensity
                 self.update_output(
-                    f"🎯 ROI intensity captured: {self.achievable_intensity:.3f} V/m",
+                    f"ROI intensity captured: {self.achievable_intensity:.3f} V/m",
                     "info",
                 )
-
-    def _on_mean_optimization_finished_enhanced(self):
-        """Enhanced handler for mean optimization completion using stored parameters."""
-
-        try:
-            # Get stored parameters
-            params = self.adaptive_params
-            subject_id = params["subject_id"]
-            roi_params = params["roi_params"]
-            postproc = params["postproc"]
-            eeg_net = params["eeg_net"]
-            electrode_current = params["electrode_current"]
-            electrode_shape = params["electrode_shape"]
-            dimensions = params["dimensions"]
-            thickness = params["thickness"]
-
-            pm = get_path_manager()
-            project_dir = pm.project_dir
-
-            # Check if we captured the achievable intensity
-            if self.achievable_intensity is None or self.achievable_intensity <= 0:
-                # Fallback: try to extract from files with corrected directory naming
-                self.achievable_intensity = (
-                    self._extract_achievable_intensity_from_files(
-                        subject_id, roi_params, postproc
-                    )
-                )
-
-            if self.achievable_intensity is None or self.achievable_intensity <= 0:
-                self.update_output(
-                    "❌ Could not determine achievable intensity from mean optimization",
-                    "error",
-                )
-                self.optimization_finished()
-                return
-
-            self.update_output(
-                f"✅ Mean optimization completed. Achievable intensity: {self.achievable_intensity:.3f} V/m"
-            )
-
-            # Step 2: Calculate adaptive thresholds
-            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
-            roi_percentage = self.roi_percentage_input.value() / 100.0
-
-            nonroi_threshold = nonroi_percentage * self.achievable_intensity
-            roi_threshold = roi_percentage * self.achievable_intensity
-
-            self.update_output(
-                f"🎯 Step 2/2: Running focality optimization with adaptive thresholds"
-            )
-            self.update_output(
-                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
-            )
-            self.update_output(
-                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
-            )
-
-            # Build focality FlexConfig with adaptive thresholds
-            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
-
-            focality_config = self._build_flex_config(
-                subject_id=subject_id,
-                project_dir=project_dir,
-                roi_params=roi_params,
-                goal="focality",
-                postproc=postproc,
-                eeg_net=eeg_net,
-                electrode_current=electrode_current,
-                electrode_shape=electrode_shape,
-                dimensions=dimensions,
-                thickness=thickness,
-                thresholds=adaptive_thresholds,
-            )
-
-            focality_cmd, _ = self._launch_flex_config(focality_config)
-
-            # Run focality optimization with adaptive thresholds
-            self.optimization_thread = FlexSearchThread(focality_cmd)
-            self.optimization_thread.output_signal.connect(self.update_output)
-            self.optimization_thread.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_thread.finished.connect(self.optimization_finished)
-            self.optimization_thread.start()
-
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"❌ Error calculating adaptive thresholds: {str(e)}", "error"
-            )
-            self.optimization_finished()
-
-    def _add_nonroi_parameters(self, env, roi_params, subject_id):
-        """Add non-ROI specific parameters to environment."""
-        if roi_params["method"] == "spherical":
-            env["NON_ROI_X"] = str(self.nonroi_x_input.value())
-            env["NON_ROI_Y"] = str(self.nonroi_y_input.value())
-            env["NON_ROI_Z"] = str(self.nonroi_z_input.value())
-            env["NON_ROI_RADIUS"] = str(self.nonroi_radius_input.value())
-            env["USE_MNI_COORDS_NON_ROI"] = env.get("USE_MNI_COORDS", "false")
-        elif roi_params["method"] == "atlas":
-            nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-            nonroi_atlas_base_name = self.atlas_display_map.get(
-                nonroi_atlas_display, nonroi_atlas_display
-            )
-
-            if "_" in nonroi_atlas_base_name:
-                nonroi_atlas_type = nonroi_atlas_base_name.split("_", 1)[-1]
-            else:
-                nonroi_atlas_type = nonroi_atlas_base_name
-
-            nonroi_atlas_name_for_env = f"{subject_id}_{nonroi_atlas_type}"
-            nonroi_hemi_for_env = (
-                "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-            )
-
-            script_project_dir = env["PROJECT_DIR"]
-            seg_dir_for_env = os.path.join(
-                script_project_dir,
-                "derivatives",
-                "SimNIBS",
-                f"sub-{subject_id}",
-                f"m2m_{subject_id}",
-                "segmentation",
-            )
-            nonroi_atlas_path_for_env = os.path.join(
-                seg_dir_for_env,
-                f"{nonroi_hemi_for_env}.{nonroi_atlas_name_for_env}.annot",
-            )
-
-            env["NON_ROI_ATLAS_PATH"] = nonroi_atlas_path_for_env
-            env["NON_ROI_HEMISPHERE"] = nonroi_hemi_for_env
-            env["NON_ROI_LABEL"] = str(self.nonroi_label_input.value())
-        elif roi_params["method"] == "subcortical":
-            nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
-
-            script_project_dir = env["PROJECT_DIR"]
-            seg_dir_for_env = os.path.join(
-                script_project_dir,
-                "derivatives",
-                "SimNIBS",
-                f"sub-{subject_id}",
-                f"m2m_{subject_id}",
-                "segmentation",
-            )
-            nonroi_volume_atlas_path_for_env = os.path.join(
-                seg_dir_for_env, nonroi_volume_atlas
-            )
-            if os.path.isfile(nonroi_volume_atlas_path_for_env):
-                env["VOLUME_NON_ROI_ATLAS_PATH"] = nonroi_volume_atlas_path_for_env
-            else:
-                self.update_output(
-                    f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path_for_env}",
-                    "warning",
-                )
-            env["VOLUME_NON_ROI_LABEL"] = str(self.nonroi_volume_label_input.value())
-
-    def _on_mean_optimization_finished(
-        self,
-        subject_id,
-        roi_params,
-        postproc,
-        eeg_net,
-        electrode_current,
-        electrode_shape,
-        dimensions,
-        thickness,
-        env,
-        base_cmd,
-    ):
-        """Handle completion of mean optimization and start focality optimization with adaptive thresholds."""
-
-        try:
-            # Extract achievable intensity from mean optimization results
-            achievable_intensity = self._extract_achievable_intensity_from_files(
-                subject_id, roi_params, postproc
-            )
-
-            if achievable_intensity is None:
-                self.update_output(
-                    "❌ Could not determine achievable intensity from mean optimization",
-                    "error",
-                )
-                self.optimization_finished()
-                return
-
-            self.update_output(
-                f"✅ Mean optimization completed. Achievable intensity: {achievable_intensity:.3f} V/m"
-            )
-
-            # Step 2: Calculate adaptive thresholds
-            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
-            roi_percentage = self.roi_percentage_input.value() / 100.0
-
-            nonroi_threshold = nonroi_percentage * achievable_intensity
-            roi_threshold = roi_percentage * achievable_intensity
-
-            self.update_output(
-                f"🎯 Step 2/2: Running focality optimization with adaptive thresholds"
-            )
-            self.update_output(
-                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
-            )
-            self.update_output(
-                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
-            )
-
-            # Build focality FlexConfig with adaptive thresholds
-            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
-
-            pm = get_path_manager()
-            project_dir = pm.project_dir
-
-            focality_config = self._build_flex_config(
-                subject_id=subject_id,
-                project_dir=project_dir,
-                roi_params=roi_params,
-                goal="focality",
-                postproc=postproc,
-                eeg_net=eeg_net,
-                electrode_current=electrode_current,
-                electrode_shape=electrode_shape,
-                dimensions=dimensions,
-                thickness=thickness,
-                thresholds=adaptive_thresholds,
-            )
-
-            focality_cmd, _ = self._launch_flex_config(focality_config)
-
-            # Run focality optimization with adaptive thresholds
-            self.optimization_thread = FlexSearchThread(focality_cmd)
-            self.optimization_thread.output_signal.connect(self.update_output)
-            self.optimization_thread.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_thread.finished.connect(self.optimization_finished)
-            self.optimization_thread.start()
-
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"❌ Error calculating adaptive thresholds: {str(e)}", "error"
-            )
-            self.optimization_finished()
 
     def _extract_achievable_intensity_from_files(
         self, subject_id, roi_params, postproc
@@ -3299,7 +1743,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Build ROI directory name for mean optimization using correct convention
             if roi_params["method"] == "spherical":
-                # Format: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
                 x, y, z = roi_params["center"]
                 radius = roi_params["radius"]
                 roi_dirname = f"sphere_x{x}y{y}z{z}r{radius}_mean_{postproc_short}"
@@ -3309,7 +1752,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     if "_" in roi_params["atlas"]
                     else roi_params["atlas"]
                 )
-                hemisphere = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+                hemisphere = "lh" if self.roi_picker.hemi_combo.currentIndex() == 0 else "rh"
                 roi_dirname = f"{hemisphere}_{atlas_name}_{roi_params['region']}_mean_{postproc_short}"
             elif roi_params["method"] == "subcortical":
                 volume_atlas_name = (
@@ -3332,18 +1775,18 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             summary_file = os.path.join(results_dir, "optimization_summary.txt")
 
-            self.update_output(f"🔍 Looking for summary file: {summary_file}", "info")
+            self.update_output(f"Looking for summary file: {summary_file}", "info")
 
             if not os.path.exists(summary_file):
                 self.update_output(
-                    f"⚠️ Summary file not found, checking directory contents...",
+                    f"Summary file not found, checking directory contents...",
                     "warning",
                 )
 
                 # List directory contents to help debug
                 if os.path.exists(results_dir):
                     files = os.listdir(results_dir)
-                    self.update_output(f"📁 Directory contents: {files}", "info")
+                    self.update_output(f"Directory contents: {files}", "info")
                 else:
                     parent_dir = os.path.dirname(results_dir)
                     if os.path.exists(parent_dir):
@@ -3353,7 +1796,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                             if os.path.isdir(os.path.join(parent_dir, d))
                         ]
                         self.update_output(
-                            f"📁 Available subdirectories: {subdirs}", "info"
+                            f"Available subdirectories: {subdirs}", "info"
                         )
 
                 return None
@@ -3367,7 +1810,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
                 match = re.search(r"Final function value:\s*([+-]?[\d\.-]+)", content)
                 if match:
-                    # The function value is negative (since we maximize by minimizing negative)
                     return -float(match.group(1))
 
                 # Alternative patterns
@@ -3383,7 +1825,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         except (OSError, ValueError) as e:
             self.update_output(
-                f"❌ Error extracting achievable intensity from files: {str(e)}",
+                f"Error extracting achievable intensity from files: {str(e)}",
                 "error",
             )
             return None

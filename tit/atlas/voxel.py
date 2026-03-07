@@ -6,11 +6,14 @@ import os
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
-from tit.atlas.constants import VOXEL_ATLAS_FILES, FREESURFER_VOLUME_ATLASES, MNI_ATLAS_FILES
+from tit.atlas.constants import VOXEL_ATLAS_FILES, MNI_ATLAS_FILES
 
 
 class VoxelAtlasManager:
     """Discovers and queries volumetric atlas files.
+
+    All discovery methods use the same canonical ``VOXEL_ATLAS_FILES`` list
+    so that the analyzer, flex-search, and NIfTI viewer show identical atlases.
 
     Args:
         freesurfer_mri_dir: Path to FreeSurfer mri/ directory.
@@ -23,6 +26,10 @@ class VoxelAtlasManager:
 
     def list_atlases(self) -> List[Tuple[str, str]]:
         """Discover available voxel atlas files for a subject.
+
+        Checks FreeSurfer mri/ for VOXEL_ATLAS_FILES and segmentation/
+        for labeling.nii.gz.  Used by analyzer tab, flex subcortical tab,
+        and NIfTI viewer.
 
         Returns:
             List of (display_name, full_path) tuples.
@@ -53,12 +60,20 @@ class VoxelAtlasManager:
         atlas_bname = os.path.splitext(os.path.basename(atlas_path))[0]
         if atlas_bname.endswith(".nii"):
             atlas_bname = os.path.splitext(atlas_bname)[0]
-        labels_file = os.path.join(os.path.dirname(atlas_path), f"{atlas_bname}_labels.txt")
+        labels_file = os.path.join(
+            os.path.dirname(atlas_path), f"{atlas_bname}_labels.txt"
+        )
 
         if not os.path.isfile(labels_file):
             cmd = [
-                "mri_segstats", "--seg", atlas_path,
-                "--excludeid", "0", "--ctab-default", "--sum", labels_file,
+                "mri_segstats",
+                "--seg",
+                atlas_path,
+                "--excludeid",
+                "0",
+                "--ctab-default",
+                "--sum",
+                labels_file,
             ]
             subprocess.run(cmd, check=True, capture_output=True)
 
@@ -76,43 +91,6 @@ class VoxelAtlasManager:
                         regions.append(f"{name} (ID: {seg_id})")
 
         return sorted(set(regions))
-
-    def detect_freesurfer_atlases(self) -> List[str]:
-        """Detect available FreeSurfer volumetric atlases.
-
-        Returns:
-            List of atlas filenames found (labeling.nii.gz first if present).
-        """
-        atlas_files: List[str] = []
-
-        if self.freesurfer_mri_dir and os.path.isdir(self.freesurfer_mri_dir):
-            for pattern in FREESURFER_VOLUME_ATLASES:
-                atlas_path = os.path.join(self.freesurfer_mri_dir, pattern)
-                if os.path.isfile(atlas_path):
-                    atlas_files.append(pattern)
-
-        if self.seg_dir and os.path.isdir(self.seg_dir):
-            labeling_path = os.path.join(self.seg_dir, "labeling.nii.gz")
-            if os.path.isfile(labeling_path):
-                atlas_files.insert(0, "labeling.nii.gz")
-
-        return atlas_files
-
-    def find_volume_atlases(self) -> dict:
-        """Find volume atlas files (labeling.nii.gz) for subcortical analysis.
-
-        Returns:
-            Dict mapping display name to file path.
-        """
-        volume_atlases = {}
-        if not self.seg_dir:
-            return volume_atlases
-
-        labeling_file = os.path.join(self.seg_dir, "labeling.nii.gz")
-        if os.path.isfile(labeling_file):
-            volume_atlases["labeling.nii.gz"] = labeling_file
-
-        return volume_atlases
 
     @staticmethod
     def detect_mni_atlases(atlas_dir: str) -> List[str]:

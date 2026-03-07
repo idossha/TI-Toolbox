@@ -146,6 +146,7 @@ QLabel {{
 QTabWidget::pane {{
     border: 1px solid #888888;
     border-radius: 3px;
+    padding: 0px;
 }}
 QTabBar::tab {{
     padding: 6px 14px;
@@ -158,7 +159,6 @@ QTabBar::tab {{
     border-top-right-radius: 3px;
 }}
 QTabBar::tab:selected {{
-    font-weight: bold;
     background-color: #ffffff;
     border-color: #555555;
 }}
