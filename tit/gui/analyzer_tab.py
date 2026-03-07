@@ -17,7 +17,11 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite
-from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
+from tit.gui.components.console import (
+    ConsoleWidget,
+    format_message,
+    append_with_autoscroll,
+)
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.atlas.constants import BUILTIN_ATLASES
@@ -235,21 +239,17 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""
-        if hasattr(self, "coordinates_label") and hasattr(self, "coord_x"):
+        if hasattr(self, "coordinates_label") and hasattr(self, "coords_radius_input"):
             if self.coord_space_mni.isChecked():
                 # MNI space selected
-                self.coordinates_label.setText("MNI RAS (x,y,z):")
+                self.coordinates_label.setText("MNI RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip(
                     "MNI space coordinates (will be transformed to subject space for each subject)"
                 )
                 self.coordinates_label.setStyleSheet(
                     "color: #007ACC; font-weight: bold;"
                 )
-
-                # Update individual coordinate tooltips
-                self.coord_x.setToolTip("X coordinate in MNI space")
-                self.coord_y.setToolTip("Y coordinate in MNI space")
-                self.coord_z.setToolTip("Z coordinate in MNI space")
+                self.coords_radius_input.setToolTip("x,y,z,radius in MNI space")
 
                 # Update Freeview button for MNI template
                 if hasattr(self, "view_in_freeview_btn"):
@@ -259,14 +259,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                     )
             else:
                 # Subject space selected
-                self.coordinates_label.setText("Subject RAS (x,y,z):")
+                self.coordinates_label.setText("Subject RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
                 self.coordinates_label.setStyleSheet("")
-
-                # Update individual coordinate tooltips
-                self.coord_x.setToolTip("X coordinate in subject RAS space")
-                self.coord_y.setToolTip("Y coordinate in subject RAS space")
-                self.coord_z.setToolTip("Z coordinate in subject RAS space")
+                self.coords_radius_input.setToolTip("x,y,z,radius in subject RAS space")
 
                 # Update Freeview button for subject T1
                 if hasattr(self, "view_in_freeview_btn"):
@@ -727,44 +723,21 @@ class AnalyzerTab(QtWidgets.QWidget):
         coord_space_row.addStretch()
         analysis_params_layout.addLayout(coord_space_row)
 
-        # Row 3: Coordinates
-        coordinates_row = QtWidgets.QHBoxLayout()
-        coordinates_row.setSpacing(10)
-        self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z):")
+        # Row 3: Coordinates & Radius (single input: x,y,z,r)
+        coords_row = QtWidgets.QHBoxLayout()
+        coords_row.setSpacing(10)
+        self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z,r):")
         self.coordinates_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
-        self.coord_x = QtWidgets.QLineEdit()
-        self.coord_y = QtWidgets.QLineEdit()
-        self.coord_z = QtWidgets.QLineEdit()
-        for coord_widget in [self.coord_x, self.coord_y, self.coord_z]:
-            coord_widget.setPlaceholderText("0.0")
-            coord_widget.setMinimumWidth(55)
-            coord_widget.setSizePolicy(
-                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
-            )
-        coordinates_row.addWidget(self.coordinates_label)
-        coordinates_row.addWidget(self.coord_x)
-        coordinates_row.addWidget(self.coord_y)
-        coordinates_row.addWidget(self.coord_z)
-        coordinates_row.addStretch()
-        analysis_params_layout.addLayout(coordinates_row)
-
-        # Row 4: Radius and View in Freeview button
-        radius_row = QtWidgets.QHBoxLayout()
-        radius_row.setSpacing(10)
-        self.radius_label = QtWidgets.QLabel("Radius:")
-        self.radius_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        self.radius_input = QtWidgets.QLineEdit()
-        self.radius_input.setPlaceholderText("5.0")
-        self.radius_input.setMinimumWidth(55)
-        self.radius_input.setSizePolicy(
+        self.coords_radius_input = QtWidgets.QLineEdit()
+        self.coords_radius_input.setPlaceholderText("x,y,z,r")
+        self.coords_radius_input.setMinimumWidth(180)
+        self.coords_radius_input.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
         )
-        radius_row.addWidget(self.radius_label)
-        radius_row.addWidget(self.radius_input)
+        coords_row.addWidget(self.coordinates_label)
+        coords_row.addWidget(self.coords_radius_input)
 
         self.view_in_freeview_btn = QtWidgets.QPushButton("View in Freeview")
         self.view_in_freeview_btn.setToolTip(
@@ -774,10 +747,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.view_in_freeview_btn.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
-        radius_row.addSpacing(10)
-        radius_row.addWidget(self.view_in_freeview_btn)
-        radius_row.addStretch()
-        analysis_params_layout.addLayout(radius_row)
+        coords_row.addSpacing(10)
+        coords_row.addWidget(self.view_in_freeview_btn)
+        coords_row.addStretch()
+        analysis_params_layout.addLayout(coords_row)
 
         # Remove the stacked widget approach - coordinates/radius are always visible
         # Instead, we'll enable/disable them based on mode
@@ -800,6 +773,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.update_atlas_visibility()  # Initial call
         self.update_cortical_button_text()  # Initial call
+        analysis_params_container.setFixedHeight(250)
         right_layout.addWidget(analysis_params_container)
 
         # Compact Gmsh visualization - using space more efficiently
@@ -868,6 +842,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         bottom_row.addStretch()
         visualization_layout.addLayout(bottom_row)
 
+        visualization_container.setFixedHeight(100)
         right_layout.addWidget(visualization_container)
 
         # Connect gmsh dropdown signals after widgets are created
@@ -1123,26 +1098,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         coordinates_enabled = is_spherical
         if hasattr(self, "coordinates_label"):
             self.coordinates_label.setEnabled(coordinates_enabled)
-        if hasattr(self, "coord_x"):
-            self.coord_x.setEnabled(coordinates_enabled)
-            self.coord_y.setEnabled(coordinates_enabled)
-            self.coord_z.setEnabled(coordinates_enabled)
+        if hasattr(self, "coords_radius_input"):
+            self.coords_radius_input.setEnabled(coordinates_enabled)
         if hasattr(self, "view_in_freeview_btn"):
             self.view_in_freeview_btn.setEnabled(coordinates_enabled)
 
-        # Coordinate space selection is only visible for spherical analysis
-        coord_space_visible = is_spherical
+        # Coordinate space selection disabled (not hidden) for non-spherical
         if hasattr(self, "coord_space_subject"):
-            self.coord_space_subject.setVisible(coord_space_visible)
-            self.coord_space_mni.setVisible(coord_space_visible)
-        # Also hide/show the label we created for coordinate space
+            self.coord_space_subject.setEnabled(coordinates_enabled)
+            self.coord_space_mni.setEnabled(coordinates_enabled)
         if hasattr(self, "coord_space_label"):
-            self.coord_space_label.setVisible(coord_space_visible)
-
-        if hasattr(self, "radius_label"):
-            self.radius_label.setEnabled(coordinates_enabled)
-        if hasattr(self, "radius_input"):
-            self.radius_input.setEnabled(coordinates_enabled)
+            self.coord_space_label.setEnabled(coordinates_enabled)
 
         self.mesh_atlas_widget.update()
         self.voxel_atlas_widget.update()
@@ -1187,9 +1153,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         requires_atlas = self.space_voxel.isChecked() and self.type_cortical.isChecked()
 
         if self.space_mesh.isChecked() and self.type_cortical.isChecked():
-            self.atlas_name_combo.addItems(
-                BUILTIN_ATLASES
-            )  # Predefined mesh atlases
+            self.atlas_name_combo.addItems(BUILTIN_ATLASES)  # Predefined mesh atlases
             self.atlas_name_combo.setCurrentText("DK40")
             self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
             has_valid_atlas = True  # Mesh atlases are always available
@@ -1459,25 +1423,42 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         return self.validate_analysis_parameters()
 
+    def _parse_coords_radius(self, show_warning=True):
+        """Parse 'x,y,z,r' from the single input field. Returns (x,y,z,r) or None."""
+        text = self.coords_radius_input.text().strip()
+        if not text:
+            if show_warning:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning", "Please enter coordinates and radius as x,y,z,r."
+                )
+            return None
+        parts = [p.strip() for p in text.split(",")]
+        if len(parts) != 4:
+            if show_warning:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning", "Enter exactly 4 values: x,y,z,r."
+                )
+            return None
+        try:
+            x, y, z, r = float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
+        except ValueError:
+            if show_warning:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning", "All values must be numeric: x,y,z,r."
+                )
+            return None
+        if r <= 0:
+            if show_warning:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning", "Radius must be positive."
+                )
+            return None
+        return (x, y, z, r)
+
     def validate_analysis_parameters(self):  # Shared parameters
         if self.type_spherical.isChecked():
-            try:
-                float(self.coord_x.text() or "0")
-                float(self.coord_y.text() or "0")
-                float(self.coord_z.text() or "0")
-            except ValueError:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please enter valid numeric coordinates."
-                )
-                return False
-            try:
-                radius = float(self.radius_input.text() or "0")
-                if radius <= 0:
-                    raise ValueError("Radius must be positive")
-            except ValueError:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please enter a valid positive radius."
-                )
+            parsed = self._parse_coords_radius()
+            if parsed is None:
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
@@ -1726,16 +1707,11 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Build analysis-specific kwargs for the script
             if analysis_type == "spherical":
-                coords = (
-                    float(self.coord_x.text().strip() or "0"),
-                    float(self.coord_y.text().strip() or "0"),
-                    float(self.coord_z.text().strip() or "0"),
-                )
-                radius = float(self.radius_input.text().strip() or "5")
+                x, y, z, radius = self._parse_coords_radius()
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
 
                 analysis_kwargs = (
-                    f"    center=({coords[0]}, {coords[1]}, {coords[2]}),\n"
+                    f"    center=({x}, {y}, {z}),\n"
                     f"    radius={radius},\n"
                     f"    coordinate_space={coord_space!r},\n"
                 )
@@ -1829,10 +1805,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             details += f"- Field File: {mont}.msh (auto-selected)\n"
         if self.type_spherical.isChecked():
             coord_space = "MNI" if self.coord_space_mni.isChecked() else "RAS"
-            details += (
-                f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
-                f"- Radius: {self.radius_input.text() or '5'} mm\n"
-            )
+            parsed = self._parse_coords_radius()
+            if parsed:
+                x, y, z, r = parsed
+                details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
+            else:
+                details += f"- Coordinates: {self.coords_radius_input.text()}\n"
             if self.coord_space_mni.isChecked():
                 details += (
                     f"- Coordinate Transformation: MNI → Subject space (automatic)\n"
@@ -1867,8 +1845,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         details += "\n- Shared Analysis Parameters:\n"
         if self.type_spherical.isChecked():
             coord_space = "MNI" if self.coord_space_mni.isChecked() else "Subject RAS"
-            details += f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
-            details += f"- Radius: {self.radius_input.text() or '5'} mm\n"
+            parsed = self._parse_coords_radius()
+            if parsed:
+                x, y, z, r = parsed
+                details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
+            else:
+                details += f"- Coordinates: {self.coords_radius_input.text()}\n"
             if self.coord_space_mni.isChecked():
                 details += f"- Coordinate Transformation: MNI → Subject space (automatic for each)\n"
         else:  # cortical
@@ -2070,7 +2052,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 formatted_text = format_message(text, "default")
 
         # Append with autoscroll; no processEvents to prevent re-entrant recursion
-        append_with_autoscroll(self.output_console, formatted_text, process_events=False)
+        append_with_autoscroll(
+            self.output_console, formatted_text, process_events=False
+        )
 
     # ===== Summary-mode helpers =====
     def _build_start_details(self, subject_id):
@@ -2084,12 +2068,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             region = self.region_input.text().strip() or "region"
             return f"Cortical: {atlas}.{region}"
         else:
-            coords = (
-                self.coord_x.text().strip() or "0",
-                self.coord_y.text().strip() or "0",
-                self.coord_z.text().strip() or "0",
-            )
-            return f"Spherical: ({coords[0]},{coords[1]},{coords[2]}) r{self.radius_input.text().strip() or '5'}mm"
+            parsed = self._parse_coords_radius()
+            if parsed:
+                x, y, z, r = parsed
+                return f"Spherical: ({x},{y},{z}) r{r}mm"
+            return f"Spherical: {self.coords_radius_input.text()}"
 
     def _extract_output_dir_from_cmd(self, cmd):
         try:
@@ -2122,10 +2105,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_voxel,
             self.type_spherical,
             self.type_cortical,
-            self.coord_x,
-            self.coord_y,
-            self.coord_z,
-            self.radius_input,
+            self.coords_radius_input,
             self.view_in_freeview_btn,
             self.atlas_name_combo,
             self.atlas_combo,
@@ -2136,9 +2116,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(widget, "setEnabled"):
                 widget.setEnabled(False)
 
-        self.status_label.setText(
-            "Processing... Stop button is available."
-        )
+        self.status_label.setText("Processing... Stop button is available.")
         self.status_label.show()
 
     def enable_controls(self):
@@ -2153,10 +2131,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_voxel,
             self.type_spherical,
             self.type_cortical,
-            self.coord_x,
-            self.coord_y,
-            self.coord_z,
-            self.radius_input,
+            self.coords_radius_input,
             self.view_in_freeview_btn,
             # atlas_name_combo, atlas_combo, show_regions_btn, region_input handled by update_atlas_visibility
         ]
@@ -2612,12 +2587,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Build output directory using PathManager for overwrite confirmation
             if analysis_type == "spherical":
-                coords = [
-                    float(self.coord_x.text().strip() or "0"),
-                    float(self.coord_y.text().strip() or "0"),
-                    float(self.coord_z.text().strip() or "0"),
-                ]
-                radius_val = float(self.radius_input.text().strip() or "5")
+                x, y, z, radius_val = self._parse_coords_radius()
+                coords = [x, y, z]
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
             else:
                 coords = None
@@ -2746,22 +2717,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.region_input.maximumWidth() != max_region_width:
                 self.region_input.setMaximumWidth(max_region_width)
 
-        # Coordinate inputs use Preferred policy, allow reasonable expansion
-        if (
-            hasattr(self, "coord_x")
-            and hasattr(self, "coord_y")
-            and hasattr(self, "coord_z")
-        ):
-            coord_max = max(100, min(150, int(container_width * 0.15)))
-            for coord_widget in [self.coord_x, self.coord_y, self.coord_z]:
-                if coord_widget.maximumWidth() != coord_max:
-                    coord_widget.setMaximumWidth(coord_max)
-
-        # Radius input uses Preferred policy
-        if hasattr(self, "radius_input"):
-            radius_max = max(100, min(150, int(container_width * 0.20)))
-            if self.radius_input.maximumWidth() != radius_max:
-                self.radius_input.setMaximumWidth(radius_max)
+        # Coordinates+radius input uses Preferred policy
+        if hasattr(self, "coords_radius_input"):
+            coords_max = max(200, min(300, int(container_width * 0.30)))
+            if self.coords_radius_input.maximumWidth() != coords_max:
+                self.coords_radius_input.setMaximumWidth(coords_max)
 
         # Buttons use Fixed policy - no dynamic adjustment needed
         # Atlas and Gmsh combo boxes use Expanding policy - they automatically fill space
