@@ -432,6 +432,42 @@ def _convert_tensor_to_simnibs_format(
         raise ValueError(f"Expected 6 or 9 tensor components, got {n_components}")
 
 
+def _validate_tensor(tensor_data: np.ndarray, logger: logging.Logger) -> None:
+    """
+    Validate that tensor data is reasonable before saving.
+
+    Checks for NaN/Inf values, correct shape, and non-zero content.
+    Logs warnings for issues but only raises on fatal problems.
+    """
+    if tensor_data.ndim != 4 or tensor_data.shape[-1] != 6:
+        raise PreprocessError(
+            f"Invalid tensor shape {tensor_data.shape}, expected (X, Y, Z, 6)"
+        )
+
+    nan_count = np.isnan(tensor_data).sum()
+    inf_count = np.isinf(tensor_data).sum()
+    if nan_count > 0 or inf_count > 0:
+        logger.warning(
+            f"Tensor contains {nan_count} NaN and {inf_count} Inf values. "
+            "Replacing with zeros."
+        )
+        tensor_data[~np.isfinite(tensor_data)] = 0.0
+
+    nonzero_voxels = np.count_nonzero(tensor_data.sum(axis=-1))
+    total_voxels = np.prod(tensor_data.shape[:3])
+    if nonzero_voxels == 0:
+        raise PreprocessError("Tensor is entirely zero — no valid diffusion data found.")
+
+    pct = 100.0 * nonzero_voxels / total_voxels
+    logger.info(f"Tensor validation: {nonzero_voxels}/{total_voxels} non-zero voxels ({pct:.1f}%)")
+
+    if pct < 1.0:
+        logger.warning(
+            f"Very few non-zero voxels ({pct:.1f}%). "
+            "The tensor may not cover the brain adequately."
+        )
+
+
 def _find_qsiprep_t1(project_dir: Path, subject_id: str) -> Optional[Path]:
     """Find the qsiprep T1 in ACPC space."""
     qsiprep_t1 = (
@@ -509,10 +545,11 @@ def _register_tensor_to_simnibs_t1(
             )
 
     # Fall back to simple resampling
-    logger.info(
+    logger.warning(
         "ANTs not available. Using nibabel resampling to align tensor to "
-        "SimNIBS T1 space. Note: This performs spatial resampling but not "
-        "tensor reorientation, which is acceptable for most applications."
+        "SimNIBS T1 space. Warning: This performs spatial resampling without "
+        "tensor reorientation, which may reduce accuracy of anisotropic "
+        "conductivity estimates."
     )
     return _resample_tensor_to_target(tensor_path, simnibs_t1_path, output_path, logger)
 
@@ -742,6 +779,8 @@ def extract_dti_tensor(
             simnibs_tensor = _convert_tensor_to_simnibs_format(tensor_data, logger)
         except ValueError as e:
             raise PreprocessError(f"Failed to convert tensor: {e}")
+
+    _validate_tensor(simnibs_tensor, logger)
 
     # Save intermediate tensor (before registration)
     intermediate_path = Path(m2m_dir) / "DTI_ACPC_tensor.nii.gz"

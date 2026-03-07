@@ -137,9 +137,10 @@ SimNIBS supports different methods for applying anisotropic conductivity:
 
 | Type | Code | Description |
 |------|------|-------------|
-| **Scalar** | `'scalar'` | Isotropic (no DTI) |
-| **Direct** | `'dir'` | Direct mapping of tensor eigenvalues to conductivity |
-| **Volume Normalized** | `'vn'` | Normalized tensors scaled by tissue conductivity |
+| **Scalar** | `'scalar'` | Isotropic, piecewise-constant conductivity (default, no DTI needed) |
+| **Volume Normalized** | `'vn'` | Normalized tensors scaled by tissue conductivity (recommended) |
+| **Direct** | `'dir'` | Direct linear rescaling of diffusion tensor eigenvalues |
+| **Mean Conductivity** | `'mc'` | Isotropic but spatially varying, derived from tensor volumes |
 
 
 For additional details on DTI processing theory, see the [SimNIBS dwi2cond documentation](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html).

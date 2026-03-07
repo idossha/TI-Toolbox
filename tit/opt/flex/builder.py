@@ -66,6 +66,8 @@ def build_optimization(config: FlexConfig):
 
     opt.e_postproc = config.postproc
     opt.anisotropy_type = config.anisotropy_type
+    opt.aniso_maxratio = config.aniso_maxratio
+    opt.aniso_maxcond = config.aniso_maxcond
     opt.open_in_gmsh = False  # Never auto-launch GUI
 
     # Final electrode simulation control

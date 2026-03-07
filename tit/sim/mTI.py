@@ -103,11 +103,10 @@ class mTISimulation:
         S = sim_struct.SESSION()
         S.subpath = self.m2m_dir
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
-        S.anisotropy_type = cfg.conductivity_type.value
         S.pathfem = output_dir
         S.map_to_surf = cfg.map_to_surf
         S.map_to_vol = cfg.map_to_vol
-        S.map_to_mni = cfg.map_to_mni
+        S.map_to_MNI = cfg.map_to_mni
         S.map_to_fsavg = cfg.map_to_fsavg
         S.open_in_gmsh = cfg.open_in_gmsh
         S.tissues_in_niftis = cfg.tissues_in_niftis
@@ -118,7 +117,7 @@ class mTISimulation:
 
         tensor = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
         if os.path.exists(tensor):
-            S.dti_nii = tensor
+            S.fname_tensor = tensor
 
         pair_currents_A = [
             cfg.intensities.pair1 / 1000.0,
@@ -130,6 +129,8 @@ class mTISimulation:
             current = pair_currents_A[i]
             tdcs = S.add_tdcslist()
             tdcs.anisotropy_type = cfg.conductivity_type.value
+            tdcs.aniso_maxratio = cfg.aniso_maxratio
+            tdcs.aniso_maxcond = cfg.aniso_maxcond
             tdcs.currents = [current, -current]
             self._apply_tissue_conductivities(tdcs)
             for idx, pos in enumerate(self.montage.electrode_pairs[i]):

@@ -7,8 +7,6 @@ permalink: /wiki/diffusion-processing/
 The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
 
 
-## This is currently not available in the official release but is availble via the `loader_dev` script. If you are interested in using this before the official release comes out, please reach out via email.
-
 ## Overview
 
 Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue, particularly white matter. The diffusion processing pipeline consists of three main stages:
@@ -68,18 +66,17 @@ project_root/
 ### Usage
 
 ```python
-from tit.pre.qsi import run_qsiprep, QSIPrepConfig
+from tit.pre.qsi import run_qsiprep
+import logging
 
-config = QSIPrepConfig(
-    output_resolution=2.0,      # Output resolution in mm
-    denoise_method="patch2self", # Denoising method
-    skip_bids_validation=False,
-)
+logger = logging.getLogger(__name__)
 
 run_qsiprep(
     project_dir="/path/to/project",
-    subject_ids=["101", "102"],
-    config=config,
+    subject_id="101",
+    logger=logger,
+    output_resolution=2.0,
+    denoise_method="dwidenoise",
 )
 ```
 
@@ -88,9 +85,9 @@ run_qsiprep(
 | Option | Description | Default |
 |--------|-------------|---------|
 | `output_resolution` | Output voxel size (mm) | 2.0 |
-| `denoise_method` | Denoising algorithm | `"patch2self"` |
-| `hmc_model` | Head motion correction model | `"eddy"` |
-| `skip_bids_validation` | Skip BIDS validation | `False` |
+| `denoise_method` | Denoising algorithm (`dwidenoise`, `patch2self`, `none`) | `"dwidenoise"` |
+| `unringing_method` | Gibbs ringing removal (`mrdegibbs`, `rpg`, `none`) | `"mrdegibbs"` |
+| `skip_bids_validation` | Skip BIDS validation | `True` |
 
 ### Output Structure
 
@@ -132,16 +129,16 @@ derivatives/
 ### Usage
 
 ```python
-from tit.pre.qsi import run_qsirecon, QSIReconConfig, ReconSpec
+from tit.pre.qsi import run_qsirecon
+import logging
 
-config = QSIReconConfig(
-    recon_spec=ReconSpec.DSI_STUDIO_GQI,  # Recommended for DTI
-)
+logger = logging.getLogger(__name__)
 
 run_qsirecon(
     project_dir="/path/to/project",
-    subject_ids=["101"],
-    config=config,
+    subject_id="101",
+    logger=logger,
+    recon_specs=["dsi_studio_gqi"],  # Recommended for DTI
 )
 ```
 
@@ -194,15 +191,13 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Extract DTI tensor for a subject
-result = extract_dti_tensor(
+tensor_path = extract_dti_tensor(
     project_dir="/path/to/project",
     subject_id="101",
     logger=logger,
-    overwrite=False,  # Set to True to regenerate
 )
 
-print(f"Tensor saved to: {result}")
+print(f"Tensor saved to: {tensor_path}")
 ```
 
 ### Output Files
@@ -253,13 +248,9 @@ print("Tensor format verified!")
 ### Full Pipeline
 
 ```python
-from tit.pre.qsi import (
-    run_qsiprep, run_qsirecon, extract_dti_tensor,
-    QSIPrepConfig, QSIReconConfig, ReconSpec
-)
+from tit.pre.qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 import logging
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dti_pipeline")
 
@@ -267,23 +258,22 @@ project_dir = "/path/to/project"
 subject_id = "101"
 
 # Stage 1: QSIPrep
-logger.info("Running QSIPrep...")
 run_qsiprep(
     project_dir=project_dir,
-    subject_ids=[subject_id],
-    config=QSIPrepConfig(output_resolution=2.0),
+    subject_id=subject_id,
+    logger=logger,
+    output_resolution=2.0,
 )
 
-# Stage 2: QSIRecon with DSI Studio
-logger.info("Running QSIRecon...")
+# Stage 2: QSIRecon with DSI Studio (recommended for DTI)
 run_qsirecon(
     project_dir=project_dir,
-    subject_ids=[subject_id],
-    config=QSIReconConfig(recon_spec=ReconSpec.DSI_STUDIO_GQI),
+    subject_id=subject_id,
+    logger=logger,
+    recon_specs=["dsi_studio_gqi"],
 )
 
-# Stage 3: Extract DTI tensor
-logger.info("Extracting DTI tensor...")
+# Stage 3: Extract DTI tensor for SimNIBS
 tensor_path = extract_dti_tensor(
     project_dir=project_dir,
     subject_id=subject_id,

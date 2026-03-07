@@ -97,6 +97,8 @@ class FlexConfig:
     roi: ROISpec
 
     anisotropy_type: str = "scalar"
+    aniso_maxratio: float = 10.0
+    aniso_maxcond: float = 2.0
 
     # ── focality ──
     non_roi_method: Optional[NonROIMethod] = None

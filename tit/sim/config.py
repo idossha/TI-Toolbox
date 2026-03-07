@@ -128,3 +128,5 @@ class SimulationConfig:
     map_to_fsavg: bool = False
     open_in_gmsh: bool = False
     tissues_in_niftis: str = "all"
+    aniso_maxratio: float = 10.0
+    aniso_maxcond: float = 2.0
