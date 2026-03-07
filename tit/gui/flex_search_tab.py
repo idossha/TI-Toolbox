@@ -60,6 +60,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.roi_params = None
         self.goal = None
         self.postproc = None
+        self.anisotropy_type_value = None
         self.eeg_net = None
         self.electrode_current = None
         self.electrode_shape = None
@@ -95,6 +96,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.postproc_combo.addItem(
             "dir_TI_tangential (TI field tangential to surface)", "dir_TI_tangential"
         )
+
+        self.anisotropy_combo = QtWidgets.QComboBox()
+        self.anisotropy_combo.addItem("Isotropic (scalar)", "scalar")
+        self.anisotropy_combo.addItem("Volume-normalized (vn)", "vn")
+        self.anisotropy_combo.addItem("Direct (dir)", "dir")
+        self.anisotropy_combo.addItem("Multi-conductivity (mc)", "mc")
+
+        self.anisotropy_label = QtWidgets.QLabel("Anisotropy Type:")
 
         # Initialize buttons that might be referenced
         self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
@@ -246,8 +255,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             6
         )  # Reduce spacing between columns from default ~10 to 6
 
-        # Left column: Basic Parameters (expanded)
+        # Left column: Basic Parameters
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
+        basic_params_group.setSizePolicy(
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
+        )
         basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
 
         subject_controls_widget = QtWidgets.QWidget()
@@ -277,10 +289,18 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
 
-        top_row_layout.addWidget(basic_params_group, 1)
+        self.anisotropy_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        basic_params_layout.addRow(self.anisotropy_label, self.anisotropy_combo)
+
+        top_row_layout.addWidget(basic_params_group, 9)
 
         # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
         right_column_widget = QtWidgets.QWidget()
+        right_column_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
+        )
         right_column_layout = QtWidgets.QVBoxLayout(right_column_widget)
         right_column_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -316,7 +336,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Electrode Parameters — use component widget
         right_column_layout.addWidget(self.electrode_widget)
 
-        top_row_layout.addWidget(right_column_widget, 1)
+        top_row_layout.addWidget(right_column_widget, 11)
 
         scroll_layout.addLayout(top_row_layout)
 
@@ -663,6 +683,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         selected_subjects = [item.text() for item in selected_items]
         goal = self.goal_combo.currentData()
         postproc = self.postproc_combo.currentData()
+        anisotropy_type = self.anisotropy_combo.currentData()
         eeg_net = self.eeg_net_combo.currentText()
         electrode_config, electrode_current = self.electrode_widget.get_config()
         electrode_shape = self.electrode_widget.get_shape()
@@ -727,6 +748,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.roi_params = roi_params
         self.goal = goal
         self.postproc = postproc
+        self.anisotropy_type_value = anisotropy_type
         self.eeg_net = eeg_net
         self.electrode_current = electrode_current
         self.electrode_shape = electrode_shape
@@ -761,6 +783,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.electrode_shape,
             self.dimensions,
             self.thickness,
+            anisotropy_type=self.anisotropy_type_value,
         )
 
         if not success:
@@ -788,6 +811,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.roi_params = None
         self.goal = None
         self.postproc = None
+        self.anisotropy_type_value = None
         self.eeg_net = None
         self.electrode_current = None
         self.electrode_shape = None
@@ -837,6 +861,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         thickness: str,
         thresholds: str = None,
         output_folder: str = None,
+        anisotropy_type: str = "scalar",
     ) -> FlexConfig:
         """Build a FlexConfig dataclass from UI widget values and parameters."""
         roi = self._build_roi_from_ui(subject_id, project_dir, roi_params)
@@ -876,6 +901,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             project_dir=project_dir,
             goal=OptGoal(goal),
             postproc=FieldPostproc(postproc),
+            anisotropy_type=anisotropy_type,
             current_mA=electrode_current,
             electrode=electrode,
             roi=roi,
@@ -918,6 +944,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         electrode_shape,
         dimensions,
         thickness,
+        anisotropy_type="scalar",
     ):
         """Run optimization for a single subject. Returns True if started successfully, False otherwise."""
         try:
@@ -953,6 +980,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         mode="pareto",
                         roi_pcts=roi_pcts,
                         nonroi_pcts=nonroi_pcts,
+                        anisotropy_type=anisotropy_type,
                     )
                 elif self.mode_adaptive_radio.isChecked():
                     # --- Adaptive (single run) mode ---
@@ -987,6 +1015,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                         dimensions,
                         thickness,
                         mode="adaptive",
+                        anisotropy_type=anisotropy_type,
                     )
                 else:
                     # --- Manual threshold mode ---
@@ -1014,6 +1043,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 dimensions=dimensions,
                 thickness=thickness,
                 thresholds=thresholds_value,
+                anisotropy_type=anisotropy_type,
             )
 
             cmd, config_path = self._launch_flex_config(config)
@@ -1185,6 +1215,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.clear_subjects_btn.setEnabled(enabled)
         self.goal_combo.setEnabled(enabled)
         self.postproc_combo.setEnabled(enabled)
+        self.anisotropy_combo.setEnabled(enabled)
         self.eeg_net_combo.setEnabled(enabled)
         self.refresh_eeg_nets_btn.setEnabled(enabled)
         self.run_final_electrode_simulation_checkbox.setEnabled(enabled)
@@ -1278,6 +1309,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         mode,
         roi_pcts=None,
         nonroi_pcts=None,
+        anisotropy_type="scalar",
     ):
         """
         Run mean optimization as step 1 of adaptive or pareto focality.
@@ -1298,6 +1330,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "subject_id": subject_id,
                 "roi_params": roi_params,
                 "postproc": postproc,
+                "anisotropy_type": anisotropy_type,
                 "eeg_net": eeg_net,
                 "electrode_current": electrode_current,
                 "electrode_shape": electrode_shape,
@@ -1326,6 +1359,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 electrode_shape=electrode_shape,
                 dimensions=dimensions,
                 thickness=thickness,
+                anisotropy_type=anisotropy_type,
             )
 
             mean_cmd, _ = self._launch_flex_config(mean_config)
@@ -1429,6 +1463,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 dimensions=state["dimensions"],
                 thickness=state["thickness"],
                 thresholds=adaptive_thresholds,
+                anisotropy_type=state["anisotropy_type"],
             )
 
             focality_cmd, _ = self._launch_flex_config(focality_config)
@@ -1572,6 +1607,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             electrode_shape=state["electrode_shape"],
             dimensions=state["dimensions"],
             thickness=state["thickness"],
+            anisotropy_type=state["anisotropy_type"],
             thresholds=sweep_thresholds,
             output_folder=point.output_folder,
         )
@@ -1760,7 +1796,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     .replace(".nii.gz", "")
                     .replace(".nii", "")
                 )
-                roi_dirname = f"subcortical_{volume_atlas_name}_{roi_params['volume_label']}_mean_{postproc_short}"
+                roi_dirname = f"subcortical_{volume_atlas_name}_{roi_params['volume_region']}_mean_{postproc_short}"
             else:
                 return None
 

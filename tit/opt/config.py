@@ -133,8 +133,12 @@ class FlexConfig:
             self.postproc = FieldPostproc(self.postproc)
         if isinstance(self.non_roi_method, str):
             self.non_roi_method = NonROIMethod(self.non_roi_method)
-        if self.goal is OptGoal.FOCALITY and self.non_roi is None:
-            raise ValueError("goal='focality' requires a non_roi specification")
+        if (
+            self.goal is OptGoal.FOCALITY
+            and self.non_roi_method is NonROIMethod.SPECIFIC
+            and self.non_roi is None
+        ):
+            raise ValueError("goal='focality' with method='specific' requires a non_roi specification")
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())

@@ -68,6 +68,7 @@ def build_optimization(config: FlexConfig):
             opt.threshold = vals if len(vals) > 1 else vals[0]
 
     opt.e_postproc = config.postproc
+    opt.anisotropy_type = config.anisotropy_type
     opt.open_in_gmsh = False  # Never auto-launch GUI
 
     # Final electrode simulation control

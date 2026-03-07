@@ -52,7 +52,7 @@ FONT_NOTE = f"{FONT_SIZE_NOTE}pt"
 # ---------------------------------------------------------------------------
 # Window / layout sizes
 # ---------------------------------------------------------------------------
-WINDOW_WIDTH = 1200
+WINDOW_WIDTH = 1000
 WINDOW_HEIGHT = 800
 CONSOLE_MIN_HEIGHT = 200
 CONSOLE_MAX_HEIGHT = 600
@@ -149,7 +149,7 @@ QTabWidget::pane {{
     padding: 0px;
 }}
 QTabBar::tab {{
-    padding: 6px 14px;
+    padding: 6px 18px;
     font-size: {font_tab};
     min-width: 60px;
     border: 1px solid #888888;
