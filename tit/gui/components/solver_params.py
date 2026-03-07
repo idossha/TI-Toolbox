@@ -48,8 +48,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         self.cpus_input.setRange(1, os.cpu_count() or 16)
         self.cpus_input.setValue(1)
         self.cpus_input.setToolTip(
-            "Number of CPU cores to use for parallel processing during "
-            "optimization."
+            "Number of CPU cores to use for parallel processing during " "optimization."
         )
 
         # ── Right-column widgets ─────────────────────────────────────────
@@ -69,18 +68,14 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         self.mutation_min_input.setValue(0.01)
         self.mutation_min_input.setDecimals(3)
         self.mutation_min_input.setSingleStep(0.01)
-        self.mutation_min_input.setToolTip(
-            "Minimum mutation factor (default: 0.01)"
-        )
+        self.mutation_min_input.setToolTip("Minimum mutation factor (default: 0.01)")
 
         self.mutation_max_input = QtWidgets.QDoubleSpinBox()
         self.mutation_max_input.setRange(0.0, 2.0)
         self.mutation_max_input.setValue(0.5)
         self.mutation_max_input.setDecimals(3)
         self.mutation_max_input.setSingleStep(0.01)
-        self.mutation_max_input.setToolTip(
-            "Maximum mutation factor (default: 0.5)"
-        )
+        self.mutation_max_input.setToolTip("Maximum mutation factor (default: 0.5)")
 
         self.recombination_input = QtWidgets.QDoubleSpinBox()
         self.recombination_input.setRange(0.0, 1.0)
@@ -88,8 +83,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         self.recombination_input.setDecimals(2)
         self.recombination_input.setSingleStep(0.05)
         self.recombination_input.setToolTip(
-            "Recombination probability for differential evolution "
-            "(default: 0.7)"
+            "Recombination probability for differential evolution " "(default: 0.7)"
         )
 
         # ── Diagnostic options ───────────────────────────────────────────
@@ -125,15 +119,11 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
 
         # Left column
         row = 0
-        grid.addWidget(
-            QtWidgets.QLabel("Number of Optimization Runs:"), row, 0
-        )
+        grid.addWidget(QtWidgets.QLabel("Number of Optimization Runs:"), row, 0)
         grid.addWidget(self.n_multistart_input, row, 1)
 
         row += 1
-        grid.addWidget(
-            QtWidgets.QLabel("Max Optimization Iterations:"), row, 0
-        )
+        grid.addWidget(QtWidgets.QLabel("Max Optimization Iterations:"), row, 0)
         grid.addWidget(self.max_iterations_input, row, 1)
 
         row += 1
@@ -186,9 +176,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         self.detailed_results_checkbox.toggled.connect(
             self._on_detailed_results_toggled
         )
-        self.visualize_skin_checkbox.toggled.connect(
-            self._on_visualize_skin_toggled
-        )
+        self.visualize_skin_checkbox.toggled.connect(self._on_visualize_skin_toggled)
 
     # ------------------------------------------------------------------
     # Public API
@@ -202,8 +190,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         ``cpus``, ``detailed_results``, ``visualize_valid_skin_region``.
         """
         mutation_str = (
-            f"{self.mutation_min_input.value()},"
-            f"{self.mutation_max_input.value()}"
+            f"{self.mutation_min_input.value()}," f"{self.mutation_max_input.value()}"
         )
         return {
             "n_multistart": self.n_multistart_input.value(),
@@ -214,9 +201,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
             "recombination": self.recombination_input.value(),
             "cpus": self.cpus_input.value(),
             "detailed_results": self.detailed_results_checkbox.isChecked(),
-            "visualize_valid_skin_region": (
-                self.visualize_skin_checkbox.isChecked()
-            ),
+            "visualize_valid_skin_region": (self.visualize_skin_checkbox.isChecked()),
         }
 
     def get_skin_net_combo(self) -> QtWidgets.QComboBox:

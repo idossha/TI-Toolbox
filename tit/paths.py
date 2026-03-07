@@ -229,6 +229,9 @@ class PathManager:
     def flex_electrode_positions(self, sid: str, name: str) -> str:
         return os.path.join(self.flex_search_run(sid, name), "electrode_positions.json")
 
+    def flex_manifest(self, sid: str, name: str) -> str:
+        return os.path.join(self.flex_search_run(sid, name), "flex_meta.json")
+
     # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
@@ -329,19 +332,22 @@ class PathManager:
         return caps
 
     def list_flex_search_runs(self, sid: str) -> List[str]:
-        """List flex-search run folders that contain electrode_positions.json."""
+        """List flex-search run folders that contain flex_meta.json or electrode_positions.json."""
         root = self.flex_search(sid) if self.project_dir else None
         if not root or not os.path.isdir(root):
             return []
 
         out: List[str] = []
-        fname = "electrode_positions.json"
         try:
             with os.scandir(root) as it:
                 for entry in it:
                     if not entry.is_dir() or entry.name.startswith("."):
                         continue
-                    if os.path.isfile(os.path.join(entry.path, fname)):
+                    if os.path.isfile(
+                        os.path.join(entry.path, "flex_meta.json")
+                    ) or os.path.isfile(
+                        os.path.join(entry.path, "electrode_positions.json")
+                    ):
                         out.append(entry.name)
         except OSError:
             return []

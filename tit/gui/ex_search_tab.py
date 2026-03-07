@@ -20,7 +20,11 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
-from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
+from tit.gui.components.console import (
+    ConsoleWidget,
+    format_message,
+    append_with_autoscroll,
+)
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
@@ -1392,9 +1396,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the combo box."""
         self.subject_combo.clear()
-        project_dir = (
-            self.pm.project_dir
-        )
+        project_dir = self.pm.project_dir
         if not project_dir or not os.path.exists(project_dir):
             self.update_status("No project directory selected", error=True)
             return
@@ -1564,9 +1566,7 @@ class ExSearchTab(QtWidgets.QWidget):
             return
 
         subject_id = self.subject_combo.currentText()
-        project_dir = (
-            self.pm.project_dir
-        )
+        project_dir = self.pm.project_dir
         pm = self.pm
         ex_search_dir = pm.ex_search(subject_id)
 
@@ -1677,7 +1677,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # Run the pipeline for the first ROI
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
-    def _build_ex_config(self, subject_id, project_dir, roi_name, leadfield_hdf, eeg_net):
+    def _build_ex_config(
+        self, subject_id, project_dir, roi_name, leadfield_hdf, eeg_net
+    ):
         """Build an ExConfig dataclass from current UI widget values.
 
         Args:
@@ -1804,7 +1806,11 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Build ExConfig dataclass from UI state
         ex_config = self._build_ex_config(
-            subject_id, project_dir, roi_name, selected_hdf5_path, selected_net_name,
+            subject_id,
+            project_dir,
+            roi_name,
+            selected_hdf5_path,
+            selected_net_name,
         )
 
         # Minimal env — only pass through what downstream steps still need
@@ -2084,9 +2090,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Log final completion with summary
         subject_id = self.subject_combo.currentText()
         total_rois = len(self.roi_processing_queue)
-        project_dir = (
-            self.pm.project_dir
-        )
+        project_dir = self.pm.project_dir
         pm = self.pm
         ex_search_dir = pm.ex_search(subject_id)
 
@@ -2229,7 +2233,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.refresh_leadfields_btn.setEnabled(False)
         self.show_electrodes_leadfield_btn.setEnabled(False)
         self.create_leadfield_btn.setEnabled(False)
-
 
         # Show status label when processing starts
         if self.leadfield_generating:

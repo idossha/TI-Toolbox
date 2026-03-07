@@ -138,7 +138,9 @@ class FlexConfig:
             and self.non_roi_method is NonROIMethod.SPECIFIC
             and self.non_roi is None
         ):
-            raise ValueError("goal='focality' with method='specific' requires a non_roi specification")
+            raise ValueError(
+                "goal='focality' with method='specific' requires a non_roi specification"
+            )
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())

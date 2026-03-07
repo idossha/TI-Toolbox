@@ -6,7 +6,9 @@ import os
 from typing import Dict, List, Optional
 
 
-def check_and_resample_atlas(atlas_img, reference_img, atlas_name: str, verbose: bool = True):
+def check_and_resample_atlas(
+    atlas_img, reference_img, atlas_name: str, verbose: bool = True
+):
     """Check if atlas dimensions match reference, resample if needed.
 
     Args:

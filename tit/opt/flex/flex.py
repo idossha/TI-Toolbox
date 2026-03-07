@@ -19,23 +19,33 @@ from . import builder
 def run_flex_search(config: FlexConfig) -> FlexResult:
     """Run flex-search optimization from a typed FlexConfig."""
 
-    get_path_manager(config.project_dir)
+    from .manifest import write_manifest
+    from .utils import generate_label, generate_run_dirname
+
+    pm = get_path_manager(config.project_dir)
 
     logger = logging.getLogger(__name__)
 
     n = config.n_multistart
+
+    # Resolve base output folder
+    if config.output_folder:
+        base_folder = config.output_folder
+    else:
+        flex_root = pm.flex_search(config.subject_id)
+        os.makedirs(flex_root, exist_ok=True)
+        dirname = generate_run_dirname(flex_root)
+        base_folder = os.path.join(flex_root, dirname)
+
+    os.makedirs(base_folder, exist_ok=True)
     fvals = np.full(n, float("inf"))
-
-    # Resolve base output folder from a throwaway opt build
-    opt_base = builder.build_optimization(config)
-    base_folder = config.output_folder or opt_base.output_folder
-
-    folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
 
     logger.info(
         f"Flex-search ({config.subject_id}): "
         f"goal={config.goal}, postproc={config.postproc}, runs={n}"
     )
+
+    folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
 
     # -- Run optimizations --
     for i in range(n):
@@ -55,13 +65,16 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     valid_mask = fvals < float("inf")
     if not valid_mask.any():
         logger.error("All optimization runs failed")
-        return FlexResult(
+        result = FlexResult(
             success=False,
             output_folder=base_folder,
             function_values=fvals.tolist(),
             best_value=float("inf"),
             best_run_index=-1,
         )
+        label = generate_label(config)
+        write_manifest(base_folder, config, result, label)
+        return result
 
     best_idx = int(np.argmin(fvals))
     logger.info(f"Best run: #{best_idx + 1} (value={fvals[best_idx]:.6f})")
@@ -86,10 +99,16 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     # -- Report --
     builder.generate_report(config, n, fvals, best_idx, base_folder, logger)
 
-    return FlexResult(
+    result = FlexResult(
         success=True,
         output_folder=base_folder,
         function_values=fvals.tolist(),
         best_value=float(fvals[best_idx]),
         best_run_index=best_idx,
     )
+
+    # -- Write manifest --
+    label = generate_label(config)
+    write_manifest(base_folder, config, result, label)
+
+    return result

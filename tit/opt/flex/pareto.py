@@ -15,7 +15,6 @@ from __future__ import annotations
 import copy
 import json
 import os
-import re
 import shutil
 from dataclasses import dataclass, field
 from itertools import product
@@ -196,82 +195,48 @@ def build_focality_config(base_config: FlexConfig, point: SweepPoint) -> FlexCon
 
 
 # ---------------------------------------------------------------------------
-# Command building (backward-compatible, used by GUI subprocess workflow)
+# Manifest data builder
 # ---------------------------------------------------------------------------
 
 
-def build_focality_cmd(base_cmd: list, point: SweepPoint) -> list:
-    """Append focality goal and threshold args to ``base_cmd`` for one point.
-
-    Does **not** mutate ``base_cmd``; returns a new list.
-
-    The SimNIBS ``--thresholds`` format is ``nonroi_threshold,roi_threshold``
-    (non-ROI first).
-
-    .. note::
-        This function exists for backward compatibility with the GUI
-        subprocess workflow.  New code should prefer
-        :func:`build_focality_config` which produces a ``FlexConfig``
-        that can be passed directly to ``run_flex_search()``.
+def build_pareto_manifest_data(result: ParetoSweepResult) -> dict:
+    """Build the pareto section for flex_meta.json from a sweep result.
 
     Args:
-        base_cmd: Existing command list (subject, postproc, electrodes, etc.).
-        point: The sweep point whose thresholds should be used.
+        result: Completed pareto sweep result.
 
     Returns:
-        New list with ``--goal focality --thresholds <nonroi>,<roi>`` appended.
+        Dict suitable for the 'pareto_data' parameter of write_manifest().
     """
-    thresholds_str = f"{point.nonroi_threshold:.4f},{point.roi_threshold:.4f}"
-    return base_cmd + [
-        "--goal",
-        "focality",
-        "--thresholds",
-        thresholds_str,
+    done = [
+        p for p in result.points if p.status == "done" and p.focality_score is not None
     ]
+    best_point = None
+    if done:
+        best = min(done, key=lambda p: p.focality_score)
+        best_point = {
+            "roi_pct": best.roi_pct,
+            "nonroi_pct": best.nonroi_pct,
+            "focality_score": best.focality_score,
+        }
 
-
-# ---------------------------------------------------------------------------
-# Log parsing
-# ---------------------------------------------------------------------------
-
-
-def parse_sweep_line(line: str, postproc_key: str) -> Optional[float]:
-    """Extract the optim_funvalue from a SimNIBS log line.
-
-    Targets the pattern::
-
-        Final goal function value:   -42.123
-
-    as the primary match.  Falls back to::
-
-        Goal function value.*:  -42.123
-
-    .. note::
-        This function is used by the GUI subprocess workflow to parse
-        stdout from a child process.  It should be deprecated once the
-        pareto sweep calls ``run_flex_search()`` directly and reads
-        ``FlexResult.best_value`` instead.
-
-    Args:
-        line: A single line of SimNIBS stdout/stderr.
-        postproc_key: Post-processing field key (e.g. ``"max_TI"``).  Not used
-            in the regex but kept for API symmetry with the broader flex log
-            infrastructure.
-
-    Returns:
-        The function value as a float, or ``None`` if the line does not match.
-    """
-    # Primary pattern
-    m = re.search(
-        r"Final goal function value:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE
-    )
-    if m:
-        return float(m.group(1))
-    # Fallback pattern
-    m = re.search(r"Goal function value[^:]*:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE)
-    if m:
-        return float(m.group(1))
-    return None
+    return {
+        "roi_pcts": result.config.roi_pcts,
+        "nonroi_pcts": result.config.nonroi_pcts,
+        "achievable_roi_mean_vm": result.config.achievable_roi_mean,
+        "best_point": best_point,
+        "points": [
+            {
+                "roi_pct": p.roi_pct,
+                "nonroi_pct": p.nonroi_pct,
+                "roi_threshold_vm": p.roi_threshold,
+                "nonroi_threshold_vm": p.nonroi_threshold,
+                "focality_score": p.focality_score,
+                "status": p.status,
+            }
+            for p in result.points
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------

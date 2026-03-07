@@ -16,7 +16,11 @@ import multiprocessing
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
+from tit.gui.components.console import (
+    ConsoleWidget,
+    format_message,
+    append_with_autoscroll,
+)
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager

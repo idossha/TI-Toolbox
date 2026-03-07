@@ -13,7 +13,11 @@ from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
+from tit.gui.components.console import (
+    ConsoleWidget,
+    format_message,
+    append_with_autoscroll,
+)
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.roi_picker import ROIPickerWidget
@@ -309,9 +313,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
         mapping_layout.setVerticalSpacing(2)
         mapping_layout.setContentsMargins(4, 4, 4, 4)
-        mapping_layout.setFieldGrowthPolicy(
-            QtWidgets.QFormLayout.FieldsStayAtSizeHint
-        )
+        mapping_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldsStayAtSizeHint)
 
         # Add final electrode simulation checkbox
         mapping_layout.addRow(self.run_final_electrode_simulation_checkbox)
@@ -648,7 +650,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
 
         # Check coordinate space for spherical ROI with MNI space selected
-        if self.roi_picker.get_roi_type() == "spherical" and self.roi_picker.is_mni_space():
+        if (
+            self.roi_picker.get_roi_type() == "spherical"
+            and self.roi_picker.is_mni_space()
+        ):
             reply = QtWidgets.QMessageBox.question(
                 self,
                 "MNI Coordinates",
@@ -665,7 +670,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi_params = self.roi_picker.get_roi_params()
 
         # Validate spherical ROI origin in subject space
-        if roi_params.get("method") == "spherical" and not self.roi_picker.is_mni_space():
+        if (
+            roi_params.get("method") == "spherical"
+            and not self.roi_picker.is_mni_space()
+        ):
             cx, cy, cz = roi_params["center"]
             if cx == 0.0 and cy == 0.0 and cz == 0.0:
                 QtWidgets.QMessageBox.warning(
@@ -833,7 +841,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Build an ROI dataclass from the current UI state and roi_params dict."""
         return self.roi_picker.get_roi_spec(subject_id, project_dir)
 
-    def _build_non_roi_from_ui(self, subject_id: str, project_dir: str, roi_params: dict):
+    def _build_non_roi_from_ui(
+        self, subject_id: str, project_dir: str, roi_params: dict
+    ):
         """Build a non-ROI spec from the focality non-ROI widgets.
 
         Returns None if non-ROI method is 'everything_else'.
@@ -842,7 +852,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             return None
         return self.nonroi_picker.get_roi_spec(subject_id, project_dir)
 
-    def _build_electrode_config(self, electrode_shape: str, dimensions: str, thickness: str) -> FlexElectrodeConfig:
+    def _build_electrode_config(
+        self, electrode_shape: str, dimensions: str, thickness: str
+    ) -> FlexElectrodeConfig:
         """Build FlexElectrodeConfig from UI values."""
         config, _ = self.electrode_widget.get_config()
         return config
@@ -872,7 +884,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         non_roi = None
         if goal == "focality":
             nonroi_method_val = self.nonroi_method_combo.currentData()
-            non_roi_method = NonROIMethod(nonroi_method_val) if nonroi_method_val else NonROIMethod.EVERYTHING_ELSE
+            non_roi_method = (
+                NonROIMethod(nonroi_method_val)
+                if nonroi_method_val
+                else NonROIMethod.EVERYTHING_ELSE
+            )
             non_roi = self._build_non_roi_from_ui(subject_id, project_dir, roi_params)
 
         # EEG mapping
@@ -886,13 +902,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             if skin_net:
                 skin_net_path = self.eeg_nets.get(skin_net)
                 if not skin_net_path:
+                    pm = get_path_manager()
                     skin_net_path = os.path.join(
-                        project_dir,
-                        "derivatives",
-                        "SimNIBS",
-                        f"sub-{subject_id}",
-                        f"m2m_{subject_id}",
-                        "eeg_positions",
+                        pm.eeg_positions(subject_id),
                         f"{skin_net}.csv",
                     )
 
@@ -1028,7 +1040,11 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Build FlexConfig from UI state
             thresholds_value = None
-            if goal == "focality" and not self._is_pareto_sweep_mode() and not self.mode_adaptive_radio.isChecked():
+            if (
+                goal == "focality"
+                and not self._is_pareto_sweep_mode()
+                and not self.mode_adaptive_radio.isChecked()
+            ):
                 thresholds_value = self.threshold_input.text().strip() or None
 
             config = self._build_flex_config(
@@ -1383,9 +1399,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             return True
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"Error starting mean optimization: {str(e)}", "error"
-            )
+            self.update_output(f"Error starting mean optimization: {str(e)}", "error")
             return False
 
     # ------------------------------------------------------------------ #
@@ -1396,12 +1410,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Dispatch to adaptive or pareto step-2 handler based on mode."""
         state = self._focality_state
 
-        # Fallback extraction if real-time parsing missed the value
+        # Fallback: read achievable intensity from the mean-opt manifest
         if self.achievable_intensity is None or self.achievable_intensity <= 0:
-            self.achievable_intensity = (
-                self._extract_achievable_intensity_from_files(
-                    state["subject_id"], state["roi_params"], state["postproc"]
-                )
+            self.achievable_intensity = self._read_mean_intensity_from_manifest(
+                state["subject_id"]
             )
 
         if self.achievable_intensity is None or self.achievable_intensity <= 0:
@@ -1497,13 +1509,15 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         state = self._focality_state
 
-        self.update_output(
-            "Step 2/2 -- Running focality sweep..."
-        )
+        self.update_output("Step 2/2 -- Running focality sweep...")
 
-        base_folder = self._get_pareto_sweep_folder(
-            state["subject_id"], state["roi_params"], state["postproc"]
-        )
+        from tit.opt.flex.utils import generate_run_dirname
+
+        pm = get_path_manager()
+        flex_root = pm.flex_search(state["subject_id"])
+        os.makedirs(flex_root, exist_ok=True)
+        sweep_folder_name = generate_run_dirname(flex_root)
+        base_folder = os.path.join(flex_root, sweep_folder_name)
 
         roi_pcts = state["roi_pcts"]
         nonroi_pcts = state["nonroi_pcts"]
@@ -1525,56 +1539,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self._print_progress_table()
         self._run_next_sweep_point()
-
-    def _get_pareto_sweep_folder(self, subject_id, roi_params, postproc) -> str:
-        """Return the absolute path for the pareto sweep output folder."""
-        import os as _os
-
-        pm = get_path_manager()
-        project_dir = pm.project_dir or _os.environ.get("PROJECT_DIR", "")
-
-        postproc_map = {
-            "max_TI": "maxTI",
-            "dir_TI_normal": "normalTI",
-            "dir_TI_tangential": "tangentialTI",
-        }
-        postproc_short = postproc_map.get(postproc, postproc)
-
-        if roi_params["method"] == "spherical":
-            x, y, z = roi_params["center"]
-            radius = roi_params["radius"]
-            dirname = f"sphere_x{x}y{y}z{z}r{radius}_pareto_sweep_{postproc_short}"
-        elif roi_params["method"] == "atlas":
-            atlas_name = (
-                roi_params["atlas"].split("_")[-1]
-                if "_" in roi_params["atlas"]
-                else roi_params["atlas"]
-            )
-            roi_p = self.roi_picker.get_roi_params()
-            hemisphere = "lh" if self.roi_picker.hemi_combo.currentIndex() == 0 else "rh"
-            region = roi_params.get("region", "")
-            dirname = (
-                f"{hemisphere}_{atlas_name}_{region}_pareto_sweep_{postproc_short}"
-            )
-        elif roi_params["method"] == "subcortical":
-            volume_atlas_name = (
-                roi_params.get("volume_atlas", "atlas")
-                .replace(".nii.gz", "")
-                .replace(".nii", "")
-            )
-            dirname = f"subcortical_{volume_atlas_name}_pareto_sweep_{postproc_short}"
-        else:
-            dirname = f"pareto_sweep_{postproc_short}"
-
-        flex_dir = getattr(const, "DIR_FLEX_SEARCH", "flex-search")
-        return _os.path.join(
-            project_dir,
-            "derivatives",
-            "SimNIBS",
-            f"sub-{subject_id}",
-            flex_dir,
-            dirname,
-        )
 
     def _run_next_sweep_point(self):
         """Pop the next SweepPoint from the queue and launch a focality run for it."""
@@ -1633,13 +1597,13 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _process_sweep_point_output(self, line: str, message_type: str):
         """Forward output and extract focality_score when available."""
-        from tit.opt.flex.pareto import parse_sweep_line
+        from tit.opt.flex.utils import parse_optimization_output
 
         self.update_output(line, message_type)
         if self._current_sweep_point is not None:
-            score = parse_sweep_line(line, self._focality_state.get("postproc", "max_TI"))
-            if score is not None:
-                self._current_sweep_point.focality_score = score
+            value = parse_optimization_output(line)
+            if value is not None:
+                self._current_sweep_point.focality_score = value
 
     def _on_sweep_point_finished(self):
         """Mark current sweep point done/failed, reprint table, start next."""
@@ -1694,174 +1658,68 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     def _process_mean_optimization_output(self, line, message_type):
-        """Process mean optimization output to extract achievable intensity in real-time."""
-        # Display the output normally
+        """Process output from mean optimization step (real-time stdout parsing)."""
         self.update_output(line, message_type)
 
-        # Look for the final goal function value which represents achievable intensity
-        import re
+        from tit.opt.flex.utils import parse_optimization_output
 
-        # Look for patterns that indicate the achievable intensity
-        goal_value_match = re.search(r"Goal function value.*?:\s*([+-]?[\d\.-]+)", line)
-        if goal_value_match:
-            # The goal function value is negative (since we maximize by minimizing negative)
-            goal_value = float(goal_value_match.group(1))
-            self.achievable_intensity = -goal_value  # Convert back to positive
-            self.update_output(
-                f"Detected achievable intensity: {self.achievable_intensity:.3f} V/m",
-                "info",
-            )
-
-        # Also look for final goal function value
-        final_goal_match = re.search(
-            r"Final goal function value:\s*([+-]?[\d\.-]+)", line
-        )
-        if final_goal_match:
-            final_goal_value = float(final_goal_match.group(1))
-            self.achievable_intensity = -final_goal_value  # Convert back to positive
-            self.update_output(
-                f"Final achievable intensity: {self.achievable_intensity:.3f} V/m",
-                "info",
-            )
-
-        # Look for median fields per ROI which contains the achievable intensity
-        # Pattern: |max_TI | 3.80e-01 |
-        median_roi_match = re.search(
-            r"\|max_TI\s+\|\s*([\d\.-]+)(?:e([+-]?\d+))?\s*\|", line
-        )
-        if median_roi_match:
-            base_value = float(median_roi_match.group(1))
-            exponent = (
-                int(median_roi_match.group(2)) if median_roi_match.group(2) else 0
-            )
-            roi_intensity = base_value * (10**exponent)
-            if roi_intensity > 0:  # Only use positive values
-                self.achievable_intensity = roi_intensity
-                self.update_output(
-                    f"ROI median intensity captured: {self.achievable_intensity:.3f} V/m",
-                    "info",
-                )
-
-        # Alternative pattern without table formatting
-        alt_median_match = re.search(r"max_TI\s+\|\s*([\d\.-]+)(?:e([+-]?\d+))?", line)
-        if (
-            alt_median_match and not median_roi_match
-        ):  # Only if main pattern didn't match
-            base_value = float(alt_median_match.group(1))
-            exponent = (
-                int(alt_median_match.group(2)) if alt_median_match.group(2) else 0
-            )
-            roi_intensity = base_value * (10**exponent)
-            if roi_intensity > 0:  # Only use positive values
-                self.achievable_intensity = roi_intensity
+        value = parse_optimization_output(line)
+        if value is not None:
+            # For goal function values (negative = minimization), negate to get intensity.
+            # For table-row values (positive field magnitudes), use as-is.
+            intensity = abs(value)
+            if intensity > 0:
+                self.achievable_intensity = intensity
                 self.update_output(
                     f"ROI intensity captured: {self.achievable_intensity:.3f} V/m",
                     "info",
                 )
 
-    def _extract_achievable_intensity_from_files(
-        self, subject_id, roi_params, postproc
-    ):
-        """Extract achievable intensity from mean optimization result files (fallback method)."""
+    def _read_mean_intensity_from_manifest(self, subject_id):
+        """Read achievable intensity from the most recent mean-opt manifest (fallback).
+
+        Scans flex-search run folders (newest first) for a manifest with
+        ``goal="mean"`` and returns ``abs(result.best_value)``.
+        """
+        from tit.opt.flex.manifest import read_manifest
+
         try:
-            # Construct path to mean optimization results using correct naming convention
-            project_dir = os.environ.get("PROJECT_DIR")
-            if not project_dir:
+            pm = get_path_manager()
+            flex_root = pm.flex_search(subject_id)
+            if not os.path.isdir(flex_root):
                 return None
 
-            # Convert postproc to shorter format to match actual directory names
-            postproc_map = {
-                "max_TI": "maxTI",
-                "dir_TI_normal": "normalTI",
-                "dir_TI_tangential": "tangentialTI",
-            }
-            postproc_short = postproc_map.get(postproc, postproc)
-
-            # Build ROI directory name for mean optimization using correct convention
-            if roi_params["method"] == "spherical":
-                x, y, z = roi_params["center"]
-                radius = roi_params["radius"]
-                roi_dirname = f"sphere_x{x}y{y}z{z}r{radius}_mean_{postproc_short}"
-            elif roi_params["method"] == "atlas":
-                atlas_name = (
-                    roi_params["atlas"].split("_")[-1]
-                    if "_" in roi_params["atlas"]
-                    else roi_params["atlas"]
-                )
-                hemisphere = "lh" if self.roi_picker.hemi_combo.currentIndex() == 0 else "rh"
-                roi_dirname = f"{hemisphere}_{atlas_name}_{roi_params['region']}_mean_{postproc_short}"
-            elif roi_params["method"] == "subcortical":
-                volume_atlas_name = (
-                    roi_params["volume_atlas"]
-                    .replace(".nii.gz", "")
-                    .replace(".nii", "")
-                )
-                roi_dirname = f"subcortical_{volume_atlas_name}_{roi_params['volume_region']}_mean_{postproc_short}"
-            else:
-                return None
-
-            # Look for optimization summary file
-            results_dir = os.path.join(
-                project_dir,
-                "derivatives",
-                "SimNIBS",
-                f"sub-{subject_id}",
-                const.DIR_FLEX_SEARCH,
-                roi_dirname,
+            # Sort subdirs newest-first (datetime names sort lexicographically)
+            entries = sorted(
+                (
+                    e.name
+                    for e in os.scandir(flex_root)
+                    if e.is_dir() and not e.name.startswith(".")
+                ),
+                reverse=True,
             )
-            summary_file = os.path.join(results_dir, "optimization_summary.txt")
 
-            self.update_output(f"Looking for summary file: {summary_file}", "info")
-
-            if not os.path.exists(summary_file):
-                self.update_output(
-                    f"Summary file not found, checking directory contents...",
-                    "warning",
-                )
-
-                # List directory contents to help debug
-                if os.path.exists(results_dir):
-                    files = os.listdir(results_dir)
-                    self.update_output(f"Directory contents: {files}", "info")
-                else:
-                    parent_dir = os.path.dirname(results_dir)
-                    if os.path.exists(parent_dir):
-                        subdirs = [
-                            d
-                            for d in os.listdir(parent_dir)
-                            if os.path.isdir(os.path.join(parent_dir, d))
-                        ]
+            for name in entries:
+                meta = read_manifest(os.path.join(flex_root, name))
+                if meta is None:
+                    continue
+                if meta.get("goal") != "mean":
+                    continue
+                best_val = meta.get("result", {}).get("best_value")
+                if best_val is not None:
+                    intensity = abs(best_val)
+                    if intensity > 0:
                         self.update_output(
-                            f"Available subdirectories: {subdirs}", "info"
+                            f"Read achievable intensity from manifest: {intensity:.3f} V/m",
+                            "info",
                         )
-
-                return None
-
-            # Parse summary file to extract achievable intensity
-            with open(summary_file, "r") as f:
-                content = f.read()
-
-                # Look for the final function value which represents the achievable mean intensity
-                import re
-
-                match = re.search(r"Final function value:\s*([+-]?[\d\.-]+)", content)
-                if match:
-                    return -float(match.group(1))
-
-                # Alternative patterns
-                match = re.search(r"Optimization result:\s*([+-]?[\d\.-]+)", content)
-                if match:
-                    return -float(match.group(1))
-
-                match = re.search(r"Best objective value:\s*([+-]?[\d\.-]+)", content)
-                if match:
-                    return -float(match.group(1))
+                        return intensity
 
             return None
 
         except (OSError, ValueError) as e:
             self.update_output(
-                f"Error extracting achievable intensity from files: {str(e)}",
+                f"Error reading manifest for achievable intensity: {e}",
                 "error",
             )
             return None

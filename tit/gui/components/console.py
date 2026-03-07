@@ -10,7 +10,6 @@ from PyQt5 import QtWidgets, QtCore
 
 from tit.gui.utils import strip_ansi_codes
 
-
 _COLOR_MAP = {
     "error": ("#ff5555", True),  # (color, bold)
     "warning": ("#ffff55", False),

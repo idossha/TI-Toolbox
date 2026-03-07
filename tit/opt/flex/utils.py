@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -20,80 +21,127 @@ from tit.opt.config import (
 # ---------------------------------------------------------------------------
 
 
-def roi_dirname(config: FlexConfig) -> str:
-    """Generate output directory name following the naming convention.
+def generate_run_dirname(base_path: str) -> str:
+    """Generate a datetime-based directory name for a flex-search run.
 
-    Naming conventions:
-    - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
-    - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
-    - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+    Format: YYYYMMDD_HHMMSS. Appends _1, _2, etc. if the folder already exists.
 
     Args:
-        config: Flex-search configuration object.
+        base_path: Parent directory (e.g. flex-search/) to check for collisions.
 
     Returns:
-        Directory name string.
+        Directory name string (not full path).
     """
-    postproc_map = {
+    from datetime import datetime
+
+    name = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if not os.path.exists(os.path.join(base_path, name)):
+        return name
+    suffix = 1
+    while os.path.exists(os.path.join(base_path, f"{name}_{suffix}")):
+        suffix += 1
+    return f"{name}_{suffix}"
+
+
+def generate_label(config, pareto: bool = False) -> str:
+    """Build a human-readable label for a flex-search run.
+
+    This label is stored in flex_meta.json for GUI display purposes.
+    It is NOT used for folder naming or machine parsing.
+
+    Args:
+        config: FlexConfig instance.
+        pareto: True if this is a pareto sweep run.
+
+    Returns:
+        Label string like "mean_maxTI_sphere(-42,-20,55)r10".
+    """
+    postproc_short = {
         "max_TI": "maxTI",
         "dir_TI_normal": "normalTI",
         "dir_TI_tangential": "tangentialTI",
     }
-    postproc_short = postproc_map.get(config.postproc, config.postproc)
+    pp = postproc_short.get(
+        (
+            config.postproc.value
+            if hasattr(config.postproc, "value")
+            else str(config.postproc)
+        ),
+        str(config.postproc),
+    )
+
+    goal_str = (
+        "pareto"
+        if pareto
+        else (config.goal.value if hasattr(config.goal, "value") else str(config.goal))
+    )
 
     roi = config.roi
     if isinstance(roi, SphericalROI):
-        x = _num_str(roi.x)
-        y = _num_str(roi.y)
-        z = _num_str(roi.z)
-        r = _num_str(roi.radius)
-        base = f"sphere_x{x}y{y}z{z}r{r}"
+        x = int(roi.x) if roi.x == int(roi.x) else roi.x
+        y = int(roi.y) if roi.y == int(roi.y) else roi.y
+        z = int(roi.z) if roi.z == int(roi.z) else roi.z
+        r = int(roi.radius) if roi.radius == int(roi.radius) else roi.radius
+        roi_str = f"sphere({x},{y},{z})r{r}"
     elif isinstance(roi, AtlasROI):
-        atlas_path = roi.atlas_path
-        hemisphere = roi.hemisphere
-
-        if atlas_path:
-            atlas_filename = os.path.basename(atlas_path)
-            atlas_with_subject = atlas_filename.replace(f"{hemisphere}.", "").replace(
-                ".annot", ""
-            )
-            atlas_name = (
-                atlas_with_subject.split("_", 1)[-1]
-                if "_" in atlas_with_subject
-                else atlas_with_subject
-            )
-        else:
-            atlas_name = "atlas"
-
-        base = f"{hemisphere}_{atlas_name}_{roi.label}"
+        hemi = roi.hemisphere
+        atlas = (
+            os.path.basename(roi.atlas_path).replace(".annot", "").split(".")[-1]
+            if roi.atlas_path
+            else "atlas"
+        )
+        roi_str = f"{hemi}-{atlas}-{roi.label}"
     elif isinstance(roi, SubcorticalROI):
-        volume_atlas_path = roi.atlas_path
-
-        if volume_atlas_path:
-            volume_atlas = os.path.basename(volume_atlas_path)
-            if volume_atlas.endswith(".nii.gz"):
-                volume_atlas = volume_atlas[:-7]
-            elif volume_atlas.endswith(".mgz"):
-                volume_atlas = volume_atlas[:-4]
-            elif volume_atlas.endswith(".nii"):
-                volume_atlas = volume_atlas[:-4]
-        else:
-            volume_atlas = "volume"
-
-        base = f"subcortical_{volume_atlas}_{roi.label}"
+        atlas = os.path.basename(roi.atlas_path) if roi.atlas_path else "volume"
+        for ext in (".nii.gz", ".nii", ".mgz"):
+            if atlas.endswith(ext):
+                atlas = atlas[: -len(ext)]
+                break
+        roi_str = f"subcortical-{atlas}-{roi.label}"
     else:
-        raise ValueError(f"Unknown ROI type: {type(roi)}")
+        roi_str = "unknown"
 
-    return f"{base}_{config.goal}_{postproc_short}"
+    return f"{goal_str}_{pp}_{roi_str}"
 
 
-def _num_str(v: float) -> str:
-    """Format a number as its shortest string representation.
+def parse_optimization_output(line: str) -> Optional[float]:
+    """Extract the optimization function value from a SimNIBS log line.
 
-    Produces integer-style strings for whole numbers (e.g. ``-50``, ``0``)
-    and decimal strings otherwise (e.g. ``3.5``).
+    Handles patterns:
+        - "Final goal function value:   -42.123"
+        - "Goal function value.*:  -42.123"
+        - Table row with max_TI column (scientific notation)
+
+    Args:
+        line: A single line of SimNIBS stdout/stderr.
+
+    Returns:
+        The function value as a float, or None if the line does not match.
     """
-    return str(int(v)) if v == int(v) else str(v)
+    import re
+
+    # Primary: "Final goal function value: <number>"
+    m = re.search(
+        r"Final goal function value:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE
+    )
+    if m:
+        return float(m.group(1))
+
+    # Secondary: "Goal function value<anything>: <number>"
+    m = re.search(r"Goal function value[^:]*:\s*([+-]?[\d.eE+-]+)", line, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+
+    # Table row: "|max_TI | 0.025" or "max_TI | 0.025e-03"
+    m = re.search(r"\|?\s*max_TI\s+\|\s*([\d.+-]+)(?:e([+-]?\d+))?", line)
+    if m:
+        base = float(m.group(1))
+        exp = int(m.group(2)) if m.group(2) else 0
+        val = base * (10**exp)
+        if val > 0:
+            return val
+
+    return None
 
 
 # ---------------------------------------------------------------------------

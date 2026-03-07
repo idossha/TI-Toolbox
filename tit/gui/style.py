@@ -17,8 +17,8 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 # Spacing scale (logical pixels -- Qt scales with AA_EnableHighDpiScaling)
 # ---------------------------------------------------------------------------
-SP_XS = 4   # tight inline gaps, icon padding, thin borders
-SP_SM = 8   # control padding, inner group margins
+SP_XS = 4  # tight inline gaps, icon padding, thin borders
+SP_SM = 8  # control padding, inner group margins
 SP_MD = 12  # section separation
 SP_LG = 20  # outer panel / dialog margins
 
@@ -27,16 +27,16 @@ SP_LG = 20  # outer panel / dialog margins
 #
 # Reference: v2.2.4 used 13-14px for body/console, which is 10-11pt @ 96 DPI.
 # ---------------------------------------------------------------------------
-FONT_SIZE_SM = 8          # small hints, captions
-FONT_SIZE_BODY = 10       # body text, form fields, labels
-FONT_SIZE_HEADING = 13    # section headings, group-box titles
-FONT_SIZE_TAB = 10        # tab-bar labels
-FONT_SIZE_CONSOLE = 10    # console output (monospace)
-FONT_SIZE_HELP = 9        # help / annotation text
-FONT_SIZE_SECTION = 12    # intra-tab section titles
-FONT_SIZE_SUBHEADING = 12 # dialog group boxes, electrode titles
+FONT_SIZE_SM = 8  # small hints, captions
+FONT_SIZE_BODY = 10  # body text, form fields, labels
+FONT_SIZE_HEADING = 13  # section headings, group-box titles
+FONT_SIZE_TAB = 10  # tab-bar labels
+FONT_SIZE_CONSOLE = 10  # console output (monospace)
+FONT_SIZE_HELP = 9  # help / annotation text
+FONT_SIZE_SECTION = 12  # intra-tab section titles
+FONT_SIZE_SUBHEADING = 12  # dialog group boxes, electrode titles
 FONT_SIZE_MONOSPACE = 10  # fixed-width views (NIfTI, Quick Notes)
-FONT_SIZE_NOTE = 9        # note / info labels
+FONT_SIZE_NOTE = 9  # note / info labels
 
 # Pre-built "Xpt" strings for setStyleSheet / QFont usage
 FONT_SM = f"{FONT_SIZE_SM}pt"
@@ -61,8 +61,8 @@ CONFIG_PANEL_MAX_HEIGHT = 600
 # ---------------------------------------------------------------------------
 # NIfTI viewer defaults
 # ---------------------------------------------------------------------------
-NIFTI_FIELD_OPACITY = 70   # 0-100
-NIFTI_ATLAS_OPACITY = 50   # 0-100
+NIFTI_FIELD_OPACITY = 70  # 0-100
+NIFTI_ATLAS_OPACITY = 50  # 0-100
 
 # ---------------------------------------------------------------------------
 # Icon sizes (pixels)

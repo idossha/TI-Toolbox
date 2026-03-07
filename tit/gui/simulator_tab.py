@@ -16,7 +16,11 @@ import shutil
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
+from tit.gui.components.console import (
+    ConsoleWidget,
+    format_message,
+    append_with_autoscroll,
+)
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.add_montage_dialog import AddMontageDialog
 from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
@@ -707,27 +711,31 @@ class SimulatorTab(QtWidgets.QWidget):
     def _get_flex_outputs_for_subject(self, subject_id):
         """Return list of flex-search item strings for a subject (mapped + optimized).
 
-        Always offers [mapped] for any run that has electrode_positions.json
-        (actual EEG-cap mapping is done at simulation time). Also offers
-        [optimized] when optimized_positions are stored in that file.
+        Reads flex_meta.json from each run folder for display labels.
+        Falls back to folder name if manifest is missing.
         """
+        from tit.opt.flex.manifest import read_manifest
+
         items = []
         try:
-            # Use PathManager helper which already filters for electrode_positions.json
             run_names = self.pm.list_flex_search_runs(subject_id)
-            for search_name in run_names:
-                # [mapped] is always available – mapping to EEG cap happens at sim time
-                items.append(f"{search_name} [mapped]")
-                # [optimized] only if the optimized_positions key is present
-                positions_file = self.pm.flex_electrode_positions(
-                    subject_id, search_name
-                )
+            for run_name in run_names:
+                run_dir = self.pm.flex_search_run(subject_id, run_name)
+                meta = read_manifest(run_dir)
+                label = meta.get("label", run_name) if meta else run_name
+                display = f"{run_name} | {label}"
+
+                # [mapped] is always available
+                items.append(f"{display} [mapped]")
+
+                # [optimized] only if optimized_positions key is present
+                positions_file = self.pm.flex_electrode_positions(subject_id, run_name)
                 if positions_file and os.path.isfile(positions_file):
                     try:
                         with open(positions_file, "r") as f:
                             pos_data = json.load(f)
                         if pos_data.get("optimized_positions"):
-                            items.append(f"{search_name} [optimized]")
+                            items.append(f"{display} [optimized]")
                     except (OSError, json.JSONDecodeError):
                         pass
         except OSError as e:
@@ -790,19 +798,28 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _build_montage_configs_from_flex(self, subject_id, selected_items, eeg_net):
         """Build MontageConfig list from flex-search selection items."""
+        from tit.opt.flex.manifest import read_manifest
+
         configs = []
         for item_text in selected_items:
             try:
-                # Parse "search_name [mapped]" or "search_name [optimized]"
-                if item_text.endswith(" [mapped]"):
-                    search_name = item_text[: -len(" [mapped]")]
+                # Extract run_name from "run_name | label [type]" format
+                item_stripped = item_text.strip()
+                if " [mapped]" in item_stripped:
                     electrode_type = "mapped"
-                elif item_text.endswith(" [optimized]"):
-                    search_name = item_text[: -len(" [optimized]")]
+                    name_part = item_stripped.replace(" [mapped]", "")
+                elif " [optimized]" in item_stripped:
                     electrode_type = "optimized"
+                    name_part = item_stripped.replace(" [optimized]", "")
                 else:
-                    search_name = item_text
                     electrode_type = "mapped"
+                    name_part = item_stripped
+
+                # Extract the run_name (before the " | " separator)
+                if " | " in name_part:
+                    search_name = name_part.split(" | ", 1)[0].strip()
+                else:
+                    search_name = name_part.strip()
 
                 flex_search_dir = self.pm.flex_search_run(subject_id, search_name)
                 if not flex_search_dir:
@@ -815,6 +832,16 @@ class SimulatorTab(QtWidgets.QWidget):
                 positions_file = os.path.join(
                     flex_search_dir, "electrode_positions.json"
                 )
+
+                # Build montage name from manifest
+                run_dir = self.pm.flex_search_run(subject_id, search_name)
+                meta = read_manifest(run_dir)
+                if meta:
+                    goal = meta.get("goal", "opt")
+                    postproc = meta.get("postproc", "maxTI")
+                    montage_name = f"flex_{goal}_{postproc}_{electrode_type}"
+                else:
+                    montage_name = f"flex_{search_name}_{electrode_type}"
 
                 if electrode_type == "mapped":
                     # Need to map to EEG cap
@@ -882,19 +909,17 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
                         continue
 
-                    montage_name = self._parse_flex_search_name(search_name, "mapped")
-                    if montage_name.startswith("flex_"):
-                        electrodes = mapped_labels[:4]
-                        configs.append(
-                            LabelMontage(
-                                name=montage_name,
-                                electrode_pairs=[
-                                    (electrodes[0], electrodes[1]),
-                                    (electrodes[2], electrodes[3]),
-                                ],
-                                eeg_net=eeg_net,
-                            )
+                    electrodes = mapped_labels[:4]
+                    configs.append(
+                        LabelMontage(
+                            name=montage_name,
+                            electrode_pairs=[
+                                (electrodes[0], electrodes[1]),
+                                (electrodes[2], electrodes[3]),
+                            ],
+                            eeg_net=eeg_net,
                         )
+                    )
 
                 else:  # optimized
                     with open(positions_file, "r") as f:
@@ -902,23 +927,20 @@ class SimulatorTab(QtWidgets.QWidget):
                     optimized_positions = pos_data.get("optimized_positions", [])
                     if len(optimized_positions) < 4:
                         self.update_output(
-                            f"Not enough optimized electrodes in {search_name}", "error"
+                            f"Not enough optimized electrodes in {search_name}",
+                            "error",
                         )
                         continue
-                    montage_name = self._parse_flex_search_name(
-                        search_name, "optimized"
-                    )
-                    if montage_name.startswith("flex_"):
-                        positions = optimized_positions[:4]
-                        configs.append(
-                            XYZMontage(
-                                name=montage_name,
-                                electrode_pairs=[
-                                    (positions[0], positions[1]),
-                                    (positions[2], positions[3]),
-                                ],
-                            )
+                    positions = optimized_positions[:4]
+                    configs.append(
+                        XYZMontage(
+                            name=montage_name,
+                            electrode_pairs=[
+                                (positions[0], positions[1]),
+                                (positions[2], positions[3]),
+                            ],
                         )
+                    )
             except (ValueError, IndexError, KeyError) as e:
                 self.update_output(
                     f"Error processing flex item '{item_text}': {e}", "error"
@@ -1234,6 +1256,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
             # ── Serialize config + montages to JSON ───────────────────────
             import tempfile
+
             config_data = serialize_config(sim_config)
             config_data["montages"] = [serialize_config(m) for m in montage_list]
             fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
@@ -1882,127 +1905,3 @@ class SimulatorTab(QtWidgets.QWidget):
 
         except OSError as e:
             self.update_output(f"[ERROR] Error during cleanup: {str(e)}", "warning")
-
-    def _parse_flex_search_name(self, search_name, electrode_type):
-        """
-        Parse flex-search name and create proper naming format.
-
-        Args:
-            search_name: Search directory name with format:
-                        - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
-                        - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
-                        - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
-                        - Legacy cortical: {hemisphere}.{region}_{atlas}_{goal}_{postprocess}
-            electrode_type: 'mapped' or 'optimized'
-
-        Returns:
-            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postproc}_{electrode_type}
-        """
-        try:
-            # Clean the search name first
-            search_name = search_name.strip()
-            # Handle new naming convention first
-
-            # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
-            if search_name.startswith("sphere_"):
-                parts = search_name.split("_")
-                if len(parts) >= 3:
-                    hemisphere = "spherical"
-                    # Extract coordinate part (e.g., x10y-5z20r5)
-                    coords_part = parts[1] if len(parts) > 1 else "coords"
-                    goal = parts[-2] if len(parts) >= 3 else "optimization"
-                    post_proc = parts[-1] if len(parts) >= 3 else "maxTI"
-
-                    return f"flex_{hemisphere}_{coords_part}_{goal}_{post_proc}_{electrode_type}"
-
-            # Handle subcortical search names: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
-            elif search_name.startswith("subcortical_"):
-                parts = search_name.split("_")
-                if len(parts) >= 5:
-                    hemisphere = "subcortical"
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = parts[4]
-
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-
-            # Handle cortical search names: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
-            elif "_" in search_name and len(search_name.split("_")) >= 5:
-                parts = search_name.split("_")
-                if len(parts) >= 5 and parts[0] in ["lh", "rh"]:
-                    hemisphere = parts[0]
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = parts[4]
-
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-
-            # Fallback: Handle legacy formats for backward compatibility
-
-            # Legacy cortical search names: lh.101_DK40_14_mean
-            elif search_name.startswith(("lh.", "rh.")):
-                parts = search_name.split("_")
-                if len(parts) >= 3:
-                    hemisphere_region = parts[0]  # e.g., 'lh.101'
-                    atlas = parts[1]  # e.g., 'DK40'
-                    goal_postproc = "_".join(parts[2:])  # e.g., '14_mean'
-
-                    # Extract hemisphere and region
-                    if "." in hemisphere_region:
-                        hemisphere, region = hemisphere_region.split(".", 1)
-                    else:
-                        hemisphere = "unknown"
-                        region = hemisphere_region
-
-                    # Split goal and postProc if possible
-                    if "_" in goal_postproc:
-                        goal_parts = goal_postproc.split("_")
-                        region = goal_parts[0]  # First part is actually the region
-                        goal = goal_parts[1] if len(goal_parts) > 1 else "optimization"
-                        post_proc = (
-                            "_".join(goal_parts[2:]) if len(goal_parts) > 2 else "maxTI"
-                        )
-                    else:
-                        goal = goal_postproc
-                        post_proc = "maxTI"
-
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-
-            # Legacy subcortical search names: subcortical_atlas_region_goal
-            elif (
-                search_name.startswith("subcortical_")
-                and len(search_name.split("_")) == 4
-            ):
-                parts = search_name.split("_")
-                if len(parts) >= 4:
-                    hemisphere = "subcortical"
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = "maxTI"  # Default for legacy
-
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-
-            # Legacy spherical coordinates: assume any other format with underscores
-            elif "_" in search_name:
-                parts = search_name.split("_")
-                hemisphere = "spherical"
-                atlas = "coordinates"
-                region = "_".join(parts[:-1]) if len(parts) > 1 else search_name
-                goal = parts[-1] if parts else "optimization"
-                post_proc = "maxTI"
-
-                return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-
-            # Fallback for unrecognized formats
-            else:
-                return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
-
-        except (ValueError, IndexError) as e:
-            self.update_output(
-                f"Warning: Could not parse flex search name '{search_name}': {e}",
-                "warning",
-            )
-            return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"

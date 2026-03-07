@@ -31,7 +31,10 @@ class MeshAtlasManager:
                 if fname.startswith("lh.") and fname.endswith(".annot"):
                     stem = fname[3:-6]
                     atlas_name = stem.split("_", 1)[-1] if "_" in stem else stem
-                    if atlas_name not in discovered and atlas_name not in BUILTIN_ATLASES:
+                    if (
+                        atlas_name not in discovered
+                        and atlas_name not in BUILTIN_ATLASES
+                    ):
                         discovered.append(atlas_name)
         return sorted(set(BUILTIN_ATLASES + discovered))
 
@@ -46,7 +49,9 @@ class MeshAtlasManager:
 
             regions: List[str] = []
             for hemi in ("lh", "rh"):
-                matches = glob.glob(os.path.join(self.seg_dir, f"{hemi}.*{atlas_name}.annot"))
+                matches = glob.glob(
+                    os.path.join(self.seg_dir, f"{hemi}.*{atlas_name}.annot")
+                )
                 if not matches:
                     continue
                 _, _, names = nfs.read_annot(matches[0])
@@ -67,7 +72,9 @@ class MeshAtlasManager:
         """
         if not os.path.isdir(self.seg_dir):
             return None
-        matches = glob.glob(os.path.join(self.seg_dir, f"{hemisphere}.*{atlas_name}.annot"))
+        matches = glob.glob(
+            os.path.join(self.seg_dir, f"{hemisphere}.*{atlas_name}.annot")
+        )
         return matches[0] if matches else None
 
     def find_all_atlases(self, hemisphere: str) -> Dict[str, str]:
@@ -85,7 +92,9 @@ class MeshAtlasManager:
             parts = fname.split(".")
             if len(parts) == 3 and parts[2] == "annot":
                 atlas_full = parts[1]
-                atlas_display = atlas_full.split("_", 1)[-1] if "_" in atlas_full else atlas_full
+                atlas_display = (
+                    atlas_full.split("_", 1)[-1] if "_" in atlas_full else atlas_full
+                )
                 atlas_map[atlas_display] = atlas_file
         return atlas_map
 

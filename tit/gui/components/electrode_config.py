@@ -63,9 +63,7 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
         from tit.opt.config import FlexElectrodeConfig
 
         shape = self.get_shape()
-        dims = [
-            float(d.strip()) for d in self.get_dimensions_text().split(",")
-        ]
+        dims = [float(d.strip()) for d in self.get_dimensions_text().split(",")]
         thickness = float(self.get_thickness_text())
         electrode = FlexElectrodeConfig(
             shape=shape, dimensions=dims, thickness=thickness

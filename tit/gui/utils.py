@@ -135,7 +135,9 @@ _IMPORTANT_KEYWORDS = (
 )
 
 
-def is_important_message(text: str, message_type: str = "default", context: str = "") -> bool:
+def is_important_message(
+    text: str, message_type: str = "default", context: str = ""
+) -> bool:
     """Return ``True`` if *text* should be displayed in non-debug / summary mode.
 
     Args:
@@ -150,7 +152,9 @@ def is_important_message(text: str, message_type: str = "default", context: str 
     return any(kw in lower for kw in _IMPORTANT_KEYWORDS)
 
 
-def is_verbose_message(text: str, message_type: str = "default", context: str = "") -> bool:
+def is_verbose_message(
+    text: str, message_type: str = "default", context: str = ""
+) -> bool:
     """Return ``True`` if *text* is a verbose / debug message.
 
     This is the logical complement of :func:`is_important_message` — it

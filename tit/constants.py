@@ -431,18 +431,78 @@ VERSION_FILE = "version.py"
 # ============================================================================
 
 TISSUE_PROPERTIES = [
-    {"number": 1, "name": "White Matter", "conductivity": CONDUCTIVITY_WHITE_MATTER, "reference": "Wagner et al. 2004"},
-    {"number": 2, "name": "Gray Matter", "conductivity": CONDUCTIVITY_GRAY_MATTER, "reference": "Opitz et al. 2015"},
-    {"number": 3, "name": "CSF", "conductivity": CONDUCTIVITY_CSF, "reference": "Wagner et al. 2004"},
-    {"number": 4, "name": "Bone", "conductivity": CONDUCTIVITY_BONE, "reference": "Wagner et al. 2004"},
-    {"number": 5, "name": "Scalp", "conductivity": CONDUCTIVITY_SCALP, "reference": "Wagner et al. 2004"},
-    {"number": 6, "name": "Eye balls", "conductivity": CONDUCTIVITY_EYE, "reference": "Wagner et al. 2004"},
-    {"number": 7, "name": "Compact Bone", "conductivity": CONDUCTIVITY_COMPACT_BONE, "reference": "Gabriel et al. 2009"},
-    {"number": 8, "name": "Spongy Bone", "conductivity": CONDUCTIVITY_SPONGY_BONE, "reference": "Gabriel et al. 2009"},
-    {"number": 9, "name": "Blood", "conductivity": CONDUCTIVITY_BLOOD, "reference": "Gabriel et al. 2009"},
-    {"number": 10, "name": "Muscle", "conductivity": CONDUCTIVITY_MUSCLE, "reference": "Gabriel et al. 2009"},
-    {"number": 11, "name": "Silicone Rubber", "conductivity": CONDUCTIVITY_SILICONE_RUBBER, "reference": "SimNIBS default"},
-    {"number": 12, "name": "Saline", "conductivity": CONDUCTIVITY_SALINE, "reference": "SimNIBS default"},
+    {
+        "number": 1,
+        "name": "White Matter",
+        "conductivity": CONDUCTIVITY_WHITE_MATTER,
+        "reference": "Wagner et al. 2004",
+    },
+    {
+        "number": 2,
+        "name": "Gray Matter",
+        "conductivity": CONDUCTIVITY_GRAY_MATTER,
+        "reference": "Opitz et al. 2015",
+    },
+    {
+        "number": 3,
+        "name": "CSF",
+        "conductivity": CONDUCTIVITY_CSF,
+        "reference": "Wagner et al. 2004",
+    },
+    {
+        "number": 4,
+        "name": "Bone",
+        "conductivity": CONDUCTIVITY_BONE,
+        "reference": "Wagner et al. 2004",
+    },
+    {
+        "number": 5,
+        "name": "Scalp",
+        "conductivity": CONDUCTIVITY_SCALP,
+        "reference": "Wagner et al. 2004",
+    },
+    {
+        "number": 6,
+        "name": "Eye balls",
+        "conductivity": CONDUCTIVITY_EYE,
+        "reference": "Wagner et al. 2004",
+    },
+    {
+        "number": 7,
+        "name": "Compact Bone",
+        "conductivity": CONDUCTIVITY_COMPACT_BONE,
+        "reference": "Gabriel et al. 2009",
+    },
+    {
+        "number": 8,
+        "name": "Spongy Bone",
+        "conductivity": CONDUCTIVITY_SPONGY_BONE,
+        "reference": "Gabriel et al. 2009",
+    },
+    {
+        "number": 9,
+        "name": "Blood",
+        "conductivity": CONDUCTIVITY_BLOOD,
+        "reference": "Gabriel et al. 2009",
+    },
+    {
+        "number": 10,
+        "name": "Muscle",
+        "conductivity": CONDUCTIVITY_MUSCLE,
+        "reference": "Gabriel et al. 2009",
+    },
+    {
+        "number": 11,
+        "name": "Silicone Rubber",
+        "conductivity": CONDUCTIVITY_SILICONE_RUBBER,
+        "reference": "SimNIBS default",
+    },
+    {
+        "number": 12,
+        "name": "Saline",
+        "conductivity": CONDUCTIVITY_SALINE,
+        "reference": "SimNIBS default",
+    },
 ]
 
 # ============================================================================
