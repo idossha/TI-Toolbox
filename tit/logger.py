@@ -6,6 +6,10 @@ from pathlib import Path
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# Silence noisy third-party loggers at import time (before setup_logging is called)
+for _name in ("matplotlib", "matplotlib.font_manager", "PIL"):
+    logging.getLogger(_name).setLevel(logging.ERROR)
+
 
 def setup_logging(level: str = "INFO") -> None:
     """Configure the ``tit`` logger hierarchy.
@@ -23,8 +27,8 @@ def setup_logging(level: str = "INFO") -> None:
     logger.propagate = False  # never bubble to root/terminal
 
     # Quiet noisy third-party loggers
-    for name in ("matplotlib.font_manager", "PIL"):
-        logging.getLogger(name).setLevel(logging.WARNING)
+    for name in ("matplotlib", "matplotlib.font_manager", "PIL"):
+        logging.getLogger(name).setLevel(logging.ERROR)
 
 
 def add_file_handler(
