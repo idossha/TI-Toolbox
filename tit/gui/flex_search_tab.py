@@ -22,7 +22,7 @@ from tit.gui.components.base_thread import BaseProcessThread
 
 from tit.paths import get_path_manager
 from tit import constants as const
-from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
+from tit.atlas import MeshAtlasManager, VoxelAtlasManager
 from tit.gui.style import FONT_HELP, FONT_MONOSPACE, FONT_SIZE_MONOSPACE
 from tit.opt.config import (
     FlexConfig,
@@ -1039,36 +1039,27 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         subject_id = selected_items[0].text()
         pm = get_path_manager()
-        project_dir = pm.project_dir
-        if not project_dir:
-            self.output_text.append("Error: Could not detect project directory")
-            return
 
-        try:
-            # Find atlases for both hemispheres
-            lh_atlases = find_subject_atlases(subject_id, "lh", project_dir)
-            rh_atlases = find_subject_atlases(subject_id, "rh", project_dir)
+        seg_dir = pm.segmentation(subject_id)
+        mesh_mgr = MeshAtlasManager(seg_dir)
+        lh_atlases = mesh_mgr.find_all_atlases("lh")
+        rh_atlases = mesh_mgr.find_all_atlases("rh")
 
-            # Combine and deduplicate atlas names (same atlas appears in both hemispheres)
-            all_atlas_names = set(lh_atlases.keys()) | set(rh_atlases.keys())
+        # Combine and deduplicate atlas names (same atlas appears in both hemispheres)
+        all_atlas_names = set(lh_atlases.keys()) | set(rh_atlases.keys())
 
-            # Build the atlas mapping for GUI
-            self.atlas_display_map = {}  # Map display name to full atlas name
-            for atlas_name in sorted(all_atlas_names):
-                self.atlas_combo.addItem(atlas_name)
-                # Store the atlas name for later use (we'll resolve hemisphere when needed)
-                self.atlas_display_map[atlas_name] = atlas_name
+        # Build the atlas mapping for GUI
+        self.atlas_display_map = {}  # Map display name to full atlas name
+        for atlas_name in sorted(all_atlas_names):
+            self.atlas_combo.addItem(atlas_name)
+            # Store the atlas name for later use (we'll resolve hemisphere when needed)
+            self.atlas_display_map[atlas_name] = atlas_name
 
-                # Store file paths for both hemispheres
-                if atlas_name in lh_atlases:
-                    self.atlases[("lh", atlas_name)] = lh_atlases[atlas_name]
-                if atlas_name in rh_atlases:
-                    self.atlases[("rh", atlas_name)] = rh_atlases[atlas_name]
-
-            if not all_atlas_names:
-                pass  # No atlas files found; user will see empty combo
-        except OSError as e:
-            self.output_text.append(f"Error scanning for atlas files: {str(e)}")
+            # Store file paths for both hemispheres
+            if atlas_name in lh_atlases:
+                self.atlases[("lh", atlas_name)] = lh_atlases[atlas_name]
+            if atlas_name in rh_atlases:
+                self.atlases[("rh", atlas_name)] = rh_atlases[atlas_name]
         # Also update non-ROI atlas combo
         self._update_nonroi_atlas_combo()
 
@@ -1098,29 +1089,18 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append(f"No m2m directory found for subject {subject_id}.")
             return
 
-        # Check specifically for labeling.nii.gz in SimNIBS segmentation directory
-        seg_dir = Path(m2m_dir) / "segmentation"
-        labeling_file = seg_dir / "labeling.nii.gz"
-        labeling_lut_file = seg_dir / "labeling_LUT.txt"
-
-        try:
-            if labeling_file.is_file():
-                self.volume_atlases["labeling.nii.gz"] = str(labeling_file)
-                self.volume_atlas_combo.addItem("labeling.nii.gz")
-
-                # Check if LUT file exists
-                if not labeling_lut_file.is_file():
-                    self.output_text.append(
-                        f"Warning: labeling.nii.gz found for subject {subject_id} but no LUT file."
-                    )
-            else:
-                self.output_text.append(
-                    f"No subcortical segmentation found for subject {subject_id}. Expected: {labeling_file}"
-                )
-
-        except OSError as e:
+        seg_dir = str(Path(m2m_dir) / "segmentation")
+        voxel_mgr = VoxelAtlasManager(seg_dir=seg_dir)
+        self.volume_atlases = voxel_mgr.find_volume_atlases()
+        for name in self.volume_atlases:
+            self.volume_atlas_combo.addItem(name)
+        if not self.volume_atlases:
             self.output_text.append(
-                f"Error scanning for subcortical segmentation: {str(e)}"
+                f"No subcortical segmentation found for subject {subject_id}."
+            )
+        elif not voxel_mgr.find_lut_file():
+            self.output_text.append(
+                f"Warning: labeling.nii.gz found but no LUT file."
             )
 
     def update_roi_method(self, checked):
@@ -2219,8 +2199,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         annot_file = self.atlases[atlas_key]
 
         try:
-            # Use the centralized function to get regions
-            regions = list_atlas_regions(annot_file)
+            mesh_mgr = MeshAtlasManager("")  # seg_dir not needed for reading a specific file
+            regions = mesh_mgr.list_annot_regions(annot_file)
 
             # Format the output
             output_lines = []

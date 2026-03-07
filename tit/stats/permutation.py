@@ -22,7 +22,7 @@ import numpy as np
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 
-from .atlas_utils import atlas_overlap_analysis
+from tit.atlas import atlas_overlap_analysis
 from .config import (
     CorrelationConfig,
     CorrelationResult,

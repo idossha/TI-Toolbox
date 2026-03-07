@@ -15,88 +15,12 @@ Or edit the configuration section below and run:
 import numpy as np
 import pandas as pd
 import nibabel as nib
-from nibabel.processing import resample_from_to
 
 import os
 import sys
 import argparse
 
-
-def check_and_resample_atlas(atlas_img, reference_img, atlas_name):
-    """
-    Check if atlas dimensions match reference, resample if needed
-    """
-    atlas_shape = atlas_img.shape
-    ref_shape = reference_img.shape
-
-    print(f"  Atlas shape: {atlas_shape}")
-    print(f"  Reference shape: {ref_shape[:3]}")
-
-    # Check if dimensions match (only compare spatial dimensions)
-    if atlas_shape[:3] != ref_shape[:3]:
-        print(f"  ⚠ Dimensions don't match! Resampling atlas...")
-
-        try:
-            # Create a clean 3D reference image for resampling
-            # Extract just the first 3D volume if reference is 4D
-            if len(ref_shape) > 3:
-                ref_data_3d = reference_img.get_fdata()[:, :, :, 0]
-            else:
-                ref_data_3d = reference_img.get_fdata()
-
-            # Create a new 3D reference image with standard 4x4 affine
-            ref_img_3d = nib.Nifti1Image(
-                ref_data_3d.astype(np.float32),
-                reference_img.affine[:4, :4],  # Ensure 4x4 affine matrix
-                None,
-            )
-
-            # Ensure atlas is also 3D with 4x4 affine
-            atlas_data_raw = atlas_img.get_fdata()
-            if len(atlas_data_raw.shape) > 3:
-                atlas_data_raw = atlas_data_raw[:, :, :, 0]
-
-            atlas_img_3d = nib.Nifti1Image(
-                atlas_data_raw.astype(np.float32),
-                atlas_img.affine[:4, :4],  # Ensure 4x4 affine matrix
-                None,
-            )
-
-            # Resample atlas to match reference image
-            resampled_atlas = resample_from_to(
-                atlas_img_3d, ref_img_3d, order=0  # Use nearest neighbor for label data
-            )
-
-            atlas_data = resampled_atlas.get_fdata().astype(int)
-            print(f"  ✓ Resampled to: {atlas_data.shape}")
-
-        except Exception as e:
-            print(f"  ✗ Resampling failed: {e}")
-            print(f"  Attempting alternative resampling method...")
-
-            # Fallback: use scipy for resampling
-            from scipy.ndimage import zoom
-
-            atlas_data_raw = atlas_img.get_fdata()
-            if len(atlas_data_raw.shape) > 3:
-                atlas_data_raw = atlas_data_raw[:, :, :, 0]
-
-            # Calculate zoom factors
-            zoom_factors = [ref_shape[i] / atlas_shape[i] for i in range(3)]
-
-            # Resample using nearest neighbor
-            atlas_data = zoom(atlas_data_raw, zoom_factors, order=0).astype(int)
-
-            print(f"  ✓ Resampled to: {atlas_data.shape}")
-    else:
-        print(f"  ✓ Dimensions match!")
-        atlas_data = atlas_img.get_fdata().astype(int)
-
-        # Ensure 3D
-        if len(atlas_data.shape) > 3:
-            atlas_data = atlas_data[:, :, :, 0]
-
-    return atlas_data
+from tit.atlas import check_and_resample_atlas
 
 
 def posthoc_atlas_overlap(mask_file, atlas_files, output_dir=None):

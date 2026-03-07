@@ -20,6 +20,7 @@ from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import ConsoleWidget, format_message, append_with_autoscroll
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.atlas.constants import BUILTIN_ATLASES
 from tit.paths import get_path_manager
 
 
@@ -675,7 +676,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
         self.atlas_name_combo = QtWidgets.QComboBox()
-        self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+        self.atlas_name_combo.addItems(BUILTIN_ATLASES)
         self.atlas_name_combo.setCurrentText("DK40")
         self.atlas_name_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
@@ -883,12 +884,13 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not subject_id:
             return []
 
-        from tit.analyzer.atlas import list_voxel_atlases
+        from tit.atlas import VoxelAtlasManager
 
-        results = list_voxel_atlases(
+        mgr = VoxelAtlasManager(
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=self.pm.segmentation(subject_id),
         )
+        results = mgr.list_atlases()
         if not results:
             return ["FreeSurfer recon-all preprocessing required for atlas generation"]
         return results
@@ -920,7 +922,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         if self.space_mesh.isChecked() and self.type_cortical.isChecked():
             # Ensure mesh atlas combo is populated with predefined atlases
             if self.atlas_name_combo.count() == 0:
-                self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+                self.atlas_name_combo.addItems(BUILTIN_ATLASES)
                 self.atlas_name_combo.setCurrentText("DK40")
             self.atlas_name_combo.setEnabled(True)
 
@@ -1105,7 +1107,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_name_combo.setEnabled(True)
             # Ensure mesh atlas combo is populated with predefined atlases in single mode
             if not self.is_group_mode and self.atlas_name_combo.count() == 0:
-                self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+                self.atlas_name_combo.addItems(BUILTIN_ATLASES)
                 self.atlas_name_combo.setCurrentText("DK40")
 
         # For voxel atlas combo, let update_atlas_combo handle the enable state
@@ -1186,7 +1188,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         if self.space_mesh.isChecked() and self.type_cortical.isChecked():
             self.atlas_name_combo.addItems(
-                ["DK40", "HCP_MMP1", "a2009s"]
+                BUILTIN_ATLASES
             )  # Predefined mesh atlases
             self.atlas_name_combo.setCurrentText("DK40")
             self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
@@ -2180,9 +2182,9 @@ class AnalyzerTab(QtWidgets.QWidget):
     @staticmethod
     def _list_annot_regions(seg_dir, atlas_name):
         """Read region names from .annot files in the segmentation directory."""
-        from tit.analyzer.atlas import list_regions
+        from tit.atlas import MeshAtlasManager
 
-        return list_regions(atlas_name, seg_dir=seg_dir)
+        return MeshAtlasManager(seg_dir).list_regions(atlas_name)
 
     def show_available_regions(self):
         """Show a searchable dialog of available regions for the selected atlas."""
@@ -2236,9 +2238,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             progress_dialog.setValue(20)
             QtWidgets.QApplication.processEvents()
 
-            from tit.analyzer.atlas import list_voxel_regions
+            from tit.atlas import VoxelAtlasManager
 
-            regions = list_voxel_regions(atlas_path)
+            regions = VoxelAtlasManager().list_regions(atlas_path)
             progress_dialog.setValue(90)
 
         if not regions:

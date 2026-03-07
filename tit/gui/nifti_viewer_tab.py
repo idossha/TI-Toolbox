@@ -52,32 +52,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
         Returns:
             List of available atlas filenames
         """
-        freesurfer_dir = self.pm.freesurfer_mri(subject_id)
+        from tit.atlas import VoxelAtlasManager
+
         m2m_dir = self.pm.m2m(subject_id)
-        atlas_files = []
-
-        # Check Freesurfer directory for atlases
-        if freesurfer_dir and os.path.isdir(freesurfer_dir):
-            freesurfer_patterns = [
-                "aparc.DKTatlas+aseg.mgz",
-                "aparc.a2009s+aseg.mgz",
-                "aparc+aseg.mgz",
-                "aseg.mgz",
-            ]
-
-            for pattern in freesurfer_patterns:
-                atlas_path = os.path.join(freesurfer_dir, pattern)
-                if os.path.exists(atlas_path):
-                    atlas_files.append(pattern)
-
-        # Check m2m segmentation directory for labeling.nii.gz
-        if m2m_dir and os.path.isdir(m2m_dir):
-            labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
-            if os.path.exists(labeling_path):
-                # Add labeling.nii.gz to the beginning of the list for default selection
-                atlas_files.insert(0, "labeling.nii.gz")
-
-        return atlas_files
+        mgr = VoxelAtlasManager(
+            freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
+            seg_dir=str(os.path.join(m2m_dir, "segmentation")) if m2m_dir else "",
+        )
+        return mgr.detect_freesurfer_atlases()
 
     def detect_mni_atlases(self):
         """Detect available MNI atlases in the assets directory.
@@ -85,32 +67,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
         Returns:
             List of available MNI atlas files
         """
-        # Get the toolbox root directory (parent of GUI folder)
+        from tit.atlas import VoxelAtlasManager
+
         if hasattr(self.parent, "toolbox_root"):
             toolbox_root = self.parent.toolbox_root
         else:
-            # Try to find it relative to current file
             current_file = os.path.abspath(__file__)
             toolbox_root = os.path.dirname(os.path.dirname(current_file))
 
         atlas_dir = os.path.join(toolbox_root, "assets", "atlas")
-        atlas_files = []
-
-        if os.path.isdir(atlas_dir):
-            # Look for MNI atlas files
-            atlas_patterns = [
-                "MNI_Glasser_HCP_v1.0.nii.gz",
-                "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz",
-                "HOS-thr0-1mm.nii.gz",
-            ]
-
-            for pattern in atlas_patterns:
-                atlas_path = os.path.join(atlas_dir, pattern)
-                if os.path.exists(atlas_path):
-                    # Store full path for MNI atlases
-                    atlas_files.append(atlas_path)
-
-        return atlas_files
+        return VoxelAtlasManager.detect_mni_atlases(atlas_dir)
 
     def detect_voxel_analyses(self, subject_id, simulation_name):
         """Detect available voxel analyses for a subject and simulation.
