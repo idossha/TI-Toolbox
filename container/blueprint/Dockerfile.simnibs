@@ -155,7 +155,8 @@ RUN simnibs_python -m pip install \
     numpy-stl \
     click \
     bpy \
-    psutil
+    psutil \
+    && simnibs_python -m pip install "numpy>=2.0" --upgrade
 
 
 # Install Neovim v.0.11.0 from source 
