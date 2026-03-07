@@ -19,7 +19,6 @@ import os
 import shutil
 import subprocess
 import time
-import traceback
 from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
@@ -307,8 +306,6 @@ def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
     """Convert T1 to MNI space (no-op if already done)."""
     t1 = os.path.join(m2m_dir, "T1.nii.gz")
     out = os.path.join(m2m_dir, f"T1_{subject_id}")
-    if os.path.exists(f"{out}_MNI.nii.gz") or not os.path.exists(t1):
-        return
     result = subprocess.run(
         ["subject2mni", "-i", t1, "-m", m2m_dir, "-o", out],
         capture_output=True,
@@ -341,14 +338,13 @@ def run_simulation(
     Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
     Returns list of result dicts: montage_name, montage_type, status, output_mesh.
     """
-    if logger is None:
-        pm = get_path_manager()
-        log_dir = pm.logs(config.subject_id)
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(
-            log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
-        )
-        logger = _make_file_logger("TI-Simulator", log_file)
+    pm = get_path_manager()
+    log_dir = pm.logs(config.subject_id)
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(
+        log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
+    )
+    logger = _make_file_logger("TI-Simulator", log_file)
 
     pm = get_path_manager()
     simulation_dir = pm.simulations(config.subject_id)
@@ -364,25 +360,12 @@ def run_simulation(
         )
         if progress_callback:
             progress_callback(idx, total, montage.name)
-        try:
-            cls = (
-                TISimulation
-                if montage.simulation_mode == SimulationMode.TI
-                else mTISimulation
-            )
-            results.append(cls(config, montage, logger).run(simulation_dir))
-        except Exception as exc:
-            tb = traceback.format_exc()
-            logger.error(f"Failed: {montage.name} — {exc}\n{tb}")
-            logger.error(f"[TRACEBACK] {montage.name}:\n{tb}")
-            results.append(
-                {
-                    "montage_name": montage.name,
-                    "montage_type": montage.simulation_mode.value,
-                    "status": "failed",
-                    "error": str(exc) or repr(exc),
-                }
-            )
+        cls = (
+            TISimulation
+            if montage.simulation_mode == SimulationMode.TI
+            else mTISimulation
+        )
+        results.append(cls(config, montage, logger).run(simulation_dir))
     if progress_callback:
         progress_callback(total, total, "Complete")
     return results

@@ -53,7 +53,10 @@ def build_optimization(config: FlexConfig):
     pm = get_path_manager()
     opt.subpath = pm.m2m(config.subject_id)
 
-    opt.output_folder = config.output_folder
+    if config.output_folder:
+        opt.output_folder = config.output_folder
+    else:
+        opt.output_folder = pm.flex_search(config.subject_id)
     os.makedirs(opt.output_folder, exist_ok=True)
 
     # Configure goals and thresholds
