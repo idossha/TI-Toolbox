@@ -341,20 +341,6 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 3. **Disk I/O**: Use fast storage (SSD) for improved performance
 4. **CPU Utilization**: Consider leaving a couple of cores free
 
-## Error Handling
-
-The pipeline uses narrow exception types (e.g. `OSError` instead of bare `except Exception`) so that programming errors surface immediately. If a step fails, the error propagates up and halts the pipeline rather than being silently swallowed. Custom exceptions `PreprocessError` and `PreprocessCancelled` (defined in `tit.pre.utils`) distinguish between true failures and user-initiated cancellations.
-
-## Integration with Analysis Pipeline
-
-The pre-processing pipeline generates all necessary inputs for downstream TI analysis:
-
-- **FreeSurfer surfaces** → `ex-search` electrode optimization
-- **SimNIBS head models** → `simulator` electromagnetic field computation
-- **BIDS anatomical data** → `analyzer` ROI analysis and visualization
-
-See the [Ex-Search](ex-search.md) and [Simulator](simulator.md) documentation for details on using pre-processed data in TI analysis workflows.
-
 ## Related Pipelines
 
 ### Diffusion Processing

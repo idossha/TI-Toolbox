@@ -43,7 +43,7 @@ fi
 # Start the server
 echo ""
 echo "🌐 Starting Jekyll server..."
-echo "   Local URL: http://localhost:4000/TI-Toolbox/"
+echo "   Local URL: http://localhost:4000/"
 echo "   Press Ctrl+C to stop"
 echo ""
 echo "💡 Tip: Google Analytics is enabled by default. To disable, run:"
@@ -54,8 +54,8 @@ echo ""
 # Check if analytics should be disabled
 if [ "$ENABLE_ANALYTICS" = "false" ]; then
   echo "📊 Google Analytics disabled"
-  ENABLE_ANALYTICS=false bundle exec jekyll serve
+  ENABLE_ANALYTICS=false bundle exec jekyll serve --baseurl ""
 else
   echo "📊 Google Analytics enabled (default)"
-  bundle exec jekyll serve
+  bundle exec jekyll serve --baseurl ""
 fi
