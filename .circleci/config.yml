@@ -55,10 +55,9 @@ jobs:
 
             echo "Uploading coverage report to Codecov..."
 
-            # Use python -m to avoid PATH issues with entry point
-            python -m codecov_cli do-upload \
+            codecovcli do-upload \
               --token ${CODECOV_TOKEN} \
-              -f /tmp/coverage/coverage.xml \
+              --file /tmp/coverage/coverage.xml \
               --flag unittests \
               --name "CircleCI-${CIRCLE_BUILD_NUM}" \
               --git-service github \

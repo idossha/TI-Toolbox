@@ -193,6 +193,147 @@ exit_code = run_pipeline(
 )
 ```
 
+### Individual Steps
+
+Each preprocessing step can also be called independently:
+
+```python
+from tit.pre import (
+    run_dicom_to_nifti,
+    run_recon_all,
+    run_charm,
+    run_tissue_analysis,
+    run_subcortical_segmentations,
+    run_qsiprep,
+    run_qsirecon,
+    extract_dti_tensor,
+    discover_subjects,
+    check_m2m_exists,
+)
+
+# Discover subjects from sourcedata
+subjects = discover_subjects("/data/my_project")
+
+# Check if head mesh already exists
+if not check_m2m_exists("/data/my_project", "001"):
+    run_charm("/data/my_project", "001", logger=my_logger)
+```
+
+## Report Generation
+
+TI-Toolbox generates interactive HTML reports for simulations, flex-search results,
+and preprocessing runs.
+
+### Simulation Reports
+
+```python
+from tit.reporting import SimulationReportGenerator
+
+report = SimulationReportGenerator(
+    project_dir="/data/my_project",
+    simulation_session_id="motor_cortex",
+    subject_id="001",
+)
+report.add_simulation_parameters(
+    conductivity_type="scalar",
+    simulation_mode="TI",
+    eeg_net="GSN-HydroCel-185",
+    intensity_ch1=1.0,
+    intensity_ch2=1.0,
+)
+report.add_montage(
+    montage_name="motor_cortex",
+    electrode_pairs=[("C3", "C4"), ("F3", "F4")],
+    montage_type="TI",
+)
+output_path = report.generate()
+print(f"Report: {output_path}")
+```
+
+### Flex-Search Reports
+
+```python
+from tit.reporting import create_flex_search_report
+
+# Generate directly from a flex-search output directory
+output_path = create_flex_search_report(
+    project_dir="/data/my_project",
+    subject_id="001",
+    data=None,  # auto-loads from output_dir
+    output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
+)
+```
+
+### Preprocessing Reports
+
+```python
+from tit.reporting import create_preprocessing_report
+
+output_path = create_preprocessing_report(
+    project_dir="/data/my_project",
+    subject_id="001",
+    processing_steps=[],  # auto-populated if auto_scan=True
+    output_path=None,     # auto-generates BIDS-compliant path
+    auto_scan=True,
+)
+```
+
+### Report Building Blocks (Reportlets)
+
+Reports are assembled from reusable reportlets:
+
+```python
+from tit.reporting import (
+    ReportAssembler,
+    ReportMetadata,
+    MetadataReportlet,
+    ImageReportlet,
+    TableReportlet,
+    ConductivityTableReportlet,
+    SummaryCardsReportlet,
+    MethodsBoilerplateReportlet,
+    TIToolboxReferencesReportlet,
+)
+
+# Create a custom report
+metadata = ReportMetadata(title="My Analysis", subject_id="001")
+assembler = ReportAssembler(metadata=metadata, title="Custom Report")
+
+section = assembler.add_section("results", "Results", description="Analysis output")
+section.add_reportlet(SummaryCardsReportlet(
+    title="Key Metrics",
+    cards=[],
+).add_card(label="ROI Mean", value="0.152 V/m", color="#4CAF50"))
+
+assembler.save("/data/output/report.html")
+```
+
+## Mesh and NIfTI Tools
+
+Standalone utilities for working with simulation outputs:
+
+```python
+from tit.tools.mesh2nii import convert_mesh_dir
+from tit.tools.montage_visualizer import visualize_montage
+
+# Convert all meshes in a directory to NIfTI (subject + MNI space)
+convert_mesh_dir(
+    mesh_dir="/data/sim_output/TI/mesh",
+    output_dir="/data/sim_output/TI/niftis",
+    subject_id="001",
+    m2m_dir="/data/derivatives/SimNIBS/sub-001/m2m_001",
+)
+
+# Visualize electrode montage on the scalp
+visualize_montage(
+    montage_name="motor_cortex",
+    sim_mode="U",  # "U" for TI, "M" for mTI
+    eeg_net="GSN-HydroCel-185",
+    output_dir="/data/output/montage_imgs",
+    project_dir="/data/my_project",
+)
+```
+
 ## Key Concepts
 
 ### BIDS Compliance
