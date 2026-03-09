@@ -4,7 +4,7 @@ executors:
   vm-docker:
     machine:
       image: ubuntu-2204:current
-      docker_layer_caching: true
+      docker_layer_caching: false
 
 commands:
   common-setup:
@@ -13,14 +13,34 @@ commands:
 
   prepare-test-image:
     steps:
+      - restore_cache:
+          keys:
+            - docker-test-image-v1
       - run:
-          name: Pull TI-Toolbox test image
+          name: Load or pull TI-Toolbox test image
           command: |
             set -eo pipefail
             TEST_IMAGE="idossha/ti-toolbox-test:latest"
-            echo "Pulling TI-Toolbox test image: ${TEST_IMAGE}"
+
+            # Load cached image if available (skips the full pull)
+            if [ -f /tmp/docker-cache/test-image.tar ]; then
+              echo "Loading cached Docker image..."
+              docker load -i /tmp/docker-cache/test-image.tar
+            fi
+
+            # Pull to check for updates — Docker skips layers already present
+            echo "Checking for image updates..."
             docker pull ${TEST_IMAGE}
             docker tag ${TEST_IMAGE} ti-test:latest
+
+            # Save for next run
+            mkdir -p /tmp/docker-cache
+            docker save ti-test:latest -o /tmp/docker-cache/test-image.tar
+      - save_cache:
+          # Bump v1 → v2 etc. when you push a new test image to Docker Hub
+          key: docker-test-image-v1
+          paths:
+            - /tmp/docker-cache
 
 jobs:
 
