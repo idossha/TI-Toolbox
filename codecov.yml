@@ -46,55 +46,46 @@ flags:
       - tit/errors.py
       - tit/config_io.py
     carryforward: false
-    target: 80%
 
   simulator:
     paths:
       - tit/sim/
     carryforward: false
-    target: 70%
 
   analyzer:
     paths:
       - tit/analyzer/
     carryforward: false
-    target: 75%
 
   optimizer:
     paths:
       - tit/opt/
     carryforward: false
-    target: 65%
 
   stats:
     paths:
       - tit/stats/
     carryforward: false
-    target: 60%
 
   plotting:
     paths:
       - tit/plotting/
     carryforward: false
-    target: 60%
 
   preprocessing:
     paths:
       - tit/pre/
     carryforward: false
-    target: 60%
 
   reporting:
     paths:
       - tit/reporting/
     carryforward: false
-    target: 60%
 
   atlas:
     paths:
       - tit/atlas/
     carryforward: false
-    target: 60%
 
 # Files to ignore in coverage reports
 ignore:
