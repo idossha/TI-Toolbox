@@ -81,4 +81,4 @@ To launch the GUI:
 GUI
 ```
 
-The GUI and CLI share the same underlying TI-Toolbox APIs.
+The GUI and [scripting workflows](scripting) share the same underlying TI-Toolbox APIs.

@@ -4,82 +4,29 @@ title: Scripting
 permalink: /wiki/scripting/
 ---
 
-The TI-Toolbox supports three complementary workflows for running tools:
+The TI-Toolbox provides two ways to run tools outside the GUI:
 
-- **Interactive mode**: Guided, prompt-based configuration -- ideal for exploration and first-time runs
-- **Direct mode**: Fully specified command-line flags -- better for shell scripts and advanced control
+- **JSON config entry points**: Invoke any module as a subprocess with a JSON config file
 - **Python scripting**: Import `tit` modules directly and build custom pipelines with full API access
 
-## Interactive vs Direct Mode
-
-### Interactive Mode
-
-```bash
-# Run command with no arguments for guided prompts
-simulator
-```
-
-The CLI will guide you through:
-- Subject selection
-- Framework choice (montage/flex)
-- EEG cap selection
-- Montage configuration
-- Parameter setup
-
-### Direct Mode
-
-```bash
-# All parameters specified explicitly
-simulator \
-  --sub 101 \
-  --framework montage \
-  --eeg GSN-HydroCel-185.csv \
-  --montages my_montage \
-  --intensity 2.0
-```
-
-Mode selection is automatic:
-- **No arguments** -> Interactive mode
-- **Any arguments present** -> Direct mode
-
-## Available Commands
-
-| Command | Description | Interactive | Direct Examples |
-|---------|-------------|-------------|---------|
-| `pre_process` | Preprocessing pipeline | `pre_process` | `pre_process --subs 101 --run-recon --create-m2m` |
-| `flex_search` | Electrode optimization | `flex_search` | `flex_search --subject 101 --roi-method spherical` |
-| `create_leadfield` | Generate leadfield matrices | `create_leadfield` | `create_leadfield --sub 101 --eeg cap.csv` |
-| `ex_search` | Leadfield-based optimization | `ex_search` | `ex_search --sub 101 --lf leadfield.hdf5 --pool` |
-| `simulator` | Run TI simulations | `simulator` | `simulator --sub 101 --montages my_montage` |
-| `analyzer` | Analyze single subject results | `analyzer` | `analyzer --sub 101 --sim montage --coordinates 0 0 0` |
-| `group_analyzer` | Analyze multiple subjects | `group_analyzer` | `group_analyzer --subs 101,102 --sim montage` |
-| `cluster_permutation` | Statistical analysis | `cluster_permutation` | `cluster_permutation --csv data.csv --name analysis` |
-| `blender` | Create visualizations | `blender` | `blender --subject 101 --simulation montage` |
-
-All commands support detailed help via the `-h` or `--help` flag:
-
-```bash
-simulator -h
-analyzer --help
-blender -h
-```
+Both approaches use the same underlying functions and dataclasses.
 
 ---
 
 ## JSON Config Entry Points
 
-Each major module can be invoked as a subprocess with a JSON config file. This is the pattern the GUI uses to run operations in separate processes:
+Each major module has a `__main__.py` that accepts a JSON config file. This is the same pattern the GUI uses internally:
 
 ```bash
-simnibs_python -m tit.sim        config.json
-simnibs_python -m tit.analyzer   config.json
+simnibs_python -m tit.pre        config.json
 simnibs_python -m tit.opt.flex   config.json
 simnibs_python -m tit.opt.ex     config.json
+simnibs_python -m tit.sim        config.json
+simnibs_python -m tit.analyzer   config.json
 simnibs_python -m tit.stats      config.json
-simnibs_python -m tit.pre        config.json
 ```
 
-Each `__main__.py` reads the JSON file, reconstructs typed config dataclasses, and calls the corresponding `run_*` function.
+Each entry point reads the JSON file, reconstructs typed config dataclasses (using `_type` discriminators for union types), and calls the corresponding `run_*` function.
 
 ### Config Serialization (`tit/config_io.py`)
 
@@ -123,7 +70,7 @@ in a `QThread`. Stdout from the subprocess is captured by `BaseProcessThread` an
 
 ## Python Scripting API
 
-All tools can be used as a Python library. Below is the API for each module with current signatures. A complete end-to-end example is available in `scripts/pipeline.py`.
+All tools can be used as a Python library by importing `tit` modules directly. Example scripts for each module are available in the `scripts/` directory. A complete end-to-end pipeline is in `scripts/pipeline.py`.
 
 ### Setup
 
@@ -162,6 +109,8 @@ run_pipeline(
 | `extract_dti` | Extract DTI tensors for anisotropic conductivity |
 | `run_subcortical_segmentations` | Thalamic nuclei and hippocampal subfield segmentations |
 
+See also: `scripts/preprocess.py`
+
 ### Leadfield Generation
 
 ```python
@@ -170,6 +119,8 @@ from tit.opt.leadfield import LeadfieldGenerator
 lfg = LeadfieldGenerator(subject_id="101", electrode_cap="EEG10-20_Okamoto_2004")
 lf_path = lfg.generate()
 ```
+
+See also: `scripts/leadfield.py`
 
 ### Flex Search (Differential Evolution Optimization)
 
@@ -243,6 +194,8 @@ result = run_ex_search(config)
 print(result.success, result.n_combinations, result.results_csv)
 ```
 
+See also: `scripts/optimizer.py`
+
 ### Simulation
 
 ```python
@@ -282,6 +235,8 @@ config = SimulationConfig(
 
 run_simulation(config, montages)
 ```
+
+See also: `scripts/simulator.py`
 
 ### Analyzer
 
@@ -325,6 +280,8 @@ result = run_group_analysis(
 )
 ```
 
+See also: `scripts/analyzer.py`
+
 ### Cluster-Based Permutation Testing
 
 ```python
@@ -333,8 +290,6 @@ from tit.stats import (
     run_correlation,
     GroupComparisonConfig,
     CorrelationConfig,
-    GroupSubject,
-    CorrelationSubject,
     load_group_subjects,
     load_correlation_subjects,
 )
@@ -361,7 +316,24 @@ config = CorrelationConfig(
 result = run_correlation(config)
 ```
 
-The `run_group_comparison` and `run_correlation` functions are resolved lazily via `__getattr__` so that `import tit.stats` does not pull in nibabel or scipy at import time.
+See also: `scripts/cluster_permutation.py`
+
+---
+
+## Standalone Tools
+
+The `tit/tools/` directory contains utility scripts for mesh and field manipulation:
+
+| Tool | Purpose | Interface |
+|------|---------|-----------|
+| `map_electrodes.py` | Map optimized electrode positions to EEG net sites (Hungarian algorithm) | argparse CLI |
+| `nifti_to_mesh.py` | Convert NIfTI segmentations to STL/Gmsh meshes (marching cubes) | argparse CLI |
+| `field_extract.py` | Extract grey/white matter meshes from full head mesh | argparse CLI |
+| `read_annot.py` | Read and display FreeSurfer `.annot` annotation files | argparse CLI |
+| `mesh2nii.py` | Convert SimNIBS mesh files to NIfTI volumes (subject or MNI space) | function API |
+| `extract_labels.py` | Extract specific labels from NIfTI segmentation files | function API |
+| `montage_visualizer.py` | Render PNG visualizations of electrode placements on EEG cap templates | function API |
+| `mesh_utils.py` | Create Gmsh `.opt` visualization files for mesh fields | function API |
 
 ---
 
