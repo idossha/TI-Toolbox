@@ -7,22 +7,23 @@ from tit.analyzer import (
 )
 
 PROJECT_DIR = "/mnt/000/"
-SUBJECT_ID = "101"
+SUBJECTS = ["101", "ernie"]
 
 # -- Single-subject spherical analysis ----------------------------------------
 
-analyzer = Analyzer(
-    subject_id=SUBJECT_ID,
-    simulation="L_Insula",
-    space="voxel",
-)
+for subject_id in SUBJECTS:
+    analyzer = Analyzer(
+        subject_id=subject_id,
+        simulation="L_Insula",
+        space="voxel",
+    )
 
-result = analyzer.analyze_sphere(
-    center=(0.0, 0.0, 0.0),
-    radius=10.0,
-    coordinate_space="MNI",
-    visualize=True,
-)
+    result = analyzer.analyze_sphere(
+        center=(0.0, 0.0, 0.0),
+        radius=10.0,
+        coordinate_space="MNI",
+        visualize=True,
+    )
 
 # -- Single-subject cortical analysis -----------------------------------------
 

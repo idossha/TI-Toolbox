@@ -3,7 +3,7 @@
 from tit.pre import run_pipeline
 
 PROJECT_DIR = "/mnt/000/"
-SUBJECTS = ["101"]
+SUBJECTS = ["101", "ernie"]
 
 run_pipeline(
     project_dir=PROJECT_DIR,
