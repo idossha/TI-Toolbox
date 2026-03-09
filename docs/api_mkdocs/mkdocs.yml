@@ -1,44 +1,113 @@
-site_name: TI-Toolbox API
+site_name: TI-Toolbox API Reference
 site_description: Python API reference for the Temporal Interference Toolbox
 site_url: https://idossha.github.io/TI-Toolbox/api/
-# Build output is committed to `docs/api/` so GitHub Pages can serve it without CI.
 site_dir: ../api
 
 theme:
   name: material
   features:
     - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.tracking
+    - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.path
+    - navigation.indexes
     - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
   palette:
     - scheme: default
       primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+repo_name: idossha/TI-Toolbox
+repo_url: https://github.com/idossha/TI-Toolbox
 
 nav:
   - API Home: index.md
-  - Reference:
-      - Core Modules: reference/core.md
-      - Simulation: reference/sim.md
-      - Analyzer: reference/analyzer.md
-      - Optimization: reference/opt.md
-      - Statistics: reference/stats.md
+  - Getting Started: getting-started.md
+  - Reference: reference/
 
 plugins:
   - search
+  - gen-files:
+      scripts:
+        - docs/scripts/gen_ref_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
   - mkdocstrings:
       handlers:
         python:
-          # Make `import tit` work when building from `docs/api_mkdocs/`
           paths: ["../.."]
           options:
-            docstring_style: numpy
+            docstring_style: google
             show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
             show_signature_annotations: true
-            merge_init_into_class: true
             separate_signature: true
+            merge_init_into_class: true
+            group_by_category: true
+            members_order: source
+            filters: ["!^_"]
+            signature_crossrefs: true
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
 
 markdown_extensions:
+  - abbr
   - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
   - toc:
       permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      use_pygments: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.snippets
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/idossha/TI-Toolbox

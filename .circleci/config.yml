@@ -50,38 +50,22 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
-            # Install codecov uploader (official uploader)
-            curl -Os https://uploader.codecov.io/latest/linux/codecov
-            chmod +x codecov
-
-            # Verify uploader integrity (recommended security practice)
-            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
-            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
-
-            # Verify SHA256 (will exit with error if mismatch)
-            sha256sum -c codecov.SHA256SUM 2>&1 | grep OK
+            # Install Codecov CLI (replaces deprecated uploader)
+            pip install codecov-cli
 
             echo "Uploading coverage report to Codecov..."
 
-            # Upload coverage report with proper configuration
-            # -t: Codecov token (set in CircleCI environment)
-            # -f: Coverage file location
-            # -F: Flags to categorize coverage (matches codecov.yml flags)
-            # -n: Custom name for the upload
-            # -B: Branch name
-            # -C: Commit SHA
-            # -Z: Exit with non-zero code on upload failure
-            ./codecov \
+            codecovctl upload-process \
               -t ${CODECOV_TOKEN} \
               -f /tmp/coverage/coverage.xml \
-              -F unittests,core,simulator,analyzer,optimizer,stats,plotting,preprocessing \
+              -F unittests \
               -n "CircleCI-${CIRCLE_BUILD_NUM}" \
-              -B "${CIRCLE_BRANCH}" \
-              -C "${CIRCLE_SHA1}" \
-              -Z
-
-            echo "Coverage uploaded successfully"
+              --git-service github \
+              --fail-on-error
           when: always
+
+      - store_test_results:
+          path: /tmp/test-results
 
       - store_artifacts:
           path: /tmp/test-results
@@ -90,7 +74,6 @@ jobs:
       - store_artifacts:
           path: /tmp/coverage
           destination: coverage
-            
 
 
 workflows:

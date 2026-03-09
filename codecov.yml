@@ -31,7 +31,6 @@ coverage:
         if_ci_failed: error
 
 # Component-specific coverage flags
-# These match the flags passed in CircleCI: -F unittests,core,simulator,analyzer,optimizer
 flags:
   unittests:
     paths:
@@ -40,7 +39,12 @@ flags:
 
   core:
     paths:
-      - tit/core/
+      - tit/paths.py
+      - tit/constants.py
+      - tit/calc.py
+      - tit/logger.py
+      - tit/errors.py
+      - tit/config_io.py
     carryforward: false
     target: 80%
 
@@ -80,16 +84,29 @@ flags:
     carryforward: false
     target: 60%
 
+  reporting:
+    paths:
+      - tit/reporting/
+    carryforward: false
+    target: 60%
+
+  atlas:
+    paths:
+      - tit/atlas/
+    carryforward: false
+    target: 60%
+
 # Files to ignore in coverage reports
 ignore:
   - "**/__pycache__"
   - "**/*.pyc"
   - "**/test_*.py"
   - "tests/**"
-  - "setup.py"
-  - "version.py"
-  - "**/gui/**"  # GUI code is harder to test in headless environments
-  - "**/__init__.py"  # Init files are often just imports
+  - "**/gui/**"        # GUI code requires X11/display environment
+  - "**/__init__.py"
+  - "scripts/**"
+  - "tit/tools/**"     # Standalone scripts, not library code
+  - "tit/blender/**"   # Blender-specific code
 
 # Comment configuration for pull requests
 comment:
@@ -100,7 +117,6 @@ comment:
   require_head: yes
   branches:
     - main
-    - master
 
 # GitHub status checks configuration
 github_checks:
