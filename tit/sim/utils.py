@@ -234,8 +234,8 @@ def create_simulation_config_file(
         "electrode_geometry": {
             "shape": config.electrode.shape,
             "dimensions": config.electrode.dimensions,
-            "gel_thickness": config.electrode.thickness,
-            "sponge_thickness": config.electrode.sponge_thickness,
+            "gel_thickness": config.electrode.gel_thickness,
+            "rubber_thickness": config.electrode.rubber_thickness,
         },
         "mapping_options": {
             "map_to_surf": config.map_to_surf,

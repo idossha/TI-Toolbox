@@ -76,11 +76,16 @@ ROISpec = Union[SphericalROI, AtlasROI, SubcorticalROI]
 
 @dataclass
 class FlexElectrodeConfig:
-    """Electrode geometry for flex-search."""
+    """Electrode geometry for flex-search.
+
+    Only gel_thickness is needed here — the optimization leadfield uses
+    point electrodes; gel_thickness is recorded in the manifest for
+    downstream simulation.
+    """
 
     shape: str = "ellipse"  # "ellipse" or "rect"
     dimensions: List[float] = field(default_factory=lambda: [8.0, 8.0])
-    thickness: float = 4.0
+    gel_thickness: float = 4.0
 
 
 @dataclass

@@ -65,8 +65,8 @@ for subject_id in SUBJECTS:
         electrode=ElectrodeConfig(
             shape="ellipse",
             dimensions=[8.0, 8.0],
-            thickness=4.0,
-            sponge_thickness=2.0,
+            gel_thickness=4.0,
+            rubber_thickness=2.0,
         ),
     )
     run_simulation(config, montages)

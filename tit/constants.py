@@ -149,7 +149,7 @@ ELECTRODE_SHAPE_ELLIPSE = "ellipse"
 ELECTRODE_SHAPE_RECT = "rect"
 
 # Default electrode parameters
-DEFAULT_ELECTRODE_THICKNESS = 4.0  # mm
+DEFAULT_GEL_THICKNESS = 4.0  # mm (saline gel layer)
 DEFAULT_ELECTRODE_RADIUS = 4.0  # mm
 DEFAULT_INTENSITY = 1.0  # mA
 
@@ -538,8 +538,8 @@ VALIDATION_BOUNDS = {
 DEFAULT_ELECTRODE = {
     "shape": ELECTRODE_SHAPE_ELLIPSE,
     "dimensions": [8.0, 8.0],
-    "thickness": DEFAULT_ELECTRODE_THICKNESS,
-    "sponge_thickness": 2.0,
+    "gel_thickness": DEFAULT_GEL_THICKNESS,
+    "rubber_thickness": 2.0,
 }
 
 DEFAULT_OPTIMIZATION = {

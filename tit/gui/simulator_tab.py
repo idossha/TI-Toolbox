@@ -217,7 +217,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.dimensions_input.setPlaceholderText("8,8")
         self.dimensions_input.setText("8,8")
         self.dimensions_input.setMaximumWidth(60)
-        self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
+        self.thickness_label = QtWidgets.QLabel("Gel Thickness (mm):")
         self.thickness_input = QtWidgets.QLineEdit()
         self.thickness_input.setPlaceholderText("4")
         self.thickness_input.setText("4")
@@ -1201,7 +1201,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.report_generator.add_electrode_parameters(
                     shape=electrode_shape,
                     dimensions=[float(dim_p[0]), float(dim_p[1])],
-                    thickness=float(thickness),
+                    gel_thickness=float(thickness),
                 )
                 for subject_id in unique_subjects:
                     m2m_path = self.pm.m2m(subject_id)
@@ -1249,7 +1249,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 electrode=ElectrodeConfig(
                     shape=electrode_shape,
                     dimensions=electrode_dims,
-                    thickness=float(thickness),
+                    gel_thickness=float(thickness),
                 ),
             )
             montage_list = [mc for _, mc, _ in jobs]
@@ -1405,7 +1405,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         report_generator.add_electrode_parameters(
                             shape=electrode_shape,
                             dimensions=[float(dim_parts[0]), float(dim_parts[1])],
-                            thickness=float(thickness),
+                            gel_thickness=float(thickness),
                         )
 
                         # Add this specific subject

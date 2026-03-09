@@ -220,7 +220,7 @@ def generate_report(
         selection_method="best" if n_multistart > 1 else "single",
         electrode_shape=config.electrode.shape,
         electrode_dimensions_mm=dims_str,
-        electrode_thickness_mm=config.electrode.thickness,
+        electrode_thickness_mm=config.electrode.gel_thickness,
         electrode_current_mA=config.current_mA,
         mapping_enabled=config.enable_mapping,
         disable_mapping_simulation=config.disable_mapping_simulation,

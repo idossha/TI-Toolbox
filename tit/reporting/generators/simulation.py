@@ -113,7 +113,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         self,
         shape: str = "circular",
         dimensions: Optional[Union[str, List[float]]] = None,
-        thickness: Optional[float] = None,
+        gel_thickness: Optional[float] = None,
         **kwargs,
     ) -> None:
         """
@@ -122,7 +122,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         Args:
             shape: Electrode shape (circular, rectangular)
             dimensions: Electrode dimensions (string or list)
-            thickness: Electrode thickness (mm)
+            gel_thickness: Saline gel layer thickness in mm
             **kwargs: Additional parameters
         """
         # Convert list dimensions to string
@@ -132,7 +132,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         self.electrode_parameters = {
             "shape": shape,
             "dimensions": dimensions,
-            "thickness": thickness,
+            "gel_thickness": gel_thickness,
             **kwargs,
         }
 

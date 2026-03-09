@@ -142,7 +142,7 @@ class mTISimulation:
         el_cfg = self.config.electrode
         electrode.shape = el_cfg.shape
         electrode.dimensions = el_cfg.dimensions
-        electrode.thickness = [el_cfg.thickness, el_cfg.sponge_thickness]
+        electrode.thickness = [el_cfg.gel_thickness, el_cfg.rubber_thickness]
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         for i in range(len(tdcs.cond)):

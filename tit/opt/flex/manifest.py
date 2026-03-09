@@ -61,7 +61,7 @@ def write_manifest(
         "electrode": {
             "shape": config.electrode.shape,
             "dimensions": list(config.electrode.dimensions),
-            "thickness": config.electrode.thickness,
+            "gel_thickness": config.electrode.gel_thickness,
         },
         "roi": _serialize_roi(config.roi),
         "non_roi": _serialize_roi(config.non_roi) if config.non_roi else None,

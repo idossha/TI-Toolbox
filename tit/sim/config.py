@@ -22,19 +22,26 @@ class ConductivityType(Enum):
 @dataclass
 class ElectrodeConfig:
     """
-    Electrode shape and dimensions.
+    Electrode shape and geometry (2-layer: gel + rubber).
+
+    SimNIBS models the electrode–skin interface as two stacked layers:
+      [TOP]  Silicone rubber  (rubber_thickness)
+             Saline gel       (gel_thickness)
+      [SKIN] ── head surface ──
 
     Attributes:
-        shape (str): Electrode shape. Defaults to "ellipse", but can be "rect".
-        dimensions (List[float]): Electrode dimensions. Defaults to [8.0, 8.0].
-        thickness (float): Electrode thickness (saline). Defaults to 4.0.
-        sponge_thickness (float): Electrode sponge thickness. Defaults to 2.0.
+        shape (str): Electrode shape — "ellipse" or "rect".
+        dimensions (List[float]): [x, y] size in mm (diameters for ellipse,
+            sides for rect).
+        gel_thickness (float): Saline gel layer thickness in mm. Defaults to 4.0.
+        rubber_thickness (float): Silicone rubber layer thickness in mm.
+            Defaults to 2.0.
     """
 
     shape: str = "ellipse"
     dimensions: List[float] = field(default_factory=lambda: [8.0, 8.0])
-    thickness: float = 4.0
-    sponge_thickness: float = 2.0
+    gel_thickness: float = 4.0
+    rubber_thickness: float = 2.0
 
 
 @dataclass

@@ -23,7 +23,7 @@ for subject_id in SUBJECTS:
         conductivity_type=ConductivityType.SCALAR,
         intensities=IntensityConfig(values=[1.0, 1.0]),
         electrode=ElectrodeConfig(
-            shape="ellipse", dimensions=[8.0, 8.0], thickness=4.0, sponge_thickness=2.0
+            shape="ellipse", dimensions=[8.0, 8.0], gel_thickness=4.0, rubber_thickness=2.0
         ),
     )
     run_simulation(config, montages)

@@ -52,7 +52,7 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
         layout.addRow("Electrode Shape:", shape_layout)
 
         layout.addRow("Dimensions (mm, x,y):", self.dimensions_input)
-        layout.addRow("Thickness (mm):", self.thickness_input)
+        layout.addRow("Gel Thickness (mm):", self.thickness_input)
 
     # ------------------------------------------------------------------
     # Public API
@@ -66,7 +66,7 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
         dims = [float(d.strip()) for d in self.get_dimensions_text().split(",")]
         thickness = float(self.get_thickness_text())
         electrode = FlexElectrodeConfig(
-            shape=shape, dimensions=dims, thickness=thickness
+            shape=shape, dimensions=dims, gel_thickness=thickness
         )
         return electrode, self.current_input.value()
 
