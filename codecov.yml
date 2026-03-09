@@ -34,7 +34,7 @@ coverage:
 flags:
   unittests:
     paths:
-      - tests/
+      - tit/
     carryforward: false
 
   core:
