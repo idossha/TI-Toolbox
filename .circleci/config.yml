@@ -58,18 +58,39 @@ jobs:
               exit 1
             fi
 
-            # Fix source paths in coverage.xml so Codecov can match them.
-            # Docker generates: <source>/ti-toolbox/tit</source> filename="calc.py"
-            # Codecov needs:    <source>.</source>              filename="tit/calc.py"
+            # Fix source paths in coverage.xml so Codecov can match files.
+            # pytest-cov inside Docker produces absolute Docker paths.
+            # We rewrite to repo-root-relative paths using Python for safety.
             if [ -f /tmp/coverage/coverage.xml ]; then
-              # 1. Strip the Docker mount prefix from all paths
-              sed -i 's|/ti-toolbox/||g' /tmp/coverage/coverage.xml
-              # 2. Set <source> to repo root and prefix filenames with tit/
-              sed -i 's|<source>tit</source>|<source>.</source>|g' /tmp/coverage/coverage.xml
-              sed -i 's|filename="|filename="tit/|g' /tmp/coverage/coverage.xml
-              echo "Fixed coverage.xml: source=. filenames=tit/..."
-              # Show a sample for debugging
-              head -20 /tmp/coverage/coverage.xml
+              python3 <<'PYEOF'
+import xml.etree.ElementTree as ET
+
+path = "/tmp/coverage/coverage.xml"
+tree = ET.parse(path)
+root = tree.getroot()
+
+# Extract and clean the <source> path
+pkg_prefix = ""
+for source_el in root.iter("source"):
+    src = (source_el.text or "").strip()
+    pkg_prefix = src.replace("/ti-toolbox/", "").replace("/ti-toolbox", "").strip("/")
+    source_el.text = ""
+    break
+
+# Prefix filenames so they're repo-root-relative
+if pkg_prefix:
+    for cls in root.iter("class"):
+        fn = cls.get("filename", "")
+        if fn and not fn.startswith(pkg_prefix + "/"):
+            cls.set("filename", pkg_prefix + "/" + fn)
+
+tree.write(path, xml_declaration=True, encoding="UTF-8")
+print(f"Fixed coverage.xml: source='' prefix='{pkg_prefix}/'")
+PYEOF
+
+              echo "=== Diagnostics ==="
+              grep -o '<source>[^<]*</source>' /tmp/coverage/coverage.xml | head -3 || true
+              grep -o 'filename="[^"]*"' /tmp/coverage/coverage.xml | head -5 || true
             fi
 
             # Diagnostics: verify coverage file exists and is non-empty
