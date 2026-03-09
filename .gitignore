@@ -55,6 +55,8 @@ CLAUDE.md
 .claude
 memory/agent-state.md
 .worktrees/
+tracks/
+tracks/active/
 
 # Benchmarking
 benchmark_results/
