@@ -9,6 +9,10 @@ from tit.paths import get_path_manager
 
 
 def main() -> None:
+    from tit.logger import add_stream_handler
+
+    add_stream_handler("tit.analyzer")
+
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)

@@ -1,9 +1,20 @@
 #!/usr/bin/env simnibs_python
 """Full TI-Toolbox pipeline: preprocess -> leadfield -> optimize -> simulate -> analyze."""
 
+from tit import setup_logging, add_stream_handler
+
+setup_logging()
+add_stream_handler("tit")
+
 from tit.pre import run_pipeline
 from tit.opt import FlexConfig, FlexElectrodeConfig, SphericalROI, run_flex_search
 from tit.opt.leadfield import LeadfieldGenerator
+from tit.opt.ex import (
+    ExConfig,
+    PoolElectrodes,
+    ExCurrentConfig,
+    run_ex_search,
+)
 from tit.sim import (
     SimulationConfig,
     ElectrodeConfig,
@@ -15,26 +26,27 @@ from tit.sim import (
 from tit.analyzer import Analyzer
 
 PROJECT_DIR = "/mnt/000/"
-SUBJECTS = ["101", "ernie"]
+SUBJECTS = ["ernie"]
 EEG_NET = "GSN-HydroCel-185.csv"
 
 # ── 1. Preprocessing ─────────────────────────────────────────────────────────
 
-# run_pipeline(
-#     project_dir=PROJECT_DIR,
-#     subject_ids=SUBJECTS,
-#     convert_dicom=True,
-#     run_recon=True,
-#     create_m2m=True,
-# )
+run_pipeline(
+    project_dir=PROJECT_DIR,
+    subject_ids=SUBJECTS,
+    convert_dicom=False,
+    run_recon=True,
+    create_m2m=True,
+    run_tissue_analysis=True,
+)
 
 # ── 2. Leadfield ─────────────────────────────────────────────────────────────
 
-# for subject_id in SUBJECTS:
-#     lfg = LeadfieldGenerator(subject_id, electrode_cap="EEG10-20_Okamoto_2004")
-#     lf = lfg.generate()
+for subject_id in SUBJECTS:
+    lfg = LeadfieldGenerator(subject_id, electrode_cap="EEG10-20_Okamoto_2004")
+    lf = lfg.generate()
 
-# ── 3. Optimization ──────────────────────────────────────────────────────────
+# ── 3A. Flex Optimization ──────────────────────────────────────────────────────────
 
 for subject_id in SUBJECTS:
     flex_config = FlexConfig(
@@ -47,6 +59,21 @@ for subject_id in SUBJECTS:
         roi=SphericalROI(x=0, y=0, z=0, radius=10.0),
     )
     run_flex_search(flex_config)
+
+# ── 3B. Ex Optimization ──────────────────────────────────────────────────────────
+
+for subject_id in SUBJECTS:
+    ex_config = ExConfig(
+        subject_id=subject_id,
+        project_dir=PROJECT_DIR,
+        leadfield_hdf=lf,
+        roi_name="L_Hippo",
+        electrodes=PoolElectrodes(["E010", "E020", "E030", "E040", "E050", "E060"]),
+        currents=ExCurrentConfig(total_current=2.0, current_step=0.2),
+        eeg_net="GSN-HydroCel-185.csv",
+    )
+    run_ex_search(ex_config)
+
 
 # ── 4. Simulation ────────────────────────────────────────────────────────────
 

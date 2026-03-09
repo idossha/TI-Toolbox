@@ -27,6 +27,10 @@ def _build_correlation_subjects(raw: list[dict]) -> list[CorrelationSubject]:
 
 
 def main() -> None:
+    from tit.logger import add_stream_handler
+
+    add_stream_handler("tit.stats")
+
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)

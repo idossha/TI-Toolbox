@@ -1,5 +1,10 @@
 #!/usr/bin/env simnibs_python
 
+from tit import setup_logging, add_stream_handler
+
+setup_logging()
+add_stream_handler("tit")
+
 from tit.analyzer import (
     Analyzer,
     AnalysisResult,

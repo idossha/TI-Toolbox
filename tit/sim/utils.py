@@ -332,7 +332,7 @@ def run_simulation(
         log_file = os.path.join(
             log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
         )
-        logger = _make_file_logger("TI-Simulator", log_file)
+        logger = _make_file_logger("tit.sim", log_file)
 
     pm = get_path_manager()
     simulation_dir = pm.simulations(config.subject_id)

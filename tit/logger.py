@@ -59,6 +59,32 @@ def add_file_handler(
     return fh
 
 
+def add_stream_handler(
+    logger_name: str = "tit",
+    level: str = "INFO",
+) -> logging.StreamHandler:
+    """Attach a stdout handler to a named logger.
+
+    Used by scripts for terminal output and by ``__main__`` entry points
+    so that ``BaseProcessThread`` can capture subprocess stdout for the GUI.
+
+    Args:
+        logger_name: Logger to attach to. Defaults to ``"tit"``.
+        level: Minimum log level. Defaults to INFO.
+
+    Returns:
+        The created StreamHandler instance.
+    """
+    import sys
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(getattr(logging, level.upper(), logging.INFO))
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger = logging.getLogger(logger_name)
+    logger.addHandler(handler)
+    return handler
+
+
 def get_file_only_logger(
     name: str,
     log_file: str | Path,

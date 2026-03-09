@@ -30,13 +30,13 @@ def _build_montage(data: dict):
 
 def _make_stdout_logger() -> logging.Logger:
     """Create a logger that writes to stdout (captured by BaseProcessThread)."""
+    from tit.logger import add_stream_handler
+
     logger = logging.getLogger("tit.sim.subprocess")
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
     logger.propagate = False
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(handler)
+    add_stream_handler("tit.sim.subprocess")
     return logger
 
 

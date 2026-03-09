@@ -1,9 +1,6 @@
-"""
-TI-Toolbox Utils Package
-This package contains utility functions and modules used across the project.
-"""
+"""TI-Toolbox tools — standalone utilities for mesh/field manipulation.
 
-"""
-TI-Toolbox Utils Package
-This package contains utility functions and modules used across the project.
+These tools are typically invoked as scripts or from the CLI.
+Heavy dependencies (SimNIBS, nibabel) are imported inside each module,
+so importing this package is lightweight.
 """

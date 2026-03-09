@@ -1,5 +1,10 @@
 #!/usr/bin/env simnibs_python
 
+from tit import setup_logging, add_stream_handler
+
+setup_logging()
+add_stream_handler("tit")
+
 from tit.sim import (
     SimulationConfig,
     ElectrodeConfig,
@@ -10,7 +15,7 @@ from tit.sim import (
 )
 
 PROJECT_DIR = "/mnt/000/"
-SUBJECTS = ["101", "ernie"]
+SUBJECTS = ["101"]
 
 montages = load_montages(
     montage_names=["L_Insula"], project_dir=PROJECT_DIR, eeg_net="GSN-HydroCel-185.csv"
