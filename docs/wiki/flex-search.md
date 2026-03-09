@@ -114,33 +114,6 @@ The transition from unconstrained optimization solutions to practical electrode 
 
 **Electrode mapping challenges**: Analysis of optimized electrode positions reveals depth-dependent mapping distances across anatomical targets, with subcortical structures like the hippocampus requiring significantly larger electrode separations (11.74 ± 5.33 mm) compared to cortical regions like the insula (7.30 ± 1.38 mm) or spherical ROIs (8.01 ± 1.43 mm). This pattern reflects the fundamental challenge of targeting deep brain structures with scalp electrodes, where optimal montages often requires large distances between electrodes which may be positioned on the lower scalp that does not have dense electrode coverage. *Data regarding electrode mapping distances comes from the supplementary information of the [TI-Toolbox reference](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext).*
 
-## Python API
-
-```python
-from tit.opt import FlexConfig, SphericalROI, run_flex_search
-from tit.opt.config import FlexElectrodeConfig, OptGoal, FieldPostproc
-
-config = FlexConfig(
-    subject_id="101",
-    project_dir="/path/to/project",
-    goal=OptGoal.MEAN,
-    postproc=FieldPostproc.MAX_TI,
-    current_mA=8.0,
-    electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
-    roi=SphericalROI(x=-31.3, y=24.0, z=-37.0, radius=10.0, use_mni=True),
-    anisotropy_type="scalar",  # "scalar", "vn", "dir", or "mc"
-    n_multistart=3,
-)
-
-result = run_flex_search(config)
-print(result.success, result.best_value, result.output_folder)
-```
-
-The `FlexConfig` dataclass validates parameters in `__post_init__`, including:
-- Automatic string-to-enum coercion for `goal`, `postproc`, and `non_roi_method`
-- Validation that focality goal with `specific` non-ROI method requires a `non_roi` specification
-- Threshold format validation
-
 ## Output Manifest (`flex_meta.json`)
 
 Every flex-search run writes a `flex_meta.json` file to the output folder. This manifest is the single source of truth for run metadata -- downstream consumers (simulator tab, GUI) read this instead of parsing folder names.
@@ -149,13 +122,6 @@ The manifest contains:
 - Run configuration (goal, postproc, electrode, ROI, anisotropy)
 - Result summary (success, best value, all function values)
 - Timestamps and labels for display
-
-```python
-from tit.opt.flex.manifest import read_manifest
-
-meta = read_manifest("/path/to/flex-search/run_001")
-print(meta["goal"], meta["result"]["best_value"])
-```
 
 ## Advanced Features
 

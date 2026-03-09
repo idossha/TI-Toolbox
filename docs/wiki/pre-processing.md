@@ -74,17 +74,6 @@ graph LR
     D --> E[BIDS-compliant NIfTI + JSON]
 ```
 
-#### Usage
-
-```python
-from tit.pre.dicom2nifti import run_dicom_to_nifti
-from tit.pre.utils import build_logger
-
-logger = build_logger("dicom2nifti", subject_id="101", project_dir="/path/to/project")
-run_dicom_to_nifti("/path/to/project", "101", logger=logger)
-```
-
-
 ### Stage 2: FreeSurfer recon-all
 
 **Module:** `tit.pre.recon_all.run_recon_all`  
@@ -95,16 +84,6 @@ run_dicom_to_nifti("/path/to/project", "101", logger=logger)
 - **T1 + T2 Processing**: Utilizes both T1 and T2 images when available for improved pial surface reconstruction
 - **Parallel Processing**: Configurable for single-threaded or multi-threaded execution
 
-
-#### Usage
-
-```python
-from tit.pre.recon_all import run_recon_all
-from tit.pre.utils import build_logger
-
-logger = build_logger("recon-all", subject_id="101", project_dir="/path/to/project")
-run_recon_all("/path/to/project", "101", logger=logger, parallel=True)
-```
 
 **Note:** The `parallel=True` flag enables FreeSurfer's internal parallelization (multiple cores for one subject). The pipeline-level `parallel_recon=True` enables multiple subjects simultaneously, each using a single core.
 
@@ -131,16 +110,6 @@ derivatives/
 - **Sequential Processing**: Runs one subject at a time 
 
 
-#### Usage
-
-```python
-from tit.pre.charm import run_charm
-from tit.pre.utils import build_logger
-
-logger = build_logger("charm", subject_id="101", project_dir="/path/to/project")
-run_charm("/path/to/project", "101", logger=logger)
-```
-
 #### Generated Output Structure
 
 ```
@@ -157,22 +126,6 @@ derivatives/
 
 **Purpose:** Coordinates all pre-processing stages with flexible execution options
 
-#### Python API
-
-```python
-from tit.pre import run_pipeline
-
-run_pipeline(
-    "/path/to/project",
-    ["101", "102"],
-    convert_dicom=True,
-    run_recon=True,
-    create_m2m=True,
-    parallel_recon=True,
-    run_subcortical_segmentations=True,
-)
-```
-
 #### Processing Options
 
 | Option | Description | Usage |
@@ -187,26 +140,6 @@ run_pipeline(
 | `extract_dti` | Extract DTI tensors for SimNIBS anisotropic conductivity | Optional |
 | `run_subcortical_segmentations` | Run thalamic nuclei and hippocampal subfield segmentations | Optional |
 
-
-#### Processing Mode Selection
-
-**Default (Sequential Mode):**
-```python
-# Best for: Small datasets (1-3 subjects), maximum per-subject speed
-run_pipeline("/path/to/project", ["101", "102"], convert_dicom=True, run_recon=True)
-```
-
-**Parallel Mode:**
-```python
-# Best for: Large datasets (4+ subjects), maximum throughput
-run_pipeline(
-    "/path/to/project",
-    ["101", "102", "103", "104"],
-    convert_dicom=True,
-    run_recon=True,
-    parallel_recon=True,
-)
-```
 
 ## Parallelization Strategy
 
@@ -245,23 +178,6 @@ SimNIBS charm processing is **always sequential** regardless of mode:
 - One subject processed at a time to prevent PETSC memory conflicts
 - Full CPU cores available per subject
 - Memory safeguards to prevent segmentation faults
-
-## CLI Execution Example
-
-```python
-# Stage 1: DICOM conversion only
-run_dicom_to_nifti("/mnt/study_data", "101", logger=logger)
-
-# Stage 2: FreeSurfer reconstruction only
-# Sequential mode (all cores for this subject)
-run_recon_all("/mnt/study_data", "101", logger=logger, parallel=True)
-
-# Parallel mode (1 core for this subject)
-run_recon_all("/mnt/study_data", "101", logger=logger, parallel=False)
-
-# Stage 3: SimNIBS head model only
-run_charm("/mnt/study_data", "101", logger=logger)
-```
 
 ## Output Directory Structure
 

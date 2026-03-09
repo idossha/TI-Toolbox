@@ -187,44 +187,6 @@ correlation/hippocampus_effect_size_correlation/
 
 <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Permutation Null Distribution" style="width: 80%; max-width: 700px;">
 
-## Python API
-
-### Import Paths
-
-```python
-from tit.stats import (
-    run_group_comparison,   # lazy-loaded (nibabel dependency)
-    run_correlation,        # lazy-loaded (nibabel dependency)
-    GroupComparisonConfig,
-    CorrelationConfig,
-    GroupSubject,
-    CorrelationSubject,
-    load_group_subjects,
-    load_correlation_subjects,
-)
-```
-
-The `run_group_comparison` and `run_correlation` functions are resolved lazily via `__getattr__` so that `import tit.stats` does not pull in nibabel or scipy at import time.
-
-### Quick Example
-
-```python
-from tit.stats import (
-    run_group_comparison,
-    GroupComparisonConfig,
-    load_group_subjects,
-)
-
-subjects = load_group_subjects("subjects_classification.csv")
-config = GroupComparisonConfig(
-    subjects=subjects,
-    output_dir="/path/to/output",
-    n_permutations=1000,
-)
-result = run_group_comparison(config)
-print(result.significant_clusters)
-```
-
 ## Technical Details
 
 ### Data Requirements

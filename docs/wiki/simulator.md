@@ -30,45 +30,6 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 
 ---
 
-## Programmatic API
-
-### Direct Python Call
-
-```python
-from tit.sim import SimulationConfig, run_simulation, load_montages
-from tit.sim.config import (
-    ConductivityType, ElectrodeConfig, IntensityConfig, LabelMontage
-)
-
-config = SimulationConfig(
-    subject_id="101",
-    project_dir="/path/to/project",
-    conductivity_type=ConductivityType.SCALAR,
-    intensities=IntensityConfig(pair1=1.0, pair2=1.0),
-    electrode=ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
-)
-
-montages = [
-    LabelMontage(
-        name="montage1",
-        electrode_pairs=[("E1", "E2"), ("E3", "E4")],
-        eeg_net="GSN-HydroCel-256",
-    ),
-]
-
-results = run_simulation(config, montages)
-```
-
-### JSON Config Entrypoint
-
-The simulator can also be launched via JSON configuration, which is used by the GUI:
-
-```bash
-simnibs_python -m tit.sim config.json
-```
-
-The JSON file contains the full `SimulationConfig` fields plus a `montages` array. The entrypoint handles deserialization of `LabelMontage` and `XYZMontage` objects (distinguished by the `is_xyz` flag).
-
 ### Conductivity Types
 
 The `ConductivityType` enum controls tissue conductivity modeling:

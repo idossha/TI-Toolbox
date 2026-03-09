@@ -74,4 +74,4 @@ simnibs_python -m tit.stats      config.json
 simnibs_python -m tit.pre        config.json
 ```
 
-Config files are generated programmatically via `tit.config_io.write_config_json()`. See the [CLI page]({{ site.baseurl }}/wiki/cli/) for details.
+Config files are generated programmatically via `tit.config_io.write_config_json()`. See the [Scripting page]({{ site.baseurl }}/wiki/scripting/) for details.

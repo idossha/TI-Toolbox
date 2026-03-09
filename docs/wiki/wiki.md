@@ -16,7 +16,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 - **[GUI](gui)** - Main graphical interface of TI-Toolbox
-- **[CLI](cli)** - Interactive and direct command line interface with TI-Toolbox
+- **[Scripting](scripting)** - CLI commands, JSON config entry points, and Python scripting API
 
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results

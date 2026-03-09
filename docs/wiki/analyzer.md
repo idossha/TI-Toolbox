@@ -21,33 +21,6 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 
 <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
 
-### Python API
-
-```python
-from tit.analyzer import Analyzer, AnalysisResult, run_group_analysis
-
-# Create an analyzer for a subject/simulation in mesh or voxel space
-analyzer = Analyzer(subject_id="101", simulation="montage1", space="mesh")
-
-# Spherical ROI analysis
-result = analyzer.analyze_sphere(
-    center=(-31.3, 24.0, -37.0),
-    radius=10.0,
-    coordinate_space="subject",  # or "MNI"
-    visualize=True,
-)
-
-# Cortical atlas ROI analysis
-result = analyzer.analyze_cortex(
-    atlas="DK40",
-    region="lh.insula",
-    visualize=True,
-)
-
-# Access typed result fields
-print(result.roi_mean, result.roi_max, result.roi_focality)
-```
-
 ## Key Features
 
 **Spherical ROI Analysis**
@@ -181,23 +154,6 @@ Group analysis supports **arbitrary combinations** of subjects and montages:
 - **Same subject x Multiple different montages**: Compare different stimulation configurations within the same individual
 - **Multiple subjects x Same montage**: Assess inter-subject variability for a specific stimulation protocol
 - **Multiple subjects x Different montages**: Full factorial design comparing both subject variability and montage effects
-
-### Usage
-
-```python
-from tit.analyzer import run_group_analysis
-
-result = run_group_analysis(
-    subjects=["101", "102", "103"],
-    simulations=["montage1"],
-    space="mesh",
-    analysis_type="spherical",
-    center=(10, 20, 30),
-    radius=5.0,
-    coordinate_space="MNI",
-    output_dir="/path/to/group/output",
-)
-```
 
 ### Features
 

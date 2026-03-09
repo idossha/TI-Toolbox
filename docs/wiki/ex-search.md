@@ -126,45 +126,6 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 - **Visualization**: Automatic histogram generation (TImax, TImean, Focality distributions)
 - **Output Formats**: JSON results, CSV summaries, PNG histograms
 
-## Python API
-
-```python
-from tit.opt.config import ExConfig, ExCurrentConfig, PoolElectrodes, BucketElectrodes
-
-# Pooled mode: all electrodes can go to any channel
-config = ExConfig(
-    subject_id="101",
-    project_dir="/path/to/project",
-    leadfield_hdf="/path/to/leadfield.hdf5",
-    roi_name="target_roi",
-    electrodes=PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4", "Pz", "Oz"]),
-    currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
-    roi_radius=3.0,
-    eeg_net="EGI10-20_Okamoto_2004",
-)
-
-# Bucketed mode: electrodes pre-assigned to channels
-config = ExConfig(
-    subject_id="101",
-    project_dir="/path/to/project",
-    leadfield_hdf="/path/to/leadfield.hdf5",
-    roi_name="target_roi",
-    electrodes=BucketElectrodes(
-        e1_plus=["Fp1", "Fp2"],
-        e1_minus=["Pz", "Oz"],
-        e2_plus=["C3", "F3"],
-        e2_minus=["C4", "F4"],
-    ),
-    currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
-    roi_radius=3.0,
-    eeg_net="EGI10-20_Okamoto_2004",
-)
-
-from tit.opt.ex import run_ex_search
-result = run_ex_search(config)
-print(result.success, result.n_combinations, result.results_csv)
-```
-
 ## Technical Implementation
 
 ### Architecture
