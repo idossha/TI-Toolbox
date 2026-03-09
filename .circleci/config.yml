@@ -50,9 +50,6 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
-            # Install pinned Codecov CLI to avoid breaking API changes
-            pip install codecov-cli==11.2.6
-
             # Fix source paths in coverage.xml: Docker generates absolute paths
             # like /ti-toolbox/tit/... but Codecov needs repo-relative paths.
             if [ -f /tmp/coverage/coverage.xml ]; then
@@ -75,12 +72,17 @@ jobs:
             echo "Branch: ${CIRCLE_BRANCH}"
             echo "================================="
 
+            # Download official Codecov CLI binary (recommended by Codecov docs)
+            echo "Downloading Codecov CLI..."
+            curl -fsSL https://cli.codecov.io/latest/linux/codecov -o /tmp/codecov
+            chmod +x /tmp/codecov
+
             echo "Uploading coverage report to Codecov..."
 
             # upload-process combines create-commit + create-report + do-upload
-            codecovcli --verbose upload-process \
+            /tmp/codecov --verbose upload-process \
               -t ${CODECOV_TOKEN} \
-              -r idossha/TI-toolbox \
+              -r idossha/TI-Toolbox \
               -C ${CIRCLE_SHA1} \
               -B ${CIRCLE_BRANCH} \
               --git-service github \
