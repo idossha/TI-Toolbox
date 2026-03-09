@@ -2,6 +2,9 @@
 
 # Inner test runner — executed INSIDE the Docker container.
 # Called by tests/test.sh (the host-side wrapper).
+#
+# Uses simnibs_python (SimNIBS's bundled Python) which has all
+# required packages pre-installed (pytest, pytest-cov, etc.)
 
 set -euo pipefail
 
@@ -18,12 +21,12 @@ for arg in "$@"; do
     esac
 done
 
-# ── Install package in editable mode ─────────────────────────────────────────
-echo "Installing tit package (editable)..."
-pip install -e /ti-toolbox --quiet 2>/dev/null || pip install -e /ti-toolbox
+# ── Install tit package in editable mode ─────────────────────────────────────
+echo "Installing tit package (editable) into simnibs_python..."
+simnibs_python -m pip install -e /ti-toolbox --quiet 2>/dev/null || simnibs_python -m pip install -e /ti-toolbox
 
 # ── Build pytest command ─────────────────────────────────────────────────────
-CMD=(python -m pytest)
+CMD=(simnibs_python -m pytest)
 
 if [ -n "$VERBOSE" ]; then
     CMD+=(-v)

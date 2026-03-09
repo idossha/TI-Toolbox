@@ -50,16 +50,17 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
-            # Install Codecov CLI (replaces deprecated uploader)
+            # Install Codecov CLI (replaces deprecated uploader binary)
             pip install codecov-cli
 
             echo "Uploading coverage report to Codecov..."
 
-            codecovctl upload-process \
-              -t ${CODECOV_TOKEN} \
+            # Use python -m to avoid PATH issues with entry point
+            python -m codecov_cli do-upload \
+              --token ${CODECOV_TOKEN} \
               -f /tmp/coverage/coverage.xml \
-              -F unittests \
-              -n "CircleCI-${CIRCLE_BUILD_NUM}" \
+              --flag unittests \
+              --name "CircleCI-${CIRCLE_BUILD_NUM}" \
               --git-service github \
               --fail-on-error
           when: always
