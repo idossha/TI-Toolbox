@@ -50,6 +50,14 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
+            set -euo pipefail
+
+            # Verify Codecov token is available
+            if [ -z "${CODECOV_TOKEN:-}" ]; then
+              echo "ERROR: CODECOV_TOKEN is not set! Add it in CircleCI project settings."
+              exit 1
+            fi
+
             # Fix source paths in coverage.xml: Docker generates absolute paths
             # like /ti-toolbox/tit/... but Codecov needs repo-relative paths.
             if [ -f /tmp/coverage/coverage.xml ]; then
