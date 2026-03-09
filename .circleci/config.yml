@@ -4,7 +4,7 @@ executors:
   vm-docker:
     machine:
       image: ubuntu-2204:current
-      docker_layer_caching: false
+      docker_layer_caching: true
 
 commands:
   common-setup:
@@ -21,7 +21,6 @@ commands:
             echo "Pulling TI-Toolbox test image: ${TEST_IMAGE}"
             docker pull ${TEST_IMAGE}
             docker tag ${TEST_IMAGE} ti-test:latest
-            echo "✓ Test image ready (SimNIBS + testing tools)"
 
 jobs:
 
@@ -30,92 +29,77 @@ jobs:
     steps:
       - common-setup
       - prepare-test-image
+
       - run:
-          name: Run complete test suite with coverage
+          name: Run test suite with coverage
           no_output_timeout: 30m
           command: |
             set -euo pipefail
-
-            echo "=========================================="
-            echo "TI-Toolbox CI Testing Pipeline"
-            echo "=========================================="
-            echo "Testing PR code from: $(pwd)"
-            echo "Test image: ti-test:latest"
-            echo ""
-
-            # Always run via the Docker wrapper to guarantee a consistent environment.
-            # Use the already-pulled image tag to avoid re-pulling.
             TEST_IMAGE=ti-test:latest bash ./tests/test.sh --verbose --coverage
 
       - run:
-          name: Upload coverage to Codecov
+          name: Prepare coverage for Codecov
           command: |
             set -euo pipefail
 
-            # Verify Codecov token is available
             if [ -z "${CODECOV_TOKEN:-}" ]; then
-              echo "ERROR: CODECOV_TOKEN is not set! Add it in CircleCI project settings."
+              echo "ERROR: CODECOV_TOKEN is not set. Add it in CircleCI project settings."
               exit 1
             fi
 
-            # Fix source paths in coverage.xml so Codecov can match files.
-            # pytest-cov inside Docker produces absolute Docker paths.
-            # We rewrite to repo-root-relative paths using Python for safety.
-            if [ -f /tmp/coverage/coverage.xml ]; then
-              python3 <<'PYEOF'
+            COVERAGE_FILE="/tmp/coverage/coverage.xml"
+
+            if [ ! -f "$COVERAGE_FILE" ] || [ ! -s "$COVERAGE_FILE" ]; then
+              echo "ERROR: $COVERAGE_FILE not found or empty."
+              exit 1
+            fi
+
+            # Rewrite <source> paths so Codecov maps files correctly.
+            # pytest-cov inside Docker writes the Docker mount path as <source>.
+            # Codecov needs an empty <source> with repo-relative filenames.
+            python3 <<'PYEOF'
+import sys
 import xml.etree.ElementTree as ET
 
 path = "/tmp/coverage/coverage.xml"
 tree = ET.parse(path)
 root = tree.getroot()
 
-# Extract and clean the <source> path
-pkg_prefix = ""
 for source_el in root.iter("source"):
-    src = (source_el.text or "").strip()
-    pkg_prefix = src.replace("/ti-toolbox/", "").replace("/ti-toolbox", "").strip("/")
     source_el.text = ""
-    break
 
-# Prefix filenames so they're repo-root-relative
-if pkg_prefix:
-    for cls in root.iter("class"):
-        fn = cls.get("filename", "")
-        if fn and not fn.startswith(pkg_prefix + "/"):
-            cls.set("filename", pkg_prefix + "/" + fn)
+# Validate: no absolute paths should remain in filenames
+errors = []
+for cls in root.iter("class"):
+    fn = cls.get("filename", "")
+    if fn.startswith("/"):
+        errors.append(fn)
+
+if errors:
+    print(f"ERROR: {len(errors)} file(s) have absolute paths:", file=sys.stderr)
+    for e in errors[:5]:
+        print(f"  {e}", file=sys.stderr)
+    sys.exit(1)
 
 tree.write(path, xml_declaration=True, encoding="UTF-8")
-print(f"Fixed coverage.xml: source='' prefix='{pkg_prefix}/'")
+print(f"Coverage XML ready ({sum(1 for _ in root.iter('class'))} files)")
 PYEOF
 
-              echo "=== Diagnostics ==="
-              grep -o '<source>[^<]*</source>' /tmp/coverage/coverage.xml | head -3 || true
-              grep -o 'filename="[^"]*"' /tmp/coverage/coverage.xml | head -5 || true
+      - restore_cache:
+          keys:
+            - codecov-cli-v1
+
+      - run:
+          name: Upload coverage to Codecov
+          command: |
+            set -euo pipefail
+
+            if [ ! -x /tmp/codecov ]; then
+              echo "Downloading Codecov CLI..."
+              curl -fsSL https://cli.codecov.io/latest/linux/codecov -o /tmp/codecov
+              chmod +x /tmp/codecov
             fi
 
-            # Diagnostics: verify coverage file exists and is non-empty
-            echo "=== Codecov Upload Diagnostics ==="
-            if [ -f /tmp/coverage/coverage.xml ]; then
-              echo "coverage.xml exists"
-              echo "File size: $(wc -c < /tmp/coverage/coverage.xml) bytes"
-              echo "Line count: $(wc -l < /tmp/coverage/coverage.xml) lines"
-              head -5 /tmp/coverage/coverage.xml
-            else
-              echo "ERROR: /tmp/coverage/coverage.xml not found!"
-              exit 1
-            fi
-            echo "Commit SHA: ${CIRCLE_SHA1}"
-            echo "Branch: ${CIRCLE_BRANCH}"
-            echo "================================="
-
-            # Download official Codecov CLI binary (recommended by Codecov docs)
-            echo "Downloading Codecov CLI..."
-            curl -fsSL https://cli.codecov.io/latest/linux/codecov -o /tmp/codecov
-            chmod +x /tmp/codecov
-
-            echo "Uploading coverage report to Codecov..."
-
-            # upload-process combines create-commit + create-report + do-upload
             /tmp/codecov --verbose upload-process \
               -t ${CODECOV_TOKEN} \
               -r idossha/TI-Toolbox \
@@ -127,7 +111,11 @@ PYEOF
               -F unittests \
               -n "CircleCI-${CIRCLE_BUILD_NUM}" \
               -Z
-          when: always
+
+      - save_cache:
+          key: codecov-cli-v1
+          paths:
+            - /tmp/codecov
 
       - store_test_results:
           path: /tmp/test-results
@@ -140,19 +128,7 @@ PYEOF
           path: /tmp/coverage
           destination: coverage
 
-
 workflows:
-  version: 2
-
-  # Run on all branches including main
-  # This ensures:
-  # 1. Tests run on PRs (feature branches)
-  # 2. Tests run on main branch for coverage tracking
-  # 3. Codecov can track coverage trends over time
   test_workflow:
     jobs:
-      - build-and-run-tests:
-          filters:
-            branches:
-              # Run on all branches
-              only: /.*/
+      - build-and-run-tests

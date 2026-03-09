@@ -103,11 +103,9 @@ ignore:
 comment:
   layout: "reach,diff,flags,tree,footer"
   behavior: default
-  require_changes: false
+  require_changes: true
   require_base: no
   require_head: yes
-  branches:
-    - main
 
 # GitHub status checks configuration
 github_checks:
