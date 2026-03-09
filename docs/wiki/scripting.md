@@ -97,18 +97,6 @@ run_pipeline(
 )
 ```
 
-| Option | Description |
-|--------|-------------|
-| `convert_dicom` | Include DICOM-to-NIfTI conversion stage |
-| `run_recon` | Run FreeSurfer recon-all |
-| `create_m2m` | Create SimNIBS head model (also runs `subject_atlas`) |
-| `parallel_recon` | Multiple subjects simultaneously, 1 core each |
-| `run_tissue_analysis` | Run tissue segmentation analysis |
-| `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker |
-| `run_qsirecon` | Run QSIRecon reconstruction via Docker |
-| `extract_dti` | Extract DTI tensors for anisotropic conductivity |
-| `run_subcortical_segmentations` | Thalamic nuclei and hippocampal subfield segmentations |
-
 See also: `scripts/preprocess.py`
 
 ### Leadfield Generation
@@ -320,22 +308,6 @@ See also: `scripts/cluster_permutation.py`
 
 ---
 
-## Standalone Tools
-
-The `tit/tools/` directory contains utility scripts for mesh and field manipulation:
-
-| Tool | Purpose | Interface |
-|------|---------|-----------|
-| `map_electrodes.py` | Map optimized electrode positions to EEG net sites (Hungarian algorithm) | argparse CLI |
-| `nifti_to_mesh.py` | Convert NIfTI segmentations to STL/Gmsh meshes (marching cubes) | argparse CLI |
-| `field_extract.py` | Extract grey/white matter meshes from full head mesh | argparse CLI |
-| `read_annot.py` | Read and display FreeSurfer `.annot` annotation files | argparse CLI |
-| `mesh2nii.py` | Convert SimNIBS mesh files to NIfTI volumes (subject or MNI space) | function API |
-| `extract_labels.py` | Extract specific labels from NIfTI segmentation files | function API |
-| `montage_visualizer.py` | Render PNG visualizations of electrode placements on EEG cap templates | function API |
-| `mesh_utils.py` | Create Gmsh `.opt` visualization files for mesh fields | function API |
-
----
 
 ## Full Pipeline Example
 
