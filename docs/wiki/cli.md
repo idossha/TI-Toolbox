@@ -4,10 +4,11 @@ title: Command Line Interface
 permalink: /wiki/cli/
 ---
 
-The TI-Toolbox CLI supports two complementary workflows:
+The TI-Toolbox CLI supports three complementary workflows:
 
-- **Interactive mode**: Guided, prompt-based configuration — ideal for exploration and first-time runs who do not want GUI
-- **Direct mode**: Fully specified command-line flags — better for scripts and allow advanced control
+- **Interactive mode**: Guided, prompt-based configuration -- ideal for exploration and first-time runs
+- **Direct mode**: Fully specified command-line flags -- better for scripts and advanced control
+- **JSON config mode**: Each major module has a `__main__.py` entry point that accepts a JSON config file -- used by the GUI and for reproducible runs
 
 ## Interactive vs Direct Mode
 
@@ -38,12 +39,65 @@ simulator \
 ```
 
 Mode selection is automatic:
-- **No arguments** → Interactive mode
-- **Any arguments present** → Direct mode
+- **No arguments** -> Interactive mode
+- **Any arguments present** -> Direct mode
+
+## JSON Config Entry Points
+
+Each major module can be invoked as a subprocess with a JSON config file. This is the pattern the GUI uses to run operations in separate processes:
+
+```bash
+simnibs_python -m tit.sim        config.json
+simnibs_python -m tit.analyzer   config.json
+simnibs_python -m tit.opt.flex   config.json
+simnibs_python -m tit.opt.ex     config.json
+simnibs_python -m tit.stats      config.json
+simnibs_python -m tit.pre        config.json
+```
+
+Each `__main__.py` reads the JSON file, reconstructs typed config dataclasses, and calls the corresponding `run_*` function.
+
+### Config Serialization (`tit/config_io.py`)
+
+The `tit/config_io.py` module handles serialization of typed config dataclasses to JSON and back. It supports:
+
+- **Enum fields** -- serialized as their `.value`
+- **Nested dataclasses** -- recursively serialized
+- **Union-typed fields** -- uses a `_type` discriminator to identify the concrete class (e.g., `SphericalROI`, `AtlasROI`, `LabelMontage`, `XYZMontage`)
+
+```python
+from tit.config_io import write_config_json, read_config_json
+
+# Serialize a config dataclass to a temp JSON file
+path = write_config_json(my_flex_config, prefix="flex")
+
+# Read it back as a plain dict
+data = read_config_json(path)
+```
+
+The `_type` discriminator pattern allows `__main__.py` entry points to reconstruct the correct dataclass variant from a plain JSON dict. For example, an ROI field in the JSON might look like:
+
+```json
+{
+  "_type": "SphericalROI",
+  "center": [-45.0, 0.0, 0.0],
+  "radius": 5.0
+}
+```
+
+### How the GUI Uses This
+
+The GUI tabs build config dataclasses, serialize them via `write_config_json()`, then launch:
+
+```
+simnibs_python -m tit.<module> /tmp/flex_abc123.json
+```
+
+in a `QThread`. Stdout from the subprocess is captured by `BaseProcessThread` and displayed in the tab's console widget.
 
 ## Available Commands
 
-| Command | Description | Interactive | Direct Examples|
+| Command | Description | Interactive | Direct Examples |
 |---------|-------------|-------------|---------|
 | `pre_process` | Preprocessing pipeline | `pre_process` | `pre_process --subs 101 --run-recon --create-m2m` |
 | `flex_search` | Electrode optimization | `flex_search` | `flex_search --subject 101 --roi-method spherical` |

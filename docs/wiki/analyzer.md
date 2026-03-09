@@ -3,51 +3,78 @@ layout: wiki
 title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
-The Analyzer module provides analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and visualization for understanding field distributions in the brain as a whole and specific region of interests.
+The Analyzer module provides analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and visualization for understanding field distributions in the brain as a whole and specific regions of interest.
 
 ## Important Quantities of Interest to Recognize
 - **A. Mean TInorm Intensity in ROI**: Maximal modulation depth (aka TImax).
-- **B. Mean TInorm Intensity in non-ROI**: Could be defind as entire cortex or a specific avoidance target.
+- **B. Mean TInorm Intensity in non-ROI**: Could be defined as entire cortex or a specific avoidance target.
 - **C. Focality**: Ratio between A/B
-- **D. TInormal**: Normal compoent of TInorm with respect to fifth layer of the cortex.
+- **D. TInormal**: Normal component of TInorm with respect to fifth layer of the cortex.
 
 ---
 ## Overview
 
-The Analyzer module consists of three main components:
+The Analyzer module provides a single unified `Analyzer` class that handles both mesh and voxel analysis, plus a `run_group_analysis()` function for multi-subject comparison:
 
-- **MeshAnalyzer**: Analyzes SimNIBS mesh files (.msh) containing field data
-- **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data
-- **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
+- **Analyzer**: Unified class that dispatches spherical and cortical ROI analyses to the appropriate mesh- or voxel-based implementation, returning a typed `AnalysisResult` dataclass
+- **Group Analysis**: Batch processing for multiple subjects via `run_group_analysis()`
 
 <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
+
+### Python API
+
+```python
+from tit.analyzer import Analyzer, AnalysisResult, run_group_analysis
+
+# Create an analyzer for a subject/simulation in mesh or voxel space
+analyzer = Analyzer(subject_id="101", simulation="montage1", space="mesh")
+
+# Spherical ROI analysis
+result = analyzer.analyze_sphere(
+    center=(-31.3, 24.0, -37.0),
+    radius=10.0,
+    coordinate_space="subject",  # or "MNI"
+    visualize=True,
+)
+
+# Cortical atlas ROI analysis
+result = analyzer.analyze_cortex(
+    atlas="DK40",
+    region="lh.insula",
+    visualize=True,
+)
+
+# Access typed result fields
+print(result.roi_mean, result.roi_max, result.roi_focality)
+```
 
 ## Key Features
 
 **Spherical ROI Analysis**
 - Analyze field data within spherical regions of interest
 - Customizable center coordinates and radius
-- Dual-field analysis: TI_max and TI_normal components
-- Statistical metrics: mean, max, min, focality for both field types
+- Support for subject-space and MNI coordinates (automatic transformation)
+- Dual-field analysis: TI_max and TI_normal components (mesh space)
+- Statistical metrics: mean, max, min, focality, percentiles, and area-based focality
 
 **Cortical Analysis (Single Region)**
 - Analyze specific brain regions using atlas parcellation
 - Support for various atlases (DK40, HCP_MMP1, FreeSurfer)
 - Detailed regional statistics and visualizations
 
-**Whole Head Analysis**
-- Comprehensive analysis across all brain regions
-- Batch processing of all atlas regions
-- Comparative analysis and ranking
+**Unified Mesh + Voxel Handling**
+- Single `Analyzer` class automatically dispatches to mesh or voxel implementation based on the `space` parameter
+- Mesh analysis: area-weighted statistics on cortical surface meshes
+- Voxel analysis: volumetric statistics on NIfTI data with FreeSurfer atlas integration
 
 ---
 ## Mesh-Based Analysis
 
-The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution analysis of field data on brain surfaces.
+When `space="mesh"`, the `Analyzer` works with SimNIBS mesh files and provides high-resolution analysis of field data on brain surfaces.
 
 ### Features
 
-- **Surface Mesh Generation**: Automatic creation of gray matter surface meshes
+- **Surface Mesh Generation**: Automatic creation of gray matter surface meshes via `msh2cortex` (cached per instance)
 - **Atlas Integration**: Support for SimNIBS native atlases (DK40, HCP_MMP1)
 - **Field Extraction**: Analysis of TI_max and TI_normal fields
 - **3D Visualization**: Generation of mesh files for 3D viewing
@@ -83,12 +110,12 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 ---
 ## Voxel-Based Analysis
 
-The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atlases for detailed volumetric analysis.
+When `space="voxel"`, the `Analyzer` handles NIfTI format files and integrates with FreeSurfer atlases for detailed volumetric analysis.
 
 ### Features
 
 - **NIfTI Support**: Direct analysis of .nii, .nii.gz, .mgz files
-- **FreeSurfer Integration**: Automatic atlas region extraction
+- **FreeSurfer Integration**: Automatic atlas region extraction and resampling
 - **Visualization Overlays**: Generation of ROI-specific NIfTI overlays
 
 <div class="image-row">
@@ -109,66 +136,72 @@ The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atla
 </div>
 
 
-### Field Analysis Metrics
+### AnalysisResult Fields
+
+All analysis calls return an `AnalysisResult` dataclass with the following fields:
+
+**Core Identifiers:**
+- `field_name`: Name of the field analyzed (e.g. "TI_max")
+- `region_name`: Name of the ROI
+- `space`: "mesh" or "voxel"
+- `analysis_type`: "spherical" or "cortical"
 
 **TI_max Field Metrics:**
-- `mean_value`: Average TI_max field strength in the ROI
-- `max_value`: Peak TI_max field intensity
-- `min_value`: Minimum TI_max field intensity
-- `focality`: ROI average / whole brain average (selectivity measure)
+- `roi_mean`: Area/volume-weighted average TI_max in the ROI
+- `roi_max`: Peak TI_max field intensity in the ROI
+- `roi_min`: Minimum TI_max field intensity in the ROI
+- `roi_focality`: ROI mean / GM mean (selectivity measure)
+- `gm_mean`: Area/volume-weighted average across entire grey matter
+- `gm_max`: Maximum TI_max value across entire GM
 
-**TI_normal Field Metrics:**
-- `normal_mean_value`: Average TI_normal field strength (directional component)
-- `normal_max_value`: Peak TI_normal field intensity
-- `normal_min_value`: Minimum TI_normal field intensity
-- `normal_focality`: TI_normal ROI average / whole brain average
+**TI_normal Field Metrics (mesh only):**
+- `normal_mean`: Average TI_normal field strength in the ROI
+- `normal_max`: Peak TI_normal field intensity in the ROI
+- `normal_focality`: TI_normal ROI mean / TI_normal GM mean
 
-**Additional Information:**
-- `nodes_in_roi`: Number of mesh nodes within the ROI
-- `visualization_file`: Path to the generated mesh visualization file
+**Percentile Metrics:**
+- `percentile_95`, `percentile_99`, `percentile_99_9`: Field value at each percentile
+
+**Focality Area Metrics:**
+- `focality_50_area`, `focality_75_area`, `focality_90_area`, `focality_95_area`: Area/volume above X% of the 99.9th percentile value (in cm^2)
+
+**Size Information:**
+- `n_elements`: Number of mesh nodes or voxels in the ROI
+- `total_area_or_volume`: Total area (mesh, mm^2) or volume (voxel, mm^3) of the ROI
 
 ---
 ## Group Analysis
 
-The Group Analyzer enables batch processing and comparative analysis across multiple subjects and montages, supporting flexible experimental designs.
+The `run_group_analysis()` function enables batch processing and comparative analysis across multiple subjects and montages, returning a `GroupResult` object.
 
 ### Flexible Group Combinations
 
-The group analyzer now supports **arbitrary combinations** of subjects and montages:
+Group analysis supports **arbitrary combinations** of subjects and montages:
 
-- **Same subject × Multiple different montages**: Compare different stimulation configurations within the same individual
-- **Multiple subjects × Same montage**: Assess inter-subject variability for a specific stimulation protocol
-- **Multiple subjects × Different montages**: Full factorial design comparing both subject variability and montage effects
+- **Same subject x Multiple different montages**: Compare different stimulation configurations within the same individual
+- **Multiple subjects x Same montage**: Assess inter-subject variability for a specific stimulation protocol
+- **Multiple subjects x Different montages**: Full factorial design comparing both subject variability and montage effects
 
 ### Usage
 
-```bash
-# Example: Compare the same montage across multiple subjects
-simnibs_python -m tit.analyzer.group_analyzer \
-    --space mesh \
-    --analysis_type spherical \
-    --coordinates 10 20 30 \
-    --radius 5.0 \
-    --subject subj001 /path/to/subj001/m2m montage1 \
-    --subject subj002 /path/to/subj002/m2m montage1 \
-    --subject subj003 /path/to/subj003/m2m montage1 \
-    --output_dir /path/to/group/output
+```python
+from tit.analyzer import run_group_analysis
 
-# Example: Compare different montages on the same subject
-simnibs_python -m tit.analyzer.group_analyzer \
-    --space mesh \
-    --analysis_type cortical \
-    --atlas_name DK40 \
-    --region prefrontal \
-    --subject subj001 /path/to/subj001/m2m montage1 \
-    --subject subj001 /path/to/subj001/m2m montage2 \
-    --subject subj001 /path/to/subj001/m2m montage3 \
-    --output_dir /path/to/group/output
+result = run_group_analysis(
+    subjects=["101", "102", "103"],
+    simulations=["montage1"],
+    space="mesh",
+    analysis_type="spherical",
+    center=(10, 20, 30),
+    radius=5.0,
+    coordinate_space="MNI",
+    output_dir="/path/to/group/output",
+)
 ```
 
 ### Features
 
-- **MNI Coordinate Support**: Automatically transform MNI coordinates to each subject's native space using `--use-mni-coords`
+- **MNI Coordinate Support**: Automatically transform MNI coordinates to each subject's native space
 - **Comprehensive Comparisons**: Automatic generation of statistical comparisons, rankings, and visualizations
 - **Centralized Logging**: Consolidated logging across all subjects and analyses
 - **Progress Tracking**: Real-time progress monitoring with timing information

@@ -4,161 +4,116 @@ title: Logging Processes in the Toolbox
 permalink: /wiki/logging/
 ---
 
-The TI-Toolbox features its very own logging utility that provides a consistent and flexible way to handle logging across all components of the toolbox. This logging system is designed to be both powerful and easy to use, with support for both console and file output.
+The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. It configures the `tit` logger hierarchy but adds **no handlers by default** -- no console output, no file output -- until you explicitly attach one. This keeps terminal output clean and gives each entry point full control over where logs go.
 
-## Log Files
+## Architecture
 
-### Location and Structure
+The logging module exposes three public functions:
 
-Log files are automatically stored in a structured directory hierarchy:
-```
-project_root/
-└── derivatives/
-    └── logs/
-        └── sub-{subject_id}/
-            └── {component_name}_{timestamp}.log
-```
+| Function | Purpose |
+|----------|---------|
+| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers |
+| `add_file_handler(log_file)` | Attach a `FileHandler` to a named logger |
+| `get_file_only_logger(name, log_file)` | Return a standalone logger that writes only to a file |
 
-For example:
-```
-/mnt/projectdir/derivatives/logs/sub-010/analyzer_20250605_231026.log
-```
+### `setup_logging(level)`
 
-### Reading Log Files
+```python
+from tit.logger import setup_logging
 
-Log files contain detailed information about the execution of various toolbox components. Each log entry follows this format:
-```
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Mesh analyzer initialized successfully
+setup_logging("DEBUG")
 ```
 
-Breaking down the format:
-- Timestamp: `[2025-06-05 23:10:26]`
-- Component: `[analyzer.mesh_analyzer]`
-- Log Level: `[INFO]`
-- Message: `Mesh analyzer initialized successfully`
+This does three things:
+1. Clears any existing handlers on the `tit` logger
+2. Sets the log level (defaults to `INFO`)
+3. Sets `propagate = False` so messages never bubble to the root logger or terminal
+
+Third-party loggers (`matplotlib`, `PIL`) are silenced to `ERROR` level.
+
+### `add_file_handler(log_file, level, logger_name)`
+
+```python
+from tit.logger import add_file_handler
+
+fh = add_file_handler("/path/to/run.log", level="DEBUG", logger_name="tit")
+```
+
+- Creates the parent directory if needed
+- Opens the file in append mode
+- Returns the `FileHandler` so callers can remove it when finished
+
+### `get_file_only_logger(name, log_file)`
+
+```python
+from tit.logger import get_file_only_logger
+
+logger = get_file_only_logger("tit.analyzer.roi", "/path/to/roi.log")
+```
+
+Returns a logger with `propagate = False` that writes exclusively to the given file. Useful for per-ROI or per-subject log isolation.
+
+## Log Format
+
+All file handlers use the same format:
+
+```
+2025-06-05 23:10:26 | INFO | tit.analyzer | Mesh analyzer initialized successfully
+```
+
+Fields: timestamp, level, logger name, message.
 
 ### Log Levels
 
-Log entries are categorized by importance:
-- **INFO**: General information about program execution
-- **WARNING**: Warning messages for potentially problematic situations
-- **ERROR**: Error messages for serious problems
-- **DEBUG**: Detailed information for debugging (not shown by default)
+- **DEBUG**: Detailed diagnostic information (file handlers default to this)
+- **INFO**: General progress information
+- **WARNING**: Potentially problematic situations
+- **ERROR**: Serious problems
+- **CRITICAL**: Fatal errors
 
-## Real-World Examples
+## How Each Entry Point Uses Logging
 
-### Process Tracking
+### GUI (`tit/gui/`)
 
-The logs show the progression of operations:
+The GUI uses a custom `_QtHandler(logging.Handler)` that bridges log records to a Qt signal. This feeds log messages into the console widget of each tab without any terminal output.
 
-```
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Starting spherical ROI analysis (radius=5.0mm) at coordinates [-45.0, 0.0, 0.0]
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Loading mesh data...
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Creating spherical ROI at [-45.0, 0.0, 0.0] with radius 5.0mm...
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Found 45 nodes in the ROI
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Calculating statistics...
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Generating visualizations...
-```
+### `__main__.py` Subprocess Entry Points
 
-### Results and Statistics
+Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) use `print()` for progress output. This is intentional: `BaseProcessThread` in the GUI captures stdout from subprocesses and displays it in the console widget. A stdlib logger with a `StreamHandler(sys.stdout)` is used in some entry points (e.g., `tit.sim.__main__`) for structured output that still reaches the GUI.
 
-Important results and statistics are logged with precise values:
+### Library Usage
 
-```
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer.visualizer] [INFO] Data: 45 nodes, mean=0.032638, max=0.094988, min=0.009335
-```
-
-### Command Execution
-
-External command execution is logged with full details:
-
-```
-[2025-06-05 23:10:27] [analyzer.mesh_analyzer] [INFO] Running: msh2cortex -i /mnt/projectdir/derivatives/SimNIBS/sub-010/Simulations/M1/TI/mesh/grey_010_M1_TI.msh -m /mnt/projectdir/derivatives/SimNIBS/sub-010/m2m_010 -o /mnt/projectdir/derivatives/SimNIBS/sub-010/Simulations/M1/TI/mesh
-```
-
-## Features
-
-- **Dual Output**: Logs are written to both console and file simultaneously
-- **Hierarchical Logging**: Support for parent-child logger relationships
-- **External Logger Integration**: Ability to configure external loggers (e.g., SimNIBS)
-- **Timestamped Log Files**: Automatic creation of timestamped log files
-- **Configurable Formats**: Different formats for console and file output
-- **Log Level Control**: Configurable logging levels
-
-## Environment Variables
-
-The logging system respects the following environment variables:
-- `TI_LOG_FILE`: Custom log file path (optional)
-- `PROJECT_DIR`: Project root directory (required for default log file location)
-- `SUBJECT_ID`: Subject identifier (required for default log file location)
-
-## For Developers
-
-### Python Usage
+When using `tit` as a library, call `setup_logging()` at your entry point and attach handlers as needed:
 
 ```python
-from tit import get_logger
+from tit.logger import setup_logging, add_file_handler
 
-# Create a logger with default settings
-logger = get_logger('my_component')
+setup_logging("INFO")
+fh = add_file_handler("my_analysis.log")
 
-# Log messages at different levels
-logger.debug("Detailed information for debugging")
-logger.info("General information about program execution")
-logger.warning("Warning messages for potentially problematic situations")
-logger.error("Error messages for serious problems")
+# ... run analysis ...
+
+# Clean up when done
+import logging
+logging.getLogger("tit").removeHandler(fh)
 ```
 
-### Advanced Features
+## What Was Removed
 
-#### Child Loggers
+Previous versions (~v2.2.3 and earlier) had ~750 lines of custom logging infrastructure including:
 
-Create child loggers to maintain a hierarchical logging structure:
+- `get_logger()` factory function (deleted)
+- `configure_external_loggers()` for SimNIBS integration
+- Dual console + file output by default
+- `TI_LOG_FILE`, `PROJECT_DIR`, `SUBJECT_ID` environment variables
+- Debug toggles in the GUI
 
-```python
-# Create a parent logger
-parent_logger = get_logger('parent')
-
-# Create a child logger
-child_logger = parent_logger.getChild('child')
-```
-
-The logger name hierarchy is reflected in the log output:
-```
-[2025-06-05 23:10:26] [parent] [INFO] Parent message
-[2025-06-05 23:10:26] [parent.child] [INFO] Child message
-```
-
-#### External Logger Integration
-
-Configure external loggers to use the same logging setup:
-
-```python
-from tit.logger import configure_external_loggers
-
-# Configure external loggers to use the same handlers
-configure_external_loggers(['simnibs', 'mesh_io'], parent_logger)
-```
-
-This ensures consistent logging across all components, including third-party libraries.
-
-#### Custom Log File Location
-
-Specify a custom log file location:
-
-```python
-logger = get_logger('my_component', log_file='/path/to/custom.log')
-```
-
-You can also set the log file path through the `TI_LOG_FILE` environment variable:
-```bash
-export TI_LOG_FILE="/path/to/custom.log"
-```
+All of this has been replaced by the three functions described above. There are no environment variables and no debug toggles.
 
 ## Best Practices
 
-1. **Use Descriptive Logger Names**: Name loggers after the component they're used in
-2. **Maintain Log Hierarchy**: Use child loggers for sub-components
-3. **Appropriate Log Levels**: Use the appropriate log level for each message
-4. **Structured Logging**: Include relevant context in log messages
-5. **Error Handling**: Always log errors with sufficient context for debugging 
+1. **Call `setup_logging()` once** at your entry point -- not in library code
+2. **Use `add_file_handler()`** to direct logs to a file when you need a record
+3. **Use `print()`** in `__main__.py` modules where output must reach subprocess capture
+4. **Use `logging.getLogger("tit.your_module")`** in library modules -- the hierarchy propagates to whatever handlers are attached to the `tit` logger
+5. **Clean up handlers** when a run completes to avoid leaking file descriptors

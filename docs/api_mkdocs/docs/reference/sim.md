@@ -6,14 +6,14 @@
 
 ::: tit.sim.config
 
-## Simulator (`tit.sim.simulator`)
+## TI simulation (`tit.sim.TI`)
 
-::: tit.sim.simulator
+::: tit.sim.TI
 
-## Session builder (`tit.sim.session_builder`)
+## mTI simulation (`tit.sim.mTI`)
 
-::: tit.sim.session_builder
+::: tit.sim.mTI
 
-## Post-processor (`tit.sim.post_processor`)
+## Utilities (`tit.sim.utils`)
 
-::: tit.sim.post_processor
+::: tit.sim.utils

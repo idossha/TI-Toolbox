@@ -4,7 +4,7 @@ This is the **auto-generated Python API** for the Temporal Interference Toolbox 
 
 ## Modules
 
-- [Core](reference/core.md)
+- [Core Modules](reference/core.md) (paths, constants, calc, config_io, logger)
 - [Simulation](reference/sim.md)
 - [Analyzer](reference/analyzer.md)
 - [Optimization](reference/opt.md)

@@ -18,7 +18,7 @@ theme:
 nav:
   - API Home: index.md
   - Reference:
-      - Core: reference/core.md
+      - Core Modules: reference/core.md
       - Simulation: reference/sim.md
       - Analyzer: reference/analyzer.md
       - Optimization: reference/opt.md

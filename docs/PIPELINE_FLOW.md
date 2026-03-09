@@ -14,7 +14,7 @@ Run temporal interference (TI) simulations with predefined electrode montages.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/simulator.sh                                 │
+│  python -m tit.sim (or GUI SimulatorTab)               │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/flex_search.py                               │
+│  python -m tit.opt.flex (or GUI FlexSearchTab)         │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -118,7 +118,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 │                   INFORMATION FLOW                           │
 │                                                              │
 │  1. Parse and validate inputs                                │
-│     └─> tit/opt/flex/flex_config.py                  │
+│     └─> tit/opt/config.py (FlexConfig)               │
 │                                                              │
 │  2. Setup optimization object                                │
 │     └─> Configure ROI (spherical or atlas-based)            │
@@ -197,7 +197,7 @@ Perform exhaustive search optimization across all electrode combinations and cur
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/ex-search.sh                                 │
+│  python -m tit.opt.ex (or GUI ExSearchTab)             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -224,12 +224,12 @@ Perform exhaustive search optimization across all electrode combinations and cur
 │     └─> Load/select EEG net and leadfield                    │
 │                                                              │
 │  3. Call main optimization script                            │
-│     └─> tit/opt/ex/ti_sim.py                          │
+│     └─> tit/opt/ex/engine.py                          │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      COMPUTATION                             │
-│  (ti_sim.py + SimNIBS TI_utils)                              │
+│  (engine.py + SimNIBS TI_utils)                              │
 │                                                              │
 │  1. Generate current ratios                                  │
 │     └─> Systematic ratios respecting channel limits          │

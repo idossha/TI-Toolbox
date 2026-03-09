@@ -8,7 +8,51 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 
 ---
-### v2.2.4 (Latest Release)
+### v2.3.0 (Latest Release)
+**Release Date**: March 2026
+#### Additions
+- **Anisotropy Support**: Flex-search now supports 4 conductivity models (isotropic, volume-normalized, direct, multi-conductivity) via GUI dropdown and `FlexConfig.anisotropy_type` parameter.
+- **Optimization Output Manifest**: Flex-search outputs `manifest.json` tracking generated files, best run metadata, and parameter log for reproducibility.
+- **Unified Analyzer**: Single `Analyzer` class replaces the old mesh/voxel split. Unified sphere and cortex ROI handling. New `run_group_analysis()` for multi-subject comparisons.
+- **Clean Python API**: One-liner imports across all modules — `from tit.sim import SimulationConfig, run_simulation`, `from tit.opt import FlexConfig, run_flex_search`, etc.
+- **JSON Config Entrypoints**: All modules support `simnibs_python -m tit.<module> config.json` for programmatic and GUI-driven invocation. New `tit/config_io.py` handles typed serialization.
+- **Rebuilt Test Suite**: 132 pytest tests covering all modules with comprehensive mocking. Runs in 0.28s.
+- **Reusable GUI Components**: Extracted `ROIPickerWidget`, `ElectrodeConfigWidget`, `SolverParamsWidget` for cross-tab reuse.
+#### Refactors & Improvements
+- **PathManager Rewrite**: Replaced 930-line template engine with 180-line direct-method API (`pm.m2m(sid)`, `pm.simulation(sid, sim)`). IDE autocompletion now works; typos caught at import time.
+- **Module Reorganization**: Dissolved `tit/core/` — modules moved to `tit/paths`, `tit/constants`, `tit/calc`. `tit/core/nifti` moved to `tit/stats/nifti`. `tit/core/mesh` moved to `tit/tools/mesh_utils`.
+- **Logger Simplification**: Removed ~750 lines of custom handler/wrapper code. File-only logging with Qt bridge for GUI. No terminal output from logger.
+- **GUI Threading**: Eliminated all blocking `.wait()` calls. Signal-based completion. Consistent subprocess pattern (config -> JSON -> subprocess) across all tabs.
+- **Optimizer Cleanup**: Unified 6 ROI classes to 3. Type-safe enums (`OptGoal`, `FieldPostproc`). Proper exception handling replaces `SystemExit`.
+- **Flex-Search Simplification**: Deleted `flex_log.py`, `multi_start.py`, `pareto_sweep.py`. ~680 lines removed.
+- **Ex-Search Consolidation**: Merged static + stateful algorithm classes. Clearer error messages.
+- **Preprocessing Hardening**: Errors propagate loudly. Tightened exception types. `run_subcortical_segmentations()` is now a public API.
+- **Import Integrity**: Fixed all broken `tit.core.*` references across ~47 files.
+#### Fixes
+- GUI no longer freezes during long-running operations.
+- Montage visualizer CSV header parsing corrected.
+- Bare `except:` clauses replaced with `except Exception:`.
+- Debug-mode checkboxes removed from all GUI tabs (were non-functional after logger refactor).
+#### Breaking Changes
+- `tit.core.*` imports no longer work — use `tit.paths`, `tit.constants`, `tit.calc` directly.
+- `PathManager.path("key")` template API removed — use direct methods (`pm.m2m(sid)`).
+- `MeshAnalyzer` and `VoxelAnalyzer` classes deleted — use unified `Analyzer`.
+- `run_analysis()` replaced by `Analyzer.run()` / `run_group_analysis()`.
+- Logger functions `get_logger()`, `build_logger()`, `build_opt_logger()` deleted — use `logging.getLogger(__name__)`.
+#### Download Links
+**Desktop App (v2.3.0):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.0/TI-Toolbox-2.3.0.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.0/TI-Toolbox-2.3.0-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.0/TI-Toolbox.Setup.2.3.0.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.0/TI-Toolbox-2.3.0.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.0/ti-toolbox_2.3.0_amd64.deb)
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:v2.3.0`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
+---
+
+### v2.2.4
 **Release Date**: January 16, 2026
 #### Additions
 - N/A

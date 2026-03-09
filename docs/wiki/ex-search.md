@@ -4,19 +4,22 @@ title: Ex-Search TI Optimization Pipeline
 permalink: /wiki/ex-search/
 ---
 
-The Ex-Search module provides a high-performance, exhaustive search approach for Temporal Interference (TI) simulations. The system features unified logging, multiple EEG net support, flexible leadfield management, and optimized computational efficiency.
+The Ex-Search module provides a high-performance, exhaustive search approach for Temporal Interference (TI) simulations. The public API is `run_ex_search(config: ExConfig) -> ExResult`.
 
 ## Overview
 
 Ex-Search implements a true **exhaustive search** approach for Temporal Interference (TI) optimization, systematically evaluating all possible electrode combinations within user-defined constraints. Unlike sampling-based methods, ex-search guarantees finding the globally optimal montage configuration.
 
+The implementation uses a single `ExSearchEngine` class that owns the full pipeline: leadfield loading, ROI resolution, TI field computation, and the simulation loop.
+
 **Key Features:**
-- **True Exhaustive Search**: Evaluates all N⁴ electrode combinations × current ratios (where N = electrodes per channel)
+- **True Exhaustive Search**: Evaluates all electrode combinations x current ratios
 - **Multiple EEG Nets**: Support for high-density (10:10) and 10-20 nets with automatic co-registration
 - **ROI Analysis**: Spherical ROI definition with configurable radius specification (default 3mm)
 - **Current Ratio Optimization**: Systematic testing of current ratios respecting channel limits
 - **High-Performance Processing**: Memory-efficient in-memory calculations with real-time progress tracking
 - **Comprehensive Metrics**: TImax, TImean, Focality analysis with automatic visualization
+- **Proper Error Handling**: Custom exceptions instead of SystemExit for better integration
 
 ## Search Modes
 
@@ -123,23 +126,59 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 - **Visualization**: Automatic histogram generation (TImax, TImean, Focality distributions)
 - **Output Formats**: JSON results, CSV summaries, PNG histograms
 
+## Python API
+
+```python
+from tit.opt.config import ExConfig, ExCurrentConfig, PoolElectrodes, BucketElectrodes
+
+# Pooled mode: all electrodes can go to any channel
+config = ExConfig(
+    subject_id="101",
+    project_dir="/path/to/project",
+    leadfield_hdf="/path/to/leadfield.hdf5",
+    roi_name="target_roi",
+    electrodes=PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4", "Pz", "Oz"]),
+    currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
+    roi_radius=3.0,
+    eeg_net="EGI10-20_Okamoto_2004",
+)
+
+# Bucketed mode: electrodes pre-assigned to channels
+config = ExConfig(
+    subject_id="101",
+    project_dir="/path/to/project",
+    leadfield_hdf="/path/to/leadfield.hdf5",
+    roi_name="target_roi",
+    electrodes=BucketElectrodes(
+        e1_plus=["Fp1", "Fp2"],
+        e1_minus=["Pz", "Oz"],
+        e2_plus=["C3", "F3"],
+        e2_minus=["C4", "F4"],
+    ),
+    currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
+    roi_radius=3.0,
+    eeg_net="EGI10-20_Okamoto_2004",
+)
+
+from tit.opt.ex import run_ex_search
+result = run_ex_search(config)
+print(result.success, result.n_combinations, result.results_csv)
+```
+
 ## Technical Implementation
 
-### Optimized Processing Architecture
-The ex-search implementation features several performance optimizations:
+### Architecture
 
-- **Memory-Efficient Design**: In-memory field calculations eliminate intermediate file I/O
-- **Itertools Integration**: Uses `itertools.product()` for efficient combination generation instead of nested loops
+The ex-search engine is built around a single `ExSearchEngine` class that consolidates what was previously split across multiple classes (`LeadfieldAlgorithms`, `LeadfieldProcessor`, `TIAlgorithms`, `TISimulator`). This class owns the full pipeline:
 
-### Algorithm Efficiency
-```
-for processed, (e1_plus, e1_minus, e2_plus, e2_minus, current_ratio) in \
-        enumerate(product(E1_plus, E1_minus, E2_plus, E2_minus, ratios), 1):
-    # Process combination
-```
+1. **Leadfield loading** via SimNIBS `TI_utils`
+2. **ROI resolution** from CSV coordinates + sphere radius
+3. **GM element identification** by tissue tag
+4. **TI field computation** per montage combination
+5. **Metric extraction** (TImax, TImean, Focality)
 
 ### Performance Characteristics
 - **Scalability**: Handles large electrode combinations (1000+ montages) efficiently
-- **Memory Usage**: Constant memory footprint regardless of combination count
+- **Memory Usage**: Constant memory footprint regardless of combination count -- all computation is in-memory with no intermediate file I/O
 - **Progress Tracking**: Real-time ETA calculation with rate monitoring
-- **Error Resilience**: Individual combination failures don't halt entire optimization
+- **Graceful Interruption**: Signal handling (SIGINT/SIGTERM) for clean shutdown

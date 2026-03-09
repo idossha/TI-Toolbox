@@ -2,6 +2,10 @@
 
 ::: tit.opt
 
+## Shared config (`tit.opt.config`)
+
+::: tit.opt.config
+
 ## Leadfield (`tit.opt.leadfield`)
 
 ::: tit.opt.leadfield
@@ -14,18 +18,38 @@
 
 ::: tit.opt.flex.flex
 
-### Config (`tit.opt.flex.flex_config`)
+### Builder (`tit.opt.flex.builder`)
 
-::: tit.opt.flex.flex_config
+::: tit.opt.flex.builder
 
-## Ex search (`tit.opt.ex`)
+### Manifest (`tit.opt.flex.manifest`)
+
+::: tit.opt.flex.manifest
+
+### Pareto (`tit.opt.flex.pareto`)
+
+::: tit.opt.flex.pareto
+
+### Utilities (`tit.opt.flex.utils`)
+
+::: tit.opt.flex.utils
+
+## Exhaustive search (`tit.opt.ex`)
 
 ::: tit.opt.ex
 
-### Main (`tit.opt.ex.main`)
+### Engine (`tit.opt.ex.engine`)
 
-::: tit.opt.ex.main
+::: tit.opt.ex.engine
 
-### Runner (`tit.opt.ex.runner`)
+### Ex search (`tit.opt.ex.ex`)
 
-::: tit.opt.ex.runner
+::: tit.opt.ex.ex
+
+### Logic (`tit.opt.ex.logic`)
+
+::: tit.opt.ex.logic
+
+### Results (`tit.opt.ex.results`)
+
+::: tit.opt.ex.results

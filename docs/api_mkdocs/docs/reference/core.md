@@ -1,23 +1,24 @@
-# Core (`tit.core`)
+# Core Modules
 
-::: tit.core
+The modules formerly under `tit.core` have been reorganized as top-level
+modules inside the `tit` package.
 
-## Paths (`tit.core.paths`)
+## Paths (`tit.paths`)
 
-::: tit.core.paths
+::: tit.paths
 
-## Constants (`tit.core.constants`)
+## Constants (`tit.constants`)
 
-::: tit.core.constants
+::: tit.constants
 
-## NIfTI (`tit.core.nifti`)
+## Calc (`tit.calc`)
 
-::: tit.core.nifti
+::: tit.calc
 
-## Mesh (`tit.core.mesh`)
+## Config IO (`tit.config_io`)
 
-::: tit.core.mesh
+::: tit.config_io
 
-## Calc (`tit.core.calc`)
+## Logger (`tit.logger`)
 
-::: tit.core.calc
+::: tit.logger

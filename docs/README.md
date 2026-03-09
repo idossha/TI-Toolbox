@@ -45,7 +45,7 @@ For Linux/Windows or systems requiring different Ruby configurations:
 
 - **Source**: `docs/api_mkdocs/`
   - `docs/api_mkdocs/mkdocs.yml`
-  - `docs/api_mkdocs/docs/` (markdown pages with `mkdocstrings` directives like `::: tit.core.paths`)
+  - `docs/api_mkdocs/docs/` (markdown pages with `mkdocstrings` directives like `::: tit.paths`)
 - **Output (committed)**: `docs/api/`
   - This folder contains the generated static HTML/CSS/JS.
   - We commit it so the API docs can be served **without any CI/CD**.

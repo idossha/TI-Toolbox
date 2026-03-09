@@ -157,5 +157,5 @@ Both report types include publication-ready methodology sections that can be dir
 
 ---
 
-*Last Updated: January 2025*
-*Compatible with: TI-Toolbox v4.0+, Modern Web Browsers*
+*Last Updated: March 2026*
+*Compatible with: TI-Toolbox v2.2+, Modern Web Browsers*

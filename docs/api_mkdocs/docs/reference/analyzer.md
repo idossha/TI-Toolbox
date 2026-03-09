@@ -2,14 +2,18 @@
 
 ::: tit.analyzer
 
-## Mesh analyzer (`tit.analyzer.mesh_analyzer`)
+## Analyzer class (`tit.analyzer.analyzer`)
 
-::: tit.analyzer.mesh_analyzer
+::: tit.analyzer.analyzer
 
-## Voxel analyzer (`tit.analyzer.voxel_analyzer`)
+## Field selector (`tit.analyzer.field_selector`)
 
-::: tit.analyzer.voxel_analyzer
+::: tit.analyzer.field_selector
 
-## Group analyzer (`tit.analyzer.group_analyzer`)
+## Group analysis (`tit.analyzer.group`)
 
-::: tit.analyzer.group_analyzer
+::: tit.analyzer.group
+
+## Visualizer (`tit.analyzer.visualizer`)
+
+::: tit.analyzer.visualizer

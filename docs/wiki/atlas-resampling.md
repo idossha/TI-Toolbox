@@ -35,10 +35,10 @@ When a dimension mismatch is detected between your atlas and field data, the too
 ### Example Log Output
 
 ```
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Atlas and field dimensions don't match, attempting to resample...
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [DEBUG] Atlas shape: (256, 256, 256)
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [DEBUG] Field shape: (512, 512, 512)
-[2025-06-05 23:10:26] [analyzer.mesh_analyzer] [INFO] Running: mri_convert --reslice_like template.nii.gz atlas.mgz resampled_atlas.nii.gz
+[2025-06-05 23:10:26] [analyzer.analyzer] [INFO] Atlas and field dimensions don't match, attempting to resample...
+[2025-06-05 23:10:26] [analyzer.analyzer] [DEBUG] Atlas shape: (256, 256, 256)
+[2025-06-05 23:10:26] [analyzer.analyzer] [DEBUG] Field shape: (512, 512, 512)
+[2025-06-05 23:10:26] [analyzer.analyzer] [INFO] Running: mri_convert --reslice_like template.nii.gz atlas.mgz resampled_atlas.nii.gz
 ```
 
 ## Resampled Atlas Storage

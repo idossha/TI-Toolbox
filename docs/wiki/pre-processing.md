@@ -8,11 +8,15 @@ The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simul
 
 ## Overview
 
-The pre-processing pipeline consists of three main stages:
+The pre-processing pipeline consists of several stages (each individually toggleable):
 
 1. **DICOM to NIfTI Conversion** - Convert raw DICOM files to BIDS-compliant NIfTI format
 2. **FreeSurfer recon-all** - Cortical reconstruction and segmentation
-3. **SimNIBS charm** - Head model creation for electromagnetic simulations
+3. **SimNIBS charm** - Head model creation for electromagnetic simulations (also generates atlas `.annot` files via `subject_atlas`)
+4. **Tissue Analysis** - Tissue segmentation quality checks
+5. **QSIPrep / QSIRecon** - Diffusion-weighted imaging preprocessing and reconstruction
+6. **DTI Tensor Extraction** - Extract DTI tensors for SimNIBS anisotropic conductivity
+7. **Subcortical Segmentations** - Thalamic nuclei and hippocampal subfield segmentations via `run_subcortical_segmentations()`
 
 ## Required Input Data Structure
 
@@ -74,7 +78,7 @@ graph LR
 
 ```python
 from tit.pre.dicom2nifti import run_dicom_to_nifti
-from tit.pre.common import build_logger
+from tit.pre.utils import build_logger
 
 logger = build_logger("dicom2nifti", subject_id="101", project_dir="/path/to/project")
 run_dicom_to_nifti("/path/to/project", "101", logger=logger)
@@ -96,7 +100,7 @@ run_dicom_to_nifti("/path/to/project", "101", logger=logger)
 
 ```python
 from tit.pre.recon_all import run_recon_all
-from tit.pre.common import build_logger
+from tit.pre.utils import build_logger
 
 logger = build_logger("recon-all", subject_id="101", project_dir="/path/to/project")
 run_recon_all("/path/to/project", "101", logger=logger, parallel=True)
@@ -131,7 +135,7 @@ derivatives/
 
 ```python
 from tit.pre.charm import run_charm
-from tit.pre.common import build_logger
+from tit.pre.utils import build_logger
 
 logger = build_logger("charm", subject_id="101", project_dir="/path/to/project")
 run_charm("/path/to/project", "101", logger=logger)
@@ -156,7 +160,7 @@ derivatives/
 #### Python API
 
 ```python
-from tit.pre.structural import run_pipeline
+from tit.pre import run_pipeline
 
 run_pipeline(
     "/path/to/project",
@@ -165,6 +169,7 @@ run_pipeline(
     run_recon=True,
     create_m2m=True,
     parallel_recon=True,
+    run_subcortical_segmentations=True,
 )
 ```
 
@@ -172,10 +177,15 @@ run_pipeline(
 
 | Option | Description | Usage |
 |--------|-------------|-------|
-| `run_recon` | Run FreeSurfer reconstruction | Optional |
 | `convert_dicom` | Include DICOM conversion stage | Optional |
-| `create_m2m` | Include SimNIBS head model creation | Optional |
+| `run_recon` | Run FreeSurfer reconstruction | Optional |
+| `create_m2m` | Include SimNIBS head model creation (also runs `subject_atlas` for `.annot` files) | Optional |
 | `parallel_recon` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
+| `run_tissue_analysis` | Run tissue segmentation analysis | Optional |
+| `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker | Optional |
+| `run_qsirecon` | Run QSIRecon reconstruction via Docker | Optional |
+| `extract_dti` | Extract DTI tensors for SimNIBS anisotropic conductivity | Optional |
+| `run_subcortical_segmentations` | Run thalamic nuclei and hippocampal subfield segmentations | Optional |
 
 
 #### Processing Mode Selection
@@ -330,6 +340,10 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 2. **Memory Management**: Ensure adequate Docker memory allocation
 3. **Disk I/O**: Use fast storage (SSD) for improved performance
 4. **CPU Utilization**: Consider leaving a couple of cores free
+
+## Error Handling
+
+The pipeline uses narrow exception types (e.g. `OSError` instead of bare `except Exception`) so that programming errors surface immediately. If a step fails, the error propagates up and halts the pipeline rather than being silently swallowed. Custom exceptions `PreprocessError` and `PreprocessCancelled` (defined in `tit.pre.utils`) distinguish between true failures and user-initiated cancellations.
 
 ## Integration with Analysis Pipeline
 

@@ -47,6 +47,31 @@ The GUI is built on PyQt5 with a modular architecture:
 - **Extension Framework**: Plugin architecture for expandable features
 - **Real-time Monitoring**: Live updates for long-running operations
 
+### Subprocess Pattern
+
+All heavyweight tabs (Flex-Search, Ex-Search, Analyzer) follow a uniform execution pattern:
+
+1. The tab builds a configuration dataclass from UI inputs.
+2. The config is serialized to a temporary JSON file via `tit.config_io`.
+3. A `BaseProcessThread` (in `tit/gui/process.py`) launches the computation as a subprocess (`simnibs_python -m <module> config.json`).
+4. Stdout from the subprocess is streamed into the tab's console widget.
+5. Completion is handled through Qt signals — no blocking `.wait()` calls on the main thread.
+
+The **Simulator tab** is the exception: it calls `run_simulation()` directly inside a `QThread` because SimNIBS is already available in-process.
+
+### Reusable Components
+
+Common UI elements have been extracted into `tit/gui/components/`:
+
+| Component | Class | Purpose |
+|-----------|-------|---------|
+| `roi_picker.py` | `ROIPickerWidget` | Spherical / cortical-atlas / subcortical ROI selection with Freeview integration and MNI-space toggle |
+| `electrode_config.py` | `ElectrodeConfigWidget` | Electrode current, shape, dimensions, and thickness inputs |
+| `solver_params.py` | `SolverParamsWidget` | Differential-evolution hyper-parameters (multi-start, population, mutation, etc.) |
+| `console.py` | `ConsoleWidget` | Dark-themed console output with colored messages and auto-scroll |
+
+These widgets emit Qt signals (e.g. `ROIPickerWidget.roi_changed`) so that parent tabs can react to value changes without polling.
+
 ## Getting Started
 
 To launch the GUI:
@@ -56,4 +81,4 @@ To launch the GUI:
 GUI
 ```
 
-The GUI and CLI share the same underlying TI-Toolbox core.
+The GUI and CLI share the same underlying TI-Toolbox APIs.

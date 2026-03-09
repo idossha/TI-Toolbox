@@ -4,7 +4,7 @@ title: Simulator
 permalink: /wiki/simulator/
 ---
 
-The Simulator module provides temporal interference (TI) simulation capabilities within the TI-Toolbox GUI, supporting multiple montage sources, electrode configurations, and simulation parameters.
+The Simulator module provides temporal interference (TI) simulation capabilities, supporting multiple montage sources, electrode configurations, and simulation parameters. It can be invoked programmatically via `run_simulation()` or through a JSON config entrypoint.
 
 ## User Interface
 
@@ -19,14 +19,68 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 - **EEG Net**: Dropdown selection of available electrode configurations
 
 ### Advanced Options
-- **Conductivity Model**: Isotropic/anisotropic tissue modeling
-- **Current Configuration**: Individual electrode current settings
+- **Conductivity Model**: Four anisotropy types (`scalar`, `vn`, `dir`, `mc`) with configurable bounds
+- **Current Configuration**: Individual per-pair electrode current settings
 - **Batch Processing**: Multiple subject simulation queues
 
 ### Output Management
 - **Real-time Logging**: Simulation progress and status updates
 - **Result Visualization**: Automatic generation of field maps and statistics
 - **Data Export**: NIfTI files, electrode positions, and analysis reports
+
+---
+
+## Programmatic API
+
+### Direct Python Call
+
+```python
+from tit.sim import SimulationConfig, run_simulation, load_montages
+from tit.sim.config import (
+    ConductivityType, ElectrodeConfig, IntensityConfig, LabelMontage
+)
+
+config = SimulationConfig(
+    subject_id="101",
+    project_dir="/path/to/project",
+    conductivity_type=ConductivityType.SCALAR,
+    intensities=IntensityConfig(pair1=1.0, pair2=1.0),
+    electrode=ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+)
+
+montages = [
+    LabelMontage(
+        name="montage1",
+        electrode_pairs=[("E1", "E2"), ("E3", "E4")],
+        eeg_net="GSN-HydroCel-256",
+    ),
+]
+
+results = run_simulation(config, montages)
+```
+
+### JSON Config Entrypoint
+
+The simulator can also be launched via JSON configuration, which is used by the GUI:
+
+```bash
+simnibs_python -m tit.sim config.json
+```
+
+The JSON file contains the full `SimulationConfig` fields plus a `montages` array. The entrypoint handles deserialization of `LabelMontage` and `XYZMontage` objects (distinguished by the `is_xyz` flag).
+
+### Conductivity Types
+
+The `ConductivityType` enum controls tissue conductivity modeling:
+
+| Type | Code | Description |
+|------|------|-------------|
+| Scalar | `scalar` | Isotropic, piecewise-constant (default, no DTI needed) |
+| Volume Normalized | `vn` | Normalized tensors scaled by tissue conductivity |
+| Direct | `dir` | Direct linear rescaling of diffusion tensor eigenvalues |
+| Mean Conductivity | `mc` | Isotropic but spatially varying, from tensor volumes |
+
+Additional parameters `aniso_maxratio` (default: 10.0) and `aniso_maxcond` (default: 2.0) on `SimulationConfig` control the anisotropy bounds.
 
 ---
 
@@ -93,19 +147,22 @@ The TI-Toolbox automatically co-registers the following EEG electrode nets to he
 ---
 ## Anisotropy
 
-The simulator supports different tissue conductivity models for more accurate field calculations.
+The simulator supports four tissue conductivity models via the `ConductivityType` enum, configurable both through the GUI and programmatic API.
 
-### Isotropic Model
+### Isotropic Model (`scalar`)
 - **Description**: Uniform conductivity in all directions
 - **Applications**: Simplified modeling, faster computation
-- **Limitations**: May not accurately represent white matter anisotropy
 - **Default**: Used when no DTI data is available
 
-### Anisotropic Model
+### Anisotropic Models (`vn`, `dir`, `mc`)
 - **Description**: Direction-dependent conductivity based on DTI data
 - **Requirements**: Diffusion tensor imaging (DTI) data processed through QSIPrep/QSIRecon
 - **Applications**: More realistic modeling of white matter tracts
 - **Processing**: Accounts for fiber orientation in field calculations
+
+The anisotropy type is set via `SimulationConfig.conductivity_type` (or in the GUI dropdown). Two additional parameters control bounds:
+- `aniso_maxratio` (default: 10.0) -- maximum ratio between eigenvalues
+- `aniso_maxcond` (default: 2.0) -- maximum conductivity value
 
 ### DTI Data Preparation
 
@@ -130,18 +187,6 @@ For complete DTI processing instructions, see the [Diffusion Processing](diffusi
 <em>Gmsh visualizations showing white and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
 
 These visualizations display the principal diffusion directions (eigen vectors) derived from diffusion tensor imaging (DTI) data, which are used to create direction-dependent conductivity tensors in anisotropic tissue modeling.
-
-### Anisotropy Types
-
-SimNIBS supports different methods for applying anisotropic conductivity:
-
-| Type | Code | Description |
-|------|------|-------------|
-| **Scalar** | `'scalar'` | Isotropic, piecewise-constant conductivity (default, no DTI needed) |
-| **Volume Normalized** | `'vn'` | Normalized tensors scaled by tissue conductivity (recommended) |
-| **Direct** | `'dir'` | Direct linear rescaling of diffusion tensor eigenvalues |
-| **Mean Conductivity** | `'mc'` | Isotropic but spatially varying, derived from tensor volumes |
-
 
 For additional details on DTI processing theory, see the [SimNIBS dwi2cond documentation](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html).
 
