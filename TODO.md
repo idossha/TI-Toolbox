@@ -3,9 +3,7 @@ To-Do List:
 ### Opportunities for Early Contributors
 
 - [ ] continue to write unit tests and potentially integration tests
-- [ ] continue cleanup & efficiency increase 
 - [ ] docs maintenance - wiki, gallery, API (via MkDocs), etc.
-- [ ] clean up new qsipre/recon script to reduce over protection from development phase
 
 ### UI - Frontend
 
@@ -14,7 +12,6 @@ To-Do List:
 
 ### Scientific
 - [ ] SAR calculation for HF signal
-- [ ] Add a swipper approach to the flex focality search
 
 ### Other
 - [ ] Integrate with openssf best practices
