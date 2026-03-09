@@ -129,6 +129,58 @@ def get_TI_vectors(E1_org, E2_org):
     return TI_vectors
 
 
+def get_nTI_vectors(fields):
+    """Compute mTI vectors for N E-fields using recursive binary-tree pairwise TI.
+
+    N must be even. Fields are paired sequentially: (E1,E2), (E3,E4), etc.
+    Then intermediate TI results are paired recursively until one result remains.
+
+    For 2 fields: TI(E1, E2)
+    For 4 fields: TI(TI(E1,E2), TI(E3,E4))
+    For 6 fields: TI(TI(TI(E1,E2), TI(E3,E4)), TI(E5,E6))
+    For 8 fields: TI(TI(TI(E1,E2), TI(E3,E4)), TI(TI(E5,E6), TI(E7,E8)))
+
+    Parameters
+    ----------
+    fields : list of np.ndarray, each shape (N, 3)
+        Electric field vectors, one per electrode pair.
+
+    Returns
+    -------
+    result : np.ndarray, shape (N, 3)
+        Combined TI modulation amplitude vectors.
+
+    Raises
+    ------
+    ValueError
+        If number of fields is not even or less than 2.
+    """
+    n = len(fields)
+    if n < 2 or n % 2 != 0:
+        raise ValueError(
+            f"get_nTI_vectors requires an even number of fields >= 2, got {n}"
+        )
+
+    # First round: pair adjacent fields
+    current = []
+    for i in range(0, n, 2):
+        current.append(get_TI_vectors(fields[i], fields[i + 1]))
+
+    # Recursive rounds: pair results until one remains
+    while len(current) > 1:
+        next_round = []
+        i = 0
+        while i + 1 < len(current):
+            next_round.append(get_TI_vectors(current[i], current[i + 1]))
+            i += 2
+        # Odd element carries forward
+        if i < len(current):
+            next_round.append(current[i])
+        current = next_round
+
+    return current[0]
+
+
 def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):
     """
     Calculate multi-temporal interference (mTI) vectors from four channel E-fields.

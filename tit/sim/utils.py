@@ -230,12 +230,7 @@ def create_simulation_config_file(
         "conductivity_type": config.conductivity_type.value,
         "electrode_pairs": montage.electrode_pairs,
         "is_xyz_montage": montage.is_xyz,
-        "intensities": {
-            "pair1": config.intensities.pair1,
-            "pair2": config.intensities.pair2,
-            "pair3": config.intensities.pair3,
-            "pair4": config.intensities.pair4,
-        },
+        "intensities": {"values": config.intensities.values},
         "electrode_geometry": {
             "shape": config.electrode.shape,
             "dimensions": config.electrode.dimensions,

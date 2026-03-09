@@ -1,19 +1,21 @@
 #!/usr/bin/env simnibs_python
 """
-4-pair Multi-channel Temporal Interference (mTI) simulation.
+N-pair Multi-channel Temporal Interference (mTI) simulation.
 
-Extends the TI pattern to 4 electrode pairs (A/B/C/D):
-  - Pair AB  → TI_AB  (intermediate field)
-  - Pair CD  → TI_CD  (intermediate field)
-  - mTI_max  = TI.get_maxTI(TI_AB_vectors, TI_CD_vectors)
+Supports arbitrary even numbers of electrode pairs (4, 6, 8, ...):
+  - Each pair produces one HF E-field via SimNIBS TDCS
+  - Adjacent pairs are combined via binary-tree TI recursion
+  - Intermediate TI vector fields are saved for inspection
 
-Intermediate TI vector fields are saved for inspection alongside
-the final mTI_max mesh.
+Example with 4 pairs (A/B/C/D):
+  - TI_AB = TI(E_A, E_B),  TI_CD = TI(E_C, E_D)
+  - mTI   = TI(TI_AB, TI_CD)
 """
 
 import glob
 import os
 import shutil
+import string
 from copy import deepcopy
 
 import numpy as np
@@ -21,7 +23,7 @@ from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_TI_vectors
+from tit.calc import get_nTI_vectors, get_TI_vectors
 from tit.paths import get_path_manager
 from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode
 from tit.sim.utils import (
@@ -40,14 +42,14 @@ _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_R
 
 class mTISimulation:
     """
-    Runs a single 4-pair mTI simulation.
+    Runs a single N-pair mTI simulation (N >= 4, even).
 
     Pipeline:
       1. Set up BIDS output directory structure
       2. Visualize electrode placement
-      3. Build SimNIBS SESSION (4 TDCS lists), run FEM
-      4. Compute TI_AB and TI_CD vector fields
-      5. Compute mTI_max = max-TI of the two intermediate fields
+      3. Build SimNIBS SESSION (N TDCS lists), run FEM
+      4. Compute intermediate TI vector fields via binary-tree pairing
+      5. Compute final mTI_max from the combined TI field
       6. Extract GM/WM, convert to NIfTI, organize outputs
     """
 
@@ -98,8 +100,9 @@ class mTISimulation:
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for 4-pair mTI."""
+        """Build SimNIBS SESSION for N-pair mTI."""
         cfg = self.config
+        n_pairs = self.montage.num_pairs
         S = sim_struct.SESSION()
         S.subpath = self.m2m_dir
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
@@ -119,14 +122,8 @@ class mTISimulation:
         if os.path.exists(tensor):
             S.fname_tensor = tensor
 
-        pair_currents_A = [
-            cfg.intensities.pair1 / 1000.0,
-            cfg.intensities.pair2 / 1000.0,
-            cfg.intensities.pair3 / 1000.0,
-            cfg.intensities.pair4 / 1000.0,
-        ]
-        for i in range(4):
-            current = pair_currents_A[i]
+        for i in range(n_pairs):
+            current = cfg.intensities.values[i] / 1000.0
             tdcs = S.add_tdcslist()
             tdcs.anisotropy_type = cfg.conductivity_type.value
             tdcs.aniso_maxratio = cfg.aniso_maxratio
@@ -159,25 +156,38 @@ class mTISimulation:
         sid = self.config.subject_id
         cond = self.config.conductivity_type.value
         name = self.montage.name
+        n_pairs = self.montage.num_pairs
+        if n_pairs > 26:
+            raise ValueError(
+                f"mTI supports at most 26 pairs (A-Z labeling), got {n_pairs}"
+            )
+        letters = list(string.ascii_uppercase[:n_pairs])
 
-        # Load and crop all 4 HF meshes
+        # Load and crop all N HF meshes
         meshes = []
-        for i in range(1, 5):
+        for i in range(1, n_pairs + 1):
             m = mesh_io.read_msh(
                 os.path.join(dirs["hf_dir"], f"{sid}_TDCS_{i}_{cond}.msh")
             )
             meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
 
-        # Intermediate TI vector fields for each pair of pairs
-        ti_ab = get_TI_vectors(meshes[0].field["E"].value, meshes[1].field["E"].value)
-        ti_cd = get_TI_vectors(meshes[2].field["E"].value, meshes[3].field["E"].value)
+        # Extract E-field arrays
+        e_fields = [m.field["E"].value for m in meshes]
 
-        # Save intermediate meshes (for inspection)
-        self._save_ti_vectors(meshes[0], ti_ab, dirs["ti_mesh"], f"{name}_TI_AB.msh")
-        self._save_ti_vectors(meshes[0], ti_cd, dirs["ti_mesh"], f"{name}_TI_CD.msh")
+        # Save intermediate pairwise TI fields (adjacent pairs)
+        ti_pair_suffixes = []
+        for i in range(0, n_pairs, 2):
+            ltr1, ltr2 = letters[i], letters[i + 1]
+            suffix = f"TI_{ltr1}{ltr2}"
+            ti_pair_suffixes.append(suffix)
+            ti_vecs = get_TI_vectors(e_fields[i], e_fields[i + 1])
+            self._save_ti_vectors(
+                meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
+            )
 
-        # Final mTI_max
-        mti_field = TI.get_maxTI(ti_ab, ti_cd)
+        # Final mTI using recursive binary-tree combination
+        mti_vectors = get_nTI_vectors(e_fields)
+        mti_field = np.linalg.norm(mti_vectors, axis=1)
         mout = deepcopy(meshes[0])
         mout.elmdata = []
         mout.add_element_field(mti_field, "TI_Max")
@@ -189,12 +199,12 @@ class mTISimulation:
         )
         self.logger.info(f"mTI_max saved: {mti_path}")
 
-        # Field extraction — mTI mesh and both intermediate TI meshes
+        # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")
         extract_fields(
             mti_path, dirs["mti_mesh"], f"{name}_mTI", self.m2m_dir, sid, self.logger
         )
-        for suffix in ("TI_AB", "TI_CD"):
+        for suffix in ti_pair_suffixes:
             extract_fields(
                 os.path.join(dirs["ti_mesh"], f"{name}_{suffix}.msh"),
                 dirs["ti_mesh"],
@@ -231,11 +241,13 @@ class mTISimulation:
         self.logger.debug(f"Saved: {path}")
 
     def _organize_files(self, dirs: dict) -> None:
-        """Move HF files, renaming pairs 1-4 → A-D for mTI convention."""
+        """Move HF files, renaming pairs 1..N → A..Z for mTI convention."""
         hf = dirs["hf_dir"]
-        letter = {1: "A", 2: "B", 3: "C", 4: "D"}
+        n_pairs = self.montage.num_pairs
+        letters = string.ascii_uppercase
 
-        for i, ltr in letter.items():
+        for i in range(1, n_pairs + 1):
+            ltr = letters[i - 1]
             for ext in (".geo", "scalar.msh", "scalar.msh.opt"):
                 for f in glob.glob(os.path.join(hf, f"*TDCS_{i}*{ext}")):
                     new_name = os.path.basename(f).replace(f"TDCS_{i}", f"TDCS_{ltr}")

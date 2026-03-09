@@ -51,7 +51,13 @@ def main() -> None:
     montages = [_build_montage(m) for m in montages_data]
 
     electrode = ElectrodeConfig(**data.pop("electrode"))
-    intensities = IntensityConfig(**data.pop("intensities"))
+    raw_intensities = data.pop("intensities")
+    if "values" in raw_intensities:
+        intensities = IntensityConfig(values=raw_intensities["values"])
+    else:
+        # Legacy format: {pair1: ..., pair2: ..., ...}
+        vals = [raw_intensities[k] for k in sorted(raw_intensities.keys())]
+        intensities = IntensityConfig(values=vals)
     conductivity_type = ConductivityType(data.pop("conductivity_type"))
 
     config = SimulationConfig(

@@ -39,26 +39,38 @@ class ElectrodeConfig:
 
 @dataclass
 class IntensityConfig:
-    """
-    Per-pair current intensities in mA.
-    TI uses pair1+pair2; mTI uses all four.
-    """
+    """Per-pair current intensities in mA. Supports N pairs (any even count)."""
 
-    pair1: float = 1.0
-    pair2: float = 1.0
-    pair3: float = 1.0
-    pair4: float = 1.0
+    values: List[float] = field(default_factory=lambda: [1.0, 1.0])
 
     @classmethod
     def from_string(cls, s: str) -> "IntensityConfig":
         v = [float(x.strip()) for x in s.split(",")]
-        if len(v) == 1:
-            return cls(v[0], v[0], v[0], v[0])
-        if len(v) == 2:
-            return cls(v[0], v[1], 1.0, 1.0)
-        if len(v) == 4:
-            return cls(*v)
-        raise ValueError(f"Expected 1, 2, or 4 intensity values; got: {s!r}")
+        n = len(v)
+        if n == 1:
+            return cls(values=[v[0], v[0]])
+        if n >= 2 and n % 2 == 0:
+            return cls(values=v)
+        raise ValueError(
+            f"Invalid intensity format: expected 1 or an even number of values; got {n}: {s!r}"
+        )
+
+    # Backward-compat properties for code that accesses pair1–pair4 directly.
+    @property
+    def pair1(self) -> float:
+        return self.values[0] if len(self.values) > 0 else 1.0
+
+    @property
+    def pair2(self) -> float:
+        return self.values[1] if len(self.values) > 1 else 1.0
+
+    @property
+    def pair3(self) -> float:
+        return self.values[2] if len(self.values) > 2 else 1.0
+
+    @property
+    def pair4(self) -> float:
+        return self.values[3] if len(self.values) > 3 else 1.0
 
 
 @dataclass
