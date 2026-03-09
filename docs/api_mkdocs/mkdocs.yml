@@ -40,9 +40,15 @@ repo_name: idossha/TI-Toolbox
 repo_url: https://github.com/idossha/TI-Toolbox
 
 nav:
-  - API Home: index.md
+  - Home: index.md
   - Getting Started: getting-started.md
-  - Reference: reference/
+  - Pipeline:
+    - Preprocessing: pipeline/preprocessing.md
+    - Optimization: pipeline/optimization.md
+    - Simulation: pipeline/simulation.md
+    - Analysis: pipeline/analysis.md
+    - Reporting: pipeline/reporting.md
+  - API Reference: reference/
 
 plugins:
   - search

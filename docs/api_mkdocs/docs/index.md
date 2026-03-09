@@ -2,10 +2,50 @@
 
 Welcome to the Python API reference for **TI-Toolbox** (`tit`) — a platform for temporal interference (TI) brain stimulation simulation, optimization, and analysis.
 
-## Installation
+## The TI-Toolbox Pipeline
 
-TI-Toolbox runs inside Docker containers with SimNIBS and FreeSurfer pre-installed.
-See the [installation guide](https://idossha.github.io/TI-Toolbox/installation/installation/) for setup instructions.
+TI-Toolbox follows a structured pipeline with one-time preprocessing and an iterative research cycle:
+
+```mermaid
+graph TD
+    PRE["`**1. Preprocessing**
+    DICOM → NIfTI → recon-all → CHARM
+    *(one-time setup)*`"]
+
+    OPT["`**2. Optimization**
+    Flex-search · Ex-search
+    *(find optimal electrodes)*`"]
+
+    SIM["`**3. Simulation**
+    TI (2-pair) · mTI (4-pair)
+    *(run FEM simulations)*`"]
+
+    ANA["`**4. Analysis**
+    ROI stats · field analysis
+    *(evaluate results)*`"]
+
+    REP["`**5. Reporting**
+    HTML reports · plots
+    *(visualize & document)*`"]
+
+    PRE -->|head mesh| OPT
+    PRE -->|head mesh| SIM
+    OPT -->|optimal montage| SIM
+    SIM -->|field data| ANA
+    ANA -->|metrics| REP
+    ANA -->|refine parameters| OPT
+    SIM -->|outputs| REP
+    OPT -->|results| REP
+
+    style PRE fill:#2d5a27,stroke:#4a8,color:#fff
+    style OPT fill:#1a3a5c,stroke:#48a,color:#fff
+    style SIM fill:#1a3a5c,stroke:#48a,color:#fff
+    style ANA fill:#1a3a5c,stroke:#48a,color:#fff
+    style REP fill:#1a3a5c,stroke:#48a,color:#fff
+```
+
+!!! info "Iterative Workflow"
+    **Preprocessing** is a one-time setup per subject. After that, steps 2-5 form an iterative cycle: optimize electrode placements, simulate fields, analyze results, generate reports, then refine and repeat.
 
 ## Quick Start
 
@@ -38,43 +78,26 @@ print(f"ROI Mean: {result.roi_mean:.4f} V/m")
 print(f"Focality: {result.roi_focality:.2f}")
 ```
 
-## Package Modules
+For a full walkthrough, see the [Getting Started](getting-started.md) guide.
+
+## Pipeline Modules
+
+| Step | Module | Description | Guide |
+|------|--------|-------------|-------|
+| 1. Preprocessing | [`tit.pre`](reference/tit/pre/) | DICOM conversion, FreeSurfer recon-all, CHARM head mesh | [Preprocessing](pipeline/preprocessing.md) |
+| 2. Optimization | [`tit.opt`](reference/tit/opt/) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
+| 3. Simulation | [`tit.sim`](reference/tit/sim/) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
+| 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/) | Field analysis with spherical, cortical, and subcortical ROIs | [Analysis](pipeline/analysis.md) |
+| 5. Reporting | [`tit.reporting`](reference/tit/reporting/) | HTML report generation and visualization | [Reporting](pipeline/reporting.md) |
+
+## Supporting Modules
 
 | Module | Description |
 |--------|-------------|
 | [`tit`](reference/tit/) | Core utilities — path management, constants, logging, field calculations |
-| [`tit.sim`](reference/tit/sim/) | TI and multi-channel TI (mTI) simulation engine |
-| [`tit.analyzer`](reference/tit/analyzer/) | Field analysis with spherical and cortical ROIs |
-| [`tit.opt`](reference/tit/opt/) | Electrode placement optimization (flex-search and exhaustive search) |
 | [`tit.stats`](reference/tit/stats/) | Cluster-based permutation testing and group-level statistics |
-| [`tit.pre`](reference/tit/pre/) | Preprocessing pipeline (DICOM conversion, FreeSurfer, CHARM) |
-| [`tit.reporting`](reference/tit/reporting/) | HTML report generation with BIDS-compliant outputs |
 | [`tit.plotting`](reference/tit/plotting/) | Visualization utilities (histograms, overlays, statistical plots) |
 | [`tit.tools`](reference/tit/tools/) | Standalone mesh/NIfTI conversion and electrode mapping utilities |
-
-## Architecture
-
-```mermaid
-graph LR
-    A[tit.pre] -->|head mesh| B[tit.sim]
-    B -->|field data| C[tit.analyzer]
-    B -->|field data| D[tit.opt]
-    C -->|results| E[tit.stats]
-    D -->|optimized montage| B
-    B --> F[tit.reporting]
-    C --> F
-    D --> F
-    E --> F
-```
-
-## Data Flow
-
-1. **Preprocessing** (`tit.pre`): DICOM -> NIfTI -> FreeSurfer recon-all -> SimNIBS CHARM head mesh
-2. **Simulation** (`tit.sim`): Head mesh + montage config -> SimNIBS FEM -> TI/mTI field meshes + NIfTIs
-3. **Analysis** (`tit.analyzer`): Field data + ROI specification -> statistics, focality metrics, visualizations
-4. **Optimization** (`tit.opt`): Head mesh + ROI -> differential evolution or exhaustive search -> optimal electrode placement
-5. **Statistics** (`tit.stats`): Multi-subject NIfTIs -> cluster-based permutation testing -> significant clusters
-6. **Reporting** (`tit.reporting`): Pipeline outputs -> interactive HTML reports
 
 ## Build Locally
 

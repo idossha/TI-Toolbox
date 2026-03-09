@@ -1,0 +1,158 @@
+# Simulation
+
+The simulation engine runs finite element method (FEM) calculations using SimNIBS to compute temporal interference electric fields in the brain. TI-Toolbox supports two simulation modes: **TI** (2-pair) and **mTI** (4-pair).
+
+```mermaid
+graph LR
+    MESH[Head Mesh] --> SIM[SimNIBS FEM]
+    MONT[Montage Config] --> SIM
+    INT[Intensity Config] --> SIM
+    SIM --> TI_MAX[TI_max Field]
+    SIM --> TI_NORM[TI_normal Field]
+    SIM --> NIFTI[NIfTI Volumes]
+    style SIM fill:#2d5a27,stroke:#4a8,color:#fff
+```
+
+## Running a Simulation
+
+```python
+from tit.sim import (
+    SimulationConfig, ElectrodeConfig, IntensityConfig,
+    ConductivityType, run_simulation, load_montages,
+)
+
+# Load montages from the project's montage_list.json
+montages = load_montages(
+    montage_names=["motor_cortex"],
+    project_dir="/data/my_project",
+    eeg_net="GSN-HydroCel-185",
+)
+
+# Configure the simulation
+config = SimulationConfig(
+    subject_id="001",
+    project_dir="/data/my_project",
+    conductivity_type=ConductivityType.SCALAR,
+    intensities=IntensityConfig(values=[1.0, 1.0]),
+    electrode=ElectrodeConfig(
+        shape="ellipse",
+        dimensions=[8.0, 8.0],
+        gel_thickness=4.0,
+    ),
+)
+
+# Run (auto-detects TI vs mTI based on number of electrode pairs)
+results = run_simulation(config, montages)
+```
+
+## Simulation Modes
+
+The simulation mode is auto-detected from the montage configuration:
+
+| Mode | Electrode Pairs | Description |
+|------|----------------|-------------|
+| **TI** | 2 pairs | Standard temporal interference — two pairs of electrodes at slightly different frequencies |
+| **mTI** | 4 pairs | Multi-channel TI — four electrode pairs combined via binary-tree algorithm |
+
+!!! info "Auto-Detection"
+    You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 pairs triggers TI mode, 4 pairs triggers mTI mode.
+
+## Montage Configuration
+
+Montages define which electrodes form each pair. They are stored in `montage_list.json` within your project:
+
+```json
+{
+  "nets": {
+    "GSN-HydroCel-185": {
+      "uni_polar_montages": {
+        "motor_cortex": [["E36", "E224"], ["E104", "E148"]]
+      }
+    }
+  }
+}
+```
+
+Load montages programmatically:
+
+```python
+from tit.sim import load_montages
+
+montages = load_montages(
+    montage_names=["motor_cortex", "frontal_target"],
+    project_dir="/data/my_project",
+    eeg_net="GSN-HydroCel-185",
+)
+```
+
+## Conductivity Types
+
+| Type | Description |
+|------|-------------|
+| `ConductivityType.SCALAR` | Isotropic conductivity (default, faster) |
+| `ConductivityType.TENSOR` | Anisotropic conductivity from DTI data (requires diffusion preprocessing) |
+
+## Electrode Configuration
+
+```python
+from tit.sim import ElectrodeConfig
+
+electrode = ElectrodeConfig(
+    shape="ellipse",         # "ellipse" or "rect"
+    dimensions=[8.0, 8.0],   # [width, height] in mm
+    gel_thickness=4.0,        # gel layer thickness in mm
+)
+```
+
+## Output Fields
+
+After simulation, TI-Toolbox produces several derived field types:
+
+| Field | Description |
+|-------|-------------|
+| **TI_max** | Maximum TI envelope magnitude (scalar field) |
+| **TI_normal** | TI field component normal to cortical surface |
+| **TI_tangential** | TI field component tangential to cortical surface |
+| **mTI_max** | Multi-channel TI maximum envelope (mTI mode only) |
+
+Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).
+
+## Output Directory Structure
+
+```
+derivatives/SimNIBS/sub-001/Simulations/
+└── motor_cortex/
+    ├── TI/
+    │   ├── mesh/         # Surface mesh files
+    │   └── niftis/       # NIfTI volumes (subject + MNI space)
+    └── simulation.log
+```
+
+## API Reference
+
+::: tit.sim.config.SimulationConfig
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: tit.sim.config.ElectrodeConfig
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: tit.sim.config.IntensityConfig
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: tit.sim.config.ConductivityType
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.run_simulation
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.load_montages
+    options:
+      show_root_heading: true
