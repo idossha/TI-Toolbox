@@ -53,11 +53,19 @@ jobs:
             # Install Codecov CLI (replaces deprecated uploader binary)
             pip install codecov-cli
 
+            # Fix source paths in coverage.xml: Docker generates absolute paths
+            # like /ti-toolbox/tit/... but Codecov needs repo-relative paths.
+            if [ -f /tmp/coverage/coverage.xml ]; then
+              sed -i 's|/ti-toolbox/||g' /tmp/coverage/coverage.xml
+              echo "Fixed coverage.xml source paths (stripped /ti-toolbox/ prefix)"
+            fi
+
             echo "Uploading coverage report to Codecov..."
 
             codecovcli do-upload \
               --token ${CODECOV_TOKEN} \
               --file /tmp/coverage/coverage.xml \
+              --disable-search \
               --flag unittests \
               --name "CircleCI-${CIRCLE_BUILD_NUM}" \
               --git-service github \
