@@ -50,8 +50,8 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
-            # Install Codecov CLI (replaces deprecated uploader binary)
-            pip install codecov-cli
+            # Install pinned Codecov CLI to avoid breaking API changes
+            pip install codecov-cli==11.2.6
 
             # Fix source paths in coverage.xml: Docker generates absolute paths
             # like /ti-toolbox/tit/... but Codecov needs repo-relative paths.
@@ -60,16 +60,35 @@ jobs:
               echo "Fixed coverage.xml source paths (stripped /ti-toolbox/ prefix)"
             fi
 
+            # Diagnostics: verify coverage file exists and is non-empty
+            echo "=== Codecov Upload Diagnostics ==="
+            if [ -f /tmp/coverage/coverage.xml ]; then
+              echo "coverage.xml exists"
+              echo "File size: $(wc -c < /tmp/coverage/coverage.xml) bytes"
+              echo "Line count: $(wc -l < /tmp/coverage/coverage.xml) lines"
+              head -5 /tmp/coverage/coverage.xml
+            else
+              echo "ERROR: /tmp/coverage/coverage.xml not found!"
+              exit 1
+            fi
+            echo "Commit SHA: ${CIRCLE_SHA1}"
+            echo "Branch: ${CIRCLE_BRANCH}"
+            echo "================================="
+
             echo "Uploading coverage report to Codecov..."
 
-            codecovcli do-upload \
-              --token ${CODECOV_TOKEN} \
-              --file /tmp/coverage/coverage.xml \
-              --disable-search \
-              --flag unittests \
-              --name "CircleCI-${CIRCLE_BUILD_NUM}" \
+            # upload-process combines create-commit + create-report + do-upload
+            codecovcli --verbose upload-process \
+              -t ${CODECOV_TOKEN} \
+              -r idossha/TI-toolbox \
+              -C ${CIRCLE_SHA1} \
+              -B ${CIRCLE_BRANCH} \
               --git-service github \
-              --fail-on-error
+              -f /tmp/coverage/coverage.xml \
+              --disable-search \
+              -F unittests \
+              -n "CircleCI-${CIRCLE_BUILD_NUM}" \
+              -Z
           when: always
 
       - store_test_results:

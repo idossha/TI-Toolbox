@@ -1,0 +1,49 @@
+name: "Deploy API Docs"
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'tit/**'
+      - 'docs/api_mkdocs/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-and-deploy:
+    name: Build and Commit API Docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e . --no-deps
+        pip install -r docs/api_mkdocs/requirements.txt
+
+    - name: Build MkDocs API site
+      run: |
+        mkdocs build -f docs/api_mkdocs/mkdocs.yml --clean
+
+    - name: Commit and push docs
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git add docs/api/
+        if git diff --cached --quiet; then
+          echo "No changes to API docs — skipping commit."
+        else
+          git commit -m "docs: auto-build API reference"
+          git push
+        fi
