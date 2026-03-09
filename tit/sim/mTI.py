@@ -14,7 +14,6 @@ Example with 4 pairs (A/B/C/D):
 
 import glob
 import os
-import shutil
 import string
 from copy import deepcopy
 
@@ -108,11 +107,9 @@ class mTISimulation:
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
         S.pathfem = output_dir
         S.map_to_surf = cfg.map_to_surf
-        S.map_to_vol = cfg.map_to_vol
-        S.map_to_MNI = cfg.map_to_mni
-        S.map_to_fsavg = cfg.map_to_fsavg
+        S.map_to_vol = False
+        S.map_to_MNI = False
         S.open_in_gmsh = cfg.open_in_gmsh
-        S.tissues_in_niftis = cfg.tissues_in_niftis
 
         if not self.montage.is_xyz:
             eeg_net = self.montage.eeg_net
@@ -215,13 +212,24 @@ class mTISimulation:
             )
         self.logger.info("Field extraction: ✓ Complete")
 
+        # Organize files before NIfTI conversion so meshes are in their
+        # final directories (hf_mesh/)
+        self._organize_files(dirs)
+
         self.logger.info("NIfTI transformation: Started")
         transform_to_nifti(
             dirs["mti_mesh"], dirs["mti_niftis"], sid, self.m2m_dir, self.logger
         )
+        transform_to_nifti(
+            dirs["hf_mesh"],
+            dirs["hf_niftis"],
+            sid,
+            self.m2m_dir,
+            self.logger,
+            fields=["magnE"],
+        )
         self.logger.info("NIfTI transformation: ✓ Complete")
 
-        self._organize_files(dirs)
         convert_t1_to_mni(self.m2m_dir, sid, self.logger)
 
         return mti_path
@@ -252,9 +260,6 @@ class mTISimulation:
                 for f in glob.glob(os.path.join(hf, f"*TDCS_{i}*{ext}")):
                     new_name = os.path.basename(f).replace(f"TDCS_{i}", f"TDCS_{ltr}")
                     safe_move(f, os.path.join(dirs["hf_mesh"], new_name))
-
-        # subject_volumes not needed for mTI (recursive removal intentional)
-        shutil.rmtree(os.path.join(hf, "subject_volumes"))
 
         safe_move(
             os.path.join(hf, "fields_summary.txt"),

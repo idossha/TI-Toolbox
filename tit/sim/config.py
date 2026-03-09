@@ -141,9 +141,12 @@ class SimulationConfig:
     conductivity_type: ConductivityType
     intensities: IntensityConfig
     electrode: ElectrodeConfig
+    # map_to_surf must be True — TI_normal calculation requires surface overlays.
     map_to_surf: bool = True
-    map_to_vol: bool = True
-    map_to_mni: bool = True
+    # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).
+    # These are kept for documentation/serialization but are not passed to SimNIBS.
+    map_to_vol: bool = False
+    map_to_mni: bool = False
     map_to_fsavg: bool = False
     open_in_gmsh: bool = False
     tissues_in_niftis: str = "all"

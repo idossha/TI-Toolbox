@@ -14,6 +14,7 @@ matching the reference visualisation layout.
 
 import glob
 import os
+import shutil
 from copy import deepcopy
 
 import numpy as np
@@ -29,7 +30,6 @@ from tit.sim.utils import (
     extract_fields,
     run_montage_visualization,
     safe_move,
-    safe_rmdir,
     setup_montage_directories,
     transform_to_nifti,
 )
@@ -105,11 +105,9 @@ class TISimulation:
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
         S.pathfem = output_dir
         S.map_to_surf = cfg.map_to_surf
-        S.map_to_vol = cfg.map_to_vol
-        S.map_to_MNI = cfg.map_to_mni
-        S.map_to_fsavg = cfg.map_to_fsavg
+        S.map_to_vol = False
+        S.map_to_MNI = False
         S.open_in_gmsh = cfg.open_in_gmsh
-        S.tissues_in_niftis = cfg.tissues_in_niftis
 
         if not self.montage.is_xyz:
             eeg_net = self.montage.eeg_net
@@ -188,13 +186,24 @@ class TISimulation:
         )
         self.logger.info("Field extraction: ✓ Complete")
 
+        # Organize files before NIfTI conversion so meshes are in their
+        # final directories (hf_mesh/, ti_surface_overlays/, etc.)
+        self._organize_files(dirs)
+
         self.logger.info("NIfTI transformation: Started")
         transform_to_nifti(
             dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger
         )
+        transform_to_nifti(
+            dirs["hf_mesh"],
+            dirs["hf_niftis"],
+            sid,
+            self.m2m_dir,
+            self.logger,
+            fields=["magnE"],
+        )
         self.logger.info("NIfTI transformation: ✓ Complete")
 
-        self._organize_files(dirs)
         convert_t1_to_mni(self.m2m_dir, sid, self.logger)
 
         return ti_path
@@ -235,6 +244,7 @@ class TISimulation:
         """Move SimNIBS output files into the BIDS directory structure."""
         hf = dirs["hf_dir"]
 
+        # Move HF mesh files (.msh, .geo, .opt) into hf_mesh/
         for pattern in ("TDCS_1", "TDCS_2"):
             for ext in (".geo", "scalar.msh", "scalar.msh.opt"):
                 for f in glob.glob(os.path.join(hf, f"*{pattern}*{ext}")):
@@ -243,21 +253,15 @@ class TISimulation:
                         os.path.join(dirs["hf_mesh"], os.path.basename(f)),
                     )
 
-        vols = os.path.join(hf, "subject_volumes")
-        for fname in os.listdir(vols):
-            safe_move(
-                os.path.join(vols, fname),
-                os.path.join(dirs["hf_niftis"], fname),
-            )
-        safe_rmdir(vols)
-
+        # Move surface overlays (needed for TI_normal)
         overlays = os.path.join(hf, "subject_overlays")
-        for fname in os.listdir(overlays):
-            safe_move(
-                os.path.join(overlays, fname),
-                os.path.join(dirs["ti_surface_overlays"], fname),
-            )
-        safe_rmdir(overlays)
+        if os.path.isdir(overlays):
+            for fname in os.listdir(overlays):
+                safe_move(
+                    os.path.join(overlays, fname),
+                    os.path.join(dirs["ti_surface_overlays"], fname),
+                )
+            os.rmdir(overlays)
 
         safe_move(
             os.path.join(hf, "fields_summary.txt"),

@@ -262,39 +262,34 @@ def extract_fields(
     logger,
 ) -> None:
     """Extract GM (tag 2) and WM (tag 1) meshes from a full-head mesh."""
-    script = os.path.join(os.path.dirname(__file__), "..", "tools", "field_extract.py")
+    from simnibs import mesh_io
+
+    full_mesh = mesh_io.read_msh(input_mesh)
     gm_out = os.path.join(output_dir, f"grey_{base_name}.msh")
     wm_out = os.path.join(output_dir, f"white_{base_name}.msh")
-    subprocess.run(
-        [
-            "simnibs_python",
-            script,
-            input_mesh,
-            "--gm_output_file",
-            gm_out,
-            "--wm_output_file",
-            wm_out,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-        check=True,
-    )
+    mesh_io.write_msh(full_mesh.crop_mesh(tags=[2]), gm_out)
+    mesh_io.write_msh(full_mesh.crop_mesh(tags=[1]), wm_out)
 
 
 def transform_to_nifti(
-    mesh_dir: str, output_dir: str, subject_id: str, m2m_dir: str, logger
+    mesh_dir: str,
+    output_dir: str,
+    subject_id: str,
+    m2m_dir: str,
+    logger,
+    fields: Optional[List[str]] = None,
+    skip_patterns: Optional[List[str]] = None,
 ) -> None:
     """Convert mesh files to NIfTI (subject + MNI space)."""
-    script = os.path.join(os.path.dirname(__file__), "..", "tools", "mesh2nii_loop.sh")
-    result = subprocess.run(
-        ["bash", script, subject_id, m2m_dir, mesh_dir, output_dir],
-        capture_output=True,
-        text=True,
-        timeout=600,
+    from tit.tools.mesh2nii import convert_mesh_dir
+
+    convert_mesh_dir(
+        mesh_dir=mesh_dir,
+        output_dir=output_dir,
+        m2m_dir=m2m_dir,
+        fields=fields,
+        skip_patterns=skip_patterns,
     )
-    if result.returncode != 0:
-        logger.warning(f"NIfTI conversion warning: {result.stderr}")
 
 
 def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
@@ -315,9 +310,6 @@ def safe_move(src: str, dest: str) -> None:
     shutil.move(src, dest)
 
 
-def safe_rmdir(path: str) -> None:
-    if os.path.isdir(path):
-        os.rmdir(path)
 
 
 # ── Simulation Orchestration ────────────────────────────────────────────────────────────────

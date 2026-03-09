@@ -120,7 +120,7 @@ gen.add_simulation_parameters(
 gen.add_electrode_parameters(
     shape='circular',
     dimensions='10x10 mm',
-    thickness=2.0,
+    gel_thickness=2.0,
 )
 
 gen.add_subject(
