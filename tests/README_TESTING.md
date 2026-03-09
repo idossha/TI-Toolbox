@@ -24,7 +24,7 @@ Complete guide for running tests locally and in CI/CD.
 
 **What it does:**
 - Uses TI-Toolbox test image (`idossha/ti-toolbox-test:latest`)
-- Image contains SimNIBS 4.5 + pytest + BATS + all testing tools
+- Image contains SimNIBS 4.6 + pytest + BATS + all testing tools
 - Mounts your local code into the container at `/ti-toolbox`
 - Tests your current changes (not code from GitHub)
 - Runs all tests: unit + integration
