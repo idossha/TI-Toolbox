@@ -2,11 +2,11 @@
 
 Public API
 ----------
-- ``run_flex_search(config) -> FlexResult``  — differential-evolution optimization
-- ``run_ex_search(config) -> ExResult``      — exhaustive / grid search
+- ``run_flex_search(config) -> FlexResult``  -- differential-evolution optimization
+- ``run_ex_search(config) -> ExResult``      -- exhaustive / grid search
 
 ``run_flex_search`` is imported eagerly (its SimNIBS deps are inside function
-bodies). ``run_ex_search`` is lazy because ``ex/engine.py`` imports SimNIBS at
+bodies). ``run_ex_search`` is lazy because its engine imports SimNIBS at
 module level.
 """
 
@@ -58,7 +58,7 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy-load run_ex_search (ex/engine.py imports SimNIBS at module level)."""
+    """Lazy-load functions whose engines import SimNIBS at module level."""
     if name == "run_ex_search":
         from tit.opt.ex.ex import run_ex_search
 
