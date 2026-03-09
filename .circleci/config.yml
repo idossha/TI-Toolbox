@@ -54,6 +54,9 @@ jobs:
               exit 1
             fi
 
+            # Docker writes coverage as root; fix ownership so we can rewrite it.
+            sudo chown $(id -u):$(id -g) "$COVERAGE_FILE"
+
             # Rewrite <source> paths so Codecov maps files correctly.
             python3 .circleci/fix_coverage_paths.py
 
