@@ -58,11 +58,18 @@ jobs:
               exit 1
             fi
 
-            # Fix source paths in coverage.xml: Docker generates absolute paths
-            # like /ti-toolbox/tit/... but Codecov needs repo-relative paths.
+            # Fix source paths in coverage.xml so Codecov can match them.
+            # Docker generates: <source>/ti-toolbox/tit</source> filename="calc.py"
+            # Codecov needs:    <source>.</source>              filename="tit/calc.py"
             if [ -f /tmp/coverage/coverage.xml ]; then
+              # 1. Strip the Docker mount prefix from all paths
               sed -i 's|/ti-toolbox/||g' /tmp/coverage/coverage.xml
-              echo "Fixed coverage.xml source paths (stripped /ti-toolbox/ prefix)"
+              # 2. Set <source> to repo root and prefix filenames with tit/
+              sed -i 's|<source>tit</source>|<source>.</source>|g' /tmp/coverage/coverage.xml
+              sed -i 's|filename="|filename="tit/|g' /tmp/coverage/coverage.xml
+              echo "Fixed coverage.xml: source=. filenames=tit/..."
+              # Show a sample for debugging
+              head -20 /tmp/coverage/coverage.xml
             fi
 
             # Diagnostics: verify coverage file exists and is non-empty
