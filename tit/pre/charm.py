@@ -111,15 +111,18 @@ def run_subject_atlas(
     for atlas in ATLASES:
         cmd = [
             "subject_atlas",
-            "-m",
-            str(m2m_dir),
             "-a",
             atlas,
             "-o",
             str(output_dir),
+            subject_id,
         ]
 
         logger.info(f"  Creating {atlas} atlas...")
         exit_code = runner.run(cmd, logger=logger)
+        if exit_code != 0:
+            raise PreprocessError(
+                f"subject_atlas failed for atlas {atlas} (exit code {exit_code})"
+            )
 
     logger.info(f"All atlases created successfully for subject {subject_id}")
