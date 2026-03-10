@@ -42,8 +42,7 @@ echo "Using docker-compose file: $COMPOSE_FILE"
 docker compose -f "$COMPOSE_FILE" up --build -d
 
 echo "Attaching to simnibs_container..."
-docker exec -ti simnibs_container simnibs_python -m tit.cli.gui
+docker exec -ti simnibs_container simnibs_python -m tit.gui.main
 
 echo "Stopping services..."
 docker compose -f "$COMPOSE_FILE" down --remove-orphans
-

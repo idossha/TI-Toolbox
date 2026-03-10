@@ -390,7 +390,7 @@ class DockerManager extends EventEmitter {
     let stream;
     try {
       exec = await container.exec({
-        Cmd: ['simnibs_python', '-m', 'tit.cli.gui'],
+        Cmd: ['simnibs_python', '-m', 'tit.gui.main'],
         AttachStdout: true,
         AttachStderr: true,
         AttachStdin: false,
@@ -459,4 +459,3 @@ class DockerManager extends EventEmitter {
 }
 
 module.exports = DockerManager;
-

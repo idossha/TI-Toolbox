@@ -202,7 +202,7 @@ export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
 export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:$PATH"
 export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:${LD_LIBRARY_PATH:-}"
 
-alias GUI='simnibs_python -m tit.cli.gui'
+alias GUI='simnibs_python -m tit.gui.main'
 alias analyzer='simnibs_python -m tit.cli.analyzer'
 alias ex_search='simnibs_python -m tit.cli.ex_search'
 alias flex_search='simnibs_python -m tit.cli.flex_search'
