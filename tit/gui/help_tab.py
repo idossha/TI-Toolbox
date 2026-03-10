@@ -47,11 +47,11 @@ class HelpTab(QtWidgets.QWidget):
 
         # Add sections from all tools
         self.add_pre_processing_help(help_layout)
+        self.add_optimizer_help(help_layout)
         self.add_simulator_help(help_layout)
-        self.add_flex_search_help(help_layout)
-        self.add_ex_search_help(help_layout)
         self.add_analyzer_help(help_layout)
         self.add_nifti_viewer_help(help_layout)
+        self.add_system_monitor_help(help_layout)
 
         # Add general usage tips
         self.add_general_usage_tips(help_layout)
@@ -149,8 +149,7 @@ Project Directory/
             <li>T2w images are optional but can improve head model quality</li>
             <li>All other directories are automatically created during processing</li>
             <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
-            <li>TI-Toolbox analysis outputs are organized under <code>derivatives/ti-toolbox/</code> with subdirectories for different analysis types</li>
-            <li>Bone analysis results are stored in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code></li>
+            <li>TI-Toolbox outputs are organized under <code>derivatives/tit/</code> with subdirectories for tissue analysis, logs, and reports</li>
         </ul>
         
         <h3>Getting Started:</h3>
@@ -331,7 +330,7 @@ Project Directory/
                 "content": (
                     "1. The simulator creates FEM models for each electrode configuration<br>"
                     "2. It solves the electric field equations using SimNIBS<br>"
-                    "3. For TI stimulation, it calculates the maximumal amplitude-modulated field<br>"
+                    "3. For TI stimulation, it calculates the maximal amplitude-modulated field<br>"
                     "4. Results are stored in the subject's SimNIBS directory<br><br>"
                     "Simulation progress and status messages are displayed in the console window."
                 ),
@@ -340,7 +339,7 @@ Project Directory/
                 "title": "Output Files",
                 "content": (
                     "Simulation results are saved in:<br>"
-                    "[PROJECT_DIR]/[SUBJECT_ID]/SimNIBS/Simulations/[montage_name]/<br><br>"
+                    "<code>derivatives/SimNIBS/sub-{subject}/Simulations/{montage_name}/</code><br><br>"
                     "Output includes:<br>"
                     "- Electric field distributions (.msh and .nii.gz formats)<br>"
                     "- Electrode positions and parameters<br>"
@@ -354,34 +353,40 @@ Project Directory/
         for section in sections:
             self.add_section(layout, section["title"], section["content"])
 
-    def add_flex_search_help(self, layout):
-        """Add Flex-Search help content."""
-        # Add header for the Flex-Search tool
-        header_label = QtWidgets.QLabel("<h1>Flex-Search Tool</h1>")
+    def add_optimizer_help(self, layout):
+        """Add Optimizer help content (Flex-Search and Ex-Search)."""
+        # Add header for the Optimizer tool
+        header_label = QtWidgets.QLabel("<h1>Optimizer Tool</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(header_label)
 
+        # Optimizer overview
+        self.add_section(
+            layout,
+            "Overview",
+            (
+                "The Optimizer tab combines two electrode optimization methods under a single interface. "
+                "Use the dropdown at the top of the tab to switch between:<br><br>"
+                "- <b>Flex-Search</b> (Weise et al. 2025): Differential evolution / genetic algorithm optimization<br>"
+                "- <b>Ex-Search</b>: Exhaustive (brute-force) search using leadfield matrices<br><br>"
+                "Both methods find electrode montages that maximize the electric field in a target brain region. "
+                "Flex-Search is faster and explores a wider solution space, while Ex-Search guarantees a global optimum "
+                "within the selected EEG net at the cost of longer computation time."
+            ),
+        )
+
         # Flex-Search sections
-        sections = [
+        flex_sections = [
             {
-                "title": "What is Flex-Search?",
+                "title": "Flex-Search: What Is It?",
                 "content": (
-                    "Flex-Search is an optimization algorithm for finding electrode montages that maximize the electric field strength "
-                    "in a target brain region while minimizing stimulation to non-target regions. It uses a genetic algorithm to "
-                    "explore different electrode configurations and find optimal or near-optimal solutions."
+                    "Flex-Search uses a differential evolution algorithm to find electrode montages that maximize the electric field "
+                    "in a target brain region while minimizing stimulation to non-target areas. It efficiently explores "
+                    "the solution space without needing to precompute leadfield matrices."
                 ),
             },
             {
-                "title": "Subject Selection",
-                "content": (
-                    "- Select a subject from the list who has already been pre-processed<br>"
-                    "- The subject must have a complete SimNIBS head model<br>"
-                    "- Only one subject can be selected for each Flex-Search run<br>"
-                    "- Use the 'Refresh' button to update the subject list"
-                ),
-            },
-            {
-                "title": "Optimization Parameters",
+                "title": "Flex-Search: Optimization Parameters",
                 "content": (
                     "<b>Optimization Goal:</b><br>"
                     "- <b>mean:</b> Maximize mean field in target ROI<br>"
@@ -395,16 +400,15 @@ Project Directory/
                     "- <b>Radius:</b> Electrode size in millimeters (1-30mm)<br>"
                     "- <b>Current:</b> Stimulation intensity in milliamperes (0.1-5mA)<br><br>"
                     "<b>EEG Net Template:</b><br>"
-                    "- Select the EEG net to map nearest electrodes<br>"
+                    "- Select the EEG net to constrain electrode placement<br>"
                 ),
             },
             {
-                "title": "Target Region Selection",
+                "title": "Flex-Search: Target Region Selection",
                 "content": (
                     "<b>Region of Interest (ROI):</b><br>"
-                    "- Select a target brain region from the predefined list<br>"
-                    "- The ROI list is populated based on available parcellations<br>"
-                    "- ROIs are defined according to various atlases (Desikan-Killiany, Destrieux, etc.)<br><br>"
+                    "- Select a target brain region from the predefined atlas list<br>"
+                    "- ROIs are defined according to various atlases (Desikan-Killiany, Destrieux, etc.)<br>"
                     "- Create a custom ROI by specifying a spherical target in RAS coordinates in subject space<br>"
                     "- The sphere is defined by a center point (x,y,z) and radius in millimeters<br>"
                     "- Coordinates must be in the subject's native space (not MNI space)<br><br>"
@@ -415,80 +419,50 @@ Project Directory/
                 ),
             },
             {
-                "title": "Search Process",
+                "title": "Flex-Search: Search Process",
                 "content": (
-                    "1. Flex-Search creates an initial population of random electrode configurations<br>"
-                    "2. It evaluates each solution by running a simplified simulation<br>"
+                    "1. Creates an initial population of random electrode configurations<br>"
+                    "2. Evaluates each solution by running a simplified simulation<br>"
                     "3. The best solutions are selected for the next generation<br>"
                     "4. New solutions are created through crossover and mutation<br>"
                     "5. The process repeats until convergence or the maximum number of generations<br>"
                     "6. The best solutions are presented in ranked order<br><br>"
-                    "The search progress and status are displayed in the console window."
-                ),
-            },
-            {
-                "title": "Results and Visualization",
-                "content": (
-                    "- The top solutions are displayed in a ranked list<br>"
-                    "- Each solution shows electrode positions and fitness scores<br>"
-                    "- Solutions can be exported for use in the Simulator<br>"
-                    "- Results can be visualized using the NIfTI Viewer<br>"
-                    "- Detailed results are saved in the subject's flex-search directory"
+                    "Results are saved in the subject's flex-search directory and can be visualized in the NIfTI Viewer."
                 ),
             },
         ]
 
-        # Add each section to the help layout
-        for section in sections:
+        for section in flex_sections:
             self.add_section(layout, section["title"], section["content"])
 
-    def add_ex_search_help(self, layout):
-        """Add Ex-Search help content."""
-        # Add header for the Ex-Search tool
-        header_label = QtWidgets.QLabel("<h1>Ex-Search Tool</h1>")
-        header_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(header_label)
-
         # Ex-Search sections
-        sections = [
+        ex_sections = [
             {
-                "title": "What is Ex-Search?",
+                "title": "Ex-Search: What Is It?",
                 "content": (
-                    "Ex-Search is an exhaustive search tool for finding optimal electrode configurations for temporal interference "
-                    "stimulation. It systematically evaluates electrode combinations within a specified EEG net to find "
-                    "the best montages for targeting specific brain regions. The search process is optimized to efficiently "
-                    "explore the solution space while maintaining accuracy."
+                    "Ex-Search systematically evaluates all electrode combinations within a specified EEG net "
+                    "using precomputed leadfield matrices. This guarantees finding the globally optimal montage "
+                    "for the selected net at the cost of longer computation time."
                 ),
             },
             {
-                "title": "Subject Selection",
-                "content": (
-                    "- Select a single subject from the list<br>"
-                    "- The subject must have completed pre-processing and have leadfield files<br>"
-                    "- Only one subject can be processed at a time<br>"
-                    "- The 'Refresh List' button updates the subject list"
-                ),
-            },
-            {
-                "title": "Leadfield Generation",
+                "title": "Ex-Search: Leadfield Generation",
                 "content": (
                     "<b>Leadfield Files:</b><br>"
-                    "- Required for Ex-Search optimization<br>"
+                    "- Required before running Ex-Search<br>"
                     "- Generated using SimNIBS for each subject and EEG net combination<br>"
-                    "- Must be created before running the search<br><br>"
+                    "- Specific to both subject and EEG net<br><br>"
                     "<b>Important Considerations:</b><br>"
-                    "- Leadfields are specific to both subject and EEG net<br>"
-                    "- Higher electrode density in the net results in larger leadfield files<br>"
-                    "- Generation time increases with electrode density<br>"
-                    "- Process may take several minutes to hours depending on the net size<br><br>"
+                    "- Higher electrode density results in larger leadfield files and longer generation time<br>"
+                    "- Process may take several minutes to hours depending on the net size<br>"
+                    "- Ensure sufficient disk space for leadfield storage<br><br>"
                     "<b>Creating Leadfields:</b><br>"
                     "- Click 'Create Leadfield' to generate leadfield files<br>"
-                    "- Progress is shown in the console window<br>"
-                    "- Ensure sufficient disk space for leadfield storage"
+                    "- Progress is shown in the console window"
                 ),
             },
             {
-                "title": "ROI Selection",
+                "title": "Ex-Search: ROI Selection",
                 "content": (
                     "<b>Adding ROIs:</b><br>"
                     "- Click 'Add ROI' to create a new target region<br>"
@@ -496,39 +470,24 @@ Project Directory/
                     "- Multiple ROIs can be added for batch processing<br><br>"
                     "<b>Managing ROIs:</b><br>"
                     "- Select ROIs from the list to remove them<br>"
-                    "- ROIs can be edited by removing and re-adding them<br>"
                     "- Each ROI will be processed for the selected subject"
                 ),
             },
             {
-                "title": "Search Process",
+                "title": "Ex-Search: Search Process",
                 "content": (
-                    "1. Ex-Search uses a systematic approach to generate electrode combinations:<br>"
-                    "   - For each pair of electrodes (E1+, E1- and E2+, E2-), all possible combinations are generated<br>"
-                    "   - The process uses the Cartesian product of the electrode lists<br>"
-                    "   - This ensures comprehensive coverage of possible montages while minimizing comupte time.<br><br>"
-                    "2. The search process follows these steps:<br>"
-                    "   - First, all valid combinations of E1+ and E1- electrodes are generated<br>"
-                    "   - Then, all valid combinations of E2+ and E2- electrodes are generated<br>"
-                    "   - Finally, these pairs are combined to create complete montages<br><br>"
-                    "3. For each combination:<br>"
-                    "   - The electric field distribution is calculated<br>"
-                    "   - The field is evaluated in the target ROI(s)<br>"
-                    "The search progress and status are displayed in the console window."
-                ),
-            },
-            {
-                "title": "Results and Analysis",
-                "content": (
-                    "- Results are saved in the subject's ex-search directory<br>"
-                    "- Each ROI gets its own results folder<br>"
-                    "- Results include CSV files with electrode configurations and scores<br>"
+                    "1. For each pair of electrodes (E1+, E1- and E2+, E2-), all possible combinations are generated "
+                    "using the Cartesian product of electrode positions<br>"
+                    "2. For each combination, the electric field distribution is calculated from the leadfield<br>"
+                    "3. The field is evaluated in the target ROI(s)<br>"
+                    "4. Results are ranked by field strength in the target region<br><br>"
+                    "Results are saved in the subject's ex-search directory with CSV files containing "
+                    "electrode configurations and scores for each ROI."
                 ),
             },
         ]
 
-        # Add each section to the help layout
-        for section in sections:
+        for section in ex_sections:
             self.add_section(layout, section["title"], section["content"])
 
     def add_analyzer_help(self, layout):
@@ -600,12 +559,12 @@ Project Directory/
                 "content": (
                     "<b>Data Organization:</b><br>"
                     "- Results are organized by subject and simulation<br>"
-                    "- Analysis results are saved in the subject's analysis directory<br>"
+                    "- Analysis results are saved under <code>derivatives/SimNIBS/sub-{subject}/Simulations/{montage}/Analyses/</code><br>"
                     "- Previous analyses can be loaded and modified<br><br>"
                     "<b>Report Generation:</b><br>"
-                    "- Create detailed reports of analysis results<br>"
-                    "- Include visualizations and statistics<br>"
-                    "- Export reports in various formats (PDF, HTML, etc.)"
+                    "- Generates HTML reports with interactive visualizations<br>"
+                    "- Reports include slice series, montage diagrams, field statistics, and ROI summaries<br>"
+                    "- Reports are saved in <code>derivatives/tit/reports/</code>"
                 ),
             },
         ]
@@ -662,6 +621,46 @@ Project Directory/
         for section in sections:
             self.add_section(layout, section["title"], section["content"])
 
+    def add_system_monitor_help(self, layout):
+        """Add System Monitor help content."""
+        # Add header for the System Monitor tool
+        header_label = QtWidgets.QLabel("<h1>System Monitor</h1>")
+        header_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(header_label)
+
+        sections = [
+            {
+                "title": "What is the System Monitor?",
+                "content": (
+                    "The System Monitor provides real-time monitoring of system resources and toolbox-related processes. "
+                    "It helps you track CPU usage, memory consumption, and the status of running operations such as "
+                    "FreeSurfer reconstruction, SimNIBS simulations, and optimization searches."
+                ),
+            },
+            {
+                "title": "Monitored Processes",
+                "content": (
+                    "The monitor automatically detects and displays processes related to:<br>"
+                    "- <b>SimNIBS</b>: charm, simnibs simulations<br>"
+                    "- <b>FreeSurfer</b>: recon-all, surface reconstruction<br>"
+                    "- <b>Pre-processing</b>: dcm2niix, FSL tools (bet, fast, flirt, fnirt)<br>"
+                    "- <b>TI-Toolbox</b>: optimization, analysis, and simulation scripts<br><br>"
+                    "System-wide CPU and memory usage graphs are updated in real time."
+                ),
+            },
+            {
+                "title": "Tips",
+                "content": (
+                    "- Use the System Monitor to check if a long-running process is still active<br>"
+                    "- Monitor memory usage when processing multiple subjects simultaneously<br>"
+                    "- The process list updates automatically every few seconds"
+                ),
+            },
+        ]
+
+        for section in sections:
+            self.add_section(layout, section["title"], section["content"])
+
     def add_general_usage_tips(self, layout):
         """Add general usage tips."""
         # Add header for general tips
@@ -674,12 +673,14 @@ Project Directory/
             {
                 "title": "Getting Started",
                 "content": (
-                    "1. Begin with the Pre-processing tab to prepare your data<br>"
-                    "2. Explore optimization with the Flex-Search or Ex-Search tab<br>"
-                    "3. Use the Simulator tab when you want maximum control over the stimulation parameters<br>"
-                    "4. Use the Analyzer tab to explore the results of the simulations<br>"
-                    "5. Visualize results with the NIfTI Viewer tab<br><br>"
-                    "The workflow is designed to be sequential, but you can jump to any step if your data is already prepared."
+                    "1. Begin with the <b>Pre-processing</b> tab to prepare your data<br>"
+                    "2. Use the <b>Optimizer</b> tab to find optimal electrode placements (Flex-Search or Ex-Search)<br>"
+                    "3. Use the <b>Simulator</b> tab when you want full control over stimulation parameters<br>"
+                    "4. Use the <b>Analyzer</b> tab to explore simulation results and generate reports<br>"
+                    "5. Visualize results with the <b>NIfTI Viewer</b> tab<br>"
+                    "6. Monitor running processes with the <b>System Monitor</b> tab<br><br>"
+                    "The workflow is designed to be sequential, but you can jump to any step if your data is already prepared. "
+                    "Help, Contact, and Acknowledgments are accessible via the settings gear icon in the top-right corner."
                 ),
             },
             {
@@ -702,7 +703,7 @@ Project Directory/
                     "- Check the console output for specific error messages<br>"
                     "- Verify that input data (e.g., DICOM files) is valid and complete<br><br>"
                     "<b>Visualization Issues:</b><br>"
-                    "- Ensure X11 / XQuartz is installed and configuredon your system<br>"
+                    "- Ensure X11 / XQuartz is installed and configured on your system<br>"
                 ),
             },
             {
@@ -710,7 +711,7 @@ Project Directory/
                 "content": (
                     "- Regularly back up your project directory<br>"
                     "- Simulation results can take up significant disk space<br>"
-                    "- Ex-search results take up significatn disk space and should be cleaned regularly<br>"
+                    "- Ex-Search results take up significant disk space and should be cleaned regularly<br>"
                     "- Use meaningful subject IDs and montage names for easy identification<br>"
                     "- Keep notes about processing parameters and decisions"
                 ),
