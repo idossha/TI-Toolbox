@@ -3,10 +3,7 @@
     "BIDSVersion": "1.10.0",
     "DatasetType": "derivative",
     "License": "CC-BY-4.0",
-    "Authors": [
-      "Ido Haber",
-      "Aksel Jackson"
-    ],
+    "Authors": "TI-Toolbox Authors",
     "Acknowledgements": "We thank the FreeSurfer developers and contributors. FreeSurfer is developed at the Athinoula A. Martinos Center for Biomedical Imaging.",
     "HowToAcknowledge": "Please cite: Fischl, B. (2012). FreeSurfer. NeuroImage, 62(2), 774–781. https://doi.org/10.1016/j.neuroimage.2012.01.021",
     "ReferencesAndLinks": [

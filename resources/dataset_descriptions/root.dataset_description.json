@@ -4,7 +4,7 @@
   "DatasetType": "raw",
   "License": "CC0",
   "Authors": [
-    "TI-Toolbox User"
+    "TI-Toolbox Authors"
   ],
   "Acknowledgements": "Data processed using TI-Toolbox pipeline for temporal interference stimulation modeling.",
   "HowToAcknowledge": "https://doi.org/10.1016/j.brs.2025.103016",
