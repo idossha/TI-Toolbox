@@ -91,13 +91,20 @@ class Analyzer:
         subject_id: str,
         simulation: str,
         space: str = "mesh",
+        tissue_type: str = "GM",
         output_dir: str | None = None,
     ) -> None:
         self.subject_id = subject_id
         self.simulation = simulation
         self.space = space
+        self.tissue_type = self._normalize_tissue_type(tissue_type)
 
-        field_path, field_name = select_field_file(subject_id, simulation, space)
+        field_path, field_name = select_field_file(
+            subject_id,
+            simulation,
+            space,
+            tissue_type=self.tissue_type,
+        )
         self.field_path = field_path
         self.field_name = field_name
 
@@ -114,10 +121,11 @@ class Analyzer:
         self._log_handler = add_file_handler(log_file)
 
         logger.info(
-            "Analyzer initialised: subject=%s sim=%s space=%s",
+            "Analyzer initialised: subject=%s sim=%s space=%s tissue=%s",
             subject_id,
             simulation,
             space,
+            self.tissue_type,
         )
 
         # Cached lazily
@@ -266,8 +274,9 @@ class Analyzer:
         )
         sphere_mask = dist <= radius
         positive_mask = field_arr > 0
-        roi_mask = sphere_mask & positive_mask
-        gm_mask = positive_mask
+        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        analysis_mask = positive_mask & tissue_mask
+        roi_mask = sphere_mask & analysis_mask
 
         region_name = (
             f"sphere_x{center[0]:.2f}_y{center[1]:.2f}" f"_z{center[2]:.2f}_r{radius}"
@@ -276,7 +285,7 @@ class Analyzer:
         return self._analyze_voxel_roi(
             field_arr,
             roi_mask,
-            gm_mask,
+            analysis_mask,
             affine,
             voxel_size,
             region_name=region_name,
@@ -319,13 +328,14 @@ class Analyzer:
         region_id = self._find_voxel_region_id(atlas_arr, atlas_path, region)
         region_mask_raw = atlas_arr == region_id
         positive_mask = field_arr > 0
-        roi_mask = region_mask_raw & positive_mask
-        gm_mask = positive_mask
+        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        analysis_mask = positive_mask & tissue_mask
+        roi_mask = region_mask_raw & analysis_mask
 
         return self._analyze_voxel_roi(
             field_arr,
             roi_mask,
-            gm_mask,
+            analysis_mask,
             affine,
             voxel_size,
             region_name=region,
@@ -774,6 +784,75 @@ class Analyzer:
         if arr.ndim == 4:
             return arr[:, :, :, 0]
         return arr
+
+    @staticmethod
+    def _normalize_tissue_type(tissue_type: str) -> str:
+        normalized = str(tissue_type or "GM").strip().upper()
+        if normalized not in {"GM", "WM", "BOTH"}:
+            raise ValueError(
+                f"Unsupported tissue_type: {tissue_type!r} (expected 'GM', 'WM', or 'both')"
+            )
+        return normalized
+
+    def _voxel_tissue_mask(
+        self,
+        field_img,
+        target_shape: tuple[int, int, int],
+        target_affine: np.ndarray,
+    ) -> np.ndarray:
+        """Return a voxel mask for the configured tissue selection.
+
+        Mesh analysis is always GM surface-based; tissue selection only applies to voxel
+        analyses. ``GM`` and ``WM`` can use the tissue-specific field NIfTIs directly.
+        ``BOTH`` requires an explicit GM|WM union mask so that non-brain voxels from the
+        full-field NIfTI are excluded.
+        """
+        if self.space != "voxel":
+            return np.ones(target_shape[:3], dtype=bool)
+
+        if self.tissue_type == "GM" and self.field_path.name.startswith("grey_"):
+            return np.ones(target_shape[:3], dtype=bool)
+        if self.tissue_type == "WM" and self.field_path.name.startswith("white_"):
+            return np.ones(target_shape[:3], dtype=bool)
+
+        base_name = self.field_path.name
+        for prefix in ("grey_", "white_"):
+            if base_name.startswith(prefix):
+                base_name = base_name[len(prefix) :]
+                break
+
+        prefixes = ("grey_", "white_") if self.tissue_type == "BOTH" else (
+            "grey_",
+        ) if self.tissue_type == "GM" else ("white_",)
+
+        import nibabel as nib
+
+        mask = np.zeros(target_shape[:3], dtype=bool)
+        for prefix in prefixes:
+            tissue_path = self.field_path.parent / f"{prefix}{base_name}"
+            if not tissue_path.exists():
+                logger.warning("Tissue mask NIfTI not found: %s", tissue_path)
+                continue
+
+            tissue_img = nib.load(str(tissue_path))
+            tissue_arr = self._squeeze_4d(tissue_img.get_fdata())
+            tissue_arr = self._resample_if_needed(
+                tissue_img,
+                tissue_arr,
+                target_shape,
+                target_affine,
+                tissue_path,
+            )
+            mask |= tissue_arr > 0
+
+        if not np.any(mask):
+            logger.warning(
+                "No voxels found for tissue=%s; falling back to positive field voxels.",
+                self.tissue_type,
+            )
+            return np.ones(target_shape[:3], dtype=bool)
+
+        return mask
 
     # ------------------------------------------------------------------
     # Voxel atlas helpers
