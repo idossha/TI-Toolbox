@@ -12,6 +12,7 @@ from tit.sim.config import (
     ElectrodeConfig,
     IntensityConfig,
     LabelMontage,
+    MTIFieldMethod,
     SimulationConfig,
     XYZMontage,
 )
@@ -59,6 +60,8 @@ def main() -> None:
         vals = [raw_intensities[k] for k in sorted(raw_intensities.keys())]
         intensities = IntensityConfig(values=vals)
     conductivity_type = ConductivityType(data.pop("conductivity_type"))
+    if "mti_field_method" in data:
+        data["mti_field_method"] = MTIFieldMethod(data["mti_field_method"])
 
     config = SimulationConfig(
         conductivity_type=conductivity_type,

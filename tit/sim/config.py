@@ -19,6 +19,12 @@ class ConductivityType(Enum):
     MC = "mc"
 
 
+class MTIFieldMethod(Enum):
+    RECURSIVE_TI = "recursive_ti"
+    DIRECT_FIELD_MAGNITUDE = "direct_field_magnitude"
+    DIRECT_FIELD_DIRECTIONAL = "direct_field_directional"
+
+
 @dataclass
 class ElectrodeConfig:
     """
@@ -141,6 +147,9 @@ class SimulationConfig:
     conductivity_type: ConductivityType
     intensities: IntensityConfig
     electrode: ElectrodeConfig
+    mti_field_method: MTIFieldMethod = MTIFieldMethod.RECURSIVE_TI
+    direct_field_pair_polarity: str = "first_positive_second_negative"
+    direct_field_phase_deg: float = 0.0
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
     map_to_surf: bool = True
     # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).

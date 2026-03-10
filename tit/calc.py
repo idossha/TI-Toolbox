@@ -1,10 +1,16 @@
 #!/usr/bin/env simnibs_python
 """
-Shared TI Field Calculation Utilities
-Used by optimization tools
+Shared TI field calculation utilities.
+
+Includes the current recursive TI implementation plus direct-field
+alternatives for mTI aggregation.
 """
 
+from __future__ import annotations
+
 import numpy as np
+
+from tit.sim.config import MTIFieldMethod
 
 
 def get_TI_vectors(E1_org, E2_org):
@@ -179,6 +185,171 @@ def get_nTI_vectors(fields):
         current = next_round
 
     return current[0]
+
+
+def compute_mti_vectors(
+    fields,
+    method: MTIFieldMethod | str,
+    *,
+    phase_deg: float = 0.0,
+):
+    """Dispatch mTI field computation by method."""
+    method = method.value if isinstance(method, MTIFieldMethod) else str(method)
+    if method == MTIFieldMethod.RECURSIVE_TI.value:
+        return get_nTI_vectors(fields)
+    if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
+        return compute_direct_field_magnitude_vectors(fields, phase_deg=phase_deg)
+    if method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
+        return compute_direct_field_directional_vectors(fields, phase_deg=phase_deg)
+    raise ValueError(f"Unsupported mTI field method: {method!r}")
+
+
+def compute_direct_field_magnitude_vectors(fields, *, phase_deg: float = 0.0):
+    """Compute direct-field AM from the envelope of ``||E(t)||``.
+
+    This follows the low-pass analytic form used in the MATLAB prototype:
+    ``S(t) = S0 + B cos(beat)`` for the low-frequency part of ``||E(t)||^2``.
+    The returned field is the peak-to-trough envelope magnitude.
+    """
+    mti_amp, _env_max = _direct_field_magnitude_components(fields, phase_deg=phase_deg)
+    return mti_amp
+
+
+def compute_direct_field_directional_vectors(fields, *, phase_deg: float = 0.0):
+    """Compute direct-field AM optimized over direction.
+
+    For each sampled unit direction ``u``, we project the carrier fields onto
+    ``u`` and apply the same low-pass envelope logic as the magnitude method.
+    The output is the vector field whose direction is the maximizing direction
+    and whose magnitude is the maximum peak-to-trough directional modulation.
+    """
+    mti_vectors, _env_max = _direct_field_directional_components(
+        fields, phase_deg=phase_deg
+    )
+    return mti_vectors
+
+
+def compute_direct_field_peak_hf(
+    fields,
+    method: MTIFieldMethod | str,
+    *,
+    phase_deg: float = 0.0,
+):
+    method = method.value if isinstance(method, MTIFieldMethod) else str(method)
+    if method in {
+        MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
+        MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
+    }:
+        _amp, peak = _direct_field_magnitude_components(fields, phase_deg=phase_deg)
+        return peak
+    raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
+
+
+def _direct_field_magnitude_components(fields, *, phase_deg: float = 0.0):
+    arrs = _validate_field_list(fields)
+    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
+
+    s0 = np.zeros(arrs[0].shape[0], dtype=np.float64)
+    for field in arrs:
+        s0 += np.sum(field * field, axis=1)
+    s0 *= 0.5
+
+    b = np.zeros_like(s0)
+    for pair_idx, weight in enumerate(weights):
+        f1 = arrs[2 * pair_idx]
+        f2 = arrs[2 * pair_idx + 1]
+        b += weight * np.sum(f1 * f2, axis=1)
+
+    abs_b = np.abs(b)
+    smin = np.maximum(s0 - abs_b, 0.0)
+    smax = np.maximum(s0 + abs_b, 0.0)
+    env_min = np.sqrt(smin)
+    env_max = np.sqrt(smax)
+    return env_max - env_min, env_max
+
+
+def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
+    arrs = _validate_field_list(fields)
+    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
+    directions = _fibonacci_sphere(192)
+    chunk_size = 16384
+
+    n_vox = arrs[0].shape[0]
+    best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
+    best_peak = np.zeros(n_vox, dtype=np.float64)
+
+    for start in range(0, n_vox, chunk_size):
+        stop = min(start + chunk_size, n_vox)
+        proj_fields = [field[start:stop] @ directions.T for field in arrs]
+
+        s0 = np.zeros_like(proj_fields[0], dtype=np.float64)
+        for proj in proj_fields:
+            s0 += proj * proj
+        s0 *= 0.5
+
+        b = np.zeros_like(s0, dtype=np.float64)
+        for pair_idx, weight in enumerate(weights):
+            p1 = proj_fields[2 * pair_idx]
+            p2 = proj_fields[2 * pair_idx + 1]
+            b += weight * (p1 * p2)
+
+        abs_b = np.abs(b)
+        smin = np.maximum(s0 - abs_b, 0.0)
+        smax = np.maximum(s0 + abs_b, 0.0)
+        env_min = np.sqrt(smin)
+        env_max = np.sqrt(smax)
+        amp = env_max - env_min
+
+        best_idx = np.argmax(amp, axis=1)
+        rows = np.arange(stop - start)
+        best_amp = amp[rows, best_idx]
+        best_dirs = directions[best_idx]
+        best_vectors[start:stop] = best_dirs * best_amp[:, None]
+        best_peak[start:stop] = env_max[rows, best_idx]
+
+    return best_vectors, best_peak
+
+
+def _validate_field_list(fields):
+    arrs = [np.asarray(field, dtype=np.float64) for field in fields]
+    n = len(arrs)
+    if n < 2 or n % 2 != 0:
+        raise ValueError(
+            f"Direct-field mTI requires an even number of fields >= 2, got {n}"
+        )
+    ref_shape = arrs[0].shape
+    if len(ref_shape) != 2 or ref_shape[1] != 3:
+        raise ValueError(f"Fields must have shape (N, 3), got {ref_shape}")
+    for i, arr in enumerate(arrs[1:], start=2):
+        if arr.shape != ref_shape:
+            raise ValueError(
+                f"All fields must have identical shape; field 1 has {ref_shape}, field {i} has {arr.shape}"
+            )
+    return arrs
+
+
+def _pair_phase_weights(num_fields: int, phase_deg: float = 0.0):
+    num_pairs = num_fields // 2
+    if num_pairs == 0:
+        return []
+    if num_pairs == 1:
+        return [1.0]
+    phase_weight = float(np.cos(np.deg2rad(phase_deg)))
+    return [1.0] + [phase_weight] * (num_pairs - 1)
+
+
+def _fibonacci_sphere(num_dirs: int) -> np.ndarray:
+    """Return approximately uniform unit vectors on the sphere."""
+    if num_dirs < 2:
+        return np.array([[0.0, 0.0, 1.0]], dtype=np.float64)
+    i = np.arange(num_dirs, dtype=np.float64)
+    phi = np.pi * (3.0 - np.sqrt(5.0))
+    y = 1.0 - 2.0 * i / (num_dirs - 1)
+    radius = np.sqrt(np.maximum(0.0, 1.0 - y * y))
+    theta = phi * i
+    x = np.cos(theta) * radius
+    z = np.sin(theta) * radius
+    return np.stack((x, y, z), axis=1)
 
 
 def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):

@@ -243,6 +243,11 @@ def create_simulation_config_file(
             "map_to_mni": config.map_to_mni,
             "map_to_fsavg": config.map_to_fsavg,
         },
+        "mti_field_method": config.mti_field_method.value,
+        "direct_field_assumptions": {
+            "pair_polarity": config.direct_field_pair_polarity,
+            "phase_deg": config.direct_field_phase_deg,
+        },
         "created_at": datetime.now().isoformat(),
     }
     with open(path, "w") as f:

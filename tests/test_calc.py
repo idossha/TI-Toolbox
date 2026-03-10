@@ -17,7 +17,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tit.calc import get_TI_vectors, get_nTI_vectors, get_mTI_vectors
+from tit.calc import (
+    compute_direct_field_directional_vectors,
+    compute_direct_field_magnitude_vectors,
+    compute_direct_field_peak_hf,
+    get_TI_vectors,
+    get_nTI_vectors,
+    get_mTI_vectors,
+)
+from tit.sim.config import MTIFieldMethod
 
 RNG = np.random.default_rng(42)
 
@@ -491,3 +499,50 @@ class TestMTIVectors:
             result = get_mTI_vectors(*fields)
             assert not np.any(np.isnan(result))
             assert not np.any(np.isinf(result))
+
+
+@pytest.mark.unit
+class TestDirectFieldMagnitude:
+    def test_parallel_pairs_have_expected_amplitude(self):
+        fields = [
+            np.array([[2.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[4.0, 0.0, 0.0]]),
+            np.array([[3.0, 0.0, 0.0]]),
+        ]
+        result = compute_direct_field_magnitude_vectors(fields)
+        peak = compute_direct_field_peak_hf(
+            fields, MTIFieldMethod.DIRECT_FIELD_MAGNITUDE
+        )
+        np.testing.assert_allclose(result, [np.sqrt(29.0) - 1.0], atol=1e-12)
+        np.testing.assert_allclose(peak, [np.sqrt(29.0)], atol=1e-12)
+
+    def test_phase_shift_reduces_combined_modulation(self):
+        fields = [
+            np.array([[2.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[4.0, 0.0, 0.0]]),
+            np.array([[3.0, 0.0, 0.0]]),
+        ]
+        result = compute_direct_field_magnitude_vectors(fields, phase_deg=180.0)
+        np.testing.assert_allclose(result, [5.0 - np.sqrt(5.0)], atol=1e-12)
+
+
+@pytest.mark.unit
+class TestDirectFieldDirectional:
+    def test_directional_matches_magnitude_for_collinear_fields(self):
+        fields = [
+            np.array([[2.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[4.0, 0.0, 0.0]]),
+            np.array([[3.0, 0.0, 0.0]]),
+        ]
+        directional_vec = compute_direct_field_directional_vectors(fields)
+        directional = np.linalg.norm(directional_vec, axis=1)
+        magnitude = compute_direct_field_magnitude_vectors(fields)
+        peak = compute_direct_field_peak_hf(
+            fields, MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL
+        )
+        assert directional_vec.shape == (1, 3)
+        np.testing.assert_allclose(directional, magnitude, atol=2e-2)
+        np.testing.assert_allclose(peak, [np.sqrt(29.0)], atol=2e-2)

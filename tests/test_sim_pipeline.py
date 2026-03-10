@@ -225,8 +225,7 @@ class TestMTISimulation:
             patch.object(_mti_mod, "convert_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io"),
-            patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_nTI_vectors") as mock_get_nti,
+            patch.object(_mti_mod, "compute_mti_vectors") as mock_compute_mti,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
             patch.object(_mti_mod, "glob"),
         ):
@@ -253,7 +252,7 @@ class TestMTISimulation:
 
             import numpy as np
 
-            mock_get_nti.return_value = np.zeros((10, 3))
+            mock_compute_mti.return_value = np.zeros((10, 3))
             mock_get_ti.return_value = np.zeros((10, 3))
 
             config = _make_sim_config(

@@ -38,6 +38,8 @@ from tit.sim import (
     XYZMontage,
     MontageConfig,
     ConductivityType,
+    MTIFieldMethod,
+    SimulationMode,
 )
 from tit.sim.utils import (
     list_montage_names,
@@ -229,6 +231,39 @@ class SimulatorTab(QtWidgets.QWidget):
         row2b.addWidget(self.thickness_input)
         row2b.addStretch()
         global_layout.addLayout(row2b)
+
+        # Row 3: mTI field method
+        row3 = QtWidgets.QHBoxLayout()
+        self.mti_method_label = QtWidgets.QLabel("mTI Field:")
+        self.mti_method_combo = QtWidgets.QComboBox()
+        self.mti_method_combo.addItem("Recursive TI", MTIFieldMethod.RECURSIVE_TI.value)
+        self.mti_method_combo.addItem(
+            "Direct Field (Magnitude AM)",
+            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
+        )
+        self.mti_method_combo.addItem(
+            "Direct Field (Directional AM)",
+            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
+        )
+        self.mti_method_combo.setToolTip(
+            "Controls how mTI fields are combined for multipolar simulations.\n"
+            "This applies to mTI runs only; TI runs ignore this setting."
+        )
+        self.mti_method_combo.currentIndexChanged.connect(
+            self._update_mti_method_warning
+        )
+        row3.addWidget(self.mti_method_label)
+        row3.addWidget(self.mti_method_combo)
+        row3.addStretch()
+        global_layout.addLayout(row3)
+
+        self.mti_method_warning = QtWidgets.QLabel()
+        self.mti_method_warning.setWordWrap(True)
+        self.mti_method_warning.setStyleSheet(
+            "color: #b45309; background: #fff7ed; border: 1px solid #fed7aa; padding: 6px;"
+        )
+        global_layout.addWidget(self.mti_method_warning)
+        self._update_mti_method_warning()
 
         # ── Assemble 2-column layout ───────────────────────────────────────
         # Right panel: Montage/Flex selection on top, Global Parameters below
@@ -477,6 +512,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Auto-select the new card
         self._select_card(idx)
+        self._update_mti_method_warning()
 
     def _apply_card_style(self, card, selected):
         """Apply normal or selected visual style to a job card."""
@@ -524,6 +560,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self._apply_card_style(self._job_cards[new_idx], selected=True)
         elif self._selected_card_idx > row:
             self._selected_card_idx -= 1
+        self._update_mti_method_warning()
 
     def _remove_selected_job_row(self):
         """Remove the currently selected job card."""
@@ -572,13 +609,24 @@ class SimulatorTab(QtWidgets.QWidget):
                 break
 
     def _on_row_mode_changed(self, text):
-        """Update current input placeholder when U/M mode changes."""
+        """Update current input placeholder/value when U/M mode changes."""
         combo = self.sender()
         for card in self._job_cards:
             if card.mode_combo is combo:
-                ph = "1.0,1.0,1.0,1.0" if text == "M" else "1.0,1.0"
+                ph = "1.0, 1.0, 1.0, 1.0" if text == "M" else "1.0, 1.0"
                 card.current_edit.setPlaceholderText(ph)
+                current_text = card.current_edit.text().strip()
+                default_currents = {
+                    "1.0,1.0",
+                    "1.0, 1.0",
+                    "1.0,1.0,1.0,1.0",
+                    "1.0, 1.0, 1.0, 1.0",
+                    "",
+                }
+                if current_text in default_currents:
+                    card.current_edit.setText(ph)
                 break
+        self._update_mti_method_warning()
 
     def _update_count_cell(self, row):
         """Update the count label on the job card for a given index."""
@@ -662,6 +710,41 @@ class SimulatorTab(QtWidgets.QWidget):
         is_montage = source == "Montage"
         self.add_montage_sel_btn.setVisible(is_montage)
         self.remove_montage_sel_btn.setVisible(is_montage)
+
+    def _has_mti_jobs_configured(self):
+        for card in self._job_cards:
+            if card.mode_combo.currentText() == "M":
+                return True
+        return False
+
+    def _update_mti_method_warning(self):
+        method = self.mti_method_combo.currentData()
+        has_mti_jobs = self._has_mti_jobs_configured()
+        self.mti_method_label.setEnabled(has_mti_jobs)
+        self.mti_method_combo.setEnabled(has_mti_jobs)
+        if not has_mti_jobs:
+            self.mti_method_warning.setVisible(False)
+            return
+        if method in {
+            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
+            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
+        }:
+            mode_text = (
+                "magnitude AM from the summed field norm"
+                if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value
+                else "directional AM optimized over direction"
+            )
+            self.mti_method_warning.setText(
+                f"{method} computes {mode_text}. It interprets each electrode pair "
+                "as ordered (+,-) using the pair order shown in the montage, "
+                "assumes phase = 0 degrees."
+            )
+            self.mti_method_warning.setVisible(True)
+        else:
+            self.mti_method_warning.setText(
+                "recursive_ti applies the current binary-tree TI combination used by TI-Toolbox."
+            )
+            self.mti_method_warning.setVisible(False)
 
     # ── Data helpers ────────────────────────────────────────────────────────
 
@@ -1104,6 +1187,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 f"* Anisotropy: {conductivity}\n"
                 f"* Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
             )
+            if any(mc.simulation_mode == SimulationMode.MTI for _, mc, _ in jobs):
+                details += (
+                    f"\n* mTI Field Method: {self.mti_method_combo.currentText()}"
+                )
             if not ConfirmationDialog.confirm(
                 self,
                 title="Confirm Simulation",
@@ -1171,6 +1258,10 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(
                 f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)"
             )
+            if any(mc.simulation_mode == SimulationMode.MTI for _, mc, _ in jobs):
+                self.update_output(
+                    f"mTI field method: {self.mti_method_combo.currentData()}"
+                )
 
             # ── Report generator ───────────────────────────────────────────
             self.simulation_session_id = datetime.datetime.now().strftime(
@@ -1251,6 +1342,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     dimensions=electrode_dims,
                     gel_thickness=float(thickness),
                 ),
+                mti_field_method=MTIFieldMethod(self.mti_method_combo.currentData()),
             )
             montage_list = [mc for _, mc, _ in jobs]
 

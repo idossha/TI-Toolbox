@@ -9,6 +9,7 @@ from tit.sim.config import (
     MontageConfig,
     SimulationMode,
     ConductivityType,
+    MTIFieldMethod,
 )
 from tit.sim.utils import (
     run_simulation,
@@ -29,6 +30,7 @@ __all__ = [
     "MontageConfig",
     "SimulationMode",
     "ConductivityType",
+    "MTIFieldMethod",
     "run_simulation",
     "load_montages",
     "list_montage_names",

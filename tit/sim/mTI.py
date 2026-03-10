@@ -4,12 +4,12 @@ N-pair Multi-channel Temporal Interference (mTI) simulation.
 
 Supports arbitrary even numbers of electrode pairs (4, 6, 8, ...):
   - Each pair produces one HF E-field via SimNIBS TDCS
-  - Adjacent pairs are combined via binary-tree TI recursion
-  - Intermediate TI vector fields are saved for inspection
+  - Adjacent pairs produce intermediate TI vector fields for inspection
+  - Final mTI aggregation is selected by ``SimulationConfig.mti_field_method``
 
 Example with 4 pairs (A/B/C/D):
   - TI_AB = TI(E_A, E_B),  TI_CD = TI(E_C, E_D)
-  - mTI   = TI(TI_AB, TI_CD)
+  - final mTI is then computed from all four HF fields using the selected method
 """
 
 import glob
@@ -19,12 +19,16 @@ from copy import deepcopy
 
 import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
-from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_nTI_vectors, get_TI_vectors
+from tit.calc import compute_direct_field_peak_hf, compute_mti_vectors, get_TI_vectors
 from tit.paths import get_path_manager
-from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode
+from tit.sim.config import (
+    MTIFieldMethod,
+    SimulationConfig,
+    MontageConfig,
+    SimulationMode,
+)
 from tit.sim.utils import (
     convert_t1_to_mni,
     create_simulation_config_file,
@@ -34,7 +38,6 @@ from tit.sim.utils import (
     setup_montage_directories,
     transform_to_nifti,
 )
-
 # Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
 _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
@@ -47,8 +50,8 @@ class mTISimulation:
       1. Set up BIDS output directory structure
       2. Visualize electrode placement
       3. Build SimNIBS SESSION (N TDCS lists), run FEM
-      4. Compute intermediate TI vector fields via binary-tree pairing
-      5. Compute final mTI_max from the combined TI field
+      4. Compute intermediate adjacent-pair TI vector fields for inspection
+      5. Compute the final mTI field using the configured aggregation method
       6. Extract GM/WM, convert to NIfTI, organize outputs
     """
 
@@ -182,12 +185,32 @@ class mTISimulation:
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI using recursive binary-tree combination
-        mti_vectors = get_nTI_vectors(e_fields)
-        mti_field = np.linalg.norm(mti_vectors, axis=1)
+        # Final mTI using the configured aggregation method.
+        mti_vectors = compute_mti_vectors(
+            e_fields,
+            self.config.mti_field_method,
+            phase_deg=self.config.direct_field_phase_deg,
+        )
+        if np.asarray(mti_vectors).ndim == 2:
+            mti_field = np.linalg.norm(mti_vectors, axis=1)
+        else:
+            mti_field = np.asarray(mti_vectors, dtype=float)
         mout = deepcopy(meshes[0])
         mout.elmdata = []
+        if np.asarray(mti_vectors).ndim == 2:
+            mout.add_element_field(np.asarray(mti_vectors, dtype=float), "TI_vectors")
         mout.add_element_field(mti_field, "TI_Max")
+
+        if self.config.mti_field_method in (
+            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE,
+            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL,
+        ):
+            peak_hf = compute_direct_field_peak_hf(
+                e_fields,
+                self.config.mti_field_method,
+                phase_deg=self.config.direct_field_phase_deg,
+            )
+            mout.add_element_field(peak_hf, "Peak_HF")
 
         mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
         mesh_io.write_msh(mout, mti_path)
@@ -195,6 +218,7 @@ class mTISimulation:
             mti_path
         )
         self.logger.info(f"mTI_max saved: {mti_path}")
+        self.logger.info("mTI field method: %s", self.config.mti_field_method.value)
 
         # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")
