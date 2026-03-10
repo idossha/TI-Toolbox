@@ -205,6 +205,55 @@ class TestSphereVoxel:
         assert result is fake_result
         a._analyze_voxel_roi.assert_called_once()
 
+    def test_sphere_voxel_uses_selected_tissue_mask(self):
+        a = _make_analyzer(space="voxel", field_path=Path("/fake/grey_field.nii.gz"))
+        a.tissue_type = "GM"
+        field_arr = np.ones((3, 3, 3), dtype=float)
+        affine = np.eye(4)
+        header = MagicMock()
+        header.get_zooms.return_value = (1.0, 1.0, 1.0)
+        mock_img = MagicMock()
+        mock_img.get_fdata.return_value = field_arr
+        mock_img.affine = affine
+        mock_img.header = header
+
+        tissue_mask = np.zeros((3, 3, 3), dtype=bool)
+        tissue_mask[1, 1, 1] = True
+        a._maybe_transform_coords = MagicMock(return_value=np.array([1.0, 1.0, 1.0]))
+        a._voxel_tissue_mask = MagicMock(return_value=tissue_mask)
+        a._analyze_voxel_roi = MagicMock(return_value=MagicMock(spec=AnalysisResult))
+
+        with patch("nibabel.load", return_value=mock_img):
+            a._sphere_voxel((1, 1, 1), 1.5, "subject", False)
+
+        passed_mask = a._analyze_voxel_roi.call_args[0][2]
+        np.testing.assert_array_equal(passed_mask, tissue_mask)
+
+
+class TestVoxelTissueMask:
+    def test_both_uses_union_of_gm_and_wm_masks(self):
+        a = _make_analyzer(space="voxel", field_path=Path("/fake/field.nii.gz"))
+        a.tissue_type = "BOTH"
+
+        gm_img = MagicMock()
+        gm_img.get_fdata.return_value = np.array([[[1.0]], [[0.0]]])
+        wm_img = MagicMock()
+        wm_img.get_fdata.return_value = np.array([[[0.0]], [[2.0]]])
+
+        def _load(path):
+            if str(path).endswith("grey_field.nii.gz"):
+                return gm_img
+            if str(path).endswith("white_field.nii.gz"):
+                return wm_img
+            raise AssertionError(f"Unexpected load path: {path}")
+
+        with patch("pathlib.Path.exists", return_value=True), patch(
+            "nibabel.load", side_effect=_load
+        ):
+            mask = a._voxel_tissue_mask(MagicMock(), (2, 1, 1), np.eye(4))
+
+        np.testing.assert_array_equal(mask, np.array([[[True]], [[True]]]))
+
 
 class TestAnalyzeMeshROI:
     """Lines 353-413: _analyze_mesh_roi computes correct statistics."""
