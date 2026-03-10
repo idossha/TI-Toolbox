@@ -18,23 +18,23 @@ from __future__ import annotations
 # Spacing scale (logical pixels -- Qt scales with AA_EnableHighDpiScaling)
 # ---------------------------------------------------------------------------
 SP_XS = 4  # tight inline gaps, icon padding, thin borders
-SP_SM = 8  # control padding, inner group margins
-SP_MD = 12  # section separation
+SP_SM = 4  # control padding, inner group margins
+SP_MD = 10  # section separation
 SP_LG = 20  # outer panel / dialog margins
 
 # ---------------------------------------------------------------------------
 # Font sizes (points -- resolved against 96 DPI in Docker)
 #
-# Reference: v2.2.4 used 13-14px for body/console, which is 10-11pt @ 96 DPI.
+# Reference: All size here are set @ 96 DPI. Make sure to hold DPI constant.
 # ---------------------------------------------------------------------------
 FONT_SIZE_SM = 8  # small hints, captions
 FONT_SIZE_BODY = 10  # body text, form fields, labels
-FONT_SIZE_HEADING = 13  # section headings, group-box titles
-FONT_SIZE_TAB = 10  # tab-bar labels
+FONT_SIZE_HEADING = 10  # section headings, group-box titles
+FONT_SIZE_TAB = 8  # tab-bar labels
 FONT_SIZE_CONSOLE = 10  # console output (monospace)
 FONT_SIZE_HELP = 9  # help / annotation text
-FONT_SIZE_SECTION = 12  # intra-tab section titles
-FONT_SIZE_SUBHEADING = 12  # dialog group boxes, electrode titles
+FONT_SIZE_SECTION = 10  # intra-tab section titles
+FONT_SIZE_SUBHEADING = 10  # dialog group boxes, electrode titles
 FONT_SIZE_MONOSPACE = 10  # fixed-width views (NIfTI, Quick Notes)
 FONT_SIZE_NOTE = 9  # note / info labels
 
