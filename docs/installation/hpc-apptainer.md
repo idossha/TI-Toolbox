@@ -115,7 +115,7 @@ Interactive sessions have these aliases pre-defined:
 | `flex_search` | `simnibs_python -m tit.cli.flex_search` |
 | `pre_process` | `simnibs_python -m tit.cli.pre_process` |
 | `group_analyzer` | `simnibs_python -m tit.cli.group_analyzer` |
-| `GUI` | `simnibs_python -m tit.cli.gui` |
+| `GUI` | `simnibs_python -m tit.gui.main` |
 
 ## GPU Support
 
