@@ -52,6 +52,7 @@ def run_group_analysis(
     subject_ids: list[str],
     simulation: str,
     space: str = "mesh",
+    tissue_type: str = "GM",
     analysis_type: str = "spherical",
     center: tuple[float, float, float] | None = None,
     radius: float | None = None,
@@ -99,7 +100,7 @@ def run_group_analysis(
     results: dict[str, AnalysisResult] = {}
     for sid in subject_ids:
         logger.info("Analyzing subject %s", sid)
-        results[sid] = analyze_fn(Analyzer(sid, simulation, space))
+        results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
 
     df = _build_summary_df(results)
     csv_path = out / "group_summary.csv"
