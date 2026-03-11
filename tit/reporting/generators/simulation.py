@@ -97,9 +97,16 @@ class SimulationReportGenerator(BaseReportGenerator):
             conductivities: Optional custom conductivity values
             **kwargs: Additional parameters
         """
+        mti_field_method = kwargs.get("mti_field_method")
+        simulation_mode_display = simulation_mode
+        if (
+            mti_field_method
+            and str(simulation_mode).strip().lower() in {"m", "mti", "multipolar"}
+        ):
+            simulation_mode_display = f"{simulation_mode} ({mti_field_method})"
         self.simulation_parameters = {
             "conductivity_type": conductivity_type,
-            "simulation_mode": simulation_mode,
+            "simulation_mode": simulation_mode_display,
             "eeg_net": eeg_net,
             "intensity_ch1": intensity_ch1,
             "intensity_ch2": intensity_ch2,

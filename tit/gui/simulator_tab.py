@@ -1287,6 +1287,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     intensity_ch4=None,
                     quiet_mode=False,
                     conductivities=self._get_conductivities_for_report(),
+                    mti_field_method=self.mti_method_combo.currentData(),
                 )
                 dim_p = dimensions.split(",")
                 self.report_generator.add_electrode_parameters(
@@ -1433,17 +1434,13 @@ class SimulatorTab(QtWidgets.QWidget):
             dimensions = getattr(self, "_last_dimensions", "8,8")
             thickness = getattr(self, "_last_thickness", "4")
 
-            # Build subject->[(montage_name, current_str, eeg_net)] mapping from completed jobs
+            # Build subject -> [(MontageConfig, current_str)] mapping from completed jobs
             last_jobs = getattr(self, "_last_jobs", [])
-            subject_montage_map = (
-                {}
-            )  # subject_id -> [(montage_name, current_str, eeg_net)]
+            subject_montage_map = {}  # subject_id -> [(MontageConfig, current_str)]
             for subject_id, mc, current_str in last_jobs:
                 if subject_id not in subject_montage_map:
                     subject_montage_map[subject_id] = []
-                subject_montage_map[subject_id].append(
-                    (mc.name, current_str, mc.eeg_net)
-                )
+                subject_montage_map[subject_id].append((mc, current_str))
 
             if not subject_montage_map:
                 self.update_output("No completed jobs to report on.", "warning")
@@ -1451,14 +1448,16 @@ class SimulatorTab(QtWidgets.QWidget):
 
             total_reports = 0
             successful_reports = 0
+            run_duration = (
+                max(time.time() - self._run_start_time, 0.0)
+                if self._run_start_time is not None
+                else None
+            )
 
             for subject_id, montage_list in subject_montage_map.items():
-                montages_to_process = [name for name, _, _ in montage_list]
-                currents_map = {name: cur for name, cur, _ in montage_list}
-                eeg_net_map = {name: net for name, _, net in montage_list}
-
                 # Generate individual report for each montage for this subject
-                for montage_name in montages_to_process:
+                for mc, current_str in montage_list:
+                    montage_name = mc.name
                     total_reports += 1
 
                     try:
@@ -1473,23 +1472,19 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Add simulation parameters
-                        cur = currents_map.get(montage_name, "1.0,1.0")
-                        cur_parts = cur.split(",")
-                        intensity_ch1 = float(cur_parts[0]) if cur_parts else 1.0
-                        intensity_ch2 = (
-                            float(cur_parts[1]) if len(cur_parts) > 1 else 1.0
-                        )
-                        job_eeg_net = eeg_net_map.get(
-                            montage_name, "GSN-HydroCel-185.csv"
-                        )
+                        intensities = IntensityConfig.from_string(current_str).values
                         report_generator.add_simulation_parameters(
                             conductivity_type=conductivity,
-                            simulation_mode="U",
-                            eeg_net=job_eeg_net,
-                            intensity_ch1=intensity_ch1,
-                            intensity_ch2=intensity_ch2,
+                            simulation_mode=mc.simulation_mode.value,
+                            eeg_net=mc.eeg_net,
+                            intensities=intensities,
                             quiet_mode=True,
                             conductivities=self._get_conductivities_for_report(),
+                            mti_field_method=(
+                                self.mti_method_combo.currentData()
+                                if mc.simulation_mode == SimulationMode.MTI
+                                else None
+                            ),
                         )
 
                         # Add electrode parameters
@@ -1501,15 +1496,14 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Add this specific subject
-                        bids_subject_id = f"sub-{subject_id}"
                         m2m_path = self.pm.m2m(subject_id)
                         report_generator.add_subject(subject_id, m2m_path, "completed")
 
                         # Add this specific montage
                         report_generator.add_montage(
                             montage_name=montage_name,
-                            electrode_pairs=[["E1", "E2"]],  # Default pairs
-                            montage_type="unipolar",
+                            electrode_pairs=mc.electrode_pairs,
+                            montage_type=mc.simulation_mode.value,
                         )
 
                         # Get expected output files for this specific combination
@@ -1541,7 +1535,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             subject_id=subject_id,
                             montage_name=montage_name,
                             output_files=output_files,
-                            duration=None,
+                            duration=run_duration,
                             status="completed",
                         )
 
