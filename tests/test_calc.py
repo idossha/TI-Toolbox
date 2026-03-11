@@ -515,7 +515,7 @@ class TestDirectFieldMagnitude:
             fields, MTIFieldMethod.DIRECT_FIELD_MAGNITUDE
         )
         np.testing.assert_allclose(result, [np.sqrt(29.0) - 1.0], atol=1e-12)
-        np.testing.assert_allclose(peak, [np.sqrt(29.0)], atol=1e-12)
+        np.testing.assert_allclose(peak, [10.0], atol=1e-12)
 
     def test_phase_shift_reduces_combined_modulation(self):
         fields = [
@@ -545,4 +545,4 @@ class TestDirectFieldDirectional:
         )
         assert directional_vec.shape == (1, 3)
         np.testing.assert_allclose(directional, magnitude, atol=2e-2)
-        np.testing.assert_allclose(peak, [np.sqrt(29.0)], atol=2e-2)
+        np.testing.assert_allclose(peak, [10.0], atol=1e-12)

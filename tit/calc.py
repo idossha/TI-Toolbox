@@ -240,8 +240,7 @@ def compute_direct_field_peak_hf(
         MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
         MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
     }:
-        _amp, peak = _direct_field_magnitude_components(fields, phase_deg=phase_deg)
-        return peak
+        return _direct_field_peak_hf_actual(fields, phase_deg=phase_deg)
     raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
 
 
@@ -308,6 +307,18 @@ def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
         best_peak[start:stop] = env_max[rows, best_idx]
 
     return best_vectors, best_peak
+
+
+def _direct_field_peak_hf_actual(fields, *, phase_deg: float = 0.0):
+    """Return the peak instantaneous magnitude of the full carrier sum.
+
+    For the direct-field workflow we assume the HF carriers are phase-aligned
+    at the peak instant, so the peak field is the norm of the signed vector sum
+    of the pair fields. ``phase_deg`` is ignored here by design.
+    """
+    arrs = _validate_field_list(fields)
+    total = np.sum(np.stack(arrs, axis=0), axis=0)
+    return np.linalg.norm(total, axis=1)
 
 
 def _validate_field_list(fields):
