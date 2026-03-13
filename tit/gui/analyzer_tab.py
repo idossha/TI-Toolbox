@@ -102,13 +102,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.tissue_combo.addItem("Gray Matter (GM)", "GM")
         self.tissue_combo.addItem("White Matter (WM)", "WM")
         self.tissue_combo.addItem("GM + WM (both)", "both")
-        self.tissue_combo.setToolTip(
-            "Tissue compartment(s) to include in the analysis.\n"
-            "GM: gray matter only (default, cortical & subcortical GM).\n"
-            "WM: white matter only (voxel space only).\n"
-            "Both: GM and WM combined (voxel space only).\n"
-            "Note: mesh analysis always uses the GM cortical surface."
-        )
 
         self.status_label = QtWidgets.QLabel()
         self.status_label.setStyleSheet("""
@@ -1063,6 +1056,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_cortical = self.type_cortical.isChecked()
         is_spherical = self.type_spherical.isChecked()
 
+        # Tissue selection only applies to voxel space
+        self.tissue_combo.setEnabled(not is_mesh)
+        if is_mesh:
+            self.tissue_combo.setCurrentIndex(0)  # Force GM
+
         # Hide warning label in group mode - it should never show in group mode
         if self.is_group_mode and hasattr(self, "atlas_warning_label"):
             self.atlas_warning_label.setVisible(False)
@@ -1760,6 +1758,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 "subject_ids": subject_ids,
                 "simulation": simulation,
                 "space": space,
+                "tissue_type": self.tissue_combo.currentData(),
                 "analysis_type": analysis_type,
                 "visualize": True,
                 "output_dir": temp_output_dir,
@@ -1805,6 +1804,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         space = "Mesh" if self.space_mesh.isChecked() else "Voxel"
         atype = "Spherical" if self.type_spherical.isChecked() else "Cortical"
         details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Simulation: {mont}\n"
+        if self.space_voxel.isChecked():
+            details += f"- Tissue: {self.tissue_combo.currentText()}\n"
         if self.space_mesh.isChecked():
             details += f"- Field File: {mont}.msh (auto-selected)\n"
         if self.type_spherical.isChecked():
@@ -1844,6 +1845,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                     pairs_info.append(f"{subject_id}({simulation_name})")
 
         details = f"- Subject-Simulation Pairs: {', '.join(pairs_info)}\n- Space: {space}\n- Analysis Type: {analysis_type}\n"
+        if self.space_voxel.isChecked():
+            details += f"- Tissue: {self.tissue_combo.currentText()}\n"
 
         # Shared analysis parameters
         details += "\n- Shared Analysis Parameters:\n"
@@ -2625,6 +2628,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 sim=simulation_name,
                 space=space,
                 analysis_type=analysis_type,
+                tissue_type=self.tissue_combo.currentData(),
                 coordinates=coords,
                 radius=radius_val,
                 coordinate_space=coord_space,
@@ -2653,6 +2657,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 "subject_id": subject_id,
                 "simulation": simulation_name,
                 "space": space,
+                "tissue_type": self.tissue_combo.currentData(),
                 "analysis_type": analysis_type,
                 "visualize": True,
                 "output_dir": output_dir,

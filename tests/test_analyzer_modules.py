@@ -84,7 +84,7 @@ class TestSelectFieldFileTI:
         sim_dir = tmp_path / "Simulations" / "montage1"
         nifti_dir = sim_dir / "TI" / "niftis"
         nifti_dir.mkdir(parents=True)
-        nii = nifti_dir / "montage1_TI.nii.gz"
+        nii = nifti_dir / "grey_montage1_TI.nii.gz"
         nii.touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
@@ -119,7 +119,7 @@ class TestSelectFieldFileMTI:
         (sim_dir / "mTI" / "mesh").mkdir(parents=True)
         nifti_dir = sim_dir / "mTI" / "niftis"
         nifti_dir.mkdir(parents=True)
-        nii = nifti_dir / "montage2_mTI.nii.gz"
+        nii = nifti_dir / "grey_montage2_mTI.nii.gz"
         nii.touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
@@ -182,23 +182,25 @@ class TestSelectVoxelFiltering:
     """Voxel file selection prefers subject-space full-field files."""
 
     @pytest.mark.unit
-    def test_prefers_subject_space_over_tissue_prefix(self, tmp_path):
+    def test_both_prefers_subject_space_over_tissue_prefix(self, tmp_path):
         sim_dir = tmp_path / "sim"
         nifti_dir = sim_dir / "TI" / "niftis"
         nifti_dir.mkdir(parents=True)
         # Tissue-prefixed file
         (nifti_dir / "grey_field.nii.gz").touch()
-        # Subject-space file (preferred)
+        # Subject-space file (preferred for tissue_type="both")
         (nifti_dir / "montage1_field.nii.gz").touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
-            path, _ = select_field_file("001", "montage1", "voxel")
+            path, _ = select_field_file(
+                "001", "montage1", "voxel", tissue_type="both"
+            )
 
         assert path.name == "montage1_field.nii.gz"
 
     @pytest.mark.unit
-    def test_falls_back_to_first_if_all_prefixed(self, tmp_path):
+    def test_gm_selects_grey_prefix(self, tmp_path):
         sim_dir = tmp_path / "sim"
         nifti_dir = sim_dir / "TI" / "niftis"
         nifti_dir.mkdir(parents=True)
@@ -212,7 +214,7 @@ class TestSelectVoxelFiltering:
         assert path.name == "grey_field.nii.gz"
 
     @pytest.mark.unit
-    def test_skips_mni_tagged_files(self, tmp_path):
+    def test_no_matching_tissue_raises_file_not_found(self, tmp_path):
         sim_dir = tmp_path / "sim"
         nifti_dir = sim_dir / "TI" / "niftis"
         nifti_dir.mkdir(parents=True)
@@ -221,9 +223,22 @@ class TestSelectVoxelFiltering:
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            with pytest.raises(FileNotFoundError, match="No GM NIfTI file found"):
+                select_field_file("001", "montage1", "voxel")
+
+    @pytest.mark.unit
+    def test_skips_mni_tagged_files(self, tmp_path):
+        sim_dir = tmp_path / "sim"
+        nifti_dir = sim_dir / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_field_MNI.nii.gz").touch()
+        (nifti_dir / "grey_field_subject.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
             path, _ = select_field_file("001", "montage1", "voxel")
 
-        assert path.name == "field_subject.nii.gz"
+        assert path.name == "grey_field_subject.nii.gz"
 
 
 # ===========================================================================

@@ -91,13 +91,22 @@ class Analyzer:
         subject_id: str,
         simulation: str,
         space: str = "mesh",
+        tissue_type: str = "GM",
         output_dir: str | None = None,
     ) -> None:
         self.subject_id = subject_id
         self.simulation = simulation
         self.space = space
+        self.tissue_type = self._normalize_tissue_type(tissue_type)
+        if self.space == "mesh":
+            self.tissue_type = "GM"
 
-        field_path, field_name = select_field_file(subject_id, simulation, space)
+        field_path, field_name = select_field_file(
+            subject_id,
+            simulation,
+            space,
+            tissue_type=self.tissue_type,
+        )
         self.field_path = field_path
         self.field_name = field_name
 
@@ -114,10 +123,11 @@ class Analyzer:
         self._log_handler = add_file_handler(log_file)
 
         logger.info(
-            "Analyzer initialised: subject=%s sim=%s space=%s",
+            "Analyzer initialised: subject=%s sim=%s space=%s tissue=%s",
             subject_id,
             simulation,
             space,
+            self.tissue_type,
         )
 
         # Cached lazily
@@ -266,8 +276,9 @@ class Analyzer:
         )
         sphere_mask = dist <= radius
         positive_mask = field_arr > 0
-        roi_mask = sphere_mask & positive_mask
-        gm_mask = positive_mask
+        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        analysis_mask = positive_mask & tissue_mask
+        roi_mask = sphere_mask & analysis_mask
 
         region_name = (
             f"sphere_x{center[0]:.2f}_y{center[1]:.2f}" f"_z{center[2]:.2f}_r{radius}"
@@ -276,7 +287,7 @@ class Analyzer:
         return self._analyze_voxel_roi(
             field_arr,
             roi_mask,
-            gm_mask,
+            analysis_mask,
             affine,
             voxel_size,
             region_name=region_name,
@@ -319,13 +330,14 @@ class Analyzer:
         region_id = self._find_voxel_region_id(atlas_arr, atlas_path, region)
         region_mask_raw = atlas_arr == region_id
         positive_mask = field_arr > 0
-        roi_mask = region_mask_raw & positive_mask
-        gm_mask = positive_mask
+        tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
+        analysis_mask = positive_mask & tissue_mask
+        roi_mask = region_mask_raw & analysis_mask
 
         return self._analyze_voxel_roi(
             field_arr,
             roi_mask,
-            gm_mask,
+            analysis_mask,
             affine,
             voxel_size,
             region_name=region,
@@ -355,18 +367,18 @@ class Analyzer:
         roi_pos = roi_values[pos_within_roi]
         roi_areas = node_areas[roi_mask][pos_within_roi]
 
-        gm_pos_mask = values > 0
-        gm_pos = values[gm_pos_mask]
-        gm_areas = node_areas[gm_pos_mask]
+        surface_pos_mask = values > 0
+        surface_pos = values[surface_pos_mask]
+        surface_areas = node_areas[surface_pos_mask]
 
         roi_mean = float(np.average(roi_pos, weights=roi_areas))
         roi_max = float(np.max(roi_pos))
         roi_min = float(np.min(roi_pos))
-        gm_mean = float(np.average(gm_pos, weights=gm_areas))
-        gm_max = float(np.max(gm_pos))
-        roi_focality = roi_mean / gm_mean
+        surface_mean = float(np.average(surface_pos, weights=surface_areas))
+        surface_max = float(np.max(surface_pos))
+        roi_focality = roi_mean / surface_mean
 
-        focality = self._compute_focality_metrics(gm_pos, gm_areas)
+        focality = self._compute_focality_metrics(surface_pos, surface_areas)
         normal = self._get_normal_stats(roi_mask, node_areas)
 
         out_dir = self._resolve_output_dir(
@@ -384,8 +396,8 @@ class Analyzer:
             roi_max=roi_max,
             roi_min=roi_min,
             roi_focality=roi_focality,
-            gm_mean=gm_mean,
-            gm_max=gm_max,
+            gm_mean=surface_mean,
+            gm_max=surface_max,
             normal_mean=normal.get("mean") if normal else None,
             normal_max=normal.get("max") if normal else None,
             normal_focality=normal.get("focality") if normal else None,
@@ -402,8 +414,8 @@ class Analyzer:
                 region_name,
                 out_dir,
                 result,
-                gm_pos,
-                gm_areas,
+                surface_pos,
+                surface_areas,
                 roi_pos,
                 roi_areas,
             )
@@ -420,7 +432,7 @@ class Analyzer:
         self,
         field_arr: np.ndarray,
         roi_mask: np.ndarray,
-        gm_mask: np.ndarray,
+        analysis_mask: np.ndarray,
         affine: np.ndarray,
         voxel_size: np.ndarray,
         *,
@@ -430,18 +442,18 @@ class Analyzer:
         **kwargs,
     ) -> AnalysisResult:
         roi_values = field_arr[roi_mask]
-        gm_values = field_arr[gm_mask]
+        tissue_values = field_arr[analysis_mask]
         voxel_vol = float(np.prod(voxel_size))
 
         roi_mean = float(np.mean(roi_values))
         roi_max = float(np.max(roi_values))
         roi_min = float(np.min(roi_values))
-        gm_mean = float(np.mean(gm_values))
-        gm_max = float(np.max(gm_values))
-        roi_focality = roi_mean / gm_mean
+        tissue_mean = float(np.mean(tissue_values))
+        tissue_max = float(np.max(tissue_values))
+        roi_focality = roi_mean / tissue_mean
 
-        gm_weights = np.full(len(gm_values), voxel_vol)
-        focality = self._compute_focality_metrics(gm_values, gm_weights)
+        tissue_weights = np.full(len(tissue_values), voxel_vol)
+        focality = self._compute_focality_metrics(tissue_values, tissue_weights)
 
         out_dir = self._resolve_output_dir(
             analysis_type=analysis_type,
@@ -458,8 +470,8 @@ class Analyzer:
             roi_max=roi_max,
             roi_min=roi_min,
             roi_focality=roi_focality,
-            gm_mean=gm_mean,
-            gm_max=gm_max,
+            gm_mean=tissue_mean,
+            gm_max=tissue_max,
             n_elements=int(np.sum(roi_mask)),
             total_area_or_volume=float(np.sum(roi_mask)) * voxel_vol,
             **focality,
@@ -469,7 +481,7 @@ class Analyzer:
             self._visualize_voxel(
                 field_arr,
                 roi_mask,
-                gm_mask,
+                analysis_mask,
                 affine,
                 region_name,
                 out_dir,
@@ -669,7 +681,7 @@ class Analyzer:
         self,
         field_arr,
         roi_mask,
-        gm_mask,
+        analysis_mask,
         affine,
         region_name,
         out_dir,
@@ -683,10 +695,10 @@ class Analyzer:
             output_dir=out,
             affine=affine,
         )
-        gm_values = field_arr[gm_mask]
+        tissue_values = field_arr[analysis_mask]
         roi_values = field_arr[roi_mask]
         save_histogram(
-            whole_head_values=gm_values,
+            whole_head_values=tissue_values,
             roi_values=roi_values,
             output_dir=out,
             region_name=region_name,
@@ -774,6 +786,65 @@ class Analyzer:
         if arr.ndim == 4:
             return arr[:, :, :, 0]
         return arr
+
+    @staticmethod
+    def _normalize_tissue_type(tissue_type: str) -> str:
+        normalized = str(tissue_type or "GM").strip().upper()
+        if normalized not in {"GM", "WM", "BOTH"}:
+            raise ValueError(
+                f"Unsupported tissue_type: {tissue_type!r} (expected 'GM', 'WM', or 'both')"
+            )
+        return normalized
+
+    def _voxel_tissue_mask(
+        self,
+        field_img,
+        target_shape: tuple[int, int, int],
+        target_affine: np.ndarray,
+    ) -> np.ndarray:
+        """Return a voxel mask for the configured tissue selection.
+
+        Mesh analysis is always GM surface-based; tissue selection only applies to voxel
+        analyses. ``GM`` and ``WM`` can use the tissue-specific field NIfTIs directly.
+        ``BOTH`` requires an explicit GM|WM union mask so that non-brain voxels from the
+        full-field NIfTI are excluded.
+        """
+        if self.tissue_type == "GM" and self.field_path.name.startswith("grey_"):
+            return np.ones(target_shape[:3], dtype=bool)
+        if self.tissue_type == "WM" and self.field_path.name.startswith("white_"):
+            return np.ones(target_shape[:3], dtype=bool)
+
+        base_name = self.field_path.name
+        for prefix in ("grey_", "white_"):
+            if base_name.startswith(prefix):
+                base_name = base_name[len(prefix) :]
+                break
+
+        prefixes = ("grey_", "white_") if self.tissue_type == "BOTH" else (
+            "grey_",
+        ) if self.tissue_type == "GM" else ("white_",)
+
+        import nibabel as nib
+
+        mask = np.zeros(target_shape[:3], dtype=bool)
+        for prefix in prefixes:
+            tissue_path = self.field_path.parent / f"{prefix}{base_name}"
+            if not tissue_path.exists():
+                logger.warning("Tissue mask NIfTI not found: %s", tissue_path)
+                continue
+
+            tissue_img = nib.load(str(tissue_path))
+            tissue_arr = self._squeeze_4d(tissue_img.get_fdata())
+            tissue_arr = self._resample_if_needed(
+                tissue_img,
+                tissue_arr,
+                target_shape,
+                target_affine,
+                tissue_path,
+            )
+            mask |= tissue_arr > 0
+
+        return mask
 
     # ------------------------------------------------------------------
     # Voxel atlas helpers

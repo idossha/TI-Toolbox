@@ -405,6 +405,7 @@ class PathManager:
         sim: str,
         space: str,
         analysis_type: str,
+        tissue_type: Optional[str] = None,
         coordinates=None,
         radius=None,
         coordinate_space: str = "subject",
@@ -435,6 +436,10 @@ class PathManager:
                 atlas_name=atlas_name,
                 atlas_path=atlas_path,
             )
+        if str(space).lower() == "voxel":
+            tissue = str(tissue_type or "GM").strip().lower()
+            if tissue in {"gm", "wm", "both"}:
+                name = f"{name}_{tissue}"
         return os.path.join(base, name)
 
 

@@ -35,6 +35,7 @@ def _run_group(data: dict) -> None:
         subject_ids=data["subject_ids"],
         simulation=data["simulation"],
         space=data.get("space", "mesh"),
+        tissue_type=data.get("tissue_type", "GM"),
         analysis_type=data.get("analysis_type", "spherical"),
         center=tuple(data["center"]) if data.get("center") else None,
         radius=data.get("radius"),
@@ -56,6 +57,7 @@ def _run_single(data: dict) -> None:
         subject_id=data["subject_id"],
         simulation=data["simulation"],
         space=data.get("space", "mesh"),
+        tissue_type=data.get("tissue_type", "GM"),
         output_dir=data.get("output_dir"),
     )
 
