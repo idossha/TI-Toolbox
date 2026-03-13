@@ -626,7 +626,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
         # Region, Atlas, and Spherical parameters - organized into multiple rows
-        # Row 1: Region input, All checkbox, and List Regions button
+        # Row 1: Region input line edit + Add button + List Regions button
         region_row = QtWidgets.QHBoxLayout()
         region_row.setSpacing(10)
         self.region_label = QtWidgets.QLabel("Region:")
@@ -640,6 +640,14 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
 
+        self.add_region_btn = QtWidgets.QPushButton("Add")
+        self.add_region_btn.setToolTip("Add region to the list")
+        self.add_region_btn.clicked.connect(self._add_region)
+        self.add_region_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        self.region_input.returnPressed.connect(self._add_region)
+
         self.show_regions_btn = QtWidgets.QPushButton("List Regions")
         self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
         self.show_regions_btn.clicked.connect(self.show_available_regions)
@@ -651,9 +659,28 @@ class AnalyzerTab(QtWidgets.QWidget):
         region_row.addWidget(self.region_label)
         region_row.addWidget(self.region_input)
         region_row.addSpacing(5)
+        region_row.addWidget(self.add_region_btn)
+        region_row.addSpacing(5)
         region_row.addWidget(self.show_regions_btn)
         region_row.addStretch()
         analysis_params_layout.addLayout(region_row)
+
+        # Row 1b: Region list widget + Remove button
+        region_list_row = QtWidgets.QHBoxLayout()
+        region_list_row.setSpacing(10)
+        self.region_list = QtWidgets.QListWidget()
+        self.region_list.setMaximumHeight(80)
+        self.region_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.region_list.setToolTip("Selected regions for combined ROI analysis")
+        self.remove_region_btn = QtWidgets.QPushButton("Remove")
+        self.remove_region_btn.setToolTip("Remove selected region from the list")
+        self.remove_region_btn.clicked.connect(self._remove_region)
+        self.remove_region_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        region_list_row.addWidget(self.region_list)
+        region_list_row.addWidget(self.remove_region_btn)
+        analysis_params_layout.addLayout(region_list_row)
 
         # Row 2: Atlas selection (single widget that shows mesh or voxel based on space)
         atlas_row = QtWidgets.QHBoxLayout()
@@ -999,6 +1026,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         region_enabled = cortical_controls_enabled
         self.region_label.setEnabled(region_enabled)
         self.region_input.setEnabled(region_enabled)
+        self.region_list.setEnabled(region_enabled)
+        self.add_region_btn.setEnabled(region_enabled)
+        self.remove_region_btn.setEnabled(region_enabled)
 
         # Update show regions button
         # Should be enabled for cortical analysis, but only if we have valid atlases
@@ -1249,6 +1279,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Disable all region/atlas controls
                 self.region_label.setEnabled(False)
                 self.region_input.setEnabled(False)
+                self.region_list.setEnabled(False)
+                self.add_region_btn.setEnabled(False)
+                self.remove_region_btn.setEnabled(False)
                 self.show_regions_btn.setEnabled(False)
                 return  # Skip the centralized update, as we've set everything explicitly
 
@@ -1442,7 +1475,12 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
             return None
         try:
-            x, y, z, r = float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
+            x, y, z, r = (
+                float(parts[0]),
+                float(parts[1]),
+                float(parts[2]),
+                float(parts[3]),
+            )
         except ValueError:
             if show_warning:
                 QtWidgets.QMessageBox.warning(
@@ -1464,11 +1502,11 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
-            if not self.region_input.text().strip():
+            if not self._get_regions() and not self.region_input.text().strip():
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Warning",
-                    "Please enter a region name for cortical analysis.",
+                    "Please add at least one region for cortical analysis.",
                 )
                 return False
         return True
@@ -1738,16 +1776,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                             atlas_name = atlas_name[: -len(ext)]
                             break
 
-                region = self.region_input.text().strip()
-                if not region:
+                regions = self._get_regions()
+                if not regions:
                     self.update_output(
-                        "Error: Region name is required for cortical analysis."
+                        "Error: At least one region is required for cortical analysis."
                     )
                     return None
 
-                analysis_kwargs = (
-                    f"    atlas={atlas_name!r},\n" f"    region={region!r},\n"
-                )
+                if len(regions) == 1:
+                    region = regions[0]
+                    analysis_kwargs = (
+                        f"    atlas={atlas_name!r},\n" f"    region={region!r},\n"
+                    )
+                else:
+                    analysis_kwargs = (
+                        f"    atlas={atlas_name!r},\n" f"    regions={regions!r},\n"
+                    )
 
             temp_output_dir = self.pm.simnibs()
 
@@ -1770,7 +1814,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                 config["coordinate_space"] = coord_space
             else:  # cortical
                 config["atlas"] = atlas_name
-                config["region"] = region
+                if len(regions) == 1:
+                    config["region"] = regions[0]
+                else:
+                    config["regions"] = regions
 
             fd, config_path = tempfile.mkstemp(
                 suffix=".json", prefix="analysis_config_"
@@ -1825,7 +1872,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
-            details += f"- Region: {self.region_input.text()}\n"
+            regions = self._get_regions()
+            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -1867,7 +1915,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
             else:
                 details += f"- Voxel Atlas: Common atlas configuration\n"
-            details += f"- Region: {self.region_input.text()} (for all)\n"
+            regions = self._get_regions()
+            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2072,8 +2121,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas = os.path.basename(self.atlas_combo.currentText() or "").split(
                     "."
                 )[0]
-            region = self.region_input.text().strip() or "region"
-            return f"Cortical: {atlas}.{region}"
+            regions = self._get_regions()
+            region_str = (
+                "+".join(regions)
+                if regions
+                else self.region_input.text().strip() or "region"
+            )
+            return f"Cortical: {atlas}.{region_str}"
         else:
             parsed = self._parse_coords_radius()
             if parsed:
@@ -2149,6 +2203,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Force enable these controls first, then let update_atlas_visibility handle proper state
         self.region_input.setEnabled(True)
         self.region_label.setEnabled(True)
+        self.region_list.setEnabled(True)
+        self.add_region_btn.setEnabled(True)
+        self.remove_region_btn.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
         # Don't force enable atlas_combo - let update_atlas_visibility handle it properly
         self.show_regions_btn.setEnabled(True)
@@ -2167,6 +2224,31 @@ class AnalyzerTab(QtWidgets.QWidget):
         from tit.atlas import MeshAtlasManager
 
         return MeshAtlasManager(seg_dir).list_regions(atlas_name)
+
+    def _add_region(self):
+        """Add the typed region name to the region list."""
+        text = self.region_input.text().strip()
+        if text and not self._region_list_contains(text):
+            self.region_list.addItem(text)
+            self.region_input.clear()
+
+    def _remove_region(self):
+        """Remove the selected region from the region list."""
+        for item in self.region_list.selectedItems():
+            self.region_list.takeItem(self.region_list.row(item))
+
+    def _region_list_contains(self, text: str) -> bool:
+        """Check if a region name is already in the list."""
+        for i in range(self.region_list.count()):
+            if self.region_list.item(i).text() == text:
+                return True
+        return False
+
+    def _get_regions(self) -> list:
+        """Return list of selected regions."""
+        return [
+            self.region_list.item(i).text() for i in range(self.region_list.count())
+        ]
 
     def show_available_regions(self):
         """Show a searchable dialog of available regions for the selected atlas."""
@@ -2260,14 +2342,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         def select_region():
             item = list_widget.currentItem()
             if item:
-                self.region_input.setText(item.text().split(" (ID:")[0])
+                region_text = item.text().split(" (ID:")[0]
+                if not self._region_list_contains(region_text):
+                    self.region_list.addItem(region_text)
                 dialog.accept()
 
         search_input.textChanged.connect(filter_regions)
         list_widget.itemDoubleClicked.connect(lambda: select_region())
 
         btn_layout = QtWidgets.QHBoxLayout()
-        copy_btn = QtWidgets.QPushButton("Copy Selected")
+        copy_btn = QtWidgets.QPushButton("Add Selected")
         close_btn = QtWidgets.QPushButton("Close")
         copy_btn.clicked.connect(select_region)
         close_btn.clicked.connect(dialog.reject)
@@ -2612,16 +2696,16 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if not atlas_name and not atlas_path:
                         return None
 
-                region = self.region_input.text().strip()
-                if not region:
+                regions = self._get_regions()
+                if not regions:
                     self.update_output(
-                        "Error: Region name is required for cortical analysis."
+                        "Error: At least one region is required for cortical analysis."
                     )
                     return None
             else:
                 atlas_name = None
                 atlas_path = None
-                region = None
+                regions = None
 
             output_dir = self.pm.analysis_output_dir(
                 sid=subject_id,
@@ -2632,7 +2716,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 coordinates=coords,
                 radius=radius_val,
                 coordinate_space=coord_space,
-                region=region,
+                region=("+".join(regions) if regions else None),
                 atlas_name=(atlas_name if analysis_type == "cortical" else None),
                 atlas_path=(
                     atlas_path
@@ -2676,7 +2760,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                             atlas_for_api = atlas_for_api[: -len(ext)]
                             break
                 config["atlas"] = atlas_for_api
-                config["region"] = region
+                if len(regions) == 1:
+                    config["region"] = regions[0]
+                else:
+                    config["regions"] = regions
 
             fd, config_path = tempfile.mkstemp(
                 suffix=".json", prefix="analysis_config_"
@@ -2725,6 +2812,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             max_region_width = max(200, min(300, int(container_width * 0.40)))
             if self.region_input.maximumWidth() != max_region_width:
                 self.region_input.setMaximumWidth(max_region_width)
+            if hasattr(self, "region_list"):
+                self.region_list.setMaximumWidth(max_region_width)
 
         # Coordinates+radius input uses Preferred policy
         if hasattr(self, "coords_radius_input"):
