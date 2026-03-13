@@ -6,22 +6,21 @@ region listing, and overlap analysis.
 
 from tit.atlas.constants import (
     BUILTIN_ATLASES,
-    DK40_REGIONS,
     MNI_ATLAS_FILES,
+    VOXEL_ATLASES,
     VOXEL_ATLAS_FILES,
 )
-from tit.atlas.mesh import MeshAtlasManager, builtin_regions
+from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.overlap import atlas_overlap_analysis, check_and_resample_atlas
 from tit.atlas.voxel import VoxelAtlasManager
 
 __all__ = [
     "BUILTIN_ATLASES",
-    "DK40_REGIONS",
     "MNI_ATLAS_FILES",
+    "VOXEL_ATLASES",
     "VOXEL_ATLAS_FILES",
     "MeshAtlasManager",
     "VoxelAtlasManager",
     "atlas_overlap_analysis",
-    "builtin_regions",
     "check_and_resample_atlas",
 ]

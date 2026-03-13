@@ -218,22 +218,11 @@ class TestAnalyzerResultSerialization:
 
 
 @pytest.mark.integration
-class TestAtlasBuiltinRegions:
-    def test_atlas_builtin_regions_all_atlases(self):
-        """For each built-in atlas, builtin_regions returns a list."""
-        from tit.atlas import MeshAtlasManager, builtin_regions
+class TestAtlasListAtlases:
+    def test_list_atlases_returns_builtins(self):
+        """MeshAtlasManager always includes built-in atlas names."""
+        from tit.atlas import MeshAtlasManager
 
         atlases = MeshAtlasManager(seg_dir="").list_atlases()
         assert isinstance(atlases, list)
-        assert len(atlases) >= 1  # at least the built-in ones
-
-        for atlas in atlases:
-            regions = builtin_regions(atlas)
-            assert isinstance(regions, list)
-
-        # DK40 specifically should have known regions
-        dk40_regions = builtin_regions("DK40")
-        assert len(dk40_regions) > 0
-        # Regions should have hemisphere suffixes
-        assert any(r.endswith("-lh") for r in dk40_regions)
-        assert any(r.endswith("-rh") for r in dk40_regions)
+        assert len(atlases) >= 3

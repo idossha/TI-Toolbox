@@ -852,13 +852,14 @@ class Analyzer:
 
     def _resolve_voxel_atlas(self, atlas: str) -> Path:
         """Find the atlas NIfTI/MGZ file for voxel-space analysis."""
-        # If atlas is already a full path, use it directly
         if Path(atlas).is_file():
             return Path(atlas)
 
         fs_mri = Path(self._pm.freesurfer_mri(self.subject_id))
         seg_dir = Path(self._pm.segmentation(self.subject_id))
         candidates = [
+            fs_mri / atlas,
+            seg_dir / atlas,
             fs_mri / f"{atlas}.mgz",
             fs_mri / f"{atlas}.nii.gz",
             fs_mri / f"{atlas}.nii",

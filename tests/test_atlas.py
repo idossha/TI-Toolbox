@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Unit tests for TI-Toolbox atlas module: MeshAtlasManager, builtin_regions, constants.
+Unit tests for TI-Toolbox atlas module: MeshAtlasManager, constants.
 """
 
 import os
 import pytest
 
-from tit.atlas import MeshAtlasManager, builtin_regions
-from tit.atlas.constants import BUILTIN_ATLASES, DK40_REGIONS
+from tit.atlas import MeshAtlasManager
+from tit.atlas.constants import BUILTIN_ATLASES, VOXEL_ATLASES, VOXEL_ATLAS_FILES
 
 
 # ---------------------------------------------------------------------------
-# BUILTIN_ATLASES constant
+# Constants
 # ---------------------------------------------------------------------------
 
 
@@ -32,67 +32,33 @@ class TestBuiltinAtlasesConstant:
         assert len(BUILTIN_ATLASES) == 3
 
 
-# ---------------------------------------------------------------------------
-# DK40_REGIONS constant
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.unit
-class TestDK40RegionsConstant:
-    """Tests for the DK40_REGIONS list."""
+class TestVoxelAtlases:
+    """Tests for the VOXEL_ATLASES dict and derived VOXEL_ATLAS_FILES list."""
 
-    def test_dk40_has_34_regions(self):
-        assert len(DK40_REGIONS) == 34
+    def test_has_five_atlases(self):
+        assert len(VOXEL_ATLASES) == 5
 
-    def test_contains_precentral(self):
-        assert "precentral" in DK40_REGIONS
+    def test_flat_list_matches_dict_keys(self):
+        assert VOXEL_ATLAS_FILES == list(VOXEL_ATLASES)
 
-    def test_contains_postcentral(self):
-        assert "postcentral" in DK40_REGIONS
+    def test_hemisphere_values_valid(self):
+        for name, hemi in VOXEL_ATLASES.items():
+            assert hemi in ("both", "lh", "rh"), f"Bad hemisphere for {name}"
 
-    def test_contains_superiorfrontal(self):
-        assert "superiorfrontal" in DK40_REGIONS
+    def test_hippo_lh_and_rh_present(self):
+        assert "lh.hippoAmygLabels-T1.v22.mgz" in VOXEL_ATLASES
+        assert "rh.hippoAmygLabels-T1.v22.mgz" in VOXEL_ATLASES
 
+    def test_hippo_hemispheres_correct(self):
+        assert VOXEL_ATLASES["lh.hippoAmygLabels-T1.v22.mgz"] == "lh"
+        assert VOXEL_ATLASES["rh.hippoAmygLabels-T1.v22.mgz"] == "rh"
 
-# ---------------------------------------------------------------------------
-# builtin_regions function
-# ---------------------------------------------------------------------------
+    def test_combined_atlases(self):
+        for name in ("aparc.DKTatlas+aseg.mgz", "aparc.a2009s+aseg.mgz",
+                      "ThalamicNuclei.v13.T1.mgz"):
+            assert VOXEL_ATLASES[name] == "both"
 
-
-@pytest.mark.unit
-class TestBuiltinRegions:
-    """Tests for the builtin_regions() function."""
-
-    def test_dk40_returns_68_regions(self):
-        regions = builtin_regions("DK40")
-        assert len(regions) == 68
-
-    def test_dk40_has_lh_and_rh_variants(self):
-        regions = builtin_regions("DK40")
-        lh = [r for r in regions if r.endswith("-lh")]
-        rh = [r for r in regions if r.endswith("-rh")]
-        assert len(lh) == 34
-        assert len(rh) == 34
-
-    def test_dk40_regions_are_sorted(self):
-        regions = builtin_regions("DK40")
-        assert regions == sorted(regions)
-
-    def test_dk40_case_insensitive_aliases(self):
-        """DK40, DESIKAN-KILLIANY, and APARC should all return regions."""
-        for name in ("DK40", "DESIKAN-KILLIANY", "APARC"):
-            regions = builtin_regions(name)
-            assert len(regions) == 68, f"Failed for atlas name: {name}"
-
-    def test_unknown_atlas_returns_empty_list(self):
-        regions = builtin_regions("nonexistent_atlas")
-        assert regions == []
-
-    def test_each_dk40_region_has_both_hemispheres(self):
-        regions = builtin_regions("DK40")
-        for base in DK40_REGIONS:
-            assert f"{base}-lh" in regions
-            assert f"{base}-rh" in regions
 
 
 # ---------------------------------------------------------------------------

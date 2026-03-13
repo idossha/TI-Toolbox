@@ -73,35 +73,6 @@ class TestAtlasFunctions:
         assert "HCP_MMP1" in atlases
         assert len(atlases) == 3
 
-    def test_builtin_regions_dk40(self):
-        from tit.atlas import builtin_regions
-
-        regions = builtin_regions("DK40")
-        # 34 DK40 regions x 2 hemispheres = 68
-        assert len(regions) == 68
-        assert "precentral-lh" in regions
-        assert "precentral-rh" in regions
-
-    def test_builtin_regions_a2009s(self):
-        from tit.atlas import builtin_regions
-
-        regions = builtin_regions("a2009s")
-        # a2009s is not in the builtin map — returns empty list
-        assert isinstance(regions, list)
-
-    def test_builtin_regions_hcp(self):
-        from tit.atlas import builtin_regions
-
-        regions = builtin_regions("HCP_MMP1")
-        # HCP_MMP1 is not in the builtin map — returns empty list
-        assert isinstance(regions, list)
-
-    def test_builtin_regions_unknown(self):
-        from tit.atlas import builtin_regions
-
-        regions = builtin_regions("nonexistent")
-        assert regions == []
-
 
 # ============================================================================
 # Field selector (mocked filesystem)

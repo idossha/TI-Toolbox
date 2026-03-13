@@ -6,7 +6,7 @@ import glob
 import os
 from typing import Dict, List, Optional, Tuple
 
-from tit.atlas.constants import BUILTIN_ATLASES, DK40_REGIONS
+from tit.atlas.constants import BUILTIN_ATLASES
 
 
 class MeshAtlasManager:
@@ -62,7 +62,7 @@ class MeshAtlasManager:
             if regions:
                 return sorted(regions)
 
-        return builtin_regions(atlas_name)
+        return []
 
     def find_atlas_file(self, atlas_name: str, hemisphere: str) -> Optional[str]:
         """Find the .annot file path for a given atlas and hemisphere.
@@ -112,12 +112,3 @@ class MeshAtlasManager:
             region_name = name.decode("utf-8") if isinstance(name, bytes) else str(name)
             regions.append((i, region_name))
         return regions
-
-
-def builtin_regions(atlas_name: str) -> List[str]:
-    """Return built-in region list for known atlases."""
-    if atlas_name.upper() in ("DK40", "DESIKAN-KILLIANY", "APARC"):
-        lh = [f"{r}-lh" for r in DK40_REGIONS]
-        rh = [f"{r}-rh" for r in DK40_REGIONS]
-        return sorted(lh + rh)
-    return []
