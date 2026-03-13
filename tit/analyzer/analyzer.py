@@ -164,7 +164,7 @@ class Analyzer:
     def analyze_cortex(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool = False,
     ) -> AnalysisResult:
         """Analyze a cortical atlas region.
@@ -174,7 +174,8 @@ class Analyzer:
         atlas:
             Atlas name recognised by SimNIBS (e.g. ``"DK40"``, ``"HCP_MMP1"``).
         region:
-            Region name within the atlas.
+            Region name within the atlas, or a list of region names whose
+            masks will be unioned into a single combined ROI.
         visualize:
             Generate overlay, histogram and CSV artifacts.
         """
@@ -223,7 +224,7 @@ class Analyzer:
     def _cortex_mesh(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
         from simnibs.utils.transformations import subject_atlas
@@ -233,14 +234,23 @@ class Analyzer:
         node_areas = self._node_areas(surface)
 
         atlas_map = subject_atlas(atlas, self.m2m_path)
-        mask = np.asarray(atlas_map[region], dtype=bool)
+
+        if isinstance(region, list):
+            masks = [np.asarray(atlas_map[r], dtype=bool) for r in region]
+            mask = masks[0]
+            for m in masks[1:]:
+                mask = mask | m
+            region_name = "+".join(region)
+        else:
+            mask = np.asarray(atlas_map[region], dtype=bool)
+            region_name = region
 
         return self._analyze_mesh_roi(
             surface,
             values,
             node_areas,
             mask,
-            region_name=region,
+            region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
             visualize=visualize,
@@ -305,7 +315,7 @@ class Analyzer:
     def _cortex_voxel(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
         import nibabel as nib
@@ -327,8 +337,17 @@ class Analyzer:
             atlas_path,
         )
 
-        region_id = self._find_voxel_region_id(atlas_arr, atlas_path, region)
-        region_mask_raw = atlas_arr == region_id
+        if isinstance(region, list):
+            ids = [self._find_voxel_region_id(atlas_arr, atlas_path, r) for r in region]
+            region_mask_raw = np.zeros_like(atlas_arr, dtype=bool)
+            for rid in ids:
+                region_mask_raw = region_mask_raw | (atlas_arr == rid)
+            region_name = "+".join(region)
+        else:
+            region_id = self._find_voxel_region_id(atlas_arr, atlas_path, region)
+            region_mask_raw = atlas_arr == region_id
+            region_name = region
+
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
         analysis_mask = positive_mask & tissue_mask
@@ -340,7 +359,7 @@ class Analyzer:
             analysis_mask,
             affine,
             voxel_size,
-            region_name=region,
+            region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
             visualize=visualize,
@@ -820,9 +839,11 @@ class Analyzer:
                 base_name = base_name[len(prefix) :]
                 break
 
-        prefixes = ("grey_", "white_") if self.tissue_type == "BOTH" else (
-            "grey_",
-        ) if self.tissue_type == "GM" else ("white_",)
+        prefixes = (
+            ("grey_", "white_")
+            if self.tissue_type == "BOTH"
+            else ("grey_",) if self.tissue_type == "GM" else ("white_",)
+        )
 
         import nibabel as nib
 

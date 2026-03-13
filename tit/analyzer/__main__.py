@@ -41,7 +41,7 @@ def _run_group(data: dict) -> None:
         radius=data.get("radius"),
         coordinate_space=data.get("coordinate_space", "subject"),
         atlas=data.get("atlas"),
-        region=data.get("region"),
+        region=data.get("regions") or data.get("region"),
         visualize=data.get("visualize", True),
         output_dir=data.get("output_dir"),
     )
@@ -69,9 +69,10 @@ def _run_single(data: dict) -> None:
             visualize=visualize,
         )
     elif analysis_type == "cortical":
+        region = data.get("regions") or data.get("region", "")
         analyzer.analyze_cortex(
             atlas=data["atlas"],
-            region=data.get("region", ""),
+            region=region,
             visualize=visualize,
         )
 
