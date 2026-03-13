@@ -98,6 +98,8 @@ class Analyzer:
         self.simulation = simulation
         self.space = space
         self.tissue_type = self._normalize_tissue_type(tissue_type)
+        if self.space == "mesh":
+            self.tissue_type = "GM"
 
         field_path, field_name = select_field_file(
             subject_id,
@@ -365,18 +367,18 @@ class Analyzer:
         roi_pos = roi_values[pos_within_roi]
         roi_areas = node_areas[roi_mask][pos_within_roi]
 
-        gm_pos_mask = values > 0
-        gm_pos = values[gm_pos_mask]
-        gm_areas = node_areas[gm_pos_mask]
+        surface_pos_mask = values > 0
+        surface_pos = values[surface_pos_mask]
+        surface_areas = node_areas[surface_pos_mask]
 
         roi_mean = float(np.average(roi_pos, weights=roi_areas))
         roi_max = float(np.max(roi_pos))
         roi_min = float(np.min(roi_pos))
-        gm_mean = float(np.average(gm_pos, weights=gm_areas))
-        gm_max = float(np.max(gm_pos))
-        roi_focality = roi_mean / gm_mean
+        surface_mean = float(np.average(surface_pos, weights=surface_areas))
+        surface_max = float(np.max(surface_pos))
+        roi_focality = roi_mean / surface_mean
 
-        focality = self._compute_focality_metrics(gm_pos, gm_areas)
+        focality = self._compute_focality_metrics(surface_pos, surface_areas)
         normal = self._get_normal_stats(roi_mask, node_areas)
 
         out_dir = self._resolve_output_dir(
@@ -394,8 +396,8 @@ class Analyzer:
             roi_max=roi_max,
             roi_min=roi_min,
             roi_focality=roi_focality,
-            gm_mean=gm_mean,
-            gm_max=gm_max,
+            gm_mean=surface_mean,
+            gm_max=surface_max,
             normal_mean=normal.get("mean") if normal else None,
             normal_max=normal.get("max") if normal else None,
             normal_focality=normal.get("focality") if normal else None,
@@ -412,8 +414,8 @@ class Analyzer:
                 region_name,
                 out_dir,
                 result,
-                gm_pos,
-                gm_areas,
+                surface_pos,
+                surface_areas,
                 roi_pos,
                 roi_areas,
             )
@@ -430,7 +432,7 @@ class Analyzer:
         self,
         field_arr: np.ndarray,
         roi_mask: np.ndarray,
-        gm_mask: np.ndarray,
+        analysis_mask: np.ndarray,
         affine: np.ndarray,
         voxel_size: np.ndarray,
         *,
@@ -440,18 +442,18 @@ class Analyzer:
         **kwargs,
     ) -> AnalysisResult:
         roi_values = field_arr[roi_mask]
-        gm_values = field_arr[gm_mask]
+        tissue_values = field_arr[analysis_mask]
         voxel_vol = float(np.prod(voxel_size))
 
         roi_mean = float(np.mean(roi_values))
         roi_max = float(np.max(roi_values))
         roi_min = float(np.min(roi_values))
-        gm_mean = float(np.mean(gm_values))
-        gm_max = float(np.max(gm_values))
-        roi_focality = roi_mean / gm_mean
+        tissue_mean = float(np.mean(tissue_values))
+        tissue_max = float(np.max(tissue_values))
+        roi_focality = roi_mean / tissue_mean
 
-        gm_weights = np.full(len(gm_values), voxel_vol)
-        focality = self._compute_focality_metrics(gm_values, gm_weights)
+        tissue_weights = np.full(len(tissue_values), voxel_vol)
+        focality = self._compute_focality_metrics(tissue_values, tissue_weights)
 
         out_dir = self._resolve_output_dir(
             analysis_type=analysis_type,
@@ -468,8 +470,8 @@ class Analyzer:
             roi_max=roi_max,
             roi_min=roi_min,
             roi_focality=roi_focality,
-            gm_mean=gm_mean,
-            gm_max=gm_max,
+            gm_mean=tissue_mean,
+            gm_max=tissue_max,
             n_elements=int(np.sum(roi_mask)),
             total_area_or_volume=float(np.sum(roi_mask)) * voxel_vol,
             **focality,
@@ -479,7 +481,7 @@ class Analyzer:
             self._visualize_voxel(
                 field_arr,
                 roi_mask,
-                gm_mask,
+                analysis_mask,
                 affine,
                 region_name,
                 out_dir,
@@ -679,7 +681,7 @@ class Analyzer:
         self,
         field_arr,
         roi_mask,
-        gm_mask,
+        analysis_mask,
         affine,
         region_name,
         out_dir,
@@ -693,10 +695,10 @@ class Analyzer:
             output_dir=out,
             affine=affine,
         )
-        gm_values = field_arr[gm_mask]
+        tissue_values = field_arr[analysis_mask]
         roi_values = field_arr[roi_mask]
         save_histogram(
-            whole_head_values=gm_values,
+            whole_head_values=tissue_values,
             roi_values=roi_values,
             output_dir=out,
             region_name=region_name,
@@ -807,9 +809,6 @@ class Analyzer:
         ``BOTH`` requires an explicit GM|WM union mask so that non-brain voxels from the
         full-field NIfTI are excluded.
         """
-        if self.space != "voxel":
-            return np.ones(target_shape[:3], dtype=bool)
-
         if self.tissue_type == "GM" and self.field_path.name.startswith("grey_"):
             return np.ones(target_shape[:3], dtype=bool)
         if self.tissue_type == "WM" and self.field_path.name.startswith("white_"):
@@ -844,13 +843,6 @@ class Analyzer:
                 tissue_path,
             )
             mask |= tissue_arr > 0
-
-        if not np.any(mask):
-            logger.warning(
-                "No voxels found for tissue=%s; falling back to positive field voxels.",
-                self.tissue_type,
-            )
-            return np.ones(target_shape[:3], dtype=bool)
 
         return mask
 

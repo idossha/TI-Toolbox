@@ -102,13 +102,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.tissue_combo.addItem("Gray Matter (GM)", "GM")
         self.tissue_combo.addItem("White Matter (WM)", "WM")
         self.tissue_combo.addItem("GM + WM (both)", "both")
-        self.tissue_combo.setToolTip(
-            "Tissue compartment(s) to include in the analysis.\n"
-            "GM: gray matter only (default, cortical & subcortical GM).\n"
-            "WM: white matter only (voxel space only).\n"
-            "Both: GM and WM combined (voxel space only).\n"
-            "Note: mesh analysis always uses the GM cortical surface."
-        )
 
         self.status_label = QtWidgets.QLabel()
         self.status_label.setStyleSheet("""
@@ -1062,6 +1055,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_mesh = self.space_mesh.isChecked()
         is_cortical = self.type_cortical.isChecked()
         is_spherical = self.type_spherical.isChecked()
+
+        # Tissue selection only applies to voxel space
+        self.tissue_combo.setEnabled(not is_mesh)
+        if is_mesh:
+            self.tissue_combo.setCurrentIndex(0)  # Force GM
 
         # Hide warning label in group mode - it should never show in group mode
         if self.is_group_mode and hasattr(self, "atlas_warning_label"):

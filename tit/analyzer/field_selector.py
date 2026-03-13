@@ -119,11 +119,6 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
                 )
                 return nii, field_name
 
-    # Fall back to the first available NIfTI.
-    logger.debug(
-        "Selected voxel field file (fallback): %s (field=%s, tissue=%s)",
-        niftis[0],
-        field_name,
-        tissue,
+    raise FileNotFoundError(
+        f"No {tissue_type} NIfTI file found in {nifti_dir}"
     )
-    return niftis[0], field_name
