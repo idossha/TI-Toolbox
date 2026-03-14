@@ -669,6 +669,73 @@ class TestCombinedCortexMesh:
         assert call_args[1]["region_name"] == "V1+V2"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_hemisphere_suffix_resolved_to_prefixed_keys(self, mock_load):
+        """GUI names like 'cuneus-lh' resolve to atlas keys like 'lh.cuneus'."""
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False, False, False]),
+            "rh.cuneus": np.array([False, True, False, False]),
+            "lh.precentral": np.array([False, False, True, False]),
+            "rh.precentral": np.array([False, False, False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", ["cuneus-lh", "precentral-rh"], False)
+
+        call_args = a._analyze_mesh_roi.call_args
+        mask = call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, False, False, True])
+        assert call_args[1]["region_name"] == "lh.cuneus+rh.precentral"
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_bare_name_unions_both_hemispheres(self, mock_load):
+        """Bare 'cuneus' resolves to both lh.cuneus + rh.cuneus."""
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False]),
+            "rh.cuneus": np.array([False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", "cuneus", False)
+
+        call_args = a._analyze_mesh_roi.call_args
+        mask = call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, True])
+        assert call_args[1]["region_name"] == "lh.cuneus+rh.cuneus"
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_invalid_region_raises_keyerror_with_hint(self, mock_load):
+        """Bad region name gives a helpful error with similar matches."""
+        a = _make_analyzer(space="mesh")
+        surface = _mock_surface(np.array([1.0, 2.0]))
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False]),
+            "rh.cuneus": np.array([False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            with pytest.raises(KeyError, match="not found in atlas"):
+                a._cortex_mesh("DK40", ["cuneus-lh", "nosuchregion"], False)
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
     def test_single_region_string_unchanged(self, mock_load):
         """Single string region still works as before."""
         a = _make_analyzer(space="mesh")
