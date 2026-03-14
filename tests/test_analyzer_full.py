@@ -41,17 +41,21 @@ sys.modules.setdefault("matplotlib.patches", MagicMock())
 
 from tit.analyzer.analyzer import Analyzer, AnalysisResult  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Helper: build an Analyzer with everything mocked
 # ---------------------------------------------------------------------------
 
+
 def _make_analyzer(space="mesh", output_dir=None, field_path=None, field_name="TI_max"):
     """Construct an Analyzer without touching the filesystem."""
-    with patch("tit.analyzer.analyzer.select_field_file",
-               return_value=(field_path or Path("/fake/sim/montage1_TI.msh"), field_name)), \
-         patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm, \
-         patch("tit.analyzer.analyzer.add_file_handler"):
+    with (
+        patch(
+            "tit.analyzer.analyzer.select_field_file",
+            return_value=(field_path or Path("/fake/sim/montage1_TI.msh"), field_name),
+        ),
+        patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
+        patch("tit.analyzer.analyzer.add_file_handler"),
+    ):
         pm = MagicMock()
         mock_gpm.return_value = pm
         pm.m2m.return_value = "/fake/m2m"
@@ -64,8 +68,9 @@ def _make_analyzer(space="mesh", output_dir=None, field_path=None, field_name="T
     return a
 
 
-def _mock_surface(values, node_coords=None, n_nodes=None, areas=None,
-                  field_name="TI_max"):
+def _mock_surface(
+    values, node_coords=None, n_nodes=None, areas=None, field_name="TI_max"
+):
     """Return a mock surface mesh with field values and node coordinates."""
     if n_nodes is None:
         n_nodes = len(values)
@@ -101,7 +106,9 @@ class TestAnalyzeSphereDispatch:
     def test_dispatch_voxel(self):
         a = _make_analyzer(space="voxel")
         a._sphere_voxel = MagicMock(return_value="voxel_result")
-        result = a.analyze_sphere((1, 2, 3), 5.0, coordinate_space="MNI", visualize=True)
+        result = a.analyze_sphere(
+            (1, 2, 3), 5.0, coordinate_space="MNI", visualize=True
+        )
         a._sphere_voxel.assert_called_once_with((1, 2, 3), 5.0, "MNI", True)
         assert result == "voxel_result"
 
@@ -130,13 +137,16 @@ class TestSphereMesh:
     def test_sphere_mesh_calls_analyze_mesh_roi(self):
         a = _make_analyzer(space="mesh")
         # 5 nodes; some inside sphere at origin with radius 5
-        coords = np.array([
-            [0, 0, 0],
-            [1, 0, 0],
-            [100, 100, 100],
-            [2, 2, 0],
-            [200, 200, 200],
-        ], dtype=float)
+        coords = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [100, 100, 100],
+                [2, 2, 0],
+                [200, 200, 200],
+            ],
+            dtype=float,
+        )
         values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         surface = _mock_surface(values, node_coords=coords)
 
@@ -167,7 +177,9 @@ class TestCortexMesh:
         mock_load.return_value = surface
 
         atlas_map = {"V1": np.array([True, False, True, False])}
-        with patch("simnibs.utils.transformations.subject_atlas", return_value=atlas_map):
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
             result = a._cortex_mesh("DK40", "V1", False)
@@ -182,8 +194,7 @@ class TestSphereVoxel:
     """Lines 250-276: _sphere_voxel builds voxel mask and delegates."""
 
     def test_sphere_voxel_constructs_mask(self):
-        a = _make_analyzer(space="voxel",
-                           field_path=Path("/fake/field.nii.gz"))
+        a = _make_analyzer(space="voxel", field_path=Path("/fake/field.nii.gz"))
         # 5x5x5 volume, positive values everywhere
         field_arr = np.ones((5, 5, 5), dtype=float) * 2.0
         affine = np.eye(4)
@@ -222,8 +233,12 @@ class TestAnalyzeMeshROI:
         a._resolve_output_dir = MagicMock(return_value="/tmp/out")
 
         result = a._analyze_mesh_roi(
-            surface, values, node_areas, mask,
-            region_name="test_roi", analysis_type="spherical",
+            surface,
+            values,
+            node_areas,
+            mask,
+            region_name="test_roi",
+            analysis_type="spherical",
             visualize=False,
         )
 
@@ -252,8 +267,12 @@ class TestAnalyzeMeshROI:
         a._resolve_output_dir = MagicMock(return_value="/tmp/out")
 
         result = a._analyze_mesh_roi(
-            surface, values, node_areas, mask,
-            region_name="roi", analysis_type="spherical",
+            surface,
+            values,
+            node_areas,
+            mask,
+            region_name="roi",
+            analysis_type="spherical",
         )
 
         assert result.normal_mean == pytest.approx(1.5)
@@ -273,8 +292,12 @@ class TestAnalyzeMeshROI:
         a._visualize_mesh = MagicMock()
 
         a._analyze_mesh_roi(
-            surface, values, node_areas, mask,
-            region_name="roi", analysis_type="spherical",
+            surface,
+            values,
+            node_areas,
+            mask,
+            region_name="roi",
+            analysis_type="spherical",
             visualize=True,
         )
 
@@ -287,8 +310,7 @@ class TestAnalyzeVoxelROI:
     @patch("tit.analyzer.analyzer.save_results_csv")
     def test_basic_stats(self, mock_csv):
         a = _make_analyzer(space="voxel")
-        field_arr = np.array([[[1.0, 2.0], [3.0, 4.0]],
-                              [[5.0, 6.0], [7.0, 8.0]]])
+        field_arr = np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
         roi_mask = np.zeros_like(field_arr, dtype=bool)
         roi_mask[0, 0, 0] = True  # value 1.0
         roi_mask[0, 0, 1] = True  # value 2.0
@@ -299,8 +321,13 @@ class TestAnalyzeVoxelROI:
         a._resolve_output_dir = MagicMock(return_value="/tmp/out")
 
         result = a._analyze_voxel_roi(
-            field_arr, roi_mask, gm_mask, affine, voxel_size,
-            region_name="test_roi", analysis_type="spherical",
+            field_arr,
+            roi_mask,
+            gm_mask,
+            affine,
+            voxel_size,
+            region_name="test_roi",
+            analysis_type="spherical",
         )
 
         assert isinstance(result, AnalysisResult)
@@ -328,8 +355,13 @@ class TestAnalyzeVoxelROI:
         a._visualize_voxel = MagicMock()
 
         a._analyze_voxel_roi(
-            field_arr, roi_mask, gm_mask, affine, voxel_size,
-            region_name="roi", analysis_type="spherical",
+            field_arr,
+            roi_mask,
+            gm_mask,
+            affine,
+            voxel_size,
+            region_name="roi",
+            analysis_type="spherical",
             visualize=True,
         )
 
@@ -365,8 +397,7 @@ class TestEnsureCentralSurface:
     """Lines 502-523: _ensure_central_surface generates surface if missing."""
 
     def test_returns_existing_surface(self, tmp_path):
-        a = _make_analyzer(space="mesh",
-                           field_path=tmp_path / "montage1_TI.msh")
+        a = _make_analyzer(space="mesh", field_path=tmp_path / "montage1_TI.msh")
         surfaces_dir = tmp_path / "surfaces"
         surfaces_dir.mkdir()
         central = surfaces_dir / "montage1_TI_central.msh"
@@ -377,8 +408,7 @@ class TestEnsureCentralSurface:
 
     @patch("subprocess.run")
     def test_generates_surface_when_missing(self, mock_run, tmp_path):
-        a = _make_analyzer(space="mesh",
-                           field_path=tmp_path / "montage1_TI.msh")
+        a = _make_analyzer(space="mesh", field_path=tmp_path / "montage1_TI.msh")
         # surfaces dir does not exist yet
         result = a._ensure_central_surface()
 
@@ -392,8 +422,7 @@ class TestGetNormalStats:
     """Lines 535-561: _get_normal_stats extracts normal field statistics."""
 
     def test_returns_none_when_no_normal_path(self):
-        a = _make_analyzer(space="mesh",
-                           field_path=Path("/fake/data.msh"))
+        a = _make_analyzer(space="mesh", field_path=Path("/fake/data.msh"))
         a._normal_mesh_path = MagicMock(return_value=None)
         result = a._get_normal_stats(np.array([True, False]), np.array([1.0, 1.0]))
         assert result is None
@@ -512,16 +541,20 @@ class TestMaybeTransformCoords:
 
     def test_mni_space_calls_transform(self):
         a = _make_analyzer(space="mesh")
-        with patch("simnibs.utils.transformations.mni2subject_coords",
-                   return_value=np.array([[5.0, 15.0, 25.0]])) as mock_t:
+        with patch(
+            "simnibs.utils.transformations.mni2subject_coords",
+            return_value=np.array([[5.0, 15.0, 25.0]]),
+        ) as mock_t:
             result = a._maybe_transform_coords((10.0, 20.0, 30.0), "MNI")
         mock_t.assert_called_once()
         np.testing.assert_array_almost_equal(result, [5.0, 15.0, 25.0])
 
     def test_mni_case_insensitive(self):
         a = _make_analyzer(space="mesh")
-        with patch("simnibs.utils.transformations.mni2subject_coords",
-                   return_value=np.array([[1.0, 2.0, 3.0]])):
+        with patch(
+            "simnibs.utils.transformations.mni2subject_coords",
+            return_value=np.array([[1.0, 2.0, 3.0]]),
+        ):
             result = a._maybe_transform_coords((0, 0, 0), "mni")
         np.testing.assert_array_almost_equal(result, [1.0, 2.0, 3.0])
 
@@ -607,6 +640,169 @@ class TestResolveVoxelAtlas:
             a._resolve_voxel_atlas("nonexistent")
 
 
+class TestCombinedCortexMesh:
+    """Combined ROI: _cortex_mesh unions multiple atlas regions."""
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_combined_regions_union_mask(self, mock_load):
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "V1": np.array([True, False, False, False]),
+            "V2": np.array([False, False, True, False]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", ["V1", "V2"], False)
+
+        assert result is fake_result
+        call_args = a._analyze_mesh_roi.call_args
+        mask = call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, False, True, False])
+        # Check region_name is joined with +
+        assert call_args[1]["region_name"] == "V1+V2"
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_hemisphere_suffix_resolved_to_prefixed_keys(self, mock_load):
+        """GUI names like 'cuneus-lh' resolve to atlas keys like 'lh.cuneus'."""
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False, False, False]),
+            "rh.cuneus": np.array([False, True, False, False]),
+            "lh.precentral": np.array([False, False, True, False]),
+            "rh.precentral": np.array([False, False, False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", ["cuneus-lh", "precentral-rh"], False)
+
+        call_args = a._analyze_mesh_roi.call_args
+        mask = call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, False, False, True])
+        assert call_args[1]["region_name"] == "lh.cuneus+rh.precentral"
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_bare_name_unions_both_hemispheres(self, mock_load):
+        """Bare 'cuneus' resolves to both lh.cuneus + rh.cuneus."""
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False]),
+            "rh.cuneus": np.array([False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", "cuneus", False)
+
+        call_args = a._analyze_mesh_roi.call_args
+        mask = call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, True])
+        assert call_args[1]["region_name"] == "lh.cuneus+rh.cuneus"
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_invalid_region_raises_keyerror_with_hint(self, mock_load):
+        """Bad region name gives a helpful error with similar matches."""
+        a = _make_analyzer(space="mesh")
+        surface = _mock_surface(np.array([1.0, 2.0]))
+        mock_load.return_value = surface
+
+        atlas_map = {
+            "lh.cuneus": np.array([True, False]),
+            "rh.cuneus": np.array([False, True]),
+        }
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            with pytest.raises(KeyError, match="not found in atlas"):
+                a._cortex_mesh("DK40", ["cuneus-lh", "nosuchregion"], False)
+
+    @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
+    def test_single_region_string_unchanged(self, mock_load):
+        """Single string region still works as before."""
+        a = _make_analyzer(space="mesh")
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        surface = _mock_surface(values)
+        mock_load.return_value = surface
+
+        atlas_map = {"V1": np.array([True, False, True, False])}
+        with patch(
+            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+        ):
+            fake_result = MagicMock(spec=AnalysisResult)
+            a._analyze_mesh_roi = MagicMock(return_value=fake_result)
+            result = a._cortex_mesh("DK40", "V1", False)
+
+        call_args = a._analyze_mesh_roi.call_args
+        assert call_args[1]["region_name"] == "V1"
+
+
+class TestMainRegionsKey:
+    """__main__ reads 'regions' key for combined ROI."""
+
+    def test_run_single_uses_regions_list(self):
+        from tit.analyzer.__main__ import _run_single
+
+        data = {
+            "subject_id": "001",
+            "simulation": "montage1",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "regions": ["V1", "V2"],
+            "visualize": False,
+        }
+        with patch("tit.analyzer.Analyzer") as MockAnalyzer:
+            mock_instance = MockAnalyzer.return_value
+            mock_instance.analyze_cortex.return_value = MagicMock()
+            _run_single(data)
+            mock_instance.analyze_cortex.assert_called_once_with(
+                atlas="DK40",
+                region=["V1", "V2"],
+                visualize=False,
+            )
+
+    def test_run_single_falls_back_to_region_string(self):
+        from tit.analyzer.__main__ import _run_single
+
+        data = {
+            "subject_id": "001",
+            "simulation": "montage1",
+            "space": "mesh",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "V1",
+            "visualize": False,
+        }
+        with patch("tit.analyzer.Analyzer") as MockAnalyzer:
+            mock_instance = MockAnalyzer.return_value
+            mock_instance.analyze_cortex.return_value = MagicMock()
+            _run_single(data)
+            mock_instance.analyze_cortex.assert_called_once_with(
+                atlas="DK40",
+                region="V1",
+                visualize=False,
+            )
+
+
 class TestVisualizeMesh:
     """Lines 648-658: _visualize_mesh calls save helpers."""
 
@@ -622,9 +818,16 @@ class TestVisualizeMesh:
         result.roi_mean = 1.0
 
         a._visualize_mesh(
-            surface, values, roi_mask, "test_roi", "/tmp/out",
-            result, np.array([1.0, 2.0]), np.array([1.0, 1.0]),
-            np.array([1.0]), np.array([1.0]),
+            surface,
+            values,
+            roi_mask,
+            "test_roi",
+            "/tmp/out",
+            result,
+            np.array([1.0, 2.0]),
+            np.array([1.0, 1.0]),
+            np.array([1.0]),
+            np.array([1.0]),
         )
 
         mock_overlay.assert_called_once()
@@ -646,8 +849,13 @@ class TestVisualizeVoxel:
         result.roi_mean = 1.0
 
         a._visualize_voxel(
-            field_arr, roi_mask, gm_mask, affine, "test_roi",
-            "/tmp/out", result,
+            field_arr,
+            roi_mask,
+            gm_mask,
+            affine,
+            "test_roi",
+            "/tmp/out",
+            result,
         )
 
         mock_overlay.assert_called_once()

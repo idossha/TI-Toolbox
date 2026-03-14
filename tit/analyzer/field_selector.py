@@ -119,6 +119,4 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
                 )
                 return nii, field_name
 
-    raise FileNotFoundError(
-        f"No {tissue_type} NIfTI file found in {nifti_dir}"
-    )
+    raise FileNotFoundError(f"No {tissue_type} NIfTI file found in {nifti_dir}")

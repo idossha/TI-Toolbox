@@ -58,7 +58,7 @@ def run_group_analysis(
     radius: float | None = None,
     coordinate_space: str = "subject",
     atlas: str | None = None,
-    region: str | None = None,
+    region: str | list[str] | None = None,
     visualize: bool = False,
     output_dir: str | Path | None = None,
 ) -> GroupResult:

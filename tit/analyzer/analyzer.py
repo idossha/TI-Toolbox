@@ -164,7 +164,7 @@ class Analyzer:
     def analyze_cortex(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool = False,
     ) -> AnalysisResult:
         """Analyze a cortical atlas region.
@@ -174,7 +174,8 @@ class Analyzer:
         atlas:
             Atlas name recognised by SimNIBS (e.g. ``"DK40"``, ``"HCP_MMP1"``).
         region:
-            Region name within the atlas.
+            Region name within the atlas, or a list of region names whose
+            masks will be unioned into a single combined ROI.
         visualize:
             Generate overlay, histogram and CSV artifacts.
         """
@@ -223,7 +224,7 @@ class Analyzer:
     def _cortex_mesh(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
         from simnibs.utils.transformations import subject_atlas
@@ -233,14 +234,33 @@ class Analyzer:
         node_areas = self._node_areas(surface)
 
         atlas_map = subject_atlas(atlas, self.m2m_path)
-        mask = np.asarray(atlas_map[region], dtype=bool)
+
+        regions = region if isinstance(region, list) else [region]
+
+        # Resolve region names to atlas keys. MeshAtlasManager shows names
+        # like "cuneus-lh" but subject_atlas() may use "lh.cuneus", "cuneus",
+        # or just "cuneus" depending on the atlas version.
+        atlas_keys = []
+        seen = set()
+        for r in regions:
+            keys = self._resolve_mesh_region(r, atlas_map)
+            for k in keys:
+                if k not in seen:
+                    seen.add(k)
+                    atlas_keys.append(k)
+
+        masks = [np.asarray(atlas_map[k], dtype=bool) for k in atlas_keys]
+        mask = masks[0]
+        for m in masks[1:]:
+            mask = mask | m
+        region_name = "+".join(atlas_keys)
 
         return self._analyze_mesh_roi(
             surface,
             values,
             node_areas,
             mask,
-            region_name=region,
+            region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
             visualize=visualize,
@@ -305,7 +325,7 @@ class Analyzer:
     def _cortex_voxel(
         self,
         atlas: str,
-        region: str,
+        region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
         import nibabel as nib
@@ -327,8 +347,13 @@ class Analyzer:
             atlas_path,
         )
 
-        region_id = self._find_voxel_region_id(atlas_arr, atlas_path, region)
-        region_mask_raw = atlas_arr == region_id
+        regions = region if isinstance(region, list) else [region]
+        ids = [self._find_voxel_region_id(atlas_arr, atlas_path, r) for r in regions]
+        region_mask_raw = np.zeros_like(atlas_arr, dtype=bool)
+        for rid in ids:
+            region_mask_raw = region_mask_raw | (atlas_arr == rid)
+        region_name = "+".join(regions)
+
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
         analysis_mask = positive_mask & tissue_mask
@@ -340,7 +365,7 @@ class Analyzer:
             analysis_mask,
             affine,
             voxel_size,
-            region_name=region,
+            region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
             visualize=visualize,
@@ -744,6 +769,45 @@ class Analyzer:
     # Coordinate helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _resolve_mesh_region(name: str, atlas_map) -> list[str]:
+        """Resolve a user-facing region name to atlas key(s).
+
+        Handles three naming conventions:
+        - Direct match: ``"lh.cuneus"`` → ``["lh.cuneus"]``
+        - GUI suffix: ``"cuneus-lh"`` → ``["lh.cuneus"]``
+        - Bare name: ``"cuneus"`` → ``["lh.cuneus", "rh.cuneus"]`` (both hemis)
+        """
+        # 1. Direct match (user typed exact atlas key)
+        if name in atlas_map:
+            return [name]
+
+        # 2. GUI-style suffix: "cuneus-lh" → try "lh.cuneus"
+        if name.endswith(("-lh", "-rh")):
+            hemi = name[-2:]  # "lh" or "rh"
+            bare = name[:-3]
+            prefixed = f"{hemi}.{bare}"
+            if prefixed in atlas_map:
+                return [prefixed]
+            # Also try bare (some atlases don't prefix)
+            if bare in atlas_map:
+                return [bare]
+
+        # 3. Bare name: "cuneus" → try "lh.cuneus" + "rh.cuneus"
+        found = []
+        for hemi in ("lh", "rh"):
+            prefixed = f"{hemi}.{name}"
+            if prefixed in atlas_map:
+                found.append(prefixed)
+        if found:
+            return found
+
+        # Nothing matched — build helpful error
+        available = list(atlas_map.keys()) if hasattr(atlas_map, "keys") else []
+        close = [a for a in available if name.lower().rstrip("-lhrh") in a.lower()]
+        hint = f" Similar: {close[:5]}" if close else ""
+        raise KeyError(f"Region {name!r} not found in atlas.{hint}")
+
     def _maybe_transform_coords(
         self,
         center: tuple[float, float, float],
@@ -820,9 +884,11 @@ class Analyzer:
                 base_name = base_name[len(prefix) :]
                 break
 
-        prefixes = ("grey_", "white_") if self.tissue_type == "BOTH" else (
-            "grey_",
-        ) if self.tissue_type == "GM" else ("white_",)
+        prefixes = (
+            ("grey_", "white_")
+            if self.tissue_type == "BOTH"
+            else ("grey_",) if self.tissue_type == "GM" else ("white_",)
+        )
 
         import nibabel as nib
 

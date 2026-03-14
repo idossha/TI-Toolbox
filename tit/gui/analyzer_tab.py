@@ -626,15 +626,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
         # Region, Atlas, and Spherical parameters - organized into multiple rows
-        # Row 1: Region input, All checkbox, and List Regions button
+        # Row 1: Region input (comma-separated for combined ROI) + List Regions button
         region_row = QtWidgets.QHBoxLayout()
         region_row.setSpacing(10)
-        self.region_label = QtWidgets.QLabel("Region:")
+        self.region_label = QtWidgets.QLabel("Region(s):")
         self.region_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
         self.region_input = QtWidgets.QLineEdit()
-        self.region_input.setPlaceholderText("e.g., superiorfrontal")
+        self.region_input.setPlaceholderText(
+            "e.g., superiorfrontal  or  precentral, postcentral"
+        )
         self.region_input.setMinimumWidth(100)
         self.region_input.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
@@ -1442,7 +1444,12 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
             return None
         try:
-            x, y, z, r = float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
+            x, y, z, r = (
+                float(parts[0]),
+                float(parts[1]),
+                float(parts[2]),
+                float(parts[3]),
+            )
         except ValueError:
             if show_warning:
                 QtWidgets.QMessageBox.warning(
@@ -1583,6 +1590,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.optimization_process.output_signal.connect(
                 self.update_output, QtCore.Qt.QueuedConnection
             )
+            self.optimization_process.error_signal.connect(
+                lambda msg: self.update_output(msg, "error"),
+                QtCore.Qt.QueuedConnection,
+            )
             self.optimization_process.finished.connect(
                 lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(
                     subject_id=sid, simulation_name=sim_name, success=True
@@ -1641,6 +1652,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
             self.optimization_process.output_signal.connect(
                 self.update_output, QtCore.Qt.QueuedConnection
+            )
+            self.optimization_process.error_signal.connect(
+                lambda msg: self.update_output(msg, "error"),
+                QtCore.Qt.QueuedConnection,
             )
             self.optimization_process.finished.connect(
                 lambda: self.analysis_finished(success=True), QtCore.Qt.QueuedConnection
@@ -1738,16 +1753,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                             atlas_name = atlas_name[: -len(ext)]
                             break
 
-                region = self.region_input.text().strip()
-                if not region:
+                regions = self._get_regions()
+                if not regions:
                     self.update_output(
-                        "Error: Region name is required for cortical analysis."
+                        "Error: At least one region is required for cortical analysis."
                     )
                     return None
 
-                analysis_kwargs = (
-                    f"    atlas={atlas_name!r},\n" f"    region={region!r},\n"
-                )
+                if len(regions) == 1:
+                    region = regions[0]
+                    analysis_kwargs = (
+                        f"    atlas={atlas_name!r},\n" f"    region={region!r},\n"
+                    )
+                else:
+                    analysis_kwargs = (
+                        f"    atlas={atlas_name!r},\n" f"    regions={regions!r},\n"
+                    )
 
             temp_output_dir = self.pm.simnibs()
 
@@ -1770,7 +1791,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                 config["coordinate_space"] = coord_space
             else:  # cortical
                 config["atlas"] = atlas_name
-                config["region"] = region
+                if len(regions) == 1:
+                    config["region"] = regions[0]
+                else:
+                    config["regions"] = regions
 
             fd, config_path = tempfile.mkstemp(
                 suffix=".json", prefix="analysis_config_"
@@ -1825,7 +1849,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
-            details += f"- Region: {self.region_input.text()}\n"
+            regions = self._get_regions()
+            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -1867,7 +1892,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
             else:
                 details += f"- Voxel Atlas: Common atlas configuration\n"
-            details += f"- Region: {self.region_input.text()} (for all)\n"
+            regions = self._get_regions()
+            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2072,8 +2098,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas = os.path.basename(self.atlas_combo.currentText() or "").split(
                     "."
                 )[0]
-            region = self.region_input.text().strip() or "region"
-            return f"Cortical: {atlas}.{region}"
+            regions = self._get_regions()
+            region_str = (
+                "+".join(regions)
+                if regions
+                else self.region_input.text().strip() or "region"
+            )
+            return f"Cortical: {atlas}.{region_str}"
         else:
             parsed = self._parse_coords_radius()
             if parsed:
@@ -2168,6 +2199,13 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         return MeshAtlasManager(seg_dir).list_regions(atlas_name)
 
+    def _get_regions(self) -> list[str]:
+        """Parse comma-separated region names from the input field."""
+        text = self.region_input.text().strip()
+        if not text:
+            return []
+        return [r.strip() for r in text.split(",") if r.strip()]
+
     def show_available_regions(self):
         """Show a searchable dialog of available regions for the selected atlas."""
         selected_subjects = self.get_selected_subjects()
@@ -2248,6 +2286,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         layout.addLayout(search_layout)
 
         list_widget = QtWidgets.QListWidget()
+        list_widget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         list_widget.addItems(regions)
         layout.addWidget(list_widget)
 
@@ -2257,19 +2296,30 @@ class AnalyzerTab(QtWidgets.QWidget):
                     text.lower() not in list_widget.item(i).text().lower()
                 )
 
-        def select_region():
-            item = list_widget.currentItem()
-            if item:
-                self.region_input.setText(item.text().split(" (ID:")[0])
-                dialog.accept()
+        def select_regions():
+            selected = list_widget.selectedItems()
+            if not selected:
+                return
+            existing = self.region_input.text().strip()
+            current = (
+                [r.strip() for r in existing.split(",") if r.strip()]
+                if existing
+                else []
+            )
+            for item in selected:
+                region_text = item.text().split(" (ID:")[0]
+                if region_text not in current:
+                    current.append(region_text)
+            self.region_input.setText(", ".join(current))
+            dialog.accept()
 
         search_input.textChanged.connect(filter_regions)
-        list_widget.itemDoubleClicked.connect(lambda: select_region())
+        list_widget.itemDoubleClicked.connect(lambda: select_regions())
 
         btn_layout = QtWidgets.QHBoxLayout()
-        copy_btn = QtWidgets.QPushButton("Copy Selected")
+        copy_btn = QtWidgets.QPushButton("Add Selected")
         close_btn = QtWidgets.QPushButton("Close")
-        copy_btn.clicked.connect(select_region)
+        copy_btn.clicked.connect(select_regions)
         close_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(copy_btn)
         btn_layout.addWidget(close_btn)
@@ -2612,16 +2662,16 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if not atlas_name and not atlas_path:
                         return None
 
-                region = self.region_input.text().strip()
-                if not region:
+                regions = self._get_regions()
+                if not regions:
                     self.update_output(
-                        "Error: Region name is required for cortical analysis."
+                        "Error: At least one region is required for cortical analysis."
                     )
                     return None
             else:
                 atlas_name = None
                 atlas_path = None
-                region = None
+                regions = None
 
             output_dir = self.pm.analysis_output_dir(
                 sid=subject_id,
@@ -2632,7 +2682,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 coordinates=coords,
                 radius=radius_val,
                 coordinate_space=coord_space,
-                region=region,
+                region=("+".join(regions) if regions else None),
                 atlas_name=(atlas_name if analysis_type == "cortical" else None),
                 atlas_path=(
                     atlas_path
@@ -2676,7 +2726,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                             atlas_for_api = atlas_for_api[: -len(ext)]
                             break
                 config["atlas"] = atlas_for_api
-                config["region"] = region
+                if len(regions) == 1:
+                    config["region"] = regions[0]
+                else:
+                    config["regions"] = regions
 
             fd, config_path = tempfile.mkstemp(
                 suffix=".json", prefix="analysis_config_"
