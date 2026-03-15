@@ -116,6 +116,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
@@ -795,6 +796,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.gmsh_subject_combo.setStyleSheet(
             "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
         )
+        self.gmsh_subject_combo.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
         self.gmsh_subject_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -812,6 +816,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.gmsh_sim_combo.setStyleSheet(
             "QComboBox { combobox-popup: 0; } QComboBox QAbstractItemView { max-height: 1000px; }"
         )
+        self.gmsh_sim_combo.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
         self.gmsh_sim_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -827,6 +834,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         bottom_row.addWidget(analysis_label)
         self.gmsh_analysis_combo = QtWidgets.QComboBox()
+        self.gmsh_analysis_combo.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
         self.gmsh_analysis_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
@@ -838,7 +848,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
         bottom_row.addWidget(self.launch_gmsh_btn)
-        bottom_row.addStretch()
         visualization_layout.addLayout(bottom_row)
 
         visualization_container.setFixedHeight(100)
