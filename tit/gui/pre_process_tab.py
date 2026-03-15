@@ -54,10 +54,6 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Get the project directory using PathManager
         self.project_dir = self.pm.project_dir
-        if not self.project_dir:
-            raise RuntimeError(
-                "Could not detect project directory. Please ensure the environment is properly set up."
-            )
 
         self.processing_running = False
         self.processing_thread = None
@@ -367,7 +363,7 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Update status label
         if is_processing:
-            self.status_label.setText("Processing... Only the Stop button is available")
+            self.status_label.setText("Preprocessing...")
             self.status_label.show()
         else:
             self.status_label.hide()
@@ -375,16 +371,6 @@ class PreProcessTab(QtWidgets.QWidget):
     def run_preprocessing(self):
         """Run the preprocessing pipeline."""
         if self.processing_running:
-            self.update_output(
-                "Preprocessing already running. Please wait or stop the current run.",
-                "warning",
-            )
-            return
-
-        if not self.project_dir:
-            QtWidgets.QMessageBox.warning(
-                self, "Error", "Project directory is not set."
-            )
             return
 
         # Get selected subjects

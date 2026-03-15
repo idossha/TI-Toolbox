@@ -1,5 +1,7 @@
 """Atlas constants shared across the TI-Toolbox."""
 
+import os
+
 # Built-in mesh atlas names (always available via SimNIBS subject_atlas)
 BUILTIN_ATLASES = ["DK40", "a2009s", "HCP_MMP1"]
 
@@ -17,9 +19,21 @@ VOXEL_ATLASES = {
 # Flat list for callers that only need filenames.
 VOXEL_ATLAS_FILES = list(VOXEL_ATLASES)
 
-# MNI atlas filenames (looked up in resources/atlas/)
+# Path to resources/atlas/ at the repo root.
+MNI_ATLAS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "resources",
+    "atlas",
+)
+
+# MNI template (base anatomical layer).
+MNI_TEMPLATE = "MNI152_T1_1mm.nii.gz"
+
+# MNI atlas filenames (looked up in MNI_ATLAS_DIR).
 MNI_ATLAS_FILES = [
     "MNI_Glasser_HCP_v1.0.nii.gz",
-    "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz",
-    "HOS-thr0-1mm.nii.gz",
+    "massp2021-parcellation_decade-18to40.nii.gz",
 ]
+
+# Default MNI atlas when no explicit choice is made.
+DEFAULT_MNI_ATLAS = MNI_ATLAS_FILES[0]

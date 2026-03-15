@@ -6,7 +6,10 @@ region listing, and overlap analysis.
 
 from tit.atlas.constants import (
     BUILTIN_ATLASES,
+    DEFAULT_MNI_ATLAS,
+    MNI_ATLAS_DIR,
     MNI_ATLAS_FILES,
+    MNI_TEMPLATE,
     VOXEL_ATLASES,
     VOXEL_ATLAS_FILES,
 )
@@ -16,7 +19,10 @@ from tit.atlas.voxel import VoxelAtlasManager
 
 __all__ = [
     "BUILTIN_ATLASES",
+    "DEFAULT_MNI_ATLAS",
+    "MNI_ATLAS_DIR",
     "MNI_ATLAS_FILES",
+    "MNI_TEMPLATE",
     "VOXEL_ATLASES",
     "VOXEL_ATLAS_FILES",
     "MeshAtlasManager",

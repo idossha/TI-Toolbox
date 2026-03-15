@@ -13,6 +13,7 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.paths import get_path_manager
+from tit.atlas import MNI_ATLAS_DIR, MNI_TEMPLATE, DEFAULT_MNI_ATLAS, VoxelAtlasManager
 from tit.gui.style import NIFTI_ATLAS_OPACITY, NIFTI_FIELD_OPACITY
 from tit.gui.components.console import ConsoleWidget
 
@@ -39,9 +40,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         pm = get_path_manager()
         base_dir = pm.project_dir
 
-        # Check if the directory exists
-        if base_dir and os.path.isdir(base_dir):
-            return base_dir
+        return base_dir
 
     def detect_freesurfer_atlases(self, subject_id):
         """Detect available voxel atlases for a subject.
@@ -64,21 +63,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         return mgr.list_atlases()
 
     def detect_mni_atlases(self):
-        """Detect available MNI atlases in the assets directory.
-
-        Returns:
-            List of available MNI atlas files
-        """
-        from tit.atlas import VoxelAtlasManager
-
-        if hasattr(self.parent, "toolbox_root"):
-            toolbox_root = self.parent.toolbox_root
-        else:
-            current_file = os.path.abspath(__file__)
-            toolbox_root = os.path.dirname(os.path.dirname(current_file))
-
-        atlas_dir = os.path.join(toolbox_root, "assets", "atlas")
-        return VoxelAtlasManager.detect_mni_atlases(atlas_dir)
+        """Detect available MNI atlases in resources/atlas/."""
+        return VoxelAtlasManager.detect_mni_atlases(MNI_ATLAS_DIR)
 
     def detect_voxel_analyses(self, subject_id, simulation_name):
         """Detect available voxel analyses for a subject and simulation.
@@ -161,24 +147,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_combo.setEnabled(False)
         subject_block_layout.addWidget(self.atlas_combo, 1, 1, 1, 2)
 
-        # Atlas controls in a horizontal layout
+        # Atlas controls
         atlas_controls = QtWidgets.QHBoxLayout()
         self.atlas_visibility_chk = QtWidgets.QCheckBox("Visible")
         self.atlas_visibility_chk.setChecked(True)
         self.atlas_visibility_chk.setEnabled(False)
         atlas_controls.addWidget(self.atlas_visibility_chk)
-
-        atlas_controls.addWidget(QtWidgets.QLabel("Opacity:"))
-        self.atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.atlas_opacity_slider.setRange(0, 100)
-        self.atlas_opacity_slider.setValue(NIFTI_ATLAS_OPACITY)
-        self.atlas_opacity_slider.setEnabled(False)
-        atlas_controls.addWidget(self.atlas_opacity_slider)
-        self.atlas_opacity_label = QtWidgets.QLabel("0.50")
-        atlas_controls.addWidget(self.atlas_opacity_label)
-        self.atlas_opacity_slider.valueChanged.connect(
-            lambda v: self.atlas_opacity_label.setText(f"{v/100:.2f}")
-        )
         subject_block_layout.addLayout(atlas_controls, 2, 0, 1, 3)
 
         config_layout.addWidget(subject_block)
@@ -294,23 +268,11 @@ class NiftiViewerTab(QtWidgets.QWidget):
         group_atlas_layout = QtWidgets.QHBoxLayout()
         group_atlas_layout.addWidget(QtWidgets.QLabel("MNI Atlas:"))
         self.group_atlas_combo = QtWidgets.QComboBox()
-        self.group_atlas_combo.addItem("None")
         group_atlas_layout.addWidget(self.group_atlas_combo)
 
         self.group_atlas_visibility_chk = QtWidgets.QCheckBox("Visible")
         self.group_atlas_visibility_chk.setChecked(True)
         group_atlas_layout.addWidget(self.group_atlas_visibility_chk)
-
-        group_atlas_layout.addWidget(QtWidgets.QLabel("Opacity:"))
-        self.group_atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.group_atlas_opacity_slider.setRange(0, 100)
-        self.group_atlas_opacity_slider.setValue(NIFTI_ATLAS_OPACITY)
-        group_atlas_layout.addWidget(self.group_atlas_opacity_slider)
-        self.group_atlas_opacity_label = QtWidgets.QLabel("0.50")
-        group_atlas_layout.addWidget(self.group_atlas_opacity_label)
-        self.group_atlas_opacity_slider.valueChanged.connect(
-            lambda v: self.group_atlas_opacity_label.setText(f"{v/100:.2f}")
-        )
 
         group_layout.addLayout(group_atlas_layout)
 
@@ -413,80 +375,43 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Scan for available subjects and update the dropdown."""
         self.subject_combo.clear()
 
-        # Look for subject directories in the derivatives/SimNIBS directory
-        try:
-            simnibs_dir = self.pm.simnibs()
-            if not simnibs_dir or not os.path.isdir(simnibs_dir):
-                self.status_label.setText("No subjects found")
-                return
+        simnibs_dir = self.pm.simnibs()
 
-            # Look for sub-* directories
-            subject_dirs = [
-                d
-                for d in os.listdir(simnibs_dir)
-                if os.path.isdir(os.path.join(simnibs_dir, d)) and d.startswith("sub-")
-            ]
+        subject_dirs = [
+            d for d in os.listdir(simnibs_dir)
+            if os.path.isdir(os.path.join(simnibs_dir, d)) and d.startswith("sub-")
+        ]
 
-            if subject_dirs:
-                # Remove 'sub-' prefix for display
-                subject_ids = [d[4:] for d in subject_dirs]  # Remove 'sub-' prefix
-                self.subject_combo.addItems(sorted(subject_ids))
-                self.status_label.setText(f"Found {len(subject_dirs)} subjects")
-
-                # If subjects were found, select the first one and check for atlases
-                if self.subject_combo.count() > 0:
-                    self.subject_combo.setCurrentIndex(0)
-                    self.check_freesurfer_atlases()
-            else:
-                self.status_label.setText("No subjects found")
-        except OSError as e:
-            self.status_label.setText("Error scanning for subjects")
+        subject_ids = sorted(d[4:] for d in subject_dirs)
+        self.subject_combo.addItems(subject_ids)
+        self.status_label.setText(f"Found {len(subject_dirs)} subjects")
+        self.subject_combo.setCurrentIndex(0)
+        self.check_freesurfer_atlases()
 
     def check_freesurfer_atlases(self):
         """Check for available Freesurfer atlases for the current subject."""
-        if self.subject_combo.count() == 0:
-            return
 
         subject_id = self.subject_combo.currentText()
         available_atlases = self.detect_freesurfer_atlases(subject_id)
 
         self.atlas_combo.clear()
-        if available_atlases:
-            for display_name, full_path in available_atlases:
-                self.atlas_combo.addItem(display_name, full_path)
-            self.atlas_combo.setEnabled(True)
-            self.atlas_visibility_chk.setEnabled(True)
-            self.atlas_opacity_slider.setEnabled(True)
+        has_atlases = bool(available_atlases)
+        self.atlas_combo.setEnabled(has_atlases)
+        self.atlas_visibility_chk.setEnabled(has_atlases)
 
-            # Set labeling.nii.gz as default if available
-            labeling_idx = self.atlas_combo.findText("labeling.nii.gz")
-            if labeling_idx >= 0:
-                self.atlas_combo.setCurrentIndex(labeling_idx)
-        else:
-            self.atlas_combo.setEnabled(False)
-            self.atlas_visibility_chk.setEnabled(False)
-            self.atlas_opacity_slider.setEnabled(False)
+        for display_name, full_path in available_atlases:
+            self.atlas_combo.addItem(display_name, full_path)
+
+        labeling_idx = self.atlas_combo.findText("labeling.nii.gz")
+        if labeling_idx >= 0:
+            self.atlas_combo.setCurrentIndex(labeling_idx)
 
     def refresh_simulations(self):
         """Populate the simulation combo box for the selected subject."""
         self.sim_combo.clear()
-        if self.subject_combo.count() == 0:
-            return
 
         subject_id = self.subject_combo.currentText()
         simulations = self.pm.list_simulations(subject_id)
-
-        if not simulations:
-            subject_dir = self.pm.sub(subject_id)
-            sim_base = (
-                os.path.join(subject_dir, "Simulations")
-                if subject_dir
-                else "unknown location"
-            )
-            self.console_widget.update_console(
-                f"No Simulations directory found at {sim_base}", "warning"
-            )
-            return
 
         # Add simulations to combo box
         for sim_name in simulations:
@@ -520,51 +445,33 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Detect available analyses
         regions = self.detect_voxel_analyses(subject_id, simulation_name)
 
-        if regions:
-            # Enable analysis controls
-            self.analysis_region_combo.setEnabled(True)
-            self.analysis_visibility_chk.setEnabled(True)
-            self.analysis_opacity_slider.setEnabled(True)
+        if not regions:
+            return
 
-            # Add available regions to combo box
-            self.analysis_region_combo.addItems(regions)
-
-            self.console_widget.update_console(
-                f"Found {len(regions)} voxel analysis regions for simulation {simulation_name}",
-                "info",
-            )
-        else:
-            pass  # No voxel analyses available — not worth surfacing in the console
+        self.analysis_region_combo.setEnabled(True)
+        self.analysis_visibility_chk.setEnabled(True)
+        self.analysis_opacity_slider.setEnabled(True)
+        self.analysis_region_combo.addItems(regions)
 
     def on_mode_changed(self):
         """Handle mode change between Single Subject and Group."""
-        if self.mode_single_radio.isChecked():
-            self.visualization_mode = "single"
-            # Show single subject configuration
-            self.config_section.setVisible(True)
-            self.group_section.setVisible(False)
-
-            # Set to Subject space for single mode
-            self.space_combo.setCurrentText("Subject")
-
-        else:
-            self.visualization_mode = "group"
-            # Show group configuration
-            self.config_section.setVisible(False)
-            self.group_section.setVisible(True)
-
-            # Set to MNI space for group mode
-            self.space_combo.setCurrentText("MNI")
+        is_single = self.mode_single_radio.isChecked()
+        self.visualization_mode = "single" if is_single else "group"
+        self.config_section.setVisible(is_single)
+        self.group_section.setVisible(not is_single)
+        self.space_combo.setCurrentText("Subject" if is_single else "MNI")
 
     def load_mni_atlases(self):
         """Load available MNI atlases into the group atlas combo."""
-        mni_atlases = self.detect_mni_atlases()
-
-        for atlas_path in mni_atlases:
-            # Extract just the filename for display
+        default_idx = 0
+        for atlas_path in self.detect_mni_atlases():
             atlas_name = os.path.basename(atlas_path)
-            # Store full path as item data
             self.group_atlas_combo.addItem(atlas_name, atlas_path)
+            if atlas_name == DEFAULT_MNI_ATLAS:
+                default_idx = self.group_atlas_combo.count() - 1
+
+        if self.group_atlas_combo.count() > 0:
+            self.group_atlas_combo.setCurrentIndex(default_idx)
 
     def get_simulations_for_subject(self, subject_id):
         """Get list of available simulations for a subject."""
@@ -687,18 +594,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     continue
 
                 # Check for duplicates
-                duplicate = False
-                for row in range(self.pairs_table.rowCount()):
-                    existing_subject = self.pairs_table.cellWidget(row, 0).currentText()
-                    existing_sim = self.pairs_table.cellWidget(row, 1).currentText()
-                    if (
-                        existing_subject == subject_id
-                        and existing_sim == selected_simulation
-                    ):
-                        duplicate = True
-                        break
-
-                if duplicate:
+                is_duplicate = any(
+                    self.pairs_table.cellWidget(row, 0).currentText() == subject_id
+                    and self.pairs_table.cellWidget(row, 1).currentText() == selected_simulation
+                    for row in range(self.pairs_table.rowCount())
+                )
+                if is_duplicate:
                     continue
 
                 # Add new row
@@ -732,32 +633,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 f"Added {added_count} subject-simulation pairs", "success"
             )
 
-    def validate_pair(self, subject_id, simulation_name):
-        """Validate that a subject-simulation pair has MNI files available.
-
-        Args:
-            subject_id: Subject ID without 'sub-' prefix
-            simulation_name: Name of the simulation
-
-        Returns:
-            Tuple of (is_valid, nifti_path or error_message)
-        """
-        # Look for MNI NIfTI files
-        sim_dir = self.pm.simulation(subject_id, simulation_name)
-
-        # Check mTI and TI directories
-        for sim_type in ["mTI", "TI"]:
-            nifti_dir = os.path.join(sim_dir, sim_type, "niftis")
-            if os.path.exists(nifti_dir):
-                # Look for MNI files
-                mni_files = glob.glob(os.path.join(nifti_dir, "*_MNI*.nii*"))
-                if mni_files:
-                    return True, nifti_dir
-
-        return (
-            False,
-            f"No MNI files found for subject {subject_id}, simulation {simulation_name}",
-        )
 
     def load_group_data(self):
         """Load group visualization with multiple subject-simulation pairs."""
@@ -782,140 +657,85 @@ class NiftiViewerTab(QtWidgets.QWidget):
             )
             return
 
-        # Get visualization options
-        colormap = self.colormap_combo.currentText()
-        opacity = self.opacity_slider.value() / 100.0
-        percentile = self.percentile_chk.isChecked()
-        threshold_min = self.min_threshold.value()
-        threshold_max = self.max_threshold.value()
-        visible = 1 if self.visibility_chk.isChecked() else 0
-
         file_specs = []
 
-        # Add MNI template first
-        toolbox_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        mni_template = os.path.join(
-            toolbox_root, "assets", "atlas", "MNI152_T1_1mm.nii.gz"
-        )
-
+        # Add MNI template as base layer
+        mni_template = os.path.join(MNI_ATLAS_DIR, MNI_TEMPLATE)
         if os.path.exists(mni_template):
             file_specs.append(
-                {
-                    "path": mni_template,
-                    "type": "volume",
-                    "visible": 1,
-                    "colormap": "grayscale",
-                }
-            )
-            self.console_widget.update_console("Loading MNI152 template", "info")
-        else:
-            self.console_widget.update_console(
-                f"Warning: MNI template not found at {mni_template}", "warning"
+                {"path": mni_template, "type": "volume", "visible": 1, "colormap": "grayscale"}
             )
 
-        # Add MNI atlas if selected
-        if self.group_atlas_combo.currentIndex() > 0:  # Skip "None"
-            atlas_path = self.group_atlas_combo.currentData()
-            if atlas_path and os.path.exists(atlas_path):
-                atlas_visible = 1 if self.group_atlas_visibility_chk.isChecked() else 0
-                atlas_opacity = self.group_atlas_opacity_slider.value() / 100.0
+        # Add MNI atlas
+        atlas_path = self.group_atlas_combo.currentData()
+        if atlas_path and os.path.exists(atlas_path):
+            atlas_name = os.path.basename(atlas_path)
+            atlas_spec = {
+                "path": atlas_path,
+                "type": "volume",
+                "visible": int(self.group_atlas_visibility_chk.isChecked()),
+                "colormap": "lut",
+                "opacity": NIFTI_ATLAS_OPACITY / 100.0,
+            }
 
-                atlas_spec = {
-                    "path": atlas_path,
-                    "type": "volume",
-                    "visible": atlas_visible,
-                    "colormap": "lut",
-                    "opacity": atlas_opacity,
-                }
+            # Add lookup table if a matching .txt or _labels.txt exists
+            stem = atlas_path.replace(".nii.gz", "")
+            lut_path = next(
+                (p for p in [stem + ".txt", stem + "_labels.txt",
+                             os.path.join(os.path.dirname(atlas_path),
+                                          os.path.basename(stem).split("-")[0] + "_labels.txt")]
+                 if os.path.exists(p)),
+                None,
+            )
+            if lut_path:
+                atlas_spec["lut_file"] = lut_path
 
-                # Check if this is the Glasser atlas and add the lookup table
-                atlas_name = os.path.basename(atlas_path)
-                if "Glasser" in atlas_name:
-                    # Find the corresponding .txt file
-                    lut_path = atlas_path.replace(".nii.gz", ".txt")
-                    if os.path.exists(lut_path):
-                        atlas_spec["lut_file"] = lut_path
-                        self.console_widget.update_console(
-                            f"Loading MNI atlas: {atlas_name} with lookup table", "info"
-                        )
-                    else:
-                        self.console_widget.update_console(
-                            f"Loading MNI atlas: {atlas_name} (lookup table not found)",
-                            "info",
-                        )
-                else:
-                    self.console_widget.update_console(
-                        f"Loading MNI atlas: {atlas_name}", "info"
-                    )
-
-                file_specs.append(atlas_spec)
+            self.console_widget.update_console(f"Loading MNI atlas: {atlas_name}", "info")
+            file_specs.append(atlas_spec)
 
         # Add simulation files for each pair
-        valid_pairs = 0
-        for i, pair in enumerate(pairs):
+        opacity = self.opacity_slider.value() / 100.0
+        adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
+
+        for pair in pairs:
             subject_id = pair["subject"]
             simulation_name = pair["simulation"]
 
-            # Validate pair
-            is_valid, result = self.validate_pair(subject_id, simulation_name)
-
-            if not is_valid:
-                self.console_widget.update_console(result, "warning")
+            # Find the MNI nifti directory for this pair
+            sim_dir = self.pm.simulation(subject_id, simulation_name)
+            if not sim_dir:
+                self.console_widget.update_console(
+                    f"Simulation not found: sub-{subject_id}/{simulation_name}", "warning"
+                )
                 continue
 
-            nifti_dir = result
+            nifti_dir = next(
+                (d for d in [os.path.join(sim_dir, "mTI", "niftis"),
+                             os.path.join(sim_dir, "TI", "niftis")]
+                 if os.path.exists(d)),
+                None,
+            )
+            if not nifti_dir:
+                self.console_widget.update_console(
+                    f"No NIfTI dir for sub-{subject_id}/{simulation_name}", "warning"
+                )
+                continue
 
-            # Find MNI TI_max files
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
 
-                # Only include TI_max/TI_Max MNI files, exclude TDCS
                 if "_MNI" not in basename:
                     continue
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
+                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
                     continue
-
-                # Only load grey matter files by default for group
                 if "grey_" not in basename:
                     continue
 
-                # Adjust opacity based on number of subjects to avoid oversaturation
-                adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
-
-                file_specs.append(
-                    {
-                        "path": nifti_file,
-                        "type": "volume",
-                        "colormap": colormap,
-                        "opacity": adjusted_opacity,
-                        "visible": visible,
-                        "percentile": 1 if percentile else 0,
-                        "threshold_min": threshold_min,
-                        "threshold_max": threshold_max,
-                    }
-                )
-
+                file_specs.append(self._vis_options(nifti_file, opacity=adjusted_opacity))
                 self.console_widget.update_console(
                     f"Loading: sub-{subject_id}/{simulation_name} - {basename}", "info"
                 )
 
-            valid_pairs += 1
-
-        if valid_pairs == 0:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Warning",
-                "No valid subject-simulation pairs with MNI files found",
-            )
-            return
-
-        self.console_widget.update_console(
-            f"Loaded {valid_pairs} subject-simulation pairs in MNI space", "success"
-        )
-
-        # Launch Freeview
         self.launch_freeview_with_files(file_specs)
 
     def load_subject_data(self):
@@ -942,211 +762,76 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Get paths using path manager
         subject_dir = self.pm.sub(subject_id)
         m2m_dir = self.pm.m2m(subject_id)
-        simulations_dir = (
-            os.path.join(subject_dir, "Simulations") if subject_dir else None
-        )
+        simulations_dir = os.path.join(subject_dir, "Simulations") if subject_dir else None
 
-        # Get visualization options
-        colormap = self.colormap_combo.currentText()
-        opacity = self.opacity_slider.value() / 100.0
-        percentile = self.percentile_chk.isChecked()
-        threshold_min = self.min_threshold.value()
-        threshold_max = self.max_threshold.value()
-        visible = 1 if self.visibility_chk.isChecked() else 0
-
-        # Initialize file specifications for Freeview
         file_specs = []
 
-        # Add T1 image based on selected space - always visible with grayscale colormap
-        if is_mni_space:
-            t1_file = os.path.join(m2m_dir, f"T1_{subject_id}_MNI.nii.gz")
-        else:
-            t1_file = os.path.join(m2m_dir, "T1.nii.gz")
-
+        # Add T1 image based on selected space
+        t1_name = f"T1_{subject_id}_MNI.nii.gz" if is_mni_space else "T1.nii.gz"
+        t1_file = os.path.join(m2m_dir, t1_name)
         if os.path.exists(t1_file):
             file_specs.append(
-                {
-                    "path": t1_file,
-                    "type": "volume",
-                    "visible": 1,  # T1 is always visible
-                    "colormap": "grayscale",  # T1 uses grayscale colormap
-                }
-            )
-        else:
-            self.console_widget.update_console(
-                f"Warning: T1 file not found at {t1_file}", "warning"
+                {"path": t1_file, "type": "volume", "visible": 1, "colormap": "grayscale"}
             )
 
         # Add atlas if selected and available
-        if self.atlas_combo.isEnabled() and self.atlas_combo.currentText():
-            atlas_name = self.atlas_combo.currentText()
-            atlas_file = self.atlas_combo.currentData()
-
-            if atlas_file and os.path.exists(atlas_file):
-                atlas_visible = 1 if self.atlas_visibility_chk.isChecked() else 0
-                atlas_opacity = self.atlas_opacity_slider.value() / 100.0
-
-                file_specs.append(
-                    {
-                        "path": atlas_file,
-                        "type": "volume",
-                        "visible": atlas_visible,
-                        "colormap": "lut",
-                        "opacity": atlas_opacity,
-                    }
-                )
-                self.console_widget.update_console(
-                    f"Loading atlas: {atlas_name}", "info"
-                )
-            else:
-                self.console_widget.update_console(
-                    f"Warning: Atlas file not found at {atlas_file}", "warning"
-                )
-
-        # Add voxel analysis if selected and available
-        if (
-            self.analysis_region_combo.isEnabled()
-            and self.analysis_region_combo.currentText()
-        ):
-            region_name = self.analysis_region_combo.currentText()
-
-            # Look for the ROI file
-            sim_dir = self.pm.simulation(subject_id, simulation_name)
-            analysis_dir = (
-                os.path.join(
-                    self.pm.analysis_dir(subject_id, simulation_name, "voxel"),
-                    region_name,
-                )
-                if sim_dir
-                else None
+        atlas_file = self.atlas_combo.currentData() if self.atlas_combo.isEnabled() else None
+        if atlas_file and os.path.exists(atlas_file):
+            file_specs.append(
+                {
+                    "path": atlas_file,
+                    "type": "volume",
+                    "visible": int(self.atlas_visibility_chk.isChecked()),
+                    "colormap": "lut",
+                    "opacity": NIFTI_ATLAS_OPACITY / 100.0,
+                }
+            )
+            self.console_widget.update_console(
+                f"Loading atlas: {self.atlas_combo.currentText()}", "info"
             )
 
-            if os.path.exists(analysis_dir):
-                # First try to find the specific ROI file
-                roi_file = os.path.join(
-                    analysis_dir, f"brain_with_{region_name}_ROI.nii.gz"
-                )
-                if not os.path.exists(roi_file):
-                    # If not found, take the first NIfTI file
-                    nifti_files = glob.glob(os.path.join(analysis_dir, "*.nii*"))
-                    if nifti_files:
-                        roi_file = nifti_files[0]
-                    else:
-                        roi_file = None
+        # Add voxel analysis if selected and available
+        self._load_analysis_overlay(file_specs, subject_id, simulation_name)
 
-                if roi_file and os.path.exists(roi_file):
-                    analysis_visible = (
-                        1 if self.analysis_visibility_chk.isChecked() else 0
-                    )
-                    analysis_opacity = self.analysis_opacity_slider.value() / 100.0
-
-                    file_specs.append(
-                        {
-                            "path": roi_file,
-                            "type": "volume",
-                            "visible": analysis_visible,
-                            "colormap": "jet",  # Use jet colormap for analysis files
-                            "opacity": analysis_opacity,
-                        }
-                    )
-                    self.console_widget.update_console(
-                        f"Loading voxel analysis: {os.path.basename(roi_file)}", "info"
-                    )
-                else:
-                    self.console_widget.update_console(
-                        f"Warning: No analysis file found for region {region_name}",
-                        "warning",
-                    )
-            else:
-                self.console_widget.update_console(
-                    f"Warning: Analysis directory not found at {analysis_dir}",
-                    "warning",
-                )
-
-        # Add simulation results
+        # Add simulation results — prefer mTI over TI
         sim_dir = os.path.join(simulations_dir, simulation_name)
-
-        # Look for NIfTI files in the mTI/niftis or TI/niftis directory
-        mti_nifti_dir = os.path.join(sim_dir, "mTI", "niftis")
-        ti_nifti_dir = os.path.join(sim_dir, "TI", "niftis")
-
-        # Check for mTI simulation first
-        if os.path.exists(mti_nifti_dir):
-            nifti_dir = mti_nifti_dir
-        elif os.path.exists(ti_nifti_dir):
-            nifti_dir = ti_nifti_dir
-        else:
-            nifti_dir = None
+        nifti_dir = next(
+            (d for d in [os.path.join(sim_dir, "mTI", "niftis"),
+                         os.path.join(sim_dir, "TI", "niftis")]
+             if os.path.exists(d)),
+            None,
+        )
 
         if nifti_dir:
-            # First, add the TI_max files
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
 
-                # Only include TI_max/TI_Max files and exclude TDCS files
-                # mTI uses TI_Max (capital M) while regular TI uses TI_max (lowercase m)
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
+                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
+                    continue
+                if is_mni_space != ("_MNI" in basename):
                     continue
 
-                # Determine if this file should be visible by default
-                # Only grey matter is visible by default
-                is_visible = "grey_" in basename
-
-                # Check if file matches the selected space
-                if is_mni_space:
-                    if "_MNI" not in basename:
-                        continue
-                else:
-                    if "_MNI" in basename:
-                        continue
-
-                # Add the file with appropriate settings
-                file_specs.append(
-                    {
-                        "path": nifti_file,
-                        "type": "volume",
-                        "colormap": colormap,
-                        "opacity": opacity,
-                        "visible": visible if is_visible else 0,
-                        "percentile": 1 if percentile else 0,
-                        "threshold_min": threshold_min,
-                        "threshold_max": threshold_max,
-                    }
-                )
+                vis = int(self.visibility_chk.isChecked()) if "grey_" in basename else 0
+                file_specs.append(self._vis_options(nifti_file, visible=vis))
 
             # Load high frequency fields if requested
             if self.high_freq_chk.isChecked():
                 high_freq_dir = os.path.join(sim_dir, "high_Frequency", "niftis")
-                if os.path.exists(high_freq_dir):
-                    # Look for scalar_magnE files
-                    for nifti_file in glob.glob(
-                        os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")
-                    ):
-                        basename = os.path.basename(nifti_file)
-
-                        file_specs.append(
-                            {
-                                "path": nifti_file,
-                                "type": "volume",
-                                "colormap": colormap,
-                                "opacity": opacity
-                                * 0.8,  # Slightly lower opacity for high frequency fields
-                                "visible": visible,
-                                "percentile": 1 if percentile else 0,
-                                "threshold_min": threshold_min,
-                                "threshold_max": threshold_max,
-                            }
-                        )
-                        self.console_widget.update_console(
-                            f"Loading high frequency field: {basename}", "info"
-                        )
-                else:
+                if not os.path.exists(high_freq_dir):
                     self.console_widget.update_console(
                         f"Warning: High frequency directory not found at {high_freq_dir}",
                         "warning",
                     )
+                else:
+                    for nifti_file in glob.glob(
+                        os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")
+                    ):
+                        file_specs.append(
+                            self._vis_options(nifti_file, opacity=self.opacity_slider.value() / 100.0 * 0.8)
+                        )
+                        self.console_widget.update_console(
+                            f"Loading high frequency field: {os.path.basename(nifti_file)}", "info"
+                        )
 
         if not any(
             spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))
@@ -1167,29 +852,11 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self, "Load NIfTI Files", "", "NIfTI Files (*.nii *.nii.gz);;All Files (*)"
         )
 
-        if filenames:
-            # Use visualization options for all custom files
-            colormap = self.colormap_combo.currentText()
-            opacity = self.opacity_slider.value() / 100.0
-            percentile = self.percentile_chk.isChecked()
-            threshold_min = self.min_threshold.value()
-            threshold_max = self.max_threshold.value()
-            visible = 1 if self.visibility_chk.isChecked() else 0
-            file_specs = []
-            for fname in filenames:
-                file_specs.append(
-                    {
-                        "path": fname,
-                        "type": "volume",
-                        "colormap": colormap,
-                        "opacity": opacity,
-                        "visible": visible,
-                        "percentile": 1 if percentile else 0,
-                        "threshold_min": threshold_min,
-                        "threshold_max": threshold_max,
-                    }
-                )
-            self.launch_freeview_with_files(file_specs, filenames)
+        if not filenames:
+            return
+
+        file_specs = [self._vis_options(fname) for fname in filenames]
+        self.launch_freeview_with_files(file_specs, filenames)
 
     def launch_freeview_with_files(self, file_specs, file_paths=[]):
         """Launch Freeview with multiple files.
@@ -1217,33 +884,22 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Construct the command arguments
             freeview_args = []
             for spec in file_specs:
-                if isinstance(spec, dict):
-                    # Convert dictionary spec to Freeview argument string
-                    arg = spec["path"]
-
-                    # Add basic display options
-                    if "colormap" in spec:
-                        arg += f":colormap={spec['colormap']}"
-
-                    # Add lookup table if specified (for atlases)
-                    if "lut_file" in spec:
-                        arg += f":lut={spec['lut_file']}"
-
-                    if "opacity" in spec:
-                        arg += f":opacity={spec['opacity']}"
-                    if "visible" in spec:
-                        arg += f":visible={spec['visible']}"
-
-                    # Add threshold options if present
-                    if "percentile" in spec and spec["percentile"]:
-                        arg += ":percentile=1"  # Enable percentile mode
-                        if "threshold_min" in spec and "threshold_max" in spec:
-                            arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
-
-                    freeview_args.append(arg)
-                else:
-                    # If it's already a string, use it as is
+                if not isinstance(spec, dict):
                     freeview_args.append(spec)
+                    continue
+
+                arg = spec["path"]
+                for key in ("colormap", "lut_file", "opacity", "visible"):
+                    if key in spec:
+                        fv_key = "lut" if key == "lut_file" else key
+                        arg += f":{fv_key}={spec[key]}"
+
+                if spec.get("percentile"):
+                    arg += ":percentile=1"
+                    if "threshold_min" in spec and "threshold_max" in spec:
+                        arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
+
+                freeview_args.append(arg)
 
             # Construct the command
             base_command = ["freeview"] + freeview_args
@@ -1283,6 +939,51 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 self, "Error", f"Failed to launch Freeview: {str(e)}"
             )
 
+    def _load_analysis_overlay(self, file_specs, subject_id, simulation_name):
+        """Add voxel analysis overlay to file_specs if selected."""
+        if not self.analysis_region_combo.isEnabled() or not self.analysis_region_combo.currentText():
+            return
+
+        region_name = self.analysis_region_combo.currentText()
+        sim_dir = self.pm.simulation(subject_id, simulation_name)
+        if not sim_dir:
+            return
+
+        analysis_dir = os.path.join(
+            self.pm.analysis_dir(subject_id, simulation_name, "voxel"),
+            region_name,
+        )
+        if not os.path.exists(analysis_dir):
+            self.console_widget.update_console(
+                f"Warning: Analysis directory not found at {analysis_dir}", "warning"
+            )
+            return
+
+        # Try specific ROI file, then fall back to first NIfTI
+        roi_file = os.path.join(analysis_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        if not os.path.exists(roi_file):
+            nifti_files = glob.glob(os.path.join(analysis_dir, "*.nii*"))
+            roi_file = nifti_files[0] if nifti_files else None
+
+        if not roi_file or not os.path.exists(roi_file):
+            self.console_widget.update_console(
+                f"Warning: No analysis file found for region {region_name}", "warning"
+            )
+            return
+
+        file_specs.append(
+            {
+                "path": roi_file,
+                "type": "volume",
+                "visible": int(self.analysis_visibility_chk.isChecked()),
+                "colormap": "jet",
+                "opacity": self.analysis_opacity_slider.value() / 100.0,
+            }
+        )
+        self.console_widget.update_console(
+            f"Loading voxel analysis: {os.path.basename(roi_file)}", "info"
+        )
+
     def reload_current_view(self):
         """Reload the current view in Freeview."""
         if self.current_files:
@@ -1310,19 +1011,33 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.check_freesurfer_atlases()
         self.refresh_simulations()
 
+    def _vis_options(self, path, **overrides):
+        """Build a file spec dict from the current visualization controls.
+
+        Returns a dict with path, type, colormap, opacity, visible, percentile,
+        and threshold values. Pass keyword overrides to replace any field.
+        """
+        spec = {
+            "path": path,
+            "type": "volume",
+            "colormap": self.colormap_combo.currentText(),
+            "opacity": self.opacity_slider.value() / 100.0,
+            "visible": int(self.visibility_chk.isChecked()),
+            "percentile": int(self.percentile_chk.isChecked()),
+            "threshold_min": self.min_threshold.value(),
+            "threshold_max": self.max_threshold.value(),
+        }
+        spec.update(overrides)
+        return spec
+
     def update_space_dependent_controls(self):
         """Update controls that depend on the selected space."""
         is_subject_space = self.space_combo.currentText() == "Subject"
 
-        # Update analysis controls
-        self.analysis_region_combo.setEnabled(is_subject_space)
-        self.analysis_visibility_chk.setEnabled(is_subject_space)
-        self.analysis_opacity_slider.setEnabled(is_subject_space)
-
-        # Update atlas controls
-        self.atlas_combo.setEnabled(is_subject_space)
-        self.atlas_visibility_chk.setEnabled(is_subject_space)
-        self.atlas_opacity_slider.setEnabled(is_subject_space)
+        for widget in (self.analysis_region_combo, self.analysis_visibility_chk,
+                       self.analysis_opacity_slider, self.atlas_combo,
+                       self.atlas_visibility_chk):
+            widget.setEnabled(is_subject_space)
 
         if not is_subject_space:
             self.console_widget.update_console(
