@@ -12,7 +12,6 @@ Shared utilities for TI/mTI simulations.
 
 from __future__ import annotations
 
-import glob
 import json
 import logging
 import os
@@ -25,9 +24,6 @@ from typing import Callable, Dict, List, Optional
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.sim.config import (
-    ConductivityType,
-    ElectrodeConfig,
-    IntensityConfig,
     LabelMontage,
     XYZMontage,
     MontageConfig,
