@@ -1140,7 +1140,7 @@ class ExSearchTab(QtWidgets.QWidget):
             pm = self.pm
 
             # Get list of subjects
-            subjects = pm.list_subjects()
+            subjects = pm.list_simnibs_subjects()
 
             subject_count = len(subjects)
             total_leadfields = 0
@@ -1402,7 +1402,7 @@ class ExSearchTab(QtWidgets.QWidget):
             return
 
         pm = self.pm
-        subjects = pm.list_subjects()
+        subjects = pm.list_simnibs_subjects()
 
         if not subjects:
             self.update_status("No subjects found", error=True)

@@ -1,21 +1,27 @@
-"""Atlas overlap analysis for significant voxel clusters."""
+"""
+Atlas related functions for NIfTI operations
+
+1. Identify overlaps (based on image dimensions)
+2. Resample image to a reference if needed.
+
+"""
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Dict, List, Optional
 
+logger = logging.getLogger(__name__)
 
-def check_and_resample_atlas(
-    atlas_img, reference_img, atlas_name: str, verbose: bool = True
-):
+
+def check_and_resample_atlas(atlas_img, reference_img, atlas_name: str):
     """Check if atlas dimensions match reference, resample if needed.
 
     Args:
         atlas_img: nibabel image of the atlas.
         reference_img: nibabel image of the reference (subject data).
         atlas_name: Name of atlas for logging.
-        verbose: Print information.
 
     Returns:
         Atlas data as integer ndarray in correct dimensions.
@@ -27,13 +33,11 @@ def check_and_resample_atlas(
     atlas_shape = atlas_img.shape
     ref_shape = reference_img.shape
 
-    if verbose:
-        print(f"  Atlas shape: {atlas_shape}")
-        print(f"  Reference shape: {ref_shape[:3]}")
+    logger.info("  Atlas shape: %s", atlas_shape)
+    logger.info("  Reference shape: %s", ref_shape[:3])
 
     if atlas_shape[:3] != ref_shape[:3]:
-        if verbose:
-            print(f"  Dimensions don't match. Resampling atlas...")
+        logger.info("  Dimensions don't match. Resampling atlas...")
 
         if len(ref_shape) > 3:
             ref_data_3d = reference_img.get_fdata()[:, :, :, 0]
@@ -58,11 +62,9 @@ def check_and_resample_atlas(
 
         resampled_atlas = resample_from_to(atlas_img_3d, ref_img_3d, order=0)
         atlas_data = resampled_atlas.get_fdata().astype(int)
-        if verbose:
-            print(f"  Resampled to: {atlas_data.shape}")
+        logger.info("  Resampled to: %s", atlas_data.shape)
     else:
-        if verbose:
-            print(f"  Dimensions match.")
+        logger.info("  Dimensions match.")
         atlas_data = atlas_img.get_fdata().astype(int)
         if len(atlas_data.shape) > 3:
             atlas_data = atlas_data[:, :, :, 0]
@@ -75,7 +77,6 @@ def atlas_overlap_analysis(
     atlas_files: List[str],
     data_dir: str,
     reference_img=None,
-    verbose: bool = True,
 ) -> Dict[str, list]:
     """Analyze overlap between significant voxels and atlas regions.
 
@@ -84,7 +85,6 @@ def atlas_overlap_analysis(
         atlas_files: List of atlas file names.
         data_dir: Directory containing atlas files.
         reference_img: nibabel image for resampling (optional).
-        verbose: Print progress information.
 
     Returns:
         Dict mapping atlas names to lists of region overlap dicts.
@@ -92,28 +92,23 @@ def atlas_overlap_analysis(
     import numpy as np
     import nibabel as nib
 
-    if verbose:
-        print("\n" + "=" * 60)
-        print("ATLAS OVERLAP ANALYSIS")
-        print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("ATLAS OVERLAP ANALYSIS")
+    logger.info("=" * 60)
 
     results: Dict[str, list] = {}
 
     for atlas_file in atlas_files:
         atlas_path = os.path.join(data_dir, atlas_file)
         if not os.path.exists(atlas_path):
-            if verbose:
-                print(f"Warning: Atlas file not found - {atlas_file}")
+            logger.warning("Atlas file not found - %s", atlas_file)
             continue
 
-        if verbose:
-            print(f"\n--- {atlas_file} ---")
+        logger.info("\n--- %s ---", atlas_file)
         atlas_img = nib.load(atlas_path)
 
         if reference_img is not None:
-            atlas_data = check_and_resample_atlas(
-                atlas_img, reference_img, atlas_file, verbose
-            )
+            atlas_data = check_and_resample_atlas(atlas_img, reference_img, atlas_file)
         else:
             atlas_data = atlas_img.get_fdata().astype(int)
 
@@ -137,14 +132,16 @@ def atlas_overlap_analysis(
             region_counts, key=lambda x: x["overlap_voxels"], reverse=True
         )
 
-        if verbose:
-            print(f"\nTop regions by significant voxel count:")
-            for i, r in enumerate(region_counts[:15], 1):
-                pct = 100 * r["overlap_voxels"] / r["region_size"]
-                print(
-                    f"{i:2d}. Region {r['region_id']:3d}: {r['overlap_voxels']:4d} sig. voxels "
-                    f"({pct:.1f}% of region)"
-                )
+        logger.info("\nTop regions by significant voxel count:")
+        for i, r in enumerate(region_counts[:15], 1):
+            pct = 100 * r["overlap_voxels"] / r["region_size"]
+            logger.info(
+                "%2d. Region %3d: %4d sig. voxels (%.1f%% of region)",
+                i,
+                r["region_id"],
+                r["overlap_voxels"],
+                pct,
+            )
 
         results[atlas_file] = region_counts
 

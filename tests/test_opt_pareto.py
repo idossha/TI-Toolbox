@@ -28,7 +28,6 @@ from tit.opt.flex.pareto import (
 )
 from tit.opt.config import FlexConfig, FlexElectrodeConfig, SphericalROI
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -48,7 +47,9 @@ def _make_flex_config(**overrides):
     return FlexConfig(**defaults)
 
 
-def _make_sweep_result(roi_pcts=None, nonroi_pcts=None, achievable=0.1, base="/tmp/sweep"):
+def _make_sweep_result(
+    roi_pcts=None, nonroi_pcts=None, achievable=0.1, base="/tmp/sweep"
+):
     roi_pcts = roi_pcts or [80.0, 60.0]
     nonroi_pcts = nonroi_pcts or [20.0, 40.0]
     config = ParetoSweepConfig(
@@ -176,9 +177,12 @@ class TestBuildFocalityConfig:
     def test_sets_goal_and_thresholds(self):
         base = _make_flex_config()
         point = SweepPoint(
-            roi_pct=80, nonroi_pct=20,
-            roi_threshold=0.08, nonroi_threshold=0.02,
-            run_index=0, output_folder="/out",
+            roi_pct=80,
+            nonroi_pct=20,
+            roi_threshold=0.08,
+            nonroi_threshold=0.02,
+            run_index=0,
+            output_folder="/out",
         )
         cfg = build_focality_config(base, point)
         assert cfg.goal == "focality"
@@ -190,9 +194,12 @@ class TestBuildFocalityConfig:
         base = _make_flex_config()
         original_goal = base.goal
         point = SweepPoint(
-            roi_pct=80, nonroi_pct=20,
-            roi_threshold=0.08, nonroi_threshold=0.02,
-            run_index=0, output_folder="/out",
+            roi_pct=80,
+            nonroi_pct=20,
+            roi_threshold=0.08,
+            nonroi_threshold=0.02,
+            run_index=0,
+            output_folder="/out",
         )
         build_focality_config(base, point)
         assert base.goal == original_goal

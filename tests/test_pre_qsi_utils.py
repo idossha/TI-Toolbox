@@ -22,7 +22,6 @@ from tit.pre.qsi.utils import (
     validate_qsiprep_output,
 )
 
-
 MODULE = "tit.pre.qsi.utils"
 
 
@@ -116,6 +115,7 @@ class TestPullImageIfNeeded:
     @patch(f"{MODULE}.check_image_exists", return_value=False)
     def test_pull_timeout(self, mock_check, mock_run):
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="docker", timeout=1800)
         logger = MagicMock()
         assert pull_image_if_needed("img", "tag", logger) is False
@@ -255,7 +255,10 @@ class TestReadFirstLine:
 class TestGetTotalMemBytesFromProc:
     """Tests for _get_total_mem_bytes_from_proc."""
 
-    @patch("builtins.open", mock_open(read_data="MemTotal:      154457636 kB\nMemFree:      100000 kB\n"))
+    @patch(
+        "builtins.open",
+        mock_open(read_data="MemTotal:      154457636 kB\nMemFree:      100000 kB\n"),
+    )
     def test_reads_meminfo(self):
         result = _get_total_mem_bytes_from_proc()
         assert result == 154457636 * 1024
@@ -276,6 +279,7 @@ class TestGetContainerResourceLimits:
             if "cpuset.cpus.effective" in path:
                 return "0-7"
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -288,6 +292,7 @@ class TestGetContainerResourceLimits:
             if "memory.max" in path:
                 return "max"
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -297,8 +302,9 @@ class TestGetContainerResourceLimits:
     def test_very_large_memory_treated_as_unlimited(self, mock_read):
         def side_effect(path):
             if "memory.max" in path:
-                return str(2 ** 62)
+                return str(2**62)
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -310,6 +316,7 @@ class TestGetContainerResourceLimits:
             if path == "/sys/fs/cgroup/cpu.max":
                 return "400000 100000"  # 4 CPUs
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -324,12 +331,14 @@ class TestGetContainerResourceLimits:
     @patch(f"{MODULE}._read_first_line")
     def test_cgroup_v1_memory(self, mock_read):
         """Tests cgroup v1 memory limit path."""
+
         def side_effect(path):
             if path == "/sys/fs/cgroup/memory.max":
                 return None  # No v2
             if path == "/sys/fs/cgroup/memory/memory.limit_in_bytes":
                 return str(16 * 1024**3)  # 16 GB
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -338,6 +347,7 @@ class TestGetContainerResourceLimits:
     @patch(f"{MODULE}._read_first_line")
     def test_cgroup_v1_cpu_quota(self, mock_read):
         """Tests cgroup v1 CPU quota path."""
+
         def side_effect(path):
             if path == "/sys/fs/cgroup/cpu.max":
                 return None  # No v2 cpu.max
@@ -346,6 +356,7 @@ class TestGetContainerResourceLimits:
             if path == "/sys/fs/cgroup/cpu/cpu.cfs_period_us":
                 return "100000"
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -354,10 +365,12 @@ class TestGetContainerResourceLimits:
     @patch(f"{MODULE}._read_first_line")
     def test_cgroup_v1_large_memory_unlimited(self, mock_read):
         """Very large v1 memory treated as unlimited."""
+
         def side_effect(path):
             if path == "/sys/fs/cgroup/memory/memory.limit_in_bytes":
-                return str(2 ** 62)
+                return str(2**62)
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -366,10 +379,12 @@ class TestGetContainerResourceLimits:
     @patch(f"{MODULE}._read_first_line")
     def test_cpu_max_with_max_value(self, mock_read):
         """cpu.max with 'max' quota (unlimited) is skipped."""
+
         def side_effect(path):
             if path == "/sys/fs/cgroup/cpu.max":
                 return "max 100000"
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()
@@ -378,12 +393,14 @@ class TestGetContainerResourceLimits:
     @patch(f"{MODULE}._read_first_line")
     def test_cpuset_and_cpu_quota_uses_minimum(self, mock_read):
         """Uses minimum of cpuset and quota-derived count."""
+
         def side_effect(path):
             if "cpuset.cpus.effective" in path:
                 return "0-7"  # 8 CPUs
             if path == "/sys/fs/cgroup/cpu.max":
                 return "400000 100000"  # 4 CPUs
             return None
+
         mock_read.side_effect = side_effect
 
         cpus, mem = get_container_resource_limits()

@@ -9,7 +9,6 @@ import pytest
 from tit.atlas import MeshAtlasManager
 from tit.atlas.constants import BUILTIN_ATLASES, VOXEL_ATLASES, VOXEL_ATLAS_FILES
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -55,10 +54,12 @@ class TestVoxelAtlases:
         assert VOXEL_ATLASES["rh.hippoAmygLabels-T1.v22.mgz"] == "rh"
 
     def test_combined_atlases(self):
-        for name in ("aparc.DKTatlas+aseg.mgz", "aparc.a2009s+aseg.mgz",
-                      "ThalamicNuclei.v13.T1.mgz"):
+        for name in (
+            "aparc.DKTatlas+aseg.mgz",
+            "aparc.a2009s+aseg.mgz",
+            "ThalamicNuclei.v13.T1.mgz",
+        ):
             assert VOXEL_ATLASES[name] == "both"
-
 
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,6 @@ from tit.opt.ex.results import (
     save_json,
 )
 
-
 # ===========================================================================
 # generate_current_ratios
 # ===========================================================================
@@ -161,7 +160,10 @@ class TestElectrodeCombinations:
         """Bucket mode count = product of bucket sizes."""
         combos = list(
             _electrode_combinations(
-                ["A1", "A2"], ["B1", "B2"], ["C1", "C2"], ["D1", "D2"],
+                ["A1", "A2"],
+                ["B1", "B2"],
+                ["C1", "C2"],
+                ["D1", "D2"],
                 all_combinations=False,
             )
         )
@@ -170,9 +172,7 @@ class TestElectrodeCombinations:
     def test_all_combinations_mode(self):
         """all_combinations=True: permutations of 4 from e1_plus pool, all unique."""
         pool = ["E1", "E2", "E3", "E4"]
-        combos = list(
-            _electrode_combinations(pool, [], [], [], all_combinations=True)
-        )
+        combos = list(_electrode_combinations(pool, [], [], [], all_combinations=True))
         # 4 electrodes choose 4 with order, all distinct = 4! = 24
         assert len(combos) == 24
         for combo in combos:
@@ -181,17 +181,13 @@ class TestElectrodeCombinations:
     def test_all_combinations_too_few_electrodes(self):
         """Pool of 3 electrodes can't form 4-tuples with all unique."""
         pool = ["E1", "E2", "E3"]
-        combos = list(
-            _electrode_combinations(pool, [], [], [], all_combinations=True)
-        )
+        combos = list(_electrode_combinations(pool, [], [], [], all_combinations=True))
         assert len(combos) == 0
 
     def test_all_combinations_five_electrodes(self):
         """5 electrodes: P(5,4) = 120 unique 4-tuples."""
         pool = ["E1", "E2", "E3", "E4", "E5"]
-        combos = list(
-            _electrode_combinations(pool, [], [], [], all_combinations=True)
-        )
+        combos = list(_electrode_combinations(pool, [], [], [], all_combinations=True))
         assert len(combos) == 120
 
     def test_all_combinations_ignores_other_buckets(self):
@@ -243,9 +239,7 @@ class TestGenerateMontagesCombinations:
         """Total combinations = electrode combos * current ratios."""
         e1p, e1m, e2p, e2m = ["A1", "A2"], ["B1"], ["C1", "C2"], ["D1"]
         ratios = [(1.0, 1.0), (0.5, 1.5)]
-        combos = list(
-            generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False)
-        )
+        combos = list(generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False))
         # electrode combos: 2*1*2*1 = 4, ratios: 2, total: 8
         assert len(combos) == 8
 
@@ -253,9 +247,7 @@ class TestGenerateMontagesCombinations:
         """Pool mode with multiple ratios."""
         pool = ["E1", "E2", "E3", "E4"]
         ratios = [(1.0, 1.0), (0.5, 1.5)]
-        combos = list(
-            generate_montage_combinations(pool, [], [], [], ratios, True)
-        )
+        combos = list(generate_montage_combinations(pool, [], [], [], ratios, True))
         # 24 electrode combos * 2 ratios = 48
         assert len(combos) == 48
 
@@ -274,9 +266,7 @@ class TestCountCombinations:
         e1p, e1m, e2p, e2m = ["A1", "A2"], ["B1", "B2"], ["C1"], ["D1", "D2"]
         ratios = [(1.0, 1.0), (0.5, 1.5), (1.5, 0.5)]
         count = count_combinations(e1p, e1m, e2p, e2m, ratios, False)
-        actual = list(
-            generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False)
-        )
+        actual = list(generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False))
         assert count == len(actual)
 
     def test_all_combinations_count(self):
@@ -393,25 +383,29 @@ class TestBuildCsvRows:
 
     def test_montage_name_formatting(self):
         """Mesh name regex replaces _and_ with <>."""
-        results = {"TI_field_A1_and_B2.msh": {
-            "roi_TImax_ROI": 1.0,
-            "roi_TImean_ROI": 0.5,
-            "roi_TImean_GM": 0.3,
-            "roi_Focality": 0.8,
-            "roi_n_elements": 100,
-        }}
+        results = {
+            "TI_field_A1_and_B2.msh": {
+                "roi_TImax_ROI": 1.0,
+                "roi_TImean_ROI": 0.5,
+                "roi_TImean_GM": 0.3,
+                "roi_Focality": 0.8,
+                "roi_n_elements": 100,
+            }
+        }
         rows, *_ = build_csv_rows(results, "roi")
         assert " <> " in rows[1][0]
 
     def test_missing_current_defaults_to_zero(self):
         """Missing current keys default to 0."""
-        results = {"TI_field_X.msh": {
-            "roi_TImax_ROI": 1.0,
-            "roi_TImean_ROI": 0.5,
-            "roi_TImean_GM": 0.3,
-            "roi_Focality": 0.8,
-            "roi_n_elements": 50,
-        }}
+        results = {
+            "TI_field_X.msh": {
+                "roi_TImax_ROI": 1.0,
+                "roi_TImean_ROI": 0.5,
+                "roi_TImean_GM": 0.3,
+                "roi_Focality": 0.8,
+                "roi_n_elements": 50,
+            }
+        }
         rows, *_ = build_csv_rows(results, "roi")
         assert rows[1][1] == "0.0"  # current_ch1_mA
         assert rows[1][2] == "0.0"  # current_ch2_mA

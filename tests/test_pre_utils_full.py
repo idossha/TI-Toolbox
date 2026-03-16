@@ -21,7 +21,6 @@ from tit.pre.utils import (
     ensure_subject_dirs,
 )
 
-
 MODULE = "tit.pre.utils"
 
 
@@ -100,7 +99,9 @@ class TestEnsureSubjectDirs:
 
         ensure_subject_dirs("/proj", "001")
 
-        assert pm.ensure.call_count == 6  # T1w dicom, T2w dicom, bids_anat, freesurfer, sub, ti-toolbox
+        assert (
+            pm.ensure.call_count == 6
+        )  # T1w dicom, T2w dicom, bids_anat, freesurfer, sub, ti-toolbox
 
 
 class TestDatasetDescriptionTarget:
@@ -135,19 +136,23 @@ class TestEnsureDatasetDescriptions:
         assets.mkdir(parents=True, exist_ok=True)
 
         template = assets / "freesurfer.dataset_description.json"
-        template_content = json.dumps({
-            "Name": "FreeSurfer",
-            "BIDSVersion": "1.10.0",
-            "DatasetType": "derivative",
-            "SourceDatasets": [{"URI": ""}],
-            "DatasetLinks": {},
-        })
+        template_content = json.dumps(
+            {
+                "Name": "FreeSurfer",
+                "BIDSVersion": "1.10.0",
+                "DatasetType": "derivative",
+                "SourceDatasets": [{"URI": ""}],
+                "DatasetLinks": {},
+            }
+        )
         template.write_text(template_content, encoding="utf-8")
 
         try:
             ensure_dataset_descriptions(str(tmp_path), ["freesurfer"])
 
-            target = tmp_path / "derivatives" / "freesurfer" / "dataset_description.json"
+            target = (
+                tmp_path / "derivatives" / "freesurfer" / "dataset_description.json"
+            )
             assert target.exists()
             data = json.loads(target.read_text(encoding="utf-8"))
             assert data["Name"] == "FreeSurfer"
@@ -172,12 +177,14 @@ class TestEnsureDatasetDescriptions:
         """Does not overwrite existing description file."""
         target = tmp_path / "derivatives" / "SimNIBS" / "dataset_description.json"
         target.parent.mkdir(parents=True)
-        original = json.dumps({
-            "Name": "Existing",
-            "BIDSVersion": "1.10.0",
-            "SourceDatasets": [{"URI": "existing"}],
-            "DatasetLinks": {"proj": "../../"},
-        })
+        original = json.dumps(
+            {
+                "Name": "Existing",
+                "BIDSVersion": "1.10.0",
+                "SourceDatasets": [{"URI": "existing"}],
+                "DatasetLinks": {"proj": "../../"},
+            }
+        )
         target.write_text(original, encoding="utf-8")
 
         ensure_dataset_descriptions(str(tmp_path), ["simnibs"])

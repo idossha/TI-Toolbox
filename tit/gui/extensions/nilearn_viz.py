@@ -542,7 +542,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
             return
 
         try:
-            subjects = self.pm.list_subjects()
+            subjects = self.pm.list_simnibs_subjects()
             self.subjects_list = subjects
 
             if not subjects:
@@ -597,7 +597,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
         subjects = []
         if self.pm:
             try:
-                subjects = self.pm.list_subjects()
+                subjects = self.pm.list_simnibs_subjects()
             except Exception as e:
                 self.console.update_console(
                     f"Error getting subjects: {str(e)}", "error"
@@ -659,7 +659,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
         subjects = []
         if self.pm:
             try:
-                subjects = self.pm.list_subjects()
+                subjects = self.pm.list_simnibs_subjects()
             except Exception as e:
                 self.console.update_console(
                     f"Error getting subjects: {str(e)}", "error"
@@ -679,7 +679,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
         all_subjects = []
         if self.pm:
             try:
-                all_subjects = self.pm.list_subjects()
+                all_subjects = self.pm.list_simnibs_subjects()
             except Exception as e:
                 self.console.update_console(
                     f"Error getting subjects: {str(e)}", "error"

@@ -133,9 +133,7 @@ def convert_mesh_dir(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    msh_files = sorted(
-        f for f in os.listdir(mesh_dir) if f.endswith(".msh")
-    )
+    msh_files = sorted(f for f in os.listdir(mesh_dir) if f.endswith(".msh"))
     if not msh_files:
         logger.warning("No .msh files found in %s", mesh_dir)
         return

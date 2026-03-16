@@ -14,10 +14,10 @@ from unittest.mock import patch
 from tit.paths import PathManager, get_path_manager, reset_path_manager
 from tit import constants as const
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_project(tmp_path):
     """Create a minimal BIDS-compliant project directory."""
@@ -39,6 +39,7 @@ def _add_subject(project_dir, sid):
 # Singleton behaviour
 # ---------------------------------------------------------------------------
 
+
 class TestSingleton:
     def test_get_returns_same_instance(self):
         pm1 = get_path_manager()
@@ -56,6 +57,7 @@ class TestSingleton:
 # __init__ with project_dir argument (line 30)
 # ---------------------------------------------------------------------------
 
+
 class TestInitWithProjectDir:
     def test_init_sets_project_dir(self, tmp_path):
         root = _make_project(tmp_path)
@@ -70,6 +72,7 @@ class TestInitWithProjectDir:
 # ---------------------------------------------------------------------------
 # project_dir property — env-var auto-detection (lines 40-48)
 # ---------------------------------------------------------------------------
+
 
 class TestProjectDirAutoDetection:
     def test_detect_via_env_project_dir(self, tmp_path, monkeypatch):
@@ -102,6 +105,7 @@ class TestProjectDirAutoDetection:
 # project_dir_name property (lines 60-62)
 # ---------------------------------------------------------------------------
 
+
 class TestProjectDirName:
     def test_returns_basename_when_set(self, tmp_path):
         root = _make_project(tmp_path)
@@ -119,6 +123,7 @@ class TestProjectDirName:
 # _root raises when unset (line 72)
 # ---------------------------------------------------------------------------
 
+
 class TestRootRaises:
     def test_root_raises_when_no_project(self, monkeypatch):
         monkeypatch.delenv(const.ENV_PROJECT_DIR, raising=False)
@@ -131,6 +136,7 @@ class TestRootRaises:
 # ---------------------------------------------------------------------------
 # Project-level path methods (lines 83, 98, 101, 104, 107, 110, 113, 116, 119, 122)
 # ---------------------------------------------------------------------------
+
 
 class TestProjectLevelPaths:
     @pytest.fixture
@@ -194,6 +200,7 @@ class TestProjectLevelPaths:
 # Subject-level path methods
 # (lines 138, 141, 144, 147, 150, 156, 159, 162, 165, 168, 171, 174, 177, 180, 183, 186, 189)
 # ---------------------------------------------------------------------------
+
 
 class TestSubjectLevelPaths:
     @pytest.fixture
@@ -290,6 +297,7 @@ class TestSubjectLevelPaths:
 # (lines 199, 202, 205, 210)
 # ---------------------------------------------------------------------------
 
+
 class TestSimulationPaths:
     @pytest.fixture
     def pm(self, tmp_path):
@@ -321,6 +329,7 @@ class TestSimulationPaths:
 # ---------------------------------------------------------------------------
 # Subject + run/name paths (lines 221, 224, 227, 230, 233)
 # ---------------------------------------------------------------------------
+
 
 class TestRunNamePaths:
     @pytest.fixture
@@ -359,6 +368,7 @@ class TestRunNamePaths:
 # ensure() utility
 # ---------------------------------------------------------------------------
 
+
 class TestEnsure:
     def test_creates_directory_and_returns_path(self, tmp_path):
         root = _make_project(tmp_path)
@@ -370,8 +380,9 @@ class TestEnsure:
 
 
 # ---------------------------------------------------------------------------
-# list_subjects — natural sort + m2m filter (lines 252, 257)
+# list_simnibs_subjects — natural sort + m2m filter
 # ---------------------------------------------------------------------------
+
 
 class TestListSubjects:
     def test_lists_subjects_with_m2m(self, tmp_path):
@@ -381,44 +392,20 @@ class TestListSubjects:
         # sub-999 without m2m should be excluded
         (pathlib.Path(root) / "derivatives" / "SimNIBS" / "sub-999").mkdir()
         pm = PathManager(project_dir=root)
-        assert pm.list_subjects() == ["001", "002"]
+        assert pm.list_simnibs_subjects() == ["001", "002"]
 
     def test_empty_when_no_simnibs(self, tmp_path):
         root = tmp_path / "empty"
         root.mkdir()
         pm = PathManager()
         pm._project_dir = str(root)
-        assert pm.list_subjects() == []
-
-
-# ---------------------------------------------------------------------------
-# list_all_subjects (lines 280-296)
-# ---------------------------------------------------------------------------
-
-class TestListAllSubjects:
-    def test_merges_all_sources(self, tmp_path):
-        root = _make_project(tmp_path)
-        _add_subject(root, "001")  # has m2m
-        # sub-002 in project root only
-        (pathlib.Path(root) / "sub-002").mkdir()
-        # sub-003 in SimNIBS without m2m
-        (pathlib.Path(root) / "derivatives" / "SimNIBS" / "sub-003").mkdir()
-        pm = PathManager(project_dir=root)
-        result = pm.list_all_subjects()
-        assert result == ["001", "002", "003"]
-
-    def test_deduplication(self, tmp_path):
-        root = _make_project(tmp_path)
-        _add_subject(root, "001")
-        (pathlib.Path(root) / "sub-001").mkdir()
-        pm = PathManager(project_dir=root)
-        result = pm.list_all_subjects()
-        assert result == ["001"]
+        assert pm.list_simnibs_subjects() == []
 
 
 # ---------------------------------------------------------------------------
 # list_simulations — OSError branch (lines 313-316)
 # ---------------------------------------------------------------------------
+
 
 class TestListSimulations:
     def test_returns_simulation_dirs(self, tmp_path):
@@ -441,6 +428,7 @@ class TestListSimulations:
 # ---------------------------------------------------------------------------
 # list_eeg_caps (lines 322-332)
 # ---------------------------------------------------------------------------
+
 
 class TestListEegCaps:
     def test_lists_csv_files(self, tmp_path):
@@ -471,6 +459,7 @@ class TestListEegCaps:
 # ---------------------------------------------------------------------------
 # list_flex_search_runs (lines 336-355)
 # ---------------------------------------------------------------------------
+
 
 class TestListFlexSearchRuns:
     def test_lists_runs_with_meta(self, tmp_path):
@@ -512,6 +501,7 @@ class TestListFlexSearchRuns:
 # Analysis naming helpers (lines 377-378, already partially covered)
 # ---------------------------------------------------------------------------
 
+
 class TestAtlasNameClean:
     def test_strips_nii_gz(self):
         assert PathManager._atlas_name_clean("DK40.nii.gz") == "DK40"
@@ -536,6 +526,7 @@ class TestAtlasNameClean:
 # ---------------------------------------------------------------------------
 # analysis_output_dir (lines 417-438)
 # ---------------------------------------------------------------------------
+
 
 class TestAnalysisOutputDir:
     @pytest.fixture
@@ -618,6 +609,7 @@ class TestAnalysisOutputDir:
 # analysis_dir space branching
 # ---------------------------------------------------------------------------
 
+
 class TestAnalysisDir:
     @pytest.fixture
     def pm(self, tmp_path):
@@ -641,6 +633,7 @@ class TestAnalysisDir:
 # get_path_manager with project_dir kwarg (line 454)
 # ---------------------------------------------------------------------------
 
+
 class TestGetPathManagerWithDir:
     def test_sets_project_dir_on_singleton(self, tmp_path):
         root = _make_project(tmp_path)
@@ -652,6 +645,7 @@ class TestGetPathManagerWithDir:
 # ---------------------------------------------------------------------------
 # OSError branches in list helpers (lines 315-316, 352-353)
 # ---------------------------------------------------------------------------
+
 
 class TestListOSErrorBranches:
     def test_list_simulations_oserror(self, tmp_path, monkeypatch):

@@ -174,6 +174,7 @@ class TestLeadfieldGeneratorGenerate:
         (output_dir / "leadfield.hdf5").write_text("fake")
 
         import simnibs
+
         simnibs.run_simnibs = MagicMock()
         simnibs.sim_struct.TDCSLEADFIELD.return_value = MagicMock()
 
@@ -194,6 +195,7 @@ class TestLeadfieldGeneratorGenerate:
         )
 
         import simnibs
+
         simnibs.sim_struct.TDCSLEADFIELD.return_value = MagicMock()
 
         with pytest.raises(InterruptedError, match="cancelled before starting"):
@@ -218,6 +220,7 @@ class TestLeadfieldGeneratorGenerate:
         )
 
         import simnibs
+
         simnibs.run_simnibs = MagicMock()
         simnibs.sim_struct.TDCSLEADFIELD.return_value = MagicMock()
 
@@ -311,7 +314,10 @@ class TestLeadfieldGeneratorGetElectrodeNames:
         mock_eeg_pos = MagicMock(
             return_value={"E1": [0, 0, 0], "E2": [1, 1, 1], "Cz": [0, 0, 1]}
         )
-        with patch.dict(sys.modules, {"simnibs.utils.csv_reader": MagicMock(eeg_positions=mock_eeg_pos)}):
+        with patch.dict(
+            sys.modules,
+            {"simnibs.utils.csv_reader": MagicMock(eeg_positions=mock_eeg_pos)},
+        ):
             names = gen.get_electrode_names()
         assert names == ["Cz", "E1", "E2"]
 
@@ -325,8 +331,13 @@ class TestLeadfieldGeneratorGetElectrodeNames:
         gen = LeadfieldGenerator(subject_id="001")
 
         mock_eeg_pos = MagicMock(return_value={"A": [0, 0, 0]})
-        with patch.dict(sys.modules, {"simnibs.utils.csv_reader": MagicMock(eeg_positions=mock_eeg_pos)}):
+        with patch.dict(
+            sys.modules,
+            {"simnibs.utils.csv_reader": MagicMock(eeg_positions=mock_eeg_pos)},
+        ):
             names = gen.get_electrode_names(cap_name="CustomCap")
         mock_eeg_pos.assert_called_once()
         call_args = mock_eeg_pos.call_args
-        assert call_args[1].get("cap_name") == "CustomCap" or "CustomCap" in str(call_args)
+        assert call_args[1].get("cap_name") == "CustomCap" or "CustomCap" in str(
+            call_args
+        )

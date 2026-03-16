@@ -11,7 +11,6 @@ import pytest
 from tit.pre.utils import PreprocessError, PreprocessCancelled
 from tit.pre.qsi.docker_builder import DockerBuildError
 
-
 # ---------------------------------------------------------------------------
 # PreprocessError
 # ---------------------------------------------------------------------------

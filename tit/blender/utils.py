@@ -221,7 +221,7 @@ def create_roi_mesh(
     roi_mesh.write(temp_mesh_path)
 
     # Create .opt file for Gmsh visualization
-    from tit.tools.mesh_utils import create_mesh_opt_file
+    from tit.tools.gmsh_opt import create_mesh_opt_file
 
     if len(roi_field_values[roi_mask]) > 0:
         max_value = np.max(roi_field_values[roi_mask])

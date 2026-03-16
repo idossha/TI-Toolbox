@@ -378,7 +378,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         simnibs_dir = self.pm.simnibs()
 
         subject_dirs = [
-            d for d in os.listdir(simnibs_dir)
+            d
+            for d in os.listdir(simnibs_dir)
             if os.path.isdir(os.path.join(simnibs_dir, d)) and d.startswith("sub-")
         ]
 
@@ -484,7 +485,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Subject combo
         subject_combo = QtWidgets.QComboBox()
-        subjects = self.pm.list_subjects()
+        subjects = self.pm.list_simnibs_subjects()
         subject_combo.addItems(subjects)
         subject_combo.currentTextChanged.connect(
             lambda: self.update_sim_combo_in_row(row)
@@ -539,7 +540,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Get all unique simulations across all subjects
         all_sims = set()
-        subjects = self.pm.list_subjects()
+        subjects = self.pm.list_simnibs_subjects()
         for subject in subjects:
             all_sims.update(self.get_simulations_for_subject(subject))
         sim_combo.addItems(sorted(all_sims))
@@ -551,7 +552,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_list = QtWidgets.QListWidget()
         subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
 
-        all_subjects = self.pm.list_subjects()
+        all_subjects = self.pm.list_simnibs_subjects()
         for subject in all_subjects:
             subject_list.addItem(subject)
 
@@ -596,7 +597,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 # Check for duplicates
                 is_duplicate = any(
                     self.pairs_table.cellWidget(row, 0).currentText() == subject_id
-                    and self.pairs_table.cellWidget(row, 1).currentText() == selected_simulation
+                    and self.pairs_table.cellWidget(row, 1).currentText()
+                    == selected_simulation
                     for row in range(self.pairs_table.rowCount())
                 )
                 if is_duplicate:
@@ -633,7 +635,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 f"Added {added_count} subject-simulation pairs", "success"
             )
 
-
     def load_group_data(self):
         """Load group visualization with multiple subject-simulation pairs."""
         self.console_widget.clear_console()
@@ -663,7 +664,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
         mni_template = os.path.join(MNI_ATLAS_DIR, MNI_TEMPLATE)
         if os.path.exists(mni_template):
             file_specs.append(
-                {"path": mni_template, "type": "volume", "visible": 1, "colormap": "grayscale"}
+                {
+                    "path": mni_template,
+                    "type": "volume",
+                    "visible": 1,
+                    "colormap": "grayscale",
+                }
             )
 
         # Add MNI atlas
@@ -681,16 +687,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Add lookup table if a matching .txt or _labels.txt exists
             stem = atlas_path.replace(".nii.gz", "")
             lut_path = next(
-                (p for p in [stem + ".txt", stem + "_labels.txt",
-                             os.path.join(os.path.dirname(atlas_path),
-                                          os.path.basename(stem).split("-")[0] + "_labels.txt")]
-                 if os.path.exists(p)),
+                (
+                    p
+                    for p in [
+                        stem + ".txt",
+                        stem + "_labels.txt",
+                        os.path.join(
+                            os.path.dirname(atlas_path),
+                            os.path.basename(stem).split("-")[0] + "_labels.txt",
+                        ),
+                    ]
+                    if os.path.exists(p)
+                ),
                 None,
             )
             if lut_path:
                 atlas_spec["lut_file"] = lut_path
 
-            self.console_widget.update_console(f"Loading MNI atlas: {atlas_name}", "info")
+            self.console_widget.update_console(
+                f"Loading MNI atlas: {atlas_name}", "info"
+            )
             file_specs.append(atlas_spec)
 
         # Add simulation files for each pair
@@ -705,14 +721,20 @@ class NiftiViewerTab(QtWidgets.QWidget):
             sim_dir = self.pm.simulation(subject_id, simulation_name)
             if not sim_dir:
                 self.console_widget.update_console(
-                    f"Simulation not found: sub-{subject_id}/{simulation_name}", "warning"
+                    f"Simulation not found: sub-{subject_id}/{simulation_name}",
+                    "warning",
                 )
                 continue
 
             nifti_dir = next(
-                (d for d in [os.path.join(sim_dir, "mTI", "niftis"),
-                             os.path.join(sim_dir, "TI", "niftis")]
-                 if os.path.exists(d)),
+                (
+                    d
+                    for d in [
+                        os.path.join(sim_dir, "mTI", "niftis"),
+                        os.path.join(sim_dir, "TI", "niftis"),
+                    ]
+                    if os.path.exists(d)
+                ),
                 None,
             )
             if not nifti_dir:
@@ -726,12 +748,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
                 if "_MNI" not in basename:
                     continue
-                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
+                if (
+                    "TI_max" not in basename and "TI_Max" not in basename
+                ) or "TDCS" in basename:
                     continue
                 if "grey_" not in basename:
                     continue
 
-                file_specs.append(self._vis_options(nifti_file, opacity=adjusted_opacity))
+                file_specs.append(
+                    self._vis_options(nifti_file, opacity=adjusted_opacity)
+                )
                 self.console_widget.update_console(
                     f"Loading: sub-{subject_id}/{simulation_name} - {basename}", "info"
                 )
@@ -762,7 +788,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Get paths using path manager
         subject_dir = self.pm.sub(subject_id)
         m2m_dir = self.pm.m2m(subject_id)
-        simulations_dir = os.path.join(subject_dir, "Simulations") if subject_dir else None
+        simulations_dir = (
+            os.path.join(subject_dir, "Simulations") if subject_dir else None
+        )
 
         file_specs = []
 
@@ -771,11 +799,18 @@ class NiftiViewerTab(QtWidgets.QWidget):
         t1_file = os.path.join(m2m_dir, t1_name)
         if os.path.exists(t1_file):
             file_specs.append(
-                {"path": t1_file, "type": "volume", "visible": 1, "colormap": "grayscale"}
+                {
+                    "path": t1_file,
+                    "type": "volume",
+                    "visible": 1,
+                    "colormap": "grayscale",
+                }
             )
 
         # Add atlas if selected and available
-        atlas_file = self.atlas_combo.currentData() if self.atlas_combo.isEnabled() else None
+        atlas_file = (
+            self.atlas_combo.currentData() if self.atlas_combo.isEnabled() else None
+        )
         if atlas_file and os.path.exists(atlas_file):
             file_specs.append(
                 {
@@ -796,9 +831,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Add simulation results — prefer mTI over TI
         sim_dir = os.path.join(simulations_dir, simulation_name)
         nifti_dir = next(
-            (d for d in [os.path.join(sim_dir, "mTI", "niftis"),
-                         os.path.join(sim_dir, "TI", "niftis")]
-             if os.path.exists(d)),
+            (
+                d
+                for d in [
+                    os.path.join(sim_dir, "mTI", "niftis"),
+                    os.path.join(sim_dir, "TI", "niftis"),
+                ]
+                if os.path.exists(d)
+            ),
             None,
         )
 
@@ -806,7 +846,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
 
-                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
+                if (
+                    "TI_max" not in basename and "TI_Max" not in basename
+                ) or "TDCS" in basename:
                     continue
                 if is_mni_space != ("_MNI" in basename):
                     continue
@@ -827,10 +869,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
                         os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")
                     ):
                         file_specs.append(
-                            self._vis_options(nifti_file, opacity=self.opacity_slider.value() / 100.0 * 0.8)
+                            self._vis_options(
+                                nifti_file,
+                                opacity=self.opacity_slider.value() / 100.0 * 0.8,
+                            )
                         )
                         self.console_widget.update_console(
-                            f"Loading high frequency field: {os.path.basename(nifti_file)}", "info"
+                            f"Loading high frequency field: {os.path.basename(nifti_file)}",
+                            "info",
                         )
 
         if not any(
@@ -941,7 +987,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
     def _load_analysis_overlay(self, file_specs, subject_id, simulation_name):
         """Add voxel analysis overlay to file_specs if selected."""
-        if not self.analysis_region_combo.isEnabled() or not self.analysis_region_combo.currentText():
+        if (
+            not self.analysis_region_combo.isEnabled()
+            or not self.analysis_region_combo.currentText()
+        ):
             return
 
         region_name = self.analysis_region_combo.currentText()
@@ -1034,9 +1083,13 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Update controls that depend on the selected space."""
         is_subject_space = self.space_combo.currentText() == "Subject"
 
-        for widget in (self.analysis_region_combo, self.analysis_visibility_chk,
-                       self.analysis_opacity_slider, self.atlas_combo,
-                       self.atlas_visibility_chk):
+        for widget in (
+            self.analysis_region_combo,
+            self.analysis_visibility_chk,
+            self.analysis_opacity_slider,
+            self.atlas_combo,
+            self.atlas_visibility_chk,
+        ):
             widget.setEnabled(is_subject_space)
 
         if not is_subject_space:

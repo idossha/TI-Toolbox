@@ -14,8 +14,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Mock heavy deps that tit.stats.__init__ pulls in via tit.stats.permutation
-for _mod in ("nibabel", "numpy", "numpy.linalg", "scipy", "scipy.ndimage",
-             "scipy.stats", "h5py", "pandas", "joblib"):
+for _mod in (
+    "nibabel",
+    "numpy",
+    "numpy.linalg",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.stats",
+    "h5py",
+    "pandas",
+    "joblib",
+):
     sys.modules.setdefault(_mod, MagicMock())
 
 from tit.stats.config import (
@@ -25,7 +34,6 @@ from tit.stats.config import (
     load_correlation_subjects,
     load_group_subjects,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers to build mock DataFrames for the mocked pandas

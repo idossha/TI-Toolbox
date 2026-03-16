@@ -12,7 +12,6 @@ from tit.pre.recon_all import (
 )
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.recon_all"
 
 
@@ -36,9 +35,7 @@ class TestRunSubcorticalSegmentations:
         runner = MagicMock()
         runner.run.return_value = 0
 
-        _run_subcortical_segmentations(
-            "001", tmp_path, logger=logger, runner=runner
-        )
+        _run_subcortical_segmentations("001", tmp_path, logger=logger, runner=runner)
 
         assert runner.run.call_count == 2
 
@@ -58,9 +55,7 @@ class TestRunSubcorticalSegmentations:
         runner = MagicMock()
         runner.run.return_value = 1
 
-        _run_subcortical_segmentations(
-            "001", tmp_path, logger=logger, runner=runner
-        )
+        _run_subcortical_segmentations("001", tmp_path, logger=logger, runner=runner)
 
         assert logger.warning.call_count == 2
 
@@ -80,9 +75,7 @@ class TestRunSubcorticalSegmentations:
         runner = MagicMock()
         runner.run.return_value = 0
 
-        _run_subcortical_segmentations(
-            "001", tmp_path, logger=logger, runner=runner
-        )
+        _run_subcortical_segmentations("001", tmp_path, logger=logger, runner=runner)
 
         env = runner.run.call_args_list[0][1]["env"]
         assert env["SUBJECTS_DIR"] == str(tmp_path)
@@ -111,7 +104,9 @@ class TestRunReconAll:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     @patch(f"{MODULE}._run_subcortical_segmentations")
-    def test_success_with_runner(self, mock_subcort, mock_find, mock_gpm, mock_pm, tmp_path):
+    def test_success_with_runner(
+        self, mock_subcort, mock_find, mock_gpm, mock_pm, tmp_path
+    ):
         """Runs recon-all successfully."""
         mock_gpm.return_value = mock_pm
         t1 = tmp_path / "t1.nii.gz"
@@ -191,7 +186,9 @@ class TestRunReconAll:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     @patch(f"{MODULE}._run_subcortical_segmentations")
-    def test_existing_empty_dir_removed(self, mock_subcort, mock_find, mock_gpm, mock_rmtree, mock_pm, tmp_path):
+    def test_existing_empty_dir_removed(
+        self, mock_subcort, mock_find, mock_gpm, mock_rmtree, mock_pm, tmp_path
+    ):
         """Empty existing directory is removed."""
         mock_gpm.return_value = mock_pm
         mock_find.return_value = (tmp_path / "t1.nii.gz", None)
@@ -223,7 +220,9 @@ class TestRunReconAll:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     @patch(f"{MODULE}._run_subcortical_segmentations")
-    def test_without_runner(self, mock_subcort, mock_find, mock_gpm, mock_call, mock_pm, tmp_path):
+    def test_without_runner(
+        self, mock_subcort, mock_find, mock_gpm, mock_call, mock_pm, tmp_path
+    ):
         """Falls back to subprocess.call when no runner."""
         mock_gpm.return_value = mock_pm
         mock_find.return_value = (tmp_path / "t1.nii.gz", None)

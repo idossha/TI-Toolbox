@@ -158,12 +158,14 @@ class TestFindRoiElements:
         engine.roi_coords = [0.0, 0.0, 0.0]
 
         # Create mock mesh with baricenters
-        centers = np.array([
-            [0.0, 0.0, 0.0],   # inside
-            [1.0, 0.0, 0.0],   # inside (dist=1)
-            [5.0, 0.0, 0.0],   # outside (dist=5, radius=3)
-            [10.0, 0.0, 0.0],  # outside
-        ])
+        centers = np.array(
+            [
+                [0.0, 0.0, 0.0],  # inside
+                [1.0, 0.0, 0.0],  # inside (dist=1)
+                [5.0, 0.0, 0.0],  # outside (dist=5, radius=3)
+                [10.0, 0.0, 0.0],  # outside
+            ]
+        )
         volumes = np.array([1.0, 2.0, 3.0, 4.0])
 
         mesh = MagicMock()
@@ -328,15 +330,17 @@ class TestInitialize:
 class TestRun:
     def test_basic_run(self):
         engine = _make_engine()
-        engine.compute_ti_field = MagicMock(return_value={
-            "TestROI_TImax_ROI": 0.5,
-            "TestROI_TImean_ROI": 0.3,
-            "TestROI_TImean_GM": 0.2,
-            "TestROI_Focality": 1.5,
-            "TestROI_n_elements": 100,
-            "current_ch1_mA": 1.0,
-            "current_ch2_mA": 1.0,
-        })
+        engine.compute_ti_field = MagicMock(
+            return_value={
+                "TestROI_TImax_ROI": 0.5,
+                "TestROI_TImean_ROI": 0.3,
+                "TestROI_TImean_GM": 0.2,
+                "TestROI_Focality": 1.5,
+                "TestROI_n_elements": 100,
+                "current_ch1_mA": 1.0,
+                "current_ch2_mA": 1.0,
+            }
+        )
 
         results = engine.run(
             e1_plus=["E1"],
@@ -353,15 +357,17 @@ class TestRun:
 
     def test_multiple_combinations(self):
         engine = _make_engine()
-        engine.compute_ti_field = MagicMock(return_value={
-            "TestROI_TImax_ROI": 0.5,
-            "TestROI_TImean_ROI": 0.3,
-            "TestROI_TImean_GM": 0.2,
-            "TestROI_Focality": 1.5,
-            "TestROI_n_elements": 100,
-            "current_ch1_mA": 1.0,
-            "current_ch2_mA": 1.0,
-        })
+        engine.compute_ti_field = MagicMock(
+            return_value={
+                "TestROI_TImax_ROI": 0.5,
+                "TestROI_TImean_ROI": 0.3,
+                "TestROI_TImean_GM": 0.2,
+                "TestROI_Focality": 1.5,
+                "TestROI_n_elements": 100,
+                "current_ch1_mA": 1.0,
+                "current_ch2_mA": 1.0,
+            }
+        )
 
         results = engine.run(
             e1_plus=["E1", "E2"],
@@ -400,8 +406,13 @@ class TestLogConfigSummary:
         logger = MagicMock()
         engine = _make_engine(logger=logger)
         engine._log_config_summary(
-            ["E1"], ["E2"], ["E3"], ["E4"],
-            [(1.0, 1.0)], False, 1,
+            ["E1"],
+            ["E2"],
+            ["E3"],
+            ["E4"],
+            [(1.0, 1.0)],
+            False,
+            1,
         )
         assert logger.info.call_count >= 3
 

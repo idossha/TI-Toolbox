@@ -6,14 +6,11 @@ TI-Toolbox GUI Main Entry Point
 This module provides a GUI interface for the TI-Toolbox toolbox.
 """
 
-import requests
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 import atexit
-import json
 import os
 import signal
-import subprocess
 import sys
 import warnings
 from pathlib import Path
@@ -28,6 +25,7 @@ warnings.filterwarnings(
     message=r".*sipPyTypeDict.*",
     category=DeprecationWarning,
 )
+
 
 # Ensure a valid XDG runtime directory for Qt on Linux (avoids QStandardPaths warning)
 if sys.platform.startswith("linux") and "XDG_RUNTIME_DIR" not in os.environ:
@@ -45,8 +43,6 @@ if sys.platform.startswith("linux") and "XDG_RUNTIME_DIR" not in os.environ:
         os.environ["XDG_RUNTIME_DIR"] = "/tmp"
 
 from tit import __version__
-
-# Import tool-specific modules
 from tit.gui.simulator_tab import SimulatorTab
 from tit.gui.pre_process_tab import PreProcessTab
 from tit.gui.system_monitor_tab import SystemMonitorTab
@@ -65,15 +61,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle(f"TI-Toolbox {__version__}")
 
-        # Set window icon if available
         icon_path = os.path.join(
             os.path.dirname(__file__), "..", "..", "docs", "assets", "imgs", "icon.png"
         )
         icon_path = os.path.abspath(icon_path)
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QtGui.QIcon(icon_path))
+        self.setWindowIcon(QtGui.QIcon(icon_path))
 
-        # Set window flags to ensure proper window behavior
         self.setWindowFlags(
             QtCore.Qt.Window
             | QtCore.Qt.WindowMinimizeButtonHint
@@ -82,51 +75,40 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         # Allow all window states
         self.setWindowState(QtCore.Qt.WindowNoState)
-        # Enable resizing
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
 
-        # Initialize path manager and extension config
         self.pm = get_path_manager()
         self.extensions_config_path = self.get_extensions_config_path()
         self.ensure_extensions_config()
 
         self.setup_ui()
-        # Load saved extensions after UI is set up
         self.load_saved_extensions()
-        # Always center on screen after setup
         self.center_on_screen()
 
     def setup_ui(self):
         """Set up the user interface."""
-        # Central widget and layout
         self.central_widget = QtWidgets.QWidget()
         self.setCentralWidget(self.central_widget)
 
         main_layout = QtWidgets.QVBoxLayout(self.central_widget)
 
-        # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
 
-        # Create a container widget for both buttons in the top right corner
         buttons_container = QtWidgets.QWidget()
         buttons_layout = QtWidgets.QHBoxLayout(buttons_container)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(0)
 
-        # Add the extensions button
         self.extensions_button = ExtensionsButton(self)
         buttons_layout.addWidget(self.extensions_button)
 
-        # Add the settings gear button
         self.settings_button = SettingsMenuButton(self)
         buttons_layout.addWidget(self.settings_button)
 
-        # Add the container with both buttons to the right corner of the tab bar
         self.tab_widget.setCornerWidget(buttons_container, QtCore.Qt.TopRightCorner)
 
-        # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
         self.optimizer_tab = OptimizerTab(self)
         self.simulator_tab = SimulatorTab(self)
@@ -134,18 +116,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.nifti_viewer_tab = NiftiViewerTab(self)
         self.system_monitor_tab = SystemMonitorTab(self)
 
-        # Create aliases for backward compatibility - access to individual optimization tabs
         self.flex_search_tab = self.optimizer_tab.flex_search_tab
         self.ex_search_tab = self.optimizer_tab.ex_search_tab
 
-        # Connect analyzer tab signals
+        # Analyzer -> Main Window event bridge: when analysis completes,
+        # refresh NIfTI viewer and mesh visualization in dependent tabs.
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
         self._processing_analysis_completion = False
 
-        # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
 
-        # Add all functional tabs
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
         self.tab_widget.addTab(self.optimizer_tab, "Optimizer")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
@@ -153,21 +133,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         self.tab_widget.addTab(self.system_monitor_tab, "System Monitor")
 
-        # Note: Help, Contact, and Acknowledgments are now accessible via the settings gear icon
-
-        # Set the tab bar without close buttons
         self.tab_widget.setTabsClosable(False)
-        # Always show scroll arrows when tabs overflow the bar
         self.tab_widget.tabBar().setUsesScrollButtons(True)
 
-        # Tab font size is set via the global stylesheet; no per-widget override needed.
-
-        # Track the core tabs (non-closable tabs)
         self.core_tab_count = self.tab_widget.count()
 
         main_layout.addWidget(self.tab_widget)
 
-        # Set window properties and center on screen.
         from tit.gui.style import WINDOW_WIDTH, WINDOW_HEIGHT
 
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -175,138 +147,103 @@ class MainWindow(QtWidgets.QMainWindow):
         self.center_on_screen()
 
     def center_on_screen(self):
-        """Center the window on the screen where the window is (multi-monitor aware, modern approach)."""
-        app = QtWidgets.QApplication.instance()
-        # Use QGuiApplication for modern screen handling
+        """Center the window on the screen where it is currently located (multi-monitor aware)."""
         from PyQt5.QtGui import QGuiApplication
 
         window_rect = self.frameGeometry()
         center_point = window_rect.center()
-        screen = None
-        if hasattr(QGuiApplication, "screenAt"):
-            screen = QGuiApplication.screenAt(center_point)
+
+        # Try to find the screen containing the window center, fall back to primary.
+        screen = QGuiApplication.screenAt(center_point)
         if screen is None:
-            # Fallback: use primary screen
             screen = QGuiApplication.primaryScreen()
-        if screen:
-            screen_geometry = screen.availableGeometry()
-        else:
-            screen_geometry = app.desktop().screenGeometry()
+        if screen is None:
+            return  # No screen available; nothing we can do.
+
+        screen_geometry = screen.availableGeometry()
         qr = self.frameGeometry()
         qr.moveCenter(screen_geometry.center())
         self.move(qr.topLeft())
 
     def get_extensions_config_path(self):
         """Get the path to the extensions configuration file."""
-        # Ensure the config directory exists and return the extensions config path
-        config_dir = Path(self.pm.ensure(self.pm.config_dir()))
-        config_path = config_dir / "extensions.json"
+        from tit.gui.extensions_config import get_extensions_config_path
 
-        return config_path
+        config_dir = Path(self.pm.ensure(self.pm.config_dir()))
+        return get_extensions_config_path(config_dir)
 
     def ensure_extensions_config(self):
         """Ensure the extensions config file exists with default values."""
-        if not self.extensions_config_path.exists():
-            # Create default config with all extensions disabled
-            default_config = {"extensions": {}}
-            try:
-                with open(self.extensions_config_path, "w") as f:
-                    json.dump(default_config, f, indent=2)
-            except (OSError, json.JSONDecodeError) as e:
-                print(f"Warning: Could not create extensions config: {e}")
+        from tit.gui.extensions_config import ensure_extensions_config
+
+        ensure_extensions_config(self.extensions_config_path)
 
     def load_extensions_config(self):
         """Load the extensions configuration from file."""
-        try:
-            if self.extensions_config_path.exists():
-                with open(self.extensions_config_path, "r") as f:
-                    return json.load(f)
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"Warning: Could not load extensions config: {e}")
+        from tit.gui.extensions_config import load_extensions_config
 
-        return {"extensions": {}}
+        return load_extensions_config(self.extensions_config_path)
 
     def save_extension_state(self, extension_name, enabled):
         """Save the state of an extension (enabled/disabled as tab)."""
-        try:
-            config = self.load_extensions_config()
-            config["extensions"][extension_name] = enabled
+        from tit.gui.extensions_config import save_extension_state
 
-            with open(self.extensions_config_path, "w") as f:
-                json.dump(config, f, indent=2)
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"Warning: Could not save extension state: {e}")
+        save_extension_state(self.extensions_config_path, extension_name, enabled)
 
     def load_saved_extensions(self):
         """Load extensions that were enabled in previous session."""
-        try:
-            config = self.load_extensions_config()
-            extensions = config.get("extensions", {})
+        config = self.load_extensions_config()
+        extensions = config.get("extensions", {})
 
-            # Find the extensions directory
-            extensions_dir = Path(__file__).parent / "extensions"
-            if not extensions_dir.exists():
-                return
+        extensions_dir = Path(__file__).parent / "extensions"
 
-            # Import necessary modules
-            import importlib.util
+        import importlib.util
 
-            # Load each enabled extension
-            for extension_name, enabled in extensions.items():
-                if not enabled:
-                    continue
+        for extension_name, enabled in extensions.items():
+            if not enabled:
+                continue
 
-                # Find the extension file
-                extension_files = list(extensions_dir.glob("*.py"))
-                for extension_file in extension_files:
-                    try:
-                        # Import the module to get metadata
-                        spec = importlib.util.spec_from_file_location(
-                            extension_file.stem, extension_file
-                        )
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
+            # Find the extension file
+            extension_files = list(extensions_dir.glob("*.py"))
+            for extension_file in extension_files:
+                # Import the module to get metadata
+                spec = importlib.util.spec_from_file_location(
+                    extension_file.stem, extension_file
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
 
-                        # Get extension metadata
-                        name = getattr(
-                            module,
-                            "EXTENSION_NAME",
-                            extension_file.stem.replace("_", " ").title(),
-                        )
+                # Get extension metadata
+                name = getattr(
+                    module,
+                    "EXTENSION_NAME",
+                    extension_file.stem.replace("_", " ").title(),
+                )
 
-                        if name == extension_name:
-                            # Find the extension class (prefer QWidget over QDialog)
-                            extension_class = None
-                            for attr_name in dir(module):
-                                attr = getattr(module, attr_name)
-                                if isinstance(attr, type) and issubclass(
-                                    attr, QtWidgets.QWidget
+                if name == extension_name:
+                    # Find the extension class (prefer QWidget over QDialog)
+                    extension_class = None
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, type) and issubclass(
+                            attr, QtWidgets.QWidget
+                        ):
+                            if attr not in (
+                                QtWidgets.QDialog,
+                                QtWidgets.QWidget,
+                            ):
+                                # Prefer widget classes over dialog classes
+                                if extension_class is None or not issubclass(
+                                    extension_class, QtWidgets.QDialog
                                 ):
-                                    if attr not in (
-                                        QtWidgets.QDialog,
-                                        QtWidgets.QWidget,
-                                    ):
-                                        # Prefer widget classes over dialog classes
-                                        if extension_class is None or not issubclass(
-                                            extension_class, QtWidgets.QDialog
-                                        ):
-                                            extension_class = attr
+                                    extension_class = attr
 
-                            if extension_class:
-                                # Create the extension widget
-                                extension_widget = extension_class(parent=self)
+                    if extension_class:
+                        # Create the extension widget
+                        extension_widget = extension_class(parent=self)
 
-                                # Add it as a tab
-                                self.tab_widget.addTab(extension_widget, name)
-
-                            break
-                    except Exception as e:
-                        print(
-                            f"Warning: Could not load extension {extension_name}: {e}"
-                        )
-
-        except (OSError, json.JSONDecodeError, KeyError) as e:
-            print(f"Warning: Could not load saved extensions: {e}")
+                        # Add it as a tab
+                        self.tab_widget.addTab(extension_widget, name)
 
     def closeEvent(self, event):
         """Handle window close event."""
@@ -428,19 +365,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self._processing_analysis_completion = False
 
 
-def parse_version(version_str):
-    """Parse a version string into a tuple of integers for comparison. Non-integer parts are ignored."""
-    parts = version_str.strip().split(".")
-    version_tuple = []
-    for part in parts:
-        try:
-            version_tuple.append(int(part))
-        except ValueError:
-            # Ignore non-integer parts (e.g., 'rc', 'beta')
-            break
-    return tuple(version_tuple)
-
-
 def check_for_update(current_version, parent_window=None):
     """Check for updates and show a notification dialog if a newer version is available.
 
@@ -448,47 +372,34 @@ def check_for_update(current_version, parent_window=None):
         current_version (str): The current version of the application
         parent_window (QWidget, optional): The parent window to center the dialog on
     """
+    from tit.tools.check_for_update import check_for_new_version
+
     try:
-        url = "https://api.github.com/repos/idossha/TI-Toolbox/releases/latest"
-        response = requests.get(url, timeout=2)
-        if response.status_code == 200:
-            release_data = response.json()
-            latest_version = release_data.get("tag_name", "").lstrip(
-                "v"
-            )  # Remove 'v' prefix if present
-            if latest_version:
-                # Only prompt if remote version is strictly newer
-                if parse_version(latest_version) > parse_version(current_version):
-                    msg_box = QtWidgets.QMessageBox(parent_window)
-                    msg_box.setIcon(QtWidgets.QMessageBox.Information)
-                    msg_box.setWindowTitle("Update Available")
-                    msg_box.setText(f"A new version of TI-Toolbox is available!")
-                    msg_box.setInformativeText(
-                        f"Current version: {current_version}\n"
-                        f"Latest version: {latest_version}\n\n"
-                        f"Visit:\nhttps://github.com/idossha/TI-Toolbox/releases"
-                    )
-                    msg_box.setWindowModality(QtCore.Qt.ApplicationModal)
-                    # Center the dialog relative to the main window
-                    if parent_window:
-                        # Get the main window's geometry
-                        main_rect = parent_window.geometry()
-                        # Get the dialog's size
-                        dialog_size = msg_box.sizeHint()
-                        # Calculate the center position
-                        x = (
-                            main_rect.x()
-                            + (main_rect.width() - dialog_size.width()) // 2
-                        )
-                        y = (
-                            main_rect.y()
-                            + (main_rect.height() - dialog_size.height()) // 2
-                        )
-                        # Move the dialog to the center
-                        msg_box.move(x, y)
-                    msg_box.exec_()
-    except (OSError, ValueError, KeyError) as e:
-        print(f"Error checking for updates: {e}")
+        latest_version = check_for_new_version(current_version)
+        if not latest_version:
+            return
+    except Exception:
+        return
+
+    # Show update notification dialog
+    msg_box = QtWidgets.QMessageBox(parent_window)
+    msg_box.setIcon(QtWidgets.QMessageBox.Information)
+    msg_box.setWindowTitle("Update Available")
+    msg_box.setText("A new version of TI-Toolbox is available!")
+    msg_box.setInformativeText(
+        f"Current version: {current_version}\n"
+        f"Latest version: {latest_version}\n\n"
+        f"Visit:\nhttps://github.com/idossha/TI-Toolbox/releases"
+    )
+    msg_box.setWindowModality(QtCore.Qt.ApplicationModal)
+    # Center the dialog relative to the main window
+    if parent_window:
+        main_rect = parent_window.geometry()
+        dialog_size = msg_box.sizeHint()
+        x = main_rect.x() + (main_rect.width() - dialog_size.width()) // 2
+        y = main_rect.y() + (main_rect.height() - dialog_size.height()) // 2
+        msg_box.move(x, y)
+    msg_box.exec_()
 
 
 def main():
@@ -539,10 +450,7 @@ def main():
         QtCore.QTimer.singleShot(0, _quit)
 
     def _signal_handler(signum, frame):
-        try:
-            print("\033[0;31mClosing TI-Toolbox GUI...\033[0m")
-        except OSError:
-            pass
+        print("\033[0;31mClosing TI-Toolbox GUI...\033[0m")
         request_graceful_shutdown()
 
     # Register common termination signals
@@ -552,25 +460,16 @@ def main():
         getattr(signal, "SIGBREAK", None),  # Windows Ctrl+Break
     ):
         if sig is not None:
-            try:
-                signal.signal(sig, _signal_handler)
-            except (OSError, ValueError):
-                pass
+            signal.signal(sig, _signal_handler)
     # Handle Ctrl+Z (SIGTSTP) when available to close instead of suspending the GUI
     sigtstp = getattr(signal, "SIGTSTP", None)
     if sigtstp is not None:
-        try:
-            signal.signal(sigtstp, _signal_handler)
-        except (OSError, ValueError):
-            pass
+        signal.signal(sigtstp, _signal_handler)
 
     # Best-effort cleanup on normal interpreter exit
     def _atexit():
-        try:
-            setattr(window, "_force_exit", True)
-            window.close()
-        except RuntimeError:
-            pass  # Qt objects may already be destroyed at interpreter shutdown
+        setattr(window, "_force_exit", True)
+        window.close()
 
     atexit.register(_atexit)
 

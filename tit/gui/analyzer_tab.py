@@ -56,14 +56,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Guard: skip if UI is not fully initialized yet
         if not hasattr(self, "type_cortical"):
             return
-        # Update coordinate space labels based on new mode
         self._update_coordinate_space_labels()
-        # Update atlas visibility and options
         self.update_atlas_combo()
         if self.is_group_mode and self.type_cortical.isChecked():
             self.update_group_atlas_options()
         self.update_atlas_visibility()
-        # Update gmsh subjects when pairs change
         self.update_gmsh_subjects()
 
     def __init__(self, parent=None):
@@ -74,7 +71,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.group_atlas_config = {}
 
-        # Initialize PathManager
         self.pm = get_path_manager()
 
         self.ANALYSIS_START_TIME = None
@@ -89,7 +85,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Set up the user interface for the analyzer tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Create analysis space radio buttons early so they are available for all widgets
         self.space_mesh = QtWidgets.QRadioButton("Mesh")
         self.space_voxel = QtWidgets.QRadioButton("Voxel")
         self.space_mesh.setChecked(True)
@@ -97,7 +92,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_group.addButton(self.space_mesh)
         self.space_group.addButton(self.space_voxel)
 
-        # Tissue type selector
         self.tissue_combo = QtWidgets.QComboBox()
         self.tissue_combo.addItem("Gray Matter (GM)", "GM")
         self.tissue_combo.addItem("White Matter (WM)", "WM")
@@ -122,7 +116,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         main_horizontal_layout = QtWidgets.QHBoxLayout()
 
-        # Create left container (for subjects)
         left_container = QtWidgets.QWidget()
         left_container.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
@@ -131,7 +124,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         left_layout.setContentsMargins(5, 0, 5, 0)  # Match margins with right container
         left_layout.setSpacing(2)
 
-        # Subject-simulation pairs selection (always shown)
         self.pairs_widget = self.create_pairs_widget()
         left_layout.addWidget(self.pairs_widget)
 
@@ -139,7 +131,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Use stretch factor 1 for equal sizing
         main_horizontal_layout.addWidget(left_container, 1)
 
-        # Create right container (for analysis configuration)
         self.right_layout_container = QtWidgets.QWidget()
         self.right_layout_container.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
@@ -191,7 +182,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         _v_splitter.setSizes([600, 400])
         main_layout.addWidget(_v_splitter)
 
-        # Reference to underlying console for backward compatibility
         self.output_console = self.console_widget.get_console_widget()
 
         # Connect signals after all widgets are created
@@ -239,7 +229,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Update coordinate space labels and tooltips based on space selection."""
         if hasattr(self, "coordinates_label") and hasattr(self, "coords_radius_input"):
             if self.coord_space_mni.isChecked():
-                # MNI space selected
                 self.coordinates_label.setText("MNI RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip(
                     "MNI space coordinates (will be transformed to subject space for each subject)"
@@ -249,20 +238,17 @@ class AnalyzerTab(QtWidgets.QWidget):
                 )
                 self.coords_radius_input.setToolTip("x,y,z,radius in MNI space")
 
-                # Update Freeview button for MNI template
                 if hasattr(self, "view_in_freeview_btn"):
                     self.view_in_freeview_btn.setText("View MNI Template")
                     self.view_in_freeview_btn.setToolTip(
                         "Open MNI152 template to find MNI coordinates"
                     )
             else:
-                # Subject space selected
                 self.coordinates_label.setText("Subject RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
                 self.coordinates_label.setStyleSheet("")
                 self.coords_radius_input.setToolTip("x,y,z,radius in subject RAS space")
 
-                # Update Freeview button for subject T1
                 if hasattr(self, "view_in_freeview_btn"):
                     self.view_in_freeview_btn.setText("View in Freeview")
                     self.view_in_freeview_btn.setToolTip(
@@ -286,10 +272,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         if self.is_group_mode:
             if not selected_subjects:
-                # Clear configurations if no subjects selected
                 self.group_atlas_config = {}
         else:
-            # In single mode, update widgets
             self.update_atlas_combo()
 
         # Always recheck for valid atlases when subject selection changes
@@ -305,7 +289,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        # Table for subject-simulation pairs
         pairs_group = QtWidgets.QGroupBox("Subject-Simulation Pairs")
         pairs_layout = QtWidgets.QVBoxLayout(pairs_group)
 
@@ -370,7 +353,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Subject combo
         subject_combo = QtWidgets.QComboBox()
-        subjects = self.pm.list_subjects()
+        subjects = self.pm.list_simnibs_subjects()
         subject_combo.addItems(subjects)
         subject_combo.currentTextChanged.connect(
             lambda: self.update_sim_combo_in_row(row)
@@ -417,7 +400,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def refresh_pairs(self):
         """Refresh all subject and simulation combos in the pairs table."""
-        all_subjects = self.pm.list_subjects()
+        all_subjects = self.pm.list_simnibs_subjects()
         for row in range(self.pairs_table.rowCount()):
             subject_combo = self.pairs_table.cellWidget(row, 0)
             sim_combo = self.pairs_table.cellWidget(row, 1)
@@ -456,7 +439,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Get all unique simulations across all subjects
         all_sims = set()
-        all_subjects = self.pm.list_subjects()
+        all_subjects = self.pm.list_simnibs_subjects()
         for subject in all_subjects:
             all_sims.update(self.pm.list_simulations(subject))
         sim_combo.addItems(sorted(all_sims))
@@ -1144,8 +1127,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.type_cortical.setText("Sub/Cortical")
         else:
             self.type_cortical.setText("Cortical")
-
-    # (Removed) update_analysis_mode_defaults (surface vs volumetric). Analyzer is surface-only.
 
     def update_group_atlas_options(self):
         if not self.is_group_mode:
@@ -2211,18 +2192,11 @@ class AnalyzerTab(QtWidgets.QWidget):
     def _get_regions(self) -> list[str]:
         """Parse comma-separated region names from the input field."""
         text = self.region_input.text().strip()
-        if not text:
-            return []
         return [r.strip() for r in text.split(",") if r.strip()]
 
     def show_available_regions(self):
         """Show a searchable dialog of available regions for the selected atlas."""
         selected_subjects = self.get_selected_subjects()
-        if not selected_subjects:
-            QtWidgets.QMessageBox.warning(
-                self, "Selection Error", "Please select a subject first."
-            )
-            return
 
         progress_dialog = QtWidgets.QProgressDialog(
             "Loading atlas regions...", "Cancel", 0, 100, self
@@ -2338,94 +2312,57 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def load_t1_in_freeview(self):
         """Load subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""
-        try:
-            selected_subjects = self.get_selected_subjects()
-            if not selected_subjects:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Select subject.")
+        selected_subjects = self.get_selected_subjects()
+
+        if self.coord_space_mni.isChecked() and self.type_spherical.isChecked():
+            # MNI space selected: load MNI template
+            # Look for MNI template in common locations
+
+            mni_file = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "resources",
+                "atlas",
+                "MNI152_T1_1mm.nii.gz",
+            )
+
+            # Launch Freeview with MNI template
+            subprocess.Popen(["freeview", mni_file])
+            self.update_output(f"Launched Freeview with MNI152 template: {mni_file}")
+            self.update_output(
+                "Use Freeview to find MNI coordinates and enter them in the coordinate fields."
+            )
+            self.update_output(
+                "These MNI coordinates will be automatically transformed to each subject's native space."
+            )
+        else:
+            # Single mode or non-spherical: load subject's T1
+            subject_id = selected_subjects[0]
+            m2m_dir_path = self.pm.m2m(subject_id)
+            if not m2m_dir_path or not os.path.isdir(m2m_dir_path):
+                QtWidgets.QMessageBox.warning(
+                    self, "Error", f"m2m dir not found for {subject_id}."
+                )
                 return
 
-            if self.coord_space_mni.isChecked() and self.type_spherical.isChecked():
-                # MNI space selected: load MNI template
-                # Look for MNI template in common locations
-                mni_paths = [
-                    "/usr/share/fsl/data/standard/MNI152_T1_1mm.nii.gz",
-                    "/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz",
-                    "$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz",
-                    # Check project assets folder
-                    os.path.join(
-                        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "assets",
-                        "atlas",
-                        "MNI152_T1_1mm.nii.gz",
-                    ),
-                ]
+            t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
+            t1_mgz_path = os.path.join(m2m_dir_path, "T1.mgz")  # Check for .mgz too
 
-                mni_file = None
-                for path in mni_paths:
-                    # Expand environment variables
-                    expanded_path = os.path.expandvars(path)
-                    if os.path.isfile(expanded_path):
-                        mni_file = expanded_path
-                        break
+            final_t1_path = None
+            if os.path.exists(t1_nii_gz_path):
+                final_t1_path = t1_nii_gz_path
+            elif os.path.exists(t1_mgz_path):
+                final_t1_path = t1_mgz_path
 
-                if not mni_file:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in resources/atlas/",
-                    )
-                    return
-
-                # Launch Freeview with MNI template
-                subprocess.Popen(["freeview", mni_file])
-                self.update_output(
-                    f"Launched Freeview with MNI152 template: {mni_file}"
+            if not final_t1_path:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"T1 image (T1.nii.gz or T1.mgz) not found in {m2m_dir_path}",
                 )
-                self.update_output(
-                    "Use Freeview to find MNI coordinates and enter them in the coordinate fields."
-                )
-                self.update_output(
-                    "These MNI coordinates will be automatically transformed to each subject's native space."
-                )
-            else:
-                # Single mode or non-spherical: load subject's T1
-                subject_id = selected_subjects[0]
-                m2m_dir_path = self.pm.m2m(subject_id)
-                if not m2m_dir_path or not os.path.isdir(m2m_dir_path):
-                    QtWidgets.QMessageBox.warning(
-                        self, "Error", f"m2m dir not found for {subject_id}."
-                    )
-                    return
+                return
 
-                t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
-                t1_mgz_path = os.path.join(m2m_dir_path, "T1.mgz")  # Check for .mgz too
-
-                final_t1_path = None
-                if os.path.exists(t1_nii_gz_path):
-                    final_t1_path = t1_nii_gz_path
-                elif os.path.exists(t1_mgz_path):
-                    final_t1_path = t1_mgz_path
-
-                if not final_t1_path:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Error",
-                        f"T1 image (T1.nii.gz or T1.mgz) not found in {m2m_dir_path}",
-                    )
-                    return
-
-                subprocess.Popen(["freeview", final_t1_path])
-                self.update_output(f"Launched Freeview with T1 image: {final_t1_path}")
-
-        except FileNotFoundError:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", "Freeview not found. Ensure installed and in PATH."
-            )
-        except (OSError, subprocess.SubprocessError) as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"Failed to launch Freeview: {str(e)}"
-            )
-            self.update_output(f"Error: {e}")
+            subprocess.Popen(["freeview", final_t1_path])
+            self.update_output(f"Launched Freeview with T1 image: {final_t1_path}")
 
     def update_field_files(
         self, analyzed_subject_id=None, analyzed_simulation_name=None
@@ -2515,7 +2452,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Update the gmsh subject dropdown with available subjects."""
         self.gmsh_subject_combo.clear()
         # Use path_manager to find subjects via m2m_dir
-        subjects = self.pm.list_subjects()
+        subjects = self.pm.list_simnibs_subjects()
         if subjects:
             self.gmsh_subject_combo.addItems(subjects)
             if len(subjects) == 1:
@@ -2526,10 +2463,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Update the gmsh simulation dropdown based on selected subject."""
         self.gmsh_sim_combo.clear()
         subject_id = self.gmsh_subject_combo.currentText()
-        if not subject_id:
-            return
 
-        # Use sim_dir to find simulations via path_manager
         simulations = self.pm.list_simulations(subject_id)
         if simulations:
             self.gmsh_sim_combo.addItems(simulations)
@@ -2543,36 +2477,25 @@ class AnalyzerTab(QtWidgets.QWidget):
         subject_id = self.gmsh_subject_combo.currentText()
         simulation_name = self.gmsh_sim_combo.currentText()
 
-        if not subject_id or not simulation_name:
-            return
-
-        # Look specifically in Analyses/Mesh/ for mesh analysis folders (centralized via PathManager)
         mesh_dir = self.pm.analysis_dir(subject_id, simulation_name, "mesh")
 
-        if not mesh_dir or not os.path.exists(mesh_dir):
-            return
+        mesh_analyses = []
+        for item in os.listdir(mesh_dir):
+            item_path = os.path.join(mesh_dir, item)
+            if os.path.isdir(item_path) and not item.startswith("."):
+                # Check if this analysis folder contains any .msh files
+                has_meshes = False
+                for root, _, files in os.walk(item_path):
+                    if any(f.endswith(".msh") for f in files):
+                        has_meshes = True
+                        break
+                if has_meshes:
+                    mesh_analyses.append(item)
 
-        try:
-            # Look for mesh analysis folders in Analyses/Mesh/
-            mesh_analyses = []
-            for item in os.listdir(mesh_dir):
-                item_path = os.path.join(mesh_dir, item)
-                if os.path.isdir(item_path) and not item.startswith("."):
-                    # Check if this analysis folder contains any .msh files
-                    has_meshes = False
-                    for root, _, files in os.walk(item_path):
-                        if any(f.endswith(".msh") for f in files):
-                            has_meshes = True
-                            break
-                    if has_meshes:
-                        mesh_analyses.append(item)
-
-            if mesh_analyses:
-                self.gmsh_analysis_combo.addItems(sorted(mesh_analyses))
-                if len(mesh_analyses) == 1:
-                    self.gmsh_analysis_combo.setCurrentIndex(0)
-        except OSError as e:
-            self.update_output(f"Error listing mesh analyses: {e}")
+        if mesh_analyses:
+            self.gmsh_analysis_combo.addItems(sorted(mesh_analyses))
+            if len(mesh_analyses) == 1:
+                self.gmsh_analysis_combo.setCurrentIndex(0)
 
     def launch_gmsh_simple(self):
         """Launch Gmsh with the selected subject, simulation, and analysis."""
@@ -2586,45 +2509,19 @@ class AnalyzerTab(QtWidgets.QWidget):
             )
             return
 
-        # Find the analysis directory in Analyses/Mesh/ and look for .msh files
         mesh_dir = self.pm.analysis_dir(subject_id, simulation_name, "mesh")
         analysis_dir = os.path.join(mesh_dir, analysis_name) if mesh_dir else None
 
-        if not analysis_dir or not os.path.exists(analysis_dir):
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"Analysis directory not found: {analysis_dir}"
-            )
-            return
-
-        # Find .msh files in the analysis directory
         msh_files = []
         for root, _, files in os.walk(analysis_dir):
             for file_item in files:
                 if file_item.endswith(".msh"):
                     msh_files.append(os.path.join(root, file_item))
 
-        if not msh_files:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"No mesh files found in analysis: {analysis_name}"
-            )
-            return
-
-        # If multiple mesh files, use the first one (or could show selection dialog)
         msh_file = msh_files[0]
 
-        try:
-            # Launch Gmsh directly with the mesh file as argument
-            subprocess.Popen(["gmsh", msh_file])
-            self.update_output(f"Launched Gmsh with mesh file: {msh_file}")
-        except FileNotFoundError:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", "Gmsh not found. Please install Gmsh and add it to PATH."
-            )
-        except (OSError, subprocess.SubprocessError) as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"Failed to launch Gmsh: {str(e)}"
-            )
-            self.update_output(f"Error launching Gmsh: {e}")
+        subprocess.Popen(["gmsh", msh_file])
+        self.update_output(f"Launched Gmsh with mesh file: {msh_file}")
 
     def build_single_analysis_command(self, subject_id, simulation_name):
         """Build command to run single-subject analysis using the new Analyzer API via subprocess."""

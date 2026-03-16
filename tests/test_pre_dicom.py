@@ -13,7 +13,6 @@ from tit.pre.dicom2nifti import (
 )
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.dicom2nifti"
 
 
@@ -91,9 +90,7 @@ class TestProcessConvertedFiles:
         out_dir.mkdir()
 
         logger = MagicMock()
-        result = _process_converted_files(
-            tmp_path, out_dir, "001", "T1w", logger
-        )
+        result = _process_converted_files(tmp_path, out_dir, "001", "T1w", logger)
 
         assert result is True
         assert mock_move.call_count == 2
@@ -116,9 +113,7 @@ class TestProcessConvertedFiles:
         mock_run.side_effect = create_gz
 
         logger = MagicMock()
-        result = _process_converted_files(
-            tmp_path, out_dir, "001", "T1w", logger
-        )
+        result = _process_converted_files(tmp_path, out_dir, "001", "T1w", logger)
 
         assert result is True
         mock_run.assert_called_once()
@@ -134,9 +129,7 @@ class TestProcessConvertedFiles:
         (out_dir / "sub-001_T1w.nii.gz").touch()
 
         with pytest.raises(PreprocessError, match="already exists"):
-            _process_converted_files(
-                tmp_path, out_dir, "001", "T1w", MagicMock()
-            )
+            _process_converted_files(tmp_path, out_dir, "001", "T1w", MagicMock())
 
 
 class TestProcessModality:

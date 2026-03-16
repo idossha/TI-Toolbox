@@ -20,7 +20,6 @@ from tit.reporting.core.protocols import (
     SeverityLevel,
 )
 
-
 # ---------------------------------------------------------------------------
 # ReportAssembler
 # ---------------------------------------------------------------------------
@@ -213,9 +212,7 @@ class TestMetadataReportlet:
         assert "30" in html
 
     def test_card_mode_renders_card_grid(self):
-        r = MetadataReportlet(
-            {"subject": "sub-01"}, display_mode="cards", columns=3
-        )
+        r = MetadataReportlet({"subject": "sub-01"}, display_mode="cards", columns=3)
         html = r.render_html()
         assert "card-mode" in html
         assert "card-grid" in html

@@ -456,10 +456,14 @@ def _validate_tensor(tensor_data: np.ndarray, logger: logging.Logger) -> None:
     nonzero_voxels = np.count_nonzero(tensor_data.sum(axis=-1))
     total_voxels = np.prod(tensor_data.shape[:3])
     if nonzero_voxels == 0:
-        raise PreprocessError("Tensor is entirely zero — no valid diffusion data found.")
+        raise PreprocessError(
+            "Tensor is entirely zero — no valid diffusion data found."
+        )
 
     pct = 100.0 * nonzero_voxels / total_voxels
-    logger.info(f"Tensor validation: {nonzero_voxels}/{total_voxels} non-zero voxels ({pct:.1f}%)")
+    logger.info(
+        f"Tensor validation: {nonzero_voxels}/{total_voxels} non-zero voxels ({pct:.1f}%)"
+    )
 
     if pct < 1.0:
         logger.warning(

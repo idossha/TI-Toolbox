@@ -8,7 +8,6 @@ import pytest
 from tit.pre.charm import ATLASES, run_charm, run_subject_atlas
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.charm"
 
 
@@ -17,7 +16,9 @@ def mock_pm(tmp_path):
     """Provide a mock PathManager."""
     pm = MagicMock()
     pm.sub.return_value = str(tmp_path / "derivatives" / "SimNIBS" / "sub-001")
-    pm.m2m.return_value = str(tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001")
+    pm.m2m.return_value = str(
+        tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
+    )
     pm.bids_anat.return_value = str(tmp_path / "sub-001" / "anat")
     return pm
 
@@ -105,7 +106,9 @@ class TestRunCharm:
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     @patch(f"{MODULE}.CommandRunner")
-    def test_default_runner_created(self, mock_runner_cls, mock_find, mock_gpm, mock_pm, tmp_path):
+    def test_default_runner_created(
+        self, mock_runner_cls, mock_find, mock_gpm, mock_pm, tmp_path
+    ):
         """Creates default CommandRunner when none provided."""
         mock_gpm.return_value = mock_pm
         mock_find.return_value = (tmp_path / "t1.nii.gz", None)

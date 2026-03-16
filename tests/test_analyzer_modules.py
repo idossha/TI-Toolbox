@@ -27,7 +27,6 @@ from tit.analyzer.field_selector import select_field_file
 from tit.analyzer.group import GroupResult, _build_summary_df
 from tit.analyzer import visualizer
 
-
 # ===========================================================================
 # Helpers
 # ===========================================================================
@@ -193,9 +192,7 @@ class TestSelectVoxelFiltering:
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
-            path, _ = select_field_file(
-                "001", "montage1", "voxel", tissue_type="both"
-            )
+            path, _ = select_field_file("001", "montage1", "voxel", tissue_type="both")
 
         assert path.name == "montage1_field.nii.gz"
 
@@ -291,9 +288,15 @@ class TestBuildSummaryDf:
             mock_df = MagicMock()
             col_mock = MagicMock()
             col_mock.mean.return_value.to_dict.return_value = {
-                "ROI_Mean": 4.0, "ROI_Max": 4.0, "ROI_Min": 1.0,
-                "ROI_Focality": 0.5, "GM_Mean": 6.0, "GM_Max": 8.0,
-                "Normal_Mean": 1.0, "Normal_Max": 2.0, "Normal_Focality": 0.25,
+                "ROI_Mean": 4.0,
+                "ROI_Max": 4.0,
+                "ROI_Min": 1.0,
+                "ROI_Focality": 0.5,
+                "GM_Mean": 6.0,
+                "GM_Max": 8.0,
+                "Normal_Mean": 1.0,
+                "Normal_Max": 2.0,
+                "Normal_Focality": 0.25,
             }
             mock_df.__getitem__ = MagicMock(return_value=col_mock)
             return mock_df
@@ -322,14 +325,24 @@ class TestBuildSummaryDf:
         captured_avg = {}
 
         def fake_df(rows):
-            if isinstance(rows, list) and len(rows) == 1 and rows[0].get("Subject") == "AVERAGE":
+            if (
+                isinstance(rows, list)
+                and len(rows) == 1
+                and rows[0].get("Subject") == "AVERAGE"
+            ):
                 captured_avg["row"] = rows[0]
             mock_df = MagicMock()
             col_mock = MagicMock()
             col_mock.mean.return_value.to_dict.return_value = {
-                "ROI_Mean": 5.0, "ROI_Max": 4.0, "ROI_Min": 1.0,
-                "ROI_Focality": 0.5, "GM_Mean": 4.0, "GM_Max": 8.0,
-                "Normal_Mean": 1.0, "Normal_Max": 2.0, "Normal_Focality": 0.25,
+                "ROI_Mean": 5.0,
+                "ROI_Max": 4.0,
+                "ROI_Min": 1.0,
+                "ROI_Focality": 0.5,
+                "GM_Mean": 4.0,
+                "GM_Max": 8.0,
+                "Normal_Mean": 1.0,
+                "Normal_Max": 2.0,
+                "Normal_Focality": 0.25,
             }
             mock_df.__getitem__ = MagicMock(return_value=col_mock)
             return mock_df

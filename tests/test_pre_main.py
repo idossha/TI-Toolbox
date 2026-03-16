@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 
-
 MODULE = "tit.pre.__main__"
 
 
@@ -23,6 +22,7 @@ class TestMain:
         }
         with patch("builtins.open", mock_open(read_data=json.dumps(config))):
             from tit.pre.__main__ import main
+
             main()
 
         mock_pipeline.assert_called_once()
@@ -39,6 +39,7 @@ class TestMain:
         }
         with patch("builtins.open", mock_open(read_data=json.dumps(config))):
             from tit.pre.__main__ import main
+
             main()
 
         mock_exit.assert_called_once_with(1)
@@ -66,6 +67,7 @@ class TestMain:
         }
         with patch("builtins.open", mock_open(read_data=json.dumps(config))):
             from tit.pre.__main__ import main
+
             main()
 
         call_kwargs = mock_pipeline.call_args
@@ -86,6 +88,7 @@ class TestMain:
         }
         with patch("builtins.open", mock_open(read_data=json.dumps(config))):
             from tit.pre.__main__ import main
+
             main()
 
         call_kwargs = mock_pipeline.call_args

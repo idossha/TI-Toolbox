@@ -1,10 +1,15 @@
-#!/Users/idohaber/Applications/SimNIBS-4.1/bin/simnibs_python
-# -*- coding: utf-8 -*-
+"""
+Field extraction utilities for TI-Toolbox.
+
+Extracts grey and white matter meshes from a full SimNIBS head mesh.
+"""
+
+import logging
+import os
 
 from simnibs import mesh_io
 
-import argparse
-import os
+logger = logging.getLogger(__name__)
 
 
 def main(
@@ -15,9 +20,8 @@ def main(
     wm_output_file=None,
 ):
     """
-    Load the original mesh
-    Crop the mesh to include grey matter (tag #2) and white matter (tag #1)
-    Save these meshes to separate files
+    Load the original mesh, crop to grey matter (tag #2) and white matter
+    (tag #1), and save to separate files.
 
     Directory structure (BIDS-compliant):
     project_dir/
@@ -27,6 +31,19 @@ def main(
             └── sub-{subject_id}/
                 ├── m2m_{subject_id}/
                 └── Simulations/
+
+    Parameters
+    ----------
+    input_file : str
+        Path to the input mesh file.
+    project_dir : str, optional
+        Path to the project directory (BIDS structure).
+    subject_id : str, optional
+        Subject ID (without "sub-" prefix).
+    gm_output_file : str, optional
+        Path to the output grey matter mesh file.
+    wm_output_file : str, optional
+        Path to the output white matter mesh file.
     """
     full_mesh = mesh_io.read_msh(input_file)
     gm_mesh = full_mesh.crop_mesh(tags=[2])
@@ -60,47 +77,8 @@ def main(
 
     # Save grey matter mesh
     mesh_io.write_msh(gm_mesh, gm_output_file)
-    print(f"Grey matter mesh saved to {gm_output_file}")
+    logger.info("Grey matter mesh saved to %s", gm_output_file)
 
     # Save white matter mesh
     mesh_io.write_msh(wm_mesh, wm_output_file)
-    print(f"White matter mesh saved to {wm_output_file}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Extract grey and white matter meshes from a full mesh file."
-    )
-    parser.add_argument("input_file", type=str, help="Path to the input mesh file")
-    parser.add_argument(
-        "--project_dir",
-        type=str,
-        help="Path to the project directory (BIDS structure)",
-        default=None,
-    )
-    parser.add_argument(
-        "--subject_id",
-        type=str,
-        help='Subject ID (without "sub-" prefix)',
-        default=None,
-    )
-    parser.add_argument(
-        "--gm_output_file",
-        type=str,
-        help="Path to the output grey matter mesh file",
-        default=None,
-    )
-    parser.add_argument(
-        "--wm_output_file",
-        type=str,
-        help="Path to the output white matter mesh file",
-        default=None,
-    )
-    args = parser.parse_args()
-    main(
-        args.input_file,
-        args.project_dir,
-        args.subject_id,
-        args.gm_output_file,
-        args.wm_output_file,
-    )
+    logger.info("White matter mesh saved to %s", wm_output_file)

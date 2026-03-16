@@ -56,7 +56,6 @@ from tit.stats.engine import (  # noqa: E402
     ttest_voxelwise,
 )
 
-
 # ─── pval_from_histogram ─────────────────────────────────────────────────
 
 
@@ -161,10 +160,12 @@ class TestCorrelation:
     @pytest.mark.unit
     def test_multiple_voxels(self):
         """Multiple voxels produce correct independent r-values."""
-        x = np.array([
-            [1.0, 2.0, 3.0, 4.0, 5.0],  # perfect positive
-            [5.0, 4.0, 3.0, 2.0, 1.0],  # perfect negative
-        ])
+        x = np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0, 5.0],  # perfect positive
+                [5.0, 4.0, 3.0, 2.0, 1.0],  # perfect negative
+            ]
+        )
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         r, t, p = correlation(x, y, correlation_type="pearson")
         assert r[0] == pytest.approx(1.0, abs=1e-10)
@@ -235,9 +236,7 @@ class TestCorrelationVoxelwise:
         data = np.random.rand(2, 2, 2, 5)
         effect = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         with pytest.raises(ValueError, match="weights length"):
-            correlation_voxelwise(
-                data, effect, weights=np.array([1.0, 1.0, 1.0])
-            )
+            correlation_voxelwise(data, effect, weights=np.array([1.0, 1.0, 1.0]))
 
 
 # ─── ttest_ind ────────────────────────────────────────────────────────────
@@ -414,10 +413,16 @@ class TestRunSinglePermutation:
         """Unpaired permutation returns (max_stat, max_size, max_mass)."""
         data, coords, n_r, n_t, mask, shape = self._make_permutation_inputs()
         result = _run_single_permutation(
-            data, coords, n_r, n_t,
-            cluster_threshold=0.05, valid_mask=mask,
-            p_values_shape=shape, test_type="unpaired",
-            seed=42, return_indices=False,
+            data,
+            coords,
+            n_r,
+            n_t,
+            cluster_threshold=0.05,
+            valid_mask=mask,
+            p_values_shape=shape,
+            test_type="unpaired",
+            seed=42,
+            return_indices=False,
         )
         assert len(result) == 3
         assert isinstance(result[0], (int, float, np.integer, np.floating))
@@ -429,10 +434,16 @@ class TestRunSinglePermutation:
             n_resp=5, n_non_resp=5
         )
         result = _run_single_permutation(
-            data, coords, n_r, n_t,
-            cluster_threshold=0.05, valid_mask=mask,
-            p_values_shape=shape, test_type="paired",
-            seed=42, return_indices=False,
+            data,
+            coords,
+            n_r,
+            n_t,
+            cluster_threshold=0.05,
+            valid_mask=mask,
+            p_values_shape=shape,
+            test_type="paired",
+            seed=42,
+            return_indices=False,
         )
         assert len(result) == 3
 
@@ -441,9 +452,14 @@ class TestRunSinglePermutation:
         """With return_indices=True, returns 4-tuple including perm_idx."""
         data, coords, n_r, n_t, mask, shape = self._make_permutation_inputs()
         result = _run_single_permutation(
-            data, coords, n_r, n_t,
-            cluster_threshold=0.05, valid_mask=mask,
-            p_values_shape=shape, seed=42,
+            data,
+            coords,
+            n_r,
+            n_t,
+            cluster_threshold=0.05,
+            valid_mask=mask,
+            p_values_shape=shape,
+            seed=42,
             return_indices=True,
         )
         assert len(result) == 4
@@ -454,8 +470,13 @@ class TestRunSinglePermutation:
         """Same seed produces same result."""
         data, coords, n_r, n_t, mask, shape = self._make_permutation_inputs()
         kwargs = dict(
-            test_data=data, test_coords=coords, n_resp=n_r, n_total=n_t,
-            cluster_threshold=0.05, valid_mask=mask, p_values_shape=shape,
+            test_data=data,
+            test_coords=coords,
+            n_resp=n_r,
+            n_total=n_t,
+            cluster_threshold=0.05,
+            valid_mask=mask,
+            p_values_shape=shape,
             seed=99,
         )
         r1 = _run_single_permutation(**kwargs)
@@ -467,9 +488,14 @@ class TestRunSinglePermutation:
         """cluster_stat='mass' returns mass-based max stat."""
         data, coords, n_r, n_t, mask, shape = self._make_permutation_inputs()
         result = _run_single_permutation(
-            data, coords, n_r, n_t,
-            cluster_threshold=0.05, valid_mask=mask,
-            p_values_shape=shape, seed=42,
+            data,
+            coords,
+            n_r,
+            n_t,
+            cluster_threshold=0.05,
+            valid_mask=mask,
+            p_values_shape=shape,
+            seed=42,
             cluster_stat="mass",
         )
         assert len(result) == 3
@@ -491,8 +517,14 @@ class TestIdentifySignificantClusters:
         null = np.array([0.0, 0.0, 0.0])
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
-            labeled, 2, t_stats, null, "size", alpha=0.05,
-            alternative="two-sided", _log=logging.getLogger("test"),
+            labeled,
+            2,
+            t_stats,
+            null,
+            "size",
+            alpha=0.05,
+            alternative="two-sided",
+            _log=logging.getLogger("test"),
         )
         assert len(sig_clusters) == 0
         assert np.sum(sig_mask) == 0
@@ -513,8 +545,14 @@ class TestIdentifySignificantClusters:
         null = np.array([0.0, 1.0, 0.0, 0.0, 1.0])
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
-            labeled, 1, t_stats, null, "size", alpha=0.05,
-            alternative="two-sided", _log=logging.getLogger("test"),
+            labeled,
+            1,
+            t_stats,
+            null,
+            "size",
+            alpha=0.05,
+            alternative="two-sided",
+            _log=logging.getLogger("test"),
         )
         assert len(sig_clusters) == 1
         assert sig_clusters[0]["size"] == 3
@@ -533,8 +571,14 @@ class TestIdentifySignificantClusters:
         null = np.array([0.0, 1.0, 2.0, 0.0, 1.0])
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
-            labeled, 1, t_stats, null, "mass", alpha=0.05,
-            alternative="two-sided", _log=logging.getLogger("test"),
+            labeled,
+            1,
+            t_stats,
+            null,
+            "mass",
+            alpha=0.05,
+            alternative="two-sided",
+            _log=logging.getLogger("test"),
         )
         assert len(sig_clusters) == 1
         assert sig_clusters[0]["stat_value"] == pytest.approx(8.0)
@@ -554,8 +598,14 @@ class TestIdentifySignificantClusters:
         null = np.array([0.0, 0.0, 0.0])
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
-            labeled, 1, t_stats, null, "size", alpha=0.05,
-            alternative="two-sided", _log=logging.getLogger("test"),
+            labeled,
+            1,
+            t_stats,
+            null,
+            "size",
+            alpha=0.05,
+            alternative="two-sided",
+            _log=logging.getLogger("test"),
             r_values=r_values,
         )
         assert len(sig_clusters) == 1

@@ -24,7 +24,6 @@ from tit.opt.config import (
     SubcorticalROI,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -187,7 +186,9 @@ class TestConfigureAtlasROI:
         opt.add_roi.return_value = roi_mock
 
         config = _make_config(
-            roi=AtlasROI(atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"),
+            roi=AtlasROI(
+                atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"
+            ),
         )
         configure_roi(opt, config)
 
@@ -207,7 +208,9 @@ class TestConfigureAtlasROI:
         config = _make_config(
             goal="focality",
             non_roi_method="everything_else",
-            roi=AtlasROI(atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"),
+            roi=AtlasROI(
+                atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"
+            ),
         )
         configure_roi(opt, config)
 
@@ -225,8 +228,12 @@ class TestConfigureAtlasROI:
         config = _make_config(
             goal="focality",
             non_roi_method="specific",
-            roi=AtlasROI(atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"),
-            non_roi=AtlasROI(atlas_path="/path/to/lh.other.annot", label=2001, hemisphere="lh"),
+            roi=AtlasROI(
+                atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"
+            ),
+            non_roi=AtlasROI(
+                atlas_path="/path/to/lh.other.annot", label=2001, hemisphere="lh"
+            ),
         )
         configure_roi(opt, config)
 

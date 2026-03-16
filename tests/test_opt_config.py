@@ -36,10 +36,10 @@ from tit.opt.config import (
     SubcorticalROI,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_flex_config(**overrides):
     """Build a valid FlexConfig with sensible defaults, applying overrides."""

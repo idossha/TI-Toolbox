@@ -6,9 +6,6 @@ Contact Tab for TI-Toolbox GUI
 This module provides a contact tab for users to reach out to developers.
 """
 
-import os
-import platform
-
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 
@@ -24,22 +21,18 @@ class ContactTab(QtWidgets.QWidget):
         """Set up the user interface for the contact tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Create a scroll area
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        # Container widget for all content
         content_widget = QtWidgets.QWidget()
         content_layout = QtWidgets.QVBoxLayout(content_widget)
         content_layout.setAlignment(QtCore.Qt.AlignTop)
         content_layout.setSpacing(20)
 
-        # Header
         header_label = QtWidgets.QLabel("<h1>Contact Information</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         content_layout.addWidget(header_label)
 
-        # Introduction text
         intro_text = QtWidgets.QLabel(
             "<p>If you encounter issues, have questions, or would like to request new features, "
             "please feel free to reach out using one of the options below. Your feedback helps improve TI-Toolbox!</p>"
@@ -48,19 +41,15 @@ class ContactTab(QtWidgets.QWidget):
         intro_text.setAlignment(QtCore.Qt.AlignCenter)
         content_layout.addWidget(intro_text)
 
-        # Developer info card
         dev_card = self.create_developer_card()
         content_layout.addWidget(dev_card)
 
-        # GitHub contribution section
         github_section = self.create_github_section()
         content_layout.addWidget(github_section)
 
-        # Best practices section
         practices_section = self.create_best_practices_section()
         content_layout.addWidget(practices_section)
 
-        # Set the content widget as the scroll area's widget
         scroll_area.setWidget(content_widget)
         main_layout.addWidget(scroll_area)
 
@@ -69,24 +58,20 @@ class ContactTab(QtWidgets.QWidget):
         card = QtWidgets.QGroupBox("Main Developer")
         card_layout = QtWidgets.QVBoxLayout(card)
 
-        # Create grid for contact details
         info_grid = QtWidgets.QGridLayout()
         info_grid.setColumnStretch(1, 1)
         info_grid.setVerticalSpacing(10)
 
-        # Name
         name_label = QtWidgets.QLabel("<b>Name:</b>")
         name_value = QtWidgets.QLabel("Ido Haber")
         info_grid.addWidget(name_label, 0, 0)
         info_grid.addWidget(name_value, 0, 1)
 
-        # Email
         email_label = QtWidgets.QLabel("<b>Email:</b>")
         email_value = QtWidgets.QLabel("ihaber@wisc.edu")
         info_grid.addWidget(email_label, 1, 0)
         info_grid.addWidget(email_value, 1, 1)
 
-        # Affiliation
         affiliation_label = QtWidgets.QLabel("<b>Affiliation:</b>")
         affiliation_value = QtWidgets.QLabel(
             "University of Wisconsin<br>Center for Sleep and Consciousness"
@@ -94,7 +79,6 @@ class ContactTab(QtWidgets.QWidget):
         info_grid.addWidget(affiliation_label, 2, 0)
         info_grid.addWidget(affiliation_value, 2, 1)
 
-        # GitHub
         github_label = QtWidgets.QLabel("<b>GitHub:</b>")
         github_value = QtWidgets.QLabel("https://github.com/idossha/TI-Toolbox")
         info_grid.addWidget(github_label, 3, 0)
@@ -109,7 +93,6 @@ class ContactTab(QtWidgets.QWidget):
         group = QtWidgets.QGroupBox("Contribute on GitHub")
         layout = QtWidgets.QVBoxLayout(group)
 
-        # Description
         description = QtWidgets.QLabel(
             "<p>GitHub is our preferred platform for bug reports, feature requests, and community discussions. "
             "Choose from the options below depending on your needs:</p>"
@@ -117,13 +100,11 @@ class ContactTab(QtWidgets.QWidget):
         description.setWordWrap(True)
         layout.addWidget(description)
 
-        # Content grid
         content_grid = QtWidgets.QGridLayout()
         content_grid.setColumnStretch(1, 1)
         content_grid.setVerticalSpacing(15)
         content_grid.setHorizontalSpacing(10)
 
-        # Join Discussions
         discuss_icon = QtWidgets.QLabel()
         discuss_icon.setPixmap(QtGui.QIcon.fromTheme("forum").pixmap(32, 32))
         content_grid.addWidget(discuss_icon, 0, 0)
@@ -138,7 +119,6 @@ class ContactTab(QtWidgets.QWidget):
         discuss_info.addWidget(discuss_description)
         content_grid.addLayout(discuss_info, 0, 1)
 
-        # Report a Bug
         bug_icon = QtWidgets.QLabel()
         bug_icon.setPixmap(QtGui.QIcon.fromTheme("dialog-error").pixmap(32, 32))
         content_grid.addWidget(bug_icon, 1, 0)
@@ -153,7 +133,6 @@ class ContactTab(QtWidgets.QWidget):
         bug_info.addWidget(bug_description)
         content_grid.addLayout(bug_info, 1, 1)
 
-        # Pull Requests
         pr_icon = QtWidgets.QLabel()
         pr_icon.setPixmap(QtGui.QIcon.fromTheme("document-edit").pixmap(32, 32))
         content_grid.addWidget(pr_icon, 2, 0)

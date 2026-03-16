@@ -708,7 +708,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
         if not self.path_manager:
             return
 
-        subjects = self.path_manager.list_subjects()
+        subjects = self.path_manager.list_simnibs_subjects()
         self.subject_combo.clear()
 
         if subjects:

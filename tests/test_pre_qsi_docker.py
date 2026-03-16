@@ -13,15 +13,18 @@ from tit.pre.qsi.docker_builder import (
 )
 from tit.pre.qsi.config import QSIPrepConfig, QSIReconConfig, ResourceConfig
 
-
 MODULE = "tit.pre.qsi.docker_builder"
 
 
 @pytest.fixture
 def builder():
     """Create a DockerCommandBuilder with mocked dependencies."""
-    with patch(f"{MODULE}.get_host_project_dir", return_value="/host/project"), \
-         patch(f"{MODULE}.get_freesurfer_license_path", return_value="/opt/fs/license.txt"):
+    with (
+        patch(f"{MODULE}.get_host_project_dir", return_value="/host/project"),
+        patch(
+            f"{MODULE}.get_freesurfer_license_path", return_value="/opt/fs/license.txt"
+        ),
+    ):
         return DockerCommandBuilder("/container/project")
 
 
@@ -52,8 +55,10 @@ class TestDockerCommandBuilder:
 
     def test_custom_paths(self):
         custom = DockerPaths(bids_dir="/custom/data")
-        with patch(f"{MODULE}.get_host_project_dir", return_value="/host"), \
-             patch(f"{MODULE}.get_freesurfer_license_path", return_value="/fs"):
+        with (
+            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
+            patch(f"{MODULE}.get_freesurfer_license_path", return_value="/fs"),
+        ):
             b = DockerCommandBuilder("/proj", paths=custom)
             assert b.paths.bids_dir == "/custom/data"
 
@@ -151,14 +156,16 @@ class TestBuildQsiprepCmd:
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license(self, mock_resources):
         """No license mount when no license path."""
-        with patch(f"{MODULE}.get_host_project_dir", return_value="/host"), \
-             patch(f"{MODULE}.get_freesurfer_license_path", return_value=None):
+        with (
+            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
+            patch(f"{MODULE}.get_freesurfer_license_path", return_value=None),
+        ):
             b = DockerCommandBuilder("/proj")
             config = QSIPrepConfig(subject_id="001")
             cmd = b.build_qsiprep_cmd(config)
 
             # License file should still be in args, just no -v mount for it
-            v_args = [cmd[i+1] for i, x in enumerate(cmd) if x == "-v"]
+            v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
             assert not any("license" in v for v in v_args)
 
 
@@ -189,9 +196,7 @@ class TestBuildQsireconCmd:
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_atlases(self, mock_resources, builder):
-        config = QSIReconConfig(
-            subject_id="001", atlases=["AAL116", "Schaefer100"]
-        )
+        config = QSIReconConfig(subject_id="001", atlases=["AAL116", "Schaefer100"])
         cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
         atlas_indices = [i for i, x in enumerate(cmd) if x == "--atlases"]
         assert len(atlas_indices) == 2

@@ -19,7 +19,6 @@ from tit.opt.config import (
     PoolElectrodes,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -50,7 +49,9 @@ class TestRunExSearch:
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
-    def test_pool_mode_success(self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path):
+    def test_pool_mode_success(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "output")
@@ -81,7 +82,9 @@ class TestRunExSearch:
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
-    def test_bucket_mode(self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path):
+    def test_bucket_mode(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "output")
@@ -112,14 +115,17 @@ class TestRunExSearch:
         assert result.success is True
         # Bucket mode: all_combinations=False
         call_args = engine.run.call_args
-        assert call_args[1].get("all_combinations", call_args[0][5] if len(call_args[0]) > 5 else None) is False or \
-               not call_args.kwargs.get("all_combinations", True)
+        assert call_args[1].get(
+            "all_combinations", call_args[0][5] if len(call_args[0]) > 5 else None
+        ) is False or not call_args.kwargs.get("all_combinations", True)
 
     @patch("tit.opt.ex.ex.process_and_save")
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
-    def test_channel_limit_default(self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path):
+    def test_channel_limit_default(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "output")
@@ -135,7 +141,9 @@ class TestRunExSearch:
         from tit.opt.ex.ex import run_ex_search
 
         config = _make_ex_config(
-            currents=ExCurrentConfig(total_current=4.0, current_step=0.5, channel_limit=None),
+            currents=ExCurrentConfig(
+                total_current=4.0, current_step=0.5, channel_limit=None
+            ),
         )
         run_ex_search(config)
 
@@ -146,7 +154,9 @@ class TestRunExSearch:
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
-    def test_creates_output_dir(self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path):
+    def test_creates_output_dir(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "new_output")
@@ -170,7 +180,9 @@ class TestRunExSearch:
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
-    def test_result_fields(self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path):
+    def test_result_fields(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "output")

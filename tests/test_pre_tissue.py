@@ -8,7 +8,6 @@ import pytest
 
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.tissue_analyzer"
 
 
@@ -16,6 +15,7 @@ MODULE = "tit.pre.tissue_analyzer"
 def mock_nib():
     """Return the mocked nibabel module."""
     import nibabel as nib
+
     return nib
 
 
@@ -245,9 +245,7 @@ class TestWriteReport:
         from tit.pre.tissue_analyzer import TissueAnalyzer
 
         out = tmp_path / "out"
-        analyzer = TissueAnalyzer(
-            tmp_path / "label.nii.gz", out, "csf", MagicMock()
-        )
+        analyzer = TissueAnalyzer(tmp_path / "label.nii.gz", out, "csf", MagicMock())
 
         tissue_mask = np.zeros((10, 10, 10), dtype=np.uint8)
         tissue_mask[3:7, 3:7, 3:7] = 1
@@ -274,7 +272,9 @@ class TestCreateThicknessFigure:
         )
         filtered = np.zeros((10, 10, 10), dtype=np.uint8)
         result = analyzer._create_thickness_figure(
-            filtered, {"thickness_map": None, "mean": 0, "std": 0, "min": 0, "max": 0}, plt
+            filtered,
+            {"thickness_map": None, "mean": 0, "std": 0, "min": 0, "max": 0},
+            plt,
         )
         assert result is None
 
@@ -291,7 +291,13 @@ class TestCreateThicknessFigure:
 
         result = analyzer._create_thickness_figure(
             filtered,
-            {"thickness_map": thickness_map, "mean": 2.0, "std": 0.5, "min": 1.0, "max": 3.0},
+            {
+                "thickness_map": thickness_map,
+                "mean": 2.0,
+                "std": 0.5,
+                "min": 1.0,
+                "max": 3.0,
+            },
             plt,
         )
         # With mocked matplotlib, this should still work (returns the path)
@@ -367,7 +373,13 @@ class TestCreateVisualizations:
         tissue = np.ones((10, 10, 10), dtype=np.uint8)
         brain = np.zeros((10, 10, 10), dtype=np.uint8)
         filtered = np.ones((10, 10, 10), dtype=np.uint8)
-        thickness = {"mean": 1, "std": 0.5, "min": 0.5, "max": 2.0, "thickness_map": None}
+        thickness = {
+            "mean": 1,
+            "std": 0.5,
+            "min": 0.5,
+            "max": 2.0,
+            "thickness_map": None,
+        }
 
         analyzer._create_visualizations(tissue, brain, filtered, thickness)
 

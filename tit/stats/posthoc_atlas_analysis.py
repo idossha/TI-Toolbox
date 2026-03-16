@@ -20,7 +20,7 @@ import os
 import sys
 import argparse
 
-from tit.atlas import check_and_resample_atlas
+from tit.atlas import atlas_overlap_analysis
 
 
 def posthoc_atlas_overlap(mask_file, atlas_files, output_dir=None):
@@ -60,49 +60,45 @@ def posthoc_atlas_overlap(mask_file, atlas_files, output_dir=None):
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
+    # Delegate overlap calculation to atlas_overlap_analysis
+    # Group atlas files by directory so we can call the shared function
+    dir_to_files: dict = {}
+    for atlas_file in atlas_files:
+        data_dir = os.path.dirname(atlas_file)
+        basename = os.path.basename(atlas_file)
+        dir_to_files.setdefault(data_dir, []).append(basename)
+
+    overlap_results: dict = {}
+    for data_dir, basenames in dir_to_files.items():
+        partial = atlas_overlap_analysis(
+            sig_mask,
+            basenames,
+            data_dir,
+            reference_img=mask_img,
+        )
+        overlap_results.update(partial)
+
     # Process each atlas
     all_results = {}
 
     for atlas_file in atlas_files:
-        if not os.path.exists(atlas_file):
-            print(f"\n⚠ Warning: Atlas file not found - {atlas_file}")
-            continue
-
         atlas_name = os.path.basename(atlas_file)
-        print(f"\n{'='*70}")
-        print(f"Processing: {atlas_name}")
-        print(f"{'='*70}")
+        region_counts = overlap_results.get(atlas_name, [])
 
-        # Load atlas
-        atlas_img = nib.load(atlas_file)
-
-        # Check dimensions and resample if needed
-        atlas_data = check_and_resample_atlas(atlas_img, mask_img, atlas_name)
-
-        # Get unique regions
-        regions = np.unique(atlas_data[atlas_data > 0])
-        print(f"Found {len(regions)} regions in atlas")
-
-        # Calculate overlap for each region
+        # Enrich with percentage fields
         results = []
-        for region_id in regions:
-            region_mask = atlas_data == region_id
-            region_size = np.sum(region_mask)
-            overlap = np.sum(sig_mask & region_mask)
-
-            if overlap > 0:
-                pct_of_region = 100 * overlap / region_size
-                pct_of_significant = 100 * overlap / total_sig_voxels
-
-                results.append(
-                    {
-                        "region_id": int(region_id),
-                        "overlap_voxels": int(overlap),
-                        "region_total_voxels": int(region_size),
-                        "pct_of_region": round(pct_of_region, 2),
-                        "pct_of_all_significant": round(pct_of_significant, 2),
-                    }
-                )
+        for r in region_counts:
+            pct_of_region = 100 * r["overlap_voxels"] / r["region_size"]
+            pct_of_significant = 100 * r["overlap_voxels"] / total_sig_voxels
+            results.append(
+                {
+                    "region_id": r["region_id"],
+                    "overlap_voxels": r["overlap_voxels"],
+                    "region_total_voxels": r["region_size"],
+                    "pct_of_region": round(pct_of_region, 2),
+                    "pct_of_all_significant": round(pct_of_significant, 2),
+                }
+            )
 
         if not results:
             print(f"No overlapping regions found for {atlas_name}")

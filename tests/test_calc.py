@@ -54,16 +54,20 @@ def perpendicular_fields():
 @pytest.fixture
 def multi_element():
     """Array with multiple spatial points."""
-    E1 = np.array([
-        [2.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 3.0, 0.0],
-    ])
-    E2 = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
+    E1 = np.array(
+        [
+            [2.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 3.0, 0.0],
+        ]
+    )
+    E2 = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
     return E1, E2
 
 
@@ -252,9 +256,7 @@ class TestTIVectorsEdgeCases:
             E2 = RNG.standard_normal((10, 3))
             result = get_TI_vectors(E1, E2)
             ti_mag = np.linalg.norm(result, axis=1)
-            min_mag = np.minimum(
-                np.linalg.norm(E1, axis=1), np.linalg.norm(E2, axis=1)
-            )
+            min_mag = np.minimum(np.linalg.norm(E1, axis=1), np.linalg.norm(E2, axis=1))
             np.testing.assert_array_less(ti_mag, 2.0 * min_mag + 1e-10)
 
     def test_result_non_negative_magnitude(self):

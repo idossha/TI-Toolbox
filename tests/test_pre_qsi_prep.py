@@ -8,7 +8,6 @@ import pytest
 from tit.pre.qsi.qsiprep import run_qsiprep
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.qsi.qsiprep"
 
 
@@ -19,9 +18,15 @@ class TestRunQsiprep:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_success(self, mock_validate, mock_builder, mock_pull, mock_output, tmp_path):
+    def test_success(
+        self, mock_validate, mock_builder, mock_pull, mock_output, tmp_path
+    ):
         """Runs QSIPrep successfully end to end."""
-        mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run", "qsiprep"]
+        mock_builder.return_value.build_qsiprep_cmd.return_value = [
+            "docker",
+            "run",
+            "qsiprep",
+        ]
 
         runner = MagicMock()
         runner.run.return_value = 0
@@ -62,7 +67,9 @@ class TestRunQsiprep:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=False)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_pull_failure_raises(self, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_pull_failure_raises(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Raises PreprocessError when image pull fails."""
         mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
 
@@ -73,7 +80,9 @@ class TestRunQsiprep:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_run_failure_raises(self, mock_validate, mock_builder, mock_pull, mock_output, tmp_path):
+    def test_run_failure_raises(
+        self, mock_validate, mock_builder, mock_pull, mock_output, tmp_path
+    ):
         """Raises PreprocessError when container exits non-zero."""
         mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
 
@@ -87,7 +96,9 @@ class TestRunQsiprep:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_output_validation_failure(self, mock_dwi, mock_builder, mock_pull, mock_output, tmp_path):
+    def test_output_validation_failure(
+        self, mock_dwi, mock_builder, mock_pull, mock_output, tmp_path
+    ):
         """Raises PreprocessError when output validation fails."""
         mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
 
@@ -102,7 +113,9 @@ class TestRunQsiprep:
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
     @patch(f"{MODULE}.CommandRunner")
-    def test_default_runner_created(self, mock_runner_cls, mock_dwi, mock_builder, mock_pull, mock_output, tmp_path):
+    def test_default_runner_created(
+        self, mock_runner_cls, mock_dwi, mock_builder, mock_pull, mock_output, tmp_path
+    ):
         """Creates default CommandRunner when none provided."""
         mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
         mock_runner_cls.return_value.run.return_value = 0
@@ -121,8 +134,10 @@ class TestRunQsiprep:
         # First call for existing check returns invalid, second for final validation
         mock_output.side_effect = [(False, "incomplete"), (True, None)]
 
-        with patch(f"{MODULE}.DockerCommandBuilder") as mock_builder, \
-             patch(f"{MODULE}.pull_image_if_needed", return_value=True):
+        with (
+            patch(f"{MODULE}.DockerCommandBuilder") as mock_builder,
+            patch(f"{MODULE}.pull_image_if_needed", return_value=True),
+        ):
             mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
             runner = MagicMock()
             runner.run.return_value = 0

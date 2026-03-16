@@ -478,18 +478,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         pm = get_path_manager()
         project_dir = pm.project_dir
 
-        if not project_dir:
-            self.output_text.append("Error: Could not detect project directory")
-            self.output_text.append(
-                "Please ensure PROJECT_DIR or PROJECT_DIR_NAME environment variable is set"
-            )
-            return
-
         # Set PROJECT_DIR for other components that might need it
         os.environ["PROJECT_DIR"] = project_dir
 
         # Get subjects using path_manager
-        self.subjects = pm.list_subjects()
+        self.subjects = pm.list_simnibs_subjects()
         for subject_id in self.subjects:
             self.subject_list.addItem(subject_id)
 
@@ -528,45 +521,34 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         pm = get_path_manager()
         project_dir = pm.project_dir
-        if not project_dir:
-            self.output_text.append("Error: Could not detect project directory")
-            return
 
         eeg_dir = pm.eeg_positions(subject_id)
 
-        try:
-            if eeg_dir and Path(eeg_dir).is_dir():
-                # Find all CSV files in the directory
-                for eeg_file in Path(eeg_dir).glob("*.csv"):
-                    net_name = eeg_file.stem
-                    self.eeg_nets[net_name] = str(eeg_file)
-                    self.eeg_net_combo.addItem(net_name)
+        eeg_dir and Path(eeg_dir).is_dir():
 
-                # Also populate solver widget's skin net combo
-                skin_combo = self.solver_widget.get_skin_net_combo()
-                skin_combo.clear()
-                for net_name in self.eeg_nets:
-                    skin_combo.addItem(net_name)
+        # Find all CSV files in the directory``
+        for eeg_file in Path(eeg_dir).glob("*.csv"):
+            net_name = eeg_file.stem
+            self.eeg_nets[net_name] = str(eeg_file)
+            self.eeg_net_combo.addItem(net_name)
 
-                # Set default for skin visualization combo
-                if "GSN-HydroCel-185" in self.eeg_nets:
-                    index = skin_combo.findText("GSN-HydroCel-185")
-                    if index >= 0:
-                        skin_combo.setCurrentIndex(index)
-                elif self.eeg_nets:
-                    skin_combo.setCurrentIndex(0)
-                else:
-                    self.eeg_net_combo.addItem("GSN-HydroCel-185")
-                    skin_combo.addItem("GSN-HydroCel-185")
-            else:
-                self.eeg_net_combo.addItem("GSN-HydroCel-185")
-                skin_combo = self.solver_widget.get_skin_net_combo()
-                skin_combo.clear()
-                skin_combo.addItem("GSN-HydroCel-185")
+        # Also populate solver widget's skin net combo
+        skin_combo = self.solver_widget.get_skin_net_combo()
+        skin_combo.clear()
+        for net_name in self.eeg_nets:
+            skin_combo.addItem(net_name)
 
-        except OSError as e:
-            self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
+        # Set default for skin visualization combo
+        if "GSN-HydroCel-185" in self.eeg_nets:
+            index = skin_combo.findText("GSN-HydroCel-185")
+            if index >= 0:
+                skin_combo.setCurrentIndex(index)
+        elif self.eeg_nets:
+            skin_combo.setCurrentIndex(0)
+        else:
             self.eeg_net_combo.addItem("GSN-HydroCel-185")
+            skin_combo.addItem("GSN-HydroCel-185")
+       
 
     def on_subject_changed(self):
         """Handle subject selection change."""
@@ -581,11 +563,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Update multiple subject restrictions
         self._update_multiple_subject_restrictions()
 
-    def _update_multiple_subject_restrictions(self):
-        """Update UI restrictions when multiple subjects are selected."""
-        # No longer disable spherical ROI for multiple subjects
-        # Instead, we'll use MNI coordinates for multiple subjects
-        pass
 
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
@@ -959,139 +936,128 @@ class FlexSearchTab(QtWidgets.QWidget):
         anisotropy_type="scalar",
     ):
         """Run optimization for a single subject. Returns True if started successfully, False otherwise."""
-        try:
-            pm = get_path_manager()
-            project_dir = pm.project_dir
-            if not project_dir:
-                self.output_text.append("Error: Could not detect project directory")
-                return False
+        pm = get_path_manager()
+        project_dir = pm.project_dir
 
-            # Focality options -- delegate to specialised orchestrators when needed
-            if goal == "focality":
-                if self._is_pareto_sweep_mode():
-                    # --- Pareto Sweep mode ---
-                    grid_inputs = self._validate_sweep_inputs()
-                    if grid_inputs is None:
-                        return False
-                    roi_pcts, nonroi_pcts = grid_inputs
-                    nonroi_method = self.nonroi_method_combo.currentData()
-                    if not nonroi_method:
-                        self.output_text.append(
-                            "Error: Non-ROI method required for Pareto Sweep."
-                        )
-                        return False
-                    return self._start_mean_optimization(
-                        subject_id,
-                        roi_params,
-                        postproc,
-                        eeg_net,
-                        electrode_current,
-                        electrode_shape,
-                        dimensions,
-                        thickness,
-                        mode="pareto",
-                        roi_pcts=roi_pcts,
-                        nonroi_pcts=nonroi_pcts,
-                        anisotropy_type=anisotropy_type,
+        # Focality options -- delegate to specialised orchestrators when needed
+        if goal == "focality":
+            if self._is_pareto_sweep_mode():
+                # --- Pareto Sweep mode ---
+                grid_inputs = self._validate_sweep_inputs()
+                if grid_inputs is None:
+                    return False
+                roi_pcts, nonroi_pcts = grid_inputs
+                nonroi_method = self.nonroi_method_combo.currentData()
+                if not nonroi_method:
+                    self.output_text.append(
+                        "Error: Non-ROI method required for Pareto Sweep."
                     )
-                elif self.mode_adaptive_radio.isChecked():
-                    # --- Adaptive (single run) mode ---
-                    nonroi_pct = self.nonroi_percentage_input.value()
-                    roi_pct = self.roi_percentage_input.value()
+                    return False
+                return self._start_mean_optimization(
+                    subject_id,
+                    roi_params,
+                    postproc,
+                    eeg_net,
+                    electrode_current,
+                    electrode_shape,
+                    dimensions,
+                    thickness,
+                    mode="pareto",
+                    roi_pcts=roi_pcts,
+                    nonroi_pcts=nonroi_pcts,
+                    anisotropy_type=anisotropy_type,
+                )
+            elif self.mode_adaptive_radio.isChecked():
+                # --- Adaptive (single run) mode ---
+                nonroi_pct = self.nonroi_percentage_input.value()
+                roi_pct = self.roi_percentage_input.value()
 
-                    if nonroi_pct >= roi_pct:
-                        self.output_text.append(
-                            "Error: Non-ROI percentage must be less than ROI percentage for focality optimization."
-                        )
-                        return False
-
-                    if nonroi_pct <= 0 or roi_pct <= 0:
-                        self.output_text.append(
-                            "Error: Percentage values must be greater than 0."
-                        )
-                        return False
-
-                    if nonroi_pct >= 100 or roi_pct >= 100:
-                        self.output_text.append(
-                            "Error: Percentage values must be less than 100."
-                        )
-                        return False
-
-                    return self._start_mean_optimization(
-                        subject_id,
-                        roi_params,
-                        postproc,
-                        eeg_net,
-                        electrode_current,
-                        electrode_shape,
-                        dimensions,
-                        thickness,
-                        mode="adaptive",
-                        anisotropy_type=anisotropy_type,
+                if nonroi_pct >= roi_pct:
+                    self.output_text.append(
+                        "Error: Non-ROI percentage must be less than ROI percentage for focality optimization."
                     )
-                else:
-                    # --- Manual threshold mode ---
-                    thresholds = self.threshold_input.text().strip()
-                    if not thresholds:
-                        self.output_text.append(
-                            "Error: Please enter threshold(s) for focality."
-                        )
-                        return False
+                    return False
 
-            # Build FlexConfig from UI state
-            thresholds_value = None
-            if (
-                goal == "focality"
-                and not self._is_pareto_sweep_mode()
-                and not self.mode_adaptive_radio.isChecked()
-            ):
-                thresholds_value = self.threshold_input.text().strip() or None
-
-            config = self._build_flex_config(
-                subject_id=subject_id,
-                project_dir=project_dir,
-                roi_params=roi_params,
-                goal=goal,
-                postproc=postproc,
-                eeg_net=eeg_net,
-                electrode_current=electrode_current,
-                electrode_shape=electrode_shape,
-                dimensions=dimensions,
-                thickness=thickness,
-                thresholds=thresholds_value,
-                anisotropy_type=anisotropy_type,
-            )
-
-            cmd, config_path = self._launch_flex_config(config)
-
-            # Only set parent busy state for single subjects
-            if (
-                not self.selected_subjects is not None
-                or len(self.selected_subjects) == 1
-            ):
-                if self.parent:
-                    self.parent.set_tab_busy(
-                        self,
-                        True,
-                        stop_btn=self.stop_btn,
+                if nonroi_pct <= 0 or roi_pct <= 0:
+                    self.output_text.append(
+                        "Error: Percentage values must be greater than 0."
                     )
+                    return False
 
-            self.optimization_process = FlexSearchThread(cmd)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_process.finished.connect(self.optimization_finished)
-            self.optimization_process.start()
+                if nonroi_pct >= 100 or roi_pct >= 100:
+                    self.output_text.append(
+                        "Error: Percentage values must be less than 100."
+                    )
+                    return False
 
-            return True
+                return self._start_mean_optimization(
+                    subject_id,
+                    roi_params,
+                    postproc,
+                    eeg_net,
+                    electrode_current,
+                    electrode_shape,
+                    dimensions,
+                    thickness,
+                    mode="adaptive",
+                    anisotropy_type=anisotropy_type,
+                )
+            else:
+                # --- Manual threshold mode ---
+                thresholds = self.threshold_input.text().strip()
+                if not thresholds:
+                    self.output_text.append(
+                        "Error: Please enter threshold(s) for focality."
+                    )
+                    return False
 
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"Error executing optimization for subject {subject_id}: {str(e)}",
-                "error",
-            )
-            return False
+        # Build FlexConfig from UI state
+        thresholds_value = None
+        if (
+            goal == "focality"
+            and not self._is_pareto_sweep_mode()
+            and not self.mode_adaptive_radio.isChecked()
+        ):
+            thresholds_value = self.threshold_input.text().strip() or None
+
+        config = self._build_flex_config(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            roi_params=roi_params,
+            goal=goal,
+            postproc=postproc,
+            eeg_net=eeg_net,
+            electrode_current=electrode_current,
+            electrode_shape=electrode_shape,
+            dimensions=dimensions,
+            thickness=thickness,
+            thresholds=thresholds_value,
+            anisotropy_type=anisotropy_type,
+        )
+
+        cmd, config_path = self._launch_flex_config(config)
+
+        # Only set parent busy state for single subjects
+        if (
+            not self.selected_subjects is not None
+            or len(self.selected_subjects) == 1
+        ):
+            if self.parent:
+                self.parent.set_tab_busy(
+                    self,
+                    True,
+                    stop_btn=self.stop_btn,
+                )
+
+        self.optimization_process = FlexSearchThread(cmd)
+        self.optimization_process.output_signal.connect(self.update_output)
+        self.optimization_process.error_signal.connect(
+            lambda msg: self.update_output(msg, "error")
+        )
+        self.optimization_process.finished.connect(self.optimization_finished)
+        self.optimization_process.start()
+
+        return True
 
     # ------------------------------------------------------------------ #
     #  Output and lifecycle                                               #
@@ -1287,30 +1253,22 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _update_sweep_preview(self):
         """Recomputes N combinations and updates self.sweep_preview_label."""
-        try:
-            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
-            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
-            n = len(roi_pcts) * len(nonroi_pcts)
-            self.sweep_preview_label.setText(
-                f"\u2192 {n} combination{'s' if n != 1 else ''} will be run"
-            )
-            self.sweep_preview_label.setStyleSheet("color: gray; font-style: italic;")
-        except ValueError:
-            self.sweep_preview_label.setText("\u2192 invalid input")
-            self.sweep_preview_label.setStyleSheet("color: red; font-style: italic;")
+        roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+        nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        n = len(roi_pcts) * len(nonroi_pcts)
+        self.sweep_preview_label.setText(
+            f"\u2192 {n} combination{'s' if n != 1 else ''} will be run"
+        )
+        self.sweep_preview_label.setStyleSheet("color: gray; font-style: italic;")
 
     def _validate_sweep_inputs(self):
         """Parse and validate ROI%/non-ROI% lists. Returns (roi_pcts, nonroi_pcts) or None."""
         from tit.opt.flex.pareto import validate_grid
 
-        try:
-            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
-            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
-            validate_grid(roi_pcts, nonroi_pcts)
-            return roi_pcts, nonroi_pcts
-        except ValueError as e:
-            self.output_text.append(f"Error: {e}")
-            return None
+        roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+        nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        validate_grid(roi_pcts, nonroi_pcts)
+        return roi_pcts, nonroi_pcts
 
     def _start_mean_optimization(
         self,
@@ -1336,71 +1294,67 @@ class FlexSearchTab(QtWidgets.QWidget):
         """
         from collections import deque
 
-        try:
-            pm = get_path_manager()
-            project_dir = pm.project_dir
+        pm = get_path_manager()
+        project_dir = pm.project_dir
 
-            # Store all parameters for step 2
-            self._focality_state = {
-                "mode": mode,
-                "subject_id": subject_id,
-                "roi_params": roi_params,
-                "postproc": postproc,
-                "anisotropy_type": anisotropy_type,
-                "eeg_net": eeg_net,
-                "electrode_current": electrode_current,
-                "electrode_shape": electrode_shape,
-                "dimensions": dimensions,
-                "thickness": thickness,
-                "roi_pcts": roi_pcts or [],
-                "nonroi_pcts": nonroi_pcts or [],
-            }
-            self.achievable_intensity = None
+        # Store all parameters for step 2
+        self._focality_state = {
+            "mode": mode,
+            "subject_id": subject_id,
+            "roi_params": roi_params,
+            "postproc": postproc,
+            "anisotropy_type": anisotropy_type,
+            "eeg_net": eeg_net,
+            "electrode_current": electrode_current,
+            "electrode_shape": electrode_shape,
+            "dimensions": dimensions,
+            "thickness": thickness,
+            "roi_pcts": roi_pcts or [],
+            "nonroi_pcts": nonroi_pcts or [],
+        }
+        self.achievable_intensity = None
 
-            # Reset pareto sweep state for a fresh run
-            self._sweep_points = []
-            self._sweep_queue = deque()
-            self._sweep_result = None
-            self._current_sweep_point = None
+        # Reset pareto sweep state for a fresh run
+        self._sweep_points = []
+        self._sweep_queue = deque()
+        self._sweep_result = None
+        self._current_sweep_point = None
 
-            # Build mean FlexConfig for step 1
-            mean_config = self._build_flex_config(
-                subject_id=subject_id,
-                project_dir=project_dir,
-                roi_params=roi_params,
-                goal="mean",
-                postproc=postproc,
-                eeg_net=eeg_net,
-                electrode_current=electrode_current,
-                electrode_shape=electrode_shape,
-                dimensions=dimensions,
-                thickness=thickness,
-                anisotropy_type=anisotropy_type,
-            )
+        # Build mean FlexConfig for step 1
+        mean_config = self._build_flex_config(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            roi_params=roi_params,
+            goal="mean",
+            postproc=postproc,
+            eeg_net=eeg_net,
+            electrode_current=electrode_current,
+            electrode_shape=electrode_shape,
+            dimensions=dimensions,
+            thickness=thickness,
+            anisotropy_type=anisotropy_type,
+        )
 
-            mean_cmd, _ = self._launch_flex_config(mean_config)
+        mean_cmd, _ = self._launch_flex_config(mean_config)
 
-            label = "Pareto Sweep" if mode == "pareto" else "Adaptive Focality"
-            self.update_output(
-                f"Step 1/2 -- Finding achievable ROI intensity ({label}: mean optimization)"
-            )
+        label = "Pareto Sweep" if mode == "pareto" else "Adaptive Focality"
+        self.update_output(
+            f"Step 1/2 -- Finding achievable ROI intensity ({label}: mean optimization)"
+        )
 
-            self.optimization_thread = FlexSearchThread(mean_cmd)
-            self.optimization_thread.output_signal.connect(
-                self._process_mean_optimization_output
-            )
-            self.optimization_thread.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_thread.finished.connect(
-                self._on_mean_optimization_finished
-            )
-            self.optimization_thread.start()
-            return True
+        self.optimization_thread = FlexSearchThread(mean_cmd)
+        self.optimization_thread.output_signal.connect(
+            self._process_mean_optimization_output
+        )
+        self.optimization_thread.error_signal.connect(
+            lambda msg: self.update_output(msg, "error")
+        )
+        self.optimization_thread.finished.connect(
+            self._on_mean_optimization_finished
+        )
+        self.optimization_thread.start()
+        return True
 
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(f"Error starting mean optimization: {str(e)}", "error")
-            return False
 
     # ------------------------------------------------------------------ #
     #  Unified mean-optimization-finished dispatcher                      #
@@ -1441,58 +1395,53 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _run_adaptive_focality_step2(self):
         """Calculate adaptive thresholds and run focality optimization."""
-        try:
-            state = self._focality_state
+        state = self._focality_state
 
-            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
-            roi_percentage = self.roi_percentage_input.value() / 100.0
+        nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
+        roi_percentage = self.roi_percentage_input.value() / 100.0
 
-            nonroi_threshold = nonroi_percentage * self.achievable_intensity
-            roi_threshold = roi_percentage * self.achievable_intensity
+        nonroi_threshold = nonroi_percentage * self.achievable_intensity
+        roi_threshold = roi_percentage * self.achievable_intensity
 
-            self.update_output(
-                "Step 2/2: Running focality optimization with adaptive thresholds"
-            )
-            self.update_output(
-                f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
-            )
-            self.update_output(
-                f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
-            )
+        self.update_output(
+            "Step 2/2: Running focality optimization with adaptive thresholds"
+        )
+        self.update_output(
+            f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage * 100:.0f}%)"
+        )
+        self.update_output(
+            f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage * 100:.0f}%)"
+        )
 
-            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
+        adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
 
-            pm = get_path_manager()
-            focality_config = self._build_flex_config(
-                subject_id=state["subject_id"],
-                project_dir=pm.project_dir,
-                roi_params=state["roi_params"],
-                goal="focality",
-                postproc=state["postproc"],
-                eeg_net=state["eeg_net"],
-                electrode_current=state["electrode_current"],
-                electrode_shape=state["electrode_shape"],
-                dimensions=state["dimensions"],
-                thickness=state["thickness"],
-                thresholds=adaptive_thresholds,
-                anisotropy_type=state["anisotropy_type"],
-            )
+        pm = get_path_manager()
+        focality_config = self._build_flex_config(
+            subject_id=state["subject_id"],
+            project_dir=pm.project_dir,
+            roi_params=state["roi_params"],
+            goal="focality",
+            postproc=state["postproc"],
+            eeg_net=state["eeg_net"],
+            electrode_current=state["electrode_current"],
+            electrode_shape=state["electrode_shape"],
+            dimensions=state["dimensions"],
+            thickness=state["thickness"],
+            thresholds=adaptive_thresholds,
+            anisotropy_type=state["anisotropy_type"],
+        )
 
-            focality_cmd, _ = self._launch_flex_config(focality_config)
+        focality_cmd, _ = self._launch_flex_config(focality_config)
 
-            self.optimization_thread = FlexSearchThread(focality_cmd)
-            self.optimization_thread.output_signal.connect(self.update_output)
-            self.optimization_thread.error_signal.connect(
-                lambda msg: self.update_output(msg, "error")
-            )
-            self.optimization_thread.finished.connect(self.optimization_finished)
-            self.optimization_thread.start()
+        self.optimization_thread = FlexSearchThread(focality_cmd)
+        self.optimization_thread.output_signal.connect(self.update_output)
+        self.optimization_thread.error_signal.connect(
+            lambda msg: self.update_output(msg, "error")
+        )
+        self.optimization_thread.finished.connect(self.optimization_finished)
+        self.optimization_thread.start()
 
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
-            self.update_output(
-                f"Error calculating adaptive thresholds: {str(e)}", "error"
-            )
-            self.optimization_finished()
+        self.optimization_finished()
 
     # ------------------------------------------------------------------ #
     #  Pareto step 2                                                      #
@@ -1642,15 +1591,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
 
         if self._sweep_result is not None:
-            try:
-                base_folder = self._sweep_result.config.base_output_folder
-                j, p = save_results(self._sweep_result, base_folder)
-                self.update_output("\U0001f4ca Results saved:")
-                self.update_output(f"   JSON:  {j}")
-                self.update_output(f"   Plot:  {p}")
-                self.update_output(f"   Dir:   {base_folder}")
-            except (OSError, ValueError) as e:
-                self.update_output(f"\u26a0 Could not save results: {e}", "error")
+            base_folder = self._sweep_result.config.base_output_folder
+            j, p = save_results(self._sweep_result, base_folder)
+            self.update_output("\U0001f4ca Results saved:")
+            self.update_output(f"   JSON:  {j}")
+            self.update_output(f"   Plot:  {p}")
+            self.update_output(f"   Dir:   {base_folder}")
 
         self.optimization_running = False
         self.enable_controls()
@@ -1683,43 +1629,33 @@ class FlexSearchTab(QtWidgets.QWidget):
         """
         from tit.opt.flex.manifest import read_manifest
 
-        try:
-            pm = get_path_manager()
-            flex_root = pm.flex_search(subject_id)
-            if not os.path.isdir(flex_root):
-                return None
+        pm = get_path_manager()
+        flex_root = pm.flex_search(subject_id)
 
-            # Sort subdirs newest-first (datetime names sort lexicographically)
-            entries = sorted(
-                (
-                    e.name
-                    for e in os.scandir(flex_root)
-                    if e.is_dir() and not e.name.startswith(".")
-                ),
-                reverse=True,
-            )
+        # Sort subdirs newest-first (datetime names sort lexicographically)
+        entries = sorted(
+            (
+                e.name
+                for e in os.scandir(flex_root)
+                if e.is_dir() and not e.name.startswith(".")
+            ),
+            reverse=True,
+        )
 
-            for name in entries:
-                meta = read_manifest(os.path.join(flex_root, name))
-                if meta is None:
-                    continue
-                if meta.get("goal") != "mean":
-                    continue
-                best_val = meta.get("result", {}).get("best_value")
-                if best_val is not None:
-                    intensity = abs(best_val)
-                    if intensity > 0:
-                        self.update_output(
-                            f"Read achievable intensity from manifest: {intensity:.3f} V/m",
-                            "info",
-                        )
-                        return intensity
+        for name in entries:
+            meta = read_manifest(os.path.join(flex_root, name))
+            if meta is None:
+                continue
+            if meta.get("goal") != "mean":
+                continue
+            best_val = meta.get("result", {}).get("best_value")
+            if best_val is not None:
+                intensity = abs(best_val)
+                if intensity > 0:
+                    self.update_output(
+                        f"Read achievable intensity from manifest: {intensity:.3f} V/m",
+                        "info",
+                    )
+                    return intensity
 
-            return None
-
-        except (OSError, ValueError) as e:
-            self.update_output(
-                f"Error reading manifest for achievable intensity: {e}",
-                "error",
-            )
-            return None
+        return None

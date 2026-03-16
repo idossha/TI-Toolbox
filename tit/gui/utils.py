@@ -13,8 +13,6 @@ import re
 import subprocess
 import webbrowser
 
-from PyQt5 import QtWidgets
-
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -161,34 +159,3 @@ def is_verbose_message(
     returns ``True`` for lines that would normally be hidden in summary mode.
     """
     return not is_important_message(text, message_type, context)
-
-
-# ---------------------------------------------------------------------------
-# Overwrite-protection dialog
-# ---------------------------------------------------------------------------
-
-
-def confirm_overwrite(parent, path, item_type="file"):
-    """
-    Show an error dialog when an existing output directory is found.
-
-    Args:
-        parent: The parent widget for the dialog
-        path: The path to the file/directory that already exists
-        item_type: String describing the type of item ("file" or "directory")
-
-    Returns:
-        bool: Always False when path exists; True otherwise.
-    """
-    if os.path.exists(path):
-        msg = QtWidgets.QMessageBox(parent)
-        msg.setIcon(QtWidgets.QMessageBox.Critical)
-        msg.setWindowTitle("Output Already Exists")
-        msg.setText(
-            f"The {item_type} already exists:\n{path}\n\n"
-            "Please remove it manually before rerunning."
-        )
-        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msg.exec_()
-        return False
-    return True

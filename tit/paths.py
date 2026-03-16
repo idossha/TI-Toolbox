@@ -9,7 +9,7 @@ Usage:
     from tit.paths import PathManager, get_path_manager
 
     pm = get_path_manager()
-    subjects = pm.list_subjects()
+    subjects = pm.list_simnibs_subjects()
     m2m_dir = pm.m2m("001")
     sim_dir = pm.simulation("001", "montage1")
 """
@@ -68,8 +68,8 @@ class PathManager:
     def _root(self) -> str:
         """Return project_dir or raise if unset."""
         root = self.project_dir
-        if not root:
-            raise RuntimeError("Project directory not set.")
+        if root is None:
+            raise RuntimeError("Project directory not set")
         return root
 
     # ------------------------------------------------------------------
@@ -245,7 +245,7 @@ class PathManager:
     # Listing helpers
     # ------------------------------------------------------------------
 
-    def list_subjects(self) -> List[str]:
+    def list_simnibs_subjects(self) -> List[str]:
         """List subject IDs (without 'sub-' prefix) that have an m2m folder."""
         simnibs_dir = self.simnibs() if self.project_dir else None
         if not simnibs_dir or not os.path.isdir(simnibs_dir):
@@ -266,56 +266,20 @@ class PathManager:
         )
         return subjects
 
-    def list_all_subjects(self) -> List[str]:
-        """List all subject IDs found anywhere in the project.
-
-        Merges subjects from:
-        1. ``list_subjects()`` (those with m2m directories)
-        2. ``sub-*`` directories under the project root
-        3. ``sub-*`` directories under derivatives/SimNIBS
-
-        Returns:
-            Sorted, deduplicated list of subject IDs (without 'sub-' prefix).
-        """
-        all_sids: set[str] = set(self.list_subjects())
-        root = self._root()
-
-        # Scan project root for sub-* dirs
-        if os.path.isdir(root):
-            for entry in os.scandir(root):
-                if entry.is_dir() and entry.name.startswith(const.PREFIX_SUBJECT):
-                    all_sids.add(entry.name.removeprefix(const.PREFIX_SUBJECT))
-
-        # Scan SimNIBS derivatives for sub-* dirs without m2m
-        simnibs_dir = self.simnibs()
-        if os.path.isdir(simnibs_dir):
-            for entry in os.scandir(simnibs_dir):
-                if entry.is_dir() and entry.name.startswith(const.PREFIX_SUBJECT):
-                    all_sids.add(entry.name.removeprefix(const.PREFIX_SUBJECT))
-
-        return sorted(
-            all_sids,
-            key=lambda x: [
-                int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", x)
-            ],
-        )
-
     def list_simulations(self, sid: str) -> List[str]:
         """List simulation folder names for a subject."""
-        sim_root = self.simulations(sid) if self.project_dir else None
-        if not sim_root or not os.path.isdir(sim_root):
-            return []
+        sim_root = self.simulations(sid)
 
-        simulations: List[str] = []
         try:
+            simulations: List[str] = []
             with os.scandir(sim_root) as it:
                 for entry in it:
                     if entry.is_dir() and not entry.name.startswith("."):
                         simulations.append(entry.name)
+            simulations.sort()
+            return simulations
         except OSError:
             return []
-        simulations.sort()
-        return simulations
 
     def list_eeg_caps(self, sid: str) -> List[str]:
         """List EEG cap CSV files for a subject."""
@@ -337,8 +301,8 @@ class PathManager:
         if not root or not os.path.isdir(root):
             return []
 
-        out: List[str] = []
         try:
+            out: List[str] = []
             with os.scandir(root) as it:
                 for entry in it:
                     if not entry.is_dir() or entry.name.startswith("."):
@@ -349,10 +313,10 @@ class PathManager:
                         os.path.join(entry.path, "electrode_positions.json")
                     ):
                         out.append(entry.name)
+            out.sort()
+            return out
         except OSError:
             return []
-        out.sort()
-        return out
 
     # ------------------------------------------------------------------
     # Analysis naming helpers
@@ -461,6 +425,6 @@ def get_path_manager(project_dir: Optional[str] = None) -> PathManager:
 
 
 def reset_path_manager() -> None:
-    """Reset the global PathManager singleton (useful for testing)."""
+    """Reset the singleton so the next call to get_path_manager creates a fresh instance."""
     global _path_manager_instance
     _path_manager_instance = None

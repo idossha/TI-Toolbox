@@ -23,12 +23,10 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         """Set up the user interface for the acknowledgments tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Title
         title_label = QtWidgets.QLabel("<h1>Acknowledgments</h1>")
         title_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(title_label)
 
-        # Description
         description = QtWidgets.QLabel(
             "<p>TI-Toolbox relies on several open-source tools and frameworks. "
             "We are grateful to the developers of these resources and acknowledge their contributions below.</p>"
@@ -37,13 +35,11 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         description.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(description)
 
-        # Create a scroll area for the content
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
 
-        # Add all the acknowledgment sections
         self.add_acknowledgment_section(
             scroll_layout,
             "TI-Toolbox",
@@ -118,10 +114,8 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         note_label.setAlignment(QtCore.Qt.AlignCenter)
         scroll_layout.addWidget(note_label)
 
-        # Add some stretching at the bottom
         scroll_layout.addStretch()
 
-        # Set the scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
 
@@ -135,12 +129,10 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
 
         group_layout = QtWidgets.QVBoxLayout(group_box)
 
-        # Content label
         content_label = QtWidgets.QLabel(content)
         content_label.setWordWrap(True)
         content_label.setOpenExternalLinks(True)
         content_label.setTextFormat(QtCore.Qt.RichText)
         group_layout.addWidget(content_label)
 
-        # Add the group to the main layout
         layout.addWidget(group_box)

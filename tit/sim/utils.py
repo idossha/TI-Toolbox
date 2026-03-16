@@ -119,7 +119,9 @@ def parse_flex_montage(flex: dict) -> Montage:
     if mtype in ("flex_optimized", "freehand_xyz"):
         ep = flex["electrode_positions"]
         mode = (
-            Montage.Mode.FLEX_FREE if mtype == "flex_optimized" else Montage.Mode.FREEHAND
+            Montage.Mode.FLEX_FREE
+            if mtype == "flex_optimized"
+            else Montage.Mode.FREEHAND
         )
         return Montage(
             name=name,

@@ -31,7 +31,6 @@ from tit.opt.config import (
     SubcorticalROI,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -55,7 +54,9 @@ def _make_config(**overrides):
 def builder_env():
     """Set up mocks for build_optimization tests."""
     import simnibs
-    from simnibs.optimization.tes_flex_optimization.electrode_layout import ElectrodeArrayPair
+    from simnibs.optimization.tes_flex_optimization.electrode_layout import (
+        ElectrodeArrayPair,
+    )
 
     opt_mock = MagicMock()
     simnibs.opt_struct.TesFlexOptimization.return_value = opt_mock
@@ -93,12 +94,16 @@ class TestBuildOptimization:
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_focality_with_thresholds(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
+    def test_focality_with_thresholds(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
         _, pm, _ = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        config = _make_config(goal="focality", non_roi_method="everything_else", thresholds="0.02,0.08")
+        config = _make_config(
+            goal="focality", non_roi_method="everything_else", thresholds="0.02,0.08"
+        )
         result = build_optimization(config)
         assert result.goal == "focality"
         assert result.threshold == [0.02, 0.08]
@@ -111,14 +116,18 @@ class TestBuildOptimization:
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        config = _make_config(goal="focality", non_roi_method="everything_else", thresholds="0.5")
+        config = _make_config(
+            goal="focality", non_roi_method="everything_else", thresholds="0.5"
+        )
         result = build_optimization(config)
         assert result.threshold == 0.5
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_output_folder_from_config(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
+    def test_output_folder_from_config(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
         _, pm, _ = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
@@ -129,24 +138,32 @@ class TestBuildOptimization:
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_ellipse_electrode_shape(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
+    def test_ellipse_electrode_shape(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
         _, pm, eap = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        config = _make_config(electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[10.0, 8.0]))
+        config = _make_config(
+            electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[10.0, 8.0])
+        )
         build_optimization(config)
         assert eap.call_count >= 2
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_rectangle_electrode_shape(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
+    def test_rectangle_electrode_shape(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
         _, pm, _ = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        config = _make_config(electrode=FlexElectrodeConfig(shape="rect", dimensions=[12.0, 8.0]))
+        config = _make_config(
+            electrode=FlexElectrodeConfig(shape="rect", dimensions=[12.0, 8.0])
+        )
         build_optimization(config)
 
     @patch("tit.opt.flex.builder.os.makedirs")
@@ -192,7 +209,9 @@ class TestBuildOptimization:
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        result = build_optimization(_make_config(skin_visualization_net="/path/to/net.csv"))
+        result = build_optimization(
+            _make_config(skin_visualization_net="/path/to/net.csv")
+        )
         assert result.net_electrode_file == "/path/to/net.csv"
 
     @patch("tit.opt.flex.builder.os.makedirs")
@@ -233,6 +252,7 @@ class TestBuildOptimization:
 class TestConfigureOptimizerOptions:
     def test_sets_max_iterations(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(max_iterations=200), MagicMock())
@@ -240,6 +260,7 @@ class TestConfigureOptimizerOptions:
 
     def test_sets_population_size(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(population_size=30), MagicMock())
@@ -247,6 +268,7 @@ class TestConfigureOptimizerOptions:
 
     def test_sets_tolerance(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(tolerance=0.001), MagicMock())
@@ -254,6 +276,7 @@ class TestConfigureOptimizerOptions:
 
     def test_sets_mutation_single(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(mutation="0.7"), MagicMock())
@@ -261,6 +284,7 @@ class TestConfigureOptimizerOptions:
 
     def test_sets_mutation_tuple(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(mutation="0.5, 1.0"), MagicMock())
@@ -268,6 +292,7 @@ class TestConfigureOptimizerOptions:
 
     def test_sets_recombination(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(recombination=0.9), MagicMock())
@@ -275,6 +300,7 @@ class TestConfigureOptimizerOptions:
 
     def test_skips_none_values(self):
         from tit.opt.flex.builder import configure_optimizer_options
+
         opt = MagicMock()
         opt._optimizer_options_std = {}
         configure_optimizer_options(opt, _make_config(), MagicMock())
@@ -295,7 +321,13 @@ class TestGenerateReport:
         mock_cls = MagicMock(return_value=mock_gen)
         # Patch at the module that the function imports from
         import tit.reporting as reporting_mod
-        return patch.object(reporting_mod, "FlexSearchReportGenerator", mock_cls, create=True), mock_gen
+
+        return (
+            patch.object(
+                reporting_mod, "FlexSearchReportGenerator", mock_cls, create=True
+            ),
+            mock_gen,
+        )
 
     def test_generate_report_basic(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
@@ -303,12 +335,23 @@ class TestGenerateReport:
             from tit.opt.flex.builder import generate_report
 
             pos_path = tmp_path / "electrode_positions.json"
-            pos_path.write_text(json.dumps({
-                "optimized_positions": [[1, 2, 3]],
-                "channel_array_indices": [0, 1],
-            }))
+            pos_path.write_text(
+                json.dumps(
+                    {
+                        "optimized_positions": [[1, 2, 3]],
+                        "channel_array_indices": [0, 1],
+                    }
+                )
+            )
 
-            generate_report(_make_config(), 2, np.array([-0.025, -0.030]), 1, str(tmp_path), MagicMock())
+            generate_report(
+                _make_config(),
+                2,
+                np.array([-0.025, -0.030]),
+                1,
+                str(tmp_path),
+                MagicMock(),
+            )
             mock_gen.set_configuration.assert_called_once()
             mock_gen.set_roi_info.assert_called_once()
             mock_gen.generate.assert_called_once()
@@ -317,21 +360,35 @@ class TestGenerateReport:
         patcher, mock_gen = self._patch_report_gen()
         with patcher:
             from tit.opt.flex.builder import generate_report
-            generate_report(_make_config(), 1, np.array([-0.025]), 0, str(tmp_path), MagicMock())
+
+            generate_report(
+                _make_config(), 1, np.array([-0.025]), 0, str(tmp_path), MagicMock()
+            )
             mock_gen.set_best_solution.assert_called_once()
 
     def test_generate_report_all_failed(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
         with patcher:
             from tit.opt.flex.builder import generate_report
-            generate_report(_make_config(), 2, np.array([float("inf"), float("inf")]), -1, str(tmp_path), MagicMock())
+
+            generate_report(
+                _make_config(),
+                2,
+                np.array([float("inf"), float("inf")]),
+                -1,
+                str(tmp_path),
+                MagicMock(),
+            )
             mock_gen.set_best_solution.assert_not_called()
 
     def test_generate_report_atlas_roi(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
         with patcher:
             from tit.opt.flex.builder import generate_report
-            config = _make_config(roi=AtlasROI(atlas_path="/path/to/lh.aparc.annot", label=1001))
+
+            config = _make_config(
+                roi=AtlasROI(atlas_path="/path/to/lh.aparc.annot", label=1001)
+            )
             generate_report(config, 1, np.array([-0.01]), 0, str(tmp_path), MagicMock())
             mock_gen.set_roi_info.assert_called_once()
 
@@ -339,7 +396,10 @@ class TestGenerateReport:
         patcher, mock_gen = self._patch_report_gen()
         with patcher:
             from tit.opt.flex.builder import generate_report
-            config = _make_config(roi=SubcorticalROI(atlas_path="/path/to/aseg.nii.gz", label=11))
+
+            config = _make_config(
+                roi=SubcorticalROI(atlas_path="/path/to/aseg.nii.gz", label=11)
+            )
             generate_report(config, 1, np.array([-0.01]), 0, str(tmp_path), MagicMock())
             mock_gen.set_roi_info.assert_called_once()
 
@@ -347,6 +407,7 @@ class TestGenerateReport:
         patcher, mock_gen = self._patch_report_gen()
         with patcher:
             from tit.opt.flex.builder import generate_report
+
             config = _make_config(
                 goal="focality",
                 non_roi_method="specific",
@@ -366,16 +427,20 @@ class TestGenerateReport:
 class TestAtlasNameFromPath:
     def test_standard_annot_path(self):
         from tit.opt.flex.builder import atlas_name_from_path
+
         assert atlas_name_from_path("/path/to/lh.aparc.annot", "lh") == "aparc"
 
     def test_with_subject_prefix(self):
         from tit.opt.flex.builder import atlas_name_from_path
+
         assert atlas_name_from_path("/path/to/lh.001_aparc.annot", "lh") == "aparc"
 
     def test_no_underscore(self):
         from tit.opt.flex.builder import atlas_name_from_path
+
         assert atlas_name_from_path("/path/to/lh.myatlas.annot", "lh") == "myatlas"
 
     def test_rh_hemisphere(self):
         from tit.opt.flex.builder import atlas_name_from_path
+
         assert atlas_name_from_path("/path/to/rh.Destrieux.annot", "rh") == "Destrieux"

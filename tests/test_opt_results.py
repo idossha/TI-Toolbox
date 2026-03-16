@@ -47,7 +47,9 @@ class TestGeneratePlots:
         timean = [0.3, 0.35, 0.4]
         foc = [0.8, 0.7, 0.6]
 
-        paths = generate_plots(results, "region", str(tmp_path), logger, timax, timean, foc)
+        paths = generate_plots(
+            results, "region", str(tmp_path), logger, timax, timean, foc
+        )
         assert len(paths) == 2
         mock_hist.assert_called_once()
         mock_scatter.assert_called_once()

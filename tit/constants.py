@@ -520,7 +520,7 @@ EEG_NETS = [
 # ============================================================================
 
 VALIDATION_BOUNDS = {
-    "radius": {"min": 1, "max": 50},
+    "radius": {"min": 1, "max": 100},
     "coordinates": {"min": -150, "max": 150},
     "current_mA": {"min": 0.1, "max": 100},
     "max_iterations": {"min": 50, "max": 2000},

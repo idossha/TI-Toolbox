@@ -19,11 +19,6 @@ def get_child_pids(parent_pid: int) -> list:
     Returns:
         List of child process IDs. Returns empty list on any error.
     """
-    try:
-        parent = psutil.Process(parent_pid)
-        children = parent.children(recursive=False)
-        return [child.pid for child in children]
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return []
-    except OSError:
-        return []
+    parent = psutil.Process(parent_pid)
+    children = parent.children(recursive=False)
+    return [child.pid for child in children]

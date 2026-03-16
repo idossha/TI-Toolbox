@@ -24,10 +24,12 @@ class TestExMainBuildElectrodes:
         from tit.opt.ex.__main__ import _build_electrodes
         from tit.opt.config import PoolElectrodes
 
-        result = _build_electrodes({
-            "_type": "PoolElectrodes",
-            "electrodes": ["E1", "E2", "E3"],
-        })
+        result = _build_electrodes(
+            {
+                "_type": "PoolElectrodes",
+                "electrodes": ["E1", "E2", "E3"],
+            }
+        )
         assert isinstance(result, PoolElectrodes)
         assert result.electrodes == ["E1", "E2", "E3"]
 
@@ -35,13 +37,15 @@ class TestExMainBuildElectrodes:
         from tit.opt.ex.__main__ import _build_electrodes
         from tit.opt.config import BucketElectrodes
 
-        result = _build_electrodes({
-            "_type": "BucketElectrodes",
-            "e1_plus": ["A1"],
-            "e1_minus": ["A2"],
-            "e2_plus": ["B1"],
-            "e2_minus": ["B2"],
-        })
+        result = _build_electrodes(
+            {
+                "_type": "BucketElectrodes",
+                "e1_plus": ["A1"],
+                "e1_minus": ["A2"],
+                "e2_plus": ["B1"],
+                "e2_minus": ["B2"],
+            }
+        )
         assert isinstance(result, BucketElectrodes)
         assert result.e1_plus == ["A1"]
 
@@ -49,31 +53,37 @@ class TestExMainBuildElectrodes:
         from tit.opt.ex.__main__ import _build_electrodes
         from tit.opt.config import PoolElectrodes
 
-        result = _build_electrodes({
-            "electrodes": ["E1", "E2"],
-        })
+        result = _build_electrodes(
+            {
+                "electrodes": ["E1", "E2"],
+            }
+        )
         assert isinstance(result, PoolElectrodes)
 
     def test_bucket_inferred_from_bucket_keys(self):
         from tit.opt.ex.__main__ import _build_electrodes
         from tit.opt.config import BucketElectrodes
 
-        result = _build_electrodes({
-            "e1_plus": ["A1"],
-            "e1_minus": ["A2"],
-            "e2_plus": ["B1"],
-            "e2_minus": ["B2"],
-        })
+        result = _build_electrodes(
+            {
+                "e1_plus": ["A1"],
+                "e1_minus": ["A2"],
+                "e2_plus": ["B1"],
+                "e2_minus": ["B2"],
+            }
+        )
         assert isinstance(result, BucketElectrodes)
 
     def test_unknown_type_with_electrodes(self):
         from tit.opt.ex.__main__ import _build_electrodes
         from tit.opt.config import PoolElectrodes
 
-        result = _build_electrodes({
-            "_type": "UnknownType",
-            "electrodes": ["E1"],
-        })
+        result = _build_electrodes(
+            {
+                "_type": "UnknownType",
+                "electrodes": ["E1"],
+            }
+        )
         assert isinstance(result, PoolElectrodes)
 
 
@@ -190,13 +200,15 @@ class TestFlexMainBuildROI:
         from tit.opt.flex.__main__ import _build_roi
         from tit.opt.config import SphericalROI
 
-        result = _build_roi({
-            "_type": "SphericalROI",
-            "x": -42.0,
-            "y": -20.0,
-            "z": 55.0,
-            "radius": 10.0,
-        })
+        result = _build_roi(
+            {
+                "_type": "SphericalROI",
+                "x": -42.0,
+                "y": -20.0,
+                "z": 55.0,
+                "radius": 10.0,
+            }
+        )
         assert isinstance(result, SphericalROI)
         assert result.x == -42.0
 
@@ -204,12 +216,14 @@ class TestFlexMainBuildROI:
         from tit.opt.flex.__main__ import _build_roi
         from tit.opt.config import AtlasROI
 
-        result = _build_roi({
-            "_type": "AtlasROI",
-            "atlas_path": "/path/to/annot",
-            "label": 1001,
-            "hemisphere": "lh",
-        })
+        result = _build_roi(
+            {
+                "_type": "AtlasROI",
+                "atlas_path": "/path/to/annot",
+                "label": 1001,
+                "hemisphere": "lh",
+            }
+        )
         assert isinstance(result, AtlasROI)
         assert result.label == 1001
 
@@ -217,11 +231,13 @@ class TestFlexMainBuildROI:
         from tit.opt.flex.__main__ import _build_roi
         from tit.opt.config import SubcorticalROI
 
-        result = _build_roi({
-            "_type": "SubcorticalROI",
-            "atlas_path": "/path/to/aseg.nii.gz",
-            "label": 11,
-        })
+        result = _build_roi(
+            {
+                "_type": "SubcorticalROI",
+                "atlas_path": "/path/to/aseg.nii.gz",
+                "label": 11,
+            }
+        )
         assert isinstance(result, SubcorticalROI)
 
     def test_build_none_roi(self):

@@ -19,21 +19,13 @@ VOXEL_ATLASES = {
 # Flat list for callers that only need filenames.
 VOXEL_ATLAS_FILES = list(VOXEL_ATLASES)
 
-# Path to resources/atlas/ at the repo root.
-MNI_ATLAS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "resources",
-    "atlas",
-)
+MNI_ATLAS_DIR = "/ti-toolbox/resources/atlas"
 
-# MNI template (base anatomical layer).
 MNI_TEMPLATE = "MNI152_T1_1mm.nii.gz"
 
-# MNI atlas filenames (looked up in MNI_ATLAS_DIR).
 MNI_ATLAS_FILES = [
     "MNI_Glasser_HCP_v1.0.nii.gz",
     "massp2021-parcellation_decade-18to40.nii.gz",
 ]
 
-# Default MNI atlas when no explicit choice is made.
 DEFAULT_MNI_ATLAS = MNI_ATLAS_FILES[0]

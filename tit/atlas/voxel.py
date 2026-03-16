@@ -97,27 +97,24 @@ class VoxelAtlasManager:
         """Detect available MNI atlases in an assets directory.
 
         Args:
-            atlas_dir: Path to the atlas assets directory.
+            atlas_dir: Path to the atlas resources directory.
 
         Returns:
             List of full paths to found MNI atlas files.
         """
-        atlas_files: List[str] = []
         if not os.path.isdir(atlas_dir):
-            return atlas_files
-        for pattern in MNI_ATLAS_FILES:
-            atlas_path = os.path.join(atlas_dir, pattern)
-            if os.path.isfile(atlas_path):
-                atlas_files.append(atlas_path)
-        return atlas_files
+            return []
+        return [
+            os.path.join(atlas_dir, p)
+            for p in MNI_ATLAS_FILES
+            if os.path.isfile(os.path.join(atlas_dir, p))
+        ]
 
-    def find_lut_file(self) -> Optional[str]:
-        """Find the LUT file for the labeling atlas.
+    def find_labeling_lut(self) -> Optional[str]:
+        """Find the LUT file for the SimNIBS labeling atlas.
 
         Returns:
             Path to labeling_LUT.txt if it exists, else None.
         """
-        if not self.seg_dir:
-            return None
         lut_path = os.path.join(self.seg_dir, "labeling_LUT.txt")
         return lut_path if os.path.isfile(lut_path) else None

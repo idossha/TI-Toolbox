@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
 from tit.gui.style import ICON_SIZE_GEAR, ICON_SIZE_EXTENSIONS
 
 

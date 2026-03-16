@@ -331,7 +331,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Load available subjects and EEG nets; populate any existing job rows."""
         try:
             self.eeg_net_combo.clear()
-            subjects = self.pm.list_subjects()
+            subjects = self.pm.list_simnibs_subjects()
 
             for subject_id in subjects:
                 eeg_caps = self.pm.list_eeg_caps(subject_id)
@@ -375,7 +375,7 @@ class SimulatorTab(QtWidgets.QWidget):
     def _get_available_subjects(self):
         """Return sorted list of available subject IDs."""
         try:
-            return self.pm.list_subjects()
+            return self.pm.list_simnibs_subjects()
         except OSError:
             return []
 
@@ -858,35 +858,31 @@ class SimulatorTab(QtWidgets.QWidget):
                         f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...",
                         "info",
                     )
-                    map_electrodes_path = os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)),
-                        "tools",
-                        "map_electrodes.py",
-                    )
                     try:
-                        subprocess.run(
-                            [
-                                "simnibs_python",
-                                map_electrodes_path,
-                                "-i",
-                                positions_file,
-                                "-n",
-                                eeg_net_path,
-                                "-o",
-                                mapping_file,
-                            ],
-                            capture_output=True,
-                            text=True,
-                            check=True,
-                            timeout=30,
+                        from tit.tools.map_electrodes import (
+                            load_electrode_positions_json,
+                            map_electrodes_to_net,
+                            read_csv_positions,
+                            save_mapping_result,
+                        )
+
+                        opt_pos, ch_arr_idx = load_electrode_positions_json(
+                            positions_file
+                        )
+                        net_pos, net_labels = read_csv_positions(eeg_net_path)
+                        result = map_electrodes_to_net(
+                            opt_pos, net_pos, net_labels, ch_arr_idx
+                        )
+                        save_mapping_result(
+                            result,
+                            mapping_file,
+                            eeg_net_name=os.path.basename(eeg_net_path),
                         )
                         self.update_output(
                             f"Electrode mapping completed for {search_name}", "info"
                         )
-                    except subprocess.CalledProcessError as e:
-                        self.update_output(
-                            f"Error mapping electrodes: {e.stderr}", "error"
-                        )
+                    except Exception as e:
+                        self.update_output(f"Error mapping electrodes: {e}", "error")
                         continue
 
                     if not os.path.exists(mapping_file):

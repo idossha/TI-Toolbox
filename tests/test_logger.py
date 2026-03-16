@@ -28,7 +28,6 @@ from tit.logger import (
     DATE_FORMAT,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -286,15 +285,19 @@ class TestGetFileOnlyLogger:
     def test_logger_has_file_handler(self, tmp_path):
         log_file = tmp_path / "test.log"
         logger = get_file_only_logger("test_logger_fol_2", log_file)
-        file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
+        file_handlers = [
+            h for h in logger.handlers if isinstance(h, logging.FileHandler)
+        ]
         assert len(file_handlers) == 1
 
     def test_logger_has_no_stream_handler(self, tmp_path):
         log_file = tmp_path / "test.log"
         logger = get_file_only_logger("test_logger_fol_3", log_file)
         stream_handlers = [
-            h for h in logger.handlers
-            if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            h
+            for h in logger.handlers
+            if isinstance(h, logging.StreamHandler)
+            and not isinstance(h, logging.FileHandler)
         ]
         assert len(stream_handlers) == 0
 

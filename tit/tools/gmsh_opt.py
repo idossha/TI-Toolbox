@@ -1,7 +1,7 @@
 """
-Mesh visualization utilities for TI-Toolbox.
+Gmsh .opt file generation for TI-Toolbox.
 
-Provides helpers for Gmsh .opt file generation.
+Provides helpers for creating Gmsh visualization option files.
 """
 
 __all__ = ["create_mesh_opt_file"]

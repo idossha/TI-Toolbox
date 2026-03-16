@@ -8,7 +8,7 @@ This module provides an interface for managing and launching extensions.
 import importlib.util
 from pathlib import Path
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
 
 
 class ExtensionCard(QtWidgets.QGroupBox):
@@ -38,7 +38,6 @@ class ExtensionCard(QtWidgets.QGroupBox):
         self.setTitle(self.name)
         layout = QtWidgets.QHBoxLayout(self)
 
-        # Description label
         desc_label = QtWidgets.QLabel(self.description)
         desc_label.setWordWrap(True)
         desc_label.setSizePolicy(
@@ -46,7 +45,6 @@ class ExtensionCard(QtWidgets.QGroupBox):
         )
         layout.addWidget(desc_label)
 
-        # Launch button
         self.launch_btn = QtWidgets.QPushButton("Launch")
         self.launch_btn.setFixedWidth(100)
         self.launch_btn.clicked.connect(self.launch_extension)
@@ -60,7 +58,6 @@ class ExtensionCard(QtWidgets.QGroupBox):
             self.tab_btn.setEnabled(self.allow_tab_integration)
             layout.addWidget(self.tab_btn)
 
-            # Update button text based on current state
             self.update_tab_button_state()
 
     def launch_extension(self):
@@ -89,13 +86,11 @@ class ExtensionCard(QtWidgets.QGroupBox):
         if not self.main_window:
             return
 
-        # Check if this extension is currently a tab
         if self.is_extension_in_tabs():
             self.tab_btn.setText("Remove Tab")
         else:
             self.tab_btn.setText("Add Tab")
 
-        # Ensure the button is enabled/disabled based on tab integration permission
         self.tab_btn.setEnabled(self.allow_tab_integration)
 
     def is_extension_in_tabs(self):
@@ -103,7 +98,6 @@ class ExtensionCard(QtWidgets.QGroupBox):
         if not self.main_window:
             return False
 
-        # Check all tabs beyond core tabs
         for i in range(
             self.main_window.core_tab_count, self.main_window.tab_widget.count()
         ):
@@ -159,21 +153,16 @@ class ExtensionCard(QtWidgets.QGroupBox):
                         extension_class = attr
 
         if extension_class:
-            # Create the extension widget
             self.extension_widget = extension_class(parent=self.main_window)
 
-            # Add it as a tab
             tab_index = self.main_window.tab_widget.addTab(
                 self.extension_widget, self.name
             )
 
-            # Switch to the new tab
             self.main_window.tab_widget.setCurrentIndex(tab_index)
 
-            # Save extension state
             self.main_window.save_extension_state(self.name, True)
 
-            # Update button state
             self.update_tab_button_state()
         else:
             QtWidgets.QMessageBox.warning(
@@ -187,7 +176,6 @@ class ExtensionCard(QtWidgets.QGroupBox):
         if not self.main_window:
             return
 
-        # Find and remove the tab
         for i in range(
             self.main_window.core_tab_count, self.main_window.tab_widget.count()
         ):
@@ -197,10 +185,8 @@ class ExtensionCard(QtWidgets.QGroupBox):
                 if widget:
                     widget.deleteLater()
 
-                # Save extension state
                 self.main_window.save_extension_state(self.name, False)
 
-                # Update button state
                 self.update_tab_button_state()
                 break
 
@@ -222,12 +208,10 @@ class ExtensionsTab(QtWidgets.QWidget):
         """Set up the user interface for the extensions tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Header
         header_label = QtWidgets.QLabel("<h1>TI-Toolbox Extensions</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(header_label)
 
-        # Description
         description_label = QtWidgets.QLabel(
             "<p>Extensions are additional tools and utilities that extend the functionality of TI-Toolbox.</p>"
         )
@@ -235,18 +219,15 @@ class ExtensionsTab(QtWidgets.QWidget):
         description_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(description_label)
 
-        # Separator
         separator = QtWidgets.QFrame()
         separator.setFrameShape(QtWidgets.QFrame.HLine)
         separator.setFrameShadow(QtWidgets.QFrame.Sunken)
         main_layout.addWidget(separator)
 
-        # Create scroll area for extensions
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
-        # Container widget for extensions
         self.extensions_container = QtWidgets.QWidget()
         self.extensions_layout = QtWidgets.QVBoxLayout(self.extensions_container)
         self.extensions_layout.setAlignment(QtCore.Qt.AlignTop)
@@ -257,13 +238,11 @@ class ExtensionsTab(QtWidgets.QWidget):
 
     def load_extensions(self):
         """Load all extensions from the extensions directory."""
-        # Clear existing extensions
         while self.extensions_layout.count():
             child = self.extensions_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
 
-        # Check if extensions directory exists
         if not self.extensions_dir.exists():
             no_dir_label = QtWidgets.QLabel(
                 "<p style='color: #666; font-style: italic;'>Extensions directory not found.</p>"
@@ -272,7 +251,6 @@ class ExtensionsTab(QtWidgets.QWidget):
             self.extensions_layout.addWidget(no_dir_label)
             return
 
-        # Find all Python files in extensions directory
         extension_files = list(self.extensions_dir.glob("*.py"))
 
         if not extension_files:
@@ -284,16 +262,13 @@ class ExtensionsTab(QtWidgets.QWidget):
             self.extensions_layout.addWidget(no_extensions_label)
             return
 
-        # Load each extension
         for extension_file in sorted(extension_files):
-            # Import the module to get metadata
             spec = importlib.util.spec_from_file_location(
                 extension_file.stem, extension_file
             )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            # Get extension metadata
             name = getattr(
                 module,
                 "EXTENSION_NAME",
@@ -304,7 +279,6 @@ class ExtensionsTab(QtWidgets.QWidget):
             )
             allow_tab_integration = getattr(module, "ALLOW_TAB_INTEGRATION", True)
 
-            # Create extension card with main_window reference
             card = ExtensionCard(
                 name,
                 description,
@@ -332,11 +306,9 @@ class FloatingExtensionsWindow(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Create the extensions tab content with main_window reference
         self.extensions_content = ExtensionsTab(self, main_window=self.main_window)
         layout.addWidget(self.extensions_content)
 
-        # Add a close button at the bottom
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addStretch()
         close_btn = QtWidgets.QPushButton("Close")

@@ -12,7 +12,6 @@ from tit.pre.qsi.qsirecon import (
 )
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.qsi.qsirecon"
 
 
@@ -43,7 +42,9 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_existing_output_raises(self, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_existing_output_raises(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Raises PreprocessError when output already exists."""
         out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
         out.mkdir(parents=True)
@@ -68,7 +69,9 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=False)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_pull_failure_raises(self, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_pull_failure_raises(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Raises PreprocessError when image pull fails."""
         with pytest.raises(PreprocessError, match="Failed to pull"):
             run_qsirecon(str(tmp_path), "001", logger=MagicMock())
@@ -97,7 +100,10 @@ class TestRunQsirecon:
         runner.run.return_value = 0
 
         run_qsirecon(
-            str(tmp_path), "001", logger=MagicMock(), runner=runner,
+            str(tmp_path),
+            "001",
+            logger=MagicMock(),
+            runner=runner,
             recon_specs=["dipy_dki", "amico_noddi"],
         )
 
@@ -107,7 +113,9 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     @patch(f"{MODULE}.CommandRunner")
-    def test_default_runner(self, mock_runner_cls, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_default_runner(
+        self, mock_runner_cls, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Creates default CommandRunner when none provided."""
         mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
         mock_runner_cls.return_value.run.return_value = 0
@@ -119,7 +127,9 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_default_specs_and_atlases(self, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_default_specs_and_atlases(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Uses default specs and atlases when none provided."""
         mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
 
@@ -136,11 +146,15 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_build_cmd_error_raises(self, mock_validate, mock_builder, mock_pull, tmp_path):
+    def test_build_cmd_error_raises(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
         """Raises PreprocessError when build_qsirecon_cmd fails."""
         from tit.pre.qsi.docker_builder import DockerBuildError
 
-        mock_builder.return_value.build_qsirecon_cmd.side_effect = DockerBuildError("build failed")
+        mock_builder.return_value.build_qsirecon_cmd.side_effect = DockerBuildError(
+            "build failed"
+        )
 
         runner = MagicMock()
 

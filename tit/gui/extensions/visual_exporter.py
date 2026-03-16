@@ -549,7 +549,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             self._update_output("Warning: Path manager not available", "warning")
             return
         try:
-            self.subjects_list = self.pm.list_subjects()
+            self.subjects_list = self.pm.list_simnibs_subjects()
             for subject_id in self.subjects_list:
                 sim_dir = self.pm.sub(subject_id)
                 if sim_dir:
@@ -579,7 +579,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             self.subjects_list = []
             self.simulations_dict = {}
 
-            self.subjects_list = self.pm.list_subjects()
+            self.subjects_list = self.pm.list_simnibs_subjects()
             for subject_id in self.subjects_list:
                 sim_dir = self.pm.sub(subject_id)
                 if sim_dir:

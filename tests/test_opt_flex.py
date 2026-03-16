@@ -19,7 +19,6 @@ from tit.opt.config import (
     SphericalROI,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -52,7 +51,9 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
-    def test_single_run_success(self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path):
+    def test_single_run_success(
+        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+    ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
         mock_gpm.return_value = pm
@@ -77,7 +78,9 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
-    def test_multistart_picks_best(self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path):
+    def test_multistart_picks_best(
+        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+    ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
         mock_gpm.return_value = pm
@@ -111,7 +114,9 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
-    def test_all_runs_fail(self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path):
+    def test_all_runs_fail(
+        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+    ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
         mock_gpm.return_value = pm
@@ -134,7 +139,9 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
-    def test_auto_output_folder(self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path):
+    def test_auto_output_folder(
+        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+    ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
         mock_gpm.return_value = pm

@@ -498,7 +498,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             return
 
         try:
-            self.subjects_list = self.pm.list_subjects()
+            self.subjects_list = self.pm.list_simnibs_subjects()
 
             # Load simulations for each subject
             for subject_id in self.subjects_list:

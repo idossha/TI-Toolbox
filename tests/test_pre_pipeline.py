@@ -15,13 +15,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Mock heavy deps before importing tit.pre
-for _mod in ("nibabel", "numpy", "scipy", "scipy.ndimage", "scipy.stats",
-             "h5py", "simnibs"):
+for _mod in (
+    "nibabel",
+    "numpy",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.stats",
+    "h5py",
+    "simnibs",
+):
     sys.modules.setdefault(_mod, MagicMock())
 
 from tit.pre.structural import _run_step, _run_subject_pipeline, run_pipeline
 from tit.pre.utils import PreprocessError, CommandRunner
-
 
 STRUCTURAL = "tit.pre.structural"
 REPORTING = "tit.reporting"
@@ -34,6 +40,7 @@ REPORTING = "tit.reporting"
 
 class DummyReportGen:
     """Stand-in for PreprocessingReportGenerator that records calls."""
+
     instances: list = []
 
     def __init__(self, project_dir, subject_id):
@@ -235,8 +242,10 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj", ["001", "002"],
-                run_recon=True, parallel_recon=True,
+                "/proj",
+                ["001", "002"],
+                run_recon=True,
+                parallel_recon=True,
                 runner=_make_runner(),
             )
         assert result == 0
@@ -251,8 +260,10 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj", ["001", "002"],
-                run_recon=True, parallel_recon=True,
+                "/proj",
+                ["001", "002"],
+                run_recon=True,
+                parallel_recon=True,
                 run_tissue_analysis=True,
                 runner=_make_runner(),
             )
@@ -268,9 +279,13 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj", ["001", "002"],
-                run_recon=True, parallel_recon=True,
-                run_qsiprep=True, run_qsirecon=True, extract_dti=True,
+                "/proj",
+                ["001", "002"],
+                run_recon=True,
+                parallel_recon=True,
+                run_qsiprep=True,
+                run_qsirecon=True,
+                extract_dti=True,
                 runner=_make_runner(),
             )
         assert result == 0
@@ -287,8 +302,10 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj", ["001", "002"],
-                run_recon=True, parallel_recon=True,
+                "/proj",
+                ["001", "002"],
+                run_recon=True,
+                parallel_recon=True,
                 run_subcortical_segmentations=True,
                 runner=_make_runner(),
             )
@@ -304,8 +321,10 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             run_pipeline(
-                "/proj", ["001", "002"],
-                run_recon=True, parallel_recon=True,
+                "/proj",
+                ["001", "002"],
+                run_recon=True,
+                parallel_recon=True,
                 parallel_cores=2,
                 runner=_make_runner(),
             )
@@ -329,8 +348,10 @@ class TestRunPipelineReports:
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             result = run_pipeline(
-                "/proj", ["001", "002"],
-                convert_dicom=True, runner=_make_runner(),
+                "/proj",
+                ["001", "002"],
+                convert_dicom=True,
+                runner=_make_runner(),
             )
         assert result == 0
         assert len(dummy_report.instances) == 2
@@ -371,10 +392,16 @@ class TestRunPipelineReports:
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj", ["001"],
-                convert_dicom=True, create_m2m=True, run_recon=True,
-                run_tissue_analysis=True, run_qsiprep=True, run_qsirecon=True,
-                extract_dti=True, run_subcortical_segmentations=True,
+                "/proj",
+                ["001"],
+                convert_dicom=True,
+                create_m2m=True,
+                run_recon=True,
+                run_tissue_analysis=True,
+                run_qsiprep=True,
+                run_qsirecon=True,
+                extract_dti=True,
+                run_subcortical_segmentations=True,
                 runner=_make_runner(),
             )
         step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
@@ -398,8 +425,10 @@ class TestRunPipelineReports:
         callback = MagicMock()
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj", ["001"],
-                convert_dicom=True, runner=_make_runner(),
+                "/proj",
+                ["001"],
+                convert_dicom=True,
+                runner=_make_runner(),
                 logger_callback=callback,
             )
         callback.assert_called_once()
@@ -427,8 +456,11 @@ class TestRunPipelineRunnerStopEvent:
 
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj", ["001"],
-                convert_dicom=True, runner=runner, stop_event=new_stop,
+                "/proj",
+                ["001"],
+                convert_dicom=True,
+                runner=runner,
+                stop_event=new_stop,
             )
         assert runner.stop_event is new_stop
 

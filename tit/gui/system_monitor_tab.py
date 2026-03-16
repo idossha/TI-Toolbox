@@ -42,7 +42,6 @@ class ProcessMonitorThread(QThread):
         self.running = True
         self.update_interval = 2.0  # Update every 2 seconds
 
-        # Keywords to identify toolbox-related processes
         self.relevant_keywords = [
             "charm",
             "simnibs",
@@ -92,29 +91,22 @@ class ProcessMonitorThread(QThread):
     def run(self):
         """Main monitoring loop."""
         while self.running:
-            try:
-                # Get system-wide statistics
-                cpu_percent = psutil.cpu_percent(interval=0.1)
-                memory = psutil.virtual_memory()
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
 
-                system_stats = {
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "memory_used": memory.used,
-                    "memory_total": memory.total,
-                    "timestamp": datetime.now().strftime("%H:%M:%S"),
-                }
-                self.system_stats_signal.emit(system_stats)
+            system_stats = {
+                "cpu_percent": cpu_percent,
+                "memory_percent": memory.percent,
+                "memory_used": memory.used,
+                "memory_total": memory.total,
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+            }
+            self.system_stats_signal.emit(system_stats)
 
-                # Get relevant processes
-                relevant_processes = self.get_relevant_processes()
-                self.process_data_signal.emit(relevant_processes)
+            relevant_processes = self.get_relevant_processes()
+            self.process_data_signal.emit(relevant_processes)
 
-                time.sleep(self.update_interval)
-
-            except (psutil.Error, OSError) as e:
-                print(f"Error in process monitoring: {e}")
-                time.sleep(self.update_interval)
+            time.sleep(self.update_interval)
 
     def get_relevant_processes(self):
         """Get processes relevant to the toolbox using psutil."""
@@ -185,49 +177,40 @@ class ProcessMonitorThread(QThread):
         """Fallback method to get processes without psutil."""
         relevant_processes = []
 
-        try:
-            # Use ps command on Unix-like systems
-            if os.name != "nt":
-                cmd = ["ps", "aux"]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        # Use ps command on Unix-like systems
+        if os.name != "nt":
+            cmd = ["ps", "aux"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
 
-                if result.returncode == 0:
-                    lines = result.stdout.strip().split("\n")[1:]  # Skip header
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")[1:]  # Skip header
 
-                    for line in lines:
-                        parts = line.split(None, 10)  # Split into max 11 parts
-                        if len(parts) >= 11:
-                            user, pid, cpu, mem = parts[0], parts[1], parts[2], parts[3]
-                            command = parts[10]
+                for line in lines:
+                    parts = line.split(None, 10)  # Split into max 11 parts
+                    if len(parts) >= 11:
+                        user, pid, cpu, mem = parts[0], parts[1], parts[2], parts[3]
+                        command = parts[10]
 
-                            if self.is_relevant_process("", command):
-                                process_data = {
-                                    "pid": int(pid),
-                                    "name": (
-                                        command.split()[0] if command else "unknown"
-                                    ),
-                                    "cmdline": (
-                                        command[:100] + "..."
-                                        if len(command) > 100
-                                        else command
-                                    ),
-                                    "cpu_percent": (
-                                        float(cpu)
-                                        if cpu.replace(".", "").isdigit()
-                                        else 0
-                                    ),
-                                    "memory_percent": (
-                                        float(mem)
-                                        if mem.replace(".", "").isdigit()
-                                        else 0
-                                    ),
-                                    "memory_mb": 0,
-                                    "runtime": "N/A",
-                                    "status": "running",
-                                }
-                                relevant_processes.append(process_data)
-        except (OSError, subprocess.SubprocessError) as e:
-            print(f"Error in fallback process detection: {e}")
+                        if self.is_relevant_process("", command):
+                            process_data = {
+                                "pid": int(pid),
+                                "name": (command.split()[0] if command else "unknown"),
+                                "cmdline": (
+                                    command[:100] + "..."
+                                    if len(command) > 100
+                                    else command
+                                ),
+                                "cpu_percent": (
+                                    float(cpu) if cpu.replace(".", "").isdigit() else 0
+                                ),
+                                "memory_percent": (
+                                    float(mem) if mem.replace(".", "").isdigit() else 0
+                                ),
+                                "memory_mb": 0,
+                                "runtime": "N/A",
+                                "status": "running",
+                            }
+                            relevant_processes.append(process_data)
 
         return relevant_processes
 
@@ -306,19 +289,15 @@ class SystemMonitorTab(QtWidgets.QWidget):
         main_layout.addWidget(description_label)
         main_layout.addSpacing(10)
 
-        # System stats section
         stats_group = QtWidgets.QGroupBox("System Overview")
         stats_layout = QtWidgets.QHBoxLayout(stats_group)
 
-        # CPU usage
         self.cpu_label = QtWidgets.QLabel("CPU: 0%")
         self.cpu_label.setStyleSheet(f"font-weight: bold; font-size: {FONT_MD};")
 
-        # Memory usage
         self.memory_label = QtWidgets.QLabel("Memory: 0%")
         self.memory_label.setStyleSheet(f"font-weight: bold; font-size: {FONT_MD};")
 
-        # Last update
         self.update_label = QtWidgets.QLabel("Last Update: --:--:--")
         self.update_label.setStyleSheet("color: #666666;")
 
@@ -329,23 +308,19 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         main_layout.addWidget(stats_group)
 
-        # Process table
         processes_group = QtWidgets.QGroupBox("Active Toolbox Processes")
         processes_layout = QtWidgets.QVBoxLayout(processes_group)
 
-        # Create process table
         self.process_table = QtWidgets.QTableWidget()
         self.process_table.setColumnCount(7)
         self.process_table.setHorizontalHeaderLabels(
             ["PID", "Name", "Command", "CPU%", "Mem%", "MB", "Time"]
         )
 
-        # Set table properties
         self.process_table.setAlternatingRowColors(True)
         self.process_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.process_table.setSortingEnabled(True)
 
-        # Set column widths
         header = self.process_table.horizontalHeader()
         for col in [0, 1, 3, 4, 5, 6]:
             header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
@@ -355,7 +330,6 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         processes_layout.addWidget(self.process_table)
 
-        # Control buttons
         controls_layout = QtWidgets.QHBoxLayout()
 
         self.refresh_btn = QtWidgets.QPushButton("Manual Refresh")
@@ -381,27 +355,22 @@ class SystemMonitorTab(QtWidgets.QWidget):
         processes_layout.addLayout(controls_layout)
         main_layout.addWidget(processes_group)
 
-        # Real-time graphs section
         graphs_group = QtWidgets.QGroupBox("Real-time Performance Graphs")
         graphs_layout = QtWidgets.QHBoxLayout(graphs_group)
 
-        # Create matplotlib figures
         self.setup_graphs()
 
-        # Add graphs to layout
         graphs_layout.addWidget(self.cpu_canvas)
         graphs_layout.addWidget(self.memory_canvas)
 
         main_layout.addWidget(graphs_group)
 
-        # Status label
         self.status_label = QtWidgets.QLabel("Monitoring active...")
         self.status_label.setStyleSheet("color: green; font-weight: bold;")
         main_layout.addWidget(self.status_label)
 
     def setup_graphs(self):
         """Set up the matplotlib graphs for CPU and memory monitoring."""
-        # Set up CPU graph
         self.cpu_figure = Figure(figsize=(6, 3), dpi=80)
         self.cpu_canvas = FigureCanvas(self.cpu_figure)
         self.cpu_canvas.setMinimumHeight(200)
@@ -414,13 +383,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.cpu_ax.grid(True, alpha=0.3)
         self.cpu_ax.tick_params(colors="white")
 
-        # Initialize empty line for CPU
         (self.cpu_line,) = self.cpu_ax.plot(
             [], [], "cyan", linewidth=2, label="CPU Usage"
         )
         self.cpu_ax.legend(loc="upper right")
 
-        # Set up Memory graph
         self.memory_figure = Figure(figsize=(6, 3), dpi=80)
         self.memory_canvas = FigureCanvas(self.memory_figure)
         self.memory_canvas.setMinimumHeight(200)
@@ -433,28 +400,23 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.memory_ax.grid(True, alpha=0.3)
         self.memory_ax.tick_params(colors="white")
 
-        # Initialize empty line for Memory
         (self.memory_line,) = self.memory_ax.plot(
             [], [], "orange", linewidth=2, label="Memory Usage"
         )
         self.memory_ax.legend(loc="upper right")
 
-        # Style the figures
         self.cpu_figure.patch.set_facecolor("#2b2b2b")
         self.memory_figure.patch.set_facecolor("#2b2b2b")
 
-        # Set axes background to black
         self.cpu_ax.set_facecolor("black")
         self.memory_ax.set_facecolor("black")
 
-        # Tight layout to prevent label cutoff
         self.cpu_figure.tight_layout()
         self.memory_figure.tight_layout()
 
     def start_monitoring(self):
         """Start the process monitoring thread."""
         if self.monitor_thread is None or not self.monitor_thread.isRunning():
-            # Clear graph data when starting fresh
             self.clear_graph_data()
 
             self.monitor_thread = ProcessMonitorThread()
@@ -494,7 +456,6 @@ class SystemMonitorTab(QtWidgets.QWidget):
     def manual_refresh(self):
         """Manually refresh the process list."""
         if self.monitor_thread and self.monitor_thread.isRunning():
-            # Thread will update automatically, just show feedback
             self.status_label.setText("Refreshing...")
             QtCore.QTimer.singleShot(
                 1000, lambda: self.status_label.setText("Monitoring active...")
@@ -515,46 +476,37 @@ class SystemMonitorTab(QtWidgets.QWidget):
 
         self.update_label.setText(f"Last Update: {stats['timestamp']}")
 
-        # Update graphs
         self.update_graphs(stats)
 
     def update_graphs(self, stats):
         """Update the real-time graphs with new data."""
-        # Get current time for x-axis (seconds since start)
         current_time = time.time()
         if len(self.time_data) == 0:
-            # First data point - set as time 0
             self.start_time = current_time
             relative_time = 0
         else:
-            # Calculate relative time in seconds
             relative_time = current_time - self.start_time
 
-        # Add new data points
         self.time_data.append(relative_time)
         self.cpu_data.append(stats["cpu_percent"])
         self.memory_data.append(stats["memory_percent"])
 
-        # Convert to lists for plotting (deque to list)
         times = list(self.time_data)
         cpu_values = list(self.cpu_data)
         memory_values = list(self.memory_data)
 
-        # Create x-axis as "seconds ago" (reverse the time scale)
         if len(times) > 1:
             max_time = max(times)
             x_axis = [max_time - t for t in times]
         else:
             x_axis = [0]
 
-        # Update CPU graph
         self.cpu_line.set_data(x_axis, cpu_values)
         self.cpu_ax.set_xlim(
             0, max(60, max(x_axis) if x_axis else 60)
         )  # Show at least 60 seconds
         self.cpu_ax.set_ylim(0, max(100, max(cpu_values) if cpu_values else 100))
 
-        # Update Memory graph
         self.memory_line.set_data(x_axis, memory_values)
         self.memory_ax.set_xlim(
             0, max(60, max(x_axis) if x_axis else 60)
@@ -563,13 +515,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
             0, max(100, max(memory_values) if memory_values else 100)
         )
 
-        # Refresh the canvases
         self.cpu_canvas.draw()
         self.memory_canvas.draw()
 
     def update_process_table(self, processes):
         """Update the process table with new data."""
-        # Store current selection
         selected_row = self.process_table.currentRow()
         selected_pid = None
         if selected_row >= 0 and self.process_table.rowCount() > selected_row:
@@ -577,24 +527,19 @@ class SystemMonitorTab(QtWidgets.QWidget):
             if pid_item:
                 selected_pid = int(pid_item.text())
 
-        # Clear and repopulate table
         self.process_table.setRowCount(len(processes))
 
         for row, proc in enumerate(processes):
-            # PID
             self.process_table.setItem(
                 row, 0, QtWidgets.QTableWidgetItem(str(proc["pid"]))
             )
 
-            # Process Name
             self.process_table.setItem(row, 1, QtWidgets.QTableWidgetItem(proc["name"]))
 
-            # Command
             self.process_table.setItem(
                 row, 2, QtWidgets.QTableWidgetItem(proc["cmdline"])
             )
 
-            # CPU %
             cpu_item = QtWidgets.QTableWidgetItem(f"{proc['cpu_percent']:.1f}%")
             if proc["cpu_percent"] > 50:
                 cpu_item.setBackground(
@@ -602,7 +547,6 @@ class SystemMonitorTab(QtWidgets.QWidget):
                 )  # Light red for high CPU
             self.process_table.setItem(row, 3, cpu_item)
 
-            # Memory %
             mem_item = QtWidgets.QTableWidgetItem(f"{proc['memory_percent']:.1f}%")
             if proc["memory_percent"] > 10:
                 mem_item.setBackground(
@@ -610,17 +554,14 @@ class SystemMonitorTab(QtWidgets.QWidget):
                 )  # Light red for high memory
             self.process_table.setItem(row, 4, mem_item)
 
-            # Memory MB
             self.process_table.setItem(
                 row, 5, QtWidgets.QTableWidgetItem(f"{proc['memory_mb']:.1f}")
             )
 
-            # Runtime
             self.process_table.setItem(
                 row, 6, QtWidgets.QTableWidgetItem(proc["runtime"])
             )
 
-        # Restore selection if possible
         if selected_pid:
             for row in range(self.process_table.rowCount()):
                 pid_item = self.process_table.item(row, 0)
@@ -646,7 +587,6 @@ class SystemMonitorTab(QtWidgets.QWidget):
         pid = int(pid_item.text())
         process_name = name_item.text()
 
-        # Confirm termination
         reply = QtWidgets.QMessageBox.question(
             self,
             "Confirm Termination",
@@ -659,16 +599,11 @@ class SystemMonitorTab(QtWidgets.QWidget):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            try:
-                proc = psutil.Process(pid)
-                proc.terminate()
-                QtWidgets.QMessageBox.information(
-                    self, "Success", f"Process {pid} terminated successfully."
-                )
-            except (psutil.Error, OSError) as e:
-                QtWidgets.QMessageBox.critical(
-                    self, "Error", f"Failed to terminate process {pid}:\n{str(e)}"
-                )
+            proc = psutil.Process(pid)
+            proc.terminate()
+            QtWidgets.QMessageBox.information(
+                self, "Success", f"Process {pid} terminated successfully."
+            )
 
     def closeEvent(self, event):
         """Clean up when the tab is closed."""

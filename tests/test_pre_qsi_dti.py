@@ -23,7 +23,6 @@ from tit.pre.qsi.dti_extractor import (
 )
 from tit.pre.utils import PreprocessError
 
-
 MODULE = "tit.pre.qsi.dti_extractor"
 
 
@@ -60,7 +59,9 @@ class TestFindDsistudioTensorComponents:
         dwi_dir.mkdir(parents=True)
 
         for param in DSISTUDIO_TENSOR_PARAMS:
-            (dwi_dir / f"sub-001_space-ACPC_model-tensor_param-{param}_dwimap.nii.gz").touch()
+            (
+                dwi_dir / f"sub-001_space-ACPC_model-tensor_param-{param}_dwimap.nii.gz"
+            ).touch()
 
         result = _find_dsistudio_tensor_components(tmp_path, "001", MagicMock())
         assert result is not None
@@ -237,8 +238,12 @@ class TestFindQsiprepT1:
 
     def test_found(self, tmp_path):
         t1 = (
-            tmp_path / "derivatives" / "qsiprep" / "sub-001"
-            / "anat" / "sub-001_space-ACPC_desc-preproc_T1w.nii.gz"
+            tmp_path
+            / "derivatives"
+            / "qsiprep"
+            / "sub-001"
+            / "anat"
+            / "sub-001_space-ACPC_desc-preproc_T1w.nii.gz"
         )
         t1.parent.mkdir(parents=True)
         t1.touch()
@@ -509,7 +514,13 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file", return_value=None)
     @patch(f"{MODULE}.get_path_manager")
     def test_no_tensor_found_raises(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds, mock_validate, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        tmp_path,
     ):
         """Raises when no tensor file can be found."""
         pm = MagicMock()
@@ -561,7 +572,14 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_fallback_dti_path(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds, mock_validate, mock_copy, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        mock_copy,
+        tmp_path,
     ):
         """Falls back to general DTI tensor search."""
         import nibabel as nib
@@ -595,8 +613,14 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_registration_no_qsiprep_t1(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds,
-        mock_validate, mock_resample, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        mock_resample,
+        tmp_path,
     ):
         """Falls back to resampling when no qsiprep T1 found."""
         import nibabel as nib
@@ -632,8 +656,14 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_registration_with_ants(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds,
-        mock_validate, mock_register, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        mock_register,
+        tmp_path,
     ):
         """Uses ANTs registration when qsiprep T1 exists."""
         import nibabel as nib
@@ -663,15 +693,24 @@ class TestExtractDtiTensor:
         mock_register.assert_called_once()
 
     @patch(f"{MODULE}._resample_tensor_to_target")
-    @patch(f"{MODULE}._register_tensor_to_simnibs_t1", side_effect=Exception("ANTs failed"))
+    @patch(
+        f"{MODULE}._register_tensor_to_simnibs_t1", side_effect=Exception("ANTs failed")
+    )
     @patch(f"{MODULE}._validate_tensor")
     @patch(f"{MODULE}._find_dsistudio_tensor_components", return_value=None)
     @patch(f"{MODULE}._find_dki_tensor_files", return_value=(None, None))
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_registration_fallback_on_failure(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds,
-        mock_validate, mock_register, mock_resample, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        mock_register,
+        mock_resample,
+        tmp_path,
     ):
         """Falls back to resampling when registration fails."""
         import nibabel as nib
@@ -706,7 +745,13 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_no_simnibs_t1_raises(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds, mock_validate, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        tmp_path,
     ):
         """Raises when SimNIBS T1 not found for registration."""
         import nibabel as nib
@@ -738,7 +783,13 @@ class TestExtractDtiTensor:
     @patch(f"{MODULE}._find_dti_tensor_file")
     @patch(f"{MODULE}.get_path_manager")
     def test_load_failure_raises(
-        self, mock_gpm, mock_find_dti, mock_find_dki, mock_find_ds, mock_validate, tmp_path
+        self,
+        mock_gpm,
+        mock_find_dti,
+        mock_find_dki,
+        mock_find_ds,
+        mock_validate,
+        tmp_path,
     ):
         """Raises PreprocessError when tensor load fails."""
         import nibabel as nib
