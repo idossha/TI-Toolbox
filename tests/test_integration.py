@@ -33,45 +33,45 @@ class TestPathManagerSimulationPaths:
 
 
 # ---------------------------------------------------------------------------
-# SimulationConfig + LabelMontage compatibility
+# SimulationConfig + Montage compatibility
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
 class TestSimConfigMontageFlow:
-    def test_sim_config_to_label_montage_flow(self, tmp_project):
-        """SimulationConfig and LabelMontage can be created; mode is derived from pairs."""
+    def test_sim_config_to_montage_flow(self, tmp_project):
+        """SimulationConfig and Montage can be created; mode is derived from pairs."""
         from tit.sim.config import (
-            ConductivityType,
-            ElectrodeConfig,
-            IntensityConfig,
-            LabelMontage,
+            Montage,
             SimulationConfig,
             SimulationMode,
+        )
+
+        montage = Montage(
+            name="test_montage",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("C3", "C4"), ("F3", "F4")],
+            eeg_net="GSN-HydroCel-128.csv",
         )
 
         config = SimulationConfig(
             subject_id="001",
             project_dir=str(tmp_project),
-            conductivity_type=ConductivityType.SCALAR,
-            intensities=IntensityConfig(values=[1.0, 1.0]),
-            electrode=ElectrodeConfig(),
-        )
-
-        montage = LabelMontage(
-            name="test_montage",
-            electrode_pairs=[("C3", "C4"), ("F3", "F4")],
-            eeg_net="GSN-HydroCel-128.csv",
+            conductivity="scalar",
+            intensities=[1.0, 1.0],
+            montages=[montage],
         )
 
         # 2 pairs => TI mode
         assert montage.simulation_mode == SimulationMode.TI
         assert montage.num_pairs == 2
+        assert not montage.is_xyz
         assert config.subject_id == "001"
 
         # 4 pairs => mTI mode
-        montage_mti = LabelMontage(
+        montage_mti = Montage(
             name="mti_montage",
+            mode=Montage.Mode.NET,
             electrode_pairs=[("C3", "C4"), ("F3", "F4"), ("P3", "P4"), ("T7", "T8")],
             eeg_net="GSN-HydroCel-128.csv",
         )

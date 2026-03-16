@@ -23,7 +23,7 @@ from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
 from tit.paths import get_path_manager
-from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode
+from tit.sim.config import SimulationConfig, Montage, SimulationMode
 from tit.sim.utils import (
     convert_t1_to_mni,
     create_simulation_config_file,
@@ -51,7 +51,7 @@ class TISimulation:
       5. Extract GM/WM meshes, convert to NIfTI, organize outputs
     """
 
-    def __init__(self, config: SimulationConfig, montage: MontageConfig, logger):
+    def __init__(self, config: SimulationConfig, montage: Montage, logger):
         self.config = config
         self.montage = montage
         self.logger = logger
@@ -118,9 +118,9 @@ class TISimulation:
             S.fname_tensor = tensor
 
         # Pair 1
-        p1_A = cfg.intensities.pair1 / 1000.0
+        p1_A = cfg.intensities[0] / 1000.0
         tdcs1 = S.add_tdcslist()
-        tdcs1.anisotropy_type = cfg.conductivity_type.value
+        tdcs1.anisotropy_type = cfg.conductivity
         tdcs1.aniso_maxratio = cfg.aniso_maxratio
         tdcs1.aniso_maxcond = cfg.aniso_maxcond
         tdcs1.currents = [p1_A, -p1_A]
@@ -129,22 +129,18 @@ class TISimulation:
             el = tdcs1.add_electrode()
             el.channelnr = idx + 1
             el.centre = pos
-            self._configure_electrode(el)
+            el.shape = cfg.electrode_shape
+            el.dimensions = cfg.electrode_dimensions
+            el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]
 
         # Pair 2 — deepcopy from pair 1, update centres and current
-        p2_A = cfg.intensities.pair2 / 1000.0
+        p2_A = cfg.intensities[1] / 1000.0
         tdcs2 = S.add_tdcslist(deepcopy(tdcs1))
         tdcs2.currents = [p2_A, -p2_A]
         tdcs2.electrode[0].centre = self.montage.electrode_pairs[1][0]
         tdcs2.electrode[1].centre = self.montage.electrode_pairs[1][1]
 
         return S
-
-    def _configure_electrode(self, electrode) -> None:
-        el_cfg = self.config.electrode
-        electrode.shape = el_cfg.shape
-        electrode.dimensions = el_cfg.dimensions
-        electrode.thickness = [el_cfg.gel_thickness, el_cfg.rubber_thickness]
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         for i in range(len(tdcs.cond)):
@@ -156,7 +152,7 @@ class TISimulation:
 
     def _post_process(self, dirs: dict) -> str:
         sid = self.config.subject_id
-        cond = self.config.conductivity_type.value
+        cond = self.config.conductivity
         name = self.montage.name
 
         # Load and crop HF meshes
@@ -213,7 +209,7 @@ class TISimulation:
     ) -> None:
         """Compute TI_normal on the cortical surface (requires surface overlays from SimNIBS)."""
         sid = self.config.subject_id
-        cond = self.config.conductivity_type.value
+        cond = self.config.conductivity
         overlays = os.path.join(hf_dir, "subject_overlays")
         c1 = os.path.join(overlays, f"{sid}_TDCS_1_{cond}_central.msh")
         c2 = os.path.join(overlays, f"{sid}_TDCS_2_{cond}_central.msh")

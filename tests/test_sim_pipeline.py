@@ -19,18 +19,13 @@ if str(REPO_ROOT) not in sys.path:
 from tit.sim.config import (
     SimulationConfig,
     SimulationMode,
-    ConductivityType,
-    ElectrodeConfig,
-    IntensityConfig,
-    LabelMontage,
-    XYZMontage,
+    Montage,
 )
 
 # Force submodule imports so they are in sys.modules (needed for patch.object)
 import tit.sim.TI as _ti_mod
 import tit.sim.mTI as _mti_mod
 import tit.sim.utils as _utils_mod
-
 
 # ============================================================================
 # Helpers
@@ -42,33 +37,36 @@ def _make_sim_config(**overrides):
     defaults = dict(
         subject_id="001",
         project_dir="/fake/project",
-        conductivity_type=ConductivityType.SCALAR,
-        intensities=IntensityConfig(values=[1.0, 1.0]),
-        electrode=ElectrodeConfig(),
+        conductivity="scalar",
+        intensities=[1.0, 1.0],
+        montages=[],
     )
     defaults.update(overrides)
     return SimulationConfig(**defaults)
 
 
 def _make_ti_montage(name="test_ti"):
-    return LabelMontage(
+    return Montage(
         name=name,
+        mode=Montage.Mode.NET,
         electrode_pairs=[("E1", "E2"), ("E3", "E4")],
         eeg_net="GSN-256.csv",
     )
 
 
 def _make_mti_montage(name="test_mti"):
-    return LabelMontage(
+    return Montage(
         name=name,
+        mode=Montage.Mode.NET,
         electrode_pairs=[("E1", "E2"), ("E3", "E4"), ("E5", "E6"), ("E7", "E8")],
         eeg_net="GSN-256.csv",
     )
 
 
 def _make_xyz_montage(name="test_xyz"):
-    return XYZMontage(
+    return Montage(
         name=name,
+        mode=Montage.Mode.FLEX_FREE,
         electrode_pairs=[
             ([0.0, 0.0, 100.0], [0.0, 0.0, -100.0]),
             ([50.0, 0.0, 0.0], [-50.0, 0.0, 0.0]),
@@ -200,9 +198,7 @@ class TestMTISimulation:
         with patch.object(_mti_mod, "get_path_manager") as mock_pm:
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
 
-            config = _make_sim_config(
-                intensities=IntensityConfig(values=[1.0, 1.0, 1.0, 1.0])
-            )
+            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
             montage = _make_mti_montage()
             logger = MagicMock()
 
@@ -256,9 +252,7 @@ class TestMTISimulation:
             mock_get_nti.return_value = np.zeros((10, 3))
             mock_get_ti.return_value = np.zeros((10, 3))
 
-            config = _make_sim_config(
-                intensities=IntensityConfig(values=[1.0, 1.0, 1.0, 1.0])
-            )
+            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
             montage = _make_mti_montage()
             logger = MagicMock()
 
@@ -317,11 +311,11 @@ class TestRunSimulation:
                 "output_mesh": "/fake/mesh.msh",
             }
 
-            config = _make_sim_config()
             montage = _make_ti_montage()
+            config = _make_sim_config(montages=[montage])
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(config, [montage], logger=logger)
+            results = _utils_mod.run_simulation(config, logger=logger)
 
             assert len(results) == 1
             assert results[0]["montage_type"] == "TI"
@@ -337,13 +331,14 @@ class TestRunSimulation:
                 "output_mesh": "/fake/mesh.msh",
             }
 
-            config = _make_sim_config(
-                intensities=IntensityConfig(values=[1.0, 1.0, 1.0, 1.0])
-            )
             montage = _make_mti_montage()
+            config = _make_sim_config(
+                intensities=[1.0, 1.0, 1.0, 1.0],
+                montages=[montage],
+            )
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(config, [montage], logger=logger)
+            results = _utils_mod.run_simulation(config, logger=logger)
 
             assert len(results) == 1
             assert results[0]["montage_type"] == "mTI"
@@ -365,16 +360,15 @@ class TestRunSimulation:
                 "output_mesh": "/b",
             }
 
-            config = _make_sim_config(
-                intensities=IntensityConfig(values=[1.0, 1.0, 1.0, 1.0])
-            )
             ti_montage = _make_ti_montage("m1")
             mti_montage = _make_mti_montage("m2")
+            config = _make_sim_config(
+                intensities=[1.0, 1.0, 1.0, 1.0],
+                montages=[ti_montage, mti_montage],
+            )
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(
-                config, [ti_montage, mti_montage], logger=logger
-            )
+            results = _utils_mod.run_simulation(config, logger=logger)
 
             assert len(results) == 2
             assert results[0]["montage_name"] == "m1"
@@ -389,14 +383,12 @@ class TestRunSimulation:
                 "output_mesh": "/a",
             }
 
-            config = _make_sim_config()
             montages = [_make_ti_montage("m1"), _make_ti_montage("m2")]
+            config = _make_sim_config(montages=montages)
             logger = MagicMock()
             callback = MagicMock()
 
-            _utils_mod.run_simulation(
-                config, montages, logger=logger, progress_callback=callback
-            )
+            _utils_mod.run_simulation(config, logger=logger, progress_callback=callback)
 
             # Called with (idx, total, name) for each montage, plus final "Complete"
             assert callback.call_count == 3
@@ -413,20 +405,19 @@ class TestRunSimulation:
                 "output_mesh": "/a",
             }
 
-            config = _make_sim_config()
+            montage = _make_ti_montage()
+            config = _make_sim_config(montages=[montage])
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(
-                config, [_make_ti_montage()], logger=logger
-            )
+            results = _utils_mod.run_simulation(config, logger=logger)
             assert len(results) == 1
 
     def test_empty_montage_list(self):
         with self._patch_run_sim() as (mock_pm, mock_ti_cls, mock_mti_cls):
-            config = _make_sim_config()
+            config = _make_sim_config(montages=[])
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(config, [], logger=logger)
+            results = _utils_mod.run_simulation(config, logger=logger)
             assert results == []
             mock_ti_cls.assert_not_called()
             mock_mti_cls.assert_not_called()
@@ -441,11 +432,11 @@ class TestRunSimulation:
                 "output_mesh": "/a",
             }
 
-            config = _make_sim_config()
             montage = _make_xyz_montage()
+            config = _make_sim_config(montages=[montage])
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(config, [montage], logger=logger)
+            results = _utils_mod.run_simulation(config, logger=logger)
 
             assert len(results) == 1
             mock_ti_cls.assert_called_once()

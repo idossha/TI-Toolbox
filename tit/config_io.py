@@ -29,7 +29,7 @@ from tit.opt.config import (
     SphericalROI,
     SubcorticalROI,
 )
-from tit.sim.config import LabelMontage, XYZMontage
+from tit.sim.config import Montage
 
 # Mapping from class to discriminator string
 _TYPE_DISCRIMINATED = {
@@ -38,8 +38,7 @@ _TYPE_DISCRIMINATED = {
     SubcorticalROI: "SubcorticalROI",
     PoolElectrodes: "PoolElectrodes",
     BucketElectrodes: "BucketElectrodes",
-    LabelMontage: "LabelMontage",
-    XYZMontage: "XYZMontage",
+    Montage: "Montage",
 }
 
 

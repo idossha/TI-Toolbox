@@ -32,7 +32,7 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 
 ### Conductivity Types
 
-The `ConductivityType` enum controls tissue conductivity modeling:
+The `conductivity` field on `SimulationConfig` controls tissue conductivity modeling:
 
 | Type | Code | Description |
 |------|------|-------------|
@@ -108,7 +108,7 @@ The TI-Toolbox automatically co-registers the following EEG electrode nets to he
 ---
 ## Anisotropy
 
-The simulator supports four tissue conductivity models via the `ConductivityType` enum, configurable both through the GUI and programmatic API.
+The simulator supports four tissue conductivity models via the `conductivity` string field on `SimulationConfig`, configurable both through the GUI and programmatic API.
 
 ### Isotropic Model (`scalar`)
 - **Description**: Uniform conductivity in all directions
@@ -121,7 +121,7 @@ The simulator supports four tissue conductivity models via the `ConductivityType
 - **Applications**: More realistic modeling of white matter tracts
 - **Processing**: Accounts for fiber orientation in field calculations
 
-The anisotropy type is set via `SimulationConfig.conductivity_type` (or in the GUI dropdown). Two additional parameters control bounds:
+The anisotropy type is set via `SimulationConfig.conductivity` (or in the GUI dropdown). Two additional parameters control bounds:
 - `aniso_maxratio` (default: 10.0) -- maximum ratio between eigenvalues
 - `aniso_maxcond` (default: 2.0) -- maximum conductivity value
 

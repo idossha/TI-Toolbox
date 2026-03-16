@@ -2,13 +2,9 @@
 
 from tit.sim.config import (
     SimulationConfig,
-    ElectrodeConfig,
-    IntensityConfig,
-    LabelMontage,
-    XYZMontage,
-    MontageConfig,
+    Montage,
     SimulationMode,
-    ConductivityType,
+    parse_intensities,
 )
 from tit.sim.utils import (
     run_simulation,
@@ -22,13 +18,9 @@ from tit.sim.utils import (
 
 __all__ = [
     "SimulationConfig",
-    "ElectrodeConfig",
-    "IntensityConfig",
-    "LabelMontage",
-    "XYZMontage",
-    "MontageConfig",
+    "Montage",
     "SimulationMode",
-    "ConductivityType",
+    "parse_intensities",
     "run_simulation",
     "load_montages",
     "list_montage_names",

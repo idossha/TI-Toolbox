@@ -24,7 +24,7 @@ from simnibs.utils import TI_utils as TI
 from tit import constants as const
 from tit.calc import get_nTI_vectors, get_TI_vectors
 from tit.paths import get_path_manager
-from tit.sim.config import SimulationConfig, MontageConfig, SimulationMode
+from tit.sim.config import SimulationConfig, Montage, SimulationMode
 from tit.sim.utils import (
     convert_t1_to_mni,
     create_simulation_config_file,
@@ -52,7 +52,7 @@ class mTISimulation:
       6. Extract GM/WM, convert to NIfTI, organize outputs
     """
 
-    def __init__(self, config: SimulationConfig, montage: MontageConfig, logger):
+    def __init__(self, config: SimulationConfig, montage: Montage, logger):
         self.config = config
         self.montage = montage
         self.logger = logger
@@ -120,9 +120,9 @@ class mTISimulation:
             S.fname_tensor = tensor
 
         for i in range(n_pairs):
-            current = cfg.intensities.values[i] / 1000.0
+            current = cfg.intensities[i] / 1000.0
             tdcs = S.add_tdcslist()
-            tdcs.anisotropy_type = cfg.conductivity_type.value
+            tdcs.anisotropy_type = cfg.conductivity
             tdcs.aniso_maxratio = cfg.aniso_maxratio
             tdcs.aniso_maxcond = cfg.aniso_maxcond
             tdcs.currents = [current, -current]
@@ -131,15 +131,11 @@ class mTISimulation:
                 el = tdcs.add_electrode()
                 el.channelnr = idx + 1
                 el.centre = pos
-                self._configure_electrode(el)
+                el.shape = cfg.electrode_shape
+                el.dimensions = cfg.electrode_dimensions
+                el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]
 
         return S
-
-    def _configure_electrode(self, electrode) -> None:
-        el_cfg = self.config.electrode
-        electrode.shape = el_cfg.shape
-        electrode.dimensions = el_cfg.dimensions
-        electrode.thickness = [el_cfg.gel_thickness, el_cfg.rubber_thickness]
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         for i in range(len(tdcs.cond)):
@@ -151,7 +147,7 @@ class mTISimulation:
 
     def _post_process(self, dirs: dict) -> str:
         sid = self.config.subject_id
-        cond = self.config.conductivity_type.value
+        cond = self.config.conductivity
         name = self.montage.name
         n_pairs = self.montage.num_pairs
         if n_pairs > 26:

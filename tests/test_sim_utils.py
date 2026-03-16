@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tit.sim.config import SimulationMode, LabelMontage, XYZMontage
+from tit.sim.config import SimulationMode, Montage
 from tit.sim.utils import (
     ensure_montage_file,
     load_montage_data,
@@ -29,7 +29,6 @@ from tit.sim.utils import (
     load_montages,
     setup_montage_directories,
 )
-
 
 # ============================================================================
 # Montage file CRUD
@@ -203,7 +202,7 @@ class TestListMontageNames:
 class TestParseFlexMontage:
     """parse_flex_montage dispatches on montage type."""
 
-    def test_flex_mapped_returns_label_montage(self):
+    def test_flex_mapped_returns_montage_with_flex_mapped_mode(self):
         flex = {
             "name": "mapped1",
             "type": "flex_mapped",
@@ -211,7 +210,8 @@ class TestParseFlexMontage:
             "eeg_net": "GSN-256.csv",
         }
         m = parse_flex_montage(flex)
-        assert isinstance(m, LabelMontage)
+        assert not m.is_xyz
+        assert m.mode == Montage.Mode.FLEX_MAPPED
         assert m.name == "mapped1"
         assert m.electrode_pairs == [("E1", "E2"), ("E3", "E4")]
         assert m.eeg_net == "GSN-256.csv"
@@ -224,11 +224,12 @@ class TestParseFlexMontage:
             "electrode_positions": pos,
         }
         m = parse_flex_montage(flex)
-        assert isinstance(m, XYZMontage)
+        assert m.is_xyz
+        assert m.mode == Montage.Mode.FLEX_FREE
         assert m.name == "opt1"
         assert len(m.electrode_pairs) == 2
 
-    def test_freehand_xyz_returns_xyz_montage(self):
+    def test_freehand_xyz_returns_freehand_montage(self):
         pos = [[0, 0, 100], [0, 0, -100], [50, 0, 0], [-50, 0, 0]]
         flex = {
             "name": "fh1",
@@ -236,7 +237,8 @@ class TestParseFlexMontage:
             "electrode_positions": pos,
         }
         m = parse_flex_montage(flex)
-        assert isinstance(m, XYZMontage)
+        assert m.is_xyz
+        assert m.mode == Montage.Mode.FREEHAND
         assert m.name == "fh1"
 
     def test_unknown_type_raises_value_error(self):
@@ -285,7 +287,7 @@ class TestLoadFlexMontages:
 class TestLoadMontages:
     """load_montages loads named montages from montage_list.json."""
 
-    def test_loads_named_label_montages(self, tmp_project, init_pm):
+    def test_loads_named_montages_with_montage_mode(self, tmp_project, init_pm):
         pd = str(tmp_project)
         pairs = [["E1", "E2"], ["E3", "E4"]]
         upsert_montage(
@@ -298,7 +300,8 @@ class TestLoadMontages:
         # Disable flex loading to isolate named montages
         montages = load_montages(["m1"], pd, "GSN-256.csv", include_flex=False)
         assert len(montages) == 1
-        assert isinstance(montages[0], LabelMontage)
+        assert not montages[0].is_xyz
+        assert montages[0].mode == Montage.Mode.NET
         assert montages[0].name == "m1"
         assert montages[0].electrode_pairs == pairs
 
@@ -317,7 +320,7 @@ class TestLoadMontages:
         assert len(montages) == 1
         assert montages[0].name == "exists"
 
-    def test_freehand_net_returns_xyz_montage(self, tmp_project, init_pm):
+    def test_freehand_net_returns_freehand_montage(self, tmp_project, init_pm):
         pd = str(tmp_project)
         coords = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]
         upsert_montage(
@@ -329,7 +332,8 @@ class TestLoadMontages:
         )
         montages = load_montages(["fh"], pd, "freehand", include_flex=False)
         assert len(montages) == 1
-        assert isinstance(montages[0], XYZMontage)
+        assert montages[0].is_xyz
+        assert montages[0].mode == Montage.Mode.FREEHAND
 
 
 # ============================================================================

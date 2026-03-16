@@ -26,8 +26,8 @@ sims_path = pm.simulations("001")       # -> .../derivatives/SimNIBS/sub-001/Sim
 
 ```python
 from tit.sim import (
-    SimulationConfig, ElectrodeConfig, IntensityConfig,
-    ConductivityType, run_simulation, load_montages,
+    SimulationConfig, Montage,
+    run_simulation, load_montages,
 )
 
 # Load montages from the project's montage_list.json
@@ -37,21 +37,20 @@ montages = load_montages(
     eeg_net="GSN-HydroCel-185",
 )
 
-# Configure the simulation
+# Configure the simulation (montages are part of the config)
 config = SimulationConfig(
     subject_id="001",
     project_dir="/data/my_project",
-    conductivity_type=ConductivityType.SCALAR,
-    intensities=IntensityConfig(values=[1.0, 1.0]),
-    electrode=ElectrodeConfig(
-        shape="ellipse",
-        dimensions=[8.0, 8.0],
-        gel_thickness=4.0,
-    ),
+    montages=montages,
+    conductivity="scalar",
+    intensities=[1.0, 1.0],
+    electrode_shape="ellipse",
+    electrode_dimensions=[8.0, 8.0],
+    gel_thickness=4.0,
 )
 
 # Run (auto-detects TI vs mTI based on number of electrode pairs)
-results = run_simulation(config, montages)
+results = run_simulation(config)
 ```
 
 ### Simulation Types

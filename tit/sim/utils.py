@@ -24,9 +24,7 @@ from typing import Callable, Dict, List, Optional
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.sim.config import (
-    LabelMontage,
-    XYZMontage,
-    MontageConfig,
+    Montage,
     SimulationConfig,
     SimulationMode,
 )
@@ -108,18 +106,26 @@ def load_flex_montages(flex_file: Optional[str] = None) -> List[dict]:
     return [data.get("montage", data)]
 
 
-def parse_flex_montage(flex: dict) -> MontageConfig:
+def parse_flex_montage(flex: dict) -> Montage:
     name, mtype = flex["name"], flex["type"]
     if mtype == "flex_mapped":
         p = flex["pairs"]
-        return LabelMontage(
+        return Montage(
             name=name,
+            mode=Montage.Mode.FLEX_MAPPED,
             electrode_pairs=[(p[0][0], p[0][1]), (p[1][0], p[1][1])],
             eeg_net=flex.get("eeg_net") or "",
         )
     if mtype in ("flex_optimized", "freehand_xyz"):
         ep = flex["electrode_positions"]
-        return XYZMontage(name=name, electrode_pairs=[(ep[0], ep[1]), (ep[2], ep[3])])
+        mode = (
+            Montage.Mode.FLEX_FREE if mtype == "flex_optimized" else Montage.Mode.FREEHAND
+        )
+        return Montage(
+            name=name,
+            mode=mode,
+            electrode_pairs=[(ep[0], ep[1]), (ep[2], ep[3])],
+        )
     raise ValueError(f"Unknown flex montage type: {mtype!r}")
 
 
@@ -128,20 +134,25 @@ def load_montages(
     project_dir: str,
     eeg_net: str,
     include_flex: bool = True,
-) -> List[MontageConfig]:
+) -> List[Montage]:
     data = load_montage_data(project_dir)
     net = data.get("nets", {}).get(eeg_net, {})
     uni = net.get("uni_polar_montages", {})
     multi = net.get("multi_polar_montages", {})
-    is_xyz = eeg_net in ("freehand", "flex_mode")
+
+    if eeg_net == "freehand":
+        mode = Montage.Mode.FREEHAND
+    elif eeg_net == "flex_mode":
+        mode = Montage.Mode.FLEX_FREE
+    else:
+        mode = Montage.Mode.NET
 
     montages = [
-        (
-            XYZMontage(name=n, electrode_pairs=multi.get(n) or uni[n], eeg_net=eeg_net)
-            if is_xyz
-            else LabelMontage(
-                name=n, electrode_pairs=multi.get(n) or uni[n], eeg_net=eeg_net
-            )
+        Montage(
+            name=n,
+            mode=mode,
+            electrode_pairs=multi.get(n) or uni[n],
+            eeg_net=eeg_net,
         )
         for n in montage_names
         if n in multi or n in uni
@@ -213,7 +224,7 @@ def run_montage_visualization(
 
 def create_simulation_config_file(
     config: SimulationConfig,
-    montage: MontageConfig,
+    montage: Montage,
     documentation_dir: str,
     logger,
 ) -> None:
@@ -222,16 +233,17 @@ def create_simulation_config_file(
         "subject_id": config.subject_id,
         "simulation_name": montage.name,
         "simulation_mode": montage.simulation_mode.value,
+        "montage_mode": montage.mode.value,
         "eeg_net": montage.eeg_net,
-        "conductivity_type": config.conductivity_type.value,
+        "conductivity": config.conductivity,
         "electrode_pairs": montage.electrode_pairs,
         "is_xyz_montage": montage.is_xyz,
-        "intensities": {"values": config.intensities.values},
+        "intensities": config.intensities,
         "electrode_geometry": {
-            "shape": config.electrode.shape,
-            "dimensions": config.electrode.dimensions,
-            "gel_thickness": config.electrode.gel_thickness,
-            "rubber_thickness": config.electrode.rubber_thickness,
+            "shape": config.electrode_shape,
+            "dimensions": config.electrode_dimensions,
+            "gel_thickness": config.gel_thickness,
+            "rubber_thickness": config.rubber_thickness,
         },
         "mapping_options": {
             "map_to_surf": config.map_to_surf,
@@ -306,19 +318,17 @@ def safe_move(src: str, dest: str) -> None:
     shutil.move(src, dest)
 
 
-
-
 # ── Simulation Orchestration ────────────────────────────────────────────────────────────────
 
 
 def run_simulation(
     config: SimulationConfig,
-    montages: List[MontageConfig],
     logger=None,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
 ) -> List[dict]:
     """
     Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
+    Montages are read from ``config.montages``.
     Returns list of result dicts: montage_name, montage_type, status, output_mesh.
     """
     if logger is None:
@@ -336,6 +346,7 @@ def run_simulation(
     from tit.sim.TI import TISimulation
     from tit.sim.mTI import mTISimulation
 
+    montages = config.montages
     results = []
     total = len(montages)
     for idx, montage in enumerate(montages):

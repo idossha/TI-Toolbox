@@ -17,8 +17,8 @@ graph LR
 
 ```python
 from tit.sim import (
-    SimulationConfig, ElectrodeConfig, IntensityConfig,
-    ConductivityType, run_simulation, load_montages,
+    SimulationConfig, Montage,
+    run_simulation, load_montages,
 )
 
 # Load montages from the project's montage_list.json
@@ -28,21 +28,20 @@ montages = load_montages(
     eeg_net="GSN-HydroCel-185",
 )
 
-# Configure the simulation
+# Configure the simulation (montages are part of the config)
 config = SimulationConfig(
     subject_id="001",
     project_dir="/data/my_project",
-    conductivity_type=ConductivityType.SCALAR,
-    intensities=IntensityConfig(values=[1.0, 1.0]),
-    electrode=ElectrodeConfig(
-        shape="ellipse",
-        dimensions=[8.0, 8.0],
-        gel_thickness=4.0,
-    ),
+    montages=montages,
+    conductivity="scalar",
+    intensities=[1.0, 1.0],
+    electrode_shape="ellipse",
+    electrode_dimensions=[8.0, 8.0],
+    gel_thickness=4.0,
 )
 
 # Run (auto-detects TI vs mTI based on number of electrode pairs)
-results = run_simulation(config, montages)
+results = run_simulation(config)
 ```
 
 ## Simulation Modes
@@ -87,20 +86,26 @@ montages = load_montages(
 
 ## Conductivity Types
 
-| Type | Description |
-|------|-------------|
-| `ConductivityType.SCALAR` | Isotropic conductivity (default, faster) |
-| `ConductivityType.TENSOR` | Anisotropic conductivity from DTI data (requires diffusion preprocessing) |
+The `conductivity` field on `SimulationConfig` accepts one of four string values:
+
+| Value | Description |
+|-------|-------------|
+| `"scalar"` | Isotropic, piecewise-constant conductivity (default, faster) |
+| `"vn"` | Volume-normalized anisotropic conductivity from DTI data |
+| `"dir"` | Direct linear rescaling of diffusion tensor eigenvalues |
+| `"mc"` | Mean-conductivity (isotropic but spatially varying, from DTI) |
 
 ## Electrode Configuration
 
-```python
-from tit.sim import ElectrodeConfig
+Electrode parameters are flat fields on `SimulationConfig`:
 
-electrode = ElectrodeConfig(
-    shape="ellipse",         # "ellipse" or "rect"
-    dimensions=[8.0, 8.0],   # [width, height] in mm
-    gel_thickness=4.0,        # gel layer thickness in mm
+```python
+config = SimulationConfig(
+    ...,
+    electrode_shape="ellipse",         # "ellipse" or "rect"
+    electrode_dimensions=[8.0, 8.0],   # [width, height] in mm
+    gel_thickness=4.0,                  # gel layer thickness in mm
+    rubber_thickness=2.0,              # rubber layer thickness in mm
 )
 ```
 
@@ -135,17 +140,20 @@ derivatives/SimNIBS/sub-001/Simulations/
       show_root_heading: true
       members_order: source
 
-::: tit.sim.config.ElectrodeConfig
+::: tit.sim.config.Montage
     options:
       show_root_heading: true
       members_order: source
 
-::: tit.sim.config.IntensityConfig
+::: tit.sim.config.MontageMode
     options:
       show_root_heading: true
-      members_order: source
 
-::: tit.sim.config.ConductivityType
+::: tit.sim.config.SimulationMode
+    options:
+      show_root_heading: true
+
+::: tit.sim.config.parse_intensities
     options:
       show_root_heading: true
 

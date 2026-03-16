@@ -32,12 +32,8 @@ from tit.reporting import SimulationReportGenerator
 
 from tit.sim import (
     SimulationConfig,
-    ElectrodeConfig,
-    IntensityConfig,
-    LabelMontage,
-    XYZMontage,
-    MontageConfig,
-    ConductivityType,
+    Montage,
+    parse_intensities,
 )
 from tit.sim.utils import (
     list_montage_names,
@@ -766,12 +762,12 @@ class SimulatorTab(QtWidgets.QWidget):
             print(f"Error getting freehand configs for {subject_id}: {e}")
         return items
 
-    # ── MontageConfig builders ──────────────────────────────────────────────
+    # ── Montage builders ──────────────────────────────────────────────
 
     def _build_montage_configs_for_row(
         self, subject, source, sim_mode, selected_items, eeg_net
     ):
-        """Build list of MontageConfig objects for a single job row."""
+        """Build list of Montage objects for a single job row."""
         configs = []
         if source == "montage":
             configs = self._build_montage_configs_from_names(
@@ -786,7 +782,7 @@ class SimulatorTab(QtWidgets.QWidget):
         return configs
 
     def _build_montage_configs_from_names(self, montage_names, eeg_net, sim_mode):
-        """Build MontageConfig list from montage names."""
+        """Build Montage list from montage names."""
         try:
             project_dir = self.pm.project_dir
             return load_montages(
@@ -797,7 +793,7 @@ class SimulatorTab(QtWidgets.QWidget):
             return []
 
     def _build_montage_configs_from_flex(self, subject_id, selected_items, eeg_net):
-        """Build MontageConfig list from flex-search selection items."""
+        """Build Montage list from flex-search selection items."""
         from tit.opt.flex.manifest import read_manifest
 
         configs = []
@@ -911,8 +907,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
                     electrodes = mapped_labels[:4]
                     configs.append(
-                        LabelMontage(
+                        Montage(
                             name=montage_name,
+                            mode=Montage.Mode.FLEX_MAPPED,
                             electrode_pairs=[
                                 (electrodes[0], electrodes[1]),
                                 (electrodes[2], electrodes[3]),
@@ -933,8 +930,9 @@ class SimulatorTab(QtWidgets.QWidget):
                         continue
                     positions = optimized_positions[:4]
                     configs.append(
-                        XYZMontage(
+                        Montage(
                             name=montage_name,
+                            mode=Montage.Mode.FLEX_FREE,
                             electrode_pairs=[
                                 (positions[0], positions[1]),
                                 (positions[2], positions[3]),
@@ -948,7 +946,7 @@ class SimulatorTab(QtWidgets.QWidget):
         return configs
 
     def _build_montage_configs_from_freehand(self, subject_id, selected_names):
-        """Build MontageConfig list from freehand config names."""
+        """Build Montage list from freehand config names."""
         configs = []
         try:
             m2m_dir = self.pm.m2m(subject_id)
@@ -984,8 +982,9 @@ class SimulatorTab(QtWidgets.QWidget):
                                     coords.append(electrode_positions.get(k))
                         if len(coords) >= 4:
                             configs.append(
-                                XYZMontage(
+                                Montage(
                                     name=name,
+                                    mode=Montage.Mode.FREEHAND,
                                     electrode_pairs=[
                                         (coords[0], coords[1]),
                                         (coords[2], coords[3]),
@@ -1066,8 +1065,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 )
                 return
 
-            # ── Build MontageConfig objects for each job row ───────────────
-            jobs = []  # (subject_id, MontageConfig, current_str)
+            # ── Build Montage objects for each job row ───────────────
+            jobs = []  # (subject_id, Montage, current_str)
             for (
                 subject,
                 source,
@@ -1228,7 +1227,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self._had_errors_during_run = False
             self._simulation_finished_called = False
 
-            # ── Build SimulationConfig and MontageConfig list ──────────────
+            # ── Build SimulationConfig and Montage list ──────────────
             dim_parts2 = dimensions.split(",")
             electrode_dims = [float(dim_parts2[0]), float(dim_parts2[1])]
 
@@ -1238,27 +1237,25 @@ class SimulatorTab(QtWidgets.QWidget):
             # For simplicity (matching old one-job-at-a-time semantic), we run all jobs
 
             # Use the first job's subject_id/current for the top-level config;
-            # each MontageConfig carries its own eeg_net. run_simulation() accepts a
+            # each Montage carries its own eeg_net. run_simulation() accepts a
             # list of montages and iterates over them using config for shared params.
             first_subject, first_mc, first_current = jobs[0]
+            montage_list = [mc for _, mc, _ in jobs]
             sim_config = SimulationConfig(
                 subject_id=first_subject,
                 project_dir=project_dir,
-                conductivity_type=ConductivityType(conductivity),
-                intensities=IntensityConfig.from_string(first_current),
-                electrode=ElectrodeConfig(
-                    shape=electrode_shape,
-                    dimensions=electrode_dims,
-                    gel_thickness=float(thickness),
-                ),
+                montages=montage_list,
+                conductivity=conductivity,
+                intensities=parse_intensities(first_current),
+                electrode_shape=electrode_shape,
+                electrode_dimensions=electrode_dims,
+                gel_thickness=float(thickness),
             )
-            montage_list = [mc for _, mc, _ in jobs]
 
-            # ── Serialize config + montages to JSON ───────────────────────
+            # ── Serialize config to JSON ──────────────────────────────────
             import tempfile
 
             config_data = serialize_config(sim_config)
-            config_data["montages"] = [serialize_config(m) for m in montage_list]
             fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
             with os.fdopen(fd, "w") as f:
                 json.dump(config_data, f, indent=2)

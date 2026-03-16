@@ -34,7 +34,7 @@ The `tit/config_io.py` module handles serialization of typed config dataclasses 
 
 - **Enum fields** -- serialized as their `.value`
 - **Nested dataclasses** -- recursively serialized
-- **Union-typed fields** -- uses a `_type` discriminator to identify the concrete class (e.g., `SphericalROI`, `AtlasROI`, `LabelMontage`, `XYZMontage`)
+- **Union-typed fields** -- uses a `_type` discriminator to identify the concrete class (e.g., `SphericalROI`, `AtlasROI`)
 
 ```python
 from tit.config_io import write_config_json, read_config_json
@@ -188,8 +188,8 @@ See also: `scripts/optimizer.py`
 
 ```python
 from tit.sim import (
-    SimulationConfig, ElectrodeConfig, IntensityConfig,
-    ConductivityType, LabelMontage, run_simulation, load_montages,
+    SimulationConfig, Montage, Montage.Mode,
+    run_simulation, load_montages,
 )
 
 # Load pre-defined montages from the project's montage file
@@ -201,8 +201,9 @@ montages = load_montages(
 
 # Or define montages manually
 montages = [
-    LabelMontage(
+    Montage(
         name="montage1",
+        mode=Montage.Mode.NET,
         electrode_pairs=[("E1", "E2"), ("E3", "E4")],
         eeg_net="GSN-HydroCel-256",
     ),
@@ -211,17 +212,16 @@ montages = [
 config = SimulationConfig(
     subject_id="101",
     project_dir="/path/to/project",
-    conductivity_type=ConductivityType.SCALAR,
-    intensities=IntensityConfig(values=[1.0, 1.0]),
-    electrode=ElectrodeConfig(
-        shape="ellipse",
-        dimensions=[8.0, 8.0],
-        gel_thickness=4.0,
-        rubber_thickness=2.0,
-    ),
+    montages=montages,
+    conductivity="scalar",
+    intensities=[1.0, 1.0],
+    electrode_shape="ellipse",
+    electrode_dimensions=[8.0, 8.0],
+    gel_thickness=4.0,
+    rubber_thickness=2.0,
 )
 
-run_simulation(config, montages)
+run_simulation(config)
 ```
 
 See also: `scripts/simulator.py`

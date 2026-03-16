@@ -7,25 +7,21 @@ import logging
 import sys
 
 from tit.paths import get_path_manager
-from tit.sim.config import (
-    ConductivityType,
-    ElectrodeConfig,
-    IntensityConfig,
-    LabelMontage,
-    SimulationConfig,
-    XYZMontage,
-)
+from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import run_simulation
 
 
-def _build_montage(data: dict):
+def _build_montage(data: dict) -> Montage:
     data = dict(data)
     data.pop("_type", None)
     pairs = [tuple(p) for p in data.pop("electrode_pairs")]
-    is_xyz = data.pop("is_xyz", False)
-    if is_xyz:
-        return XYZMontage(electrode_pairs=pairs, **data)
-    return LabelMontage(electrode_pairs=pairs, **data)
+    mode = Montage.Mode(data.pop("mode"))
+    return Montage(
+        name=data.pop("name"),
+        mode=mode,
+        electrode_pairs=pairs,
+        eeg_net=data.pop("eeg_net", None),
+    )
 
 
 def _make_stdout_logger() -> logging.Logger:
@@ -50,25 +46,28 @@ def main() -> None:
     montages_data = data.pop("montages")
     montages = [_build_montage(m) for m in montages_data]
 
-    electrode = ElectrodeConfig(**data.pop("electrode"))
-    raw_intensities = data.pop("intensities")
-    if "values" in raw_intensities:
-        intensities = IntensityConfig(values=raw_intensities["values"])
-    else:
-        # Legacy format: {pair1: ..., pair2: ..., ...}
-        vals = [raw_intensities[k] for k in sorted(raw_intensities.keys())]
-        intensities = IntensityConfig(values=vals)
-    conductivity_type = ConductivityType(data.pop("conductivity_type"))
-
     config = SimulationConfig(
-        conductivity_type=conductivity_type,
-        intensities=intensities,
-        electrode=electrode,
-        **data,
+        subject_id=data["subject_id"],
+        project_dir=data["project_dir"],
+        montages=montages,
+        conductivity=data.get("conductivity", "scalar"),
+        intensities=data.get("intensities", [1.0, 1.0]),
+        electrode_shape=data.get("electrode_shape", "ellipse"),
+        electrode_dimensions=data.get("electrode_dimensions", [8.0, 8.0]),
+        gel_thickness=data.get("gel_thickness", 4.0),
+        rubber_thickness=data.get("rubber_thickness", 2.0),
+        map_to_surf=data.get("map_to_surf", True),
+        map_to_vol=data.get("map_to_vol", False),
+        map_to_mni=data.get("map_to_mni", False),
+        map_to_fsavg=data.get("map_to_fsavg", False),
+        open_in_gmsh=data.get("open_in_gmsh", False),
+        tissues_in_niftis=data.get("tissues_in_niftis", "all"),
+        aniso_maxratio=data.get("aniso_maxratio", 10.0),
+        aniso_maxcond=data.get("aniso_maxcond", 2.0),
     )
 
     logger = _make_stdout_logger()
-    results = run_simulation(config, montages, logger=logger)
+    results = run_simulation(config, logger=logger)
     failed = [r for r in results if r.get("status") == "failed"]
     sys.exit(1 if failed else 0)
 

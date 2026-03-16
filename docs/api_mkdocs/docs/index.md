@@ -51,8 +51,8 @@ graph TD
 
 ```python
 from tit import setup_logging, get_path_manager
-from tit.sim import SimulationConfig, ElectrodeConfig, IntensityConfig
-from tit.sim import ConductivityType, run_simulation, load_montages
+from tit.sim import SimulationConfig, Montage
+from tit.sim import run_simulation, load_montages
 from tit.analyzer import Analyzer
 from tit.opt import FlexConfig, SphericalROI, run_flex_search
 
@@ -61,15 +61,15 @@ setup_logging("INFO")
 pm = get_path_manager("/path/to/project", "001")
 
 # Run a simulation
+montages = load_montages(["my_montage"], "/path/to/project", "GSN-HydroCel-185")
 config = SimulationConfig(
     subject_id="001",
     project_dir="/path/to/project",
-    conductivity_type=ConductivityType.SCALAR,
-    intensities=IntensityConfig(values=[1.0, 1.0]),
-    electrode=ElectrodeConfig(),
+    montages=montages,
+    conductivity="scalar",
+    intensities=[1.0, 1.0],
 )
-montages = load_montages(["my_montage"], "/path/to/project", "GSN-HydroCel-185")
-results = run_simulation(config, montages)
+results = run_simulation(config)
 
 # Analyze results
 analyzer = Analyzer(subject_id="001", simulation="my_montage", space="mesh")
