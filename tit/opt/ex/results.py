@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 
-def save_json(results: Dict, output_dir: str, logger: Any) -> str:
+def save_json(results: dict, output_dir: str, logger: Any) -> str:
     """Write results dict to JSON."""
     path = os.path.join(output_dir, "analysis_results.json")
     with open(path, "w") as f:
@@ -18,7 +18,7 @@ def save_json(results: Dict, output_dir: str, logger: Any) -> str:
 
 
 def build_csv_rows(
-    results: Dict, roi_name: str
+    results: dict, roi_name: str
 ) -> tuple[list[list], list[float], list[float], list[float], list[float]]:
     """Build CSV rows and extract metric arrays for plotting."""
     header = [
@@ -64,7 +64,7 @@ def build_csv_rows(
     return rows, timax_vals, timean_vals, foc_vals, comp_vals
 
 
-def save_csv(results: Dict, roi_name: str, output_dir: str, logger: Any) -> str:
+def save_csv(results: dict, roi_name: str, output_dir: str, logger: Any) -> str:
     """Write final_output.csv."""
     rows, *_ = build_csv_rows(results, roi_name)
     path = os.path.join(output_dir, "final_output.csv")
@@ -75,7 +75,7 @@ def save_csv(results: Dict, roi_name: str, output_dir: str, logger: Any) -> str:
 
 
 def generate_plots(
-    results: Dict,
+    results: dict,
     roi_name: str,
     output_dir: str,
     logger: Any,
@@ -130,8 +130,8 @@ def generate_plots(
 
 
 def process_and_save(
-    results: Dict, roi_name: str, output_dir: str, logger: Any
-) -> Dict:
+    results: dict, roi_name: str, output_dir: str, logger: Any
+) -> dict:
     """Full results pipeline: JSON + CSV + plots. Returns summary dict."""
     json_path = save_json(results, output_dir, logger)
     rows, timax_vals, timean_vals, foc_vals, comp_vals = build_csv_rows(

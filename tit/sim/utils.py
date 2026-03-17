@@ -202,7 +202,7 @@ def run_montage_visualization(
     output_dir: str,
     project_dir: str,
     logger,
-    electrode_pairs: List | None = None,
+    electrode_pairs: list | None = None,
 ) -> None:
     if eeg_net in ("freehand", "flex_mode"):
         logger.info(f"Skipping montage visualization for {eeg_net} mode")
