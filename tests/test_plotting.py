@@ -464,12 +464,15 @@ class TestGenerateStaticOverlayImages:
     """Tests for generate_static_overlay_images."""
 
     @pytest.fixture(autouse=True)
-    def _reset_plt_savefig(self):
-        """Reset plt.savefig side_effect after each test to avoid leaks."""
+    def _reset_shared_mocks(self):
+        """Reset shared mock side_effects after each test to avoid leaks."""
         yield
         import matplotlib.pyplot as plt
+        import nibabel as nib
         plt.savefig.side_effect = None
         plt.savefig.reset_mock()
+        nib.load.side_effect = None
+        nib.load.reset_mock()
 
     def test_basic_overlay_generation(self):
         import matplotlib.pyplot as plt
