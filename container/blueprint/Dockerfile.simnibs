@@ -159,13 +159,10 @@ RUN simnibs_python -m pip install \
     && simnibs_python -m pip install "numpy>=2.0" --upgrade
 
 
-# Install Neovim v.0.11.0 from source 
-RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
-    && cd /tmp/neovim \
-    && git checkout v0.11.0 \
-    && make CMAKE_BUILD_TYPE=Release \ 
-    && make install \
-    && rm -rf /tmp/neovim
+# Install Neovim v0.11.0 from prebuilt binary
+RUN wget https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-x86_64.tar.gz \
+    && tar xzf nvim-linux-x86_64.tar.gz -C /usr/local --strip-components=1 \
+    && rm nvim-linux-x86_64.tar.gz
 
 
 ########### TI-Toolbox ########################
