@@ -106,13 +106,39 @@ class NotesWindow(QtWidgets.QDialog):
                 self, "Save Error", f"Could not save notes: {e}"
             )
 
+    # Abbreviation → IANA timezone mapping
+    _ABBREV_TO_IANA = {
+        "CDT": "America/Chicago",
+        "CST": "America/Chicago",
+        "EDT": "America/New_York",
+        "EST": "America/New_York",
+        "MDT": "America/Denver",
+        "MST": "America/Denver",
+        "PDT": "America/Los_Angeles",
+        "PST": "America/Los_Angeles",
+        "AKDT": "America/Anchorage",
+        "AKST": "America/Anchorage",
+        "HST": "Pacific/Honolulu",
+        "GMT": "Europe/London",
+        "BST": "Europe/London",
+        "CET": "Europe/Berlin",
+        "CEST": "Europe/Berlin",
+        "IST": "Asia/Kolkata",
+        "JST": "Asia/Tokyo",
+        "AEST": "Australia/Sydney",
+        "AEDT": "Australia/Sydney",
+    }
+
     def _get_timestamp_with_timezone(self):
         """Get current timestamp with timezone from host machine."""
-        import time
+        import os
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
 
-        # time.strftime respects the TZ env var natively — works with
-        # abbreviations (CDT, EST) and IANA names (America/Chicago) alike.
-        return time.strftime("%Y-%m-%d %H:%M:%S %Z")
+        tz_name = os.environ.get("TZ", "UTC")
+        iana = tz_name if "/" in tz_name else self._ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
+        dt = datetime.now(ZoneInfo(iana))
+        return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
     def setup_ui(self):
         """Set up the notes UI."""
