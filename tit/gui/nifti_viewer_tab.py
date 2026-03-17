@@ -1202,10 +1202,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         try:
-            # Close any existing Freeview process
-            if self.freeview_process is not None:
-                self.terminate_freeview()
-
             # Store the current files for potential reload
             self.current_files = file_specs
             self.current_paths = (
@@ -1248,7 +1244,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Construct the command
             base_command = ["freeview"] + freeview_args
 
-            # Launch Freeview
+            # Launch a new Freeview instance without closing any existing windows.
             self.freeview_process = subprocess.Popen(
                 base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
