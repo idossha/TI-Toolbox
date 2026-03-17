@@ -1,5 +1,12 @@
 #!/usr/bin/env simnibs_python
-"""Full TI-Toolbox pipeline: preprocess -> leadfield -> optimize -> simulate -> analyze."""
+"""
+Full TI-Toolbox pipeline: 
+
+    preprocess -> optimize -> simulate -> analyze.
+
+By Ido Haber
+March 2026
+"""
 
 import tit
 
