@@ -2,22 +2,12 @@
 """Full TI-Toolbox pipeline: preprocess -> leadfield -> optimize -> simulate -> analyze."""
 
 import tit
+
 tit.init()
 
 from tit.pre import run_pipeline
-from tit.opt import FlexConfig, FlexElectrodeConfig, SphericalROI, run_flex_search
-from tit.opt.leadfield import LeadfieldGenerator
-from tit.opt.ex import (
-    ExConfig,
-    PoolElectrodes,
-    ExCurrentConfig,
-    run_ex_search,
-)
-from tit.sim import (
-    SimulationConfig,
-    run_simulation,
-    load_montages,
-)
+from tit.opt import FlexConfig, run_flex_search
+from tit.sim import SimulationConfig, run_simulation, load_montages
 from tit.analyzer import Analyzer
 
 PROJECT_DIR = "/mnt/000/"
@@ -30,18 +20,12 @@ run_pipeline(
     project_dir=PROJECT_DIR,
     subject_ids=SUBJECTS,
     convert_dicom=False,
-    run_recon=True,
-    create_m2m=True,
-    run_tissue_analysis=True,
+    run_recon=False,
+    create_m2m=False,
+    run_tissue_analysis=False,
 )
 
-# ── 2. Leadfield ─────────────────────────────────────────────────────────────
-
-for subject_id in SUBJECTS:
-    lfg = LeadfieldGenerator(subject_id, electrode_cap="EEG10-20_Okamoto_2004")
-    lf = lfg.generate()
-
-# ── 3A. Flex Optimization ──────────────────────────────────────────────────────────
+# ── 2. Flex Optimization ──────────────────────────────────────────────────────────
 
 for subject_id in SUBJECTS:
     flex_config = FlexConfig(
@@ -50,27 +34,14 @@ for subject_id in SUBJECTS:
         goal="mean",
         postproc="max_TI",
         current_mA=2.0,
-        electrode=FlexElectrodeConfig(),
-        roi=SphericalROI(x=0, y=0, z=0, radius=10.0),
+        n_multistart=3,
+        electrode=FlexConfig.ElectrodeConfig(),
+        roi=FlexConfig.SphericalROI(x=0, y=0, z=0, radius=10.0),
     )
     run_flex_search(flex_config)
 
-# ── 3B. Ex Optimization ──────────────────────────────────────────────────────────
 
-for subject_id in SUBJECTS:
-    ex_config = ExConfig(
-        subject_id=subject_id,
-        project_dir=PROJECT_DIR,
-        leadfield_hdf=lf,
-        roi_name="L_Hippo",
-        electrodes=PoolElectrodes(["E010", "E020", "E030", "E040", "E050", "E060"]),
-        currents=ExCurrentConfig(total_current=2.0, current_step=0.2),
-        eeg_net="GSN-HydroCel-185.csv",
-    )
-    run_ex_search(ex_config)
-
-
-# ── 4. Simulation ────────────────────────────────────────────────────────────
+# ── 3. Simulation ────────────────────────────────────────────────────────────
 
 montages = load_montages(
     montage_names=["L_Insula"],
@@ -92,7 +63,7 @@ for subject_id in SUBJECTS:
     )
     run_simulation(config)
 
-# ── 5. Analysis ──────────────────────────────────────────────────────────────
+# ── 4. Analysis ──────────────────────────────────────────────────────────────
 
 for subject_id in SUBJECTS:
     analyzer = Analyzer(

@@ -6,7 +6,7 @@ tit.init()
 from tit.pre import run_pipeline
 
 PROJECT_DIR = "/mnt/000/"
-SUBJECTS = ["101", "ernie"]
+SUBJECTS = ["ernie"]
 
 run_pipeline(
     project_dir=PROJECT_DIR,
