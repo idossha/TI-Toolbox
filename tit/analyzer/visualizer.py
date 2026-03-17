@@ -9,15 +9,12 @@ NIfTI overlays, histograms, CSV) without any shared mutable state.
 import csv
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 import nibabel as nib
 import numpy as np
 
 from tit.paths import get_path_manager
-
-if TYPE_CHECKING:
-    from typing import Any
 
 logger = logging.getLogger(__name__)
 

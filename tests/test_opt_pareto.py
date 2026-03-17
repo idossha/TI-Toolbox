@@ -26,7 +26,11 @@ from tit.opt.flex.pareto import (
     validate_grid,
     _promote_best_run,
 )
-from tit.opt.config import FlexConfig, FlexElectrodeConfig, SphericalROI
+from tit.opt.config import FlexConfig
+
+# Convenience aliases for nested types
+SphericalROI = FlexConfig.SphericalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

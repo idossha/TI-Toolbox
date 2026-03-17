@@ -22,7 +22,7 @@ if str(project_root) not in sys.path:
 class TestExMainBuildElectrodes:
     def test_pool_from_type(self):
         from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import PoolElectrodes
+        from tit.opt.config import ExConfig
 
         result = _build_electrodes(
             {
@@ -30,12 +30,12 @@ class TestExMainBuildElectrodes:
                 "electrodes": ["E1", "E2", "E3"],
             }
         )
-        assert isinstance(result, PoolElectrodes)
+        assert isinstance(result, ExConfig.PoolElectrodes)
         assert result.electrodes == ["E1", "E2", "E3"]
 
     def test_bucket_from_type(self):
         from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import BucketElectrodes
+        from tit.opt.config import ExConfig
 
         result = _build_electrodes(
             {
@@ -46,23 +46,23 @@ class TestExMainBuildElectrodes:
                 "e2_minus": ["B2"],
             }
         )
-        assert isinstance(result, BucketElectrodes)
+        assert isinstance(result, ExConfig.BucketElectrodes)
         assert result.e1_plus == ["A1"]
 
     def test_pool_inferred_from_electrodes_key(self):
         from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import PoolElectrodes
+        from tit.opt.config import ExConfig
 
         result = _build_electrodes(
             {
                 "electrodes": ["E1", "E2"],
             }
         )
-        assert isinstance(result, PoolElectrodes)
+        assert isinstance(result, ExConfig.PoolElectrodes)
 
     def test_bucket_inferred_from_bucket_keys(self):
         from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import BucketElectrodes
+        from tit.opt.config import ExConfig
 
         result = _build_electrodes(
             {
@@ -72,11 +72,11 @@ class TestExMainBuildElectrodes:
                 "e2_minus": ["B2"],
             }
         )
-        assert isinstance(result, BucketElectrodes)
+        assert isinstance(result, ExConfig.BucketElectrodes)
 
     def test_unknown_type_with_electrodes(self):
         from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import PoolElectrodes
+        from tit.opt.config import ExConfig
 
         result = _build_electrodes(
             {
@@ -84,7 +84,7 @@ class TestExMainBuildElectrodes:
                 "electrodes": ["E1"],
             }
         )
-        assert isinstance(result, PoolElectrodes)
+        assert isinstance(result, ExConfig.PoolElectrodes)
 
 
 @pytest.mark.unit
@@ -109,10 +109,8 @@ class TestExMainFunction:
                 "_type": "PoolElectrodes",
                 "electrodes": ["E1", "E2", "E3", "E4"],
             },
-            "currents": {
-                "total_current": 2.0,
-                "current_step": 0.5,
-            },
+            "total_current": 2.0,
+            "current_step": 0.5,
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config_data))
@@ -157,7 +155,7 @@ class TestExMainFunction:
     @patch("tit.opt.ex.__main__.run_ex_search")
     @patch("tit.opt.ex.__main__._make_stdout_logger")
     def test_main_no_currents(self, mock_logger, mock_run, tmp_path):
-        from tit.opt.config import ExResult, ExCurrentConfig
+        from tit.opt.config import ExResult
 
         mock_run.return_value = ExResult(
             success=True,
@@ -184,9 +182,10 @@ class TestExMainFunction:
                 main()
             assert exc_info.value.code == 0
 
-        # Verify default currents used
+        # Verify default current fields used
         call_args = mock_run.call_args[0][0]
-        assert isinstance(call_args.currents, ExCurrentConfig)
+        assert call_args.total_current == 2.0
+        assert call_args.current_step == 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +197,7 @@ class TestExMainFunction:
 class TestFlexMainBuildROI:
     def test_build_spherical_roi(self):
         from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import SphericalROI
+        from tit.opt.config import FlexConfig
 
         result = _build_roi(
             {
@@ -209,12 +208,12 @@ class TestFlexMainBuildROI:
                 "radius": 10.0,
             }
         )
-        assert isinstance(result, SphericalROI)
+        assert isinstance(result, FlexConfig.SphericalROI)
         assert result.x == -42.0
 
     def test_build_atlas_roi(self):
         from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import AtlasROI
+        from tit.opt.config import FlexConfig
 
         result = _build_roi(
             {
@@ -224,12 +223,12 @@ class TestFlexMainBuildROI:
                 "hemisphere": "lh",
             }
         )
-        assert isinstance(result, AtlasROI)
+        assert isinstance(result, FlexConfig.AtlasROI)
         assert result.label == 1001
 
     def test_build_subcortical_roi(self):
         from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import SubcorticalROI
+        from tit.opt.config import FlexConfig
 
         result = _build_roi(
             {
@@ -238,7 +237,7 @@ class TestFlexMainBuildROI:
                 "label": 11,
             }
         )
-        assert isinstance(result, SubcorticalROI)
+        assert isinstance(result, FlexConfig.SubcorticalROI)
 
     def test_build_none_roi(self):
         from tit.opt.flex.__main__ import _build_roi

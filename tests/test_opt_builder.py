@@ -23,13 +23,13 @@ for mod_name in (
     if mod_name not in sys.modules:
         sys.modules[mod_name] = MagicMock()
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    FlexElectrodeConfig,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig
+
+# Convenience aliases for nested types
+SphericalROI = FlexConfig.SphericalROI
+AtlasROI = FlexConfig.AtlasROI
+SubcorticalROI = FlexConfig.SubcorticalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

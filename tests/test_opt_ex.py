@@ -12,11 +12,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from tit.opt.config import (
-    BucketElectrodes,
     ExConfig,
-    ExCurrentConfig,
     ExResult,
-    PoolElectrodes,
 )
 
 # ---------------------------------------------------------------------------
@@ -30,9 +27,10 @@ def _make_ex_config(**overrides):
         project_dir="/proj",
         leadfield_hdf="/lf.hdf5",
         roi_name="motor.csv",
-        electrodes=PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
-        currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
-        eeg_net="EEG10-10",
+        electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
+        total_current=2.0,
+        current_step=0.5,
+        run_name="EEG10-10",
     )
     defaults.update(overrides)
     return ExConfig(**defaults)
@@ -63,7 +61,7 @@ class TestRunExSearch:
         engine.run.return_value = {"montage_1": {"val": 0.5}}
 
         mock_save.return_value = {
-            "json_path": str(tmp_path / "results.json"),
+            "config_json_path": str(tmp_path / "results.json"),
             "csv_path": str(tmp_path / "results.csv"),
         }
 
@@ -77,6 +75,9 @@ class TestRunExSearch:
         engine.initialize.assert_called_once()
         engine.run.assert_called_once()
         mock_save.assert_called_once()
+        # process_and_save receives config object, not roi_name string
+        save_call_args = mock_save.call_args
+        assert save_call_args[0][1] is config
 
     @patch("tit.opt.ex.ex.process_and_save")
     @patch("tit.opt.ex.ex.ExSearchEngine")
@@ -96,14 +97,14 @@ class TestRunExSearch:
         engine.run.return_value = {"m1": {"v": 1}}
 
         mock_save.return_value = {
-            "json_path": "/j.json",
+            "config_json_path": "/j.json",
             "csv_path": "/c.csv",
         }
 
         from tit.opt.ex.ex import run_ex_search
 
         config = _make_ex_config(
-            electrodes=BucketElectrodes(
+            electrodes=ExConfig.BucketElectrodes(
                 e1_plus=["A1"],
                 e1_minus=["A2"],
                 e2_plus=["B1"],
@@ -136,14 +137,14 @@ class TestRunExSearch:
         mock_engine_cls.return_value = engine
         engine.run.return_value = {}
 
-        mock_save.return_value = {"json_path": "/j", "csv_path": "/c"}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
 
         from tit.opt.ex.ex import run_ex_search
 
         config = _make_ex_config(
-            currents=ExCurrentConfig(
-                total_current=4.0, current_step=0.5, channel_limit=None
-            ),
+            total_current=4.0,
+            current_step=0.5,
+            channel_limit=None,
         )
         run_ex_search(config)
 
@@ -167,7 +168,7 @@ class TestRunExSearch:
         mock_engine_cls.return_value = engine
         engine.run.return_value = {}
 
-        mock_save.return_value = {"json_path": "/j", "csv_path": "/c"}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
 
         from tit.opt.ex.ex import run_ex_search
 
@@ -194,7 +195,7 @@ class TestRunExSearch:
         engine.run.return_value = {"m1": {}, "m2": {}, "m3": {}}
 
         mock_save.return_value = {
-            "json_path": "/results.json",
+            "config_json_path": "/results.json",
             "csv_path": "/results.csv",
         }
 
@@ -206,5 +207,5 @@ class TestRunExSearch:
         assert isinstance(result, ExResult)
         assert result.success is True
         assert result.n_combinations == 3
-        assert result.results_json == "/results.json"
+        assert result.config_json == "/results.json"
         assert result.results_csv == "/results.csv"

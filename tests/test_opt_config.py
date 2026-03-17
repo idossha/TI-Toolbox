@@ -20,21 +20,20 @@ if str(project_root) not in sys.path:
 # Import directly from tit.opt.config (not tit.opt) to avoid triggering
 # tit.opt.__init__ which imports ex/flex engines that need simnibs.
 from tit.opt.config import (
-    AtlasROI,
-    BucketElectrodes,
     ExConfig,
-    ExCurrentConfig,
     ExResult,
-    FieldPostproc,
     FlexConfig,
-    FlexElectrodeConfig,
     FlexResult,
-    NonROIMethod,
-    OptGoal,
-    PoolElectrodes,
-    SphericalROI,
-    SubcorticalROI,
 )
+
+# Convenience aliases for nested types
+OptGoal = FlexConfig.OptGoal
+FieldPostproc = FlexConfig.FieldPostproc
+NonROIMethod = FlexConfig.NonROIMethod
+SphericalROI = FlexConfig.SphericalROI
+AtlasROI = FlexConfig.AtlasROI
+SubcorticalROI = FlexConfig.SubcorticalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -126,18 +125,18 @@ class TestFlexConfigValidation:
 class TestExConfigValidation:
     """ExConfig __post_init__ coercion and validation."""
 
-    def test_dict_to_current_config(self):
+    def test_flat_current_fields(self):
         cfg = ExConfig(
             subject_id="001",
             project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
-            electrodes=PoolElectrodes(electrodes=["E1", "E2"]),
-            currents={"total_current": 3.0, "current_step": 1.0},
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2"]),
+            total_current=3.0,
+            current_step=1.0,
         )
-        assert isinstance(cfg.currents, ExCurrentConfig)
-        assert cfg.currents.total_current == 3.0
-        assert cfg.currents.current_step == 1.0
+        assert cfg.total_current == 3.0
+        assert cfg.current_step == 1.0
 
     def test_dict_to_pool_electrodes(self):
         cfg = ExConfig(
@@ -147,7 +146,7 @@ class TestExConfigValidation:
             roi_name="region",
             electrodes={"electrodes": ["E1", "E2", "E3"]},
         )
-        assert isinstance(cfg.electrodes, PoolElectrodes)
+        assert isinstance(cfg.electrodes, ExConfig.PoolElectrodes)
         assert cfg.electrodes.electrodes == ["E1", "E2", "E3"]
 
     def test_dict_to_bucket_electrodes(self):
@@ -163,7 +162,7 @@ class TestExConfigValidation:
                 "e2_minus": ["B2"],
             },
         )
-        assert isinstance(cfg.electrodes, BucketElectrodes)
+        assert isinstance(cfg.electrodes, ExConfig.BucketElectrodes)
         assert cfg.electrodes.e1_plus == ["A1"]
 
     def test_roi_name_gets_csv_suffix(self):
@@ -172,7 +171,7 @@ class TestExConfigValidation:
             project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region",
-            electrodes=PoolElectrodes(electrodes=["E1"]),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
         )
         assert cfg.roi_name == "my_region.csv"
 
@@ -182,9 +181,42 @@ class TestExConfigValidation:
             project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region.csv",
-            electrodes=PoolElectrodes(electrodes=["E1"]),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
         )
         assert cfg.roi_name == "my_region.csv"
+
+    def test_ex_config_rejects_zero_step(self):
+        with pytest.raises(ValueError, match="current_step must be positive"):
+            ExConfig(
+                subject_id="001",
+                project_dir="/proj",
+                leadfield_hdf="/lf.hdf5",
+                roi_name="region",
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                current_step=0,
+            )
+
+    def test_ex_config_rejects_negative_total(self):
+        with pytest.raises(ValueError, match="total_current must be positive"):
+            ExConfig(
+                subject_id="001",
+                project_dir="/proj",
+                leadfield_hdf="/lf.hdf5",
+                roi_name="region",
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                total_current=-1.0,
+            )
+
+    def test_ex_config_rejects_negative_channel_limit(self):
+        with pytest.raises(ValueError, match="channel_limit must be positive"):
+            ExConfig(
+                subject_id="001",
+                project_dir="/proj",
+                leadfield_hdf="/lf.hdf5",
+                roi_name="region",
+                electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
+                channel_limit=-0.5,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -250,12 +282,12 @@ class TestExResult:
             output_dir="/out/ex",
             n_combinations=500,
             results_csv="/out/results.csv",
-            results_json="/out/results.json",
+            config_json="/out/results.json",
         )
         assert result.success is True
         assert result.n_combinations == 500
         assert result.results_csv == "/out/results.csv"
-        assert result.results_json == "/out/results.json"
+        assert result.config_json == "/out/results.json"
 
     def test_construction_with_optional_none(self):
         result = ExResult(
@@ -264,10 +296,4 @@ class TestExResult:
             n_combinations=0,
         )
         assert result.results_csv is None
-        assert result.results_json is None
-
-    def test_ex_current_config_defaults(self):
-        cc = ExCurrentConfig()
-        assert cc.total_current == 2.0
-        assert cc.current_step == 0.5
-        assert cc.channel_limit is None
+        assert result.config_json is None

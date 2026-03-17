@@ -11,7 +11,6 @@ ensure_leadfield(subject_id, eeg_net, *, project_dir, tissues, force) -> Path
     Return an existing leadfield path or generate a new one.
 """
 
-
 import glob
 import logging
 import os

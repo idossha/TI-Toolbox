@@ -4,7 +4,6 @@ Replaces: runner.py (5 classes), roi_utils.py (4 functions).
 Direct SimNIBS usage — ROI metrics are computed inline.
 """
 
-
 import csv
 import logging
 import os

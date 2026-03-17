@@ -4,91 +4,80 @@ Pure Python — no SimNIBS, numpy, or heavy dependencies.
 Mirrors the tit.sim.config pattern.
 """
 
-
 from dataclasses import dataclass, field
 from enum import StrEnum
-
-# ── Enums ──────────────────────────────────────────────────────────────────
-
-
-class OptGoal(StrEnum):
-    """Optimization goal."""
-
-    MEAN = "mean"
-    MAX = "max"
-    FOCALITY = "focality"
-
-
-class FieldPostproc(StrEnum):
-    """Field post-processing method."""
-
-    MAX_TI = "max_TI"
-    DIR_TI_NORMAL = "dir_TI_normal"
-    DIR_TI_TANGENTIAL = "dir_TI_tangential"
-
-
-class NonROIMethod(StrEnum):
-    """Non-ROI specification method for focality optimization."""
-
-    EVERYTHING_ELSE = "everything_else"
-    SPECIFIC = "specific"
-
-
-# ── Flex-search ROI types ────────────────────────────────────────────────────
-
-
-@dataclass
-class SphericalROI:
-    """Spherical region of interest defined by center + radius."""
-
-    x: float
-    y: float
-    z: float
-    radius: float = 10.0
-    use_mni: bool = False
-
-
-@dataclass
-class AtlasROI:
-    """Cortical surface ROI from a FreeSurfer annotation atlas."""
-
-    atlas_path: str
-    label: int
-    hemisphere: str = "lh"
-
-
-@dataclass
-class SubcorticalROI:
-    """Subcortical volume ROI from a volumetric atlas."""
-
-    atlas_path: str
-    label: int
-    tissues: str = "GM"  # "GM", "WM", or "both"
-
-
-ROISpec = SphericalROI | AtlasROI | SubcorticalROI
-
 
 # ── Flex-search config ───────────────────────────────────────────────────────
 
 
 @dataclass
-class FlexElectrodeConfig:
-    """Electrode geometry for flex-search.
-
-    Only gel_thickness is needed here — the optimization leadfield uses
-    point electrodes; gel_thickness is recorded in the manifest for
-    downstream simulation.
-    """
-
-    shape: str = "ellipse"  # "ellipse" or "rect"
-    dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
-    gel_thickness: float = 4.0
-
-
-@dataclass
 class FlexConfig:
     """Full configuration for flex-search optimization."""
+
+    # ── Nested enums ──────────────────────────────────────────────────
+
+    class OptGoal(StrEnum):
+        """Optimization goal."""
+
+        MEAN = "mean"
+        MAX = "max"
+        FOCALITY = "focality"
+
+    class FieldPostproc(StrEnum):
+        """Field post-processing method."""
+
+        MAX_TI = "max_TI"
+        DIR_TI_NORMAL = "dir_TI_normal"
+        DIR_TI_TANGENTIAL = "dir_TI_tangential"
+
+    class NonROIMethod(StrEnum):
+        """Non-ROI specification method for focality optimization."""
+
+        EVERYTHING_ELSE = "everything_else"
+        SPECIFIC = "specific"
+
+    # ── Nested ROI types ──────────────────────────────────────────────
+
+    @dataclass
+    class SphericalROI:
+        """Spherical region of interest defined by center + radius."""
+
+        x: float
+        y: float
+        z: float
+        radius: float = 10.0
+        use_mni: bool = False
+
+    @dataclass
+    class AtlasROI:
+        """Cortical surface ROI from a FreeSurfer annotation atlas."""
+
+        atlas_path: str
+        label: int
+        hemisphere: str = "lh"
+
+    @dataclass
+    class SubcorticalROI:
+        """Subcortical volume ROI from a volumetric atlas."""
+
+        atlas_path: str
+        label: int
+        tissues: str = "GM"  # "GM", "WM", or "both"
+
+    # ── Nested electrode config ───────────────────────────────────────
+
+    @dataclass
+    class ElectrodeConfig:
+        """Electrode geometry for flex-search.
+
+        Only gel_thickness is needed here — the optimization leadfield uses
+        point electrodes; gel_thickness is recorded in the manifest for
+        downstream simulation.
+        """
+
+        shape: str = "ellipse"  # "ellipse" or "rect"
+        dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
+        gel_thickness: float = 4.0
 
     # ── required ──
     subject_id: str
@@ -96,8 +85,8 @@ class FlexConfig:
     goal: OptGoal
     postproc: FieldPostproc
     current_mA: float
-    electrode: FlexElectrodeConfig
-    roi: ROISpec
+    electrode: ElectrodeConfig
+    roi: "FlexConfig.SphericalROI | FlexConfig.AtlasROI | FlexConfig.SubcorticalROI"
 
     anisotropy_type: str = "scalar"
     aniso_maxratio: float = 10.0
@@ -105,7 +94,7 @@ class FlexConfig:
 
     # ── focality ──
     non_roi_method: NonROIMethod | None = None
-    non_roi: ROISpec | None = None
+    non_roi: "FlexConfig.SphericalROI | FlexConfig.AtlasROI | FlexConfig.SubcorticalROI | None" = (None)
     thresholds: str | None = None
 
     # ── eeg mapping ──
@@ -133,14 +122,14 @@ class FlexConfig:
 
     def __post_init__(self):
         if isinstance(self.goal, str):
-            self.goal = OptGoal(self.goal)
+            self.goal = FlexConfig.OptGoal(self.goal)
         if isinstance(self.postproc, str):
-            self.postproc = FieldPostproc(self.postproc)
+            self.postproc = FlexConfig.FieldPostproc(self.postproc)
         if isinstance(self.non_roi_method, str):
-            self.non_roi_method = NonROIMethod(self.non_roi_method)
+            self.non_roi_method = FlexConfig.NonROIMethod(self.non_roi_method)
         if (
-            self.goal is OptGoal.FOCALITY
-            and self.non_roi_method is NonROIMethod.SPECIFIC
+            self.goal is FlexConfig.OptGoal.FOCALITY
+            and self.non_roi_method is FlexConfig.NonROIMethod.SPECIFIC
             and self.non_roi is None
         ):
             raise ValueError(
@@ -166,57 +155,59 @@ class FlexResult:
 
 
 @dataclass
-class BucketElectrodes:
-    """Separate electrode lists for each bipolar channel position."""
-
-    e1_plus: list[str]
-    e1_minus: list[str]
-    e2_plus: list[str]
-    e2_minus: list[str]
-
-
-@dataclass
-class PoolElectrodes:
-    """Single electrode pool — all positions draw from the same set."""
-
-    electrodes: list[str]
-
-
-ElectrodeSpec = BucketElectrodes | PoolElectrodes
-
-
-@dataclass
-class ExCurrentConfig:
-    """Current parameters for exhaustive search."""
-
-    total_current: float = 2.0
-    current_step: float = 0.5
-    channel_limit: float | None = None
-
-
-@dataclass
 class ExConfig:
     """Full configuration for exhaustive search optimization."""
 
+    # ── Nested electrode types ─────────────────────────────────────────
+    @dataclass
+    class BucketElectrodes:
+        """Separate electrode lists for each bipolar channel position."""
+
+        e1_plus: list[str]
+        e1_minus: list[str]
+        e2_plus: list[str]
+        e2_minus: list[str]
+
+    @dataclass
+    class PoolElectrodes:
+        """Single electrode pool — all positions draw from the same set."""
+
+        electrodes: list[str]
+
+    # ── Required fields ────────────────────────────────────────────────
     subject_id: str
     project_dir: str
     leadfield_hdf: str
     roi_name: str
-    electrodes: ElectrodeSpec
-    currents: ExCurrentConfig = field(default_factory=ExCurrentConfig)
+    electrodes: BucketElectrodes | PoolElectrodes
+
+    # ── Current parameters ────────────────────────────────────────────
+    total_current: float = 2.0
+    current_step: float = 0.5
+    channel_limit: float | None = None
+
+    # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
-    eeg_net: str | None = None
+
+    # ── Output naming (defaults to datetime stamp) ─────────────────────
+    run_name: str | None = None
 
     def __post_init__(self):
-        if isinstance(self.currents, dict):
-            self.currents = ExCurrentConfig(**self.currents)
         if isinstance(self.electrodes, dict):
             if "electrodes" in self.electrodes:
-                self.electrodes = PoolElectrodes(**self.electrodes)
+                self.electrodes = ExConfig.PoolElectrodes(**self.electrodes)
             else:
-                self.electrodes = BucketElectrodes(**self.electrodes)
+                self.electrodes = ExConfig.BucketElectrodes(**self.electrodes)
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
+
+        # Validation
+        if self.current_step <= 0:
+            raise ValueError("current_step must be positive")
+        if self.total_current <= 0:
+            raise ValueError("total_current must be positive")
+        if self.channel_limit is not None and self.channel_limit <= 0:
+            raise ValueError("channel_limit must be positive")
 
 
 @dataclass
@@ -227,4 +218,4 @@ class ExResult:
     output_dir: str
     n_combinations: int
     results_csv: str | None = None
-    results_json: str | None = None
+    config_json: str | None = None

@@ -6,14 +6,13 @@ import re
 
 import pytest
 
-from tit.opt.config import (
-    FlexConfig,
-    FlexElectrodeConfig,
-    FlexResult,
-    SphericalROI,
-    AtlasROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig, FlexResult
+
+# Convenience aliases for nested types
+SphericalROI = FlexConfig.SphericalROI
+AtlasROI = FlexConfig.AtlasROI
+SubcorticalROI = FlexConfig.SubcorticalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 from tit.opt.flex.manifest import (
     MANIFEST_FILENAME,
     MANIFEST_VERSION,

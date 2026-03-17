@@ -11,7 +11,6 @@ Usage::
     data = read_config_json(path)
 """
 
-
 import json
 import os
 import tempfile
@@ -19,22 +18,16 @@ from dataclasses import asdict, fields, is_dataclass
 from enum import Enum
 from typing import Any
 
-from tit.opt.config import (
-    AtlasROI,
-    BucketElectrodes,
-    PoolElectrodes,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import ExConfig, FlexConfig
 from tit.sim.config import Montage
 
 # Mapping from class to discriminator string
 _TYPE_DISCRIMINATED = {
-    SphericalROI: "SphericalROI",
-    AtlasROI: "AtlasROI",
-    SubcorticalROI: "SubcorticalROI",
-    PoolElectrodes: "PoolElectrodes",
-    BucketElectrodes: "BucketElectrodes",
+    FlexConfig.SphericalROI: "SphericalROI",
+    FlexConfig.AtlasROI: "AtlasROI",
+    FlexConfig.SubcorticalROI: "SubcorticalROI",
+    ExConfig.PoolElectrodes: "PoolElectrodes",
+    ExConfig.BucketElectrodes: "BucketElectrodes",
     Montage: "Montage",
 }
 

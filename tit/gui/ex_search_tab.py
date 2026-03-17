@@ -30,7 +30,7 @@ from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
-from tit.opt.config import ExConfig, ExCurrentConfig, BucketElectrodes, PoolElectrodes
+from tit.opt.config import ExConfig
 from tit.gui.style import (
     FONT_HELP,
     FONT_MONOSPACE,
@@ -1693,20 +1693,14 @@ class ExSearchTab(QtWidgets.QWidget):
             ExConfig instance ready for serialization.
         """
         if self.use_all_combinations:
-            electrodes = PoolElectrodes(electrodes=list(self.e1_plus))
+            electrodes = ExConfig.PoolElectrodes(electrodes=list(self.e1_plus))
         else:
-            electrodes = BucketElectrodes(
+            electrodes = ExConfig.BucketElectrodes(
                 e1_plus=list(self.e1_plus),
                 e1_minus=list(self.e1_minus),
                 e2_plus=list(self.e2_plus),
                 e2_minus=list(self.e2_minus),
             )
-
-        currents = ExCurrentConfig(
-            total_current=self.total_current_spinbox.value(),
-            current_step=self.current_step_spinbox.value(),
-            channel_limit=self.channel_limit_spinbox.value(),
-        )
 
         return ExConfig(
             subject_id=subject_id,
@@ -1714,9 +1708,11 @@ class ExSearchTab(QtWidgets.QWidget):
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
             electrodes=electrodes,
-            currents=currents,
+            total_current=self.total_current_spinbox.value(),
+            current_step=self.current_step_spinbox.value(),
+            channel_limit=self.channel_limit_spinbox.value(),
             roi_radius=self.roi_radius_spinbox.value(),
-            eeg_net=eeg_net,
+            run_name=eeg_net,
         )
 
     @staticmethod
@@ -1735,7 +1731,7 @@ class ExSearchTab(QtWidgets.QWidget):
         data = dataclasses.asdict(config)
 
         # Add _type discriminator for electrode spec so __main__.py can reconstruct
-        if isinstance(config.electrodes, PoolElectrodes):
+        if isinstance(config.electrodes, ExConfig.PoolElectrodes):
             data["electrodes"]["_type"] = "PoolElectrodes"
         else:
             data["electrodes"]["_type"] = "BucketElectrodes"
@@ -1845,7 +1841,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output(f"ROI coordinates: {x}, {y}, {z}")
             self.update_output(
                 f"[DEBUG] ExConfig: subject={ex_config.subject_id}, roi={ex_config.roi_name}, "
-                f"eeg_net={ex_config.eeg_net}, leadfield={ex_config.leadfield_hdf}",
+                f"run_name={ex_config.run_name}, leadfield={ex_config.leadfield_hdf}",
                 "debug",
             )
 

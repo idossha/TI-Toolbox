@@ -5,18 +5,11 @@ This is the single source of truth for run metadata -- downstream
 consumers (simulator, GUI) read this instead of parsing folder names.
 """
 
-
 import json
 import os
 from datetime import datetime
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    FlexResult,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig, FlexResult
 
 MANIFEST_FILENAME = "flex_meta.json"
 MANIFEST_VERSION = 1
@@ -107,7 +100,7 @@ def read_manifest(output_folder: str) -> dict | None:
 
 def _serialize_roi(roi) -> dict:
     """Convert an ROISpec to a plain dict with a 'type' discriminator."""
-    if isinstance(roi, SphericalROI):
+    if isinstance(roi, FlexConfig.SphericalROI):
         return {
             "type": "spherical",
             "x": roi.x,
@@ -116,14 +109,14 @@ def _serialize_roi(roi) -> dict:
             "radius": roi.radius,
             "use_mni": roi.use_mni,
         }
-    if isinstance(roi, AtlasROI):
+    if isinstance(roi, FlexConfig.AtlasROI):
         return {
             "type": "atlas",
             "atlas_path": roi.atlas_path,
             "label": roi.label,
             "hemisphere": roi.hemisphere,
         }
-    if isinstance(roi, SubcorticalROI):
+    if isinstance(roi, FlexConfig.SubcorticalROI):
         return {
             "type": "subcortical",
             "atlas_path": roi.atlas_path,

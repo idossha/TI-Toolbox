@@ -3,7 +3,6 @@
 Public API: ``run_flex_search(config) -> FlexResult``
 """
 
-
 import logging
 import os
 import shutil

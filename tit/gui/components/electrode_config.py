@@ -59,13 +59,13 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
     # ------------------------------------------------------------------
 
     def get_config(self):
-        """Return ``(FlexElectrodeConfig, current_mA)`` tuple."""
-        from tit.opt.config import FlexElectrodeConfig
+        """Return ``(FlexConfig.ElectrodeConfig, current_mA)`` tuple."""
+        from tit.opt.config import FlexConfig
 
         shape = self.get_shape()
         dims = [float(d.strip()) for d in self.get_dimensions_text().split(",")]
         thickness = float(self.get_thickness_text())
-        electrode = FlexElectrodeConfig(
+        electrode = FlexConfig.ElectrodeConfig(
             shape=shape, dimensions=dims, gel_thickness=thickness
         )
         return electrode, self.current_input.value()

@@ -10,7 +10,6 @@ the mean field in the target ROI at the mean-optimal electrode configuration
 obtained in step 1 of the adaptive workflow.
 """
 
-
 import copy
 import json
 import os

@@ -9,7 +9,6 @@ Public API:
     - ``generate_report(config, n_multistart, funvalue_list, best_idx, base_folder, logger)``
 """
 
-
 import json
 import os
 from pathlib import Path
@@ -18,12 +17,7 @@ import logging
 
 import numpy as np
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig
 
 from . import utils
 
@@ -241,7 +235,7 @@ def generate_report(
     roi = config.roi
     roi_data: dict = {}
 
-    if isinstance(roi, SphericalROI):
+    if isinstance(roi, FlexConfig.SphericalROI):
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "spherical",
@@ -252,7 +246,7 @@ def generate_report(
         if (
             config.goal == "focality"
             and config.non_roi_method == "specific"
-            and isinstance(config.non_roi, SphericalROI)
+            and isinstance(config.non_roi, FlexConfig.SphericalROI)
         ):
             nr = config.non_roi
             roi_data.update(
@@ -263,7 +257,7 @@ def generate_report(
                     "non_roi_coordinate_space": ("MNI" if nr.use_mni else "subject"),
                 }
             )
-    elif isinstance(roi, AtlasROI):
+    elif isinstance(roi, FlexConfig.AtlasROI):
         atlas_name = atlas_name_from_path(roi.atlas_path, roi.hemisphere)
         roi_data = {
             "roi_name": "Target ROI",
@@ -275,7 +269,7 @@ def generate_report(
         if (
             config.goal == "focality"
             and config.non_roi_method == "specific"
-            and isinstance(config.non_roi, AtlasROI)
+            and isinstance(config.non_roi, FlexConfig.AtlasROI)
         ):
             nr = config.non_roi
             roi_data.update(
@@ -286,7 +280,7 @@ def generate_report(
                     "non_roi_label": nr.label,
                 }
             )
-    elif isinstance(roi, SubcorticalROI):
+    elif isinstance(roi, FlexConfig.SubcorticalROI):
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "subcortical",
@@ -298,7 +292,7 @@ def generate_report(
         if (
             config.goal == "focality"
             and config.non_roi_method == "specific"
-            and isinstance(config.non_roi, SubcorticalROI)
+            and isinstance(config.non_roi, FlexConfig.SubcorticalROI)
         ):
             nr = config.non_roi
             roi_data.update(

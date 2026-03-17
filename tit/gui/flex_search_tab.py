@@ -27,13 +27,12 @@ from tit.gui.components.solver_params import SolverParamsWidget
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.gui.style import FONT_HELP
-from tit.opt.config import (
-    FlexConfig,
-    FlexElectrodeConfig,
-    OptGoal,
-    FieldPostproc,
-    NonROIMethod,
-)
+from tit.opt.config import FlexConfig
+
+# Convenience aliases for nested types
+OptGoal = FlexConfig.OptGoal
+FieldPostproc = FlexConfig.FieldPostproc
+NonROIMethod = FlexConfig.NonROIMethod
 from tit.config_io import write_config_json
 
 
@@ -549,7 +548,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         else:
             self.eeg_net_combo.addItem("GSN-HydroCel-185")
             skin_combo.addItem("GSN-HydroCel-185")
-       
 
     def on_subject_changed(self):
         """Handle subject selection change."""
@@ -563,7 +561,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Update multiple subject restrictions
         self._update_multiple_subject_restrictions()
-
 
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
@@ -832,8 +829,8 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _build_electrode_config(
         self, electrode_shape: str, dimensions: str, thickness: str
-    ) -> FlexElectrodeConfig:
-        """Build FlexElectrodeConfig from UI values."""
+    ) -> FlexConfig.ElectrodeConfig:
+        """Build ElectrodeConfig from UI values."""
         config, _ = self.electrode_widget.get_config()
         return config
 
@@ -1039,10 +1036,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         cmd, config_path = self._launch_flex_config(config)
 
         # Only set parent busy state for single subjects
-        if (
-            not self.selected_subjects is not None
-            or len(self.selected_subjects) == 1
-        ):
+        if not self.selected_subjects is not None or len(self.selected_subjects) == 1:
             if self.parent:
                 self.parent.set_tab_busy(
                     self,
@@ -1350,12 +1344,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_thread.error_signal.connect(
             lambda msg: self.update_output(msg, "error")
         )
-        self.optimization_thread.finished.connect(
-            self._on_mean_optimization_finished
-        )
+        self.optimization_thread.finished.connect(self._on_mean_optimization_finished)
         self.optimization_thread.start()
         return True
-
 
     # ------------------------------------------------------------------ #
     #  Unified mean-optimization-finished dispatcher                      #

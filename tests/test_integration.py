@@ -88,27 +88,21 @@ class TestSimConfigMontageFlow:
 class TestOptConfigWithSphericalROI:
     def test_opt_config_with_spherical_roi(self, tmp_project):
         """FlexConfig with a SphericalROI can be instantiated without errors."""
-        from tit.opt.config import (
-            FlexConfig,
-            FlexElectrodeConfig,
-            OptGoal,
-            FieldPostproc,
-            SphericalROI,
-        )
+        from tit.opt.config import FlexConfig
 
-        roi = SphericalROI(x=-40.0, y=10.0, z=5.0, radius=15.0, use_mni=True)
+        roi = FlexConfig.SphericalROI(x=-40.0, y=10.0, z=5.0, radius=15.0, use_mni=True)
 
         config = FlexConfig(
             subject_id="001",
             project_dir=str(tmp_project),
-            goal=OptGoal.MEAN,
-            postproc=FieldPostproc.MAX_TI,
+            goal=FlexConfig.OptGoal.MEAN,
+            postproc=FlexConfig.FieldPostproc.MAX_TI,
             current_mA=2.0,
-            electrode=FlexElectrodeConfig(),
+            electrode=FlexConfig.ElectrodeConfig(),
             roi=roi,
         )
 
-        assert config.goal is OptGoal.MEAN
+        assert config.goal is FlexConfig.OptGoal.MEAN
         assert config.roi.radius == 15.0
         assert config.roi.use_mni is True
 

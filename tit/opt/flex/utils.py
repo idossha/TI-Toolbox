@@ -1,18 +1,12 @@
 #!/usr/bin/env simnibs_python
 """ROI configuration and output naming for flex-search."""
 
-
 import logging
 import os
 
 log = logging.getLogger(__name__)
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig
 
 # ---------------------------------------------------------------------------
 # Output directory naming
@@ -75,13 +69,13 @@ def generate_label(config, pareto: bool = False) -> str:
     )
 
     roi = config.roi
-    if isinstance(roi, SphericalROI):
+    if isinstance(roi, FlexConfig.SphericalROI):
         x = int(roi.x) if roi.x == int(roi.x) else roi.x
         y = int(roi.y) if roi.y == int(roi.y) else roi.y
         z = int(roi.z) if roi.z == int(roi.z) else roi.z
         r = int(roi.radius) if roi.radius == int(roi.radius) else roi.radius
         roi_str = f"sphere({x},{y},{z})r{r}"
-    elif isinstance(roi, AtlasROI):
+    elif isinstance(roi, FlexConfig.AtlasROI):
         hemi = roi.hemisphere
         atlas = (
             os.path.basename(roi.atlas_path).replace(".annot", "").split(".")[-1]
@@ -89,7 +83,7 @@ def generate_label(config, pareto: bool = False) -> str:
             else "atlas"
         )
         roi_str = f"{hemi}-{atlas}-{roi.label}"
-    elif isinstance(roi, SubcorticalROI):
+    elif isinstance(roi, FlexConfig.SubcorticalROI):
         atlas = os.path.basename(roi.atlas_path) if roi.atlas_path else "volume"
         for ext in (".nii.gz", ".nii", ".mgz"):
             if atlas.endswith(ext):
@@ -157,11 +151,11 @@ def configure_roi(opt, config: FlexConfig) -> None:
         opt: SimNIBS ``TesFlexOptimization`` object.
         config: Flex-search configuration with ROI spec.
     """
-    if isinstance(config.roi, SphericalROI):
+    if isinstance(config.roi, FlexConfig.SphericalROI):
         _configure_spherical_roi(opt, config)
-    elif isinstance(config.roi, AtlasROI):
+    elif isinstance(config.roi, FlexConfig.AtlasROI):
         _configure_atlas_roi(opt, config)
-    elif isinstance(config.roi, SubcorticalROI):
+    elif isinstance(config.roi, FlexConfig.SubcorticalROI):
         _configure_subcortical_roi(opt, config)
     else:
         raise ValueError(f"Unknown ROI type: {type(config.roi)}")
@@ -176,7 +170,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
     """
     from simnibs import mni2subject_coords
 
-    roi_spec: SphericalROI = config.roi  # type: ignore[assignment]
+    roi_spec: FlexConfig.SphericalROI = config.roi  # type: ignore[assignment]
 
     roi = opt.add_roi()
     roi.method = "surface"
@@ -221,7 +215,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
             non_roi.weight = -1
         else:
             # Specific non-ROI from config.non_roi (unified ROISpec type)
-            non_roi_spec: SphericalROI = config.non_roi  # type: ignore[assignment]
+            non_roi_spec: FlexConfig.SphericalROI = config.non_roi  # type: ignore[assignment]
             nx = non_roi_spec.x
             ny = non_roi_spec.y
             nz = non_roi_spec.z
@@ -249,7 +243,7 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
         opt: SimNIBS optimization object.
         config: Flex-search configuration with AtlasROI spec.
     """
-    roi_spec: AtlasROI = config.roi  # type: ignore[assignment]
+    roi_spec: FlexConfig.AtlasROI = config.roi  # type: ignore[assignment]
 
     roi = opt.add_roi()
     roi.method = "surface"
@@ -271,7 +265,7 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
             non_roi.mask_operator = ["difference"]
             non_roi.weight = -1
         else:
-            non_roi_spec: AtlasROI = config.non_roi  # type: ignore[assignment]
+            non_roi_spec: FlexConfig.AtlasROI = config.non_roi  # type: ignore[assignment]
             non_roi.mask_space = roi.mask_space
             non_roi.mask_path = [non_roi_spec.atlas_path]
             non_roi.mask_value = [non_roi_spec.label]
@@ -292,7 +286,7 @@ def _resolve_roi_tissues(config: FlexConfig) -> list:
     """
     from simnibs.mesh_tools.mesh_io import ElementTags
 
-    roi_spec: SubcorticalROI = config.roi  # type: ignore[assignment]
+    roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
     value = roi_spec.tissues.strip().upper()
     if value == "WM":
         return [ElementTags.WM]
@@ -308,7 +302,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
         opt: SimNIBS optimization object.
         config: Flex-search configuration with SubcorticalROI spec.
     """
-    roi_spec: SubcorticalROI = config.roi  # type: ignore[assignment]
+    roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
 
     volume_atlas_path = roi_spec.atlas_path
     label_val = roi_spec.label
@@ -337,7 +331,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
             non_roi.weight = -1
             non_roi.tissues = tissues
         else:
-            non_roi_spec: SubcorticalROI = config.non_roi  # type: ignore[assignment]
+            non_roi_spec: FlexConfig.SubcorticalROI = config.non_roi  # type: ignore[assignment]
             if not non_roi_spec.atlas_path or not os.path.isfile(
                 non_roi_spec.atlas_path
             ):

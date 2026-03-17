@@ -6,7 +6,6 @@ ROI Picker Widget Component
 Reusable ROI selection widget with spherical/atlas/subcortical modes.
 """
 
-
 import os
 import subprocess
 from pathlib import Path
@@ -16,7 +15,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from tit.paths import get_path_manager
 from tit.atlas import MeshAtlasManager, VoxelAtlasManager
 from tit.gui.style import FONT_HELP, FONT_SIZE_MONOSPACE
-from tit.opt.config import SphericalROI, AtlasROI, SubcorticalROI
+from tit.opt.config import FlexConfig
 
 
 class ROIPickerWidget(QtWidgets.QWidget):
@@ -507,7 +506,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
 
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
-            return SphericalROI(
+            return FlexConfig.SphericalROI(
                 x=self.x_input.value(),
                 y=self.y_input.value(),
                 z=self.z_input.value(),
@@ -520,7 +519,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             )
             hemi = "lh" if self.hemi_combo.currentIndex() == 0 else "rh"
             atlas_path = os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
-            return AtlasROI(
+            return FlexConfig.AtlasROI(
                 atlas_path=atlas_path,
                 label=int(self.label_value_input.value()),
                 hemisphere=hemi,
@@ -529,7 +528,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             volume_atlas_path = os.path.join(
                 seg_dir, self.volume_atlas_combo.currentText()
             )
-            return SubcorticalROI(
+            return FlexConfig.SubcorticalROI(
                 atlas_path=volume_atlas_path,
                 label=int(self.volume_label_input.value()),
                 tissues=self.tissue_combo.currentData(),

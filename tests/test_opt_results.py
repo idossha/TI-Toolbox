@@ -11,6 +11,7 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+from tit.opt.config import ExConfig
 from tit.opt.ex.results import (
     generate_plots,
     process_and_save,
@@ -26,11 +27,24 @@ def _make_results(n=3, roi="region"):
             f"{roi}_TImean_ROI": 0.3 + i * 0.05,
             f"{roi}_TImean_GM": 0.2 + i * 0.02,
             f"{roi}_Focality": 0.8 - i * 0.1,
-            f"{roi}_n_elements": 100 + i * 10,
             "current_ch1_mA": 1.0,
             "current_ch2_mA": 1.0,
         }
     return results
+
+
+def _make_config(roi="region"):
+    """Build a real ExConfig for testing process_and_save."""
+    return ExConfig(
+        subject_id="001",
+        project_dir="/proj",
+        leadfield_hdf="/lf.hdf5",
+        roi_name=roi,
+        electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),
+        total_current=2.0,
+        current_step=0.5,
+        run_name="test_run",
+    )
 
 
 @pytest.mark.unit
@@ -66,12 +80,14 @@ class TestProcessAndSave:
     def test_full_pipeline(self, mock_plots, tmp_path):
         mock_plots.return_value = [str(tmp_path / "plot.png")]
 
-        results = _make_results(2, "region")
+        # ExConfig.__post_init__ appends .csv, so roi_name becomes "region.csv"
+        results = _make_results(2, "region.csv")
+        config = _make_config("region")
         logger = MagicMock()
 
-        output = process_and_save(results, "region", str(tmp_path), logger)
+        output = process_and_save(results, config, str(tmp_path), logger)
 
-        assert "json_path" in output
+        assert "config_json_path" in output
         assert "csv_path" in output
         assert "visualization_paths" in output
         assert "summary_stats" in output
@@ -85,7 +101,8 @@ class TestProcessAndSave:
     def test_empty_results(self, mock_plots, tmp_path):
         mock_plots.return_value = []
 
-        output = process_and_save({}, "region", str(tmp_path), MagicMock())
+        config = _make_config("region")
+        output = process_and_save({}, config, str(tmp_path), MagicMock())
 
         assert output["summary_stats"]["total_montages"] == 0
         assert output["summary_stats"]["timax_range"] is None

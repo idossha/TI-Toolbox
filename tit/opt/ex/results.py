@@ -1,6 +1,5 @@
 """Result saving and visualization for exhaustive search."""
 
-
 import csv
 import json
 import os
@@ -8,12 +7,38 @@ import re
 from typing import Any
 
 
-def save_json(results: dict, output_dir: str, logger: Any) -> str:
-    """Write results dict to JSON."""
-    path = os.path.join(output_dir, "analysis_results.json")
+def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -> str:
+    """Write run configuration metadata to JSON for reproducibility."""
+    if isinstance(config.electrodes, config.PoolElectrodes):
+        electrode_mode = "pool"
+        electrode_info = {"electrodes": config.electrodes.electrodes}
+    else:
+        electrode_mode = "bucket"
+        electrode_info = {
+            "e1_plus": config.electrodes.e1_plus,
+            "e1_minus": config.electrodes.e1_minus,
+            "e2_plus": config.electrodes.e2_plus,
+            "e2_minus": config.electrodes.e2_minus,
+        }
+
+    run_info = {
+        "subject_id": config.subject_id,
+        "roi_name": config.roi_name,
+        "roi_radius": config.roi_radius,
+        "leadfield_hdf": config.leadfield_hdf,
+        "electrode_mode": electrode_mode,
+        "electrodes": electrode_info,
+        "total_current_mA": config.total_current,
+        "current_step_mA": config.current_step,
+        "channel_limit_mA": config.channel_limit,
+        "n_combinations": n_combinations,
+        "run_name": config.run_name,
+    }
+
+    path = os.path.join(output_dir, "run_config.json")
     with open(path, "w") as f:
-        json.dump(results, f, indent=4)
-    logger.info(f"Results saved to: {path}")
+        json.dump(run_info, f, indent=2)
+    logger.info(f"Run config saved to: {path}")
     return path
 
 
@@ -30,7 +55,6 @@ def build_csv_rows(
         "TImean_GM",
         "Focality",
         "Composite_Index",
-        "n_elements",
     ]
     rows = [header]
     timax_vals, timean_vals, foc_vals, comp_vals = [], [], [], []
@@ -53,7 +77,6 @@ def build_csv_rows(
                 f"{ti_mean_gm:.4f}",
                 f"{focality:.4f}",
                 f"{composite:.4f}",
-                data.get(f"{roi_name}_n_elements", 0),
             ]
         )
         timax_vals.append(ti_max)
@@ -129,11 +152,10 @@ def generate_plots(
     return saved
 
 
-def process_and_save(
-    results: dict, roi_name: str, output_dir: str, logger: Any
-) -> dict:
-    """Full results pipeline: JSON + CSV + plots. Returns summary dict."""
-    json_path = save_json(results, output_dir, logger)
+def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dict:
+    """Full results pipeline: run config JSON + CSV + plots."""
+    roi_name = config.roi_name
+    config_json_path = save_run_config(config, len(results), output_dir, logger)
     rows, timax_vals, timean_vals, foc_vals, comp_vals = build_csv_rows(
         results, roi_name
     )
@@ -146,7 +168,7 @@ def process_and_save(
         return (min(vals), max(vals)) if vals else None
 
     return {
-        "json_path": json_path,
+        "config_json_path": config_json_path,
         "csv_path": csv_path,
         "visualization_paths": viz_paths,
         "summary_stats": {

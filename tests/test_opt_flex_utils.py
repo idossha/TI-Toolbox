@@ -16,13 +16,13 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    FlexElectrodeConfig,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig
+
+# Convenience aliases for nested types
+SphericalROI = FlexConfig.SphericalROI
+AtlasROI = FlexConfig.AtlasROI
+SubcorticalROI = FlexConfig.SubcorticalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,22 +1,15 @@
 """Entry point: simnibs_python -m tit.opt.flex config.json"""
 
-
 import json
 import sys
 
-from tit.opt.config import (
-    AtlasROI,
-    FlexConfig,
-    FlexElectrodeConfig,
-    SphericalROI,
-    SubcorticalROI,
-)
+from tit.opt.config import FlexConfig
 from tit.opt.flex.flex import run_flex_search
 
 _ROI_BUILDERS = {
-    "SphericalROI": SphericalROI,
-    "AtlasROI": AtlasROI,
-    "SubcorticalROI": SubcorticalROI,
+    "SphericalROI": FlexConfig.SphericalROI,
+    "AtlasROI": FlexConfig.AtlasROI,
+    "SubcorticalROI": FlexConfig.SubcorticalROI,
 }
 
 
@@ -39,7 +32,7 @@ def main() -> None:
 
     roi = _build_roi(data.pop("roi"))
     non_roi = _build_roi(data.pop("non_roi", None))
-    electrode = FlexElectrodeConfig(**data.pop("electrode"))
+    electrode = FlexConfig.ElectrodeConfig(**data.pop("electrode"))
 
     config = FlexConfig(roi=roi, non_roi=non_roi, electrode=electrode, **data)
     result = run_flex_search(config)

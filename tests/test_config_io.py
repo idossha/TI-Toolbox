@@ -6,19 +6,15 @@ import os
 import pytest
 
 from tit.config_io import serialize_config, write_config_json, read_config_json
-from tit.opt.config import (
-    FlexConfig,
-    FlexElectrodeConfig,
-    SphericalROI,
-    AtlasROI,
-    SubcorticalROI,
-    OptGoal,
-    FieldPostproc,
-    PoolElectrodes,
-    BucketElectrodes,
-    ExConfig,
-    ExCurrentConfig,
-)
+from tit.opt.config import FlexConfig, ExConfig
+
+# Convenience aliases for nested types
+OptGoal = FlexConfig.OptGoal
+FieldPostproc = FlexConfig.FieldPostproc
+SphericalROI = FlexConfig.SphericalROI
+AtlasROI = FlexConfig.AtlasROI
+SubcorticalROI = FlexConfig.SubcorticalROI
+FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ── serialize_config ────────────────────────────────────────────────────────
 
@@ -115,12 +111,12 @@ class TestSerializeConfig:
         assert data["max_iterations"] is None
 
     def test_pool_electrodes_discriminator(self):
-        electrodes = PoolElectrodes(electrodes=["C3", "C4", "Cz"])
+        electrodes = ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz"])
         data = serialize_config(electrodes)
         assert data["_type"] == "PoolElectrodes"
 
     def test_bucket_electrodes_discriminator(self):
-        electrodes = BucketElectrodes(
+        electrodes = ExConfig.BucketElectrodes(
             e1_plus=["C3"], e1_minus=["C4"], e2_plus=["Cz"], e2_minus=["Pz"]
         )
         data = serialize_config(electrodes)
@@ -170,15 +166,16 @@ class TestWriteReadRoundTrip:
             project_dir="/tmp/project",
             leadfield_hdf="test.hdf5",
             roi_name="my_roi.csv",
-            electrodes=PoolElectrodes(electrodes=["C3", "C4", "Cz", "Pz"]),
-            currents=ExCurrentConfig(total_current=2.0, current_step=0.5),
+            electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz", "Pz"]),
+            total_current=2.0,
+            current_step=0.5,
         )
         path = write_config_json(config, prefix="test")
         try:
             data = read_config_json(path)
             assert data["electrodes"]["_type"] == "PoolElectrodes"
             assert data["electrodes"]["electrodes"] == ["C3", "C4", "Cz", "Pz"]
-            assert data["currents"]["total_current"] == 2.0
+            assert data["total_current"] == 2.0
         finally:
             os.unlink(path)
 

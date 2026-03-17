@@ -3,12 +3,11 @@
 Public API: ``run_ex_search(config) -> ExResult``
 """
 
-
 import logging
 import os
 import time
 
-from tit.opt.config import BucketElectrodes, ExConfig, ExResult, PoolElectrodes
+from tit.opt.config import ExConfig, ExResult
 from tit.paths import get_path_manager
 from tit.logger import add_file_handler
 
@@ -33,15 +32,14 @@ def run_ex_search(config: ExConfig) -> ExResult:
     logger.info(f"Project: {config.project_dir}")
     logger.info(f"Subject: {config.subject_id}")
 
-    net = (config.eeg_net).strip()
-    run_name = f"{config.roi_name}_{net}"
+    run_name = config.run_name or time.strftime("%Y%m%d_%H%M%S")
     output_dir = pm.ex_search_run(config.subject_id, run_name)
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
     roi_file = os.path.join(pm.rois(config.subject_id), config.roi_name)
 
-    if isinstance(config.electrodes, PoolElectrodes):
+    if isinstance(config.electrodes, ExConfig.PoolElectrodes):
         pool = config.electrodes.electrodes
         e1_plus = e1_minus = e2_plus = e2_minus = pool
         all_combinations = True
@@ -55,10 +53,10 @@ def run_ex_search(config: ExConfig) -> ExResult:
     engine = ExSearchEngine(config.leadfield_hdf, roi_file, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)
 
-    ratios, exceeded = generate_current_ratios(
-        config.currents.total_current,
-        config.currents.current_step,
-        config.currents.channel_limit or config.currents.total_current / 2.0,
+    ratios = generate_current_ratios(
+        config.total_current,
+        config.current_step,
+        config.channel_limit or config.total_current - config.current_step,
     )
 
     logger.info(f"Generated {len(ratios)} current ratio combinations")
@@ -67,8 +65,8 @@ def run_ex_search(config: ExConfig) -> ExResult:
         e1_plus, e1_minus, e2_plus, e2_minus, ratios, all_combinations, output_dir
     )
 
-    output_info = process_and_save(results, config.roi_name, output_dir, logger)
-    logger.info(f"Results: {output_info['json_path']}")
+    output_info = process_and_save(results, config, output_dir, logger)
+    logger.info(f"Config: {output_info['config_json_path']}")
     logger.info(f"CSV: {output_info['csv_path']}")
 
     return ExResult(
@@ -76,5 +74,5 @@ def run_ex_search(config: ExConfig) -> ExResult:
         output_dir=output_dir,
         n_combinations=len(results),
         results_csv=output_info.get("csv_path"),
-        results_json=output_info.get("json_path"),
+        config_json=output_info.get("config_json_path"),
     )

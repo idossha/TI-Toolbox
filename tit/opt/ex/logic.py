@@ -11,30 +11,27 @@ def generate_current_ratios(total_current, current_step, channel_limit):
     """Generate valid current ratio pairs for TI stimulation.
 
     Returns:
-        tuple: (ratios, channel_limit_exceeded)
-            - ratios: List of (ch1_current, ch2_current) tuples
-            - channel_limit_exceeded: bool
+        list of (ch1_current, ch2_current) tuples
     """
     ratios = []
     epsilon = current_step * 0.01
-    min_current = max(total_current - channel_limit, current_step)
-    channel_limit_exceeded = min_current < current_step - epsilon
-    if channel_limit_exceeded:
-        min_current = current_step
 
-    current_ch1 = channel_limit
-    while current_ch1 >= min_current - epsilon:
+    max_ch1 = min(channel_limit, total_current - current_step)
+    min_ch1 = max(total_current - channel_limit, current_step)
+
+    current_ch1 = max_ch1
+    while current_ch1 >= min_ch1 - epsilon:
         current_ch2 = total_current - current_ch1
         if (
-            current_ch1 <= channel_limit + epsilon
-            and current_ch2 <= channel_limit + epsilon
-            and current_ch1 >= current_step - epsilon
+            current_ch1 >= current_step - epsilon
             and current_ch2 >= current_step - epsilon
+            and current_ch1 <= channel_limit + epsilon
+            and current_ch2 <= channel_limit + epsilon
         ):
             ratios.append((current_ch1, current_ch2))
         current_ch1 -= current_step
 
-    return ratios, channel_limit_exceeded
+    return ratios
 
 
 def _electrode_combinations(e1_plus, e1_minus, e2_plus, e2_minus, all_combinations):
