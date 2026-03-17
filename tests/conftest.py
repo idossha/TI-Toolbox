@@ -53,6 +53,7 @@ _MOCK_PACKAGES = [
     "nilearn",
     "nilearn.plotting",
     "nilearn.image",
+    "trimesh",
 ]
 
 

@@ -2,9 +2,8 @@
 """
 Montage publication asset builder.
 
-This module owns the Blender/montage-publication business logic. The CLI wrapper lives in `tit/cli/vis_blender.py`.
+This module owns the Blender/montage-publication business logic.
 """
-
 
 import logging
 import os
@@ -13,6 +12,7 @@ from dataclasses import dataclass
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.blender import utils as be_utils
+from tit.blender.io import write_binary_stl
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ def export_scalp_stl_from_sim(
     tetra_mesh = _find_tetrahedral_mesh(sim_dir)
     vertices, faces = be_utils.extract_scalp_from_msh(tetra_mesh, skin_tag=skin_tag)
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
-    be_utils.write_binary_stl(vertices, faces, output_stl, "TI-Toolbox Scalp Mesh")
+    write_binary_stl(output_stl, vertices, faces, header_text="TI-Toolbox Scalp Mesh")
     return output_stl
 
 
@@ -176,7 +176,9 @@ def export_gm_stl_from_sim(
     faces = np.array([[node_to_idx[n] for n in tri] for tri in triangle_nodes])
 
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
-    be_utils.write_binary_stl(vertices, faces, output_stl, "TI-Toolbox GM Surface Mesh")
+    write_binary_stl(
+        output_stl, vertices, faces, header_text="TI-Toolbox GM Surface Mesh"
+    )
     return output_stl
 
 
@@ -194,7 +196,7 @@ def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
 
 
 @dataclass(frozen=True)
-class MontagePublicationResult:
+class MontageResult:
     scalp_stl: str
     gm_stl: str
     electrodes_blend: str
@@ -276,6 +278,34 @@ def _apply_gm_material(gm_obj) -> None:
     logger.debug("Applied GM material (alpha=0.45, blue-tinted)")
 
 
+def run_montage(
+    cfg: "MontageConfig",
+    *,
+    logger_override: logging.Logger | None = None,
+) -> MontageResult:
+    """Create a publication-ready montage Blender scene (.blend).
+
+    This is the shared entrypoint for CLI and GUI callers.
+    """
+    from tit.blender.config import MontageConfig  # noqa: F811 (deferred)
+
+    subject_id = cfg.subject_id.strip()
+    simulation_name = cfg.simulation_name.strip()
+
+    if logger_override is not None:
+        configure_montage_loggers(logger_override)
+
+    return build_montage_publication_blend(
+        subject_id=subject_id,
+        simulation_name=simulation_name,
+        output_dir=cfg.output_dir,
+        show_full_net=bool(cfg.show_full_net),
+        electrode_diameter_mm=float(cfg.electrode_diameter_mm),
+        electrode_height_mm=float(cfg.electrode_height_mm),
+        export_glb=bool(cfg.export_glb),
+    )
+
+
 def build_montage_publication_blend(
     *,
     subject_id: str,
@@ -285,7 +315,7 @@ def build_montage_publication_blend(
     electrode_diameter_mm: float = 10.0,
     electrode_height_mm: float = 6.0,
     export_glb: bool = False,
-) -> MontagePublicationResult:
+) -> MontageResult:
     import bpy
 
     pm = get_path_manager()
@@ -484,7 +514,7 @@ def build_montage_publication_blend(
     )
     bpy.ops.wm.save_as_mainfile(filepath=final_blend)
 
-    return MontagePublicationResult(
+    return MontageResult(
         scalp_stl=scalp_stl,
         gm_stl=gm_stl,
         electrodes_blend=electrodes_blend,

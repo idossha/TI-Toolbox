@@ -7,7 +7,6 @@ This module is intended to be imported from within Blender/simnibs_python
 possible for speed and stability in headless mode.
 """
 
-
 import struct
 
 RGBA = tuple[float, float, float, float]

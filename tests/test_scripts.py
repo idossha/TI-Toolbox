@@ -58,11 +58,19 @@ class TestAnalyzerScriptAPI:
 
 
 @pytest.mark.unit
-class TestOptimizerScriptAPI:
-    def test_optimizer_script_references_valid_api(self):
-        src = _read_script("optimizer.py")
+class TestFlexScriptAPI:
+    def test_flex_script_references_valid_api(self):
+        src = _read_script("flex.py")
         assert "FlexConfig" in src
         assert "run_flex_search" in src
+
+
+@pytest.mark.unit
+class TestExScriptAPI:
+    def test_ex_script_references_valid_api(self):
+        src = _read_script("ex.py")
+        assert "ExConfig" in src
+        assert "run_ex_search" in src
 
 
 @pytest.mark.unit

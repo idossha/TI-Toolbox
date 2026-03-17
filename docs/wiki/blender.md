@@ -1,6 +1,6 @@
 ---
 layout: wiki
-title: Blener Integration
+title: Blender Integration
 permalink: /wiki/blender/
 ---
 
@@ -11,10 +11,10 @@ The Blender extension was built to enable publication level visualization and pr
 - **Location**: `tit/gui/extensions/visual_exporter.py`
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
 - **Back-end scripts**:
-  - `blender/cortical_regions_to_ply.py`
-  - `blender/cortical_regions_to_stl.py`
-  - `blender/vector_ply.py`
-  - `blender/electrode_placement.py`
+  - `tit/blender/region_exporter.py` (unified STL/PLY cortical region export)
+  - `tit/blender/vector_field_exporter.py` (field vector arrow clouds)
+  - `tit/blender/montage_publication.py` (electrode placement scenes)
+  - `tit/blender/__main__.py` (JSON config entry point)
   - `tools/extract_labels.py`
   - `tools/nifti_to_mesh.py`
 - **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
@@ -214,30 +214,27 @@ The **Stop** button terminates the active subprocess if you need to cancel a lon
 You can call the Python scripts directly whenever you need command-line automation or custom batching. From within the TI-Toolbox environment, run:
 
 ```bash
-# Export atlas-aligned cortical regions to PLY
-simnibs_python blender_exporter/cortical_regions_to_ply.py \
+# Via JSON config (recommended for automation)
+simnibs_python -m tit.blender config.json
+
+# Via CLI script
+simnibs_python scripts/blender.py regions \
   --mesh <path/to/central.msh> \
-  --m2m <path/to/m2m_subject> \
-  --output-dir <output_folder>
+  --m2m-dir <path/to/m2m_subject> \
+  --output-dir <output_folder> \
+  --format ply \
+  --atlas DK40
 
-# Export region geometry to STL
-simnibs_python blender_exporter/cortical_regions_to_stl.py \
-  --mesh <path/to/central.msh> \
-  --m2m <path/to/m2m_subject> \
-  --output-dir <output_folder>
+simnibs_python scripts/blender.py vectors \
+  --mesh1 tdcs1.msh --mesh2 tdcs2.msh \
+  --output-dir <output_folder> \
+  --central-surface <path/to/central.msh>
 
-# Export TI or mTI vector arrows
-simnibs_python blender_exporter/vector_ply.py \
-  tdcs1.msh tdcs2.msh <output_prefix> --sum --ti-normal
+simnibs_python scripts/blender.py montage \
+  --subject 001 --sim sim1 \
+  --project-dir <project_root>
 
-# Place electrodes on scalp surface
-simnibs_python blender_exporter/electrode_placement.py \
-  --subject-id <subject_id> \
-  --electrode-csv <path/to/eeg_positions/montage.csv> \
-  --subject-msh <path/to/m2m_subject/subject.msh> \
-  --output-dir <output_directory>
-
-# Extract sub-cortical structures from NIfTI
+# Sub-cortical extraction (unchanged)
 simnibs_python tools/extract_labels.py \
   <path/to/labeling.nii.gz> \
   --labels 10 49 \
@@ -248,6 +245,34 @@ simnibs_python tools/nifti_to_mesh.py \
   <output_mesh.stl> \
   --clean-components
 ```
+
+## Python API
+
+The blender module exposes typed dataclass configs and runner functions for programmatic use:
+
+```python
+from tit.blender import (
+    RegionConfig,
+    VectorConfig,
+    MontageConfig,
+    run_regions,
+    run_vectors,
+    run_montage,
+)
+
+# Example: export cortical regions as PLY
+config = RegionConfig(
+    mesh="/data/.../central.msh",
+    m2m_dir="/data/.../m2m_001",
+    output_dir="/data/.../visual_exports",
+    format=RegionConfig.Format.PLY,
+    atlas="DK40",
+    field_name="TI_max",
+)
+run_regions(config)
+```
+
+The JSON entry point (`simnibs_python -m tit.blender config.json`) dispatches on a `_type` field in the JSON file. Valid values are `MontageConfig`, `VectorConfig`, and `RegionConfig`. Each config's fields map directly to the corresponding dataclass.
 
 
 ## Tips and troubleshooting

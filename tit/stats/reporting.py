@@ -9,6 +9,7 @@ import numpy as np
 
 
 def generate_summary(
+    config,
     responders,
     non_responders,
     sig_mask,
@@ -16,58 +17,30 @@ def generate_summary(
     clusters,
     atlas_results,
     output_file,
-    correction_method="cluster",
-    params=None,
-    group1_name="Responders",
-    group2_name="Non-Responders",
-    value_metric="Current Intensity",
-    test_type="unpaired",
-    observed_cluster_sizes=None,
 ):
-    """
-    Generate comprehensive summary report
+    """Generate comprehensive summary report for group comparison.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
+    config : GroupComparisonConfig
+        Fully specified group-comparison configuration.
     responders : ndarray
-        Responder data (group 1)
+        Responder data (group 1).
     non_responders : ndarray
-        Non-responder data (group 2)
+        Non-responder data (group 2).
     sig_mask : ndarray
-        Binary mask of significant voxels
+        Binary mask of significant voxels.
     correction_threshold : float
-        Threshold used for multiple comparison correction
+        Threshold used for multiple comparison correction.
     clusters : list
-        List of cluster dictionaries
+        List of cluster dictionaries.
     atlas_results : dict
-        Atlas overlap results
+        Atlas overlap results.
     output_file : str
-        Path to output summary file
-    correction_method : str
-        Method used: 'cluster' or 'fdr'
-    params : dict, optional
-        Dictionary of analysis parameters (cluster_threshold, n_permutations, alpha, etc.)
-        If None, uses defaults
-    group1_name : str
-        Name for first group (default: "Responders")
-    group2_name : str
-        Name for second group (default: "Non-Responders")
-    value_metric : str
-        Name of the metric being compared (default: "Current Intensity")
-    test_type : str
-        Type of t-test used: 'paired' or 'unpaired' (default: "unpaired")
-    observed_cluster_sizes : list, optional
-        List of observed cluster sizes (before permutation correction) sorted largest to smallest
+        Path to output summary file.
     """
-    # Set default parameters if not provided
-    if params is None:
-        params = {"cluster_threshold": 0.01, "n_permutations": 500, "alpha": 0.05}
-
-    # Extract parameters with defaults
-    cluster_threshold_param = params.get("cluster_threshold", 0.01)
-    n_permutations = params.get("n_permutations", 500)
-    alpha = params.get("alpha", 0.05)
-    cluster_stat = params.get("cluster_stat", "size")
+    cluster_stat = config.cluster_stat.value
+    cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
 
     with open(output_file, "w") as f:
         f.write("=" * 70 + "\n")
@@ -78,63 +51,40 @@ def generate_summary(
         f.write("-" * 70 + "\n")
         test_name = (
             "Paired t-test"
-            if test_type == "paired"
+            if config.test_type.value == "paired"
             else "Unpaired (Independent Samples) t-test"
         )
         f.write(f"Statistical Test: {test_name}\n")
 
-        if correction_method == "cluster":
-            f.write(f"Multiple Comparison Correction: Cluster-based Permutation\n")
-            cluster_stat_name = (
-                "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
-            )
-            f.write(f"Cluster statistic: {cluster_stat_name}\n")
-            f.write(
-                f"Cluster-forming threshold: p < {cluster_threshold_param} (uncorrected)\n"
-            )
-            f.write(f"Number of permutations: {n_permutations}\n")
-            f.write(f"Cluster-level alpha: {alpha}\n")
+        f.write("Multiple Comparison Correction: Cluster-based Permutation\n")
+        f.write(f"Cluster statistic: {cluster_stat_name}\n")
+        f.write(
+            f"Cluster-forming threshold: p < {config.cluster_threshold} (uncorrected)\n"
+        )
+        f.write(f"Number of permutations: {config.n_permutations}\n")
+        f.write(f"Cluster-level alpha: {config.alpha}\n")
 
-            if cluster_stat == "size":
-                f.write(f"Cluster size threshold: {correction_threshold:.1f} voxels\n")
-            else:
-                f.write(f"Cluster mass threshold: {correction_threshold:.2f}\n")
-            if "n_jobs" in params:
-                n_jobs = params["n_jobs"]
-                if n_jobs == -1:
-                    import multiprocessing
-
-                    n_jobs_actual = multiprocessing.cpu_count()
-                    f.write(f"Parallel processing: {n_jobs_actual} cores\n")
-                elif n_jobs == 1:
-                    f.write(f"Parallel processing: Sequential (1 core)\n")
-                else:
-                    f.write(f"Parallel processing: {n_jobs} cores\n")
-            f.write("\n")
+        if cluster_stat == "size":
+            f.write(f"Cluster size threshold: {correction_threshold:.1f} voxels\n")
         else:
-            f.write(f"Multiple Comparison Correction: FDR (False Discovery Rate)\n")
-            f.write(f"Significance Level: alpha = {alpha}\n")
-            f.write(f"FDR-corrected p-value threshold: {correction_threshold:.6f}\n\n")
+            f.write(f"Cluster mass threshold: {correction_threshold:.2f}\n")
 
-        # Add observed clusters information if provided
-        if observed_cluster_sizes is not None and len(observed_cluster_sizes) > 0:
-            f.write("OBSERVED CLUSTERS (BEFORE PERMUTATION CORRECTION):\n")
-            f.write("-" * 70 + "\n")
-            f.write(
-                f"Total clusters at p < {cluster_threshold_param}: {len(observed_cluster_sizes)}\n"
-            )
-            f.write(f"Largest observed cluster: {observed_cluster_sizes[0]} voxels\n")
-            f.write(f"Total voxels in all clusters: {sum(observed_cluster_sizes)}\n\n")
+        n_jobs = config.n_jobs
+        if n_jobs == -1:
+            import multiprocessing
 
-            f.write("Top 10 Largest Observed Clusters:\n")
-            for i, size in enumerate(observed_cluster_sizes[:10], 1):
-                f.write(f"  {i:2d}. {size:6d} voxels\n")
-            f.write("\n")
+            n_jobs_actual = multiprocessing.cpu_count()
+            f.write(f"Parallel processing: {n_jobs_actual} cores\n")
+        elif n_jobs == 1:
+            f.write("Parallel processing: Sequential (1 core)\n")
+        else:
+            f.write(f"Parallel processing: {n_jobs} cores\n")
+        f.write("\n")
 
         f.write("SAMPLE INFORMATION:\n")
         f.write("-" * 70 + "\n")
-        f.write(f"Number of {group1_name}: {responders.shape[-1]}\n")
-        f.write(f"Number of {group2_name}: {non_responders.shape[-1]}\n")
+        f.write(f"Number of {config.group1_name}: {responders.shape[-1]}\n")
+        f.write(f"Number of {config.group2_name}: {non_responders.shape[-1]}\n")
         f.write(
             f"Total Subjects: {responders.shape[-1] + non_responders.shape[-1]}\n\n"
         )
@@ -150,11 +100,12 @@ def generate_summary(
             group1_mean = np.mean(responders[sig_bool, :])
             group2_mean = np.mean(non_responders[sig_bool, :])
 
-            f.write(f"\nMean {value_metric} in Significant Voxels:\n")
-            f.write(f"  {group1_name}: {group1_mean:.4f}\n")
-            f.write(f"  {group2_name}: {group2_mean:.4f}\n")
+            f.write(f"\nMean {config.value_metric} in Significant Voxels:\n")
+            f.write(f"  {config.group1_name}: {group1_mean:.4f}\n")
+            f.write(f"  {config.group2_name}: {group2_mean:.4f}\n")
             f.write(
-                f"  Difference ({group1_name} - {group2_name}): {group1_mean - group2_mean:.4f}\n"
+                f"  Difference ({config.group1_name} - {config.group2_name}): "
+                f"{group1_mean - group2_mean:.4f}\n"
             )
 
         f.write(f"\nNumber of Clusters: {len(clusters)}\n\n")
@@ -183,7 +134,8 @@ def generate_summary(
 
             if region_counts:
                 f.write(
-                    f"Number of regions with significant voxels: {len(region_counts)}\n\n"
+                    f"Number of regions with significant voxels: "
+                    f"{len(region_counts)}\n\n"
                 )
                 f.write("Top 20 regions:\n")
                 for i, r in enumerate(region_counts[:20], 1):
@@ -195,10 +147,9 @@ def generate_summary(
             else:
                 f.write("No overlapping regions found.\n")
 
-    print(f"\nSummary written to: {output_file}")
-
 
 def generate_correlation_summary(
+    config,
     subject_data,
     effect_sizes,
     r_values,
@@ -207,51 +158,39 @@ def generate_correlation_summary(
     clusters,
     atlas_results,
     output_file,
-    params=None,
-    effect_metric="Effect Size",
+    *,
     subject_ids=None,
     weights=None,
 ):
-    """
-    Generate comprehensive summary report for correlation analysis
+    """Generate comprehensive summary report for correlation analysis.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
+    config : CorrelationConfig
+        Fully specified correlation configuration.
     subject_data : ndarray (x, y, z, n_subjects)
-        Electric field magnitude data
+        Electric field magnitude data.
     effect_sizes : ndarray (n_subjects,)
-        Continuous outcome measures
+        Continuous outcome measures.
     r_values : ndarray (x, y, z)
-        Correlation map
+        Correlation map.
     sig_mask : ndarray (x, y, z)
-        Binary mask of significant voxels
+        Binary mask of significant voxels.
     cluster_threshold : float
-        Cluster statistic threshold from permutation
+        Cluster statistic threshold from permutation.
     clusters : list
-        List of cluster dictionaries
+        List of cluster dictionaries.
     atlas_results : dict
-        Atlas overlap results
+        Atlas overlap results.
     output_file : str
-        Path to output summary file
-    params : dict, optional
-        Analysis parameters
-    effect_metric : str
-        Name of the outcome measure
+        Path to output summary file.
     subject_ids : list, optional
-        List of subject IDs
+        List of subject IDs.
     weights : ndarray, optional
-        Subject weights (if used)
+        Subject weights (if used).
     """
-    if params is None:
-        params = {
-            "correlation_type": "pearson",
-            "cluster_threshold": 0.05,
-            "cluster_stat": "mass",
-            "n_permutations": 1000,
-            "alpha": 0.05,
-            "use_weights": False,
-        }
-
+    cluster_stat = config.cluster_stat.value
+    cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
     n_subjects = len(effect_sizes)
 
     with open(output_file, "w") as f:
@@ -262,19 +201,17 @@ def generate_correlation_summary(
 
         f.write("ANALYSIS DETAILS:\n")
         f.write("-" * 70 + "\n")
-        corr_type = params.get("correlation_type", "pearson").capitalize()
-        weighted_str = " (Weighted)" if params.get("use_weights", False) else ""
+        corr_type = config.correlation_type.value.capitalize()
+        weighted_str = " (Weighted)" if weights is not None else ""
         f.write(f"Correlation Type: {corr_type}{weighted_str}\n")
-        f.write(f"Outcome Measure: {effect_metric}\n")
+        f.write(f"Outcome Measure: {config.effect_metric}\n")
 
-        cluster_stat = params.get("cluster_stat", "mass")
-        cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
         f.write(f"Cluster Statistic: {cluster_stat_name}\n")
         f.write(
-            f"Cluster-forming threshold: p < {params.get('cluster_threshold', 0.05)}\n"
+            f"Cluster-forming threshold: p < {config.cluster_threshold}\n"
         )
-        f.write(f"Number of permutations: {params.get('n_permutations', 1000)}\n")
-        f.write(f"Cluster-level alpha: {params.get('alpha', 0.05)}\n")
+        f.write(f"Number of permutations: {config.n_permutations}\n")
+        f.write(f"Cluster-level alpha: {config.alpha}\n")
 
         if cluster_stat == "size":
             f.write(f"Cluster size threshold: {cluster_threshold:.1f} voxels\n")
@@ -382,9 +319,9 @@ def generate_correlation_summary(
         f.write(
             "This analysis identifies brain regions where electric field magnitude\n"
         )
-        f.write(f"correlates with {effect_metric}.\n\n")
+        f.write(f"correlates with {config.effect_metric}.\n\n")
         f.write("Positive correlations (r > 0):\n")
-        f.write(f"  Higher E-field → Higher {effect_metric}\n\n")
+        f.write(f"  Higher E-field → Higher {config.effect_metric}\n\n")
         f.write("Note: This analysis tests positive correlations only (as per ACES).\n")
         f.write(
             "To find regions with negative correlations, invert your effect sizes\n"
@@ -395,4 +332,3 @@ def generate_correlation_summary(
         f.write("  - Wischnewski et al. (2021) - ACES approach\n")
         f.write("  - Maris & Oostenveld (2007) - Cluster-based permutation\n")
 
-    print(f"\nSummary written to: {output_file}")

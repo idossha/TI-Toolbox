@@ -3,9 +3,9 @@
 Tests for tit/stats/config.py CSV loader functions and CorrelationConfig.
 
 Covers:
-- load_group_subjects (lines 198-216)
-- load_correlation_subjects (lines 227-261)
-- CorrelationConfig.__post_init__ (lines 145-148)
+- GroupComparisonConfig.load_subjects
+- CorrelationConfig.load_subjects
+- CorrelationConfig.__post_init__
 """
 
 import sys
@@ -29,10 +29,7 @@ for _mod in (
 
 from tit.stats.config import (
     CorrelationConfig,
-    CorrelationSubject,
-    GroupSubject,
-    load_correlation_subjects,
-    load_group_subjects,
+    GroupComparisonConfig,
 )
 
 # ---------------------------------------------------------------------------
@@ -65,12 +62,12 @@ def _make_mock_df(columns, rows):
 
 
 # ---------------------------------------------------------------------------
-# load_group_subjects
+# GroupComparisonConfig.load_subjects
 # ---------------------------------------------------------------------------
 
 
 class TestLoadGroupSubjects:
-    """Tests for load_group_subjects."""
+    """Tests for GroupComparisonConfig.load_subjects."""
 
     def test_basic_load(self):
         """Load two subjects from a well-formed CSV."""
@@ -81,10 +78,10 @@ class TestLoadGroupSubjects:
         mock_df = _make_mock_df(["subject_id", "simulation_name", "response"], rows)
 
         with patch("pandas.read_csv", return_value=mock_df):
-            result = load_group_subjects("/fake/path.csv")
+            result = GroupComparisonConfig.load_subjects("/fake/path.csv")
 
         assert len(result) == 2
-        assert isinstance(result[0], GroupSubject)
+        assert isinstance(result[0], GroupComparisonConfig.Subject)
         assert result[0].subject_id == "001"
         assert result[0].simulation_name == "sim_a"
         assert result[0].response == 1
@@ -99,7 +96,7 @@ class TestLoadGroupSubjects:
         mock_df = _make_mock_df(["subject_id", "simulation_name", "response"], rows)
 
         with patch("pandas.read_csv", return_value=mock_df):
-            result = load_group_subjects("/fake/path.csv")
+            result = GroupComparisonConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "005"
 
@@ -111,7 +108,7 @@ class TestLoadGroupSubjects:
         mock_df = _make_mock_df(["subject_id", "simulation_name", "response"], rows)
 
         with patch("pandas.read_csv", return_value=mock_df):
-            result = load_group_subjects("/fake/path.csv")
+            result = GroupComparisonConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "3"
 
@@ -123,7 +120,7 @@ class TestLoadGroupSubjects:
         mock_df = _make_mock_df(["subject_id", "simulation_name", "response"], rows)
 
         with patch("pandas.read_csv", return_value=mock_df):
-            result = load_group_subjects("/fake/path.csv")
+            result = GroupComparisonConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "10"
 
@@ -134,7 +131,7 @@ class TestLoadGroupSubjects:
 
         with patch("pandas.read_csv", return_value=mock_df):
             with pytest.raises(ValueError, match="missing required columns"):
-                load_group_subjects("/fake/path.csv")
+                GroupComparisonConfig.load_subjects("/fake/path.csv")
 
     def test_multiple_subjects(self):
         """Load several subjects and confirm order is preserved."""
@@ -145,19 +142,19 @@ class TestLoadGroupSubjects:
         mock_df = _make_mock_df(["subject_id", "simulation_name", "response"], rows)
 
         with patch("pandas.read_csv", return_value=mock_df):
-            result = load_group_subjects("/fake/path.csv")
+            result = GroupComparisonConfig.load_subjects("/fake/path.csv")
 
         assert len(result) == 5
         assert [s.subject_id for s in result] == ["0", "1", "2", "3", "4"]
 
 
 # ---------------------------------------------------------------------------
-# load_correlation_subjects
+# CorrelationConfig.load_subjects
 # ---------------------------------------------------------------------------
 
 
 class TestLoadCorrelationSubjects:
-    """Tests for load_correlation_subjects."""
+    """Tests for CorrelationConfig.load_subjects."""
 
     def _patch_isna(self):
         """Return a patch context for pd.isna and pd.notna used inside the function."""
@@ -181,10 +178,10 @@ class TestLoadCorrelationSubjects:
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
             # Force re-import to pick up the patched pandas
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert len(result) == 2
-        assert isinstance(result[0], CorrelationSubject)
+        assert isinstance(result[0], CorrelationConfig.Subject)
         assert result[0].subject_id == "001"
         assert result[0].effect_size == 0.5
         assert result[0].weight == 1.0  # default
@@ -211,7 +208,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert result[0].weight == 2.0
         assert result[1].weight == 0.8
@@ -228,7 +225,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert len(result) == 1
         assert result[0].subject_id == "002"
@@ -245,7 +242,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert len(result) == 1
         assert result[0].subject_id == "002"
@@ -261,7 +258,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "3"
 
@@ -276,7 +273,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "007"
 
@@ -291,7 +288,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert result[0].subject_id == "10"
 
@@ -307,7 +304,7 @@ class TestLoadCorrelationSubjects:
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
             with pytest.raises(ValueError, match="No valid subjects"):
-                load_correlation_subjects("/fake/path.csv")
+                CorrelationConfig.load_subjects("/fake/path.csv")
 
     def test_missing_columns_raises(self):
         """Raise ValueError when required columns are absent."""
@@ -318,7 +315,7 @@ class TestLoadCorrelationSubjects:
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
             with pytest.raises(ValueError, match="missing required columns"):
-                load_correlation_subjects("/fake/path.csv")
+                CorrelationConfig.load_subjects("/fake/path.csv")
 
     def test_weight_defaults_when_nan(self):
         """Weight defaults to 1.0 when weight column exists but value is NaN."""
@@ -336,7 +333,7 @@ class TestLoadCorrelationSubjects:
         mock_pd.read_csv = MagicMock(return_value=mock_df)
 
         with patch.dict(sys.modules, {"pandas": mock_pd}):
-            result = load_correlation_subjects("/fake/path.csv")
+            result = CorrelationConfig.load_subjects("/fake/path.csv")
 
         assert result[0].weight == 1.0
 
@@ -347,11 +344,11 @@ class TestLoadCorrelationSubjects:
 
 
 class TestCorrelationConfigPostInit:
-    """Tests for CorrelationConfig validation (lines 144-151)."""
+    """Tests for CorrelationConfig validation."""
 
     def _make_subjects(self, n):
         return [
-            CorrelationSubject(
+            CorrelationConfig.Subject(
                 subject_id=str(i),
                 simulation_name=f"sim_{i}",
                 effect_size=float(i) * 0.1,

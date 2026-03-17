@@ -14,13 +14,17 @@ Classes:
     ElectrodePlacer: Main class for electrode placement operations
 """
 
-
 import os
 import logging
-import struct
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from .utils import clear_blender_scene
+from tit.blender.io import (
+    read_binary_stl,
+    write_binary_stl as _write_binary_stl_io,
+)
 
 
 @dataclass
@@ -297,38 +301,13 @@ class ElectrodePlacer:
         Returns:
             Tuple of (vertices, faces) as lists of tuples
         """
-        import numpy as np
-
         stl_path = self.config.scalp_stl_path
         self.logger.info(f"Loading STL: {stl_path}")
 
-        vertices = []
-        faces = []
-        vertex_map = {}
+        verts_arr, faces_arr = read_binary_stl(stl_path)
 
-        with open(stl_path, "rb") as f:
-            # Read header
-            f.read(80)
-            # Read triangle count
-            num_triangles = struct.unpack("<I", f.read(4))[0]
-
-            for _ in range(num_triangles):
-                # Skip normal (3 floats)
-                f.read(12)
-
-                face_indices = []
-                for _ in range(3):
-                    v = struct.unpack("<fff", f.read(12))
-                    # Use tuple as key for deduplication
-                    if v not in vertex_map:
-                        vertex_map[v] = len(vertices)
-                        vertices.append(v)
-                    face_indices.append(vertex_map[v])
-
-                faces.append(tuple(face_indices))
-
-                # Skip attribute byte count
-                f.read(2)
+        vertices = [tuple(v) for v in verts_arr]
+        faces = [tuple(f) for f in faces_arr]
 
         self.logger.info(f"Loaded {len(vertices)} vertices, {len(faces)} faces")
         return vertices, faces
@@ -337,37 +316,11 @@ class ElectrodePlacer:
         """Write binary STL file."""
         self.logger.info(f"Writing STL: {path}")
 
-        with open(path, "wb") as f:
-            header = b"TI-Toolbox Scalp Mesh".ljust(80, b"\x00")
-            f.write(header)
-            f.write(struct.pack("<I", len(faces)))
-
-            for face in faces:
-                v0, v1, v2 = vertices[face[0]], vertices[face[1]], vertices[face[2]]
-
-                # Calculate normal
-                edge1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
-                edge2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
-                normal = (
-                    edge1[1] * edge2[2] - edge1[2] * edge2[1],
-                    edge1[2] * edge2[0] - edge1[0] * edge2[2],
-                    edge1[0] * edge2[1] - edge1[1] * edge2[0],
-                )
-                length = (normal[0] ** 2 + normal[1] ** 2 + normal[2] ** 2) ** 0.5
-                if length > 1e-12:
-                    normal = (
-                        normal[0] / length,
-                        normal[1] / length,
-                        normal[2] / length,
-                    )
-                else:
-                    normal = (0.0, 0.0, 1.0)
-
-                f.write(struct.pack("<fff", *normal))
-                f.write(struct.pack("<fff", *v0))
-                f.write(struct.pack("<fff", *v1))
-                f.write(struct.pack("<fff", *v2))
-                f.write(struct.pack("<H", 0))
+        verts_arr = np.array(vertices, dtype=np.float64)
+        faces_arr = np.array(faces, dtype=np.int64)
+        _write_binary_stl_io(
+            path, verts_arr, faces_arr, header_text="TI-Toolbox Scalp Mesh"
+        )
 
     def _create_scalp_mesh(self, vertices: list[tuple], faces: list[tuple]):
         """Create scalp mesh directly in Blender."""

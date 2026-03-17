@@ -30,9 +30,8 @@ from .config import (
     GroupComparisonResult,
 )
 from .engine import (
+    PermutationEngine,
     cluster_analysis,
-    cluster_based_correction,
-    correlation_cluster_correction,
     correlation_voxelwise,
     ttest_voxelwise,
 )
@@ -45,6 +44,8 @@ from .visualization import (
 
 _logger = logging.getLogger(__name__)
 
+_ATLAS_DIR = Path(__file__).resolve().parent.parent.parent / "resources" / "atlas"
+
 
 # ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ def _setup_logger(output_dir: str, analysis_type: str, callback_handler=None):
     """Create a run-scoped file logger."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = os.path.join(output_dir, f"{analysis_type}_analysis_{ts}.log")
-    logger_name = f"tit.stats.{analysis_type}_{ts}"
+    logger_name = f"tit.stats.{analysis_type}"
     log = logging.getLogger(logger_name)
     log.setLevel(logging.DEBUG)
     add_file_handler(log_file, level="DEBUG", logger_name=logger_name)
@@ -190,23 +191,24 @@ def run_group_comparison(
 
     perm_log_file = os.path.join(output_dir, "permutation_details.txt")
 
+    engine = PermutationEngine(
+        cluster_threshold=config.cluster_threshold,
+        n_permutations=config.n_permutations,
+        alpha=config.alpha,
+        cluster_stat=config.cluster_stat.value,
+        alternative=config.alternative.value,
+        n_jobs=config.n_jobs,
+        log=log,
+    )
     sig_mask, cluster_threshold, sig_clusters, null_dist, all_clusters, corr_data = (
-        cluster_based_correction(
+        engine.correct_groups(
             responders,
             non_responders,
-            p_values,
-            valid_mask,
-            cluster_threshold=config.cluster_threshold,
-            n_permutations=config.n_permutations,
-            alpha=config.alpha,
-            test_type=config.test_type.value,
-            alternative=config.alternative.value,
-            cluster_stat=config.cluster_stat.value,
+            p_values=p_values,
             t_statistics=t_statistics,
-            n_jobs=config.n_jobs,
-            log=log,
-            save_permutation_log=True,
-            permutation_log_file=perm_log_file,
+            valid_mask=valid_mask,
+            test_type=config.test_type.value,
+            perm_log_file=perm_log_file,
             subject_ids_resp=resp_ids,
             subject_ids_non_resp=non_resp_ids,
         )
@@ -260,12 +262,11 @@ def run_group_comparison(
     log.info("[7/8] Atlas overlap")
     atlas_results = {}
     if config.atlas_files:
-        atlas_dir = Path(__file__).parent.parent.parent / "resources" / "atlas"
-        if atlas_dir.exists():
+        if _ATLAS_DIR.exists():
             atlas_results = atlas_overlap_analysis(
                 sig_mask,
                 config.atlas_files,
-                str(atlas_dir),
+                str(_ATLAS_DIR),
                 reference_img=template_img,
             )
 
@@ -283,6 +284,7 @@ def run_group_comparison(
 
     summary_path = os.path.join(output_dir, "analysis_summary.txt")
     generate_summary(
+        config,
         responders,
         non_responders,
         sig_mask,
@@ -290,17 +292,6 @@ def run_group_comparison(
         clusters,
         atlas_results,
         summary_path,
-        params={
-            "cluster_threshold": config.cluster_threshold,
-            "cluster_stat": config.cluster_stat.value,
-            "n_permutations": config.n_permutations,
-            "alpha": config.alpha,
-            "n_jobs": config.n_jobs,
-        },
-        group1_name=config.group1_name,
-        group2_name=config.group2_name,
-        value_metric=config.value_metric,
-        test_type=config.test_type.value,
     )
 
     total = time.time() - t0
@@ -440,25 +431,26 @@ def run_correlation(
 
     perm_log_file = os.path.join(output_dir, "permutation_details.txt")
 
+    engine = PermutationEngine(
+        cluster_threshold=config.cluster_threshold,
+        n_permutations=config.n_permutations,
+        alpha=config.alpha,
+        cluster_stat=config.cluster_stat.value,
+        alternative="two-sided",
+        n_jobs=config.n_jobs,
+        log=log,
+    )
     sig_mask, cluster_threshold, sig_clusters, null_dist, all_clusters, corr_data = (
-        correlation_cluster_correction(
+        engine.correct_correlation(
             subject_data,
             effect_sizes,
-            r_values,
-            t_statistics,
-            p_values,
-            valid_mask,
-            weights=weights,
+            r_values=r_values,
+            t_statistics=t_statistics,
+            p_values=p_values,
+            valid_mask=valid_mask,
             correlation_type=config.correlation_type.value,
-            cluster_threshold=config.cluster_threshold,
-            n_permutations=config.n_permutations,
-            alpha=config.alpha,
-            cluster_stat=config.cluster_stat.value,
-            alternative="two-sided",
-            n_jobs=config.n_jobs,
-            log=log,
-            save_permutation_log=True,
-            permutation_log_file=perm_log_file,
+            weights=weights,
+            perm_log_file=perm_log_file,
             subject_ids=subject_ids,
         )
     )
@@ -506,12 +498,11 @@ def run_correlation(
     log.info("[6/7] Atlas overlap")
     atlas_results = {}
     if config.atlas_files:
-        atlas_dir = Path(__file__).parent.parent.parent / "resources" / "atlas"
-        if atlas_dir.exists():
+        if _ATLAS_DIR.exists():
             atlas_results = atlas_overlap_analysis(
                 sig_mask,
                 config.atlas_files,
-                str(atlas_dir),
+                str(_ATLAS_DIR),
                 reference_img=template_img,
             )
 
@@ -551,6 +542,7 @@ def run_correlation(
 
     summary_path = os.path.join(output_dir, "analysis_summary.txt")
     generate_correlation_summary(
+        config,
         subject_data,
         effect_sizes,
         r_values,
@@ -559,15 +551,6 @@ def run_correlation(
         clusters,
         atlas_results,
         summary_path,
-        params={
-            "correlation_type": config.correlation_type.value,
-            "cluster_threshold": config.cluster_threshold,
-            "cluster_stat": config.cluster_stat.value,
-            "n_permutations": config.n_permutations,
-            "alpha": config.alpha,
-            "use_weights": weights is not None,
-        },
-        effect_metric=config.effect_metric,
         subject_ids=subject_ids,
         weights=weights,
     )

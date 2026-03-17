@@ -14,7 +14,6 @@ import nibabel as nib
 
 # Import TI-Toolbox core modules
 from tit.paths import get_path_manager
-from tit import constants as const
 
 # ==============================================================================
 # TI-TOOLBOX INTEGRATED LOADING
@@ -51,21 +50,10 @@ def load_subject_nifti_ti_toolbox(
     filepath : str
         Full path to the loaded file
     """
-    pm = get_path_manager() if get_path_manager else None
-
-    # Construct file path using TI-Toolbox path structure
-
-    project_dir = pm.project_dir
-    if not project_dir:
-        raise ValueError("Project directory not found. Is PROJECT_DIR_NAME set?")
+    pm = get_path_manager()
 
     nifti_dir = os.path.join(
-        project_dir,
-        const.DIR_DERIVATIVES,
-        const.DIR_SIMNIBS,
-        f"{const.PREFIX_SUBJECT}{subject_id}",
-        "Simulations",
-        simulation_name,
+        pm.simulation(subject_id, simulation_name),
         "TI",
         "niftis",
     )
@@ -230,18 +218,3 @@ def load_grouped_subjects_ti_toolbox(
             template_img = img
 
     return groups_data, template_img, groups_ids
-
-
-# ==============================================================================
-# EXAMPLE USAGE
-# ==============================================================================
-
-if __name__ == "__main__":
-    print("TI-Toolbox NIfTI Module")
-    print("=" * 50)
-    print("\nThis module provides TI-Toolbox specific NIfTI utilities.")
-    print("\nMain functions:")
-    print("  - load_subject_nifti_ti_toolbox(): Load single subject from TI-Toolbox")
-    print("  - load_group_data_ti_toolbox(): Load group data from TI-Toolbox")
-    print("  - load_grouped_subjects_ti_toolbox(): Load subjects organized by groups")
-    print("\nFor detailed usage, see function docstrings.")

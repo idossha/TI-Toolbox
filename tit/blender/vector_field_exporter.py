@@ -1,24 +1,24 @@
-#!/usr/bin/env simnibs_python
 """
-One-command exporter for TI/mTI (and optional CH1, CH2, SUM, TI_normal) vector arrows to PLY.
+Exporter for TI/mTI (and optional CH1, CH2, SUM, TI_normal) vector arrows to PLY.
 Vectors are placed at face barycenters of the central surface mesh.
 
-Examples:
-  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh
-  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --export-ch1-ch2 --sum --ti-normal
-  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --mti tdcs3.msh tdcs4.msh
+Entry point: ``run_vectors(config: VectorConfig)``
 """
+
+from __future__ import annotations
+
+import logging
+import os
 
 import numpy as np
 import simnibs
 import trimesh
 from scipy.spatial.transform import Rotation
 
-import os
-import sys
-import argparse
-
+from tit.blender.config import VectorConfig
 from tit.calc import get_TI_vectors, get_mTI_vectors
+
+logger = logging.getLogger(__name__)
 
 # Baseline visualization scaling so that user-facing defaults of 1.00 produce
 # a practical visual size without requiring large/small numeric inputs.
@@ -58,29 +58,17 @@ def create_arrow(
     head_length = scaled_length * 0.2
     head_radius = shaft_width * 1.5
 
-    # Trimesh cylinder: centered at origin, extends from -height/2 to +height/2 along Z
-    # Trimesh cone: base at z=0, tip at z=height (pointing up)
     shaft = trimesh.creation.cylinder(radius=shaft_radius, height=shaft_length)
     head = trimesh.creation.cone(radius=head_radius, height=head_length)
 
     # Position cone so its base connects to shaft end
-    # Shaft extends from -shaft_length/2 to +shaft_length/2
-    # Cone base should be at +shaft_length/2, so translate cone by +shaft_length/2
     head.apply_translation([0, 0, shaft_length / 2.0])
 
     arrow = trimesh.util.concatenate([shaft, head])
 
-    # After concatenation, arrow extends from -shaft_length/2 to +shaft_length/2 + head_length along Z
-    # Center is at origin
-
     # Global scale
     arrow.apply_scale(vector_scale)
 
-    # After scaling:
-    # - Shaft extends from -actual_shaft_len/2 to +actual_shaft_len/2
-    # - Head extends from +actual_shaft_len/2 to +actual_shaft_len/2 + actual_head_len
-    # - Tail is at -actual_shaft_len/2
-    # - Tip is at +actual_shaft_len/2 + actual_head_len
     actual_shaft_len = shaft_length * vector_scale
     actual_head_len = head_length * vector_scale
 
@@ -100,29 +88,11 @@ def create_arrow(
     else:
         ndir = np.array([0.0, 0.0, 1.0])
 
-    # After rotation, arrow's local +Z (which was [0,0,1]) is now aligned with ndir in world space
-    # So in world space:
-    # - Tail is at: -ndir * (actual_shaft_len/2)
-    # - Tip is at: +ndir * (actual_shaft_len/2 + actual_head_len)
-
-    # Translate based on anchor
-    # After rotation, arrow is centered at origin with +Z aligned with ndir
-    # Tail is at: -ndir * (actual_shaft_len/2)
-    # Tip is at: +ndir * (actual_shaft_len/2 + actual_head_len)
-
     if anchor == "head":
-        # Place tip at position
-        # Tip is currently at: origin + ndir * (actual_shaft_len/2 + actual_head_len)
-        # To move tip to position, translate by: position - ndir * (actual_shaft_len/2 + actual_head_len)
         tip_position = ndir * (actual_shaft_len / 2.0 + actual_head_len)
         arrow.apply_translation(position - tip_position)
     else:
-        # Place tail at position
-        # Tail is currently at: origin - ndir * (actual_shaft_len/2) = -ndir * (actual_shaft_len/2)
-        # To move tail to position, translate by: position - tail_position
-        # position - (-ndir * actual_shaft_len/2) = position + ndir * actual_shaft_len/2
         tail_position = -ndir * (actual_shaft_len / 2.0)
-        # Translation: position - tail_position = position - (-ndir * actual_shaft_len/2) = position + ndir * actual_shaft_len/2
         arrow.apply_translation(position - tail_position)
 
     return arrow
@@ -142,7 +112,7 @@ def write_ply_arrows(
     base_length: float = 1.0,
     shaft_width: float = 0.05,
 ):
-    """Write multiple arrows as a colored PLY file (ASCII)."""
+    """Write multiple arrows as a colored PLY file (ASCII, RGBA)."""
     total = len(positions)
     if total == 0:
         return
@@ -196,11 +166,12 @@ def write_ply_arrows(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data helpers
+# Mesh data helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def barycenters_for_mesh(m):
+def _barycenters_for_mesh(m):
+    """Compute element barycenters for a SimNIBS mesh."""
     try:
         return m.elements_baricenters().value
     except Exception:
@@ -209,7 +180,7 @@ def barycenters_for_mesh(m):
         return np.mean(node_coords[element_nodes], axis=1)
 
 
-def surface_normals_for_mesh(m):
+def _surface_normals_for_mesh(m):
     """Approximate per-element surface normals for triangular elements."""
     try:
         node_coords = m.nodes.node_coord
@@ -228,191 +199,60 @@ def surface_normals_for_mesh(m):
             normals.append(normal)
         return np.array(normals)
     except Exception:
-        # Fallback: up-vector
         return np.tile(np.array([0.0, 0.0, 1.0]), (len(m.elm.node_number_list), 1))
 
 
-def surface_normals_at_face_indices(surface_mesh, face_indices):
-    """
-    Get surface normals for specific face indices.
-
-    Args:
-        surface_mesh: SimNIBS surface mesh
-        face_indices: Array of face indices
-
-    Returns:
-        Array of [N, 3] normals corresponding to the face indices
-    """
-    if face_indices is None:
-        return None
-
-    try:
-        # Get all surface normals
-        all_normals = surface_normals_for_mesh(surface_mesh)
-        # Get triangular elements
-        triangular_elements = surface_mesh.elm.elm_type == 2
-        if not np.any(triangular_elements):
-            triangular_elements = np.ones(
-                len(surface_mesh.elm.node_number_list), dtype=bool
-            )
-
-        # Get normals for triangular elements only
-        triangle_normals = all_normals[triangular_elements]
-
-        # Get normals at the specified face indices
-        # Ensure indices are within bounds
-        valid_indices = face_indices < len(triangle_normals)
-        normals = np.zeros((len(face_indices), 3))
-        normals[valid_indices] = triangle_normals[face_indices[valid_indices]]
-        # Fill invalid indices with default normal
-        normals[~valid_indices] = np.array([0.0, 0.0, 1.0])
-
-        return normals
-    except Exception:
-        return None
-
-
-def get_surface_face_barycenters(surface_mesh):
-    """
-    Get barycenters (centers) of triangular faces in a surface mesh.
-
-    Args:
-        surface_mesh: SimNIBS surface mesh (triangular surface)
-
-    Returns:
-        Array of [N, 3] barycenter positions for each triangle
-    """
-    # Get triangular elements (elm_type == 2 for triangles)
+def _get_surface_face_barycenters(surface_mesh):
+    """Get barycenters of triangular faces in a surface mesh."""
     triangular_elements = surface_mesh.elm.elm_type == 2
     if not np.any(triangular_elements):
-        # Fallback: try to get all elements if no triangles found
         triangular_elements = np.ones(
             len(surface_mesh.elm.node_number_list), dtype=bool
         )
 
-    triangle_nodes = (
-        surface_mesh.elm.node_number_list[triangular_elements] - 1
-    )  # Convert to 0-based
-    # Take first 3 nodes (assuming triangular elements)
+    triangle_nodes = surface_mesh.elm.node_number_list[triangular_elements] - 1
     triangle_nodes = triangle_nodes[:, :3]
-
-    # Get node coordinates
     node_coords = surface_mesh.nodes.node_coord
-
-    # Calculate barycenters (centers) of each triangle
-    barycenters = np.mean(node_coords[triangle_nodes], axis=1)
-
-    return barycenters
+    return np.mean(node_coords[triangle_nodes], axis=1)
 
 
-def interpolate_field_to_surface_positions(
-    volumetric_mesh, target_positions, field_name="E"
-):
-    """
-    Interpolate a field from volumetric mesh to target positions (e.g., face barycenters).
+def _interpolate_field_to_surface(volumetric_mesh, target_positions, field_name="E"):
+    """Interpolate a field from a volumetric mesh to target positions.
 
-    Args:
-        volumetric_mesh: SimNIBS volumetric mesh with field data
-        target_positions: Array of [N, 3] target positions to interpolate to
-        field_name: Name of the field to interpolate (default: 'E')
-
-    Returns:
-        Array of [N, 3] field values at target positions
+    Uses node-based interpolation via elm2node_matrix when available,
+    falls back to nearest-element interpolation.
     """
     if field_name not in volumetric_mesh.field:
         raise ValueError(f"Field '{field_name}' not found in volumetric mesh")
 
-    # Get field values from volumetric mesh (element-based)
-    field_elm = volumetric_mesh.field[field_name].value  # [n_elements, 3]
+    field_elm = volumetric_mesh.field[field_name].value
 
-    # Method 1: Try to convert element-based to node-based, then interpolate to target positions
     try:
         from scipy.spatial import cKDTree
 
-        # Convert element-based field to node-based using SimNIBS elm2node_matrix
         M = volumetric_mesh.elm2node_matrix()
         vol_field_nodes = np.zeros((M.shape[0], 3))
         for i in range(3):
             vol_field_nodes[:, i] = M.dot(field_elm[:, i])
 
-        # Get volumetric mesh node positions
         vol_node_positions = volumetric_mesh.nodes.node_coord
-
-        # Find nearest volumetric mesh nodes for each target position
         tree = cKDTree(vol_node_positions)
-        distances, indices = tree.query(target_positions)
-
-        # Map field values from volumetric nodes to target positions
-        field_values = vol_field_nodes[indices]
-
-        return field_values
+        _, indices = tree.query(target_positions)
+        return vol_field_nodes[indices]
     except Exception:
-        # Fallback: use element barycenters for interpolation
         from scipy.spatial import cKDTree
 
-        # Get element barycenters
-        elm_positions = barycenters_for_mesh(volumetric_mesh)
-
-        # Interpolate using nearest neighbor from element barycenters
-        field_values = np.zeros((len(target_positions), 3))
+        elm_positions = _barycenters_for_mesh(volumetric_mesh)
         tree = cKDTree(elm_positions)
-        distances, indices = tree.query(target_positions)
+        _, indices = tree.query(target_positions)
 
+        field_values = np.zeros((len(target_positions), 3))
         for i in range(len(target_positions)):
             field_values[i] = field_elm[indices[i]]
-
         return field_values
 
 
-def project_positions_to_surface(positions, surface_mesh):
-    """
-    Project positions to the nearest points on a surface mesh.
-
-    Args:
-        positions: Array of [N, 3] positions to project
-        surface_mesh: SimNIBS surface mesh (triangular surface mesh)
-
-    Returns:
-        tuple: (projected_positions, face_indices) where:
-            - projected_positions: Array of [N, 3] projected positions on the surface
-            - face_indices: Array of [N] indices of the closest faces (for normal computation)
-    """
-    # Extract vertices and faces from surface mesh
-    try:
-        # Get triangular elements (elm_type == 2 for triangles)
-        triangular_elements = surface_mesh.elm.elm_type == 2
-        if not np.any(triangular_elements):
-            # Fallback: try to get all elements if no triangles found
-            triangular_elements = np.ones(
-                len(surface_mesh.elm.node_number_list), dtype=bool
-            )
-
-        triangle_nodes = (
-            surface_mesh.elm.node_number_list[triangular_elements] - 1
-        )  # Convert to 0-based
-        # Take first 3 nodes (assuming triangular elements)
-        triangle_nodes = triangle_nodes[:, :3]
-
-        vertices = surface_mesh.nodes.node_coord
-        faces = triangle_nodes
-
-        # Create trimesh object from surface
-        surface_trimesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-
-        # Find nearest points on surface
-        # trimesh.proximity.closest_point returns (closest_points, distances, face_indices)
-        closest_points, distances, face_indices = trimesh.proximity.closest_point(
-            surface_trimesh, positions
-        )
-
-        return closest_points, face_indices
-    except Exception as e:
-        # Fallback: return original positions if projection fails
-        print(f"Warning: Failed to project positions to surface: {e}")
-        return positions, None
-
-
-def map_magnitude_to_colors_magscale(
+def _map_magnitude_to_colors_magscale(
     magnitudes,
     *,
     all_magnitudes_full,
@@ -420,7 +260,7 @@ def map_magnitude_to_colors_magscale(
     green_pct: float,
     red_pct: float,
 ):
-    # Percentiles across full-mesh magnitudes to reduce outlier skew
+    """Map magnitudes to RGBA colors using percentile-based blue-green-red scale."""
     blue_pct = float(min(max(blue_pct, 0.0), 100.0))
     green_pct = float(min(max(green_pct, 0.0), 100.0))
     red_pct = float(min(max(red_pct, 0.0), 100.0))
@@ -452,282 +292,151 @@ def map_magnitude_to_colors_magscale(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Main
+# Core export logic
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def main():
-    print("Starting...")
-    ap = argparse.ArgumentParser(
-        description="Export TI/mTI vector arrows to PLY at face barycenters (optional CH1, CH2, SUM, TI_normal)"
-    )
+def _load_meshes(config: VectorConfig):
+    """Load SimNIBS volumetric meshes and the central surface mesh.
 
-    ap.add_argument("mesh1", help="TDCS mesh 1 (with E field)")
-    ap.add_argument("mesh2", help="TDCS mesh 2 (with E field)")
-    ap.add_argument(
-        "output_prefix", help="Output directory for PLY files (TI.ply, CH1.ply, etc.)"
-    )
-
-    ap.add_argument(
-        "--mti",
-        nargs=2,
-        metavar=("mesh3", "mesh4"),
-        help="Enable mTI mode with two extra meshes (mesh3, mesh4)",
-    )
-
-    # Optional outputs
-    ap.add_argument(
-        "--export-ch1-ch2",
-        dest="export_ch1_ch2",
-        action="store_true",
-        help="Export CH1 and CH2 vectors (default: only TI)",
-    )
-    ap.add_argument(
-        "--sum",
-        dest="do_sum",
-        action="store_true",
-        help="Also export E_sum (TI: E1+E2, mTI: E1+E2+E3+E4)",
-    )
-    ap.add_argument(
-        "--ti-normal",
-        dest="do_ti_normal",
-        action="store_true",
-        help="Also export TI_normal (projection onto surface normals)",
-    )
-    ap.add_argument(
-        "--combined",
-        action="store_true",
-        help="Also export combined PLY containing all requested types",
-    )
-
-    # Filtering & sampling
-    ap.add_argument(
-        "--central-surface",
-        required=True,
-        help="Central surface mesh (.msh from msh2cortex) to place vectors at face barycenters (matches STL surface)",
-    )
-    ap.add_argument(
-        "--top-percent",
-        type=float,
-        default=None,
-        help="Keep only top X percent by |TI/mTI| before sampling",
-    )
-    ap.add_argument(
-        "--count", type=int, default=100000, help="Number of vectors to sample"
-    )
-    ap.add_argument(
-        "--all-nodes",
-        action="store_true",
-        help="Use all available vectors (disable sampling)",
-    )
-    ap.add_argument(
-        "--seed", type=int, default=42, help="Random seed for sampling reproducibility"
-    )
-
-    # Arrow styling
-    ap.add_argument(
-        "--length-mode",
-        choices=["linear", "visual"],
-        default="linear",
-        help="Arrow length mapping mode",
-    )
-    ap.add_argument(
-        "--length-scale",
-        type=float,
-        default=1.0,
-        help="Unitless length scaling (internally normalized)",
-    )
-    ap.add_argument(
-        "--vector-scale",
-        type=float,
-        default=1.0,
-        help="Unitless global arrow scale (internally normalized)",
-    )
-    ap.add_argument(
-        "--vector-width",
-        type=float,
-        default=1.0,
-        help="Unitless shaft width (internally normalized)",
-    )
-    ap.add_argument(
-        "--vector-length",
-        type=float,
-        default=1.0,
-        help="Unitless base arrow length (internally normalized)",
-    )
-    ap.add_argument(
-        "--anchor",
-        choices=["tail", "head"],
-        default="tail",
-        help="Which end of the arrow touches the barycenter",
-    )
-
-    # Colors
-    ap.add_argument(
-        "--color",
-        choices=["rgb", "magscale"],
-        default="rgb",
-        help="Color mode: rgb=CH1 red, CH2 blue, TI green (default); magscale=by magnitude",
-    )
-    ap.add_argument(
-        "--blue-percentile",
-        type=float,
-        default=50.0,
-        help="Percentile mapped to full blue (magscale)",
-    )
-    ap.add_argument(
-        "--green-percentile",
-        type=float,
-        default=80.0,
-        help="Percentile mapped to green pivot (magscale)",
-    )
-    ap.add_argument(
-        "--red-percentile",
-        type=float,
-        default=95.0,
-        help="Percentile mapped to full red (magscale)",
-    )
-
-    ap.add_argument("--verbose", action="store_true", help="Verbose logging")
-
-    args = ap.parse_args()
-
-    # Validate paths
-    for p in [args.mesh1, args.mesh2]:
+    Returns:
+        Tuple of (m1, m2, m3_or_None, m4_or_None, central_surface_mesh).
+    """
+    for p in [config.mesh1, config.mesh2]:
         if not os.path.exists(p):
-            return 1
+            raise FileNotFoundError(f"Mesh file not found: {p}")
+
+    m1 = simnibs.read_msh(config.mesh1)
+    m2 = simnibs.read_msh(config.mesh2)
     m3 = m4 = None
-    is_mti = args.mti is not None
-    if is_mti:
-        m3_path, m4_path = args.mti
-        if not os.path.exists(m3_path) or not os.path.exists(m4_path):
-            return 1
 
-    # Read meshes
-    m1 = simnibs.read_msh(args.mesh1)
-    m2 = simnibs.read_msh(args.mesh2)
-    if is_mti:
-        m3 = simnibs.read_msh(m3_path)
-        m4 = simnibs.read_msh(m4_path)
+    if config.is_mti:
+        for p in [config.mesh3, config.mesh4]:
+            if not os.path.exists(p):
+                raise FileNotFoundError(f"mTI mesh file not found: {p}")
+        m3 = simnibs.read_msh(config.mesh3)
+        m4 = simnibs.read_msh(config.mesh4)
 
-    # Use central surface mesh for vector positions (required)
-    if not os.path.exists(args.central_surface):
-        print(f"Error: Central surface mesh not found: {args.central_surface}")
-        return 1
-
-    try:
-        central_surface_mesh = simnibs.read_msh(args.central_surface)
-        print(f"Using central surface for vector positions: {args.central_surface}")
-    except Exception as e:
-        print(f"Error: Failed to load central surface mesh: {e}")
-        return 1
-
-    # Extract E fields from volumetric meshes
-    for idx, m in enumerate([m1, m2] + ([m3, m4] if is_mti else []), start=1):
-        if "E" not in m.field:
-            return 1
-
-    # Use central surface face barycenters and interpolate E fields to them
-    print("Using central surface face barycenters for vector positions...")
-    positions = get_surface_face_barycenters(central_surface_mesh)
-    print(f"Interpolating E fields to {len(positions)} surface face barycenters...")
-    E1 = interpolate_field_to_surface_positions(m1, positions, "E")
-    E2 = interpolate_field_to_surface_positions(m2, positions, "E")
-    if is_mti:
-        E3 = interpolate_field_to_surface_positions(m3, positions, "E")
-        E4 = interpolate_field_to_surface_positions(m4, positions, "E")
-    print(f"Interpolated E fields to {len(positions)} face barycenters")
-    # Note: When using central surface, anchor='head' is recommended so tip is at barycenter
-    # This ensures the arrow extends outward from the surface
-    if args.anchor != "head":
-        print(
-            f"Note: Using anchor='{args.anchor}' - for surface vectors, anchor='head' is recommended"
+    if not os.path.exists(config.central_surface):
+        raise FileNotFoundError(
+            f"Central surface mesh not found: {config.central_surface}"
         )
 
+    try:
+        central = simnibs.read_msh(config.central_surface)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load central surface mesh: {exc}") from exc
+
+    logger.info(
+        "Using central surface for vector positions: %s", config.central_surface
+    )
+
+    # Validate E fields
+    for idx, m in enumerate([m1, m2] + ([m3, m4] if config.is_mti else []), start=1):
+        if "E" not in m.field:
+            raise ValueError(f"E field not found in mesh {idx}")
+
+    return m1, m2, m3, m4, central
+
+
+def _compute_fields(config, m1, m2, m3, m4, positions):
+    """Interpolate E fields and compute TI / mTI vectors.
+
+    Returns:
+        Dict with keys: E1, E2, TI, E_sum (or None), TI_normal (or None).
+    """
+    logger.info(
+        "Interpolating E fields to %d surface face barycenters...", len(positions)
+    )
+    E1 = _interpolate_field_to_surface(m1, positions, "E")
+    E2 = _interpolate_field_to_surface(m2, positions, "E")
+    E3 = E4 = None
+    if config.is_mti:
+        E3 = _interpolate_field_to_surface(m3, positions, "E")
+        E4 = _interpolate_field_to_surface(m4, positions, "E")
+
     # Align sizes
-    if is_mti:
-        min_len = min(len(positions), len(E1), len(E2), len(E3), len(E4))
-    else:
-        min_len = min(len(positions), len(E1), len(E2))
+    arrays = [positions, E1, E2]
+    if config.is_mti:
+        arrays += [E3, E4]
+    min_len = min(len(a) for a in arrays)
     positions = positions[:min_len]
     E1 = E1[:min_len]
     E2 = E2[:min_len]
-    if is_mti:
+    if config.is_mti:
         E3 = E3[:min_len]
         E4 = E4[:min_len]
 
-    # Compute TI / mTI and optional E_sum
-    if is_mti:
+    # Compute TI / mTI
+    if config.is_mti:
         TI = get_mTI_vectors(E1, E2, E3, E4)
-        E_sum = (E1 + E2 + E3 + E4) if args.do_sum else None
+        E_sum = (E1 + E2 + E3 + E4) if config.export_sum else None
     else:
         TI = get_TI_vectors(E1, E2)
-        E_sum = (E1 + E2) if args.do_sum else None
+        E_sum = (E1 + E2) if config.export_sum else None
 
-    # Surface normals for TI_normal
-    TI_normal = None
-    if args.do_ti_normal:
-        # Use central surface mesh for normals
-        if central_surface_mesh is not None:
-            # Get face normals from surface mesh (one normal per triangle)
-            try:
-                surf_normals = surface_normals_for_mesh(central_surface_mesh)
+    logger.info("Interpolated E fields to %d face barycenters", len(positions))
 
-                # Filter to only triangular elements (elm_type == 2)
-                triangular_elements = central_surface_mesh.elm.elm_type == 2
-                if not np.any(triangular_elements):
-                    triangular_elements = np.ones(
-                        len(central_surface_mesh.elm.node_number_list), dtype=bool
-                    )
+    return {
+        "positions": positions,
+        "E1": E1,
+        "E2": E2,
+        "TI": TI,
+        "E_sum": E_sum,
+    }
 
-                # Get normals for triangular elements only
-                triangle_normals = surf_normals[triangular_elements]
 
-                # Align with positions (one normal per face barycenter)
-                if len(triangle_normals) > len(TI):
-                    surf_normals = triangle_normals[: len(TI)]
-                elif len(triangle_normals) < len(TI):
-                    default_normal = np.array([0.0, 0.0, 1.0])
-                    pad = np.tile(default_normal, (len(TI) - len(triangle_normals), 1))
-                    surf_normals = np.vstack([triangle_normals, pad])
-                else:
-                    surf_normals = triangle_normals
-            except Exception:
-                # Fallback to TDCS mesh normals
-                surf_normals = surface_normals_for_mesh(m1)
-                if len(surf_normals) > len(TI):
-                    surf_normals = surf_normals[: len(TI)]
-                elif len(surf_normals) < len(TI):
-                    default_normal = np.array([0.0, 0.0, 1.0])
-                    pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
-                    surf_normals = np.vstack([surf_normals, pad])
+def _compute_ti_normal(config, central_mesh, m1, TI):
+    """Compute TI_normal by projecting TI onto surface normals.
+
+    Returns:
+        TI_normal array or None.
+    """
+    if not config.export_ti_normal:
+        return None
+
+    try:
+        surf_normals = _surface_normals_for_mesh(central_mesh)
+        triangular_elements = central_mesh.elm.elm_type == 2
+        if not np.any(triangular_elements):
+            triangular_elements = np.ones(
+                len(central_mesh.elm.node_number_list), dtype=bool
+            )
+        triangle_normals = surf_normals[triangular_elements]
+
+        # Align normals with TI count
+        if len(triangle_normals) > len(TI):
+            surf_normals = triangle_normals[: len(TI)]
+        elif len(triangle_normals) < len(TI):
+            default_normal = np.array([0.0, 0.0, 1.0])
+            pad = np.tile(default_normal, (len(TI) - len(triangle_normals), 1))
+            surf_normals = np.vstack([triangle_normals, pad])
         else:
-            # Use TDCS mesh normals
-            surf_normals = surface_normals_for_mesh(m1)
-            # Align normals count with TI count
-            if len(surf_normals) > len(TI):
-                surf_normals = surf_normals[: len(TI)]
-            elif len(surf_normals) < len(TI):
-                default_normal = np.array([0.0, 0.0, 1.0])
-                pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
-                surf_normals = np.vstack([surf_normals, pad])
+            surf_normals = triangle_normals
+    except Exception:
+        # Fallback to TDCS mesh normals
+        surf_normals = _surface_normals_for_mesh(m1)
+        if len(surf_normals) > len(TI):
+            surf_normals = surf_normals[: len(TI)]
+        elif len(surf_normals) < len(TI):
+            default_normal = np.array([0.0, 0.0, 1.0])
+            pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
+            surf_normals = np.vstack([surf_normals, pad])
 
-        TI_normal = np.sum(TI * surf_normals, axis=1, keepdims=True) * surf_normals
+    return np.sum(TI * surf_normals, axis=1, keepdims=True) * surf_normals
 
-    # Full magnitudes (pre-filter) for color normalization
-    mag_E1_full = np.linalg.norm(E1, axis=1)
-    mag_E2_full = np.linalg.norm(E2, axis=1)
-    mag_TI_full = np.linalg.norm(TI, axis=1)
-    mag_E_sum_full = (
-        np.linalg.norm(E_sum, axis=1)
-        if E_sum is not None
-        else np.zeros_like(mag_TI_full)
-    )
-    mag_TI_normal_full = (
-        np.linalg.norm(TI_normal, axis=1)
-        if TI_normal is not None
-        else np.zeros_like(mag_TI_full)
-    )
+
+def _filter_and_sample(config, fields):
+    """Apply non-zero, top-percent, and random-sampling filters.
+
+    Mutates nothing; returns a new dict with the sampled arrays.
+    """
+    positions = fields["positions"]
+    E1 = fields["E1"]
+    E2 = fields["E2"]
+    TI = fields["TI"]
+    E_sum = fields["E_sum"]
+    TI_normal = fields.get("TI_normal")
 
     # Filter non-zero TI
     mag_TI = np.linalg.norm(TI, axis=1)
@@ -742,9 +451,9 @@ def main():
     if TI_normal is not None:
         TI_normal = TI_normal[nz]
 
-    # Top-percent filter by |TI|
-    if args.top_percent is not None:
-        pct = max(0.0, min(100.0, float(args.top_percent)))
+    # Top-percent filter
+    if config.top_percent is not None:
+        pct = max(0.0, min(100.0, float(config.top_percent)))
         if pct > 0.0 and len(mag_TI) > 0:
             cutoff = np.percentile(mag_TI, 100.0 - pct)
             mask = mag_TI >= cutoff
@@ -759,268 +468,325 @@ def main():
                 TI_normal = TI_normal[mask]
 
     # Sampling
-    np.random.seed(args.seed)
-    if args.all_nodes:
-        pos_s = positions
-        E1_s = E1
-        E2_s = E2
-        TI_s = TI
-        E_sum_s = E_sum if E_sum is not None else None
-        TI_normal_s = TI_normal if TI_normal is not None else None
+    np.random.seed(config.seed)
+    if config.all_nodes:
+        idx = np.arange(len(positions))
     else:
-        sel_count = min(int(args.count), len(positions))
+        sel_count = min(int(config.count), len(positions))
         if sel_count <= 0:
-            return 1
+            raise ValueError("No vectors remaining after filtering")
         idx = np.random.choice(len(positions), sel_count, replace=False)
 
-        pos_s = positions[idx]
-        E1_s = E1[idx]
-        E2_s = E2[idx]
-        TI_s = TI[idx]
-        E_sum_s = E_sum[idx] if E_sum is not None else None
-        TI_normal_s = TI_normal[idx] if TI_normal is not None else None
+    return {
+        "positions": positions[idx],
+        "E1": E1[idx],
+        "E2": E2[idx],
+        "TI": TI[idx],
+        "E_sum": E_sum[idx] if E_sum is not None else None,
+        "TI_normal": TI_normal[idx] if TI_normal is not None else None,
+    }
 
-    mag_E1_s = np.linalg.norm(E1_s, axis=1)
-    mag_E2_s = np.linalg.norm(E2_s, axis=1)
-    mag_TI_s = np.linalg.norm(TI_s, axis=1)
-    mag_E_sum_s = np.linalg.norm(E_sum_s, axis=1) if E_sum_s is not None else None
+
+def _compute_colors(config, sampled, full_magnitudes):
+    """Compute RGBA color arrays for each channel.
+
+    Returns:
+        Dict with keys ch1, ch2, ti, sum, ti_normal -- each is an [N, 4] uint8 array
+        or None.
+    """
+    pos = sampled["positions"]
+    n = len(pos)
+
+    mag_E1_s = np.linalg.norm(sampled["E1"], axis=1)
+    mag_E2_s = np.linalg.norm(sampled["E2"], axis=1)
+    mag_TI_s = np.linalg.norm(sampled["TI"], axis=1)
+    mag_E_sum_s = (
+        np.linalg.norm(sampled["E_sum"], axis=1)
+        if sampled["E_sum"] is not None
+        else None
+    )
     mag_TI_normal_s = (
-        np.linalg.norm(TI_normal_s, axis=1) if TI_normal_s is not None else None
+        np.linalg.norm(sampled["TI_normal"], axis=1)
+        if sampled["TI_normal"] is not None
+        else None
     )
 
-    # Colors
     BLUE = (0, 0, 255, 255)
     GREEN = (0, 255, 0, 255)
     RED = (255, 0, 0, 255)
     YELLOW = (255, 255, 0, 255)
     CYAN = (0, 255, 255, 255)
 
-    if args.color == "magscale":
-        # magscale across full magnitudes of all fields present
-        stacks = [mag_E1_full, mag_E2_full, mag_TI_full]
-        if E_sum is not None:
-            stacks.append(mag_E_sum_full)
-        if TI_normal is not None:
-            stacks.append(mag_TI_normal_full)
-        all_full = np.concatenate(stacks) if stacks else mag_TI_full
-        ch1_colors = map_magnitude_to_colors_magscale(
-            mag_E1_s,
+    if config.color == VectorConfig.Color.MAGSCALE:
+        all_full = np.concatenate(full_magnitudes) if full_magnitudes else mag_TI_s
+        kw = dict(
             all_magnitudes_full=all_full,
-            blue_pct=args.blue_percentile,
-            green_pct=args.green_percentile,
-            red_pct=args.red_percentile,
+            blue_pct=config.blue_percentile,
+            green_pct=config.green_percentile,
+            red_pct=config.red_percentile,
         )
-        ch2_colors = map_magnitude_to_colors_magscale(
-            mag_E2_s,
-            all_magnitudes_full=all_full,
-            blue_pct=args.blue_percentile,
-            green_pct=args.green_percentile,
-            red_pct=args.red_percentile,
-        )
-        ti_colors = map_magnitude_to_colors_magscale(
-            mag_TI_s,
-            all_magnitudes_full=all_full,
-            blue_pct=args.blue_percentile,
-            green_pct=args.green_percentile,
-            red_pct=args.red_percentile,
-        )
+        ch1_colors = _map_magnitude_to_colors_magscale(mag_E1_s, **kw)
+        ch2_colors = _map_magnitude_to_colors_magscale(mag_E2_s, **kw)
+        ti_colors = _map_magnitude_to_colors_magscale(mag_TI_s, **kw)
         sum_colors = (
-            map_magnitude_to_colors_magscale(
-                mag_E_sum_s,
-                all_magnitudes_full=all_full,
-                blue_pct=args.blue_percentile,
-                green_pct=args.green_percentile,
-                red_pct=args.red_percentile,
-            )
-            if E_sum_s is not None
+            _map_magnitude_to_colors_magscale(mag_E_sum_s, **kw)
+            if mag_E_sum_s is not None
             else None
         )
         ti_normal_colors = (
-            map_magnitude_to_colors_magscale(
-                mag_TI_normal_s,
-                all_magnitudes_full=all_full,
-                blue_pct=args.blue_percentile,
-                green_pct=args.green_percentile,
-                red_pct=args.red_percentile,
-            )
-            if TI_normal_s is not None
+            _map_magnitude_to_colors_magscale(mag_TI_normal_s, **kw)
+            if mag_TI_normal_s is not None
             else None
         )
     else:
-        ch1_colors = np.tile(np.array(RED), (len(pos_s), 1))
-        ch2_colors = np.tile(np.array(BLUE), (len(pos_s), 1))
-        ti_colors = np.tile(np.array(GREEN), (len(pos_s), 1))
+        ch1_colors = np.tile(np.array(RED), (n, 1))
+        ch2_colors = np.tile(np.array(BLUE), (n, 1))
+        ti_colors = np.tile(np.array(GREEN), (n, 1))
         sum_colors = (
-            np.tile(np.array(YELLOW), (len(pos_s), 1)) if E_sum_s is not None else None
+            np.tile(np.array(YELLOW), (n, 1)) if sampled["E_sum"] is not None else None
         )
         ti_normal_colors = (
-            np.tile(np.array(CYAN), (len(pos_s), 1))
-            if TI_normal_s is not None
+            np.tile(np.array(CYAN), (n, 1))
+            if sampled["TI_normal"] is not None
             else None
         )
 
-    # Ensure output dir
-    out_dir = os.path.dirname(args.output_prefix)
-    if out_dir and not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
+    return {
+        "ch1": ch1_colors,
+        "ch2": ch2_colors,
+        "ti": ti_colors,
+        "sum": sum_colors,
+        "ti_normal": ti_normal_colors,
+    }
 
-    print("Converting...")
 
-    # Normalize user inputs so that 1.00 corresponds to the baseline visuals
-    eff_length_scale = float(args.length_scale) * BASE_LENGTH_SCALE
-    eff_vector_scale = float(args.vector_scale) * BASE_VECTOR_SCALE
-    eff_vector_width = float(args.vector_width) * BASE_VECTOR_WIDTH
-    eff_vector_length = float(args.vector_length) * BASE_VECTOR_LENGTH
-
-    # Get output directory from prefix (prefix is now the output directory)
-    output_dir = (
-        args.output_prefix
-        if os.path.isdir(args.output_prefix)
-        else (
-            os.path.dirname(args.output_prefix)
-            if os.path.dirname(args.output_prefix)
-            else "."
-        )
+def _write_channel_ply(
+    path, positions, vectors, magnitudes, colors, config, *, eff_params
+):
+    """Write a single channel's PLY arrow file."""
+    write_ply_arrows(
+        path,
+        positions,
+        vectors,
+        magnitudes,
+        colors,
+        length_mode=str(config.length_mode),
+        length_scale=eff_params["length_scale"],
+        anchor=str(config.anchor),
+        vector_scale=eff_params["vector_scale"],
+        base_length=eff_params["vector_length"],
+        shaft_width=eff_params["vector_width"],
     )
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
 
-    # Write per-type PLYs
-    # CH1 and CH2 only if requested
-    if args.export_ch1_ch2:
-        write_ply_arrows(
+
+def _write_outputs(config, sampled, colors):
+    """Write all requested PLY files to the output directory."""
+    output_dir = config.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Effective visualization parameters
+    eff = {
+        "length_scale": float(config.length_scale) * BASE_LENGTH_SCALE,
+        "vector_scale": float(config.vector_scale) * BASE_VECTOR_SCALE,
+        "vector_width": float(config.vector_width) * BASE_VECTOR_WIDTH,
+        "vector_length": float(config.vector_length) * BASE_VECTOR_LENGTH,
+    }
+
+    pos = sampled["positions"]
+    exported = 0
+
+    # CH1 and CH2 (optional)
+    if config.export_ch1_ch2:
+        mag_E1 = np.linalg.norm(sampled["E1"], axis=1)
+        mag_E2 = np.linalg.norm(sampled["E2"], axis=1)
+        _write_channel_ply(
             os.path.join(output_dir, "CH1.ply"),
-            pos_s,
-            E1_s,
-            mag_E1_s,
-            ch1_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
+            pos,
+            sampled["E1"],
+            mag_E1,
+            colors["ch1"],
+            config,
+            eff_params=eff,
         )
-        write_ply_arrows(
+        _write_channel_ply(
             os.path.join(output_dir, "CH2.ply"),
-            pos_s,
-            E2_s,
-            mag_E2_s,
-            ch2_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
+            pos,
+            sampled["E2"],
+            mag_E2,
+            colors["ch2"],
+            config,
+            eff_params=eff,
         )
+        exported += 2
 
-    # Always write TI/mTI
-    if is_mti:
-        write_ply_arrows(
-            os.path.join(output_dir, "mTI.ply"),
-            pos_s,
-            TI_s,
-            mag_TI_s,
-            ti_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
-        )
-    else:
-        write_ply_arrows(
-            os.path.join(output_dir, "TI.ply"),
-            pos_s,
-            TI_s,
-            mag_TI_s,
-            ti_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
-        )
+    # TI / mTI (always)
+    mag_TI = np.linalg.norm(sampled["TI"], axis=1)
+    ti_filename = "mTI.ply" if config.is_mti else "TI.ply"
+    _write_channel_ply(
+        os.path.join(output_dir, ti_filename),
+        pos,
+        sampled["TI"],
+        mag_TI,
+        colors["ti"],
+        config,
+        eff_params=eff,
+    )
+    exported += 1
 
-    if E_sum_s is not None:
-        write_ply_arrows(
+    # E_sum (optional)
+    if sampled["E_sum"] is not None:
+        mag_sum = np.linalg.norm(sampled["E_sum"], axis=1)
+        _write_channel_ply(
             os.path.join(output_dir, "TI_sum.ply"),
-            pos_s,
-            E_sum_s,
-            mag_E_sum_s,
-            sum_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
+            pos,
+            sampled["E_sum"],
+            mag_sum,
+            colors["sum"],
+            config,
+            eff_params=eff,
         )
+        exported += 1
 
-    if TI_normal_s is not None:
-        write_ply_arrows(
+    # TI_normal (optional)
+    if sampled["TI_normal"] is not None:
+        mag_tn = np.linalg.norm(sampled["TI_normal"], axis=1)
+        _write_channel_ply(
             os.path.join(output_dir, "TI_normal.ply"),
-            pos_s,
-            TI_normal_s,
-            mag_TI_normal_s,
-            ti_normal_colors,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
+            pos,
+            sampled["TI_normal"],
+            mag_tn,
+            colors["ti_normal"],
+            config,
+            eff_params=eff,
         )
+        exported += 1
 
-    # Combined (optional): concat whatever types were written
-    if args.combined:
-        parts = [(pos_s, TI_s, mag_TI_s, ti_colors)]  # Always include TI
-        if args.export_ch1_ch2:
-            parts.append((pos_s, E1_s, mag_E1_s, ch1_colors))
-            parts.append((pos_s, E2_s, mag_E2_s, ch2_colors))
-        if E_sum_s is not None:
-            parts.append((pos_s, E_sum_s, mag_E_sum_s, sum_colors))
-        if TI_normal_s is not None:
-            parts.append((pos_s, TI_normal_s, mag_TI_normal_s, ti_normal_colors))
+    # Combined (optional)
+    if config.export_combined:
+        parts = [(pos, sampled["TI"], mag_TI, colors["ti"])]
+        if config.export_ch1_ch2:
+            parts.append(
+                (
+                    pos,
+                    sampled["E1"],
+                    np.linalg.norm(sampled["E1"], axis=1),
+                    colors["ch1"],
+                )
+            )
+            parts.append(
+                (
+                    pos,
+                    sampled["E2"],
+                    np.linalg.norm(sampled["E2"], axis=1),
+                    colors["ch2"],
+                )
+            )
+        if sampled["E_sum"] is not None:
+            parts.append(
+                (
+                    pos,
+                    sampled["E_sum"],
+                    np.linalg.norm(sampled["E_sum"], axis=1),
+                    colors["sum"],
+                )
+            )
+        if sampled["TI_normal"] is not None:
+            parts.append(
+                (
+                    pos,
+                    sampled["TI_normal"],
+                    np.linalg.norm(sampled["TI_normal"], axis=1),
+                    colors["ti_normal"],
+                )
+            )
 
         all_pos = np.concatenate([p[0] for p in parts], axis=0)
         all_vec = np.concatenate([p[1] for p in parts], axis=0)
         all_mag = np.concatenate([p[2] for p in parts], axis=0)
         all_col = np.concatenate([p[3] for p in parts], axis=0)
 
-        write_ply_arrows(
+        _write_channel_ply(
             os.path.join(output_dir, "combined.ply"),
             all_pos,
             all_vec,
             all_mag,
             all_col,
-            length_mode=args.length_mode,
-            length_scale=eff_length_scale,
-            anchor=args.anchor,
-            vector_scale=eff_vector_scale,
-            base_length=eff_vector_length,
-            shaft_width=eff_vector_width,
+            config,
+            eff_params=eff,
+        )
+        exported += 1
+
+    return exported
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Public entry point
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def run_vectors(config: VectorConfig) -> None:
+    """Export TI/mTI vector arrow PLY files from simulation meshes.
+
+    This is the primary programmatic entry point.  It performs:
+
+    1. Load volumetric + central surface meshes
+    2. Interpolate E fields to surface face barycenters
+    3. Compute TI (or mTI) vectors, optional E_sum and TI_normal
+    4. Filter and sample nodes
+    5. Colorize arrows (RGB channel colors or magnitude-scale)
+    6. Write PLY output files
+
+    Args:
+        config: A fully-populated :class:`VectorConfig`.
+
+    Raises:
+        FileNotFoundError: If any required mesh file is missing.
+        ValueError: If E fields are missing or no vectors remain after filtering.
+    """
+    logger.info("Starting vector field export")
+
+    # 1 -- Load meshes
+    m1, m2, m3, m4, central = _load_meshes(config)
+
+    if config.anchor != VectorConfig.Anchor.HEAD:
+        logger.info(
+            "Using anchor='%s' -- for surface vectors, anchor='head' is recommended",
+            config.anchor,
         )
 
-    # Count exported files
-    exported_count = 1  # TI/mTI (always exported)
-    if args.export_ch1_ch2:
-        exported_count += 2  # CH1, CH2
-    if E_sum_s is not None:
-        exported_count += 1  # TI_sum
-    if TI_normal_s is not None:
-        exported_count += 1  # TI_normal
-    if args.combined:
-        exported_count += 1  # combined
+    # 2 -- Compute positions and fields
+    positions = _get_surface_face_barycenters(central)
+    logger.info(
+        "Using central surface face barycenters for vector positions (%d faces)",
+        len(positions),
+    )
+    fields = _compute_fields(config, m1, m2, m3, m4, positions)
 
-    print(f"Converted {exported_count} vector PLY files.")
-    print(f"Output: {output_dir}")
-    print("Finishing...")
-    return 0
+    # 3 -- TI_normal (optional)
+    TI_normal = _compute_ti_normal(config, central, m1, fields["TI"])
+    fields["TI_normal"] = TI_normal
 
+    # Pre-filter full magnitudes for color normalization (magscale mode)
+    full_mag_stacks = [
+        np.linalg.norm(fields["E1"], axis=1),
+        np.linalg.norm(fields["E2"], axis=1),
+        np.linalg.norm(fields["TI"], axis=1),
+    ]
+    if fields["E_sum"] is not None:
+        full_mag_stacks.append(np.linalg.norm(fields["E_sum"], axis=1))
+    if TI_normal is not None:
+        full_mag_stacks.append(np.linalg.norm(TI_normal, axis=1))
 
-if __name__ == "__main__":
-    sys.exit(main())
+    # 4 -- Filter and sample
+    sampled = _filter_and_sample(config, fields)
+
+    # 5 -- Colorize
+    colors = _compute_colors(config, sampled, full_mag_stacks)
+
+    # 6 -- Write outputs
+    logger.info("Writing PLY files...")
+    exported = _write_outputs(config, sampled, colors)
+
+    logger.info("Converted %d vector PLY files", exported)
+    logger.info("Output: %s", config.output_dir)
+    logger.info("Done")

@@ -11,17 +11,8 @@ from unittest.mock import patch
 import pytest
 
 from tit.stats.config import (
-    Alternative,
-    ClusterStat,
     CorrelationConfig,
-    CorrelationSubject,
-    CorrelationType,
     GroupComparisonConfig,
-    GroupSubject,
-    TestType,
-    TissueType,
-    load_correlation_subjects,
-    load_group_subjects,
 )
 
 # ============================================================================
@@ -32,26 +23,31 @@ from tit.stats.config import (
 @pytest.mark.unit
 class TestEnums:
     def test_tissue_type_values(self):
-        assert TissueType.GREY.value == "grey"
-        assert TissueType.WHITE.value == "white"
-        assert TissueType.ALL.value == "all"
+        assert GroupComparisonConfig.TissueType.GREY.value == "grey"
+        assert GroupComparisonConfig.TissueType.WHITE.value == "white"
+        assert GroupComparisonConfig.TissueType.ALL.value == "all"
 
     def test_test_type_values(self):
-        assert TestType.UNPAIRED.value == "unpaired"
-        assert TestType.PAIRED.value == "paired"
+        assert GroupComparisonConfig.TestType.UNPAIRED.value == "unpaired"
+        assert GroupComparisonConfig.TestType.PAIRED.value == "paired"
 
     def test_cluster_stat_values(self):
-        assert ClusterStat.MASS.value == "mass"
-        assert ClusterStat.SIZE.value == "size"
+        assert GroupComparisonConfig.ClusterStat.MASS.value == "mass"
+        assert GroupComparisonConfig.ClusterStat.SIZE.value == "size"
 
     def test_alternative_values(self):
-        assert Alternative.TWO_SIDED.value == "two-sided"
-        assert Alternative.GREATER.value == "greater"
-        assert Alternative.LESS.value == "less"
+        assert GroupComparisonConfig.Alternative.TWO_SIDED.value == "two-sided"
+        assert GroupComparisonConfig.Alternative.GREATER.value == "greater"
+        assert GroupComparisonConfig.Alternative.LESS.value == "less"
 
     def test_correlation_type_values(self):
-        assert CorrelationType.PEARSON.value == "pearson"
-        assert CorrelationType.SPEARMAN.value == "spearman"
+        assert CorrelationConfig.CorrelationType.PEARSON.value == "pearson"
+        assert CorrelationConfig.CorrelationType.SPEARMAN.value == "spearman"
+
+    def test_shared_enums_are_same_class(self):
+        """ClusterStat and TissueType are the same enum class on both configs."""
+        assert GroupComparisonConfig.ClusterStat is CorrelationConfig.ClusterStat
+        assert GroupComparisonConfig.TissueType is CorrelationConfig.TissueType
 
 
 # ============================================================================
@@ -62,13 +58,15 @@ class TestEnums:
 @pytest.mark.unit
 class TestSubjectConfigs:
     def test_group_subject_construction(self):
-        gs = GroupSubject(subject_id="001", simulation_name="montage1", response=1)
+        gs = GroupComparisonConfig.Subject(
+            subject_id="001", simulation_name="montage1", response=1
+        )
         assert gs.subject_id == "001"
         assert gs.simulation_name == "montage1"
         assert gs.response == 1
 
     def test_correlation_subject_construction(self):
-        cs = CorrelationSubject(
+        cs = CorrelationConfig.Subject(
             subject_id="002",
             simulation_name="montage2",
             effect_size=0.75,
@@ -80,7 +78,7 @@ class TestSubjectConfigs:
         assert cs.weight == 2.0
 
     def test_correlation_subject_defaults(self):
-        cs = CorrelationSubject(
+        cs = CorrelationConfig.Subject(
             subject_id="003",
             simulation_name="montage3",
             effect_size=1.2,
@@ -97,15 +95,15 @@ class TestSubjectConfigs:
 class TestMainConfigs:
     def _make_group_subjects(self):
         return [
-            GroupSubject("s1", "sim1", 1),
-            GroupSubject("s2", "sim2", 0),
+            GroupComparisonConfig.Subject("s1", "sim1", 1),
+            GroupComparisonConfig.Subject("s2", "sim2", 0),
         ]
 
     def _make_correlation_subjects(self):
         return [
-            CorrelationSubject("s1", "sim1", 0.5),
-            CorrelationSubject("s2", "sim2", 1.0),
-            CorrelationSubject("s3", "sim3", 1.5),
+            CorrelationConfig.Subject("s1", "sim1", 0.5),
+            CorrelationConfig.Subject("s2", "sim2", 1.0),
+            CorrelationConfig.Subject("s3", "sim3", 1.5),
         ]
 
     def test_group_comparison_config_construction(self):
@@ -119,14 +117,14 @@ class TestMainConfigs:
         assert cfg.analysis_name == "test_analysis"
         assert len(cfg.subjects) == 2
         # Verify defaults
-        assert cfg.test_type == TestType.UNPAIRED
-        assert cfg.alternative == Alternative.TWO_SIDED
+        assert cfg.test_type == GroupComparisonConfig.TestType.UNPAIRED
+        assert cfg.alternative == GroupComparisonConfig.Alternative.TWO_SIDED
         assert cfg.cluster_threshold == 0.05
-        assert cfg.cluster_stat == ClusterStat.MASS
+        assert cfg.cluster_stat == GroupComparisonConfig.ClusterStat.MASS
         assert cfg.n_permutations == 1000
         assert cfg.alpha == 0.05
         assert cfg.n_jobs == -1
-        assert cfg.tissue_type == TissueType.GREY
+        assert cfg.tissue_type == GroupComparisonConfig.TissueType.GREY
         assert cfg.group1_name == "Responders"
         assert cfg.group2_name == "Non-Responders"
         # __post_init__ sets nifti_file_pattern
@@ -145,13 +143,13 @@ class TestMainConfigs:
         assert cfg.analysis_name == "corr_test"
         assert len(cfg.subjects) == 3
         # Verify defaults
-        assert cfg.correlation_type == CorrelationType.PEARSON
+        assert cfg.correlation_type == CorrelationConfig.CorrelationType.PEARSON
         assert cfg.cluster_threshold == 0.05
-        assert cfg.cluster_stat == ClusterStat.MASS
+        assert cfg.cluster_stat == CorrelationConfig.ClusterStat.MASS
         assert cfg.n_permutations == 1000
         assert cfg.alpha == 0.05
         assert cfg.use_weights is True
-        assert cfg.tissue_type == TissueType.GREY
+        assert cfg.tissue_type == CorrelationConfig.TissueType.GREY
         assert cfg.effect_metric == "Effect Size"
         assert cfg.field_metric == "Electric Field Magnitude"
         assert (
@@ -214,7 +212,7 @@ class TestCSVLoaders:
             writer.writerow(["003", "montage3", 1])
 
         mod = self._get_config_with_real_pandas()
-        subjects = mod.load_group_subjects(str(csv_file))
+        subjects = mod.GroupComparisonConfig.load_subjects(str(csv_file))
 
         assert len(subjects) == 3
         # sub- prefix is stripped
@@ -236,7 +234,7 @@ class TestCSVLoaders:
             writer.writerow(["sub-003", "montage3", 0.8, 1.0])
 
         mod = self._get_config_with_real_pandas()
-        subjects = mod.load_correlation_subjects(str(csv_file))
+        subjects = mod.CorrelationConfig.load_subjects(str(csv_file))
 
         assert len(subjects) == 3
         assert subjects[0].subject_id == "001"

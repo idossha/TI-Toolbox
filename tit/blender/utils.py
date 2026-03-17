@@ -4,21 +4,26 @@ TI-Toolbox 3D Exporter Shared Utilities
 
 Common utilities and functions shared across all 3D export modules.
 Provides:
-- STL/PLY file I/O
 - Mesh extraction and processing
 - Electrode parsing and geometry
-- Color mapping utilities
-"""
+- Simulation config reading
 
+Low-level I/O (STL/PLY read/write, colormaps, vertex deduplication) lives
+in :mod:`tit.blender.io`.
+"""
 
 import simnibs
 import numpy as np
 
 import os
-import struct
 import logging
 from typing import Any
-from pathlib import Path
+
+from tit.blender.io import (
+    field_to_colormap,
+    write_ply_with_colors,
+    write_ply_with_scalars,
+)
 
 # Setup logger for module
 logger = logging.getLogger(__name__)
@@ -125,61 +130,6 @@ def get_eeg_net_from_config(subject_id: str, simulation_name: str) -> str | None
         return None
 
     return config.get("eeg_net")
-
-
-def write_binary_stl(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-    output_path: str,
-    header_text: str = "TI-Toolbox Mesh",
-):
-    """Write binary STL file from vertices and faces.
-
-    Args:
-        vertices: Array of [N, 3] vertex coordinates
-        faces: Array of [M, 3] face indices
-        output_path: Path to output STL file
-        header_text: Header text for STL file
-    """
-    n_faces = len(faces)
-
-    with open(output_path, "wb") as f:
-        # Write 80-byte header
-        header = header_text.encode("ascii")
-        header = header.ljust(80, b"\x00")
-        f.write(header)
-
-        # Write number of triangles (4 bytes, little-endian)
-        f.write(struct.pack("<I", n_faces))
-
-        # Write each triangle
-        for face in faces:
-            # Get triangle vertices
-            v0 = vertices[face[0]]
-            v1 = vertices[face[1]]
-            v2 = vertices[face[2]]
-
-            # Calculate normal vector
-            edge1 = v1 - v0
-            edge2 = v2 - v0
-            normal = np.cross(edge1, edge2)
-            normal_length = np.linalg.norm(normal)
-
-            if normal_length > 1e-12:
-                normal = normal / normal_length
-            else:
-                normal = np.array([0.0, 0.0, 1.0])  # Default normal
-
-            # Write normal (3 floats, little-endian)
-            f.write(struct.pack("<fff", normal[0], normal[1], normal[2]))
-
-            # Write vertices (9 floats, little-endian)
-            f.write(struct.pack("<fff", v0[0], v0[1], v0[2]))
-            f.write(struct.pack("<fff", v1[0], v1[1], v1[2]))
-            f.write(struct.pack("<fff", v2[0], v2[1], v2[2]))
-
-            # Write attribute byte count (2 bytes, little-endian)
-            f.write(struct.pack("<H", 0))
 
 
 def create_roi_mesh(
@@ -536,174 +486,6 @@ def create_electrode_geometry(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PLY File I/O
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def write_ply_with_colors(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-    colors: np.ndarray,
-    output_path: str,
-    field_name: str = "TI_max",
-) -> None:
-    """Write PLY file with vertex colors (ASCII format).
-
-    Args:
-        vertices: Array of [N, 3] vertex coordinates
-        faces: Array of [M, 3] face indices
-        colors: Array of [N, 3] RGB colors (0-255)
-        output_path: Path to output PLY file
-        field_name: Name of the field (for comment)
-    """
-    n_vertices = len(vertices)
-    n_faces = len(faces)
-
-    with open(output_path, "w") as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
-        f.write(f"element vertex {n_vertices}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        f.write("property uchar red\n")
-        f.write("property uchar green\n")
-        f.write("property uchar blue\n")
-        f.write(f"element face {n_faces}\n")
-        f.write("property list uchar int vertex_indices\n")
-        f.write("end_header\n")
-
-        for i in range(n_vertices):
-            x, y, z = vertices[i]
-            r, g, b = colors[i].astype(int)
-            f.write(f"{x:.6f} {y:.6f} {z:.6f} {r} {g} {b}\n")
-
-        for face in faces:
-            f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
-
-
-def write_ply_with_scalars(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-    scalars: np.ndarray,
-    output_path: str,
-    field_name: str = "TI_max",
-) -> None:
-    """Write PLY file with scalar field data (ASCII format).
-
-    Args:
-        vertices: Array of [N, 3] vertex coordinates
-        faces: Array of [M, 3] face indices
-        scalars: Array of [N] scalar values
-        output_path: Path to output PLY file
-        field_name: Name of the scalar field
-    """
-    n_vertices = len(vertices)
-    n_faces = len(faces)
-
-    with open(output_path, "w") as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write(f"comment Generated from SimNIBS mesh with {field_name} field\n")
-        f.write(f"element vertex {n_vertices}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        f.write(f"property float {field_name}\n")
-        f.write(f"element face {n_faces}\n")
-        f.write("property list uchar int vertex_indices\n")
-        f.write("end_header\n")
-
-        for i in range(n_vertices):
-            x, y, z = vertices[i]
-            s = scalars[i]
-            f.write(f"{x:.6f} {y:.6f} {z:.6f} {s:.6f}\n")
-
-        for face in faces:
-            f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Color Mapping Utilities
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def simple_colormap(
-    field_values: np.ndarray, vmin: float | None = None, vmax: float | None = None
-) -> np.ndarray:
-    """Create simple blue-red colormap for field values.
-
-    Args:
-        field_values: Array of field values
-        vmin: Minimum value for normalization (None = auto)
-        vmax: Maximum value for normalization (None = auto)
-
-    Returns:
-        Array of RGB colors (0-255)
-    """
-    if vmin is None:
-        vmin = np.nanmin(field_values)
-    if vmax is None:
-        vmax = np.nanmax(field_values)
-
-    if vmax == vmin:
-        colors = np.zeros((len(field_values), 3), dtype=np.uint8)
-        colors[:, 2] = 255  # All blue
-        return colors
-
-    normalized = (field_values - vmin) / (vmax - vmin)
-    normalized = np.clip(normalized, 0, 1)
-
-    colors = np.zeros((len(field_values), 3), dtype=np.uint8)
-    colors[:, 0] = (normalized * 255).astype(np.uint8)  # Red channel
-    colors[:, 2] = ((1 - normalized) * 255).astype(np.uint8)  # Blue channel
-
-    return colors
-
-
-def field_to_colormap(
-    field_values: np.ndarray,
-    colormap: str = "viridis",
-    vmin: float | None = None,
-    vmax: float | None = None,
-) -> np.ndarray:
-    """Apply matplotlib colormap to field values.
-
-    Args:
-        field_values: Array of field values
-        colormap: Matplotlib colormap name
-        vmin: Minimum value for normalization (None = auto)
-        vmax: Maximum value for normalization (None = auto)
-
-    Returns:
-        Array of RGB colors (0-255)
-    """
-    try:
-        import matplotlib.cm as cm
-    except ImportError:
-        logger.warning("Matplotlib not available, using simple blue-red colormap")
-        return simple_colormap(field_values, vmin, vmax)
-
-    if vmin is None:
-        vmin = np.nanmin(field_values)
-    if vmax is None:
-        vmax = np.nanmax(field_values)
-
-    if vmax == vmin:
-        normalized = np.zeros_like(field_values)
-    else:
-        normalized = (field_values - vmin) / (vmax - vmin)
-        normalized = np.clip(normalized, 0, 1)
-
-    cmap = cm.get_cmap(colormap)
-    colors_rgba = cmap(normalized)
-    colors_rgb = (colors_rgba[:, :3] * 255).astype(np.uint8)
-
-    return colors_rgb
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Mesh Extraction Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -793,21 +575,37 @@ def export_mesh_to_ply(
 
     if field_data is None:
         logger.warning(f"Field '{field_name}' not found in mesh, using default values")
+        comment = f"Generated from SimNIBS mesh with {field_name} field"
         if use_colors:
             colors = np.full((len(vertices), 3), 128, dtype=np.uint8)
-            write_ply_with_colors(vertices, faces, colors, ply_path, field_name)
+            write_ply_with_colors(ply_path, vertices, faces, colors, comment=comment)
         else:
             scalars = np.zeros(len(vertices))
-            write_ply_with_scalars(vertices, faces, scalars, ply_path, field_name)
+            write_ply_with_scalars(
+                ply_path,
+                vertices,
+                faces,
+                scalars,
+                scalar_name=field_name,
+                comment=comment,
+            )
         return True
 
     vmin, vmax = field_range if field_range else (None, None)
+    comment = f"Generated from SimNIBS mesh with {field_name} field"
 
     if use_colors:
         colors = field_to_colormap(field_data, colormap, vmin, vmax)
-        write_ply_with_colors(vertices, faces, colors, ply_path, field_name)
+        write_ply_with_colors(ply_path, vertices, faces, colors, comment=comment)
     else:
-        write_ply_with_scalars(vertices, faces, field_data, ply_path, field_name)
+        write_ply_with_scalars(
+            ply_path,
+            vertices,
+            faces,
+            field_data,
+            scalar_name=field_name,
+            comment=comment,
+        )
 
     return True
 

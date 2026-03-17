@@ -436,365 +436,417 @@ def _run_single_correlation_permutation(
     return max_cluster_stat, max_cluster_size, max_cluster_mass
 
 
-# ─── cluster-based permutation correction (group comparison) ─────────────
+# ─── PermutationEngine ───────────────────────────────────────────────────
 
 
-def cluster_based_correction(
-    responders,
-    non_responders,
-    p_values,
-    valid_mask,
-    cluster_threshold=0.01,
-    n_permutations=500,
-    alpha=0.05,
-    test_type="unpaired",
-    alternative="two-sided",
-    cluster_stat="mass",
-    t_statistics=None,
-    n_jobs=-1,
-    log=None,
-    save_permutation_log=False,
-    permutation_log_file=None,
-    subject_ids_resp=None,
-    subject_ids_non_resp=None,
-):
-    """Cluster-based permutation correction for group comparison.
+class PermutationEngine:
+    """Master class for cluster-based permutation testing.
 
-    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,
-    correlation_data)``.
+    Stores all control parameters as self.* so methods only need data arrays.
     """
-    from .io_utils import save_permutation_details
 
-    _log = log or logger
+    def __init__(
+        self,
+        *,
+        cluster_threshold: float = 0.05,
+        n_permutations: int = 1000,
+        alpha: float = 0.05,
+        cluster_stat: str = "mass",
+        alternative: str = "two-sided",
+        n_jobs: int = -1,
+        log: logging.Logger | None = None,
+    ):
+        self.cluster_threshold = cluster_threshold
+        self.n_permutations = n_permutations
+        self.alpha = alpha
+        self.cluster_stat = cluster_stat
+        self.alternative = alternative
+        self.n_jobs = n_jobs
+        self._log = log or logger
 
-    if cluster_stat == "mass" and t_statistics is None:
-        raise ValueError("t_statistics required when cluster_stat='mass'")
+    def correct_groups(
+        self,
+        responders,
+        non_responders,
+        *,
+        p_values,
+        t_statistics,
+        valid_mask,
+        test_type: str = "unpaired",
+        perm_log_file: str | None = None,
+        subject_ids_resp: list | None = None,
+        subject_ids_non_resp: list | None = None,
+    ) -> tuple:
+        """Cluster-based permutation correction for group comparison.
 
-    _log.info(
-        "Cluster-based permutation correction (%s, %s)", cluster_stat, alternative
-    )
+        Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,
+        correlation_data)``.
+        """
+        from .io_utils import save_permutation_details
 
-    initial_mask = (p_values < cluster_threshold) & valid_mask
-    labeled_array, n_clusters = label(initial_mask)
-    _log.info("Clusters at p<%.3f (uncorrected): %d", cluster_threshold, n_clusters)
+        if self.cluster_stat == "mass" and t_statistics is None:
+            raise ValueError("t_statistics required when cluster_stat='mass'")
 
-    empty = {"sizes": np.array([]), "masses": np.array([])}
-    if n_clusters == 0:
-        _log.warning("No clusters found. Consider increasing cluster_threshold.")
-        return np.zeros_like(p_values, dtype=int), 0, [], np.array([]), [], empty
-
-    # Pre-extract voxel data
-    all_data = np.concatenate([responders, non_responders], axis=-1)
-    n_resp = responders.shape[-1]
-    n_total = n_resp + non_responders.shape[-1]
-
-    test_coords = np.argwhere(valid_mask)
-    n_test = len(test_coords)
-    _log.info("Pre-extracting %d voxels, %d subjects", n_test, n_total)
-
-    test_data = np.zeros((n_test, n_total), dtype=np.float32)
-    for idx, (i, j, k) in enumerate(test_coords):
-        test_data[idx, :] = all_data[i, j, k, :].astype(np.float32)
-    del all_data
-    gc.collect()
-
-    _log.info("Test data: %.1f MB", test_data.nbytes / (1024**2))
-
-    actual_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
-    _log.info("Running %d permutations on %d cores", n_permutations, actual_jobs)
-
-    seeds = np.random.randint(0, 2**31, size=n_permutations)
-    track = (
-        save_permutation_log
-        and subject_ids_resp is not None
-        and subject_ids_non_resp is not None
-    )
-
-    if actual_jobs == 1:
-        results = [
-            _run_single_permutation(
-                test_data,
-                test_coords,
-                n_resp,
-                n_total,
-                cluster_threshold,
-                valid_mask,
-                p_values.shape,
-                test_type=test_type,
-                alternative=alternative,
-                cluster_stat=cluster_stat,
-                seed=seeds[i],
-                return_indices=track,
-            )
-            for i in range(n_permutations)
-        ]
-    else:
-        results = Parallel(n_jobs=actual_jobs, verbose=0)(
-            delayed(_run_single_permutation)(
-                test_data,
-                test_coords,
-                n_resp,
-                n_total,
-                cluster_threshold,
-                valid_mask,
-                p_values.shape,
-                test_type=test_type,
-                alternative=alternative,
-                cluster_stat=cluster_stat,
-                seed=seeds[i],
-                return_indices=track,
-            )
-            for i in range(n_permutations)
+        self._log.info(
+            "Cluster-based permutation correction (%s, %s)",
+            self.cluster_stat,
+            self.alternative,
         )
+
+        initial_mask = (p_values < self.cluster_threshold) & valid_mask
+        labeled_array, n_clusters = label(initial_mask)
+        self._log.info(
+            "Clusters at p<%.3f (uncorrected): %d",
+            self.cluster_threshold,
+            n_clusters,
+        )
+
+        empty = {"sizes": np.array([]), "masses": np.array([])}
+        if n_clusters == 0:
+            self._log.warning(
+                "No clusters found. Consider increasing cluster_threshold."
+            )
+            return (
+                np.zeros_like(p_values, dtype=int),
+                0,
+                [],
+                np.array([]),
+                [],
+                empty,
+            )
+
+        # Pre-extract voxel data
+        all_data = np.concatenate([responders, non_responders], axis=-1)
+        n_resp = responders.shape[-1]
+        n_total = n_resp + non_responders.shape[-1]
+
+        test_coords = np.argwhere(valid_mask)
+        n_test = len(test_coords)
+        self._log.info("Pre-extracting %d voxels, %d subjects", n_test, n_total)
+
+        test_data = np.zeros((n_test, n_total), dtype=np.float32)
+        for idx, (i, j, k) in enumerate(test_coords):
+            test_data[idx, :] = all_data[i, j, k, :].astype(np.float32)
+        del all_data
         gc.collect()
 
-    del test_data
-    gc.collect()
+        self._log.info("Test data: %.1f MB", test_data.nbytes / (1024**2))
 
-    if track:
-        null_stats = np.array([r[0] for r in results])
-        perm_indices = [r[1] for r in results]
-        null_sizes = [r[2] for r in results]
-        null_masses = [r[3] for r in results]
-    else:
-        null_stats = np.array([r[0] for r in results])
-        perm_indices = None
-        null_sizes = [r[1] for r in results]
-        null_masses = [r[2] for r in results]
-
-    # Determine threshold
-    sorted_null = np.sort(null_stats)[::-1]
-    ti = max(1, min(int(alpha * n_permutations), len(sorted_null)))
-    cluster_stat_threshold = sorted_null[ti - 1]
-
-    stat_unit = "voxels" if cluster_stat == "size" else "mass units"
-    _log.info(
-        "Threshold (p<%.3f): %.2f %s  " "(null min=%.2f, mean=%.2f, max=%.2f)",
-        alpha,
-        cluster_stat_threshold,
-        stat_unit,
-        np.min(null_stats),
-        np.mean(null_stats),
-        np.max(null_stats),
-    )
-
-    if save_permutation_log and perm_indices is not None:
-        pf = permutation_log_file or "permutation_details.txt"
-        info = [
-            {
-                "perm_num": i,
-                "perm_idx": perm_indices[i],
-                "max_cluster_size": null_stats[i],
-            }
-            for i in range(n_permutations)
-        ]
-        save_permutation_details(info, pf, subject_ids_resp, subject_ids_non_resp)
-        _log.info("Permutation log saved: %s", pf)
-
-    # Identify significant clusters (MNE-style per-cluster p-values)
-    sig_mask, sig_clusters, all_observed = _identify_significant_clusters(
-        labeled_array,
-        n_clusters,
-        t_statistics,
-        null_stats,
-        cluster_stat,
-        alpha,
-        alternative,
-        _log,
-    )
-
-    _log.info(
-        "Significant: %d clusters, %d voxels", len(sig_clusters), np.sum(sig_mask)
-    )
-
-    correlation_data = {
-        "sizes": np.array(null_sizes),
-        "masses": np.array(null_masses),
-    }
-    return (
-        sig_mask,
-        cluster_stat_threshold,
-        sig_clusters,
-        null_stats,
-        all_observed,
-        correlation_data,
-    )
-
-
-# ─── cluster-based permutation correction (correlation) ──────────────────
-
-
-def correlation_cluster_correction(
-    subject_data,
-    effect_sizes,
-    r_values,
-    t_statistics,
-    p_values,
-    valid_mask,
-    weights=None,
-    correlation_type="pearson",
-    cluster_threshold=0.05,
-    n_permutations=1000,
-    alpha=0.05,
-    cluster_stat="mass",
-    alternative="two-sided",
-    n_jobs=-1,
-    log=None,
-    save_permutation_log=False,
-    permutation_log_file=None,
-    subject_ids=None,
-):
-    """Cluster-based permutation correction for correlation analysis (ACES-style).
-
-    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,
-    correlation_data)``.
-    """
-    from .io_utils import save_permutation_details
-
-    _log = log or logger
-    effect_sizes = np.asarray(effect_sizes, dtype=np.float64)
-    n_subjects = len(effect_sizes)
-
-    _log.info(
-        "Correlation cluster correction (%s, %s, %s)",
-        correlation_type,
-        cluster_stat,
-        alternative,
-    )
-
-    # Form initial clusters based on alternative
-    match alternative:
-        case "greater":
-            initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics > 0)
-        case "less":
-            initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics < 0)
-        case _:
-            initial_mask = (p_values < cluster_threshold) & valid_mask
-
-    labeled_array, n_clusters = label(initial_mask)
-    _log.info("Clusters at p<%.3f: %d", cluster_threshold, n_clusters)
-
-    empty = {"sizes": np.array([]), "masses": np.array([])}
-    if n_clusters == 0:
-        _log.warning("No clusters found.")
-        return np.zeros_like(p_values, dtype=int), 0, [], np.array([]), [], empty
-
-    # Pre-extract voxel data
-    valid_coords = np.argwhere(valid_mask)
-    n_valid = len(valid_coords)
-    voxel_data = np.zeros((n_valid, n_subjects), dtype=np.float64)
-    for idx, (i, j, k) in enumerate(valid_coords):
-        voxel_data[idx, :] = subject_data[i, j, k, :]
-
-    # Pre-rank for Spearman
-    preranked = False
-    if correlation_type == "spearman":
-        _log.info("Pre-ranking voxel data for Spearman (%d voxels)", n_valid)
-        voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
-        preranked = True
-
-    actual_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
-    _log.info("Running %d permutations on %d cores", n_permutations, actual_jobs)
-
-    seeds = np.random.randint(0, 2**31, size=n_permutations)
-    track = save_permutation_log and subject_ids is not None
-
-    if actual_jobs == 1:
-        results = [
-            _run_single_correlation_permutation(
-                voxel_data,
-                effect_sizes,
-                valid_coords,
-                cluster_threshold,
-                valid_mask,
-                p_values.shape,
-                correlation_type=correlation_type,
-                weights=weights,
-                cluster_stat=cluster_stat,
-                alternative=alternative,
-                seed=seeds[i],
-                return_indices=track,
-                voxel_data_preranked=preranked,
-            )
-            for i in range(n_permutations)
-        ]
-    else:
-        results = Parallel(n_jobs=actual_jobs, verbose=0)(
-            delayed(_run_single_correlation_permutation)(
-                voxel_data,
-                effect_sizes,
-                valid_coords,
-                cluster_threshold,
-                valid_mask,
-                p_values.shape,
-                correlation_type=correlation_type,
-                weights=weights,
-                cluster_stat=cluster_stat,
-                alternative=alternative,
-                seed=seeds[i],
-                return_indices=track,
-                voxel_data_preranked=preranked,
-            )
-            for i in range(n_permutations)
+        actual_jobs = multiprocessing.cpu_count() if self.n_jobs == -1 else self.n_jobs
+        self._log.info(
+            "Running %d permutations on %d cores",
+            self.n_permutations,
+            actual_jobs,
         )
+
+        seeds = np.random.randint(0, 2**31, size=self.n_permutations)
+        track = (
+            perm_log_file is not None
+            and subject_ids_resp is not None
+            and subject_ids_non_resp is not None
+        )
+
+        if actual_jobs == 1:
+            results = [
+                _run_single_permutation(
+                    test_data,
+                    test_coords,
+                    n_resp,
+                    n_total,
+                    self.cluster_threshold,
+                    valid_mask,
+                    p_values.shape,
+                    test_type=test_type,
+                    alternative=self.alternative,
+                    cluster_stat=self.cluster_stat,
+                    seed=seeds[i],
+                    return_indices=track,
+                )
+                for i in range(self.n_permutations)
+            ]
+        else:
+            results = Parallel(n_jobs=actual_jobs, verbose=0)(
+                delayed(_run_single_permutation)(
+                    test_data,
+                    test_coords,
+                    n_resp,
+                    n_total,
+                    self.cluster_threshold,
+                    valid_mask,
+                    p_values.shape,
+                    test_type=test_type,
+                    alternative=self.alternative,
+                    cluster_stat=self.cluster_stat,
+                    seed=seeds[i],
+                    return_indices=track,
+                )
+                for i in range(self.n_permutations)
+            )
+            gc.collect()
+
+        del test_data
         gc.collect()
 
-    del voxel_data
-    gc.collect()
+        if track:
+            null_stats = np.array([r[0] for r in results])
+            perm_indices = [r[1] for r in results]
+            null_sizes = [r[2] for r in results]
+            null_masses = [r[3] for r in results]
+        else:
+            null_stats = np.array([r[0] for r in results])
+            perm_indices = None
+            null_sizes = [r[1] for r in results]
+            null_masses = [r[2] for r in results]
 
-    if track:
-        null_stats = np.array([r[0] for r in results])
-        null_sizes = [r[2] for r in results]
-        null_masses = [r[3] for r in results]
-    else:
-        null_stats = np.array([r[0] for r in results])
-        null_sizes = [r[1] for r in results]
-        null_masses = [r[2] for r in results]
+        # Determine threshold
+        sorted_null = np.sort(null_stats)[::-1]
+        ti = max(1, min(int(self.alpha * self.n_permutations), len(sorted_null)))
+        cluster_stat_threshold = sorted_null[ti - 1]
 
-    sorted_null = np.sort(null_stats)[::-1]
-    ti = max(1, min(int(alpha * n_permutations), len(sorted_null)))
-    cluster_stat_threshold = sorted_null[ti - 1]
+        stat_unit = "voxels" if self.cluster_stat == "size" else "mass units"
+        self._log.info(
+            "Threshold (p<%.3f): %.2f %s  " "(null min=%.2f, mean=%.2f, max=%.2f)",
+            self.alpha,
+            cluster_stat_threshold,
+            stat_unit,
+            np.min(null_stats),
+            np.mean(null_stats),
+            np.max(null_stats),
+        )
 
-    stat_unit = "voxels" if cluster_stat == "size" else "mass units"
-    _log.info(
-        "Threshold (p<%.3f): %.2f %s  " "(null min=%.2f, mean=%.2f, max=%.2f)",
-        alpha,
-        cluster_stat_threshold,
-        stat_unit,
-        np.min(null_stats),
-        np.mean(null_stats),
-        np.max(null_stats),
-    )
+        if perm_log_file is not None and perm_indices is not None:
+            info = [
+                {
+                    "perm_num": i,
+                    "perm_idx": perm_indices[i],
+                    "max_cluster_size": null_stats[i],
+                }
+                for i in range(self.n_permutations)
+            ]
+            save_permutation_details(
+                info,
+                perm_log_file,
+                subject_ids_resp,
+                subject_ids_non_resp,
+            )
+            self._log.info("Permutation log saved: %s", perm_log_file)
 
-    # Identify significant clusters
-    sig_mask, sig_clusters, all_observed = _identify_significant_clusters(
-        labeled_array,
-        n_clusters,
+        # Identify significant clusters (MNE-style per-cluster p-values)
+        sig_mask, sig_clusters, all_observed = _identify_significant_clusters(
+            labeled_array,
+            n_clusters,
+            t_statistics,
+            null_stats,
+            self.cluster_stat,
+            self.alpha,
+            self.alternative,
+            self._log,
+        )
+
+        self._log.info(
+            "Significant: %d clusters, %d voxels",
+            len(sig_clusters),
+            np.sum(sig_mask),
+        )
+
+        correlation_data = {
+            "sizes": np.array(null_sizes),
+            "masses": np.array(null_masses),
+        }
+        return (
+            sig_mask,
+            cluster_stat_threshold,
+            sig_clusters,
+            null_stats,
+            all_observed,
+            correlation_data,
+        )
+
+    def correct_correlation(
+        self,
+        subject_data,
+        effect_sizes,
+        *,
+        r_values,
         t_statistics,
-        null_stats,
-        cluster_stat,
-        alpha,
-        alternative,
-        _log,
-        r_values=r_values,
-    )
+        p_values,
+        valid_mask,
+        correlation_type: str = "pearson",
+        weights=None,
+        perm_log_file: str | None = None,
+        subject_ids: list | None = None,
+    ) -> tuple:
+        """Cluster-based permutation correction for correlation analysis.
 
-    _log.info(
-        "Significant: %d clusters, %d voxels", len(sig_clusters), np.sum(sig_mask)
-    )
+        Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,
+        correlation_data)``.
+        """
+        from .io_utils import save_permutation_details
 
-    correlation_data = {
-        "sizes": np.array(null_sizes),
-        "masses": np.array(null_masses),
-    }
-    return (
-        sig_mask,
-        cluster_stat_threshold,
-        sig_clusters,
-        null_stats,
-        all_observed,
-        correlation_data,
-    )
+        effect_sizes = np.asarray(effect_sizes, dtype=np.float64)
+        n_subjects = len(effect_sizes)
+
+        self._log.info(
+            "Correlation cluster correction (%s, %s, %s)",
+            correlation_type,
+            self.cluster_stat,
+            self.alternative,
+        )
+
+        # Form initial clusters based on alternative
+        match self.alternative:
+            case "greater":
+                initial_mask = (
+                    (p_values < self.cluster_threshold)
+                    & valid_mask
+                    & (t_statistics > 0)
+                )
+            case "less":
+                initial_mask = (
+                    (p_values < self.cluster_threshold)
+                    & valid_mask
+                    & (t_statistics < 0)
+                )
+            case _:
+                initial_mask = (p_values < self.cluster_threshold) & valid_mask
+
+        labeled_array, n_clusters = label(initial_mask)
+        self._log.info("Clusters at p<%.3f: %d", self.cluster_threshold, n_clusters)
+
+        empty = {"sizes": np.array([]), "masses": np.array([])}
+        if n_clusters == 0:
+            self._log.warning("No clusters found.")
+            return (
+                np.zeros_like(p_values, dtype=int),
+                0,
+                [],
+                np.array([]),
+                [],
+                empty,
+            )
+
+        # Pre-extract voxel data
+        valid_coords = np.argwhere(valid_mask)
+        n_valid = len(valid_coords)
+        voxel_data = np.zeros((n_valid, n_subjects), dtype=np.float64)
+        for idx, (i, j, k) in enumerate(valid_coords):
+            voxel_data[idx, :] = subject_data[i, j, k, :]
+
+        # Pre-rank for Spearman
+        preranked = False
+        if correlation_type == "spearman":
+            self._log.info("Pre-ranking voxel data for Spearman (%d voxels)", n_valid)
+            voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
+            preranked = True
+
+        actual_jobs = multiprocessing.cpu_count() if self.n_jobs == -1 else self.n_jobs
+        self._log.info(
+            "Running %d permutations on %d cores",
+            self.n_permutations,
+            actual_jobs,
+        )
+
+        seeds = np.random.randint(0, 2**31, size=self.n_permutations)
+        track = perm_log_file is not None and subject_ids is not None
+
+        if actual_jobs == 1:
+            results = [
+                _run_single_correlation_permutation(
+                    voxel_data,
+                    effect_sizes,
+                    valid_coords,
+                    self.cluster_threshold,
+                    valid_mask,
+                    p_values.shape,
+                    correlation_type=correlation_type,
+                    weights=weights,
+                    cluster_stat=self.cluster_stat,
+                    alternative=self.alternative,
+                    seed=seeds[i],
+                    return_indices=track,
+                    voxel_data_preranked=preranked,
+                )
+                for i in range(self.n_permutations)
+            ]
+        else:
+            results = Parallel(n_jobs=actual_jobs, verbose=0)(
+                delayed(_run_single_correlation_permutation)(
+                    voxel_data,
+                    effect_sizes,
+                    valid_coords,
+                    self.cluster_threshold,
+                    valid_mask,
+                    p_values.shape,
+                    correlation_type=correlation_type,
+                    weights=weights,
+                    cluster_stat=self.cluster_stat,
+                    alternative=self.alternative,
+                    seed=seeds[i],
+                    return_indices=track,
+                    voxel_data_preranked=preranked,
+                )
+                for i in range(self.n_permutations)
+            )
+            gc.collect()
+
+        del voxel_data
+        gc.collect()
+
+        if track:
+            null_stats = np.array([r[0] for r in results])
+            null_sizes = [r[2] for r in results]
+            null_masses = [r[3] for r in results]
+        else:
+            null_stats = np.array([r[0] for r in results])
+            null_sizes = [r[1] for r in results]
+            null_masses = [r[2] for r in results]
+
+        sorted_null = np.sort(null_stats)[::-1]
+        ti = max(1, min(int(self.alpha * self.n_permutations), len(sorted_null)))
+        cluster_stat_threshold = sorted_null[ti - 1]
+
+        stat_unit = "voxels" if self.cluster_stat == "size" else "mass units"
+        self._log.info(
+            "Threshold (p<%.3f): %.2f %s  " "(null min=%.2f, mean=%.2f, max=%.2f)",
+            self.alpha,
+            cluster_stat_threshold,
+            stat_unit,
+            np.min(null_stats),
+            np.mean(null_stats),
+            np.max(null_stats),
+        )
+
+        # Identify significant clusters
+        sig_mask, sig_clusters, all_observed = _identify_significant_clusters(
+            labeled_array,
+            n_clusters,
+            t_statistics,
+            null_stats,
+            self.cluster_stat,
+            self.alpha,
+            self.alternative,
+            self._log,
+            r_values=r_values,
+        )
+
+        self._log.info(
+            "Significant: %d clusters, %d voxels",
+            len(sig_clusters),
+            np.sum(sig_mask),
+        )
+
+        correlation_data = {
+            "sizes": np.array(null_sizes),
+            "masses": np.array(null_masses),
+        }
+        return (
+            sig_mask,
+            cluster_stat_threshold,
+            sig_clusters,
+            null_stats,
+            all_observed,
+            correlation_data,
+        )
 
 
 # ─── shared: identify significant clusters ───────────────────────────────

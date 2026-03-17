@@ -1069,8 +1069,6 @@ class AnalysisThread(QtCore.QThread):
             from tit.stats import (
                 GroupComparisonConfig,
                 CorrelationConfig,
-                GroupSubject,
-                CorrelationSubject,
                 run_group_comparison,
                 run_correlation,
             )
@@ -1102,7 +1100,7 @@ class AnalysisThread(QtCore.QThread):
 
             if analysis_type == "group_comparison":
                 subjects = [
-                    GroupSubject(
+                    GroupComparisonConfig.Subject(
                         subject_id=s["subject_id"],
                         simulation_name=s["simulation_name"],
                         response=int(s["response"]),
@@ -1129,7 +1127,7 @@ class AnalysisThread(QtCore.QThread):
                 )
             else:
                 subjects = [
-                    CorrelationSubject(
+                    CorrelationConfig.Subject(
                         subject_id=s["subject_id"],
                         simulation_name=s["simulation_name"],
                         effect_size=float(s["effect_size"]),

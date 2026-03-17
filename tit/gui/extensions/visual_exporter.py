@@ -9,13 +9,10 @@ Export STL/PLY cortical regions & vector clouds of simulation results.
 import os
 import shutil
 import subprocess
-import tempfile
 import glob
-import io
 import logging
 from pathlib import Path
 from datetime import datetime
-from contextlib import redirect_stdout, redirect_stderr
 from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
@@ -26,14 +23,17 @@ from tit.paths import get_path_manager
 from tit import constants as const
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
+from tit.gui.components.base_thread import BaseProcessThread
 import logging as _std_logging
 from tit.gui.style import FONT_NOTE  # graphics tokens
 from tit.tools.extract_labels import extract_labels
 from tit.tools.nifti_to_mesh import nifti_to_mesh
-
-# Repo/package path helper used to invoke bundled CLI/blender scripts in subprocesses.
-# `.../tit/gui/extensions/visual_exporter.py` -> parents[2] == `.../tit`
-ti_toolbox_path = Path(__file__).resolve().parents[2]
+from tit.config_io import write_config_json
+from tit.blender.config import (
+    MontageConfig,
+    VectorConfig,
+    RegionConfig,
+)
 
 
 class Mode:
@@ -44,59 +44,42 @@ class Mode:
     SUBCORTICAL = "SUBCORTICAL"
 
 
-class WorkerThread(QtCore.QThread):
-    output_signal = QtCore.pyqtSignal(str)
+class BlenderExportThread(BaseProcessThread):
+    """Thread to run blender export commands in background.
+
+    Supports sequential execution of multiple commands (e.g. STL + PLY region
+    exports).  For a single command, pass a one-element list.
+    """
+
+    # Extra signal to indicate all commands finished (carries exit-code 0)
     finished_signal = QtCore.pyqtSignal(int)
-    error_signal = QtCore.pyqtSignal(str)
 
     def __init__(self, commands):
-        super().__init__()
-        self.commands = (
-            commands  # list of (cmd:list[str], cwd: str | None) to run sequentially
-        )
-        self._process = None
+        """
+        Args:
+            commands: list of (cmd: list[str], cwd: str | None) tuples.
+        """
+        super().__init__(parent=None)
+        self.commands = commands
 
     def run(self):
-        try:
-            for cmd, cwd in self.commands:
-                self.output_signal.emit(f"\n$ {' '.join(cmd)}")
-                # Force unbuffered Python output so GUI receives logs immediately.
-                env = os.environ.copy()
-                env.setdefault("PYTHONUNBUFFERED", "1")
-                self._process = subprocess.Popen(
-                    cmd,
-                    cwd=cwd or None,
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    universal_newlines=True,
-                )
-                assert self._process.stdout is not None
-                for line in self._process.stdout:
-                    self.output_signal.emit(line.rstrip("\n"))
-                ret = self._process.wait()
-                if ret != 0:
-                    self.error_signal.emit(f"Command failed with exit code {ret}")
-                    return
+        """Execute each command sequentially via BaseProcessThread machinery."""
+        for cmd, cwd in self.commands:
+            if self.terminated:
+                break
+            self.cmd = cmd
+            self.cwd = cwd
+            self.output_signal.emit(f"$ {' '.join(cmd)}", "command")
+            self.execute_process()
+            # Check if the subprocess failed
+            if (
+                self.process
+                and self.process.returncode is not None
+                and self.process.returncode != 0
+            ):
+                return  # error_signal already emitted by execute_process
+        if not self.terminated:
             self.finished_signal.emit(0)
-        except Exception as e:
-            import traceback
-
-            self.error_signal.emit(f"{str(e)}\n\n{traceback.format_exc()}")
-
-    def terminate_and_wait(self):
-        try:
-            if self._process and self._process.poll() is None:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-        except Exception:
-            # Process cleanup may fail if already terminated
-            pass
 
 
 class VisualExporterWidget(QtWidgets.QWidget):
@@ -1111,34 +1094,29 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     if self.cort_regions_list.item(i).isSelected()
                 ]
                 self._selected_regions = selected
-                # Always include whole GM
-                include_whole = True
 
-                # Always export STL
+                m2m_dir = self._m2m_dir(subject_id)
+
+                # Always export STL via config dataclass
                 stl_dir = os.path.join(out_base, "stl")
                 os.makedirs(stl_dir, exist_ok=True)
-                cmd_stl = [
-                    "simnibs_python",
-                    str(ti_toolbox_path / "blender" / "region_stl_exporter.py"),
-                    "--mesh",
-                    central_surface,
-                    "--m2m",
-                    self._m2m_dir(subject_id),
-                    "--output-dir",
-                    stl_dir,
-                    "--atlas",
-                    atlas,
-                    "--field",
-                    field,
-                ]
-                # Region selection handling
-                if selected:
-                    cmd_stl.extend(["--regions", ",".join(selected)])
-                else:
-                    cmd_stl.append("--skip-regions")
-                # Always keep meshes for MSH format
-                cmd_stl.append("--keep-meshes")
-                commands.append((cmd_stl, None))
+                stl_config = RegionConfig(
+                    m2m_dir=m2m_dir,
+                    output_dir=stl_dir,
+                    mesh=central_surface,
+                    format=RegionConfig.Format.STL,
+                    atlas=atlas,
+                    field_name=field,
+                    skip_regions=not bool(selected),
+                    regions=selected,
+                    keep_meshes=True,
+                )
+                stl_config_path = write_config_json(
+                    stl_config, prefix="blender_region_stl"
+                )
+                commands.append(
+                    (["simnibs_python", "-m", "tit.blender", stl_config_path], None)
+                )
                 self._prune_infos.append(
                     {
                         "format": "stl",
@@ -1148,31 +1126,26 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     }
                 )
 
-                # Always export PLY
+                # Always export PLY via config dataclass
                 ply_dir = os.path.join(out_base, "ply")
                 os.makedirs(ply_dir, exist_ok=True)
-                cmd_ply = [
-                    "simnibs_python",
-                    str(ti_toolbox_path / "blender" / "region_ply_exporter.py"),
-                    "--mesh",
-                    central_surface,
-                    "--m2m",
-                    self._m2m_dir(subject_id),
-                    "--output-dir",
-                    ply_dir,
-                    "--atlas",
-                    atlas,
-                    "--field",
-                    field,
-                ]
-                # Region selection handling
-                if selected:
-                    cmd_ply.extend(["--regions", ",".join(selected)])
-                else:
-                    cmd_ply.append("--skip-regions")
-                # Always keep meshes for MSH format
-                cmd_ply.append("--keep-meshes")
-                commands.append((cmd_ply, None))
+                ply_config = RegionConfig(
+                    m2m_dir=m2m_dir,
+                    output_dir=ply_dir,
+                    mesh=central_surface,
+                    format=RegionConfig.Format.PLY,
+                    atlas=atlas,
+                    field_name=field,
+                    skip_regions=not bool(selected),
+                    regions=selected,
+                    keep_meshes=True,
+                )
+                ply_config_path = write_config_json(
+                    ply_config, prefix="blender_region_ply"
+                )
+                commands.append(
+                    (["simnibs_python", "-m", "tit.blender", ply_config_path], None)
+                )
                 self._prune_infos.append(
                     {
                         "format": "ply",
@@ -1211,86 +1184,68 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 except Exception as e:
                     raise ValueError(f"Failed to get central surface: {e}")
 
-                # Use output directory as prefix (vectors will be named TI.ply, CH1.ply, etc.)
-                cmd = [
-                    "simnibs_python",
-                    str(ti_toolbox_path / "blender" / "vector_field_exporter.py"),
-                    m1,
-                    m2,
-                    mode_dir,  # Output directory
-                    "--central-surface",
-                    central_surface,
-                ]
-
+                # mTI mesh handling
+                m3 = None
+                m4 = None
                 if self.vec_enable_mti.isChecked():
-                    m3 = self.vec_m3.text().strip()
-                    m4 = self.vec_m4.text().strip()
+                    m3 = self.vec_m3.text().strip() or None
+                    m4 = self.vec_m4.text().strip() or None
                     if not (m3 and m4 and os.path.exists(m3) and os.path.exists(m4)):
                         raise ValueError("mTI enabled: TDCS meshes 3 and 4 required.")
-                    cmd.extend(["--mti", m3, m4])
 
-                # Export CH1/CH2 if requested
-                if self.vec_export_ch1_ch2.isChecked():
-                    cmd.append("--export-ch1-ch2")
-
-                if self.vec_do_sum.isChecked():
-                    cmd.append("--sum")
-                if self.vec_do_ti_normal.isChecked():
-                    cmd.append("--ti-normal")
-                # Color scale
-                color_mode = self.vec_color_mode.currentText().strip()
-                if color_mode:
-                    cmd.extend(["--color", color_mode])
-                    if color_mode == "magscale":
-                        cmd.extend(["--blue-percentile", str(self.spn_blue.value())])
-                        cmd.extend(["--green-percentile", str(self.spn_green.value())])
-                        cmd.extend(["--red-percentile", str(self.spn_red.value())])
-                if (
-                    getattr(self, "vec_all_nodes", None)
-                    and self.vec_all_nodes.isChecked()
-                ):
-                    cmd.append("--all-nodes")
-                else:
-                    cmd.extend(["--count", str(self.vec_count.value())])
-                cmd.extend(["--seed", str(self.vec_seed.value())])
-                cmd.extend(["--length-scale", str(self.vec_length_scale.value())])
-                # Hidden defaults for normalized visuals
-                cmd.extend(["--vector-scale", "1.0"])
-                cmd.extend(["--vector-width", str(self.vec_vector_width.value())])
-                cmd.extend(["--vector-length", "1.0"])
-                cmd.extend(["--anchor", self.vec_anchor.currentText()])
-                commands.append((cmd, None))
+                # Build VectorConfig from UI widgets
+                vec_config = VectorConfig(
+                    mesh1=m1,
+                    mesh2=m2,
+                    output_dir=mode_dir,
+                    central_surface=central_surface,
+                    mesh3=m3,
+                    mesh4=m4,
+                    export_ch1_ch2=self.vec_export_ch1_ch2.isChecked(),
+                    export_sum=self.vec_do_sum.isChecked(),
+                    export_ti_normal=self.vec_do_ti_normal.isChecked(),
+                    count=self.vec_count.value(),
+                    all_nodes=(
+                        self.vec_all_nodes.isChecked()
+                        if getattr(self, "vec_all_nodes", None)
+                        else False
+                    ),
+                    seed=self.vec_seed.value(),
+                    length_scale=self.vec_length_scale.value(),
+                    vector_scale=1.0,
+                    vector_width=self.vec_vector_width.value(),
+                    vector_length=1.0,
+                    anchor=VectorConfig.Anchor(self.vec_anchor.currentText()),
+                    color=VectorConfig.Color(self.vec_color_mode.currentText().strip() or "rgb"),
+                    blue_percentile=self.spn_blue.value(),
+                    green_percentile=self.spn_green.value(),
+                    red_percentile=self.spn_red.value(),
+                )
+                vec_config_path = write_config_json(vec_config, prefix="blender_vector")
+                commands.append(
+                    (["simnibs_python", "-m", "tit.blender", vec_config_path], None)
+                )
 
             elif self.rb_electrodes.isChecked():
-                # Montage Visualizer mode:
-                # Run the same CLI entrypoint in a subprocess so the GUI never blocks,
-                # and stream output exactly like the other tabs.
+                # Montage Visualizer mode via config dataclass + JSON dispatch
                 self.logger.info("=== Montage Visualizer Mode ===")
 
-                montage_only = self.montage_only_checkbox.isChecked()
-                electrode_diameter_mm = self.electrode_diameter_spin.value()
-                electrode_height_mm = self.electrode_height_spin.value()
-                export_glb = self.export_glb_checkbox.isChecked()
-
-                cmd = [
-                    "simnibs_python",
-                    str(ti_toolbox_path / "cli" / "vis_blender.py"),
-                    "--sub",
-                    subject_id,
-                    "--sim",
-                    simulation_name,
-                    "--electrode-diameter-mm",
-                    str(electrode_diameter_mm),
-                    "--electrode-height-mm",
-                    str(electrode_height_mm),
-                ]
-                if montage_only:
-                    cmd.append("--montage-only")
-                if export_glb:
-                    cmd.append("--export-glb")
+                montage_config = MontageConfig(
+                    subject_id=subject_id,
+                    simulation_name=simulation_name,
+                    project_dir=str(project_dir),
+                    show_full_net=not self.montage_only_checkbox.isChecked(),
+                    electrode_diameter_mm=self.electrode_diameter_spin.value(),
+                    electrode_height_mm=self.electrode_height_spin.value(),
+                    export_glb=self.export_glb_checkbox.isChecked(),
+                )
+                montage_config_path = write_config_json(
+                    montage_config, prefix="blender_montage"
+                )
+                cmd = ["simnibs_python", "-m", "tit.blender", montage_config_path]
 
                 self.logger.info("Starting montage visualizer subprocess...")
-                self.logger.debug("Command: %s", " ".join(cmd))
+                self.logger.debug("Config: %s", montage_config_path)
                 commands.append((cmd, None))
 
             elif self.rb_subcortical.isChecked():
@@ -1457,9 +1412,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
             self.console_widget.clear_console()
         self._update_output("Starting export…", "info")
         self.action_buttons.enable_stop()
-        self.worker_thread = WorkerThread(commands)
+        self.worker_thread = BlenderExportThread(commands)
+        # BaseProcessThread.output_signal emits (message, type)
         self.worker_thread.output_signal.connect(
-            lambda m: self._update_output(m, "default")
+            lambda msg, typ: self._update_output(msg, typ)
         )
         self.worker_thread.finished_signal.connect(self._on_finished)
         self.worker_thread.error_signal.connect(self._on_error)
@@ -1472,10 +1428,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
             and self.worker_thread.isRunning()
         ):
             self._update_output("\nStopping…", "warning")
-            # terminate_and_wait() kills the subprocess (with timeout) inside the thread.
+            # terminate_process() kills the subprocess (with timeout) inside the thread.
             # Don't call .terminate()/.wait() on the QThread itself — that blocks the GUI.
             # The finished_signal handler (_on_finished) re-enables the run button.
-            self.worker_thread.terminate_and_wait()
+            self.worker_thread.terminate_process()
             self._update_output("Stopped by user.", "warning")
             self.action_buttons.enable_run()
 

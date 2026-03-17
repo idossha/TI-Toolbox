@@ -21,14 +21,27 @@ from typing import Any
 from tit.opt.config import ExConfig, FlexConfig
 from tit.sim.config import Montage
 
-# Mapping from class to discriminator string
-_TYPE_DISCRIMINATED = {
+# Mapping from class to discriminator string.
+# Blender configs are registered lazily (see _get_discriminator_map) to avoid
+# importing tit.blender at module load time — that package pulls in heavy deps
+# (trimesh, simnibs, bpy) which are only available inside Docker.
+_TYPE_DISCRIMINATED: dict[type, str] = {
     FlexConfig.SphericalROI: "SphericalROI",
     FlexConfig.AtlasROI: "AtlasROI",
     FlexConfig.SubcorticalROI: "SubcorticalROI",
     ExConfig.PoolElectrodes: "PoolElectrodes",
     ExConfig.BucketElectrodes: "BucketElectrodes",
     Montage: "Montage",
+}
+
+# Blender config types are matched by class name to avoid importing
+# tit.blender.__init__ (which pulls in heavy deps like trimesh/bpy).
+# The config module itself is pure Python, but the package __init__
+# re-exports the heavy exporters.
+_TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
+    "MontageConfig": "MontageConfig",
+    "VectorConfig": "VectorConfig",
+    "RegionConfig": "RegionConfig",
 }
 
 
@@ -75,10 +88,12 @@ def _serialize(obj: Any) -> Any:
         return obj.value
     if is_dataclass(obj):
         result: dict[str, Any] = {}
-        # Add _type discriminator for union-typed classes
+        # Add _type discriminator for union-typed / top-level config classes
         obj_type = type(obj)
         if obj_type in _TYPE_DISCRIMINATED:
             result["_type"] = _TYPE_DISCRIMINATED[obj_type]
+        elif obj_type.__name__ in _TYPE_DISCRIMINATED_BY_NAME:
+            result["_type"] = _TYPE_DISCRIMINATED_BY_NAME[obj_type.__name__]
         for fld in fields(obj):
             result[fld.name] = _serialize(getattr(obj, fld.name))
         return result

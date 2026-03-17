@@ -650,7 +650,7 @@ def get_child_pids(parent_pid: int) -> List[int]:
 - `tit/sim/montage_loader.py`
 - `tit/cli/analyzer.py`
 - `tit/cli/simulator.py`
-- `tit/cli/vis_blender.py`
+- `scripts/blender.py`
 - `tit/tools/montage_visualizer.py`
 - `tit/stats/permutation_analysis.py`
 - `tit/benchmark/config.py`
