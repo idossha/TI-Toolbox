@@ -3,25 +3,25 @@ TI-Toolbox Version Information
 Contains version, tool, and system information for the TI-Toolbox application.
 """
 
-__version__ = "2.2.4"
+__version__ = "2.3.0"
 
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
-    "version": "2.2.4",
-    "release_date": "January 16, 2026",
+    "version": "2.3.0",
+    "release_date": "March 17, 2026",
     "build": "stable",
 }
 
 # Docker Images Information
 DOCKER_IMAGES = {
     "core": {
-        "version": "2.2.4",
-        "tag": "idossha/simnibs:v2.2.4",
+        "version": "2.3.0",
+        "tag": "idossha/simnibs:v2.3.0",
         "description": "Core SimNIBS image with TI tools",
         "size": "~8GB",
     },
     "FreeSurfer": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "tag": "freesurfer/freesurfer:7.4.1",
         "description": "FreeSurfer - Brain Analysis and Segmentation",
         "size": "~9GB",
@@ -31,61 +31,61 @@ DOCKER_IMAGES = {
 # Neuroimaging Tools Information
 TOOLS_INFO = {
     "FreeSurfer": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Cortical reconstruction and brain segmentation",
         "website": "https://surfer.nmr.mgh.harvard.edu/",
         "license": "FreeSurfer License",
     },
     "SimNIBS": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Finite element method for brain stimulation",
         "website": "https://simnibs.github.io/simnibs/",
         "license": "GPL v3",
     },
     "dcm2niix": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "DICOM to NIfTI converter",
         "website": "https://github.com/rordenlab/dcm2niix",
         "license": "BSD 2-Clause",
     },
     "Nibabel": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Python library for neuroimaging data I/O",
         "website": "https://nipy.org/nibabel/",
         "license": "MIT",
     },
     "NumPy": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Numerical computing library",
         "website": "https://numpy.org/",
         "license": "BSD",
     },
     "SciPy": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Scientific computing library",
         "website": "https://scipy.org/",
         "license": "BSD",
     },
     "Matplotlib": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Plotting and visualization library",
         "website": "https://matplotlib.org/",
         "license": "PSF",
     },
     "Pandas": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "Data analysis and manipulation library",
         "website": "https://pandas.pydata.org/",
         "license": "BSD",
     },
     "VTK": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "3D graphics and visualization toolkit",
         "website": "https://vtk.org/",
         "license": "BSD",
     },
     "Gmsh": {
-        "version": "2.2.4",
+        "version": "2.3.0",
         "description": "3D finite element mesh generator",
         "website": "https://gmsh.info/",
         "license": "GPL",

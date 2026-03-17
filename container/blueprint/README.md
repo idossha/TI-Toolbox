@@ -54,7 +54,7 @@ apptainer build ti-toolbox.sif apptainer.def
 ### Convert from Docker Hub
 
 ```bash
-apptainer build ti-toolbox.sif docker://idossha/simnibs:v2.2.4
+apptainer build ti-toolbox.sif docker://idossha/simnibs:v2.3.0
 ```
 
 ### Run with the wrapper script

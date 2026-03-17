@@ -504,7 +504,7 @@ def _register_tensor_to_simnibs_t1(
     simnibs_t1_path: Path,
     output_path: Path,
     logger: logging.Logger,
-    docker_image: str = "idossha/simnibs:v2.2.4",
+    docker_image: str = "idossha/simnibs:v2.3.0",
 ) -> Path:
     """
     Register the tensor to SimNIBS T1 space using ANTs or nibabel resampling.
