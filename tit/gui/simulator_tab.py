@@ -1124,27 +1124,13 @@ class SimulatorTab(QtWidgets.QWidget):
                 existing_list = "\n".join([f"  * {d}" for d in existing_dirs[:10]])
                 if len(existing_dirs) > 10:
                     existing_list += f"\n  ... and {len(existing_dirs) - 10} more"
-                if not ConfirmationDialog.confirm(
-                    self,
-                    title="Overwrite Existing Simulations?",
-                    message="The following simulation directories already exist and will be overwritten:",
-                    details=f"{existing_list}\n\nDo you want to continue?",
-                ):
-                    return
-
-                self.update_output("Removing existing simulation directories...")
-                for subject_id, mc, _ in jobs:
-                    simulations_dir = self.pm.simulations(subject_id)
-                    montage_dir = os.path.join(simulations_dir or "", mc.name)
-                    if simulations_dir and os.path.exists(montage_dir):
-                        try:
-                            shutil.rmtree(montage_dir)
-                            self.update_output(f"  Removed: {subject_id}/{mc.name}")
-                        except OSError as e:
-                            self.update_output(
-                                f"  Warning: Could not remove {subject_id}/{mc.name}: {e}",
-                                "warning",
-                            )
+                self.update_output(
+                    "Simulation directories already exist:\n"
+                    + existing_list
+                    + "\n\nPlease delete them manually before re-running.",
+                    "error",
+                )
+                return
 
             # ── Store run context ──────────────────────────────────────────
             unique_subjects = list(dict.fromkeys(s for s, _, _ in jobs))
