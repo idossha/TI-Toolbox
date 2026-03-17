@@ -13,7 +13,7 @@ montages = [
     Montage(
         name="L_Insula",
         mode=Montage.Mode.NET,
-        electrode_pairs=[("E001", "E002"), ("E003", "E004")],
+        electrode_pairs=[("E010", "E011"), ("E012", "E013")],
         eeg_net="GSN-HydroCel-185.csv",
     ),
 ]
