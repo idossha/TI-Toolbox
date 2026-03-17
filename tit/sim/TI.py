@@ -66,13 +66,13 @@ class TISimulation(BaseSimulation):
         S = self._init_session(output_dir)
 
         # Pair 1
-        self._add_electrode_pair(
+        tdcs1 = self._add_electrode_pair(
             S, self.montage.electrode_pairs[0], self.config.intensities[0]
         )
 
         # Pair 2 — deepcopy from pair 1, update centres and current
         p2_A = self.config.intensities[1] / 1000.0
-        tdcs2 = S.add_tdcslist(deepcopy(S.tdcslist[0]))
+        tdcs2 = S.add_tdcslist(deepcopy(tdcs1))
         tdcs2.currents = [p2_A, -p2_A]
         tdcs2.electrode[0].centre = self.montage.electrode_pairs[1][0]
         tdcs2.electrode[1].centre = self.montage.electrode_pairs[1][1]
