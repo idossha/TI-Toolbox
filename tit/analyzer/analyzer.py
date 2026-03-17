@@ -226,13 +226,15 @@ class Analyzer:
         region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
-        from simnibs import subject_atlas
+        from simnibs.utils.transformations import atlas2subject
 
         surface = self._load_surface_mesh()
         values = self._field_values(surface)
         node_areas = self._node_areas(surface)
 
-        atlas_map = subject_atlas(atlas, self.m2m_path)
+        atlas_map = {}
+        for hemi_dict in atlas2subject(self.m2m_path, atlas, split_labels=True).values():
+            atlas_map.update(hemi_dict)
 
         regions = region if isinstance(region, list) else [region]
 

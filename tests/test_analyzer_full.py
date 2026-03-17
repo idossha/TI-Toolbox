@@ -176,9 +176,9 @@ class TestCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_map = {"V1": np.array([True, False, True, False])}
+        atlas_raw = {"lh": {"V1": np.array([True, False, True, False])}}
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -650,12 +650,14 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_map = {
-            "V1": np.array([True, False, False, False]),
-            "V2": np.array([False, False, True, False]),
+        atlas_raw = {
+            "lh": {
+                "V1": np.array([True, False, False, False]),
+                "V2": np.array([False, False, True, False]),
+            }
         }
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -676,14 +678,18 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_map = {
-            "lh.cuneus": np.array([True, False, False, False]),
-            "rh.cuneus": np.array([False, True, False, False]),
-            "lh.precentral": np.array([False, False, True, False]),
-            "rh.precentral": np.array([False, False, False, True]),
+        atlas_raw = {
+            "lh": {
+                "lh.cuneus": np.array([True, False, False, False]),
+                "lh.precentral": np.array([False, False, True, False]),
+            },
+            "rh": {
+                "rh.cuneus": np.array([False, True, False, False]),
+                "rh.precentral": np.array([False, False, False, True]),
+            },
         }
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -702,12 +708,12 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_map = {
-            "lh.cuneus": np.array([True, False]),
-            "rh.cuneus": np.array([False, True]),
+        atlas_raw = {
+            "lh": {"lh.cuneus": np.array([True, False])},
+            "rh": {"rh.cuneus": np.array([False, True])},
         }
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -725,12 +731,12 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(np.array([1.0, 2.0]))
         mock_load.return_value = surface
 
-        atlas_map = {
-            "lh.cuneus": np.array([True, False]),
-            "rh.cuneus": np.array([False, True]),
+        atlas_raw = {
+            "lh": {"lh.cuneus": np.array([True, False])},
+            "rh": {"rh.cuneus": np.array([False, True])},
         }
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             with pytest.raises(KeyError, match="not found in atlas"):
                 a._cortex_mesh("DK40", ["cuneus-lh", "nosuchregion"], False)
@@ -743,9 +749,9 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_map = {"V1": np.array([True, False, True, False])}
+        atlas_raw = {"lh": {"V1": np.array([True, False, True, False])}}
         with patch(
-            "simnibs.subject_atlas", return_value=atlas_map
+            "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)

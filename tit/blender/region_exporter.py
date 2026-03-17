@@ -31,7 +31,7 @@ from pathlib import Path
 import numpy as np
 import simnibs
 from simnibs import read_msh
-from simnibs import subject_atlas
+from simnibs.utils.transformations import atlas2subject
 
 from tit.blender.config import RegionConfig
 from tit.blender.io import (
@@ -256,7 +256,9 @@ def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
     if config.field_name not in surface_mesh.field:
         raise ValueError(f"Field '{config.field_name}' not found in mesh: {mesh_path}")
 
-    atlas = subject_atlas(config.atlas, config.m2m_dir)
+    atlas = {}
+    for hemi_dict in atlas2subject(config.m2m_dir, config.atlas, split_labels=True).values():
+        atlas.update(hemi_dict)
 
     cortical_dir = os.path.join(config.output_dir, "cortical_stls")
     regions_dir = os.path.join(cortical_dir, "regions")
@@ -480,7 +482,9 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
     if config.field_name not in getattr(mesh, "field", {}):
         raise ValueError(f"Field '{config.field_name}' not found in mesh: {mesh_path}")
 
-    atlas = subject_atlas(config.atlas, config.m2m_dir)
+    atlas = {}
+    for hemi_dict in atlas2subject(config.m2m_dir, config.atlas, split_labels=True).values():
+        atlas.update(hemi_dict)
 
     cortical_dir = os.path.join(config.output_dir, "cortical_plys")
     regions_dir = os.path.join(cortical_dir, "regions")
