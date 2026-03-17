@@ -1,6 +1,5 @@
 """Utility helpers for the tit.pre package."""
 
-from __future__ import annotations
 
 import glob
 import json
@@ -12,7 +11,7 @@ import threading
 import time
 from datetime import date
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence
+from typing import Iterable, Sequence
 
 from tit.paths import get_path_manager
 
@@ -31,7 +30,7 @@ class PreprocessCancelled(RuntimeError):
     """Raised when a preprocessing run is cancelled."""
 
 
-def discover_subjects(project_dir: str) -> List[str]:
+def discover_subjects(project_dir: str) -> list[str]:
     """Return sorted, deduplicated subject IDs found in a BIDS project tree.
 
     Discovery order:
@@ -39,7 +38,7 @@ def discover_subjects(project_dir: str) -> List[str]:
     2. sourcedata/sub-*/*.tgz (compressed bundles at top level)
     3. sub-*/anat/*T1w*.nii[.gz] or *T2w*.nii[.gz] at project root
     """
-    found: List[str] = []
+    found: list[str] = []
 
     sourcedata_dir = os.path.join(project_dir, "sourcedata")
     if os.path.exists(sourcedata_dir):
@@ -114,7 +113,7 @@ def check_m2m_exists(project_dir: str, subject_id: str) -> bool:
     return os.path.exists(m2m_dir)
 
 
-def _find_anat_files(subject_id: str) -> tuple[Optional[Path], Optional[Path]]:
+def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:
     """Find T1 and T2 weighted anatomical NIfTI files.
 
     Looks for exact BIDS filenames produced by DICOM conversion:
@@ -221,7 +220,7 @@ def build_logger(
     subject_id: str,
     project_dir: str,
     *,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     console: bool = True,
 ) -> logging.Logger:
     from tit.logger import add_file_handler
@@ -252,7 +251,7 @@ def _terminate_process(proc: subprocess.Popen) -> None:
 
 
 class CommandRunner:
-    def __init__(self, stop_event: Optional[threading.Event] = None) -> None:
+    def __init__(self, stop_event: threading.Event | None = None) -> None:
         self.stop_event = stop_event or threading.Event()
         self._lock = threading.Lock()
         self._processes: set[subprocess.Popen] = set()
@@ -272,8 +271,8 @@ class CommandRunner:
         cmd: Sequence[str],
         *,
         logger: logging.Logger,
-        cwd: Optional[str] = None,
-        env: Optional[dict] = None,
+        cwd: str | None = None,
+        env: dict | None = None,
     ) -> int:
         if self.stop_event.is_set():
             raise PreprocessCancelled("Pre-processing cancelled before command start.")

@@ -7,9 +7,9 @@ Public API
     visualize_montage(montage_name, electrode_pairs, eeg_net, output_dir, sim_mode)
 """
 
+
 import os
 import subprocess
-from typing import Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Resources
@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple
 
 _RESOURCES_DIR = "/ti-toolbox/resources/amv"
 
-_COORD_FILES: Dict[str, str] = {
+_COORD_FILES: dict[str, str] = {
     "GSN-HydroCel-185.csv": "GSN-256.csv",
     "GSN-HydroCel-256.csv": "GSN-256.csv",
     "GSN-HydroCel-185": "GSN-256.csv",
@@ -43,10 +43,10 @@ _RINGS = [f"pair{i}ring.png" for i in range(1, 9)]
 # ---------------------------------------------------------------------------
 
 
-def _load_coordinates(eeg_net: str) -> Optional[Dict[str, Tuple[int, int]]]:
+def _load_coordinates(eeg_net: str) -> dict[str, tuple[int, int]] | None:
     """Return {electrode_label: (x, y)} for the given EEG net, or None if unsupported."""
     fname = _COORD_FILES.get(eeg_net)
-    coords: Dict[str, Tuple[int, int]] = {}
+    coords: dict[str, tuple[int, int]] = {}
     with open(os.path.join(_RESOURCES_DIR, fname)) as f:
         for lineno, line in enumerate(f):
             parts = line.strip().split(",")
@@ -112,7 +112,7 @@ def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> Non
 
 def visualize_montage(
     montage_name: str,
-    electrode_pairs: List[List[str]],
+    electrode_pairs: list[list[str]],
     eeg_net: str,
     output_dir: str,
     sim_mode: str = "U",

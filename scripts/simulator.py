@@ -1,9 +1,7 @@
 #!/usr/bin/env simnibs_python
 
-from tit import setup_logging, add_stream_handler
-
-setup_logging()
-add_stream_handler("tit")
+import tit
+tit.init()
 
 from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
 

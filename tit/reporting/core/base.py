@@ -5,12 +5,13 @@ This module provides the foundational reportlet implementations that can be
 used directly or extended for specialized purposes.
 """
 
+
 import base64
 import io
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from .protocols import ReportletType, SeverityLevel, StatusType
 
@@ -18,7 +19,7 @@ from .protocols import ReportletType, SeverityLevel, StatusType
 class BaseReportlet(ABC):
     """Abstract base class for all reportlets."""
 
-    def __init__(self, title: Optional[str] = None):
+    def __init__(self, title: str | None = None):
         self._title = title
         self._id = str(uuid.uuid4())[:8]
 
@@ -34,7 +35,7 @@ class BaseReportlet(ABC):
         return f"{self.reportlet_type.name.lower()}-{self._id}"
 
     @property
-    def title(self) -> Optional[str]:
+    def title(self) -> str | None:
         """Return the title of this reportlet."""
         return self._title
 
@@ -44,7 +45,7 @@ class BaseReportlet(ABC):
         pass
 
     @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the reportlet to a dictionary representation."""
         pass
 
@@ -60,8 +61,8 @@ class MetadataReportlet(BaseReportlet):
 
     def __init__(
         self,
-        data: Dict[str, Any],
-        title: Optional[str] = None,
+        data: dict[str, Any],
+        title: str | None = None,
         display_mode: str = "table",
         columns: int = 2,
     ):
@@ -139,7 +140,7 @@ class MetadataReportlet(BaseReportlet):
             return "<br>".join(items)
         return str(value)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -160,19 +161,19 @@ class ImageReportlet(BaseReportlet):
 
     def __init__(
         self,
-        image_source: Union[str, Path, bytes, "Image.Image", None] = None,
-        title: Optional[str] = None,
-        caption: Optional[str] = None,
-        alt_text: Optional[str] = None,
-        width: Optional[str] = None,
-        height: Optional[str] = None,
+        image_source: str | Path | bytes | "Image.Image" | None = None,
+        title: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
+        width: str | None = None,
+        height: str | None = None,
     ):
         super().__init__(title)
         self.caption = caption
         self.alt_text = alt_text or title or "Image"
         self.width = width
         self.height = height
-        self._base64_data: Optional[str] = None
+        self._base64_data: str | None = None
         self._mime_type: str = "image/png"
 
         if image_source is not None:
@@ -182,7 +183,7 @@ class ImageReportlet(BaseReportlet):
     def reportlet_type(self) -> ReportletType:
         return ReportletType.IMAGE
 
-    def _load_image(self, source: Union[str, Path, bytes, Any]) -> None:
+    def _load_image(self, source: str | Path | bytes | Any) -> None:
         """Load image from various sources and convert to base64."""
         if isinstance(source, (str, Path)):
             path = Path(source)
@@ -198,7 +199,7 @@ class ImageReportlet(BaseReportlet):
                 buffer = io.BytesIO()
                 source.save(buffer, format="PNG")
                 self._base64_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            except Exception:
+            except (AttributeError, ValueError):
                 pass
 
     def _get_mime_type(self, path: Path) -> str:
@@ -257,7 +258,7 @@ class ImageReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -278,16 +279,16 @@ class TableReportlet(BaseReportlet):
 
     def __init__(
         self,
-        data: Union[List[Dict], List[List], Any],
-        title: Optional[str] = None,
-        headers: Optional[List[str]] = None,
+        data: list[dict] | list[list] | Any,
+        title: str | None = None,
+        headers: list[str] | None = None,
         sortable: bool = False,
         striped: bool = True,
         compact: bool = False,
     ):
         super().__init__(title)
-        self.headers: List[str] = []
-        self.rows: List[List[Any]] = []
+        self.headers: list[str] = []
+        self.rows: list[list[Any]] = []
         self.sortable = sortable
         self.striped = striped
         self.compact = compact
@@ -299,7 +300,7 @@ class TableReportlet(BaseReportlet):
         return ReportletType.TABLE
 
     def _process_data(
-        self, data: Union[List[Dict], List[List], Any], headers: Optional[List[str]]
+        self, data: list[dict] | list[list] | Any, headers: list[str] | None
     ) -> None:
         """Process input data into headers and rows."""
         # Handle pandas DataFrame
@@ -379,7 +380,7 @@ class TableReportlet(BaseReportlet):
             return "Yes" if value else "No"
         return str(value)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -403,7 +404,7 @@ class TextReportlet(BaseReportlet):
     def __init__(
         self,
         content: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         content_type: str = "text",
         copyable: bool = False,
         monospace: bool = False,
@@ -467,7 +468,7 @@ class TextReportlet(BaseReportlet):
             .replace('"', "&quot;")
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -488,11 +489,11 @@ class ErrorReportlet(BaseReportlet):
 
     def __init__(
         self,
-        messages: Optional[List[Dict[str, Any]]] = None,
-        title: Optional[str] = None,
+        messages: list[dict[str, Any]] | None = None,
+        title: str | None = None,
     ):
         super().__init__(title or "Errors and Warnings")
-        self.messages: List[Dict[str, Any]] = messages or []
+        self.messages: list[dict[str, Any]] = messages or []
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -502,8 +503,8 @@ class ErrorReportlet(BaseReportlet):
         self,
         message: str,
         severity: SeverityLevel = SeverityLevel.ERROR,
-        context: Optional[str] = None,
-        step: Optional[str] = None,
+        context: str | None = None,
+        step: str | None = None,
     ) -> None:
         """Add an error or warning message."""
         self.messages.append(
@@ -518,13 +519,13 @@ class ErrorReportlet(BaseReportlet):
         )
 
     def add_error(
-        self, message: str, context: Optional[str] = None, step: Optional[str] = None
+        self, message: str, context: str | None = None, step: str | None = None
     ) -> None:
         """Add an error message."""
         self.add_message(message, SeverityLevel.ERROR, context, step)
 
     def add_warning(
-        self, message: str, context: Optional[str] = None, step: Optional[str] = None
+        self, message: str, context: str | None = None, step: str | None = None
     ) -> None:
         """Add a warning message."""
         self.add_message(message, SeverityLevel.WARNING, context, step)
@@ -579,7 +580,7 @@ class ErrorReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -597,11 +598,11 @@ class ReferencesReportlet(BaseReportlet):
 
     def __init__(
         self,
-        references: Optional[List[Dict[str, str]]] = None,
-        title: Optional[str] = None,
+        references: list[dict[str, str]] | None = None,
+        title: str | None = None,
     ):
         super().__init__(title or "References")
-        self.references: List[Dict[str, str]] = references or []
+        self.references: list[dict[str, str]] = references or []
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -611,8 +612,8 @@ class ReferencesReportlet(BaseReportlet):
         self,
         key: str,
         citation: str,
-        url: Optional[str] = None,
-        doi: Optional[str] = None,
+        url: str | None = None,
+        doi: str | None = None,
     ) -> None:
         """Add a reference."""
         self.references.append(
@@ -662,7 +663,7 @@ class ReferencesReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,

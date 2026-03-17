@@ -6,6 +6,7 @@ TI-Toolbox-2.0 Simulator Tab
 This module provides a GUI interface for the simulator functionality.
 """
 
+import logging
 import os
 import json
 import re
@@ -13,6 +14,8 @@ import subprocess
 import time
 import datetime
 import shutil
+
+logger = logging.getLogger(__name__)
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
@@ -370,7 +373,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 card.eeg_net_combo.blockSignals(False)
 
         except OSError as e:
-            print(f"Error loading subjects: {e}")
+            logger.error(f"Error loading subjects: {e}")
 
     def _get_available_subjects(self):
         """Return sorted list of available subject IDs."""
@@ -669,7 +672,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 return []
             return list_montage_names(project_dir, eeg_net, mode=sim_mode)
         except (OSError, json.JSONDecodeError, KeyError) as e:
-            print(f"Error getting montage names: {e}")
+            logger.error(f"Error getting montage names: {e}")
             return []
 
     def _get_montage_entries_for_params(self, eeg_net, sim_mode):
@@ -690,7 +693,7 @@ class SimulatorTab(QtWidgets.QWidget):
             montages = nets[eeg_net].get(net_type, {})
             return [(name, pairs) for name, pairs in montages.items()]
         except (OSError, json.JSONDecodeError, KeyError) as e:
-            print(f"Error getting montage entries: {e}")
+            logger.error(f"Error getting montage entries: {e}")
             return []
 
     @staticmethod
@@ -735,7 +738,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     except (OSError, json.JSONDecodeError):
                         pass
         except OSError as e:
-            print(f"Error getting flex outputs for {subject_id}: {e}")
+            logger.error(f"Error getting flex outputs for {subject_id}: {e}")
         return items
 
     def _get_freehand_configs_for_subject(self, subject_id):
@@ -759,7 +762,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     except (OSError, json.JSONDecodeError):
                         items.append(config_file.replace(".json", ""))
         except OSError as e:
-            print(f"Error getting freehand configs for {subject_id}: {e}")
+            logger.error(f"Error getting freehand configs for {subject_id}: {e}")
         return items
 
     # ── Montage builders ──────────────────────────────────────────────
@@ -990,7 +993,9 @@ class SimulatorTab(QtWidgets.QWidget):
                             )
                         break
                     except (OSError, json.JSONDecodeError, KeyError) as e:
-                        print(f"Error loading freehand config {config_file}: {e}")
+                        logger.error(
+                            f"Error loading freehand config {config_file}: {e}"
+                        )
         except OSError as e:
             self.update_output(f"Error building freehand configs: {e}", "error")
         return configs
@@ -1772,7 +1777,7 @@ class SimulatorTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(
                 self, "Error", f"Error removing montage: {str(e)}"
             )
-            print(f"Detailed error: {str(e)}")  # For debugging
+            logger.error(f"Detailed error: {str(e)}")
 
     def show_conductivity_editor(self):
         """Show the conductivity editor dialog."""

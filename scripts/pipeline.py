@@ -1,10 +1,8 @@
 #!/usr/bin/env simnibs_python
 """Full TI-Toolbox pipeline: preprocess -> leadfield -> optimize -> simulate -> analyze."""
 
-from tit import setup_logging, add_stream_handler
-
-setup_logging()
-add_stream_handler("tit")
+import tit
+tit.init()
 
 from tit.pre import run_pipeline
 from tit.opt import FlexConfig, FlexElectrodeConfig, SphericalROI, run_flex_search

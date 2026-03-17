@@ -4,7 +4,6 @@ Replaces: runner.py (5 classes), roi_utils.py (4 functions).
 Direct SimNIBS usage — ROI metrics are computed inline.
 """
 
-from __future__ import annotations
 
 import csv
 import logging
@@ -12,7 +11,6 @@ import os
 import signal
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from simnibs.utils import TI_utils as TI
@@ -115,7 +113,7 @@ class ExSearchEngine:
         e2_plus: str,
         e2_minus: str,
         current_ch2_mA: float,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Compute TI field for one montage and return ROI metrics."""
         lf = self.leadfield
         idx = self.idx_lf
@@ -157,14 +155,14 @@ class ExSearchEngine:
 
     def run(
         self,
-        e1_plus: List[str],
-        e1_minus: List[str],
-        e2_plus: List[str],
-        e2_minus: List[str],
-        current_ratios: List[Tuple[float, float]],
+        e1_plus: list[str],
+        e1_minus: list[str],
+        e2_plus: list[str],
+        e2_minus: list[str],
+        current_ratios: list[tuple[float, float]],
         all_combinations: bool,
         output_dir: str,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """Run the full simulation loop. Returns {mesh_key: metrics}."""
         stop = False
 
@@ -188,7 +186,7 @@ class ExSearchEngine:
             total,
         )
 
-        results: Dict[str, Dict[str, float]] = {}
+        results: dict[str, dict[str, float]] = {}
         start_time = time.time()
 
         for i, (ep1, em1, ep2, em2, (ch1, ch2)) in enumerate(
@@ -255,7 +253,7 @@ class ExSearchEngine:
     # ── ROI CRUD (static, for GUI) ────────────────────────────────────────
 
     @staticmethod
-    def get_available_rois(subject_id: str) -> List[str]:
+    def get_available_rois(subject_id: str) -> list[str]:
         """List ROI CSV files for a subject."""
         from tit.paths import get_path_manager
 
@@ -269,7 +267,7 @@ class ExSearchEngine:
         x: float,
         y: float,
         z: float,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Create an ROI CSV from coordinates."""
         from tit.paths import get_path_manager
 
@@ -296,7 +294,7 @@ class ExSearchEngine:
         return True, f"ROI '{roi_name}' created at ({x:.2f}, {y:.2f}, {z:.2f})"
 
     @staticmethod
-    def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
+    def delete_roi(subject_id: str, roi_name: str) -> tuple[bool, str]:
         """Delete an ROI file and remove from roi_list.txt."""
         from tit.paths import get_path_manager
 
@@ -324,7 +322,7 @@ class ExSearchEngine:
     def get_roi_coordinates(
         subject_id: str,
         roi_name: str,
-    ) -> Optional[Tuple[float, float, float]]:
+    ) -> tuple[float, float, float] | None:
         """Read ROI center coordinates from CSV."""
         from tit.paths import get_path_manager
 

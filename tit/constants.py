@@ -22,11 +22,8 @@ DIR_SIMNIBS = "SimNIBS"
 DIR_TI_TOOLBOX = "ti-toolbox"
 DIR_LOGS = "logs"
 DIR_NILEARN_VISUALS = "nilearn_visuals"
-DIR_TISSUE_ANALYSIS = "tissue_analysis"
-DIR_TI_TOOLBOX_INFO = ".ti-toolbox-info"
 
 # Subject-level directories
-DIR_M2M_PREFIX = "m2m_"
 DIR_EEG_POSITIONS = "eeg_positions"
 DIR_ROIS = "ROIs"
 DIR_EX_SEARCH = "ex-search"
@@ -53,7 +50,6 @@ FILE_EGI_TEMPLATE = "GSN-HydroCel-185.csv"
 
 # NIfTI files
 FILE_T1 = "T1.nii.gz"
-FILE_T2 = "T2.nii.gz"
 FILE_DTI_TENSOR = "DTI_coregT1_tensor.nii.gz"
 
 # File extensions
@@ -106,24 +102,10 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 # ANALYSIS CONSTANTS
 # ============================================================================
 
-# Field names for analysis
-FIELD_TIMAX = "TImax"
-FIELD_E_NORMAL = "E_normal"
-
 # Field names (SimNIBS convention)
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
-
-# Tissue region indices (SimNIBS convention)
-REGION_WHITE_MATTER = 1
-REGION_GRAY_MATTER = 2
-REGION_CSF = 3
-REGION_BONE = 4
-REGION_SCALP = 5
-REGION_EYE = 6
-REGION_COMPACT_BONE = 7
-REGION_SPONGY_BONE = 8
 
 # Default analysis parameters
 DEFAULT_PERCENTILES = [95, 99, 99.9]
@@ -262,42 +244,6 @@ TIMESTAMP_FORMAT_DEFAULT = "%Y%m%d_%H%M%S"
 TIMESTAMP_FORMAT_READABLE = "%Y-%m-%d %H:%M:%S"
 TIMESTAMP_FORMAT_DATE_ONLY = "%Y-%m-%d"
 TIMESTAMP_FORMAT_TIME_ONLY = "%H:%M:%S"
-
-# ============================================================================
-# SOFTWARE VERSIONS AND TOOLS
-# ============================================================================
-
-# External tools
-TOOL_SIMNIBS = "SimNIBS"
-TOOL_FREESURFER = "FreeSurfer"
-
-# ============================================================================
-# ERROR MESSAGES
-# ============================================================================
-
-ERROR_NO_PROJECT_DIR = "Project directory not found or not set"
-ERROR_NO_SUBJECT_DIR = "Subject directory does not exist"
-ERROR_NO_M2M_DIR = "m2m directory not found for subject"
-ERROR_INVALID_SUBJECT_ID = "Invalid subject ID format"
-ERROR_FILE_NOT_FOUND = "Required file not found"
-ERROR_PERMISSION_DENIED = "Permission denied"
-ERROR_INVALID_MONTAGE = "Invalid montage configuration"
-
-# ============================================================================
-# SUCCESS MESSAGES
-# ============================================================================
-
-SUCCESS_SIMULATION_COMPLETE = "Simulation completed successfully"
-SUCCESS_ANALYSIS_COMPLETE = "Analysis completed successfully"
-SUCCESS_PREPROCESSING_COMPLETE = "Pre-processing completed successfully"
-
-# ============================================================================
-# WARNING MESSAGES
-# ============================================================================
-
-WARNING_NO_EEG_POSITIONS = "No eeg_positions directory found"
-WARNING_MISSING_DTI = "DTI tensor file not found, using default conductivity"
-WARNING_LOW_MEMORY = "Low memory available, consider reducing resolution"
 
 # ============================================================================
 # NUMERICAL CONSTANTS

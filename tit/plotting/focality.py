@@ -5,11 +5,9 @@ Contains simple 2D plots that are shared by analyzers (voxel/mesh) and are not
 the complex 3D/SimNIBS mesh visualization.
 """
 
-from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -28,13 +26,13 @@ def plot_whole_head_roi_histogram(
     output_dir: str,
     whole_head_field_data: np.ndarray,
     roi_field_data: np.ndarray,
-    whole_head_element_sizes: Optional[np.ndarray] = None,
-    roi_element_sizes: Optional[np.ndarray] = None,
-    filename: Optional[str] = None,
-    region_name: Optional[str] = None,
-    roi_field_value: Optional[float] = None,
+    whole_head_element_sizes: np.ndarray | None = None,
+    roi_element_sizes: np.ndarray | None = None,
+    filename: str | None = None,
+    region_name: str | None = None,
+    roi_field_value: float | None = None,
     data_type: str = "element",
-    voxel_dims: Optional[tuple] = None,
+    voxel_dims: tuple | None = None,
     n_bins: int = 100,
     dpi: int = 600,
 ) -> str | None:

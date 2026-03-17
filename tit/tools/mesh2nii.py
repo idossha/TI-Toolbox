@@ -12,13 +12,11 @@ msh_to_mni     – single mesh → MNI-space NIfTI
 convert_mesh_dir – batch-convert every mesh in a directory
 """
 
-from __future__ import annotations
 
 import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import List, Optional
 
 from simnibs import mesh_io, transformations
 
@@ -33,7 +31,7 @@ def _write_temp_mesh(mesh) -> str:
     return path
 
 
-def _filter_mesh_fields(mesh, fields: List[str]):
+def _filter_mesh_fields(mesh, fields: list[str]):
     """Return a shallow copy of *mesh* containing only the named fields.
 
     Filters both ``elmdata`` (element data) and ``nodedata`` (node data).
@@ -49,7 +47,7 @@ def msh_to_nifti(
     mesh_path: str,
     m2m_dir: str,
     output_path: str,
-    fields: Optional[List[str]] = None,
+    fields: list[str] | None = None,
 ) -> None:
     """Convert a mesh file to subject-space NIfTI.
 
@@ -76,7 +74,7 @@ def msh_to_mni(
     mesh_path: str,
     m2m_dir: str,
     output_path: str,
-    fields: Optional[List[str]] = None,
+    fields: list[str] | None = None,
 ) -> None:
     """Convert a mesh file to MNI-space NIfTI.
 
@@ -103,8 +101,8 @@ def convert_mesh_dir(
     mesh_dir: str,
     output_dir: str,
     m2m_dir: str,
-    fields: Optional[List[str]] = None,
-    skip_patterns: Optional[List[str]] = None,
+    fields: list[str] | None = None,
+    skip_patterns: list[str] | None = None,
 ) -> None:
     """Batch-convert every ``.msh`` file in *mesh_dir* to NIfTI.
 

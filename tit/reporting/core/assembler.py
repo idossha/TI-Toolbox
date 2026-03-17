@@ -5,9 +5,10 @@ The ReportAssembler class provides a high-level interface for building
 reports from individual reportlets organized into sections.
 """
 
+
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Self
 
 from .protocols import ReportMetadata, ReportSection
 from .templates import get_html_template
@@ -23,8 +24,8 @@ class ReportAssembler:
 
     def __init__(
         self,
-        metadata: Optional[ReportMetadata] = None,
-        title: Optional[str] = None,
+        metadata: ReportMetadata | None = None,
+        title: str | None = None,
     ):
         """
         Initialize the report assembler.
@@ -37,7 +38,7 @@ class ReportAssembler:
         if title:
             self.metadata.title = title
 
-        self.sections: List[ReportSection] = []
+        self.sections: list[ReportSection] = []
         self._custom_css: str = ""
         self._custom_js: str = ""
 
@@ -45,9 +46,9 @@ class ReportAssembler:
         self,
         section_id: str,
         title: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         collapsed: bool = False,
-        order: Optional[int] = None,
+        order: int | None = None,
     ) -> ReportSection:
         """
         Add a new section to the report.
@@ -75,7 +76,7 @@ class ReportAssembler:
         self.sections.append(section)
         return section
 
-    def get_section(self, section_id: str) -> Optional[ReportSection]:
+    def get_section(self, section_id: str) -> ReportSection | None:
         """
         Get a section by its ID.
 
@@ -95,7 +96,7 @@ class ReportAssembler:
         section_id: str,
         reportlet: Any,
         create_if_missing: bool = True,
-        section_title: Optional[str] = None,
+        section_title: str | None = None,
     ) -> None:
         """
         Add a reportlet to a specific section.
@@ -199,7 +200,7 @@ class ReportAssembler:
 
     def save(
         self,
-        output_path: Union[str, Path],
+        output_path: str | Path,
         create_dirs: bool = True,
     ) -> Path:
         """
@@ -222,7 +223,7 @@ class ReportAssembler:
 
         return output_path
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert the report to a dictionary representation.
 
@@ -235,7 +236,7 @@ class ReportAssembler:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ReportAssembler":
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """
         Create a ReportAssembler from a dictionary.
 

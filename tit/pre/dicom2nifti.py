@@ -5,13 +5,11 @@ DICOM to NIfTI conversion with BIDS-compliant naming.
 Converts DICOM images to NIfTI format following BIDS naming conventions.
 """
 
-from __future__ import annotations
 
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from tit.paths import get_path_manager
 from .utils import CommandRunner, PreprocessError
@@ -21,7 +19,7 @@ def _run_dcm2niix(
     source_dir: Path,
     output_dir: Path,
     logger,
-    runner: Optional[CommandRunner],
+    runner: CommandRunner | None,
 ) -> bool:
     """Run dcm2niix conversion."""
     cmd = ["dcm2niix", "-z", "y", "-b", "y", "-o", str(output_dir), str(source_dir)]
@@ -82,7 +80,7 @@ def _process_modality(
     subject_id: str,
     pm,
     logger,
-    runner: Optional[CommandRunner],
+    runner: CommandRunner | None,
 ) -> bool:
     """Process DICOM files for a specific modality."""
     # DICOM files must be in dicom/ subdirectory
@@ -106,7 +104,7 @@ def run_dicom_to_nifti(
     subject_id: str,
     *,
     logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Convert DICOMs to BIDS-compliant NIfTI for a subject.
 

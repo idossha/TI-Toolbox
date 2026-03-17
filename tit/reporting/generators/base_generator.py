@@ -6,13 +6,14 @@ with common functionality for BIDS output management, software version
 collection, and error tracking.
 """
 
+
 import json
 import os
 import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..core.assembler import ReportAssembler
 from ..core.protocols import ReportMetadata, SeverityLevel
@@ -38,9 +39,9 @@ class BaseReportGenerator(ABC):
 
     def __init__(
         self,
-        project_dir: Union[str, Path],
-        subject_id: Optional[str] = None,
-        session_id: Optional[str] = None,
+        project_dir: str | Path,
+        subject_id: str | None = None,
+        session_id: str | None = None,
         report_type: str = "general",
     ):
         """
@@ -70,9 +71,9 @@ class BaseReportGenerator(ABC):
         self.assembler = ReportAssembler(metadata=self.metadata)
 
         # Tracking
-        self.errors: List[Dict[str, Any]] = []
-        self.warnings: List[Dict[str, Any]] = []
-        self.software_versions: Dict[str, str] = {}
+        self.errors: list[dict[str, Any]] = []
+        self.warnings: list[dict[str, Any]] = []
+        self.software_versions: dict[str, str] = {}
 
         # Collect software versions
         self._collect_software_versions()
@@ -112,7 +113,7 @@ class BaseReportGenerator(ABC):
             )
             if result.returncode == 0:
                 self.software_versions["simnibs"] = result.stdout.strip()
-        except Exception:
+        except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError):
             pass
 
         # FreeSurfer version
@@ -124,7 +125,7 @@ class BaseReportGenerator(ABC):
                     self.software_versions["freesurfer"] = (
                         version_file.read_text().strip()
                     )
-        except Exception:
+        except (PermissionError, UnicodeDecodeError, OSError):
             pass
 
         # dcm2niix version
@@ -141,14 +142,14 @@ class BaseReportGenerator(ABC):
                     if "version" in line.lower():
                         self.software_versions["dcm2niix"] = line.strip()
                         break
-        except Exception:
+        except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
     def add_error(
         self,
         message: str,
-        context: Optional[str] = None,
-        step: Optional[str] = None,
+        context: str | None = None,
+        step: str | None = None,
     ) -> None:
         """
         Add an error to the report.
@@ -171,8 +172,8 @@ class BaseReportGenerator(ABC):
     def add_warning(
         self,
         message: str,
-        context: Optional[str] = None,
-        step: Optional[str] = None,
+        context: str | None = None,
+        step: str | None = None,
     ) -> None:
         """
         Add a warning to the report.
@@ -205,7 +206,7 @@ class BaseReportGenerator(ABC):
             return base_dir / f"sub-{self.subject_id}"
         return base_dir
 
-    def get_output_path(self, timestamp: Optional[str] = None) -> Path:
+    def get_output_path(self, timestamp: str | None = None) -> Path:
         """
         Get the full output path for the report file.
 
@@ -280,7 +281,7 @@ class BaseReportGenerator(ABC):
         section.add_reportlet(error_reportlet)
 
     def _add_methods_section(
-        self, pipeline_components: Optional[List[str]] = None
+        self, pipeline_components: list[str] | None = None
     ) -> None:
         """
         Add methods boilerplate section to the report.
@@ -303,7 +304,7 @@ class BaseReportGenerator(ABC):
         section.add_reportlet(methods_reportlet)
 
     def _add_references_section(
-        self, pipeline_components: Optional[List[str]] = None
+        self, pipeline_components: list[str] | None = None
     ) -> None:
         """
         Add references section to the report.
@@ -324,7 +325,7 @@ class BaseReportGenerator(ABC):
         )
         section.add_reportlet(refs_reportlet)
 
-    def _get_methods_parameters(self) -> Dict[str, Any]:
+    def _get_methods_parameters(self) -> dict[str, Any]:
         """
         Get parameters for methods boilerplate generation.
 
@@ -340,7 +341,7 @@ class BaseReportGenerator(ABC):
         """Build the report content. Must be implemented by subclasses."""
         pass
 
-    def generate(self, output_path: Optional[Union[str, Path]] = None) -> Path:
+    def generate(self, output_path: str | Path | None = None) -> Path:
         """
         Generate the HTML report.
 

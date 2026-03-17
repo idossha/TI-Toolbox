@@ -11,20 +11,17 @@ Usage::
     data = read_config_json(path)
 """
 
-from __future__ import annotations
 
 import json
 import os
 import tempfile
 from dataclasses import asdict, fields, is_dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 from tit.opt.config import (
     AtlasROI,
     BucketElectrodes,
-    FlexElectrodeConfig,
-    ExCurrentConfig,
     PoolElectrodes,
     SphericalROI,
     SubcorticalROI,
@@ -42,7 +39,7 @@ _TYPE_DISCRIMINATED = {
 }
 
 
-def serialize_config(config: Any) -> Dict[str, Any]:
+def serialize_config(config: Any) -> dict[str, Any]:
     """Convert a dataclass to a JSON-serializable dict.
 
     Handles:
@@ -66,7 +63,7 @@ def write_config_json(config: Any, prefix: str = "config") -> str:
     return path
 
 
-def read_config_json(path: str) -> Dict[str, Any]:
+def read_config_json(path: str) -> dict[str, Any]:
     """Read a JSON config file and return the parsed dict."""
     with open(path) as f:
         return json.load(f)
@@ -84,7 +81,7 @@ def _serialize(obj: Any) -> Any:
     if isinstance(obj, Enum):
         return obj.value
     if is_dataclass(obj):
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         # Add _type discriminator for union-typed classes
         obj_type = type(obj)
         if obj_type in _TYPE_DISCRIMINATED:

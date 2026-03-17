@@ -12,23 +12,24 @@ SubjectRowManager handles:
 - Maintaining the rows list
 """
 
-from __future__ import annotations
 
 from PyQt5 import QtWidgets, QtCore, QtGui
+
+from tit.gui.style import COLOR_ERROR, COLOR_ERROR_DARK
 
 # ---------------------------------------------------------------------------
 # Remove-button stylesheet (shared across all rows)
 # ---------------------------------------------------------------------------
-_REMOVE_BTN_STYLE = """
-    QPushButton {
-        background-color: #f44336;
+_REMOVE_BTN_STYLE = f"""
+    QPushButton {{
+        background-color: {COLOR_ERROR};
         color: white;
         border-radius: 3px;
         font-weight: bold;
-    }
-    QPushButton:hover {
-        background-color: #d32f2f;
-    }
+    }}
+    QPushButton:hover {{
+        background-color: {COLOR_ERROR_DARK};
+    }}
 """
 
 

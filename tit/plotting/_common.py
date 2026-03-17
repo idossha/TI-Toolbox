@@ -6,10 +6,9 @@ Goals:
 - Avoid importing matplotlib globally when not needed.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 def suppress_matplotlib_findfont_noise() -> None:
@@ -43,7 +42,7 @@ def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
     matplotlib.use(backend)  # type: ignore[attr-defined]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SaveFigOptions:
     dpi: int = 600
     bbox_inches: str = "tight"
@@ -55,7 +54,7 @@ def savefig_close(
     fig: Any,
     output_file: str,
     *,
-    fmt: Optional[str] = None,
+    fmt: str | None = None,
     opts: SaveFigOptions = SaveFigOptions(),
 ) -> str:
     """

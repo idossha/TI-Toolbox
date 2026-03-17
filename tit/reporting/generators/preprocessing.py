@@ -6,10 +6,11 @@ creating comprehensive HTML reports with processing steps, input/output
 data, and quality control information.
 """
 
+
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
 from ..core.protocols import StatusType
@@ -37,9 +38,9 @@ class PreprocessingReportGenerator(BaseReportGenerator):
 
     def __init__(
         self,
-        project_dir: Union[str, Path],
+        project_dir: str | Path,
         subject_id: str,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ):
         """
         Initialize the preprocessing report generator.
@@ -57,11 +58,11 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         )
 
         # Preprocessing-specific data
-        self.input_data: Dict[str, Dict[str, Any]] = {}
-        self.output_data: Dict[str, Dict[str, Any]] = {}
-        self.processing_steps: List[Dict[str, Any]] = []
-        self.qc_images: List[Dict[str, Any]] = []
-        self.pipeline_config: Dict[str, Any] = {}
+        self.input_data: dict[str, dict[str, Any]] = {}
+        self.output_data: dict[str, dict[str, Any]] = {}
+        self.processing_steps: list[dict[str, Any]] = []
+        self.qc_images: list[dict[str, Any]] = []
+        self.pipeline_config: dict[str, Any] = {}
 
     def _get_default_title(self) -> str:
         return f"Preprocessing Report - Subject {self.subject_id}"
@@ -81,8 +82,8 @@ class PreprocessingReportGenerator(BaseReportGenerator):
     def add_input_data(
         self,
         data_type: str,
-        file_paths: List[str],
-        metadata: Optional[Dict[str, Any]] = None,
+        file_paths: list[str],
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Add input data information.
@@ -101,8 +102,8 @@ class PreprocessingReportGenerator(BaseReportGenerator):
     def add_output_data(
         self,
         data_type: str,
-        file_paths: List[str],
-        metadata: Optional[Dict[str, Any]] = None,
+        file_paths: list[str],
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Add output data information.
@@ -121,13 +122,13 @@ class PreprocessingReportGenerator(BaseReportGenerator):
     def add_processing_step(
         self,
         step_name: str,
-        description: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
-        status: Union[StatusType, str] = StatusType.PENDING,
-        duration: Optional[float] = None,
-        output_files: Optional[List[str]] = None,
-        figures: Optional[List[Dict[str, Any]]] = None,
-        error_message: Optional[str] = None,
+        description: str | None = None,
+        parameters: dict[str, Any] | None = None,
+        status: StatusType | str = StatusType.PENDING,
+        duration: float | None = None,
+        output_files: list[str] | None = None,
+        figures: list[dict[str, Any]] | None = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Add a processing step.
@@ -166,8 +167,8 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         self,
         title: str,
         base64_data: str,
-        step_name: Optional[str] = None,
-        caption: Optional[str] = None,
+        step_name: str | None = None,
+        caption: str | None = None,
         image_type: str = "qc",
     ) -> None:
         """
@@ -449,7 +450,7 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         )
         section.add_reportlet(software_data)
 
-    def _get_methods_parameters(self) -> Dict[str, Any]:
+    def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
 
@@ -476,10 +477,10 @@ class PreprocessingReportGenerator(BaseReportGenerator):
 
 
 def create_preprocessing_report(
-    project_dir: Union[str, Path],
+    project_dir: str | Path,
     subject_id: str,
-    processing_steps: Optional[List[Dict[str, Any]]] = None,
-    output_path: Optional[Union[str, Path]] = None,
+    processing_steps: list[dict[str, Any]] | None = None,
+    output_path: str | Path | None = None,
     auto_scan: bool = True,
 ) -> Path:
     """

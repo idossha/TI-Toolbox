@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
 
@@ -6,85 +5,26 @@ from PyQt5 import QtWidgets, QtCore
 from tit.gui.style import ICON_SIZE_GEAR, ICON_SIZE_EXTENSIONS
 
 
-class FloatingHelpWindow(QtWidgets.QDialog):
-    """Floating window for Help content."""
+class FloatingContentWindow(QtWidgets.QDialog):
+    """Generic floating window that hosts a content widget."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent, title, min_size, content_class, **content_kwargs):
         super().__init__(parent)
-        self.setWindowTitle("TI-Toolbox - Help")
-        self.setMinimumSize(800, 600)
-        self.setup_ui()
-
-    def setup_ui(self):
-        from tit.gui.help_tab import HelpTab
-
+        self.setWindowTitle(title)
+        self.setMinimumSize(*min_size)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.help_content = HelpTab(self)
-        layout.addWidget(self.help_content)
-
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
+        self.content = content_class(self, **content_kwargs)
+        layout.addWidget(self.content)
+        # Close button
+        btn_layout = QtWidgets.QHBoxLayout()
+        btn_layout.addStretch()
         close_btn = QtWidgets.QPushButton("Close")
         close_btn.clicked.connect(self.close)
         close_btn.setMinimumWidth(100)
-        button_layout.addWidget(close_btn)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
-
-
-class FloatingContactWindow(QtWidgets.QDialog):
-    """Floating window for Contact content."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("TI-Toolbox - Contact")
-        self.setMinimumSize(700, 500)
-        self.setup_ui()
-
-    def setup_ui(self):
-        from tit.gui.contact_tab import ContactTab
-
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.contact_content = ContactTab(self)
-        layout.addWidget(self.contact_content)
-
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
-        close_btn = QtWidgets.QPushButton("Close")
-        close_btn.clicked.connect(self.close)
-        close_btn.setMinimumWidth(100)
-        button_layout.addWidget(close_btn)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
-
-
-class FloatingAcknowledgmentsWindow(QtWidgets.QDialog):
-    """Floating window for Acknowledgments content."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("TI-Toolbox - Acknowledgments")
-        self.setMinimumSize(700, 500)
-        self.setup_ui()
-
-    def setup_ui(self):
-        from tit.gui.acknowledgments_tab import AcknowledgmentsTab
-
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.acknowledgments_content = AcknowledgmentsTab(self)
-        layout.addWidget(self.acknowledgments_content)
-
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
-        close_btn = QtWidgets.QPushButton("Close")
-        close_btn.clicked.connect(self.close)
-        close_btn.setMinimumWidth(100)
-        button_layout.addWidget(close_btn)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
+        btn_layout.addWidget(close_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
 
 
 class SettingsMenuButton(QtWidgets.QPushButton):
@@ -129,7 +69,11 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         self.setMenu(self.menu)
 
     def open_help(self):
-        help_window = FloatingHelpWindow(self.parent)
+        from tit.gui.help_tab import HelpTab
+
+        help_window = FloatingContentWindow(
+            self.parent, "TI-Toolbox - Help", (800, 600), HelpTab
+        )
         help_window.show()
 
     def open_extensions(self):
@@ -141,11 +85,19 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         extensions_window.show()
 
     def open_contact(self):
-        contact_window = FloatingContactWindow(self.parent)
+        from tit.gui.contact_tab import ContactTab
+
+        contact_window = FloatingContentWindow(
+            self.parent, "TI-Toolbox - Contact", (700, 500), ContactTab
+        )
         contact_window.show()
 
     def open_acknowledgments(self):
-        acknowledgments_window = FloatingAcknowledgmentsWindow(self.parent)
+        from tit.gui.acknowledgments_tab import AcknowledgmentsTab
+
+        acknowledgments_window = FloatingContentWindow(
+            self.parent, "TI-Toolbox - Acknowledgments", (700, 500), AcknowledgmentsTab
+        )
         acknowledgments_window.show()
 
 

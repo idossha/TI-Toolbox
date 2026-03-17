@@ -78,7 +78,7 @@ class TestCheckImageExists:
         mock_run.return_value = MagicMock(returncode=1)
         assert check_image_exists("pennlinc/qsiprep", "1.1.1") is False
 
-    @patch(f"{MODULE}.subprocess.run", side_effect=Exception("docker not found"))
+    @patch(f"{MODULE}.subprocess.run", side_effect=FileNotFoundError("docker not found"))
     def test_exception_returns_false(self, mock_run):
         assert check_image_exists("pennlinc/qsiprep", "1.1.1") is False
 
@@ -105,7 +105,7 @@ class TestPullImageIfNeeded:
         logger = MagicMock()
         assert pull_image_if_needed("img", "tag", logger) is False
 
-    @patch(f"{MODULE}.subprocess.run", side_effect=Exception("network error"))
+    @patch(f"{MODULE}.subprocess.run", side_effect=OSError("network error"))
     @patch(f"{MODULE}.check_image_exists", return_value=False)
     def test_pull_exception(self, mock_check, mock_run):
         logger = MagicMock()

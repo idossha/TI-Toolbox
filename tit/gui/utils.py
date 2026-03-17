@@ -59,26 +59,26 @@ def open_file(file_path: str) -> None:
     except OSError:
         pass
 
-    system = platform.system().lower()
-    if system == "linux":
-        try:
-            subprocess.run(["xdg-open", abs_path], check=True)
-            return
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-        # Fall through to browser fallback
-        for browser in ("firefox", "chromium", "google-chrome", "chrome"):
+    match platform.system().lower():
+        case "linux":
             try:
-                subprocess.run([browser, abs_path], check=True)
+                subprocess.run(["xdg-open", abs_path], check=True)
                 return
             except (subprocess.CalledProcessError, FileNotFoundError):
-                continue
-    elif system == "darwin":
-        subprocess.run(["open", abs_path], check=True)
-        return
-    elif system == "windows":
-        os.startfile(abs_path)  # type: ignore[attr-defined]
-        return
+                pass
+            # Fall through to browser fallback
+            for browser in ("firefox", "chromium", "google-chrome", "chrome"):
+                try:
+                    subprocess.run([browser, abs_path], check=True)
+                    return
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+        case "darwin":
+            subprocess.run(["open", abs_path], check=True)
+            return
+        case "windows":
+            os.startfile(abs_path)  # type: ignore[attr-defined]
+            return
 
     raise OSError(f"Could not open file: {abs_path}")
 
@@ -89,25 +89,25 @@ def open_directory(dir_path: str) -> None:
     Raises:
         OSError: If the directory could not be opened by any method.
     """
-    system = platform.system().lower()
-    if system == "linux":
-        try:
-            subprocess.run(["xdg-open", dir_path], check=True)
-            return
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-        for fm in ("nautilus", "dolphin", "thunar", "pcmanfm", "nemo"):
+    match platform.system().lower():
+        case "linux":
             try:
-                subprocess.run([fm, dir_path], check=True)
+                subprocess.run(["xdg-open", dir_path], check=True)
                 return
             except (subprocess.CalledProcessError, FileNotFoundError):
-                continue
-    elif system == "darwin":
-        subprocess.run(["open", dir_path], check=True)
-        return
-    elif system == "windows":
-        os.startfile(dir_path)  # type: ignore[attr-defined]
-        return
+                pass
+            for fm in ("nautilus", "dolphin", "thunar", "pcmanfm", "nemo"):
+                try:
+                    subprocess.run([fm, dir_path], check=True)
+                    return
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+        case "darwin":
+            subprocess.run(["open", dir_path], check=True)
+            return
+        case "windows":
+            os.startfile(dir_path)  # type: ignore[attr-defined]
+            return
 
     raise OSError(f"Could not open directory: {dir_path}")
 
@@ -159,3 +159,16 @@ def is_verbose_message(
     returns ``True`` for lines that would normally be hidden in summary mode.
     """
     return not is_important_message(text, message_type, context)
+
+
+def confirm_overwrite(parent, path, item_type="directory"):
+    """Ask the user to confirm overwriting an existing path."""
+    from PyQt5 import QtWidgets
+
+    reply = QtWidgets.QMessageBox.question(
+        parent,
+        "Confirm Overwrite",
+        f"{item_type.capitalize()} '{os.path.basename(path)}' already exists.\nOverwrite?",
+        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+    )
+    return reply == QtWidgets.QMessageBox.Yes

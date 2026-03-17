@@ -5,7 +5,8 @@ This module provides specialized reportlets for displaying conductivity tables,
 processing steps, and other structured metadata.
 """
 
-from typing import Any, Dict, List, Optional, Union
+
+from typing import Any
 
 from ..core.base import BaseReportlet
 from ..core.protocols import ReportletType, StatusType
@@ -75,8 +76,8 @@ class ConductivityTableReportlet(BaseReportlet):
 
     def __init__(
         self,
-        conductivities: Optional[Dict[str, Dict[str, Any]]] = None,
-        title: Optional[str] = None,
+        conductivities: dict[str, dict[str, Any]] | None = None,
+        title: str | None = None,
         show_sources: bool = True,
         conductivity_type: str = "scalar",
     ):
@@ -103,7 +104,7 @@ class ConductivityTableReportlet(BaseReportlet):
         tissue: str,
         value: float,
         unit: str = "S/m",
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> None:
         """
         Set conductivity for a tissue type.
@@ -176,7 +177,7 @@ class ConductivityTableReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -197,8 +198,8 @@ class ProcessingStepReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        steps: Optional[List[Dict[str, Any]]] = None,
+        title: str | None = None,
+        steps: list[dict[str, Any]] | None = None,
     ):
         """
         Initialize the processing step reportlet.
@@ -208,7 +209,7 @@ class ProcessingStepReportlet(BaseReportlet):
             steps: List of step dictionaries
         """
         super().__init__(title or "Processing Steps")
-        self.steps: List[Dict[str, Any]] = steps or []
+        self.steps: list[dict[str, Any]] = steps or []
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -217,12 +218,12 @@ class ProcessingStepReportlet(BaseReportlet):
     def add_step(
         self,
         name: str,
-        description: Optional[str] = None,
-        status: Union[StatusType, str] = StatusType.PENDING,
-        duration: Optional[float] = None,
-        parameters: Optional[Dict[str, Any]] = None,
-        output_files: Optional[List[str]] = None,
-        error_message: Optional[str] = None,
+        description: str | None = None,
+        status: StatusType | str = StatusType.PENDING,
+        duration: float | None = None,
+        parameters: dict[str, Any] | None = None,
+        output_files: list[str] | None = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Add a processing step.
@@ -369,7 +370,7 @@ class ProcessingStepReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -387,8 +388,8 @@ class SummaryCardsReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        cards: Optional[List[Dict[str, Any]]] = None,
+        title: str | None = None,
+        cards: list[dict[str, Any]] | None = None,
         columns: int = 4,
     ):
         """
@@ -400,7 +401,7 @@ class SummaryCardsReportlet(BaseReportlet):
             columns: Number of columns in grid
         """
         super().__init__(title)
-        self.cards: List[Dict[str, Any]] = cards or []
+        self.cards: list[dict[str, Any]] = cards or []
         self.columns = columns
 
     @property
@@ -411,9 +412,9 @@ class SummaryCardsReportlet(BaseReportlet):
         self,
         label: str,
         value: Any,
-        icon: Optional[str] = None,
-        color: Optional[str] = None,
-        subtitle: Optional[str] = None,
+        icon: str | None = None,
+        color: str | None = None,
+        subtitle: str | None = None,
     ) -> None:
         """
         Add a summary card.
@@ -474,7 +475,7 @@ class SummaryCardsReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -493,8 +494,8 @@ class ParameterListReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        parameters: Optional[Dict[str, Dict[str, Any]]] = None,
+        title: str | None = None,
+        parameters: dict[str, dict[str, Any]] | None = None,
     ):
         """
         Initialize the parameter list reportlet.
@@ -504,13 +505,13 @@ class ParameterListReportlet(BaseReportlet):
             parameters: Dict of category -> {param_name: param_value}
         """
         super().__init__(title or "Parameters")
-        self.parameters: Dict[str, Dict[str, Any]] = parameters or {}
+        self.parameters: dict[str, dict[str, Any]] = parameters or {}
 
     @property
     def reportlet_type(self) -> ReportletType:
         return ReportletType.METADATA
 
-    def add_category(self, category: str, params: Dict[str, Any]) -> None:
+    def add_category(self, category: str, params: dict[str, Any]) -> None:
         """
         Add a parameter category.
 
@@ -582,7 +583,7 @@ class ParameterListReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,

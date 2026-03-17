@@ -189,12 +189,3 @@ class ContactTab(QtWidgets.QWidget):
         layout.addWidget(practices)
 
         return group
-
-    def get_icon(self, icon_name):
-        """Get an icon based on name."""
-        if icon_name == "email":
-            return QtGui.QIcon.fromTheme("mail-send")
-        elif icon_name == "github":
-            return QtGui.QIcon.fromTheme("github")
-        else:
-            return QtGui.QIcon()

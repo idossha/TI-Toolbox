@@ -8,16 +8,25 @@ Reusable console output widget with associated controls for TI-Toolbox GUI
 
 from PyQt5 import QtWidgets, QtCore
 
+from tit.gui.style import (
+    COLOR_CONSOLE_RED,
+    COLOR_CONSOLE_YELLOW,
+    COLOR_CONSOLE_GRAY,
+    COLOR_CONSOLE_BLUE,
+    COLOR_CONSOLE_GREEN,
+    COLOR_CONSOLE_CYAN,
+    COLOR_CONSOLE_WHITE,
+)
 from tit.gui.utils import strip_ansi_codes
 
 _COLOR_MAP = {
-    "error": ("#ff5555", True),  # (color, bold)
-    "warning": ("#ffff55", False),
-    "debug": ("#7f7f7f", False),
-    "command": ("#55aaff", False),
-    "success": ("#55ff55", True),
-    "info": ("#55ffff", False),
-    "default": ("#ffffff", False),
+    "error": (COLOR_CONSOLE_RED, True),  # (color, bold)
+    "warning": (COLOR_CONSOLE_YELLOW, False),
+    "debug": (COLOR_CONSOLE_GRAY, False),
+    "command": (COLOR_CONSOLE_BLUE, False),
+    "success": (COLOR_CONSOLE_GREEN, True),
+    "info": (COLOR_CONSOLE_CYAN, False),
+    "default": (COLOR_CONSOLE_WHITE, False),
 }
 
 

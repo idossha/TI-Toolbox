@@ -6,10 +6,8 @@ CLI and GUI entrypoints can call so they produce identical outputs given the
 same inputs.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 import logging
 
 from tit.blender.montage_publication import (
@@ -19,11 +17,11 @@ from tit.blender.montage_publication import (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MontagePublicationRequest:
     subject_id: str
     simulation_name: str
-    output_dir: Optional[str] = None
+    output_dir: str | None = None
     show_full_net: bool = True
     electrode_diameter_mm: float = 10.0
     electrode_height_mm: float = 6.0
@@ -33,7 +31,7 @@ class MontagePublicationRequest:
 def create_montage_publication_blend(
     req: MontagePublicationRequest,
     *,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
 ) -> MontagePublicationResult:
     """
     Create a publication-ready montage Blender scene (.blend) for a subject+simulation.

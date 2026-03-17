@@ -1,6 +1,5 @@
 """Entry point: simnibs_python -m tit.stats config.json"""
 
-from __future__ import annotations
 
 import json
 import sys

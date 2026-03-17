@@ -6,9 +6,10 @@ creating comprehensive HTML reports with simulation parameters, results,
 and visualizations.
 """
 
+
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
 from ..core.protocols import StatusType
@@ -37,9 +38,9 @@ class SimulationReportGenerator(BaseReportGenerator):
 
     def __init__(
         self,
-        project_dir: Union[str, Path],
-        simulation_session_id: Optional[str] = None,
-        subject_id: Optional[str] = None,
+        project_dir: str | Path,
+        simulation_session_id: str | None = None,
+        subject_id: str | None = None,
     ):
         """
         Initialize the simulation report generator.
@@ -57,13 +58,13 @@ class SimulationReportGenerator(BaseReportGenerator):
         )
 
         # Simulation-specific data
-        self.simulation_parameters: Dict[str, Any] = {}
-        self.electrode_parameters: Dict[str, Any] = {}
-        self.conductivities: Dict[str, Dict[str, Any]] = {}
-        self.subjects: List[Dict[str, Any]] = []
-        self.montages: List[Dict[str, Any]] = []
-        self.simulation_results: Dict[str, Dict[str, Any]] = {}
-        self.visualizations: List[Dict[str, Any]] = []
+        self.simulation_parameters: dict[str, Any] = {}
+        self.electrode_parameters: dict[str, Any] = {}
+        self.conductivities: dict[str, dict[str, Any]] = {}
+        self.subjects: list[dict[str, Any]] = []
+        self.montages: list[dict[str, Any]] = []
+        self.simulation_results: dict[str, dict[str, Any]] = {}
+        self.visualizations: list[dict[str, Any]] = []
 
     def _get_default_title(self) -> str:
         if self.subject_id:
@@ -77,11 +78,11 @@ class SimulationReportGenerator(BaseReportGenerator):
         self,
         conductivity_type: str = "scalar",
         simulation_mode: str = "TI",
-        eeg_net: Optional[str] = None,
+        eeg_net: str | None = None,
         intensity_ch1: float = 1.0,
         intensity_ch2: float = 1.0,
         quiet_mode: bool = False,
-        conductivities: Optional[Dict[str, Any]] = None,
+        conductivities: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """
@@ -112,8 +113,8 @@ class SimulationReportGenerator(BaseReportGenerator):
     def add_electrode_parameters(
         self,
         shape: str = "circular",
-        dimensions: Optional[Union[str, List[float]]] = None,
-        gel_thickness: Optional[float] = None,
+        dimensions: str | list[float] | None = None,
+        gel_thickness: float | None = None,
         **kwargs,
     ) -> None:
         """
@@ -138,7 +139,7 @@ class SimulationReportGenerator(BaseReportGenerator):
 
     def add_conductivities(
         self,
-        conductivities: Dict[str, Dict[str, Any]],
+        conductivities: dict[str, dict[str, Any]],
         conductivity_type: str = "scalar",
     ) -> None:
         """
@@ -154,7 +155,7 @@ class SimulationReportGenerator(BaseReportGenerator):
     def add_subject(
         self,
         subject_id: str,
-        m2m_path: Optional[str] = None,
+        m2m_path: str | None = None,
         status: str = "pending",
     ) -> None:
         """
@@ -176,7 +177,7 @@ class SimulationReportGenerator(BaseReportGenerator):
     def add_montage(
         self,
         montage_name: str,
-        electrode_pairs: List[Any],
+        electrode_pairs: list[Any],
         montage_type: str = "TI",
     ) -> None:
         """
@@ -197,18 +198,18 @@ class SimulationReportGenerator(BaseReportGenerator):
 
     def _normalize_electrode_pairs(
         self,
-        electrode_pairs: Optional[List[Any]],
-    ) -> List[Dict[str, Any]]:
+        electrode_pairs: list[Any] | None,
+    ) -> list[dict[str, Any]]:
         """Normalize electrode pairs into dicts for reportlets."""
         if not electrode_pairs:
             return []
 
-        normalized: List[Dict[str, Any]] = []
+        normalized: list[dict[str, Any]] = []
         for idx, pair in enumerate(electrode_pairs, start=1):
             name = f"Pair {idx}"
-            electrode1: Optional[str] = None
-            electrode2: Optional[str] = None
-            intensity: Optional[Any] = None
+            electrode1: str | None = None
+            electrode2: str | None = None
+            intensity: Any | None = None
 
             if isinstance(pair, dict):
                 name = pair.get("name", name)
@@ -268,7 +269,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         self._apply_default_intensities(normalized)
         return normalized
 
-    def _apply_default_intensities(self, pairs: List[Dict[str, Any]]) -> None:
+    def _apply_default_intensities(self, pairs: list[dict[str, Any]]) -> None:
         """Fill missing intensities using simulation parameters."""
         defaults = self._get_default_intensities()
         if not defaults:
@@ -281,7 +282,7 @@ class SimulationReportGenerator(BaseReportGenerator):
                 if defaults[idx] is not None:
                     pair["intensity"] = defaults[idx]
 
-    def _get_default_intensities(self) -> List[Optional[float]]:
+    def _get_default_intensities(self) -> list[float | None]:
         """Return default pair intensities in pair order."""
         if isinstance(self.simulation_parameters.get("intensities"), (list, tuple)):
             return list(self.simulation_parameters["intensities"])
@@ -292,13 +293,13 @@ class SimulationReportGenerator(BaseReportGenerator):
         return []
 
     @staticmethod
-    def _is_multipolar(montage_type: Optional[str]) -> bool:
+    def _is_multipolar(montage_type: str | None) -> bool:
         if not montage_type:
             return False
         normalized = str(montage_type).strip().lower()
         return normalized in {"m", "mti", "multipolar", "mt", "multi"}
 
-    def _get_montage_subject_id(self) -> Optional[str]:
+    def _get_montage_subject_id(self) -> str | None:
         if self.subject_id:
             return self.subject_id
         if self.subjects:
@@ -306,8 +307,8 @@ class SimulationReportGenerator(BaseReportGenerator):
         return None
 
     def _find_montage_image(
-        self, montage_name: str, montage_type: Optional[str]
-    ) -> Optional[Path]:
+        self, montage_name: str, montage_type: str | None
+    ) -> Path | None:
         subject_id = self._get_montage_subject_id()
         if not subject_id:
             return None
@@ -349,10 +350,10 @@ class SimulationReportGenerator(BaseReportGenerator):
         self,
         subject_id: str,
         montage_name: str,
-        output_files: Optional[List[str]] = None,
-        duration: Optional[float] = None,
+        output_files: list[str] | None = None,
+        duration: float | None = None,
         status: str = "completed",
-        metrics: Optional[Dict[str, Any]] = None,
+        metrics: dict[str, Any] | None = None,
     ) -> None:
         """
         Add simulation results for a subject/montage combination.
@@ -381,8 +382,8 @@ class SimulationReportGenerator(BaseReportGenerator):
         montage_name: str,
         image_type: str,
         base64_data: str,
-        title: Optional[str] = None,
-        caption: Optional[str] = None,
+        title: str | None = None,
+        caption: str | None = None,
     ) -> None:
         """
         Add a visualization image.
@@ -611,7 +612,7 @@ class SimulationReportGenerator(BaseReportGenerator):
             )
             section.add_reportlet(subjects_table)
 
-    def _get_methods_parameters(self) -> Dict[str, Any]:
+    def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
         params.update(

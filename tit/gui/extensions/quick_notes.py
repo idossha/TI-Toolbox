@@ -7,9 +7,12 @@ A simple note-taking extension for recording observations during analysis.
 Notes are automatically saved to projectDIR/derivatives/ti-toolbox/notes.txt
 """
 
+import logging
 import os
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 try:
     from zoneinfo import ZoneInfo
@@ -92,7 +95,7 @@ class NotesWindow(QtWidgets.QDialog):
                                 # If no prefix, treat the whole block as the note
                                 self.notes.append(block)
         except (IOError, OSError) as e:
-            print(f"Error loading notes: {e}")
+            logger.error(f"Error loading notes: {e}")
 
     def _save_notes(self):
         """Save notes to file."""
@@ -123,7 +126,7 @@ class NotesWindow(QtWidgets.QDialog):
             return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
         except Exception as e:
             # Fallback if timezone is invalid or zoneinfo not available
-            print(f"Warning: Could not use timezone '{tz_name}': {e}")
+            logger.warning(f"Could not use timezone '{tz_name}': {e}")
             return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def setup_ui(self):

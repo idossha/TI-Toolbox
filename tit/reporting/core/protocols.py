@@ -5,10 +5,11 @@ This module defines the core interfaces and enums used by reportlets
 and report generators.
 """
 
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 class ReportletType(Enum):
@@ -59,7 +60,7 @@ class Reportlet(Protocol):
         """Render the reportlet as HTML."""
         ...
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the reportlet to a dictionary representation."""
         ...
 
@@ -69,18 +70,18 @@ class ReportMetadata:
     """Metadata for a generated report."""
 
     title: str
-    subject_id: Optional[str] = None
-    session_id: Optional[str] = None
+    subject_id: str | None = None
+    session_id: str | None = None
     report_type: str = "general"
     generation_time: datetime = field(default_factory=datetime.now)
-    software_versions: Dict[str, str] = field(default_factory=dict)
-    project_dir: Optional[str] = None
+    software_versions: dict[str, str] = field(default_factory=dict)
+    project_dir: str | None = None
 
     # BIDS-related fields
     bids_version: str = "1.8.0"
     dataset_type: str = "derivative"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metadata to dictionary."""
         return {
             "title": self.title,
@@ -101,8 +102,8 @@ class ReportSection:
 
     section_id: str
     title: str
-    reportlets: List[Any] = field(default_factory=list)
-    description: Optional[str] = None
+    reportlets: list[Any] = field(default_factory=list)
+    description: str | None = None
     collapsed: bool = False
     order: int = 0
 
@@ -134,7 +135,7 @@ class ReportSection:
         </section>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert section to dictionary."""
         return {
             "section_id": self.section_id,

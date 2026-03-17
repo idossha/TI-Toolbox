@@ -6,11 +6,9 @@ Atlas related functions for NIfTI operations
 
 """
 
-from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +72,10 @@ def check_and_resample_atlas(atlas_img, reference_img, atlas_name: str):
 
 def atlas_overlap_analysis(
     sig_mask,
-    atlas_files: List[str],
+    atlas_files: list[str],
     data_dir: str,
     reference_img=None,
-) -> Dict[str, list]:
+) -> dict[str, list]:
     """Analyze overlap between significant voxels and atlas regions.
 
     Args:
@@ -96,7 +94,7 @@ def atlas_overlap_analysis(
     logger.info("ATLAS OVERLAP ANALYSIS")
     logger.info("=" * 60)
 
-    results: Dict[str, list] = {}
+    results: dict[str, list] = {}
 
     for atlas_file in atlas_files:
         atlas_path = os.path.join(data_dir, atlas_file)

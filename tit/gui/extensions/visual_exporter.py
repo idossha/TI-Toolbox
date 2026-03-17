@@ -52,7 +52,7 @@ class WorkerThread(QtCore.QThread):
     def __init__(self, commands):
         super().__init__()
         self.commands = (
-            commands  # list of (cmd:list[str], cwd: Optional[str]) to run sequentially
+            commands  # list of (cmd:list[str], cwd: str | None) to run sequentially
         )
         self._process = None
 

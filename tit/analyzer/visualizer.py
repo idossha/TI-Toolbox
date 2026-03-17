@@ -5,7 +5,6 @@ Four module-level functions that write output artifacts (mesh overlays,
 NIfTI overlays, histograms, CSV) without any shared mutable state.
 """
 
-from __future__ import annotations
 
 import csv
 import logging

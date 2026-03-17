@@ -1,9 +1,9 @@
 #!/usr/bin/env simnibs_python
 """Configuration dataclasses for TI/mTI simulations."""
 
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Tuple
 
 
 class SimulationMode(Enum):
@@ -26,8 +26,8 @@ class Montage:
 
     name: str
     mode: MontageMode
-    electrode_pairs: List[Tuple]
-    eeg_net: Optional[str] = None
+    electrode_pairs: list[tuple]
+    eeg_net: str | None = None
 
     @property
     def is_xyz(self) -> bool:
@@ -56,11 +56,11 @@ _VALID_CONDUCTIVITIES = {"scalar", "vn", "dir", "mc"}
 class SimulationConfig:
     subject_id: str
     project_dir: str
-    montages: List[Montage]
+    montages: list[Montage]
     conductivity: str = "scalar"
-    intensities: List[float] = field(default_factory=lambda: [1.0, 1.0])
+    intensities: list[float] = field(default_factory=lambda: [1.0, 1.0])
     electrode_shape: str = "ellipse"
-    electrode_dimensions: List[float] = field(default_factory=lambda: [8.0, 8.0])
+    electrode_dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
     gel_thickness: float = 4.0
     rubber_thickness: float = 2.0
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
@@ -83,7 +83,7 @@ class SimulationConfig:
             )
 
 
-def parse_intensities(s: str) -> List[float]:
+def parse_intensities(s: str) -> list[float]:
     """Parse comma-separated intensity string into list of floats."""
     v = [float(x.strip()) for x in s.split(",")]
     n = len(v)

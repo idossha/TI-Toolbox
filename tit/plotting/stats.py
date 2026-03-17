@@ -5,7 +5,6 @@ These were previously implemented in `tit.stats.visualization` and are kept here
 encourage reuse across modules.
 """
 
-from __future__ import annotations
 
 from typing import Mapping, Sequence
 

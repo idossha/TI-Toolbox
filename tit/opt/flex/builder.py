@@ -9,7 +9,6 @@ Public API:
     - ``generate_report(config, n_multistart, funvalue_list, best_idx, base_folder, logger)``
 """
 
-from __future__ import annotations
 
 import json
 import os

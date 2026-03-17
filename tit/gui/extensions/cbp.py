@@ -8,7 +8,6 @@ current intensity between responders and non-responders.
 """
 
 import os
-import logging
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 import json

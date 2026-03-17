@@ -5,19 +5,18 @@ This is shared plotting functionality used by reporting code to generate
 small PNG slices (base64-encoded) for HTML reports.
 """
 
-from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def generate_static_overlay_images(
     *,
     t1_file: str,
     overlay_file: str,
-    subject_id: Optional[str] = None,
-    montage_name: Optional[str] = None,
-    output_dir: Optional[str] = None,
-) -> Dict[str, List[Dict[str, Any]]]:
+    subject_id: str | None = None,
+    montage_name: str | None = None,
+    output_dir: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     """Generate static overlay images for axial, sagittal, and coronal views.
 
     Returns a dict with keys: 'axial', 'sagittal', 'coronal'. Each value is a list of dicts:
@@ -103,7 +102,7 @@ def generate_static_overlay_images(
         "coronal": voxel_sizes[2] / voxel_sizes[0],  # z/x ratio
     }
 
-    generated_images: Dict[str, List[Dict[str, Any]]] = {
+    generated_images: dict[str, list[dict[str, Any]]] = {
         "axial": [],
         "sagittal": [],
         "coronal": [],

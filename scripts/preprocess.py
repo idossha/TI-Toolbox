@@ -1,10 +1,9 @@
 #!/usr/bin/env simnibs_python
 
-from tit import setup_logging, add_stream_handler
-from tit.pre import run_pipeline
+import tit
+tit.init()
 
-setup_logging()
-add_stream_handler("tit")
+from tit.pre import run_pipeline
 
 PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["101", "ernie"]

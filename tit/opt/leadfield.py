@@ -11,14 +11,13 @@ ensure_leadfield(subject_id, eeg_net, *, project_dir, tissues, force) -> Path
     Return an existing leadfield path or generate a new one.
 """
 
-from __future__ import annotations
 
 import glob
 import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable
 
 from tit.paths import get_path_manager
 
@@ -32,8 +31,8 @@ class LeadfieldGenerator:
         self,
         subject_id: str,
         electrode_cap: str = "EEG10-10",
-        progress_callback: Optional[Callable] = None,
-        termination_flag: Optional[Callable[[], bool]] = None,
+        progress_callback: Callable | None = None,
+        termination_flag: Callable[[], bool] | None = None,
     ) -> None:
         """Initialize leadfield generator.
 
@@ -71,8 +70,8 @@ class LeadfieldGenerator:
 
     def generate(
         self,
-        output_dir: Optional[str | Path] = None,
-        tissues: Optional[List[int]] = None,
+        output_dir: str | Path | None = None,
+        tissues: list[int] | None = None,
         cleanup: bool = True,
     ) -> Path:
         """Generate a leadfield matrix via SimNIBS.
@@ -131,8 +130,8 @@ class LeadfieldGenerator:
     # ------------------------------------------------------------------
 
     def list_leadfields(
-        self, subject_id: Optional[str] = None
-    ) -> List[Tuple[str, str, float]]:
+        self, subject_id: str | None = None
+    ) -> list[tuple[str, str, float]]:
         """List available leadfield HDF5 files for a subject.
 
         Args:
@@ -144,7 +143,7 @@ class LeadfieldGenerator:
         sid = subject_id or self.subject_id
         leadfields_dir = Path(self.pm.leadfields(sid))
 
-        out: List[Tuple[str, str, float]] = []
+        out: list[tuple[str, str, float]] = []
         for item in leadfields_dir.iterdir():
 
             stem = item.stem
@@ -165,7 +164,7 @@ class LeadfieldGenerator:
 
         return sorted(out)
 
-    def get_electrode_names(self, cap_name: Optional[str] = None) -> List[str]:
+    def get_electrode_names(self, cap_name: str | None = None) -> list[str]:
         """Extract electrode labels from an EEG cap via SimNIBS.
 
         Args:

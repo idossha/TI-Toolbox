@@ -5,12 +5,10 @@ This is the single source of truth for run metadata -- downstream
 consumers (simulator, GUI) read this instead of parsing folder names.
 """
 
-from __future__ import annotations
 
 import json
 import os
 from datetime import datetime
-from typing import Optional
 
 from tit.opt.config import (
     AtlasROI,
@@ -29,7 +27,7 @@ def write_manifest(
     config: FlexConfig,
     result: FlexResult,
     label: str,
-    pareto_data: Optional[dict] = None,
+    pareto_data: dict | None = None,
 ) -> str:
     """Write flex_meta.json to output_folder.
 
@@ -88,7 +86,7 @@ def write_manifest(
     return path
 
 
-def read_manifest(output_folder: str) -> Optional[dict]:
+def read_manifest(output_folder: str) -> dict | None:
     """Read flex_meta.json from a folder.
 
     Args:

@@ -1,10 +1,8 @@
 """Mesh (surface) atlas discovery and region listing."""
 
-from __future__ import annotations
 
 import glob
 import os
-from typing import Dict, List, Optional, Tuple
 
 from tit.atlas.constants import BUILTIN_ATLASES
 
@@ -19,13 +17,13 @@ class MeshAtlasManager:
     def __init__(self, seg_dir: str) -> None:
         self.seg_dir = seg_dir
 
-    def list_atlases(self) -> List[str]:
+    def list_atlases(self) -> list[str]:
         """List available mesh atlas names.
 
         Returns:
             Sorted list of atlas names (always includes builtins).
         """
-        discovered: List[str] = []
+        discovered: list[str] = []
         if os.path.isdir(self.seg_dir):
             for fname in os.listdir(self.seg_dir):
                 if fname.startswith("lh.") and fname.endswith(".annot"):
@@ -38,7 +36,7 @@ class MeshAtlasManager:
                         discovered.append(atlas_name)
         return sorted(set(BUILTIN_ATLASES + discovered))
 
-    def list_regions(self, atlas_name: str) -> List[str]:
+    def list_regions(self, atlas_name: str) -> list[str]:
         """List regions for a mesh atlas from .annot files.
 
         Returns:
@@ -47,7 +45,7 @@ class MeshAtlasManager:
         if os.path.isdir(self.seg_dir):
             import nibabel.freesurfer as nfs
 
-            regions: List[str] = []
+            regions: list[str] = []
             for hemi in ("lh", "rh"):
                 matches = glob.glob(
                     os.path.join(self.seg_dir, f"{hemi}.*{atlas_name}.annot")
@@ -64,7 +62,7 @@ class MeshAtlasManager:
 
         return []
 
-    def find_atlas_file(self, atlas_name: str, hemisphere: str) -> Optional[str]:
+    def find_atlas_file(self, atlas_name: str, hemisphere: str) -> str | None:
         """Find the .annot file path for a given atlas and hemisphere.
 
         Returns:
@@ -77,13 +75,13 @@ class MeshAtlasManager:
         )
         return matches[0] if matches else None
 
-    def find_all_atlases(self, hemisphere: str) -> Dict[str, str]:
+    def find_all_atlases(self, hemisphere: str) -> dict[str, str]:
         """Find all available atlas files for a hemisphere.
 
         Returns:
             Dict mapping atlas display name to file path.
         """
-        atlas_map: Dict[str, str] = {}
+        atlas_map: dict[str, str] = {}
         if not os.path.isdir(self.seg_dir):
             return atlas_map
         pattern = f"{hemisphere}.*.annot"
@@ -98,7 +96,7 @@ class MeshAtlasManager:
                 atlas_map[atlas_display] = atlas_file
         return atlas_map
 
-    def list_annot_regions(self, annot_path: str) -> List[Tuple[int, str]]:
+    def list_annot_regions(self, annot_path: str) -> list[tuple[int, str]]:
         """List all regions in a .annot file.
 
         Returns:

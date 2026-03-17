@@ -6,13 +6,11 @@ This module provides a wrapper around FreeSurfer's ``recon-all`` command
 for automated cortical reconstruction and segmentation.
 """
 
-from __future__ import annotations
 
 import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from tit.paths import get_path_manager
 from .utils import CommandRunner, PreprocessError, _find_anat_files
@@ -23,7 +21,7 @@ def _run_subcortical_segmentations(
     fs_subjects_root: Path,
     *,
     logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Run thalamic nuclei and hippocampal subfield segmentations.
 
@@ -60,7 +58,7 @@ def run_subcortical_segmentations(
     subject_id: str,
     *,
     logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Run thalamic nuclei and hippocampal subfield segmentations standalone.
 
@@ -94,7 +92,7 @@ def run_recon_all(
     *,
     logger,
     parallel: bool = False,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Run FreeSurfer recon-all for a subject.
 

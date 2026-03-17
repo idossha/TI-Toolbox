@@ -5,10 +5,11 @@ This module provides a report generator for electrode placement
 optimization results from the flex-search algorithm.
 """
 
+
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
 from ..reportlets.images import MontageImageReportlet
@@ -30,9 +31,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
     def __init__(
         self,
-        project_dir: Union[str, Path],
+        project_dir: str | Path,
         subject_id: str,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ):
         """
         Initialize the flex-search report generator.
@@ -50,11 +51,11 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         )
 
         # Flex-search specific data
-        self.config: Dict[str, Any] = {}
-        self.roi_info: Dict[str, Any] = {}
-        self.search_results: List[Dict[str, Any]] = []
-        self.best_solution: Optional[Dict[str, Any]] = None
-        self.optimization_metrics: Dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
+        self.roi_info: dict[str, Any] = {}
+        self.search_results: list[dict[str, Any]] = []
+        self.best_solution: dict[str, Any] | None = None
+        self.optimization_metrics: dict[str, Any] = {}
 
     def _get_default_title(self) -> str:
         return f"Flex-Search Optimization Report - Subject {self.subject_id}"
@@ -64,8 +65,8 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
     def set_configuration(
         self,
-        electrode_net: Optional[str] = None,
-        optimization_target: Optional[str] = None,
+        electrode_net: str | None = None,
+        optimization_target: str | None = None,
         n_candidates: int = 100,
         selection_method: str = "best",
         intensity_ch1: float = 1.0,
@@ -98,10 +99,10 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         self,
         roi_name: str,
         roi_type: str = "mask",
-        coordinates: Optional[List[float]] = None,
-        radius: Optional[float] = None,
-        volume_mm3: Optional[float] = None,
-        n_voxels: Optional[int] = None,
+        coordinates: list[float] | None = None,
+        radius: float | None = None,
+        volume_mm3: float | None = None,
+        n_voxels: int | None = None,
         **kwargs,
     ) -> None:
         """
@@ -134,9 +135,9 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         electrode_2a: str,
         electrode_2b: str,
         score: float,
-        mean_field_roi: Optional[float] = None,
-        max_field_roi: Optional[float] = None,
-        focality: Optional[float] = None,
+        mean_field_roi: float | None = None,
+        max_field_roi: float | None = None,
+        focality: float | None = None,
         **metrics,
     ) -> None:
         """
@@ -173,13 +174,13 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
     def set_best_solution(
         self,
-        electrode_pairs: List[Dict[str, str]],
+        electrode_pairs: list[dict[str, str]],
         score: float,
-        metrics: Dict[str, Any],
-        montage_image_base64: Optional[str] = None,
-        field_map_base64: Optional[str] = None,
-        electrode_coordinates: Optional[List[List[float]]] = None,
-        channel_array_indices: Optional[List[List[int]]] = None,
+        metrics: dict[str, Any],
+        montage_image_base64: str | None = None,
+        field_map_base64: str | None = None,
+        electrode_coordinates: list[list[float]] | None = None,
+        channel_array_indices: list[list[int]] | None = None,
     ) -> None:
         """
         Set the best (selected) solution.
@@ -201,7 +202,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "channel_array_indices": channel_array_indices,
         }
 
-    def populate_from_data(self, data: Dict[str, Any]) -> None:
+    def populate_from_data(self, data: dict[str, Any]) -> None:
         """
         Populate the report from a data dictionary.
 
@@ -229,7 +230,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         if "metrics" in data:
             self.optimization_metrics = data["metrics"]
 
-    def load_from_output_dir(self, output_dir: Union[str, Path]) -> None:
+    def load_from_output_dir(self, output_dir: str | Path) -> None:
         """
         Load optimization data from an output directory.
 
@@ -571,7 +572,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             field_img.set_base64_data(self.best_solution["field_map_base64"])
             section.add_reportlet(field_img)
 
-    def _get_methods_parameters(self) -> Dict[str, Any]:
+    def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
         params.update(
@@ -593,10 +594,10 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
 
 def create_flex_search_report(
-    project_dir: Union[str, Path],
+    project_dir: str | Path,
     subject_id: str,
-    data: Dict[str, Any],
-    output_path: Optional[Union[str, Path]] = None,
+    data: dict[str, Any],
+    output_path: str | Path | None = None,
 ) -> Path:
     """
     Convenience function to create a flex-search report.

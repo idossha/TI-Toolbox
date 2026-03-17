@@ -5,10 +5,11 @@ This module provides specialized reportlets for brain imaging visualizations,
 including multi-slice brain views and electrode montage displays.
 """
 
+
 import base64
 import io
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from ..core.base import BaseReportlet, ImageReportlet
 from ..core.protocols import ReportletType
@@ -24,10 +25,10 @@ class SliceSeriesReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        slices: Optional[List[Dict[str, Any]]] = None,
+        title: str | None = None,
+        slices: list[dict[str, Any]] | None = None,
         orientation: str = "axial",
-        caption: Optional[str] = None,
+        caption: str | None = None,
     ):
         """
         Initialize the slice series reportlet.
@@ -39,7 +40,7 @@ class SliceSeriesReportlet(BaseReportlet):
             caption: Optional caption text
         """
         super().__init__(title)
-        self.slices: List[Dict[str, Any]] = slices or []
+        self.slices: list[dict[str, Any]] = slices or []
         self.orientation = orientation
         self.caption = caption
 
@@ -49,8 +50,8 @@ class SliceSeriesReportlet(BaseReportlet):
 
     def add_slice(
         self,
-        image_data: Union[str, bytes, Path, Any],
-        label: Optional[str] = None,
+        image_data: str | bytes | Path | Any,
+        label: str | None = None,
         mime_type: str = "image/png",
     ) -> None:
         """
@@ -70,7 +71,7 @@ class SliceSeriesReportlet(BaseReportlet):
             }
         )
 
-    def _process_image(self, image_data: Union[str, bytes, Path, Any]) -> str:
+    def _process_image(self, image_data: str | bytes | Path | Any) -> str:
         """Convert image data to base64 string."""
         if isinstance(image_data, str):
             # Assume already base64 encoded
@@ -86,10 +87,10 @@ class SliceSeriesReportlet(BaseReportlet):
                 buffer = io.BytesIO()
                 image_data.save(buffer, format="PNG")
                 return base64.b64encode(buffer.getvalue()).decode("utf-8")
-            except Exception:
+            except (AttributeError, ValueError):
                 return ""
 
-    def load_from_files(self, file_paths: List[Union[str, Path]]) -> None:
+    def load_from_files(self, file_paths: list[str | Path]) -> None:
         """
         Load slices from a list of image files.
 
@@ -141,7 +142,7 @@ class SliceSeriesReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -162,10 +163,10 @@ class MontageImageReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        image_source: Union[str, Path, bytes, Any, None] = None,
-        electrode_pairs: Optional[List[Dict[str, Any]]] = None,
-        montage_name: Optional[str] = None,
+        title: str | None = None,
+        image_source: str | Path | bytes | Any | None = None,
+        electrode_pairs: list[dict[str, Any]] | None = None,
+        montage_name: str | None = None,
     ):
         """
         Initialize the montage image reportlet.
@@ -177,7 +178,7 @@ class MontageImageReportlet(BaseReportlet):
             montage_name: Name of the montage
         """
         super().__init__(title)
-        self._base64_data: Optional[str] = None
+        self._base64_data: str | None = None
         self._mime_type: str = "image/png"
         self.electrode_pairs = electrode_pairs or []
         self.montage_name = montage_name
@@ -189,7 +190,7 @@ class MontageImageReportlet(BaseReportlet):
     def reportlet_type(self) -> ReportletType:
         return ReportletType.IMAGE
 
-    def _load_image(self, source: Union[str, Path, bytes, Any]) -> None:
+    def _load_image(self, source: str | Path | bytes | Any) -> None:
         """Load image from various sources and convert to base64."""
         if isinstance(source, (str, Path)):
             path = Path(source) if isinstance(source, str) else source
@@ -216,7 +217,7 @@ class MontageImageReportlet(BaseReportlet):
                 buffer = io.BytesIO()
                 source.save(buffer, format="PNG")
                 self._base64_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            except Exception:
+            except (AttributeError, ValueError):
                 pass
 
     def set_base64_data(self, data: str, mime_type: str = "image/png") -> None:
@@ -229,7 +230,7 @@ class MontageImageReportlet(BaseReportlet):
         name: str,
         electrode1: str,
         electrode2: str,
-        intensity: Optional[float] = None,
+        intensity: float | None = None,
     ) -> None:
         """
         Add an electrode pair to the montage info.
@@ -322,7 +323,7 @@ class MontageImageReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -343,11 +344,11 @@ class MultiViewBrainReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        axial_image: Optional[Union[str, Path, bytes]] = None,
-        sagittal_image: Optional[Union[str, Path, bytes]] = None,
-        coronal_image: Optional[Union[str, Path, bytes]] = None,
-        caption: Optional[str] = None,
+        title: str | None = None,
+        axial_image: str | Path | bytes | None = None,
+        sagittal_image: str | Path | bytes | None = None,
+        coronal_image: str | Path | bytes | None = None,
+        caption: str | None = None,
     ):
         """
         Initialize the multi-view brain reportlet.
@@ -360,7 +361,7 @@ class MultiViewBrainReportlet(BaseReportlet):
             caption: Optional caption
         """
         super().__init__(title)
-        self.views: Dict[str, Optional[str]] = {
+        self.views: dict[str, str | None] = {
             "axial": None,
             "sagittal": None,
             "coronal": None,
@@ -378,9 +379,7 @@ class MultiViewBrainReportlet(BaseReportlet):
     def reportlet_type(self) -> ReportletType:
         return ReportletType.IMAGE
 
-    def set_view(
-        self, view_name: str, image_data: Union[str, Path, bytes, Any]
-    ) -> None:
+    def set_view(self, view_name: str, image_data: str | Path | bytes | Any) -> None:
         """
         Set an image for a specific view.
 
@@ -409,7 +408,7 @@ class MultiViewBrainReportlet(BaseReportlet):
                 self.views[view_name] = base64.b64encode(buffer.getvalue()).decode(
                     "utf-8"
                 )
-            except Exception:
+            except (AttributeError, ValueError):
                 pass
 
     def render_html(self) -> str:
@@ -449,7 +448,7 @@ class MultiViewBrainReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,

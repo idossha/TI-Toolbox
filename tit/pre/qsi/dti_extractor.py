@@ -13,7 +13,6 @@ SimNIBS expects a 4D NIfTI file with the diffusion tensor stored as a
 The tensor must be coregistered to the SimNIBS T1 space.
 """
 
-from __future__ import annotations
 
 import logging
 import os
@@ -21,7 +20,6 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict
 
 import numpy as np
 
@@ -38,14 +36,14 @@ from tit.pre.utils import PreprocessError
 DSISTUDIO_TENSOR_PARAMS = ["txx", "txy", "txz", "tyy", "tyz", "tzz"]
 
 
-def _iter_qsirecon_subject_dirs(qsirecon_dir: Path, subject_id: str) -> List[Path]:
+def _iter_qsirecon_subject_dirs(qsirecon_dir: Path, subject_id: str) -> list[Path]:
     """
     Yield possible subject directories across QSIRecon outputs.
 
     QSIRecon can store outputs directly under derivatives/qsirecon/sub-<id>
     or under derivatives/qsirecon/derivatives/qsirecon-*/sub-<id>.
     """
-    subject_dirs: List[Path] = []
+    subject_dirs: list[Path] = []
 
     # Legacy/primary output
     subject_dirs.append(qsirecon_dir / f"sub-{subject_id}")
@@ -74,7 +72,7 @@ def _iter_qsirecon_subject_dirs(qsirecon_dir: Path, subject_id: str) -> List[Pat
 
 def _find_dsistudio_tensor_components(
     qsirecon_dir: Path, subject_id: str, logger: logging.Logger
-) -> Optional[Dict[str, Path]]:
+) -> dict[str, Path] | None:
     """
     Find DSI Studio tensor component files in QSIRecon output.
 
@@ -92,7 +90,7 @@ def _find_dsistudio_tensor_components(
 
     Returns
     -------
-    Optional[Dict[str, Path]]
+    dict[str, Path] | None
         Dictionary mapping tensor component names to file paths, or None if not found.
     """
     # Look for DSIStudio outputs
@@ -132,7 +130,7 @@ def _find_dsistudio_tensor_components(
         if not dwi_dir.exists():
             continue
 
-        components: Dict[str, Path] = {}
+        components: dict[str, Path] = {}
         for param in DSISTUDIO_TENSOR_PARAMS:
             # Pattern: sub-XXX_space-ACPC_model-tensor_param-{param}_dwimap.nii.gz
             pattern = f"*_model-tensor_param-{param}_dwimap.nii*"
@@ -151,7 +149,7 @@ def _find_dsistudio_tensor_components(
 
 def _find_dti_tensor_file(
     qsirecon_dir: Path, subject_id: str, logger: logging.Logger
-) -> Optional[Path]:
+) -> Path | None:
     """
     Find the DTI tensor file in QSIRecon output.
 
@@ -169,7 +167,7 @@ def _find_dti_tensor_file(
 
     Returns
     -------
-    Optional[Path]
+    Path | None
         Path to the DTI tensor file, or None if not found.
     """
     # Search patterns for DTI tensor files (combined 4D tensor)
@@ -233,7 +231,7 @@ def _find_dti_tensor_file(
 
             img = nib.load(str(path))
             shape = img.shape
-        except Exception:
+        except OSError:
             return False
 
         if len(shape) == 4 and shape[-1] in (6, 9):
@@ -264,7 +262,7 @@ def _find_dti_tensor_file(
 
 def _find_dki_tensor_files(
     qsirecon_dir: Path, subject_id: str, logger: logging.Logger
-) -> Tuple[Optional[Path], Optional[Path]]:
+) -> tuple[Path | None, Path | None]:
     """
     Find DKI tensor files (DT and KT) in QSIRecon output.
 
@@ -282,7 +280,7 @@ def _find_dki_tensor_files(
 
     Returns
     -------
-    Tuple[Optional[Path], Optional[Path]]
+    tuple[Path | None, Path | None]
         (DT path, KT path) tuple. Either may be None if not found.
     """
     dt_patterns = ["**/dwi/*_DT.nii*", "**/dwi/*_dt.nii*"]
@@ -309,21 +307,21 @@ def _find_dki_tensor_files(
 
 
 def _combine_dsistudio_tensor_components(
-    components: Dict[str, Path], logger: logging.Logger
-) -> Tuple[np.ndarray, np.ndarray, any]:
+    components: dict[str, Path], logger: logging.Logger
+) -> tuple[np.ndarray, np.ndarray, any]:
     """
     Combine DSI Studio tensor component files into a single 4D array.
 
     Parameters
     ----------
-    components : Dict[str, Path]
+    components : dict[str, Path]
         Dictionary mapping tensor component names to file paths.
     logger : logging.Logger
         Logger for status messages.
 
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray, any]
+    tuple[np.ndarray, np.ndarray, any]
         (tensor_data, affine, header) where tensor_data has shape (X, Y, Z, 6)
         with components in order [Dxx, Dxy, Dxz, Dyy, Dyz, Dzz].
     """
@@ -472,7 +470,7 @@ def _validate_tensor(tensor_data: np.ndarray, logger: logging.Logger) -> None:
         )
 
 
-def _find_qsiprep_t1(project_dir: Path, subject_id: str) -> Optional[Path]:
+def _find_qsiprep_t1(project_dir: Path, subject_id: str) -> Path | None:
     """Find the qsiprep T1 in ACPC space."""
     qsiprep_t1 = (
         project_dir
@@ -496,7 +494,7 @@ def _check_ants_available() -> bool:
             text=True,
         )
         return result.returncode == 0
-    except Exception:
+    except (FileNotFoundError, OSError):
         return False
 
 
@@ -775,7 +773,7 @@ def extract_dti_tensor(
             tensor_data = tensor_img.get_fdata(dtype=np.float32)
             affine = tensor_img.affine
             header = tensor_img.header
-        except Exception as e:
+        except (OSError, ValueError) as e:
             raise PreprocessError(f"Failed to load tensor file: {e}")
 
         # Convert to SimNIBS format
@@ -792,7 +790,7 @@ def extract_dti_tensor(
         intermediate_img = nib.Nifti1Image(simnibs_tensor, affine, header)
         nib.save(intermediate_img, str(intermediate_path))
         logger.info(f"Saved intermediate tensor to: {intermediate_path}")
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         raise PreprocessError(f"Failed to save intermediate tensor: {e}")
 
     # Register to SimNIBS T1 space
@@ -822,7 +820,7 @@ def extract_dti_tensor(
                     output_path,
                     logger,
                 )
-            except Exception as e:
+            except PreprocessError as e:
                 logger.warning(
                     f"Registration failed: {e}. Falling back to simple resampling."
                 )

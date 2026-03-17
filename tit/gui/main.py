@@ -50,7 +50,6 @@ from tit.gui.nifti_viewer_tab import NiftiViewerTab
 from tit.gui.analyzer_tab import AnalyzerTab
 from tit.gui.optimizer_tab import OptimizerTab
 from tit.gui.settings_menu import SettingsMenuButton, ExtensionsButton
-from tit.paths import get_path_manager
 
 
 class MainWindow(QtWidgets.QMainWindow):

@@ -3,7 +3,6 @@
 Public API: ``run_flex_search(config) -> FlexResult``
 """
 
-from __future__ import annotations
 
 import logging
 import os

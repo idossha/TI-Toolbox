@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from tit.pre.utils import PreprocessError
 from tit.pre.qsi.dti_extractor import (
     DSISTUDIO_TENSOR_PARAMS,
     _check_ants_available,
@@ -269,7 +270,7 @@ class TestCheckAntsAvailable:
         mock_run.return_value = MagicMock(returncode=1)
         assert _check_ants_available() is False
 
-    @patch(f"{MODULE}.subprocess.run", side_effect=Exception)
+    @patch(f"{MODULE}.subprocess.run", side_effect=FileNotFoundError)
     def test_exception(self, mock_run):
         assert _check_ants_available() is False
 
@@ -694,7 +695,7 @@ class TestExtractDtiTensor:
 
     @patch(f"{MODULE}._resample_tensor_to_target")
     @patch(
-        f"{MODULE}._register_tensor_to_simnibs_t1", side_effect=Exception("ANTs failed")
+        f"{MODULE}._register_tensor_to_simnibs_t1", side_effect=PreprocessError("ANTs failed")
     )
     @patch(f"{MODULE}._validate_tensor")
     @patch(f"{MODULE}._find_dsistudio_tensor_components", return_value=None)
@@ -801,7 +802,7 @@ class TestExtractDtiTensor:
         mock_gpm.return_value = pm
 
         mock_find_dti.return_value = tmp_path / "tensor.nii.gz"
-        nib.load.side_effect = Exception("corrupt file")
+        nib.load.side_effect = OSError("corrupt file")
 
         with pytest.raises(PreprocessError, match="Failed to load"):
             extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())

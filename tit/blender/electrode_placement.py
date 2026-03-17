@@ -14,10 +14,10 @@ Classes:
     ElectrodePlacer: Main class for electrode placement operations
 """
 
+
 import os
 import logging
 import struct
-from typing import Optional, Tuple, List, Dict
 from dataclasses import dataclass, field
 
 from .utils import clear_blender_scene
@@ -59,14 +59,14 @@ class ElectrodePlacementConfig:
     output_dir: str
 
     # Scalp source (one of these)
-    subject_msh_path: Optional[str] = None
-    scalp_stl_path: Optional[str] = None
+    subject_msh_path: str | None = None
+    scalp_stl_path: str | None = None
 
     # Placement settings
     scale_factor: float = 1.0
     electrode_diameter_mm: float = 10.0
     electrode_height_mm: float = 6.0
-    electrode_size: Optional[float] = None
+    electrode_size: float | None = None
     offset_distance: float = 3.25
     text_offset: float = 0.090
 
@@ -78,7 +78,7 @@ class ElectrodePlacementConfig:
     skin_tag: int = 1005
 
     # Optional montage highlighting: list of electrode pairs
-    montage_pairs: Optional[List[Tuple[str, str]]] = None
+    montage_pairs: list[tuple[str, str]] | None = None
 
     # Exports
     export_glb: bool = True
@@ -167,7 +167,7 @@ class ElectrodePlacer:
     """
 
     def __init__(
-        self, config: ElectrodePlacementConfig, logger: Optional[logging.Logger] = None
+        self, config: ElectrodePlacementConfig, logger: logging.Logger | None = None
     ):
         """Initialize ElectrodePlacer."""
         self.config = config
@@ -184,7 +184,7 @@ class ElectrodePlacer:
 
         self.Vector = Vector
         self.Quaternion = Quaternion
-        self._mm_to_blender_units: Optional[float] = None
+        self._mm_to_blender_units: float | None = None
 
     def _infer_mm_to_blender_units(self, scalp_obj) -> float:
         """Infer conversion factor from mm -> Blender units based on scalp size.
@@ -248,7 +248,7 @@ class ElectrodePlacer:
             # Fallback: unknown geometry/origin; don't force extra offset.
             return 0.0
 
-    def _extract_scalp_from_msh(self) -> Tuple[List[tuple], List[tuple]]:
+    def _extract_scalp_from_msh(self) -> tuple[list[tuple], list[tuple]]:
         """Extract skin surface from SimNIBS .msh file.
 
         Returns:
@@ -291,7 +291,7 @@ class ElectrodePlacer:
         # Convert to list of tuples
         return [tuple(v) for v in vertices], [tuple(f) for f in faces]
 
-    def _load_scalp_stl(self) -> Tuple[List[tuple], List[tuple]]:
+    def _load_scalp_stl(self) -> tuple[list[tuple], list[tuple]]:
         """Load vertices and faces from existing STL file.
 
         Returns:
@@ -333,7 +333,7 @@ class ElectrodePlacer:
         self.logger.info(f"Loaded {len(vertices)} vertices, {len(faces)} faces")
         return vertices, faces
 
-    def _write_stl(self, vertices: List[tuple], faces: List[tuple], path: str) -> None:
+    def _write_stl(self, vertices: list[tuple], faces: list[tuple], path: str) -> None:
         """Write binary STL file."""
         self.logger.info(f"Writing STL: {path}")
 
@@ -369,7 +369,7 @@ class ElectrodePlacer:
                 f.write(struct.pack("<fff", *v2))
                 f.write(struct.pack("<H", 0))
 
-    def _create_scalp_mesh(self, vertices: List[tuple], faces: List[tuple]):
+    def _create_scalp_mesh(self, vertices: list[tuple], faces: list[tuple]):
         """Create scalp mesh directly in Blender."""
         bpy = self.bpy
 
@@ -462,7 +462,7 @@ class ElectrodePlacer:
         w2l,
         l2w,
         electrodes_collection,
-        color_map: Dict[str, tuple],
+        color_map: dict[str, tuple],
     ) -> bool:
         """Place a single electrode on the scalp surface."""
         bpy = self.bpy
@@ -560,7 +560,7 @@ class ElectrodePlacer:
 
         return True
 
-    def _build_pair_color_map(self) -> Dict[str, tuple]:
+    def _build_pair_color_map(self) -> dict[str, tuple]:
         """Build electrode->RGBA map for montage pair highlighting."""
         pairs = self.config.montage_pairs or []
         if not pairs:
@@ -574,7 +574,7 @@ class ElectrodePlacer:
             (1.0, 0.9, 0.0, 1.0),  # yellow
         ]
 
-        color_map: Dict[str, tuple] = {}
+        color_map: dict[str, tuple] = {}
         for idx, pair in enumerate(pairs[: len(palette)]):
             if not isinstance(pair, (list, tuple)) or len(pair) < 2:
                 continue
@@ -584,7 +584,7 @@ class ElectrodePlacer:
             color_map[b] = color
         return color_map
 
-    def _export_results(self) -> Tuple[str, str]:
+    def _export_results(self) -> tuple[str, str]:
         """Export scene to .blend and .glb files."""
         bpy = self.bpy
 
@@ -607,7 +607,7 @@ class ElectrodePlacer:
 
         return blend_path, glb_path
 
-    def place_electrodes(self) -> Tuple[bool, str]:
+    def place_electrodes(self) -> tuple[bool, str]:
         """Execute electrode placement workflow.
 
         Returns:

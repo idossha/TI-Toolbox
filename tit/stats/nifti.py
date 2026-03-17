@@ -6,11 +6,11 @@ TI-Toolbox specific NIfTI file operations.
 Provides functions for loading subject and group data from TI-Toolbox BIDS structure.
 """
 
+
 import os
 import gc
 import numpy as np
 import nibabel as nib
-from typing import List, Tuple, Dict
 
 # Import TI-Toolbox core modules
 from tit.paths import get_path_manager
@@ -26,7 +26,7 @@ def load_subject_nifti_ti_toolbox(
     simulation_name: str,
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
-) -> Tuple[np.ndarray, nib.Nifti1Image, str]:
+) -> tuple[np.ndarray, nib.Nifti1Image, str]:
     """
     Load a NIfTI file from TI-Toolbox BIDS structure
 
@@ -106,10 +106,10 @@ def load_subject_nifti_ti_toolbox(
 
 
 def load_group_data_ti_toolbox(
-    subject_configs: List[Dict],
+    subject_configs: list[dict],
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
-) -> Tuple[np.ndarray, nib.Nifti1Image, List[str]]:
+) -> tuple[np.ndarray, nib.Nifti1Image, list[str]]:
     """
     Load multiple subjects from TI-Toolbox BIDS structure
 
@@ -176,10 +176,10 @@ def load_group_data_ti_toolbox(
 
 
 def load_grouped_subjects_ti_toolbox(
-    subject_configs: List[Dict],
+    subject_configs: list[dict],
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
-) -> Tuple[Dict[str, np.ndarray], nib.Nifti1Image, Dict[str, List[str]]]:
+) -> tuple[dict[str, np.ndarray], nib.Nifti1Image, dict[str, list[str]]]:
     """
     Load subjects organized by groups from TI-Toolbox BIDS structure
 

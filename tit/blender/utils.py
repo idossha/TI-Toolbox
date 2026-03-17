@@ -10,13 +10,14 @@ Provides:
 - Color mapping utilities
 """
 
+
 import simnibs
 import numpy as np
 
 import os
 import struct
 import logging
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Any
 from pathlib import Path
 
 # Setup logger for module
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def load_simulation_config(
     subject_id: str, simulation_name: str
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Load simulation configuration from config.json file.
 
     This function reads the config.json file created during simulation
@@ -78,7 +79,7 @@ def load_simulation_config(
 
 def get_montage_from_config(
     subject_id: str, simulation_name: str
-) -> Optional[List[Tuple[str, str]]]:
+) -> list[tuple[str, str]] | None:
     """Extract electrode montage/pairs from simulation config.
 
     Args:
@@ -109,7 +110,7 @@ def get_montage_from_config(
     return None
 
 
-def get_eeg_net_from_config(subject_id: str, simulation_name: str) -> Optional[str]:
+def get_eeg_net_from_config(subject_id: str, simulation_name: str) -> str | None:
     """Extract EEG net name from simulation config.
 
     Args:
@@ -312,7 +313,7 @@ def extract_roi_region_no_zeros(
         return vertices, remapped_triangles
 
 
-def parse_electrode_csv(csv_path: str) -> List[Tuple[str, float, float, float]]:
+def parse_electrode_csv(csv_path: str) -> list[tuple[str, float, float, float]]:
     """Parse electrode CSV file to extract positions.
 
     Args:
@@ -345,7 +346,7 @@ def clear_blender_scene():
         bpy.data.meshes.remove(mesh)
 
 
-def find_mesh_files(subject_dir: str, simulation_name: str) -> Tuple[str, str]:
+def find_mesh_files(subject_dir: str, simulation_name: str) -> tuple[str, str]:
     """Find the simulation mesh files (central surface and tetrahedral).
 
     Args:
@@ -409,7 +410,7 @@ def find_electrode_csv(subject_dir: str, simulation_name: str) -> str:
     raise FileNotFoundError(f"Electrode CSV not found for simulation {simulation_name}")
 
 
-def get_simulation_electrodes(subject_dir: str, simulation_name: str) -> List[str]:
+def get_simulation_electrodes(subject_dir: str, simulation_name: str) -> list[str]:
     """Get the list of electrodes used in this simulation.
 
     Args:
@@ -467,7 +468,7 @@ def create_electrode_geometry(
     radius: float = 4.0,
     height: float = 8.0,
     segments: int = 8,
-) -> Tuple[List[List[float]], List[List[int]]]:
+) -> tuple[list[list[float]], list[list[int]]]:
     """Create simple cylinder geometry for an electrode.
 
     Args:
@@ -629,7 +630,7 @@ def write_ply_with_scalars(
 
 
 def simple_colormap(
-    field_values: np.ndarray, vmin: Optional[float] = None, vmax: Optional[float] = None
+    field_values: np.ndarray, vmin: float | None = None, vmax: float | None = None
 ) -> np.ndarray:
     """Create simple blue-red colormap for field values.
 
@@ -664,8 +665,8 @@ def simple_colormap(
 def field_to_colormap(
     field_values: np.ndarray,
     colormap: str = "viridis",
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> np.ndarray:
     """Apply matplotlib colormap to field values.
 
@@ -709,7 +710,7 @@ def field_to_colormap(
 
 def extract_scalp_from_msh(
     msh_path: str, skin_tag: int = 1005
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Extract scalp surface from SimNIBS .msh file.
 
     Args:
@@ -768,7 +769,7 @@ def export_mesh_to_ply(
     field_name: str,
     use_colors: bool = True,
     colormap: str = "viridis",
-    field_range: Optional[Tuple[float, float]] = None,
+    field_range: tuple[float, float] | None = None,
 ) -> bool:
     """Export SimNIBS mesh to PLY format with optional field coloring.
 
@@ -813,7 +814,7 @@ def export_mesh_to_ply(
 
 def mesh_vertices_faces_and_field(
     mesh, field_name: str = "TI_max"
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
     """Extract vertices, faces, and field data from SimNIBS mesh.
 
     Args:

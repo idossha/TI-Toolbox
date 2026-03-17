@@ -14,9 +14,9 @@ Usage:
     sim_dir = pm.simulation("001", "montage1")
 """
 
+
 import os
 import re
-from typing import Optional, List
 
 from . import constants as const
 
@@ -24,8 +24,8 @@ from . import constants as const
 class PathManager:
     """Centralized BIDS-compliant path management for TI-Toolbox."""
 
-    def __init__(self, project_dir: Optional[str] = None):
-        self._project_dir: Optional[str] = None
+    def __init__(self, project_dir: str | None = None):
+        self._project_dir: str | None = None
         if project_dir:
             self.project_dir = project_dir
 
@@ -34,7 +34,7 @@ class PathManager:
     # ------------------------------------------------------------------
 
     @property
-    def project_dir(self) -> Optional[str]:
+    def project_dir(self) -> str | None:
         """Get/set the project directory. Auto-detects from environment if unset."""
         if self._project_dir is None:
             project_dir = os.environ.get(const.ENV_PROJECT_DIR)
@@ -55,7 +55,7 @@ class PathManager:
         self._project_dir = path
 
     @property
-    def project_dir_name(self) -> Optional[str]:
+    def project_dir_name(self) -> str | None:
         """Return the basename of project_dir."""
         if self._project_dir:
             return os.path.basename(self._project_dir)
@@ -245,7 +245,7 @@ class PathManager:
     # Listing helpers
     # ------------------------------------------------------------------
 
-    def list_simnibs_subjects(self) -> List[str]:
+    def list_simnibs_subjects(self) -> list[str]:
         """List subject IDs (without 'sub-' prefix) that have an m2m folder."""
         simnibs_dir = self.simnibs() if self.project_dir else None
         if not simnibs_dir or not os.path.isdir(simnibs_dir):
@@ -266,12 +266,12 @@ class PathManager:
         )
         return subjects
 
-    def list_simulations(self, sid: str) -> List[str]:
+    def list_simulations(self, sid: str) -> list[str]:
         """List simulation folder names for a subject."""
         sim_root = self.simulations(sid)
 
         try:
-            simulations: List[str] = []
+            simulations: list[str] = []
             with os.scandir(sim_root) as it:
                 for entry in it:
                     if entry.is_dir() and not entry.name.startswith("."):
@@ -281,7 +281,7 @@ class PathManager:
         except OSError:
             return []
 
-    def list_eeg_caps(self, sid: str) -> List[str]:
+    def list_eeg_caps(self, sid: str) -> list[str]:
         """List EEG cap CSV files for a subject."""
         eeg_pos_dir = self.eeg_positions(sid) if self.project_dir else None
         if not eeg_pos_dir or not os.path.isdir(eeg_pos_dir):
@@ -295,14 +295,14 @@ class PathManager:
         caps.sort()
         return caps
 
-    def list_flex_search_runs(self, sid: str) -> List[str]:
+    def list_flex_search_runs(self, sid: str) -> list[str]:
         """List flex-search run folders that contain flex_meta.json or electrode_positions.json."""
         root = self.flex_search(sid) if self.project_dir else None
         if not root or not os.path.isdir(root):
             return []
 
         try:
-            out: List[str] = []
+            out: list[str] = []
             with os.scandir(root) as it:
                 for entry in it:
                     if not entry.is_dir() or entry.name.startswith("."):
@@ -347,9 +347,9 @@ class PathManager:
         cls,
         *,
         whole_head: bool,
-        region: Optional[str],
-        atlas_name: Optional[str] = None,
-        atlas_path: Optional[str] = None,
+        region: str | None,
+        atlas_name: str | None = None,
+        atlas_path: str | None = None,
     ) -> str:
         """Return folder name for a cortical analysis."""
         atlas_clean = cls._atlas_name_clean(atlas_name or atlas_path or "unknown_atlas")
@@ -369,14 +369,14 @@ class PathManager:
         sim: str,
         space: str,
         analysis_type: str,
-        tissue_type: Optional[str] = None,
+        tissue_type: str | None = None,
         coordinates=None,
         radius=None,
         coordinate_space: str = "subject",
         whole_head: bool = False,
-        region: Optional[str] = None,
-        atlas_name: Optional[str] = None,
-        atlas_path: Optional[str] = None,
+        region: str | None = None,
+        atlas_name: str | None = None,
+        atlas_path: str | None = None,
     ) -> str:
         """Return analysis output directory path (does not create it)."""
         base = self.analysis_dir(sid, sim, space)
@@ -411,10 +411,10 @@ class PathManager:
 # SINGLETON
 # ============================================================================
 
-_path_manager_instance: Optional[PathManager] = None
+_path_manager_instance: PathManager | None = None
 
 
-def get_path_manager(project_dir: Optional[str] = None) -> PathManager:
+def get_path_manager(project_dir: str | None = None) -> PathManager:
     """Return the global PathManager singleton."""
     global _path_manager_instance
     if _path_manager_instance is None:

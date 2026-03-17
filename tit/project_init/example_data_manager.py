@@ -10,11 +10,11 @@ use in TI-Toolbox workflows.
 Author: TI-Toolbox Development Team
 """
 
+
 import os
 import shutil
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from tit.paths import get_path_manager
 
@@ -43,7 +43,7 @@ class ExampleDataManager:
         # Define mapping of example data to BIDS structure
         self.data_mapping = self._create_data_mapping()
 
-    def _create_data_mapping(self) -> Dict[str, Dict[str, str]]:
+    def _create_data_mapping(self) -> dict[str, dict[str, str]]:
         """
         Create mapping of example data files to their BIDS-compliant destinations.
 
@@ -176,13 +176,13 @@ class ExampleDataManager:
             logger.error(f"Failed to copy {src_path} to {dst_path}: {e}")
             return False
 
-    def copy_example_data(self) -> Tuple[bool, List[str]]:
+    def copy_example_data(self) -> tuple[bool, list[str]]:
         """
         Copy example data to the project directory using BIDS structure.
         Ensures all necessary BIDS directories are created.
 
         Returns:
-            Tuple of (success: bool, copied_subjects: List[str])
+            Tuple of (success: bool, copied_subjects: list[str])
         """
         if not self.check_example_data_exists():
             return False, []
@@ -263,7 +263,7 @@ class ExampleDataManager:
 
         return success, copied_subjects
 
-    def _update_project_status(self, copied_subjects: List[str]) -> None:
+    def _update_project_status(self, copied_subjects: list[str]) -> None:
         """
         Update the project status file to indicate example data was copied.
 
@@ -415,7 +415,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
             logger.error(f"Failed to create README: {e}")
 
 
-def setup_example_data(toolbox_root: str, project_dir: str) -> Tuple[bool, List[str]]:
+def setup_example_data(toolbox_root: str, project_dir: str) -> tuple[bool, list[str]]:
     """
     Main function to set up example data in a new project.
 
@@ -424,7 +424,7 @@ def setup_example_data(toolbox_root: str, project_dir: str) -> Tuple[bool, List[
         project_dir: Path to the target project directory
 
     Returns:
-        Tuple of (success: bool, copied_subjects: List[str])
+        Tuple of (success: bool, copied_subjects: list[str])
     """
     try:
         manager = ExampleDataManager(toolbox_root, project_dir)

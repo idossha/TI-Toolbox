@@ -103,14 +103,14 @@ class TestFieldNameConstants:
 
 
 @pytest.mark.unit
-class TestRegionConstants:
-    def test_region_constants(self):
-        """REGION_WHITE_MATTER and REGION_GRAY_MATTER are positive ints."""
-        assert isinstance(const.REGION_WHITE_MATTER, int)
-        assert isinstance(const.REGION_GRAY_MATTER, int)
-        assert const.REGION_WHITE_MATTER > 0
-        assert const.REGION_GRAY_MATTER > 0
-        assert const.REGION_WHITE_MATTER != const.REGION_GRAY_MATTER
+class TestTissueTagConstants:
+    def test_tissue_tag_constants(self):
+        """WM_TISSUE_TAG and GM_TISSUE_TAG are positive ints."""
+        assert isinstance(const.WM_TISSUE_TAG, int)
+        assert isinstance(const.GM_TISSUE_TAG, int)
+        assert const.WM_TISSUE_TAG > 0
+        assert const.GM_TISSUE_TAG > 0
+        assert const.WM_TISSUE_TAG != const.GM_TISSUE_TAG
 
 
 @pytest.mark.unit

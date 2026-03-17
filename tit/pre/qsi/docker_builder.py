@@ -8,12 +8,10 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
-from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 from tit import constants as const
 from .config import QSIPrepConfig, QSIReconConfig
@@ -54,7 +52,7 @@ class DockerCommandBuilder:
     ----------
     project_dir : str
         Path to the BIDS project directory (container path).
-    paths : Optional[DockerPaths]
+    paths : DockerPaths | None
         Container path configuration. Uses defaults if not provided.
 
     Raises
@@ -66,7 +64,7 @@ class DockerCommandBuilder:
     def __init__(
         self,
         project_dir: str,
-        paths: Optional[DockerPaths] = None,
+        paths: DockerPaths | None = None,
     ) -> None:
         # Validate Docker availability
 
@@ -76,7 +74,7 @@ class DockerCommandBuilder:
         self._host_project_dir = get_host_project_dir()
         self._fs_license = get_freesurfer_license_path()
 
-    def build_qsiprep_cmd(self, config: QSIPrepConfig) -> List[str]:
+    def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
         Build Docker command for QSIPrep.
 
@@ -87,7 +85,7 @@ class DockerCommandBuilder:
 
         Returns
         -------
-        List[str]
+        list[str]
             Complete Docker command as a list of arguments.
         """
         image = f"{const.QSI_QSIPREP_IMAGE}:{config.image_tag}"
@@ -176,7 +174,7 @@ class DockerCommandBuilder:
 
         return cmd
 
-    def build_qsirecon_cmd(self, config: QSIReconConfig, recon_spec: str) -> List[str]:
+    def build_qsirecon_cmd(self, config: QSIReconConfig, recon_spec: str) -> list[str]:
         """
         Build Docker command for QSIRecon with a specific recon spec.
 
@@ -189,7 +187,7 @@ class DockerCommandBuilder:
 
         Returns
         -------
-        List[str]
+        list[str]
             Complete Docker command as a list of arguments.
         """
         image = f"{const.QSI_QSIRECON_IMAGE}:{config.image_tag}"

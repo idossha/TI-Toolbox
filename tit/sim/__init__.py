@@ -1,5 +1,6 @@
 """TI/mTI simulation public API."""
 
+from tit.sim.base import BaseSimulation
 from tit.sim.config import (
     SimulationConfig,
     Montage,
@@ -17,6 +18,7 @@ from tit.sim.utils import (
 )
 
 __all__ = [
+    "BaseSimulation",
     "SimulationConfig",
     "Montage",
     "SimulationMode",

@@ -5,7 +5,8 @@ This module provides reportlets for displaying text content,
 including methods boilerplate text for publications.
 """
 
-from typing import Any, Dict, List, Optional
+
+from typing import Any
 
 from ..core.base import BaseReportlet
 from ..core.protocols import ReportletType
@@ -21,10 +22,10 @@ class MethodsBoilerplateReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        boilerplate_text: Optional[str] = None,
+        title: str | None = None,
+        boilerplate_text: str | None = None,
         pipeline_type: str = "simulation",
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
     ):
         """
         Initialize the methods boilerplate reportlet.
@@ -58,14 +59,15 @@ class MethodsBoilerplateReportlet(BaseReportlet):
         if self._boilerplate_text:
             return self._boilerplate_text
 
-        if self.pipeline_type == "simulation":
-            return self._generate_simulation_boilerplate()
-        elif self.pipeline_type == "preprocessing":
-            return self._generate_preprocessing_boilerplate()
-        elif self.pipeline_type == "optimization":
-            return self._generate_optimization_boilerplate()
-        else:
-            return self._generate_generic_boilerplate()
+        match self.pipeline_type:
+            case "simulation":
+                return self._generate_simulation_boilerplate()
+            case "preprocessing":
+                return self._generate_preprocessing_boilerplate()
+            case "optimization":
+                return self._generate_optimization_boilerplate()
+            case _:
+                return self._generate_generic_boilerplate()
 
     def _generate_simulation_boilerplate(self) -> str:
         """Generate simulation-specific boilerplate."""
@@ -197,7 +199,7 @@ class MethodsBoilerplateReportlet(BaseReportlet):
         </div>
         """
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -218,7 +220,7 @@ class DescriptionReportlet(BaseReportlet):
     def __init__(
         self,
         content: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         format_type: str = "paragraphs",
     ):
         """
@@ -270,7 +272,7 @@ class DescriptionReportlet(BaseReportlet):
             .replace('"', "&quot;")
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,
@@ -290,8 +292,8 @@ class CommandLogReportlet(BaseReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        commands: Optional[List[Dict[str, str]]] = None,
+        title: str | None = None,
+        commands: list[dict[str, str]] | None = None,
     ):
         """
         Initialize the command log reportlet.
@@ -301,7 +303,7 @@ class CommandLogReportlet(BaseReportlet):
             commands: List of command dicts with 'command' and optional 'output'
         """
         super().__init__(title or "Command Log")
-        self.commands: List[Dict[str, str]] = commands or []
+        self.commands: list[dict[str, str]] = commands or []
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -310,7 +312,7 @@ class CommandLogReportlet(BaseReportlet):
     def add_command(
         self,
         command: str,
-        output: Optional[str] = None,
+        output: str | None = None,
         status: str = "success",
     ) -> None:
         """
@@ -368,7 +370,7 @@ class CommandLogReportlet(BaseReportlet):
             .replace('"', "&quot;")
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.reportlet_type.name,
             "id": self.reportlet_id,

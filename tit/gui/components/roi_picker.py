@@ -6,10 +6,10 @@ ROI Picker Widget Component
 Reusable ROI selection widget with spherical/atlas/subcortical modes.
 """
 
+
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -70,8 +70,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.atlas_display_map: dict = {}  # display name -> full atlas name
 
         # Subject context (set by set_subject)
-        self._subject_id: Optional[str] = None
-        self._project_dir: Optional[str] = None
+        self._subject_id: str | None = None
+        self._project_dir: str | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -553,7 +553,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self._cortical_page.setEnabled(enabled)
         self._subcortical_page.setEnabled(enabled)
 
-    def validate(self) -> Optional[str]:
+    def validate(self) -> str | None:
         """Validate the current ROI configuration.
 
         Returns:

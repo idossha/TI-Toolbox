@@ -12,6 +12,7 @@ Features:
 Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
 """
 
+
 import os
 import sys
 import argparse
@@ -22,7 +23,6 @@ from nilearn import datasets, plotting, image
 from nilearn.plotting import plot_img_on_surf, view_img_on_surf
 from nilearn.image import threshold_img
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
 import warnings
 
 from tit.paths import get_path_manager
@@ -39,7 +39,7 @@ class NilearnVisualizer:
     Uses PathManager for consistent path handling and supports multiple atlas overlays.
     """
 
-    def __init__(self, subject_id: Optional[str] = None):
+    def __init__(self, subject_id: str | None = None):
         """
         Initialize the visualizer.
 
@@ -61,7 +61,7 @@ class NilearnVisualizer:
         )
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def _get_simulation_files(self, subject_id: str) -> Dict[str, str]:
+    def _get_simulation_files(self, subject_id: str) -> dict[str, str]:
         """
         Get simulation files for a subject using PathManager.
 
@@ -87,7 +87,7 @@ class NilearnVisualizer:
 
         return sim_files
 
-    def _load_electric_field_data(self, filepath: str) -> Optional[nib.Nifti1Image]:
+    def _load_electric_field_data(self, filepath: str) -> nib.Nifti1Image | None:
         """
         Load electric field NIfTI data.
 
@@ -110,8 +110,8 @@ class NilearnVisualizer:
         min_cutoff: float = 0.3,
         max_cutoff: float = None,
         atlas_name: str = "harvard_oxford_sub",
-        selected_regions: Optional[List[int]] = None,
-    ) -> Optional[str]:
+        selected_regions: list[int] | None = None,
+    ) -> str | None:
         """
         Create PDF visualization with multiple surface views and atlas contours.
 
@@ -180,8 +180,8 @@ class NilearnVisualizer:
         return pdf_filepath
 
     def _load_atlas(
-        self, atlas_name: str, selected_regions: Optional[List[int]] = None
-    ) -> Tuple[Optional[nib.Nifti1Image], str]:
+        self, atlas_name: str, selected_regions: list[int] | None = None
+    ) -> tuple[nib.Nifti1Image | None, str]:
         """
         Load the specified atlas and optionally filter to specific regions.
 
@@ -270,7 +270,7 @@ class NilearnVisualizer:
     def _create_multi_slice_plot_with_atlas(
         self,
         field_img: nib.Nifti1Image,
-        atlas_img: Optional[nib.Nifti1Image],
+        atlas_img: nib.Nifti1Image | None,
         atlas_name: str,
         output_path: str,
         min_cutoff: float,
@@ -377,7 +377,7 @@ class NilearnVisualizer:
 
     def create_html_visualization(
         self, subject_id: str, simulation_name: str, min_cutoff: float = 0.3
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Create interactive HTML visualization.
 
@@ -442,8 +442,8 @@ class NilearnVisualizer:
         min_cutoff: float = 0.3,
         max_cutoff: float = None,
         atlas_name: str = "harvard_oxford_sub",
-        selected_regions: Optional[List[int]] = None,
-    ) -> Optional[str]:
+        selected_regions: list[int] | None = None,
+    ) -> str | None:
         """
         Create PDF visualization with pre-averaged nifti data.
 
@@ -511,7 +511,7 @@ class NilearnVisualizer:
         min_cutoff: float = 0.3,
         max_cutoff: float = None,
         cmap: str = "hot",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Create glass brain visualization using nilearn's plot_glass_brain.
 

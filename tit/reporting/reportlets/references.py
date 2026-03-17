@@ -5,12 +5,13 @@ This module provides the default citations and references used across
 TI-Toolbox reports.
 """
 
-from typing import Any, Dict, List, Optional
+
+from typing import Any
 
 from ..core.base import ReferencesReportlet
 
 # Default TI-Toolbox references
-DEFAULT_REFERENCES: List[Dict[str, str]] = [
+DEFAULT_REFERENCES: list[dict[str, str]] = [
     # ==========================================================================
     # Core TI & SimNIBS references
     # ==========================================================================
@@ -259,9 +260,9 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
 
     def __init__(
         self,
-        title: Optional[str] = None,
+        title: str | None = None,
         include_defaults: bool = True,
-        pipeline_components: Optional[List[str]] = None,
+        pipeline_components: list[str] | None = None,
     ):
         """
         Initialize the TI-Toolbox references reportlet.
@@ -403,7 +404,7 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
         return False
 
 
-def get_default_references() -> List[Dict[str, str]]:
+def get_default_references() -> list[dict[str, str]]:
     """
     Get the list of default TI-Toolbox references.
 
@@ -413,7 +414,7 @@ def get_default_references() -> List[Dict[str, str]]:
     return DEFAULT_REFERENCES.copy()
 
 
-def get_reference_by_key(key: str) -> Optional[Dict[str, str]]:
+def get_reference_by_key(key: str) -> dict[str, str] | None:
     """
     Get a specific reference by its key.
 

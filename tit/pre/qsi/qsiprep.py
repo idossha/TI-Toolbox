@@ -8,12 +8,10 @@ This module provides functions to run QSIPrep as a sibling Docker container
 using the Docker-out-of-Docker (DooD) pattern.
 """
 
-from __future__ import annotations
 
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from tit import constants as const
 from tit.pre.utils import CommandRunner, PreprocessError
@@ -33,14 +31,14 @@ def run_qsiprep(
     *,
     logger: logging.Logger,
     output_resolution: float = const.QSI_DEFAULT_OUTPUT_RESOLUTION,
-    cpus: Optional[int] = None,
-    memory_gb: Optional[int] = None,
+    cpus: int | None = None,
+    memory_gb: int | None = None,
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS,
     image_tag: str = const.QSI_DEFAULT_IMAGE_TAG,
     skip_bids_validation: bool = True,
     denoise_method: str = "dwidenoise",
     unringing_method: str = "mrdegibbs",
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """
     Run QSIPrep preprocessing for a subject's DWI data.
@@ -72,7 +70,7 @@ def run_qsiprep(
         Denoising method. Default: 'dwidenoise'.
     unringing_method : str, optional
         Unringing method. Default: 'mrdegibbs'.
-    runner : Optional[CommandRunner], optional
+    runner : CommandRunner | None, optional
         Command runner for subprocess execution.
 
     Raises

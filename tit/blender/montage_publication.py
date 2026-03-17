@@ -5,12 +5,10 @@ Montage publication asset builder.
 This module owns the Blender/montage-publication business logic. The CLI wrapper lives in `tit/cli/vis_blender.py`.
 """
 
-from __future__ import annotations
 
 import logging
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 from tit.paths import get_path_manager
 from tit import constants as const
@@ -43,7 +41,7 @@ def configure_montage_loggers(parent_logger: logging.Logger) -> None:
 
 
 def _find_tetrahedral_mesh(sim_dir: str) -> str:
-    candidates: List[str] = []
+    candidates: list[str] = []
 
     ti_mesh_dir = os.path.join(sim_dir, "TI", "mesh")
     if os.path.isdir(ti_mesh_dir):
@@ -282,7 +280,7 @@ def build_montage_publication_blend(
     *,
     subject_id: str,
     simulation_name: str,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     show_full_net: bool = True,
     electrode_diameter_mm: float = 10.0,
     electrode_height_mm: float = 6.0,

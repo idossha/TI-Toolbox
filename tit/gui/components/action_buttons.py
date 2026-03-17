@@ -8,6 +8,15 @@ Reusable styled buttons for TI-Toolbox GUI (Run, Stop, etc.)
 
 from PyQt5 import QtWidgets
 
+from tit.gui.style import (
+    COLOR_SUCCESS,
+    COLOR_SUCCESS_DARK,
+    COLOR_SUCCESS_DARKER,
+    COLOR_ERROR,
+    COLOR_ERROR_DARK,
+    COLOR_ERROR_DARKER,
+)
+
 
 class RunStopButtons(QtWidgets.QWidget):
     """
@@ -44,47 +53,47 @@ class RunStopButtons(QtWidgets.QWidget):
 
         # Run button (Green)
         self.run_btn = QtWidgets.QPushButton(self.run_text)
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
+        self.run_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_SUCCESS};
                 color: white;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-            QPushButton:disabled {
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SUCCESS_DARK};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLOR_SUCCESS_DARKER};
+            }}
+            QPushButton:disabled {{
                 background-color: #cccccc;
                 color: #888888;
-            }
+            }}
         """)
         layout.addWidget(self.run_btn)
 
         # Stop button (Red)
         self.stop_btn = QtWidgets.QPushButton(self.stop_text)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
+        self.stop_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_ERROR};
                 color: white;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #da190b;
-            }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_ERROR_DARK};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLOR_ERROR_DARKER};
+            }}
+            QPushButton:disabled {{
                 background-color: #cccccc;
                 color: #888888;
-            }
+            }}
         """)
         self.stop_btn.setEnabled(False)  # Initially disabled
         layout.addWidget(self.stop_btn)

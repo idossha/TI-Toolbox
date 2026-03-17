@@ -8,15 +8,12 @@ This module provides path resolution, validation, and helper functions
 for the QSI Docker-out-of-Docker integration.
 """
 
-from __future__ import annotations
 
 import logging
 import math
 import os
-import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, Tuple
 
 from tit import constants as const
 
@@ -116,7 +113,7 @@ def check_image_exists(image: str, tag: str) -> bool:
             timeout=10,
         )
         return result.returncode == 0
-    except Exception:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
@@ -161,14 +158,14 @@ def pull_image_if_needed(image: str, tag: str, logger: logging.Logger) -> bool:
     except subprocess.TimeoutExpired:
         logger.error(f"Timed out pulling {full_image}")
         return False
-    except Exception as e:
+    except (FileNotFoundError, OSError) as e:
         logger.error(f"Error pulling {full_image}: {e}")
         return False
 
 
 def validate_bids_dwi(
     project_dir: str, subject_id: str, logger: logging.Logger
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Validate that DWI data exists for a subject in BIDS format.
 
@@ -183,7 +180,7 @@ def validate_bids_dwi(
 
     Returns
     -------
-    Tuple[bool, Optional[str]]
+    tuple[bool, str | None]
         (is_valid, error_message). If valid, error_message is None.
     """
     dwi_dir = Path(project_dir) / f"sub-{subject_id}" / "dwi"
@@ -211,7 +208,7 @@ def validate_bids_dwi(
 
 def validate_qsiprep_output(
     project_dir: str, subject_id: str
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Validate that QSIPrep output exists for a subject.
 
@@ -224,7 +221,7 @@ def validate_qsiprep_output(
 
     Returns
     -------
-    Tuple[bool, Optional[str]]
+    tuple[bool, str | None]
         (is_valid, error_message). If valid, error_message is None.
     """
     qsiprep_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
@@ -245,7 +242,7 @@ def validate_qsiprep_output(
     return True, None
 
 
-def get_freesurfer_license_path() -> Optional[str]:
+def get_freesurfer_license_path() -> str | None:
     """
     Get the FreeSurfer license file path.
 
@@ -254,7 +251,7 @@ def get_freesurfer_license_path() -> Optional[str]:
 
     Returns
     -------
-    Optional[str]
+    str | None
         Path to the license file, or None if not found.
     """
     # Check environment variable
@@ -279,15 +276,15 @@ def format_memory_limit(memory_gb: int) -> str:
     return f"{memory_gb}g"
 
 
-def _read_first_line(path: str) -> Optional[str]:
+def _read_first_line(path: str) -> str | None:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.readline().strip()
-    except Exception:
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError):
         return None
 
 
-def _parse_cpuset(value: str) -> Optional[int]:
+def _parse_cpuset(value: str) -> int | None:
     """
     Parse cpuset string like '0-3,6,8-9' to an integer count.
     """
@@ -319,7 +316,7 @@ def _parse_cpuset(value: str) -> Optional[int]:
     return count or None
 
 
-def _get_total_mem_bytes_from_proc() -> Optional[int]:
+def _get_total_mem_bytes_from_proc() -> int | None:
     """
     Read total system memory visible inside the current container.
     """
@@ -332,12 +329,12 @@ def _get_total_mem_bytes_from_proc() -> Optional[int]:
                     if len(parts) >= 2:
                         kb = int(parts[1])
                         return kb * 1024
-    except Exception:
+    except (FileNotFoundError, PermissionError, ValueError):
         return None
     return None
 
 
-def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
+def get_container_resource_limits() -> tuple[int | None, int | None]:
     """
     Return (cpu_limit, mem_limit_bytes) for the *current* container.
 
@@ -347,7 +344,7 @@ def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
       otherwise None.
     """
     # ---- Memory ----
-    mem_limit_bytes: Optional[int] = None
+    mem_limit_bytes: int | None = None
 
     # cgroup v2
     mem_max = _read_first_line("/sys/fs/cgroup/memory.max")
@@ -375,7 +372,7 @@ def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
                 mem_limit_bytes = None
 
     # ---- CPU ----
-    cpu_limit: Optional[int] = None
+    cpu_limit: int | None = None
 
     # Prefer cpuset if present
     cpuset = _read_first_line(
@@ -415,7 +412,7 @@ def get_container_resource_limits() -> Tuple[Optional[int], Optional[int]]:
     return cpu_limit, mem_limit_bytes
 
 
-def get_inherited_dood_resources() -> Tuple[int, int]:
+def get_inherited_dood_resources() -> tuple[int, int]:
     """
     Determine DooD resource defaults that match the current container.
 

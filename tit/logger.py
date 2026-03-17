@@ -1,5 +1,6 @@
 """Logging configuration for TI-Toolbox."""
 
+
 import logging
 from pathlib import Path
 

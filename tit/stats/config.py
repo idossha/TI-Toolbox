@@ -4,38 +4,36 @@ Pure Python — no numpy, nibabel, or heavy dependencies.
 Mirrors the tit.opt.config / tit.sim.config pattern.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import List, Optional
+from enum import StrEnum
 
 # ── Enums ──────────────────────────────────────────────────────────────────
 
 
-class TissueType(str, Enum):
+class TissueType(StrEnum):
     GREY = "grey"
     WHITE = "white"
     ALL = "all"
 
 
-class ClusterStat(str, Enum):
+class ClusterStat(StrEnum):
     MASS = "mass"
     SIZE = "size"
 
 
-class TestType(str, Enum):
+class TestType(StrEnum):
     UNPAIRED = "unpaired"
     PAIRED = "paired"
 
 
-class Alternative(str, Enum):
+class Alternative(StrEnum):
     TWO_SIDED = "two-sided"
     GREATER = "greater"
     LESS = "less"
 
 
-class CorrelationType(str, Enum):
+class CorrelationType(StrEnum):
     PEARSON = "pearson"
     SPEARMAN = "spearman"
 
@@ -80,7 +78,7 @@ class GroupComparisonConfig:
 
     project_dir: str
     analysis_name: str
-    subjects: List[GroupSubject]
+    subjects: list[GroupSubject]
 
     # Statistical parameters
     test_type: TestType = TestType.UNPAIRED
@@ -93,7 +91,7 @@ class GroupComparisonConfig:
 
     # Data selection
     tissue_type: TissueType = TissueType.GREY
-    nifti_file_pattern: Optional[str] = None
+    nifti_file_pattern: str | None = None
 
     # Labels
     group1_name: str = "Responders"
@@ -101,7 +99,7 @@ class GroupComparisonConfig:
     value_metric: str = "Current Intensity"
 
     # Atlas
-    atlas_files: List[str] = field(default_factory=list)
+    atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.nifti_file_pattern is None:
@@ -119,7 +117,7 @@ class CorrelationConfig:
 
     project_dir: str
     analysis_name: str
-    subjects: List[CorrelationSubject]
+    subjects: list[CorrelationSubject]
 
     # Statistical parameters
     correlation_type: CorrelationType = CorrelationType.PEARSON
@@ -132,14 +130,14 @@ class CorrelationConfig:
 
     # Data selection
     tissue_type: TissueType = TissueType.GREY
-    nifti_file_pattern: Optional[str] = None
+    nifti_file_pattern: str | None = None
 
     # Labels
     effect_metric: str = "Effect Size"
     field_metric: str = "Electric Field Magnitude"
 
     # Atlas
-    atlas_files: List[str] = field(default_factory=list)
+    atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.nifti_file_pattern is None:
@@ -188,7 +186,7 @@ class CorrelationResult:
 # ── CSV loading utilities ──────────────────────────────────────────────────
 
 
-def load_group_subjects(csv_path: str) -> List[GroupSubject]:
+def load_group_subjects(csv_path: str) -> list[GroupSubject]:
     """Load group comparison subjects from a CSV file.
 
     Expected columns: subject_id, simulation_name, response (0 or 1).
@@ -216,7 +214,7 @@ def load_group_subjects(csv_path: str) -> List[GroupSubject]:
     return subjects
 
 
-def load_correlation_subjects(csv_path: str) -> List[CorrelationSubject]:
+def load_correlation_subjects(csv_path: str) -> list[CorrelationSubject]:
     """Load correlation subjects from a CSV file.
 
     Expected columns: subject_id, simulation_name, effect_size.

@@ -8,16 +8,15 @@ This module defines type-safe configuration objects for QSIPrep and QSIRecon
 Docker runs, including resource allocation and pipeline specifications.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import List, Optional
+from enum import StrEnum
+from typing import Self
 
 from tit import constants as const
 
 
-class ReconSpec(str, Enum):
+class ReconSpec(StrEnum):
     """
     Available QSIRecon reconstruction specifications.
 
@@ -41,7 +40,7 @@ class ReconSpec(str, Enum):
         return self.value
 
     @classmethod
-    def from_string(cls, value: str) -> "ReconSpec":
+    def from_string(cls, value: str) -> Self:
         """Convert string to ReconSpec enum."""
         for spec in cls:
             if spec.value == value:
@@ -49,12 +48,12 @@ class ReconSpec(str, Enum):
         raise ValueError(f"Unknown recon spec: {value}")
 
     @classmethod
-    def list_all(cls) -> List[str]:
+    def list_all(cls) -> list[str]:
         """Return list of all spec values."""
         return [spec.value for spec in cls]
 
 
-class QSIAtlas(str, Enum):
+class QSIAtlas(StrEnum):
     """
     Available atlases for QSIRecon connectivity analysis.
 
@@ -75,7 +74,7 @@ class QSIAtlas(str, Enum):
         return self.value
 
     @classmethod
-    def from_string(cls, value: str) -> "QSIAtlas":
+    def from_string(cls, value: str) -> Self:
         """Convert string to QSIAtlas enum."""
         for atlas in cls:
             if atlas.value == value:
@@ -83,7 +82,7 @@ class QSIAtlas(str, Enum):
         raise ValueError(f"Unknown atlas: {value}")
 
     @classmethod
-    def list_all(cls) -> List[str]:
+    def list_all(cls) -> list[str]:
         """Return list of all atlas values."""
         return [atlas.value for atlas in cls]
 
@@ -104,8 +103,8 @@ class ResourceConfig:
     """
 
     # If None, the DooD container will inherit the *current container's*
-    cpus: Optional[int] = None
-    memory_gb: Optional[int] = None
+    cpus: int | None = None
+    memory_gb: int | None = None
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS
 
     def __post_init__(self) -> None:
@@ -173,9 +172,9 @@ class QSIReconConfig:
     ----------
     subject_id : str
         Subject identifier (without 'sub-' prefix).
-    recon_specs : List[str]
+    recon_specs : list[str]
         List of reconstruction specs to run. Defaults to ['dipy_dki'].
-    atlases : Optional[List[str]]
+    atlases : list[str] | None
         List of atlases for connectivity analysis. None = no connectivity.
     use_gpu : bool
         Whether to enable GPU acceleration (requires NVIDIA Docker runtime).
@@ -188,12 +187,10 @@ class QSIReconConfig:
     """
 
     subject_id: str
-    recon_specs: List[str] = field(
+    recon_specs: list[str] = field(
         default_factory=lambda: ["mrtrix_multishell_msmt_ACT-fast"]
     )
-    atlases: Optional[List[str]] = field(
-        default_factory=lambda: ["Schaefer100", "AAL116"]
-    )
+    atlases: list[str] | None = field(default_factory=lambda: ["Schaefer100", "AAL116"])
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     image_tag: str = const.QSI_DEFAULT_IMAGE_TAG

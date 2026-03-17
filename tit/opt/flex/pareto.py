@@ -10,7 +10,6 @@ the mean field in the target ROI at the mean-optimal electrode configuration
 obtained in step 1 of the adaptive workflow.
 """
 
-from __future__ import annotations
 
 import copy
 import json
@@ -18,7 +17,6 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from itertools import product
-from typing import Optional
 
 import matplotlib
 
@@ -57,7 +55,7 @@ class SweepPoint:
     nonroi_threshold: float
     run_index: int
     output_folder: str
-    focality_score: Optional[float] = None
+    focality_score: float | None = None
     status: str = "pending"
 
 
@@ -323,7 +321,7 @@ def generate_summary_text(result: ParetoSweepResult) -> str:
     return "\n".join(lines)
 
 
-def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> Optional[str]:
+def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> str | None:
     """Copy the best run's optimizer output into *base_folder* and delete numbered subdirs.
 
     The "best" run is the one with the most negative ``focality_score`` (i.e.

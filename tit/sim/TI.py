@@ -14,23 +14,19 @@ matching the reference visualisation layout.
 
 import glob
 import os
-import shutil
 from copy import deepcopy
 
 import numpy as np
-from simnibs import mesh_io, run_simnibs, sim_struct
+from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.paths import get_path_manager
-from tit.sim.config import SimulationConfig, Montage, SimulationMode
+from tit.sim.base import BaseSimulation
+from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     convert_t1_to_mni,
-    create_simulation_config_file,
     extract_fields,
-    run_montage_visualization,
     safe_move,
-    setup_montage_directories,
     transform_to_nifti,
 )
 
@@ -39,7 +35,7 @@ from tit.sim.utils import (
 _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
 
 
-class TISimulation:
+class TISimulation(BaseSimulation):
     """
     Runs a single 2-pair TI simulation.
 
@@ -51,102 +47,37 @@ class TISimulation:
       5. Extract GM/WM meshes, convert to NIfTI, organize outputs
     """
 
-    def __init__(self, config: SimulationConfig, montage: Montage, logger):
-        self.config = config
-        self.montage = montage
-        self.logger = logger
-        self.pm = get_path_manager()
-        self.m2m_dir = self.pm.m2m(config.subject_id)
+    @property
+    def _simulation_mode(self):
+        return SimulationMode.TI
 
-    def run(self, simulation_dir: str) -> dict:
-        """Execute the full pipeline. Returns a result dict."""
-        montage_dir = self.pm.simulation(
-            self.config.subject_id,
-            self.montage.name,
-        )
-        dirs = setup_montage_directories(montage_dir, SimulationMode.TI)
-        create_simulation_config_file(
-            self.config, self.montage, dirs["documentation"], self.logger
-        )
+    @property
+    def _montage_type_label(self) -> str:
+        return "TI"
 
-        viz_pairs = None if self.montage.is_xyz else self.montage.electrode_pairs
-
-        run_montage_visualization(
-            montage_name=self.montage.name,
-            simulation_mode=SimulationMode.TI,
-            eeg_net=self.montage.eeg_net,
-            output_dir=dirs["ti_montage_imgs"],
-            project_dir=self.config.project_dir,
-            logger=self.logger,
-            electrode_pairs=viz_pairs,
-        )
-
-        self.logger.info("SimNIBS simulation: Started")
-        run_simnibs(self._build_session(dirs["hf_dir"]))
-        self.logger.info("SimNIBS simulation: ✓ Complete")
-
-        output_mesh = self._post_process(dirs)
-        self.logger.info(f"✓ {self.montage.name} complete")
-
-        return {
-            "montage_name": self.montage.name,
-            "montage_type": "TI",
-            "status": "completed",
-            "output_mesh": output_mesh,
-        }
+    @property
+    def _montage_imgs_key(self) -> str:
+        return "ti_montage_imgs"
 
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
         """Build SimNIBS SESSION for 2-pair TI."""
-        cfg = self.config
-        S = sim_struct.SESSION()
-        S.subpath = self.m2m_dir
-        S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
-        S.pathfem = output_dir
-        S.map_to_surf = cfg.map_to_surf
-        S.map_to_vol = False
-        S.map_to_MNI = False
-        S.open_in_gmsh = cfg.open_in_gmsh
-
-        if not self.montage.is_xyz:
-            eeg_net = self.montage.eeg_net
-            S.eeg_cap = os.path.join(self.pm.eeg_positions(cfg.subject_id), eeg_net)
-
-        tensor = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
-        if os.path.exists(tensor):
-            S.fname_tensor = tensor
+        S = self._init_session(output_dir)
 
         # Pair 1
-        p1_A = cfg.intensities[0] / 1000.0
-        tdcs1 = S.add_tdcslist()
-        tdcs1.anisotropy_type = cfg.conductivity
-        tdcs1.aniso_maxratio = cfg.aniso_maxratio
-        tdcs1.aniso_maxcond = cfg.aniso_maxcond
-        tdcs1.currents = [p1_A, -p1_A]
-        self._apply_tissue_conductivities(tdcs1)
-        for idx, pos in enumerate(self.montage.electrode_pairs[0]):
-            el = tdcs1.add_electrode()
-            el.channelnr = idx + 1
-            el.centre = pos
-            el.shape = cfg.electrode_shape
-            el.dimensions = cfg.electrode_dimensions
-            el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]
+        self._add_electrode_pair(
+            S, self.montage.electrode_pairs[0], self.config.intensities[0]
+        )
 
         # Pair 2 — deepcopy from pair 1, update centres and current
-        p2_A = cfg.intensities[1] / 1000.0
-        tdcs2 = S.add_tdcslist(deepcopy(tdcs1))
+        p2_A = self.config.intensities[1] / 1000.0
+        tdcs2 = S.add_tdcslist(deepcopy(S.tdcslist[0]))
         tdcs2.currents = [p2_A, -p2_A]
         tdcs2.electrode[0].centre = self.montage.electrode_pairs[1][0]
         tdcs2.electrode[1].centre = self.montage.electrode_pairs[1][1]
 
         return S
-
-    def _apply_tissue_conductivities(self, tdcs) -> None:
-        for i in range(len(tdcs.cond)):
-            env_var = f"TISSUE_COND_{i + 1}"
-            if env_var in os.environ:
-                tdcs.cond[i].value = float(os.environ[env_var])
 
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
@@ -180,7 +111,7 @@ class TISimulation:
         extract_fields(
             ti_path, dirs["ti_mesh"], f"{name}_TI", self.m2m_dir, sid, self.logger
         )
-        self.logger.info("Field extraction: ✓ Complete")
+        self.logger.info("Field extraction: \u2713 Complete")
 
         # Organize files before NIfTI conversion so meshes are in their
         # final directories (hf_mesh/, ti_surface_overlays/, etc.)
@@ -198,7 +129,7 @@ class TISimulation:
             self.logger,
             fields=["magnE"],
         )
-        self.logger.info("NIfTI transformation: ✓ Complete")
+        self.logger.info("NIfTI transformation: \u2713 Complete")
 
         convert_t1_to_mni(self.m2m_dir, sid, self.logger)
 

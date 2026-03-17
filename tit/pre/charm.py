@@ -3,10 +3,8 @@
 SimNIBS charm (m2m) creation + subject atlas segmentation.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from tit.paths import get_path_manager
 from .utils import CommandRunner, PreprocessError, _find_anat_files
@@ -20,7 +18,7 @@ def run_charm(
     subject_id: str,
     *,
     logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Run SimNIBS charm for a subject.
 
@@ -72,7 +70,7 @@ def run_subject_atlas(
     subject_id: str,
     *,
     logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """Run subject_atlas to create .annot files for a subject.
 

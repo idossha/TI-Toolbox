@@ -3,7 +3,6 @@
 Public API: ``run_ex_search(config) -> ExResult``
 """
 
-from __future__ import annotations
 
 import logging
 import os

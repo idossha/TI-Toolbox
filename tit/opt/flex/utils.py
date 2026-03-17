@@ -1,11 +1,9 @@
 #!/usr/bin/env simnibs_python
 """ROI configuration and output naming for flex-search."""
 
-from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +102,7 @@ def generate_label(config, pareto: bool = False) -> str:
     return f"{goal_str}_{pp}_{roi_str}"
 
 
-def parse_optimization_output(line: str) -> Optional[float]:
+def parse_optimization_output(line: str) -> float | None:
     """Extract the optimization function value from a SimNIBS log line.
 
     Handles patterns:

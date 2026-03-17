@@ -6,11 +6,10 @@ Analyzes tissue types (CSF, bone, skin) from segmented NIfTI data,
 calculating volumes, thickness, and generating visualizations.
 """
 
-from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 import nibabel as nib
 import numpy as np
@@ -195,7 +194,7 @@ class TissueAnalyzer:
         filtered_mask: np.ndarray,
         thickness_stats: dict,
         plt,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Create thickness visualization: 3 views on top, histogram spanning bottom."""
         thickness_map = thickness_stats.get("thickness_map")
         if thickness_map is None or np.sum(filtered_mask) == 0:
@@ -379,7 +378,7 @@ class TissueAnalyzer:
         brain_mask: np.ndarray,
         filtered_mask: np.ndarray,
         plt,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Create methodology figure showing brain regions, extraction, and Z-cutoff."""
         if np.sum(tissue_mask) == 0:
             return None
@@ -668,7 +667,7 @@ def run_tissue_analysis(
     *,
     tissues: Iterable[str] = DEFAULT_TISSUES,
     logger: logging.Logger,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> dict:
     """Run tissue analysis for a subject.
 

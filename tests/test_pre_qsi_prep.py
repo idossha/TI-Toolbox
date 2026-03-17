@@ -53,7 +53,7 @@ class TestRunQsiprep:
         with pytest.raises(PreprocessError, match="already exists"):
             run_qsiprep(str(tmp_path), "001", logger=MagicMock())
 
-    @patch(f"{MODULE}.DockerCommandBuilder", side_effect=Exception("docker error"))
+    @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
     def test_docker_build_error(self, mock_validate, mock_builder, tmp_path):
         """Raises PreprocessError when Docker command build fails."""

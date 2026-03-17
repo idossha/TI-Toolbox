@@ -8,11 +8,9 @@ This module provides functions to run QSIRecon as a sibling Docker container
 using the Docker-out-of-Docker (DooD) pattern.
 """
 
-from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 from tit import constants as const
 from tit.pre.utils import CommandRunner, PreprocessError
@@ -27,15 +25,15 @@ def run_qsirecon(
     subject_id: str,
     *,
     logger: logging.Logger,
-    recon_specs: Optional[List[str]] = None,
-    atlases: Optional[List[str]] = None,
+    recon_specs: list[str] | None = None,
+    atlases: list[str] | None = None,
     use_gpu: bool = False,
-    cpus: Optional[int] = None,
-    memory_gb: Optional[int] = None,
+    cpus: int | None = None,
+    memory_gb: int | None = None,
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS,
     image_tag: str = const.QSI_DEFAULT_IMAGE_TAG,
     skip_odf_reports: bool = True,
-    runner: Optional[CommandRunner] = None,
+    runner: CommandRunner | None = None,
 ) -> None:
     """
     Run QSIRecon reconstruction for a subject's preprocessed DWI data.
@@ -54,11 +52,11 @@ def run_qsirecon(
         Subject identifier (without 'sub-' prefix).
     logger : logging.Logger
         Logger for status messages.
-    recon_specs : Optional[List[str]], optional
+    recon_specs : list[str] | None, optional
         List of reconstruction specifications to run. Default: ['mrtrix_multishell_msmt_ACT-fast'].
         Available specs: mrtrix_multishell_msmt_ACT-fast, multishell_scalarfest,
         dipy_dki, dipy_mapmri, amico_noddi, pyafq_tractometry, etc.
-    atlases : Optional[List[str]], optional
+    atlases : list[str] | None, optional
         List of atlases for connectivity analysis. Default: ['Schaefer100', 'AAL116'].
     use_gpu : bool, optional
         Enable GPU acceleration. Default: False.
@@ -72,7 +70,7 @@ def run_qsirecon(
         QSIRecon Docker image tag. Default: '1.1.1'.
     skip_odf_reports : bool, optional
         Skip ODF report generation. Default: True.
-    runner : Optional[CommandRunner], optional
+    runner : CommandRunner | None, optional
         Command runner for subprocess execution.
 
     Raises
@@ -171,25 +169,25 @@ def run_qsirecon(
     logger.info(f"QSIRecon completed successfully for subject {subject_id}")
 
 
-def list_available_recon_specs() -> List[str]:
+def list_available_recon_specs() -> list[str]:
     """
     Return list of available QSIRecon reconstruction specifications.
 
     Returns
     -------
-    List[str]
+    list[str]
         List of available recon spec names.
     """
     return list(const.QSI_RECON_SPECS)
 
 
-def list_available_atlases() -> List[str]:
+def list_available_atlases() -> list[str]:
     """
     Return list of available atlases for connectivity analysis.
 
     Returns
     -------
-    List[str]
+    list[str]
         List of available atlas names.
     """
     return list(const.QSI_ATLASES)

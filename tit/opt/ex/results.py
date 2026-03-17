@@ -1,10 +1,11 @@
 """Result saving and visualization for exhaustive search."""
 
+
 import csv
 import json
 import os
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 def save_json(results: Dict, output_dir: str, logger: Any) -> str:
@@ -18,7 +19,7 @@ def save_json(results: Dict, output_dir: str, logger: Any) -> str:
 
 def build_csv_rows(
     results: Dict, roi_name: str
-) -> Tuple[List[list], List[float], List[float], List[float], List[float]]:
+) -> tuple[list[list], list[float], list[float], list[float], list[float]]:
     """Build CSV rows and extract metric arrays for plotting."""
     header = [
         "Montage",
@@ -78,10 +79,10 @@ def generate_plots(
     roi_name: str,
     output_dir: str,
     logger: Any,
-    timax_vals: List[float],
-    timean_vals: List[float],
-    foc_vals: List[float],
-) -> List[str]:
+    timax_vals: list[float],
+    timean_vals: list[float],
+    foc_vals: list[float],
+) -> list[str]:
     """Generate histogram and scatter plot visualizations."""
     from tit.plotting.ti_metrics import (
         plot_intensity_vs_focality,

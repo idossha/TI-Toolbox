@@ -7,12 +7,10 @@ This module is intended to be imported from within Blender/simnibs_python
 possible for speed and stability in headless mode.
 """
 
-from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
 import struct
 
-RGBA = Tuple[float, float, float, float]
+RGBA = tuple[float, float, float, float]
 
 
 def clear_scene(*, remove_collections: bool = True) -> None:
@@ -141,7 +139,7 @@ def ensure_world_nodes(
 
 def configure_render_eevee(
     *,
-    resolution: Tuple[int, int] = (2048, 2048),
+    resolution: tuple[int, int] = (2048, 2048),
     transparent_film: bool = True,
 ) -> None:
     """Configure Eevee render settings."""
@@ -229,7 +227,7 @@ def configure_eevee_publication_quality() -> None:
             ee.bloom_radius = 6.0
 
 
-def remove_objects_by_type(types: Tuple[str, ...]) -> None:
+def remove_objects_by_type(types: tuple[str, ...]) -> None:
     """Remove all objects in the scene matching the given Blender object types."""
     import bpy
 
@@ -287,7 +285,7 @@ def create_hero_camera(
 
 def add_point_light(
     *,
-    location: Tuple[float, float, float] = (3.0290, 14.2176, 22.8508),
+    location: tuple[float, float, float] = (3.0290, 14.2176, 22.8508),
     energy: float = 1000.0,
     name: str = "Light",
 ):
@@ -303,8 +301,8 @@ def add_point_light(
 
 def add_sun_light(
     *,
-    location: Tuple[float, float, float] = (0.0, 0.0, 0.0),
-    rotation_euler: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    rotation_euler: tuple[float, float, float] = (0.0, 0.0, 0.0),
     energy: float = 1.0,
     name: str = "Sun",
 ):
@@ -321,8 +319,8 @@ def add_sun_light(
 
 def add_area_light(
     *,
-    location: Tuple[float, float, float],
-    rotation_euler: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    location: tuple[float, float, float],
+    rotation_euler: tuple[float, float, float] = (0.0, 0.0, 0.0),
     energy: float = 200.0,
     size: float = 500.0,
     name: str = "Area",
@@ -345,8 +343,8 @@ def add_area_light(
 
 def add_camera(
     *,
-    location: Tuple[float, float, float] = (2.1216, 27.0958, 406.2056),
-    rotation_euler: Tuple[float, float, float] = (-0.0223, 0.0060, -0.0028),
+    location: tuple[float, float, float] = (2.1216, 27.0958, 406.2056),
+    rotation_euler: tuple[float, float, float] = (-0.0223, 0.0060, -0.0028),
     lens: float = 50.0,
     name: str = "Camera",
 ):
@@ -365,7 +363,7 @@ def add_camera(
 
 def _world_bounds(
     target_objects,
-) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Compute world-space AABB (min_xyz, max_xyz) over objects that have a bound_box."""
     from mathutils import Vector
 
@@ -402,7 +400,7 @@ def _world_bounds(
     )
 
 
-def _look_at(camera_obj, target: Tuple[float, float, float]) -> None:
+def _look_at(camera_obj, target: tuple[float, float, float]) -> None:
     """Rotate camera so that it looks at target point."""
     from mathutils import Vector
 
@@ -416,7 +414,7 @@ def create_standard_cameras(
     target_objects,
     lens: float = 50.0,
     margin: float = 1.15,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     Create 5 cameras (top/left/right/front/back) that share lens/sensor and frame the scene.
 
@@ -444,7 +442,7 @@ def create_standard_cameras(
         "top": Vector((0.0, 0.0, 1.0)),
     }
 
-    cams: Dict[str, object] = {}
+    cams: dict[str, object] = {}
     for name, direction in specs.items():
         bpy.ops.object.camera_add(location=tuple(center))
         cam_obj = bpy.context.selected_objects[0]
@@ -536,7 +534,7 @@ def assign_material(obj, mat) -> None:
     obj.data.materials.append(mat)
 
 
-def import_stl(filepath: str, *, name: Optional[str] = None, collection=None):
+def import_stl(filepath: str, *, name: str | None = None, collection=None):
     """
     Import an STL and return the imported object (assumes one object).
 

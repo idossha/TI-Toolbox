@@ -207,14 +207,15 @@ def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
     t_stats[valid] = (resp_means[valid] - non_resp_means[valid]) / se_diff[valid]
 
     df = n_resp + n_non_resp - 2
-    if alternative == "two-sided":
-        p_values = 2 * sp_stats.t.sf(np.abs(t_stats), df)
-    elif alternative == "greater":
-        p_values = sp_stats.t.sf(t_stats, df)
-    elif alternative == "less":
-        p_values = sp_stats.t.sf(-t_stats, df)
-    else:
-        raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
+    match alternative:
+        case "two-sided":
+            p_values = 2 * sp_stats.t.sf(np.abs(t_stats), df)
+        case "greater":
+            p_values = sp_stats.t.sf(t_stats, df)
+        case "less":
+            p_values = sp_stats.t.sf(-t_stats, df)
+        case _:
+            raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
 
     return t_stats, p_values
 
@@ -234,14 +235,15 @@ def ttest_rel(test_data, n_resp, alternative="two-sided"):
     t_stats[valid] = diff_means[valid] / se[valid]
 
     df = n_resp - 1
-    if alternative == "two-sided":
-        p_values = 2 * sp_stats.t.sf(np.abs(t_stats), df)
-    elif alternative == "greater":
-        p_values = sp_stats.t.sf(t_stats, df)
-    elif alternative == "less":
-        p_values = sp_stats.t.sf(-t_stats, df)
-    else:
-        raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
+    match alternative:
+        case "two-sided":
+            p_values = 2 * sp_stats.t.sf(np.abs(t_stats), df)
+        case "greater":
+            p_values = sp_stats.t.sf(t_stats, df)
+        case "less":
+            p_values = sp_stats.t.sf(-t_stats, df)
+        case _:
+            raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
 
     return t_stats, p_values
 
@@ -407,12 +409,13 @@ def _run_single_correlation_permutation(
     perm_p_vol[idx_i, idx_j, idx_k] = perm_p
     perm_t_vol[idx_i, idx_j, idx_k] = perm_t
 
-    if alternative == "greater":
-        perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol > 0)
-    elif alternative == "less":
-        perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol < 0)
-    else:
-        perm_mask = (perm_p_vol < cluster_threshold) & valid_mask
+    match alternative:
+        case "greater":
+            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol > 0)
+        case "less":
+            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol < 0)
+        case _:
+            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask
 
     perm_labeled, perm_n = label(perm_mask)
 
@@ -660,12 +663,13 @@ def correlation_cluster_correction(
     )
 
     # Form initial clusters based on alternative
-    if alternative == "greater":
-        initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics > 0)
-    elif alternative == "less":
-        initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics < 0)
-    else:
-        initial_mask = (p_values < cluster_threshold) & valid_mask
+    match alternative:
+        case "greater":
+            initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics > 0)
+        case "less":
+            initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics < 0)
+        case _:
+            initial_mask = (p_values < cluster_threshold) & valid_mask
 
     labeled_array, n_clusters = label(initial_mask)
     _log.info("Clusters at p<%.3f: %d", cluster_threshold, n_clusters)

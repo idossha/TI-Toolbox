@@ -1,10 +1,8 @@
 """Voxel (volumetric) atlas discovery and region listing."""
 
-from __future__ import annotations
 
 import os
 import subprocess
-from typing import Dict, List, Optional, Tuple
 
 from tit.atlas.constants import VOXEL_ATLAS_FILES, MNI_ATLAS_FILES
 
@@ -24,7 +22,7 @@ class VoxelAtlasManager:
         self.freesurfer_mri_dir = freesurfer_mri_dir
         self.seg_dir = seg_dir
 
-    def list_atlases(self) -> List[Tuple[str, str]]:
+    def list_atlases(self) -> list[tuple[str, str]]:
         """Discover available voxel atlas files for a subject.
 
         Checks FreeSurfer mri/ for VOXEL_ATLAS_FILES and segmentation/
@@ -34,7 +32,7 @@ class VoxelAtlasManager:
         Returns:
             List of (display_name, full_path) tuples.
         """
-        results: List[Tuple[str, str]] = []
+        results: list[tuple[str, str]] = []
 
         if self.freesurfer_mri_dir and os.path.isdir(self.freesurfer_mri_dir):
             for name in VOXEL_ATLAS_FILES:
@@ -49,7 +47,7 @@ class VoxelAtlasManager:
 
         return results
 
-    def list_regions(self, atlas_path: str) -> List[str]:
+    def list_regions(self, atlas_path: str) -> list[str]:
         """List regions in a voxel atlas using mri_segstats.
 
         Caches the label file next to the atlas so subsequent calls are fast.
@@ -77,7 +75,7 @@ class VoxelAtlasManager:
             ]
             subprocess.run(cmd, check=True, capture_output=True)
 
-        regions: List[str] = []
+        regions: list[str] = []
         in_header = True
         with open(labels_file) as fh:
             for line in fh:
@@ -93,7 +91,7 @@ class VoxelAtlasManager:
         return sorted(set(regions))
 
     @staticmethod
-    def detect_mni_atlases(atlas_dir: str) -> List[str]:
+    def detect_mni_atlases(atlas_dir: str) -> list[str]:
         """Detect available MNI atlases in an assets directory.
 
         Args:
@@ -110,7 +108,7 @@ class VoxelAtlasManager:
             if os.path.isfile(os.path.join(atlas_dir, p))
         ]
 
-    def find_labeling_lut(self) -> Optional[str]:
+    def find_labeling_lut(self) -> str | None:
         """Find the LUT file for the SimNIBS labeling atlas.
 
         Returns:

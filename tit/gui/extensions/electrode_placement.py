@@ -21,12 +21,15 @@ ALLOW_TAB_INTEGRATION = (
     False  # This extension can only be launched in a separate window
 )
 
+import logging
 import sys
 import os
 import json
 import csv
 import numpy as np
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import (
@@ -237,24 +240,24 @@ class GLSurfaceWidget(OpenGLWidgetBase):
     def loadMesh(self, mesh_fn):
         """Load mesh file and extract skin surface"""
         try:
-            print(f"Loading mesh: {mesh_fn}")
+            logger.debug(f"Loading mesh: {mesh_fn}")
             mesh_struct = mesh_io.read_msh(mesh_fn)
 
             # Extract skin surface
-            print("Extracting skin surface...")
+            logger.debug("Extracting skin surface...")
             self.skin_surf = _SkinSurface(mesh_struct, [5, 1005])
 
             # Create display list
-            print("Creating OpenGL model...")
+            logger.debug("Creating OpenGL model...")
             self.skin_model = self.createSurfaceModel(self.skin_surf, self.skin_color)
 
             self.update()
-            print("Mesh loaded successfully!")
+            logger.debug("Mesh loaded successfully!")
             return True
 
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to load mesh:\n{str(e)}")
-            print(f"Error loading mesh: {e}")
+            logger.debug(f"Error loading mesh: {e}")
             return False
 
     def loadEEGCap(self, csv_file):
@@ -283,14 +286,11 @@ class GLSurfaceWidget(OpenGLWidgetBase):
                 self.update()
                 return True, len(self.eeg_positions)
             else:
-                print("No valid EEG positions found in file")
+                logger.debug("No valid EEG positions found in file")
                 return False, 0
 
         except Exception as e:
-            print(f"Error loading EEG cap: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.debug(f"Error loading EEG cap: {e}", exc_info=True)
             return False, 0
 
     def clearEEGCap(self):
@@ -904,7 +904,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
             )
         except (ValueError, AttributeError) as e:
             # Invalid input, revert
-            print(f"Invalid coordinate value: {e}")
+            logger.debug(f"Invalid coordinate value: {e}")
 
     def deleteChecked(self):
         """Delete all checked markers"""

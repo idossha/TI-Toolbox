@@ -4,12 +4,10 @@ Handles reading and writing the extensions.json file that tracks
 which GUI extensions are enabled/disabled across sessions.
 """
 
-from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +28,7 @@ def ensure_extensions_config(config_path: Path) -> None:
         config_path: Full path to the extensions.json file.
     """
     if not config_path.exists():
-        default_config: Dict[str, dict] = {"extensions": {}}
+        default_config: dict[str, dict] = {"extensions": {}}
         with open(config_path, "w") as f:
             json.dump(default_config, f, indent=2)
 

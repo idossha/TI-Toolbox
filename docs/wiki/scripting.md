@@ -75,10 +75,20 @@ All tools can be used as a Python library by importing `tit` modules directly. E
 ### Setup
 
 ```python
-from tit import setup_logging, add_stream_handler
+import tit
+tit.init()
+```
 
-setup_logging()
-add_stream_handler("tit")  # optional: print logs to terminal
+This single call configures logging and enables terminal output. That's all you need — every script starts with these two lines.
+
+For advanced control you can still call the underlying functions directly:
+
+```python
+from tit import setup_logging, add_file_handler, add_stream_handler
+
+setup_logging("DEBUG")                       # set log level
+add_stream_handler("tit")                    # print to terminal
+add_file_handler("/path/to/run.log")         # also write to file
 ```
 
 ### Preprocessing

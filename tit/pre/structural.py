@@ -3,11 +3,10 @@
 Pre-processing pipeline orchestration.
 """
 
-from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Iterable, Optional
+from typing import Iterable
 
 from tit import constants as const
 from tit.paths import get_path_manager
@@ -43,13 +42,13 @@ def _run_subject_pipeline(
     run_tissue: bool,
     run_qsiprep_step: bool,
     run_qsirecon_step: bool,
-    qsiprep_config: Optional[dict],
-    qsi_recon_config: Optional[dict],
+    qsiprep_config: dict | None,
+    qsi_recon_config: dict | None,
     extract_dti_step: bool,
     run_subcortical: bool,
     debug: bool,
     runner: CommandRunner,
-    callback: Optional[callable],
+    callback: callable | None,
 ) -> None:
     logger = build_logger(
         "preprocess",
@@ -216,19 +215,19 @@ def run_pipeline(
     convert_dicom: bool = False,
     run_recon: bool = False,
     parallel_recon: bool = False,
-    parallel_cores: Optional[int] = None,
+    parallel_cores: int | None = None,
     create_m2m: bool = False,
     run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
-    qsiprep_config: Optional[dict] = None,
-    qsi_recon_config: Optional[dict] = None,
+    qsiprep_config: dict | None = None,
+    qsi_recon_config: dict | None = None,
     extract_dti: bool = False,
     run_subcortical_segmentations: bool = False,
     debug: bool = False,
-    stop_event: Optional[object] = None,
-    logger_callback: Optional[callable] = None,
-    runner: Optional[CommandRunner] = None,
+    stop_event: object | None = None,
+    logger_callback: callable | None = None,
+    runner: CommandRunner | None = None,
 ) -> int:
     """Run the preprocessing pipeline for one or more subjects.
 

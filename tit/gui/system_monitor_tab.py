@@ -7,6 +7,7 @@ This module provides a GUI interface for monitoring toolbox-related processes.
 Shows CPU, memory usage, and process information for relevant operations.
 """
 
+import logging
 import os
 import sys
 import psutil
@@ -15,6 +16,8 @@ import time
 import threading
 from datetime import datetime
 from collections import deque
+
+logger = logging.getLogger(__name__)
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
@@ -167,7 +170,7 @@ class ProcessMonitorThread(QThread):
                     continue
 
         except (psutil.Error, OSError) as e:
-            print(f"Error getting process list: {e}")
+            logger.error(f"Error getting process list: {e}")
 
         # Sort by CPU usage (descending)
         relevant_processes.sort(key=lambda x: x["cpu_percent"], reverse=True)
@@ -431,7 +434,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
         """Stop the process monitoring thread."""
         if self.monitor_thread and self.monitor_thread.isRunning():
             self.monitor_thread.stop()
-            self.monitor_thread.wait(3000)  # Wait up to 3 seconds
+            # Non-blocking: update UI immediately, thread stops in background
             self.status_label.setText("Monitoring paused")
             self.status_label.setStyleSheet("color: orange; font-weight: bold;")
             self.pause_btn.setText("Resume Monitoring")

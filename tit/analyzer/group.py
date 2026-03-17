@@ -5,7 +5,6 @@ results into a summary CSV with an AVERAGE row, and produces a 2x2 comparison
 bar-chart saved as PDF.
 """
 
-from __future__ import annotations
 
 import logging
 import time

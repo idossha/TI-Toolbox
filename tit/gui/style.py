@@ -12,7 +12,45 @@ Qt resolves pt sizes via: pixelSize = DPI * pointSize / 72.
 At 96 DPI:  9pt = 12px, 10pt ≈ 13px, 12pt = 16px, 13pt ≈ 17px.
 """
 
-from __future__ import annotations
+
+# ---------------------------------------------------------------------------
+# Semantic colors
+# ---------------------------------------------------------------------------
+COLOR_ERROR = "#f44336"
+COLOR_ERROR_DARK = "#d32f2f"
+COLOR_ERROR_DARKER = "#b71c1c"
+COLOR_SUCCESS = "#4CAF50"
+COLOR_SUCCESS_DARK = "#45a049"
+COLOR_SUCCESS_DARKER = "#3d8b40"
+COLOR_WARNING = "#FFC107"
+COLOR_INFO = "#2196F3"
+COLOR_INFO_DARK = "#1976D2"
+COLOR_ACCENT = "#007ACC"
+
+# ---------------------------------------------------------------------------
+# Console colors (ANSI-like for dark backgrounds)
+# ---------------------------------------------------------------------------
+COLOR_CONSOLE_GREEN = "#55ff55"
+COLOR_CONSOLE_YELLOW = "#ffff55"
+COLOR_CONSOLE_RED = "#ff5555"
+COLOR_CONSOLE_CYAN = "#55ffff"
+COLOR_CONSOLE_BLUE = "#55aaff"
+COLOR_CONSOLE_WHITE = "#ffffff"
+COLOR_CONSOLE_GRAY = "#7f7f7f"
+
+# ---------------------------------------------------------------------------
+# Background colors
+# ---------------------------------------------------------------------------
+COLOR_BG_DARK = "#2a2a2a"
+COLOR_BG_PANEL = "#1e1e1e"
+COLOR_BG_PANEL_DARK = "#3c3c3c"
+
+# ---------------------------------------------------------------------------
+# Text colors (muted/secondary)
+# ---------------------------------------------------------------------------
+COLOR_TEXT_MUTED = "#666666"
+COLOR_TEXT_SECONDARY = "#888888"
+COLOR_TEXT_LIGHT = "#aaaaaa"
 
 # ---------------------------------------------------------------------------
 # Spacing scale (logical pixels -- Qt scales with AA_EnableHighDpiScaling)

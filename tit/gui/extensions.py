@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Extensions Tab for TI-Toolbox GUI.
 

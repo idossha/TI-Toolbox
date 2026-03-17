@@ -1,3 +1,7 @@
+#!/usr/bin/env simnibs_python
+
+import tit
+tit.init()
 
 from tit.opt.leadfield import LeadfieldGenerator
 

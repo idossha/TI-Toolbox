@@ -10,7 +10,6 @@ Shared utilities for TI/mTI simulations.
 - Simulation orchestration (sequential + parallel)
 """
 
-from __future__ import annotations
 
 import json
 import logging
@@ -19,7 +18,7 @@ import shutil
 import subprocess
 import time
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
+from typing import Callable
 
 from tit.paths import get_path_manager
 from tit import constants as const
@@ -70,7 +69,7 @@ def upsert_montage(
     project_dir: str,
     eeg_net: str,
     montage_name: str,
-    electrode_pairs: List[List[str]],
+    electrode_pairs: list[list[str]],
     mode: str,
 ) -> None:
     """mode: 'U' → uni_polar_montages, 'M' → multi_polar_montages"""
@@ -83,7 +82,7 @@ def upsert_montage(
     save_montage_data(project_dir, data)
 
 
-def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> List[str]:
+def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> list[str]:
     """mode: 'U' or 'M'. Returns [] for missing nets."""
     data = load_montage_data(project_dir)
     net = data.get("nets", {}).get(eeg_net, {})
@@ -94,7 +93,7 @@ def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> List[str
 # ── Montage loading ────────────────────────────────────────────────────────────────
 
 
-def load_flex_montages(flex_file: Optional[str] = None) -> List[dict]:
+def load_flex_montages(flex_file: str | None = None) -> list[dict]:
     if not flex_file:
         flex_file = os.environ.get("FLEX_MONTAGES_FILE")
     if not flex_file or not os.path.exists(flex_file):
@@ -132,11 +131,11 @@ def parse_flex_montage(flex: dict) -> Montage:
 
 
 def load_montages(
-    montage_names: List[str],
+    montage_names: list[str],
     project_dir: str,
     eeg_net: str,
     include_flex: bool = True,
-) -> List[Montage]:
+) -> list[Montage]:
     data = load_montage_data(project_dir)
     net = data.get("nets", {}).get(eeg_net, {})
     uni = net.get("uni_polar_montages", {})
@@ -170,7 +169,7 @@ def load_montages(
 # ── Directory setup ────────────────────────────────────────────────────────────────
 
 
-def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> Dict[str, str]:
+def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[str, str]:
     dirs = {
         "montage_dir": montage_dir,
         "hf_dir": os.path.join(montage_dir, "high_Frequency"),
@@ -203,7 +202,7 @@ def run_montage_visualization(
     output_dir: str,
     project_dir: str,
     logger,
-    electrode_pairs: Optional[List] = None,
+    electrode_pairs: List | None = None,
 ) -> None:
     if eeg_net in ("freehand", "flex_mode"):
         logger.info(f"Skipping montage visualization for {eeg_net} mode")
@@ -287,8 +286,8 @@ def transform_to_nifti(
     subject_id: str,
     m2m_dir: str,
     logger,
-    fields: Optional[List[str]] = None,
-    skip_patterns: Optional[List[str]] = None,
+    fields: list[str] | None = None,
+    skip_patterns: list[str] | None = None,
 ) -> None:
     """Convert mesh files to NIfTI (subject + MNI space)."""
     from tit.tools.mesh2nii import convert_mesh_dir
@@ -326,8 +325,8 @@ def safe_move(src: str, dest: str) -> None:
 def run_simulation(
     config: SimulationConfig,
     logger=None,
-    progress_callback: Optional[Callable[[int, int, str], None]] = None,
-) -> List[dict]:
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> list[dict]:
     """
     Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
     Montages are read from ``config.montages``.

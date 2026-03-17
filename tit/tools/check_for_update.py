@@ -1,9 +1,7 @@
 """Check for new TI-Toolbox releases on GitHub."""
 
-from __future__ import annotations
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +22,7 @@ def check_for_new_version(
     current_version: str,
     repo: str = "idossha/TI-Toolbox",
     timeout: float = 2.0,
-) -> Optional[str]:
+) -> str | None:
     """Check GitHub for the latest release. Returns version string if newer, else None."""
     import requests
 

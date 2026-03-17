@@ -23,6 +23,7 @@ from tit.sim.config import (
 )
 
 # Force submodule imports so they are in sys.modules (needed for patch.object)
+import tit.sim.base as _base_mod
 import tit.sim.TI as _ti_mod
 import tit.sim.mTI as _mti_mod
 import tit.sim.utils as _utils_mod
@@ -84,7 +85,7 @@ class TestTISimulation:
     """Tests for tit.sim.TI.TISimulation construction and run orchestration."""
 
     def test_construction_sets_attributes(self):
-        with patch.object(_ti_mod, "get_path_manager") as mock_pm:
+        with patch.object(_base_mod, "get_path_manager") as mock_pm:
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
 
             config = _make_sim_config()
@@ -99,11 +100,11 @@ class TestTISimulation:
 
     def test_run_returns_result_dict(self):
         with (
-            patch.object(_ti_mod, "get_path_manager") as mock_pm,
-            patch.object(_ti_mod, "setup_montage_directories") as mock_setup_dirs,
-            patch.object(_ti_mod, "create_simulation_config_file"),
-            patch.object(_ti_mod, "run_montage_visualization"),
-            patch.object(_ti_mod, "run_simnibs"),
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
             patch.object(_ti_mod, "extract_fields"),
             patch.object(_ti_mod, "transform_to_nifti"),
             patch.object(_ti_mod, "convert_t1_to_mni"),
@@ -144,11 +145,11 @@ class TestTISimulation:
 
     def test_run_calls_setup_and_simnibs(self):
         with (
-            patch.object(_ti_mod, "get_path_manager") as mock_pm,
-            patch.object(_ti_mod, "setup_montage_directories") as mock_setup_dirs,
-            patch.object(_ti_mod, "create_simulation_config_file") as mock_create,
-            patch.object(_ti_mod, "run_montage_visualization"),
-            patch.object(_ti_mod, "run_simnibs") as mock_run_simnibs,
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file") as mock_create,
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
             patch.object(_ti_mod, "extract_fields"),
             patch.object(_ti_mod, "transform_to_nifti"),
             patch.object(_ti_mod, "convert_t1_to_mni"),
@@ -195,7 +196,7 @@ class TestMTISimulation:
     """Tests for tit.sim.mTI.mTISimulation construction and run orchestration."""
 
     def test_construction_sets_attributes(self):
-        with patch.object(_mti_mod, "get_path_manager") as mock_pm:
+        with patch.object(_base_mod, "get_path_manager") as mock_pm:
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
 
             config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
@@ -211,11 +212,11 @@ class TestMTISimulation:
 
     def test_run_returns_mti_result(self):
         with (
-            patch.object(_mti_mod, "get_path_manager") as mock_pm,
-            patch.object(_mti_mod, "setup_montage_directories") as mock_setup_dirs,
-            patch.object(_mti_mod, "create_simulation_config_file"),
-            patch.object(_mti_mod, "run_montage_visualization"),
-            patch.object(_mti_mod, "run_simnibs") as mock_run_simnibs,
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
             patch.object(_mti_mod, "extract_fields"),
             patch.object(_mti_mod, "transform_to_nifti"),
             patch.object(_mti_mod, "convert_t1_to_mni"),
