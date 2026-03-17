@@ -62,5 +62,6 @@ for subject_id in SUBJECTS:
         format=RegionConfig.Format.PLY,
         atlas="DK40",
         field_name="TI_max",
+        regions=["V1", "PT", "PO", "SP", "SM"],
     )
     run_regions(config)
