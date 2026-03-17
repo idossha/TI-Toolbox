@@ -865,3 +865,217 @@ class TestVoxelAtlasManagerFindLabelingLut:
         mgr = VoxelAtlasManager(seg_dir="")
         result = mgr.find_labeling_lut()
         assert result is None
+
+
+# ============================================================================
+# mesh.py — MeshAtlasManager.list_regions
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestMeshListRegions:
+    """Tests for MeshAtlasManager.list_regions (lines 39-63)."""
+
+    def test_both_hemispheres_bytes_names_filters_unknown(self, tmp_path):
+        """Both hemispheres match, bytes names are decoded, 'unknown' is filtered."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        # Create .annot files for both hemispheres
+        (tmp_path / "lh.aparc_DK40.annot").touch()
+        (tmp_path / "rh.aparc_DK40.annot").touch()
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        nfs_mock.read_annot.return_value = (
+            None,  # labels
+            None,  # ctab
+            [b"unknown", b"precentral", b"postcentral"],
+        )
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        regions = mgr.list_regions("DK40")
+
+        assert "precentral-lh" in regions
+        assert "postcentral-lh" in regions
+        assert "precentral-rh" in regions
+        assert "postcentral-rh" in regions
+        # "unknown" must be filtered out
+        assert "unknown-lh" not in regions
+        assert "unknown-rh" not in regions
+        # Should be sorted
+        assert regions == sorted(regions)
+
+    def test_single_hemisphere_match(self, tmp_path):
+        """Only lh has a matching .annot file; rh is skipped."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        (tmp_path / "lh.aparc_DK40.annot").touch()
+        # No rh file
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        nfs_mock.read_annot.return_value = (
+            None,
+            None,
+            [b"unknown", b"superiorfrontal"],
+        )
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        regions = mgr.list_regions("DK40")
+
+        assert "superiorfrontal-lh" in regions
+        assert len(regions) == 1  # only lh regions, unknown filtered
+
+    def test_no_matching_files_returns_empty(self, tmp_path):
+        """No .annot files match the atlas name -> returns []."""
+        from tit.atlas.mesh import MeshAtlasManager
+
+        # Create files that don't match the requested atlas
+        (tmp_path / "lh.aparc_OTHER.annot").touch()
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        regions = mgr.list_regions("DK40")
+
+        assert regions == []
+
+    def test_nonexistent_seg_dir_returns_empty(self):
+        """seg_dir does not exist -> returns []."""
+        from tit.atlas.mesh import MeshAtlasManager
+
+        mgr = MeshAtlasManager("/nonexistent/path/to/segmentation")
+        regions = mgr.list_regions("DK40")
+
+        assert regions == []
+
+    def test_str_names_not_bytes(self, tmp_path):
+        """Region names as str (not bytes) are handled via str() path."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        (tmp_path / "lh.aparc_DK40.annot").touch()
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        nfs_mock.read_annot.return_value = (
+            None,
+            None,
+            ["unknown", "insula", "fusiform"],  # str, not bytes
+        )
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        regions = mgr.list_regions("DK40")
+
+        assert "insula-lh" in regions
+        assert "fusiform-lh" in regions
+        assert "unknown-lh" not in regions
+
+    def test_empty_directory_no_annot_files(self, tmp_path):
+        """Directory exists but contains no .annot files -> returns []."""
+        from tit.atlas.mesh import MeshAtlasManager
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        regions = mgr.list_regions("DK40")
+
+        assert regions == []
+
+
+# ============================================================================
+# mesh.py — MeshAtlasManager.list_annot_regions
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestMeshListAnnotRegions:
+    """Tests for MeshAtlasManager.list_annot_regions (lines 99-112)."""
+
+    def test_bytes_names(self, tmp_path):
+        """Bytes region names are decoded to str."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        # Ensure nibabel.freesurfer.io is in sys.modules
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        fsio_mock = MagicMock()
+        sys.modules["nibabel.freesurfer.io"] = fsio_mock
+        setattr(nfs_mock, "io", fsio_mock)
+
+        fsio_mock.read_annot.return_value = (
+            None,  # labels
+            None,  # ctab
+            [b"bankssts", b"caudalanteriorcingulate", b"unknown"],
+        )
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        result = mgr.list_annot_regions("/fake/path/lh.aparc.annot")
+
+        assert result == [
+            (0, "bankssts"),
+            (1, "caudalanteriorcingulate"),
+            (2, "unknown"),
+        ]
+        fsio_mock.read_annot.assert_called_once_with("/fake/path/lh.aparc.annot")
+
+    def test_str_names(self, tmp_path):
+        """String region names are passed through via str()."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        fsio_mock = MagicMock()
+        sys.modules["nibabel.freesurfer.io"] = fsio_mock
+        setattr(nfs_mock, "io", fsio_mock)
+
+        fsio_mock.read_annot.return_value = (
+            None,
+            None,
+            ["regionA", "regionB"],
+        )
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        result = mgr.list_annot_regions("/any/path.annot")
+
+        assert result == [(0, "regionA"), (1, "regionB")]
+
+    def test_returns_correct_index_tuples(self, tmp_path):
+        """Indices match enumeration order of names list."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        fsio_mock = MagicMock()
+        sys.modules["nibabel.freesurfer.io"] = fsio_mock
+        setattr(nfs_mock, "io", fsio_mock)
+
+        names = [b"alpha", b"beta", b"gamma", b"delta"]
+        fsio_mock.read_annot.return_value = (None, None, names)
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        result = mgr.list_annot_regions("/some/annot/file.annot")
+
+        assert len(result) == 4
+        for i, (idx, name) in enumerate(result):
+            assert idx == i
+            assert name == names[i].decode("utf-8")
+
+    def test_empty_names_list(self, tmp_path):
+        """Empty names list returns empty result."""
+        import sys
+
+        from tit.atlas.mesh import MeshAtlasManager
+
+        nfs_mock = sys.modules["nibabel.freesurfer"]
+        fsio_mock = MagicMock()
+        sys.modules["nibabel.freesurfer.io"] = fsio_mock
+        setattr(nfs_mock, "io", fsio_mock)
+
+        fsio_mock.read_annot.return_value = (None, None, [])
+
+        mgr = MeshAtlasManager(str(tmp_path))
+        result = mgr.list_annot_regions("/any/path.annot")
+
+        assert result == []
