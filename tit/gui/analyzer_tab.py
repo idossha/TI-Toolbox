@@ -2480,6 +2480,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         mesh_dir = self.pm.analysis_dir(subject_id, simulation_name, "mesh")
 
         mesh_analyses = []
+        if not os.path.isdir(mesh_dir):
+            return
         for item in os.listdir(mesh_dir):
             item_path = os.path.join(mesh_dir, item)
             if os.path.isdir(item_path) and not item.startswith("."):

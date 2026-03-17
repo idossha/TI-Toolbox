@@ -161,7 +161,7 @@ class ImageReportlet(BaseReportlet):
 
     def __init__(
         self,
-        image_source: str | Path | bytes | "Image.Image" | None = None,
+        image_source: str | Path | bytes | Any | None = None,
         title: str | None = None,
         caption: str | None = None,
         alt_text: str | None = None,

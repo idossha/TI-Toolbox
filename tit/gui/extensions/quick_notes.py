@@ -10,18 +10,10 @@ Notes are automatically saved to projectDIR/derivatives/ti-toolbox/notes.txt
 import logging
 import os
 from pathlib import Path
-from datetime import datetime
+
+from PyQt5 import QtWidgets, QtCore
 
 logger = logging.getLogger(__name__)
-
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    # Fallback for older Python versions
-    import pytz
-
-    ZoneInfo = lambda tz: pytz.timezone(tz)
-from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
 EXTENSION_NAME = "Quick Notes"
@@ -116,18 +108,11 @@ class NotesWindow(QtWidgets.QDialog):
 
     def _get_timestamp_with_timezone(self):
         """Get current timestamp with timezone from host machine."""
-        import os
+        import time
 
-        # Use the host timezone passed from the loader
-        tz_name = os.environ.get("TZ", "UTC")
-        try:
-            tz = ZoneInfo(tz_name)
-            dt = datetime.now(tz)
-            return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
-        except Exception as e:
-            # Fallback if timezone is invalid or zoneinfo not available
-            logger.warning(f"Could not use timezone '{tz_name}': {e}")
-            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # time.strftime respects the TZ env var natively — works with
+        # abbreviations (CDT, EST) and IANA names (America/Chicago) alike.
+        return time.strftime("%Y-%m-%d %H:%M:%S %Z")
 
     def setup_ui(self):
         """Set up the notes UI."""

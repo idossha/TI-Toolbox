@@ -524,9 +524,10 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         eeg_dir = pm.eeg_positions(subject_id)
 
-        eeg_dir and Path(eeg_dir).is_dir():
+        if not (eeg_dir and Path(eeg_dir).is_dir()):
+            return
 
-        # Find all CSV files in the directory``
+        # Find all CSV files in the directory
         for eeg_file in Path(eeg_dir).glob("*.csv"):
             net_name = eeg_file.stem
             self.eeg_nets[net_name] = str(eeg_file)

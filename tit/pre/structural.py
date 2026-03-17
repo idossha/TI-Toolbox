@@ -6,7 +6,7 @@ Pre-processing pipeline orchestration.
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Iterable
+from collections.abc import Callable, Iterable
 
 from tit import constants as const
 from tit.paths import get_path_manager
@@ -48,7 +48,7 @@ def _run_subject_pipeline(
     run_subcortical: bool,
     debug: bool,
     runner: CommandRunner,
-    callback: callable | None,
+    callback: Callable | None,
 ) -> None:
     logger = build_logger(
         "preprocess",
@@ -226,7 +226,7 @@ def run_pipeline(
     run_subcortical_segmentations: bool = False,
     debug: bool = False,
     stop_event: object | None = None,
-    logger_callback: callable | None = None,
+    logger_callback: Callable | None = None,
     runner: CommandRunner | None = None,
 ) -> int:
     """Run the preprocessing pipeline for one or more subjects.
