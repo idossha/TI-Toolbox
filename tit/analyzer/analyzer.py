@@ -226,7 +226,7 @@ class Analyzer:
         region: str | list[str],
         visualize: bool,
     ) -> AnalysisResult:
-        from simnibs.utils.transformations import subject_atlas
+        from simnibs import subject_atlas
 
         surface = self._load_surface_mesh()
         values = self._field_values(surface)
@@ -815,7 +815,7 @@ class Analyzer:
         """Return *center* in subject space, transforming from MNI if needed."""
         arr = np.array([list(center)], dtype=float)
         if coordinate_space.upper() == "MNI":
-            from simnibs.utils.transformations import mni2subject_coords
+            from simnibs import mni2subject_coords
 
             arr = mni2subject_coords(arr, str(self.m2m_path))
             arr = np.atleast_2d(arr)

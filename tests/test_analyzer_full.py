@@ -178,7 +178,7 @@ class TestCortexMesh:
 
         atlas_map = {"V1": np.array([True, False, True, False])}
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -542,7 +542,7 @@ class TestMaybeTransformCoords:
     def test_mni_space_calls_transform(self):
         a = _make_analyzer(space="mesh")
         with patch(
-            "simnibs.utils.transformations.mni2subject_coords",
+            "simnibs.mni2subject_coords",
             return_value=np.array([[5.0, 15.0, 25.0]]),
         ) as mock_t:
             result = a._maybe_transform_coords((10.0, 20.0, 30.0), "MNI")
@@ -552,7 +552,7 @@ class TestMaybeTransformCoords:
     def test_mni_case_insensitive(self):
         a = _make_analyzer(space="mesh")
         with patch(
-            "simnibs.utils.transformations.mni2subject_coords",
+            "simnibs.mni2subject_coords",
             return_value=np.array([[1.0, 2.0, 3.0]]),
         ):
             result = a._maybe_transform_coords((0, 0, 0), "mni")
@@ -655,7 +655,7 @@ class TestCombinedCortexMesh:
             "V2": np.array([False, False, True, False]),
         }
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -683,7 +683,7 @@ class TestCombinedCortexMesh:
             "rh.precentral": np.array([False, False, False, True]),
         }
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -707,7 +707,7 @@ class TestCombinedCortexMesh:
             "rh.cuneus": np.array([False, True]),
         }
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
@@ -730,7 +730,7 @@ class TestCombinedCortexMesh:
             "rh.cuneus": np.array([False, True]),
         }
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             with pytest.raises(KeyError, match="not found in atlas"):
                 a._cortex_mesh("DK40", ["cuneus-lh", "nosuchregion"], False)
@@ -745,7 +745,7 @@ class TestCombinedCortexMesh:
 
         atlas_map = {"V1": np.array([True, False, True, False])}
         with patch(
-            "simnibs.utils.transformations.subject_atlas", return_value=atlas_map
+            "simnibs.subject_atlas", return_value=atlas_map
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)

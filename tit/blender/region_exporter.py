@@ -31,7 +31,7 @@ from pathlib import Path
 import numpy as np
 import simnibs
 from simnibs import read_msh
-from simnibs.utils.transformations import subject_atlas
+from simnibs import subject_atlas
 
 from tit.blender.config import RegionConfig
 from tit.blender.io import (

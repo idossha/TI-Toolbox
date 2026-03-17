@@ -674,7 +674,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             if not subject_id or not atlas or not m2m:
                 return
             try:
-                from simnibs.utils.transformations import subject_atlas
+                from simnibs import subject_atlas
 
                 atlas_map = subject_atlas(atlas, m2m)
             except (ImportError, OSError, ValueError):
