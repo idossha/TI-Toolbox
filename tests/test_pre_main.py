@@ -13,9 +13,10 @@ class TestMain:
 
     @patch(f"{MODULE}.sys.exit")
     @patch(f"{MODULE}.run_pipeline", return_value=0)
+    @patch(f"{MODULE}.get_path_manager")
     @patch("tit.logger.add_stream_handler")
     @patch(f"{MODULE}.sys.argv", ["__main__", "/tmp/config.json"])
-    def test_success(self, mock_handler, mock_pipeline, mock_exit):
+    def test_success(self, mock_handler, mock_gpm, mock_pipeline, mock_exit):
         config = {
             "project_dir": "/proj",
             "subject_ids": ["001"],
@@ -25,14 +26,16 @@ class TestMain:
 
             main()
 
+        mock_gpm.assert_called_once_with("/proj")
         mock_pipeline.assert_called_once()
         mock_exit.assert_called_once_with(0)
 
     @patch(f"{MODULE}.sys.exit")
     @patch(f"{MODULE}.run_pipeline", return_value=1)
+    @patch(f"{MODULE}.get_path_manager")
     @patch("tit.logger.add_stream_handler")
     @patch(f"{MODULE}.sys.argv", ["__main__", "/tmp/config.json"])
-    def test_failure_exit_code(self, mock_handler, mock_pipeline, mock_exit):
+    def test_failure_exit_code(self, mock_handler, mock_gpm, mock_pipeline, mock_exit):
         config = {
             "project_dir": "/proj",
             "subject_ids": ["001"],
@@ -46,9 +49,10 @@ class TestMain:
 
     @patch(f"{MODULE}.sys.exit")
     @patch(f"{MODULE}.run_pipeline", return_value=0)
+    @patch(f"{MODULE}.get_path_manager")
     @patch("tit.logger.add_stream_handler")
     @patch(f"{MODULE}.sys.argv", ["__main__", "/tmp/config.json"])
-    def test_all_config_options(self, mock_handler, mock_pipeline, mock_exit):
+    def test_all_config_options(self, mock_handler, mock_gpm, mock_pipeline, mock_exit):
         config = {
             "project_dir": "/proj",
             "subject_ids": ["001", "002"],
@@ -78,9 +82,10 @@ class TestMain:
 
     @patch(f"{MODULE}.sys.exit")
     @patch(f"{MODULE}.run_pipeline", return_value=0)
+    @patch(f"{MODULE}.get_path_manager")
     @patch("tit.logger.add_stream_handler")
     @patch(f"{MODULE}.sys.argv", ["__main__", "/tmp/config.json"])
-    def test_optional_defaults(self, mock_handler, mock_pipeline, mock_exit):
+    def test_optional_defaults(self, mock_handler, mock_gpm, mock_pipeline, mock_exit):
         """Missing optional keys default to False/None."""
         config = {
             "project_dir": "/proj",

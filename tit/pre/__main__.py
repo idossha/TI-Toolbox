@@ -4,6 +4,7 @@
 import json
 import sys
 
+from tit.paths import get_path_manager
 from tit.pre.structural import run_pipeline
 
 
@@ -17,8 +18,9 @@ def main() -> None:
     setup_logging()
     add_stream_handler("tit.pre")
 
+    get_path_manager(data.pop("project_dir"))
+
     exit_code = run_pipeline(
-        project_dir=data["project_dir"],
         subject_ids=data["subject_ids"],
         convert_dicom=data.get("convert_dicom", False),
         run_recon=data.get("run_recon", False),
