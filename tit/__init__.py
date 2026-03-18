@@ -13,24 +13,12 @@ from . import paths, constants
 from .logger import setup_logging, add_file_handler, add_stream_handler
 from .paths import get_path_manager
 
-
-def init(level: str = "INFO") -> None:
-    """One-call setup for scripts: configure logging and enable terminal output.
-
-    Equivalent to::
-
-        setup_logging(level)
-        add_stream_handler("tit", level)
-
-    Call this at the top of any script that uses the ``tit`` package
-    to get sensible defaults with no extra boilerplate.
-    """
-    setup_logging(level)
-    add_stream_handler("tit", level)
-
+# Auto-initialize logging with terminal output on import.
+# Scripts need no explicit setup — just ``from tit.sim import ...`` and go.
+setup_logging("INFO")
+add_stream_handler("tit", "INFO")
 
 __all__ = [
-    "init",
     "setup_logging",
     "add_file_handler",
     "add_stream_handler",

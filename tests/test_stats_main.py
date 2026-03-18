@@ -100,7 +100,6 @@ class TestGroupComparisonValidation:
             ValueError, match="at least one responder and one non-responder"
         ):
             GroupComparisonConfig(
-                project_dir="/data/project",
                 analysis_name="test",
                 subjects=subjects,
             )
@@ -114,7 +113,6 @@ class TestGroupComparisonValidation:
             ValueError, match="at least one responder and one non-responder"
         ):
             GroupComparisonConfig(
-                project_dir="/data/project",
                 analysis_name="test",
                 subjects=subjects,
             )
@@ -124,7 +122,6 @@ class TestGroupComparisonValidation:
             ValueError, match="at least one responder and one non-responder"
         ):
             GroupComparisonConfig(
-                project_dir="/data/project",
                 analysis_name="test",
                 subjects=[],
             )
@@ -154,7 +151,6 @@ class TestConfigTissueTypes:
 
     def test_group_white_tissue_type(self):
         cfg = GroupComparisonConfig(
-            project_dir="/data",
             analysis_name="test",
             subjects=self._make_group_subjects(),
             tissue_type=GroupComparisonConfig.TissueType.WHITE,
@@ -166,7 +162,6 @@ class TestConfigTissueTypes:
 
     def test_group_all_tissue_type(self):
         cfg = GroupComparisonConfig(
-            project_dir="/data",
             analysis_name="test",
             subjects=self._make_group_subjects(),
             tissue_type=GroupComparisonConfig.TissueType.ALL,
@@ -177,7 +172,6 @@ class TestConfigTissueTypes:
 
     def test_corr_white_tissue_type(self):
         cfg = CorrelationConfig(
-            project_dir="/data",
             analysis_name="test",
             subjects=self._make_corr_subjects(),
             tissue_type=CorrelationConfig.TissueType.WHITE,
@@ -189,7 +183,6 @@ class TestConfigTissueTypes:
 
     def test_corr_all_tissue_type(self):
         cfg = CorrelationConfig(
-            project_dir="/data",
             analysis_name="test",
             subjects=self._make_corr_subjects(),
             tissue_type=CorrelationConfig.TissueType.ALL,
@@ -405,8 +398,9 @@ class TestMain:
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")
     @patch("tit.logger.setup_logging")
+    @patch("tit.paths.get_path_manager")
     def test_main_group_comparison_mode(
-        self, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
+        self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
         data = {
             "mode": "group_comparison",
@@ -426,17 +420,18 @@ class TestMain:
         mock_stream.assert_called_once_with("tit.stats")
         mock_gc.assert_called_once()
         mock_corr.assert_not_called()
-        # Verify the data dict passed to _run_group_comparison has mode popped
+        # Verify the data dict passed to _run_group_comparison has mode and project_dir popped
         call_data = mock_gc.call_args[0][0]
         assert "mode" not in call_data
-        assert call_data["project_dir"] == "/data/project"
+        assert "project_dir" not in call_data
 
     @patch("tit.stats.__main__._run_group_comparison")
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")
     @patch("tit.logger.setup_logging")
+    @patch("tit.paths.get_path_manager")
     def test_main_correlation_mode(
-        self, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
+        self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
         data = {
             "mode": "correlation",
@@ -460,8 +455,9 @@ class TestMain:
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")
     @patch("tit.logger.setup_logging")
+    @patch("tit.paths.get_path_manager")
     def test_main_default_mode_is_group_comparison(
-        self, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
+        self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
         """When 'mode' key is absent, should default to group_comparison."""
         data = {

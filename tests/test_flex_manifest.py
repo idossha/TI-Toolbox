@@ -34,7 +34,6 @@ from tit.opt.flex.utils import (
 def _make_config(roi, goal="mean", postproc="max_TI", **kwargs):
     return FlexConfig(
         subject_id="001",
-        project_dir="/tmp/project",
         goal=goal,
         postproc=postproc,
         current_mA=2.0,

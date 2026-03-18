@@ -6,10 +6,9 @@ By Ido Haber
 March 2026
 """
 
-import tit
+import os
 
-tit.init()
-
+from tit.paths import get_path_manager
 from tit.blender import (
     MontageConfig,
     VectorConfig,
@@ -19,7 +18,8 @@ from tit.blender import (
     run_regions,
 )
 
-PROJECT_DIR = "/mnt/000"
+pm = get_path_manager()
+
 SUBJECTS = ["ernie"]
 SIMULATION = "L_Insula"
 
@@ -29,7 +29,6 @@ for subject_id in SUBJECTS:
     config = MontageConfig(
         subject_id=subject_id,
         simulation_name=SIMULATION,
-        project_dir=PROJECT_DIR,
         export_glb=True,
         electrode_diameter_mm=10.0,
         electrode_height_mm=6.0,
@@ -40,12 +39,12 @@ for subject_id in SUBJECTS:
 # ── 2. Vector Field Export ───────────────────────────────────────────────────
 
 for subject_id in SUBJECTS:
-    sim_base = f"{PROJECT_DIR}/derivatives/SimNIBS/sub-{subject_id}/Simulations/{SIMULATION}"
+    sim_base = pm.simulation(subject_id, SIMULATION)
     config = VectorConfig(
-        mesh1=f"{sim_base}/high_Frequency/mesh/{subject_id}_TDCS_1_scalar.msh",
-        mesh2=f"{sim_base}/high_Frequency/mesh/{subject_id}_TDCS_2_scalar.msh",
-        output_dir=f"{PROJECT_DIR}/derivatives/ti-toolbox/visual_exports/sub-{subject_id}/{SIMULATION}/vectors",
-        central_surface=f"{sim_base}/TI/mesh/surfaces/{SIMULATION}_TI_central.msh",
+        mesh1=os.path.join(sim_base, "high_Frequency", "mesh", f"{subject_id}_TDCS_1_scalar.msh"),
+        mesh2=os.path.join(sim_base, "high_Frequency", "mesh", f"{subject_id}_TDCS_2_scalar.msh"),
+        output_dir=os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{subject_id}", SIMULATION, "vectors"),
+        central_surface=pm.ti_central_surface(subject_id, SIMULATION),
         export_ti_normal=True,
         count=50_000,
     )
@@ -54,11 +53,10 @@ for subject_id in SUBJECTS:
 # ── 3. Cortical Region Export ────────────────────────────────────────────────
 
 for subject_id in SUBJECTS:
-    sim_base = f"{PROJECT_DIR}/derivatives/SimNIBS/sub-{subject_id}/Simulations/{SIMULATION}"
     config = RegionConfig(
-        m2m_dir=f"{PROJECT_DIR}/derivatives/SimNIBS/sub-{subject_id}/m2m_{subject_id}",
-        output_dir=f"{PROJECT_DIR}/derivatives/ti-toolbox/visual_exports/sub-{subject_id}/{SIMULATION}/ply",
-        mesh=f"{sim_base}/TI/mesh/surfaces/{SIMULATION}_TI_central.msh",
+        m2m_dir=pm.m2m(subject_id),
+        output_dir=os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{subject_id}", SIMULATION, "ply"),
+        mesh=pm.ti_central_surface(subject_id, SIMULATION),
         format=RegionConfig.Format.PLY,
         atlas="DK40",
         field_name="TI_max",

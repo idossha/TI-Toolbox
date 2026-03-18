@@ -1,15 +1,10 @@
 #!/usr/bin/env simnibs_python
 
-import tit
-tit.init()
-
 from tit.pre import run_pipeline
 
-PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["ernie"]
 
 run_pipeline(
-    project_dir=PROJECT_DIR,
     subject_ids=SUBJECTS,
 
     # Structural pipeline

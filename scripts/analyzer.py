@@ -1,15 +1,11 @@
 #!/usr/bin/env simnibs_python
 
-import tit
-tit.init()
-
 from tit.analyzer import (
     Analyzer,
     AnalysisResult,
     run_group_analysis,
 )
 
-PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["101", "ernie"]
 
 # -- Single-subject spherical analysis ----------------------------------------

@@ -208,7 +208,6 @@ class TestSimulationConfig:
     def test_basic_creation(self):
         config = SimulationConfig(
             subject_id="001",
-            project_dir="/path/to/project",
             montages=[],
             conductivity="dir",
         )
@@ -219,7 +218,6 @@ class TestSimulationConfig:
     def test_default_values(self):
         config = SimulationConfig(
             subject_id="001",
-            project_dir="/path/to/project",
             montages=[],
         )
         assert config.conductivity == "scalar"
@@ -231,7 +229,6 @@ class TestSimulationConfig:
     def test_default_mapping_options(self):
         config = SimulationConfig(
             subject_id="001",
-            project_dir="/path/to/project",
             montages=[],
         )
         assert config.map_to_surf is True
@@ -242,7 +239,6 @@ class TestSimulationConfig:
     def test_custom_electrode_fields(self):
         config = SimulationConfig(
             subject_id="001",
-            project_dir="/path/to/project",
             montages=[],
             electrode_shape="rect",
             electrode_dimensions=[10.0, 12.0],
@@ -258,7 +254,6 @@ class TestSimulationConfig:
         with pytest.raises(ValueError, match="Invalid conductivity"):
             SimulationConfig(
                 subject_id="001",
-                project_dir="/path/to/project",
                 montages=[],
                 conductivity="invalid",
             )
@@ -267,7 +262,6 @@ class TestSimulationConfig:
         for cond in ("scalar", "vn", "dir", "mc"):
             config = SimulationConfig(
                 subject_id="001",
-                project_dir="/path/to/project",
                 montages=[],
                 conductivity=cond,
             )
@@ -282,7 +276,6 @@ class TestSimulationConfig:
         )
         config = SimulationConfig(
             subject_id="001",
-            project_dir="/path/to/project",
             montages=[m],
         )
         assert len(config.montages) == 1

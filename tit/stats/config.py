@@ -62,7 +62,6 @@ class GroupComparisonConfig:
         response: int  # 0 or 1
 
     # ── Fields ────────────────────────────────────────────────────────
-    project_dir: str
     analysis_name: str
     subjects: list[Subject]
 
@@ -149,7 +148,6 @@ class CorrelationConfig:
         weight: float = 1.0
 
     # ── Fields ────────────────────────────────────────────────────────
-    project_dir: str
     analysis_name: str
     subjects: list[Subject]
 

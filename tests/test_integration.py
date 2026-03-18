@@ -56,7 +56,6 @@ class TestSimConfigMontageFlow:
 
         config = SimulationConfig(
             subject_id="001",
-            project_dir=str(tmp_project),
             conductivity="scalar",
             intensities=[1.0, 1.0],
             montages=[montage],
@@ -94,7 +93,6 @@ class TestOptConfigWithSphericalROI:
 
         config = FlexConfig(
             subject_id="001",
-            project_dir=str(tmp_project),
             goal=FlexConfig.OptGoal.MEAN,
             postproc=FlexConfig.FieldPostproc.MAX_TI,
             current_mA=2.0,

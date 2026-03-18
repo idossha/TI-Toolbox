@@ -53,8 +53,16 @@ def serialize_config(config: Any) -> dict[str, Any]:
     - Nested dataclasses (recursed)
     - Union-typed ROI / electrode specs (adds ``_type`` discriminator)
     - None values (preserved)
+
+    Also injects ``project_dir`` from the active PathManager so that
+    subprocess entry points can initialise their own PathManager.
     """
-    return _serialize(config)
+    data = _serialize(config)
+    # Inject project_dir for subprocess entry points
+    from tit.paths import get_path_manager
+
+    data["project_dir"] = get_path_manager().project_dir
+    return data
 
 
 def write_config_json(config: Any, prefix: str = "config") -> str:

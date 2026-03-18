@@ -242,7 +242,6 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj",
                 ["001", "002"],
                 run_recon=True,
                 parallel_recon=True,
@@ -260,7 +259,6 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj",
                 ["001", "002"],
                 run_recon=True,
                 parallel_recon=True,
@@ -279,7 +277,6 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj",
                 ["001", "002"],
                 run_recon=True,
                 parallel_recon=True,
@@ -302,7 +299,6 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             result = run_pipeline(
-                "/proj",
                 ["001", "002"],
                 run_recon=True,
                 parallel_recon=True,
@@ -321,7 +317,6 @@ class TestRunPipelineParallelRecon:
         ):
             self._setup_executor(mock_exec, mock_ac)
             run_pipeline(
-                "/proj",
                 ["001", "002"],
                 run_recon=True,
                 parallel_recon=True,
@@ -348,7 +343,6 @@ class TestRunPipelineReports:
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             result = run_pipeline(
-                "/proj",
                 ["001", "002"],
                 convert_dicom=True,
                 runner=_make_runner(),
@@ -366,7 +360,7 @@ class TestRunPipelineReports:
         self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline("/proj", ["001"], convert_dicom=True, runner=_make_runner())
+            run_pipeline(["001"], convert_dicom=True, runner=_make_runner())
         step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
         assert "DICOM Conversion" in step_names
 
@@ -378,7 +372,7 @@ class TestRunPipelineReports:
         self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
-            run_pipeline("/proj", ["001"], create_m2m=True, runner=_make_runner())
+            run_pipeline(["001"], create_m2m=True, runner=_make_runner())
         step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
         assert "SimNIBS charm" in step_names
         assert "Subject Atlas Segmentation" in step_names
@@ -392,7 +386,6 @@ class TestRunPipelineReports:
     ):
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj",
                 ["001"],
                 convert_dicom=True,
                 create_m2m=True,
@@ -425,7 +418,6 @@ class TestRunPipelineReports:
         callback = MagicMock()
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj",
                 ["001"],
                 convert_dicom=True,
                 runner=_make_runner(),
@@ -456,7 +448,6 @@ class TestRunPipelineRunnerStopEvent:
 
         with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
             run_pipeline(
-                "/proj",
                 ["001"],
                 convert_dicom=True,
                 runner=runner,
@@ -475,8 +466,8 @@ class TestRunPipelineValidation:
 
     def test_empty_subject_list_raises(self):
         with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline("/proj", [])
+            run_pipeline([])
 
     def test_whitespace_only_subjects_raises(self):
         with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline("/proj", ["", "  ", "\t"])
+            run_pipeline(["", "  ", "\t"])

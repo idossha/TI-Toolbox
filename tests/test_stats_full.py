@@ -359,7 +359,6 @@ class TestCorrelationConfigPostInit:
     def test_sets_default_nifti_pattern(self):
         """nifti_file_pattern defaults based on tissue_type."""
         cfg = CorrelationConfig(
-            project_dir="/proj",
             analysis_name="test",
             subjects=self._make_subjects(3),
         )
@@ -369,7 +368,6 @@ class TestCorrelationConfigPostInit:
         """Raise ValueError with fewer than 3 subjects."""
         with pytest.raises(ValueError, match="at least 3 subjects"):
             CorrelationConfig(
-                project_dir="/proj",
                 analysis_name="test",
                 subjects=self._make_subjects(2),
             )
@@ -377,7 +375,6 @@ class TestCorrelationConfigPostInit:
     def test_exactly_3_subjects_ok(self):
         """Exactly 3 subjects is valid."""
         cfg = CorrelationConfig(
-            project_dir="/proj",
             analysis_name="test",
             subjects=self._make_subjects(3),
         )
@@ -386,7 +383,6 @@ class TestCorrelationConfigPostInit:
     def test_custom_nifti_pattern_preserved(self):
         """Explicit nifti_file_pattern is not overwritten."""
         cfg = CorrelationConfig(
-            project_dir="/proj",
             analysis_name="test",
             subjects=self._make_subjects(4),
             nifti_file_pattern="custom_{simulation_name}.nii.gz",

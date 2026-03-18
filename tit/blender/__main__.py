@@ -34,14 +34,16 @@ def main() -> int:
     with open(config_path) as f:
         data = json.load(f)
 
+    from tit.paths import get_path_manager
+
+    get_path_manager(data.pop("project_dir"))
+
     mode = data.pop("_type", None)
 
     if mode == "MontageConfig":
         from tit.blender.montage_publication import run_montage
         from tit.blender.config import MontageConfig
-        from tit.paths import get_path_manager
 
-        get_path_manager(data.get("project_dir"))
         config = MontageConfig(**data)
         run_montage(config, logger_override=logger)
         return 0

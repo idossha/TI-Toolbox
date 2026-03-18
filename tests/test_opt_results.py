@@ -37,7 +37,6 @@ def _make_config(roi="region"):
     """Build a real ExConfig for testing process_and_save."""
     return ExConfig(
         subject_id="001",
-        project_dir="/proj",
         leadfield_hdf="/lf.hdf5",
         roi_name=roi,
         electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),

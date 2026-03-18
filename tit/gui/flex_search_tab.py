@@ -837,7 +837,6 @@ class FlexSearchTab(QtWidgets.QWidget):
     def _build_flex_config(
         self,
         subject_id: str,
-        project_dir: str,
         roi_params: dict,
         goal: str,
         postproc: str,
@@ -851,6 +850,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         anisotropy_type: str = "scalar",
     ) -> FlexConfig:
         """Build a FlexConfig dataclass from UI widget values and parameters."""
+        project_dir = get_path_manager().project_dir
         roi = self._build_roi_from_ui(subject_id, project_dir, roi_params)
         electrode = self._build_electrode_config(electrode_shape, dimensions, thickness)
 
@@ -885,7 +885,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         return FlexConfig(
             subject_id=subject_id,
-            project_dir=project_dir,
             goal=OptGoal(goal),
             postproc=FieldPostproc(postproc),
             anisotropy_type=anisotropy_type,
@@ -1020,7 +1019,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         config = self._build_flex_config(
             subject_id=subject_id,
-            project_dir=project_dir,
             roi_params=roi_params,
             goal=goal,
             postproc=postproc,
@@ -1318,7 +1316,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Build mean FlexConfig for step 1
         mean_config = self._build_flex_config(
             subject_id=subject_id,
-            project_dir=project_dir,
             roi_params=roi_params,
             goal="mean",
             postproc=postproc,
@@ -1410,7 +1407,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         pm = get_path_manager()
         focality_config = self._build_flex_config(
             subject_id=state["subject_id"],
-            project_dir=pm.project_dir,
             roi_params=state["roi_params"],
             goal="focality",
             postproc=state["postproc"],
@@ -1503,7 +1499,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         sweep_config = self._build_flex_config(
             subject_id=state["subject_id"],
-            project_dir=project_dir,
             roi_params=state["roi_params"],
             goal="focality",
             postproc=state["postproc"],

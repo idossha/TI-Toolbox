@@ -40,7 +40,6 @@ FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 def _make_flex_config(**overrides):
     defaults = dict(
         subject_id="001",
-        project_dir="/proj",
         goal="mean",
         postproc="max_TI",
         current_mA=2.0,

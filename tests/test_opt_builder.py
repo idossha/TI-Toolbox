@@ -39,7 +39,6 @@ FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 def _make_config(**overrides):
     defaults = dict(
         subject_id="001",
-        project_dir="/proj",
         goal="mean",
         postproc="max_TI",
         current_mA=2.0,
@@ -331,7 +330,8 @@ class TestGenerateReport:
 
     def test_generate_report_basic(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             pos_path = tmp_path / "electrode_positions.json"
@@ -358,7 +358,8 @@ class TestGenerateReport:
 
     def test_generate_report_single_run(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             generate_report(
@@ -368,7 +369,8 @@ class TestGenerateReport:
 
     def test_generate_report_all_failed(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             generate_report(
@@ -383,7 +385,8 @@ class TestGenerateReport:
 
     def test_generate_report_atlas_roi(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             config = _make_config(
@@ -394,7 +397,8 @@ class TestGenerateReport:
 
     def test_generate_report_subcortical_roi(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             config = _make_config(
@@ -405,7 +409,8 @@ class TestGenerateReport:
 
     def test_generate_report_focality_with_non_roi(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()
-        with patcher:
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
             from tit.opt.flex.builder import generate_report
 
             config = _make_config(

@@ -1257,7 +1257,7 @@ class TestPermutationHelpers:
         from tit.stats.permutation import _resolve_output_dir
 
         output_dir = _resolve_output_dir(
-            str(tmp_project), "group_comparison", "my_analysis"
+            "group_comparison", "my_analysis"
         )
 
         assert os.path.isdir(output_dir)
@@ -1300,7 +1300,6 @@ class TestRunGroupComparison:
             GroupComparisonConfig.Subject("006", "sim6", 0),
         ]
         return GroupComparisonConfig(
-            project_dir=str(tmp_path),
             analysis_name="test_gc",
             subjects=subjects,
             n_permutations=10,
@@ -1309,7 +1308,7 @@ class TestRunGroupComparison:
             cluster_threshold=0.05,
         )
 
-    def test_run_group_comparison_full(self, tmp_project):
+    def test_run_group_comparison_full(self, tmp_project, init_pm):
         """Full run_group_comparison with mocked data loading."""
         cfg = self._make_config(tmp_project)
 
@@ -1348,7 +1347,7 @@ class TestRunGroupComparison:
         assert result.n_responders == 3
         assert result.n_non_responders == 3
 
-    def test_run_group_comparison_stop_callback(self, tmp_project):
+    def test_run_group_comparison_stop_callback(self, tmp_project, init_pm):
         """Stop callback aborts the run."""
         cfg = self._make_config(tmp_project)
 
@@ -1390,7 +1389,6 @@ class TestRunCorrelation:
             CorrelationConfig.Subject("005", "sim5", 2.5),
         ]
         return CorrelationConfig(
-            project_dir=str(tmp_path),
             analysis_name="test_corr",
             subjects=subjects,
             n_permutations=10,
@@ -1400,7 +1398,7 @@ class TestRunCorrelation:
             use_weights=False,
         )
 
-    def test_run_correlation_full(self, tmp_project):
+    def test_run_correlation_full(self, tmp_project, init_pm):
         """Full run_correlation with mocked data loading."""
         cfg = self._make_config(tmp_project)
 
@@ -1442,7 +1440,7 @@ class TestRunCorrelation:
         assert result.success is True
         assert result.n_subjects == 5
 
-    def test_run_correlation_stop_callback(self, tmp_project):
+    def test_run_correlation_stop_callback(self, tmp_project, init_pm):
         """Stop callback aborts correlation run."""
         cfg = self._make_config(tmp_project)
 
@@ -1466,7 +1464,7 @@ class TestRunCorrelation:
             with pytest.raises(KeyboardInterrupt, match="Stopped by user"):
                 run_correlation(cfg, stop_callback=stop_cb)
 
-    def test_run_correlation_with_weights(self, tmp_project):
+    def test_run_correlation_with_weights(self, tmp_project, init_pm):
         """Weighted correlation analysis runs to completion."""
         subjects = [
             CorrelationConfig.Subject("001", "sim1", 0.5, weight=1.0),
@@ -1476,7 +1474,6 @@ class TestRunCorrelation:
             CorrelationConfig.Subject("005", "sim5", 2.5, weight=2.0),
         ]
         cfg = CorrelationConfig(
-            project_dir=str(tmp_project),
             analysis_name="test_corr_weighted",
             subjects=subjects,
             n_permutations=10,

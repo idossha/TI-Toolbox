@@ -40,14 +40,13 @@ def main() -> None:
     with open(config_path) as f:
         data = json.load(f)
 
-    get_path_manager(data["project_dir"])
+    get_path_manager(data.pop("project_dir"))
 
     montages_data = data.pop("montages")
     montages = [_build_montage(m) for m in montages_data]
 
     config = SimulationConfig(
         subject_id=data["subject_id"],
-        project_dir=data["project_dir"],
         montages=montages,
         conductivity=data.get("conductivity", "scalar"),
         intensities=data.get("intensities", [1.0, 1.0]),

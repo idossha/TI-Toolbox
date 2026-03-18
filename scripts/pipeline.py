@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Full TI-Toolbox pipeline: 
+Full TI-Toolbox pipeline:
 
     preprocess -> optimize -> simulate -> analyze.
 
@@ -8,23 +8,17 @@ By Ido Haber
 March 2026
 """
 
-import tit
-
-tit.init()
-
 from tit.pre import run_pipeline
 from tit.opt import FlexConfig, run_flex_search
 from tit.sim import SimulationConfig, run_simulation, load_montages
 from tit.analyzer import Analyzer
 
-PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["ernie"]
 EEG_NET = "GSN-HydroCel-185.csv"
 
 # ── 1. Preprocessing ─────────────────────────────────────────────────────────
 
 run_pipeline(
-    project_dir=PROJECT_DIR,
     subject_ids=SUBJECTS,
     convert_dicom=False,
     run_recon=False,
@@ -37,7 +31,6 @@ run_pipeline(
 for subject_id in SUBJECTS:
     flex_config = FlexConfig(
         subject_id=subject_id,
-        project_dir=PROJECT_DIR,
         goal="mean",
         postproc="max_TI",
         current_mA=2.0,
@@ -52,14 +45,12 @@ for subject_id in SUBJECTS:
 
 montages = load_montages(
     montage_names=["L_Insula"],
-    project_dir=PROJECT_DIR,
     eeg_net=EEG_NET,
 )
 
 for subject_id in SUBJECTS:
     config = SimulationConfig(
         subject_id=subject_id,
-        project_dir=PROJECT_DIR,
         montages=montages,
         conductivity="scalar",
         intensities=[1.0, 1.0],

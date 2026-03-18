@@ -89,9 +89,10 @@ class TestExMainBuildElectrodes:
 
 @pytest.mark.unit
 class TestExMainFunction:
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.ex.__main__.run_ex_search")
     @patch("tit.opt.ex.__main__._make_stdout_logger")
-    def test_main_success(self, mock_logger, mock_run, tmp_path):
+    def test_main_success(self, mock_logger, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import ExResult
 
         mock_run.return_value = ExResult(
@@ -122,9 +123,10 @@ class TestExMainFunction:
                 main()
             assert exc_info.value.code == 0
 
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.ex.__main__.run_ex_search")
     @patch("tit.opt.ex.__main__._make_stdout_logger")
-    def test_main_failure(self, mock_logger, mock_run, tmp_path):
+    def test_main_failure(self, mock_logger, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import ExResult
 
         mock_run.return_value = ExResult(
@@ -152,9 +154,10 @@ class TestExMainFunction:
                 main()
             assert exc_info.value.code == 1
 
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.ex.__main__.run_ex_search")
     @patch("tit.opt.ex.__main__._make_stdout_logger")
-    def test_main_no_currents(self, mock_logger, mock_run, tmp_path):
+    def test_main_no_currents(self, mock_logger, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import ExResult
 
         mock_run.return_value = ExResult(
@@ -248,8 +251,9 @@ class TestFlexMainBuildROI:
 
 @pytest.mark.unit
 class TestFlexMainFunction:
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.flex.__main__.run_flex_search")
-    def test_main_success(self, mock_run, tmp_path):
+    def test_main_success(self, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import FlexResult
 
         mock_run.return_value = FlexResult(
@@ -289,8 +293,9 @@ class TestFlexMainFunction:
                     main()
                 assert exc_info.value.code == 0
 
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.flex.__main__.run_flex_search")
-    def test_main_failure(self, mock_run, tmp_path):
+    def test_main_failure(self, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import FlexResult
 
         mock_run.return_value = FlexResult(
@@ -330,8 +335,9 @@ class TestFlexMainFunction:
                     main()
                 assert exc_info.value.code == 1
 
+    @patch("tit.paths.get_path_manager")
     @patch("tit.opt.flex.__main__.run_flex_search")
-    def test_main_with_non_roi(self, mock_run, tmp_path):
+    def test_main_with_non_roi(self, mock_run, mock_gpm, tmp_path):
         from tit.opt.config import FlexResult
 
         mock_run.return_value = FlexResult(

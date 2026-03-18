@@ -112,7 +112,6 @@ def _montage(**overrides):
     defaults = dict(
         subject_id="001",
         simulation_name="sim_A",
-        project_dir="/project",
     )
     defaults.update(overrides)
     return MontageConfig(**defaults)
@@ -125,7 +124,6 @@ class TestMontageConfig:
         cfg = _montage()
         assert cfg.subject_id == "001"
         assert cfg.simulation_name == "sim_A"
-        assert cfg.project_dir == "/project"
 
     def test_default_values(self):
         cfg = _montage()
@@ -164,10 +162,6 @@ class TestMontageConfig:
     def test_empty_simulation_name_raises(self):
         with pytest.raises(ValueError, match="simulation_name is required"):
             _montage(simulation_name="")
-
-    def test_empty_project_dir_raises(self):
-        with pytest.raises(ValueError, match="project_dir is required"):
-            _montage(project_dir="")
 
     def test_negative_electrode_diameter_raises(self):
         with pytest.raises(ValueError, match="electrode_diameter_mm must be > 0"):

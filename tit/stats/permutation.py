@@ -63,10 +63,8 @@ def _setup_logger(output_dir: str, analysis_type: str, callback_handler=None):
     return log, log_file
 
 
-def _resolve_output_dir(
-    project_dir: str, analysis_type: str, analysis_name: str
-) -> str:
-    pm = get_path_manager(project_dir)
+def _resolve_output_dir(analysis_type: str, analysis_name: str) -> str:
+    pm = get_path_manager()
     return pm.ensure(pm.stats_output(analysis_type, analysis_name))
 
 
@@ -96,7 +94,6 @@ def run_group_comparison(
     """
     t0 = time.time()
     output_dir = _resolve_output_dir(
-        config.project_dir,
         "group_comparison",
         config.analysis_name,
     )
@@ -344,7 +341,6 @@ def run_correlation(
     """
     t0 = time.time()
     output_dir = _resolve_output_dir(
-        config.project_dir,
         "correlation",
         config.analysis_name,
     )

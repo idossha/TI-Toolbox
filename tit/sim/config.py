@@ -55,7 +55,6 @@ _VALID_CONDUCTIVITIES = {"scalar", "vn", "dir", "mc"}
 @dataclass
 class SimulationConfig:
     subject_id: str
-    project_dir: str
     montages: list[Montage]
     conductivity: str = "scalar"
     intensities: list[float] = field(default_factory=lambda: [1.0, 1.0])

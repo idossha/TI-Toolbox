@@ -1108,7 +1108,6 @@ class AnalysisThread(QtCore.QThread):
                     for s in self.subject_configs
                 ]
                 typed_config = GroupComparisonConfig(
-                    project_dir=project_dir,
                     analysis_name=self.analysis_name,
                     subjects=subjects,
                     test_type=self.config.get("test_type", "unpaired"),
@@ -1136,7 +1135,6 @@ class AnalysisThread(QtCore.QThread):
                     for s in self.subject_configs
                 ]
                 typed_config = CorrelationConfig(
-                    project_dir=project_dir,
                     analysis_name=self.analysis_name,
                     subjects=subjects,
                     correlation_type=self.config.get("correlation_type", "pearson"),

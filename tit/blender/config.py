@@ -23,7 +23,6 @@ class MontageConfig:
 
     subject_id: str
     simulation_name: str
-    project_dir: str
     output_dir: str | None = None
     show_full_net: bool = True
     electrode_diameter_mm: float = 10.0
@@ -35,8 +34,6 @@ class MontageConfig:
             raise ValueError("subject_id is required")
         if not (self.simulation_name or "").strip():
             raise ValueError("simulation_name is required")
-        if not (self.project_dir or "").strip():
-            raise ValueError("project_dir is required")
         if self.electrode_diameter_mm <= 0:
             raise ValueError("electrode_diameter_mm must be > 0")
         if self.electrode_height_mm <= 0:

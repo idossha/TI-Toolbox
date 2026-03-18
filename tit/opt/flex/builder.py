@@ -191,9 +191,11 @@ def generate_report(
         logger: Logger instance.
     """
     from tit.reporting import FlexSearchReportGenerator
+    from tit.paths import get_path_manager
 
+    pm = get_path_manager()
     report_gen = FlexSearchReportGenerator(
-        project_dir=config.project_dir,
+        project_dir=pm.project_dir,
         subject_id=config.subject_id,
     )
 

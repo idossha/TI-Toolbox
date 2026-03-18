@@ -30,6 +30,10 @@ def main() -> None:
     with open(config_path) as f:
         data = json.load(f)
 
+    from tit.paths import get_path_manager
+
+    get_path_manager(data.pop("project_dir"))
+
     roi = _build_roi(data.pop("roi"))
     non_roi = _build_roi(data.pop("non_roi", None))
     electrode = FlexConfig.ElectrodeConfig(**data.pop("electrode"))

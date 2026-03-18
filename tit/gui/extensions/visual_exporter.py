@@ -1235,7 +1235,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 montage_config = MontageConfig(
                     subject_id=subject_id,
                     simulation_name=simulation_name,
-                    project_dir=str(project_dir),
                     show_full_net=not self.montage_only_checkbox.isChecked(),
                     electrode_diameter_mm=self.electrode_diameter_spin.value(),
                     electrode_height_mm=self.electrode_height_spin.value(),

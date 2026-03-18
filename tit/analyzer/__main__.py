@@ -17,9 +17,7 @@ def main() -> None:
     with open(config_path) as f:
         data = json.load(f)
 
-    project_dir = data.pop("project_dir", None)
-    if project_dir:
-        get_path_manager(project_dir)
+    get_path_manager(data.pop("project_dir"))
 
     mode = data.pop("mode", "single")
     print(f"Starting {mode} analysis...", flush=True)

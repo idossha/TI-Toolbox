@@ -674,7 +674,7 @@ class SimulatorTab(QtWidgets.QWidget):
             project_dir = self.pm.project_dir
             if not project_dir:
                 return []
-            return list_montage_names(project_dir, eeg_net, mode=sim_mode)
+            return list_montage_names(eeg_net, mode=sim_mode)
         except (OSError, json.JSONDecodeError, KeyError) as e:
             logger.error(f"Error getting montage names: {e}")
             return []
@@ -685,7 +685,7 @@ class SimulatorTab(QtWidgets.QWidget):
             project_dir = self.pm.project_dir
             if not project_dir:
                 return []
-            montage_file = self.ensure_montage_file_exists(project_dir)
+            montage_file = self.ensure_montage_file_exists()
             with open(montage_file, "r") as f:
                 montage_data = json.load(f)
             net_type = (
@@ -793,7 +793,7 @@ class SimulatorTab(QtWidgets.QWidget):
         try:
             project_dir = self.pm.project_dir
             return load_montages(
-                montage_names, project_dir, eeg_net, include_flex=False
+                montage_names, eeg_net, include_flex=False
             )
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             self.update_output(f"Error building montage configs: {e}", "error")
@@ -1006,9 +1006,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
     # ── Legacy compat stubs ─────────────────────────────────────────────────
 
-    def ensure_montage_file_exists(self, project_dir):
+    def ensure_montage_file_exists(self):
         """Ensure the montage file exists with proper structure."""
-        return ensure_montage_file(project_dir)
+        return ensure_montage_file()
 
     def update_montage_list(self, checked=None):
         """Refresh the selection list (called after adding montage)."""
@@ -1234,7 +1234,6 @@ class SimulatorTab(QtWidgets.QWidget):
             montage_list = [mc for _, mc, _ in jobs]
             sim_config = SimulationConfig(
                 subject_id=first_subject,
-                project_dir=project_dir,
                 montages=montage_list,
                 conductivity=conductivity,
                 intensities=parse_intensities(first_current),
@@ -1667,13 +1666,12 @@ class SimulatorTab(QtWidgets.QWidget):
             # Persist montage via shared sim utils (reused by CLI + GUI)
             target_net = montage_data["target_net"]
             upsert_montage(
-                project_dir=project_dir,
                 eeg_net=target_net,
                 montage_name=montage_data["name"],
                 electrode_pairs=montage_data["electrode_pairs"],
                 mode=("U" if montage_data["is_unipolar"] else "M"),
             )
-            montage_file = ensure_montage_file(project_dir)
+            montage_file = ensure_montage_file()
 
             # Format pairs for display
             pairs_text = ", ".join(
@@ -1741,7 +1739,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 )
 
                 # Load, mutate, save via the shared API
-                montage_data = load_montage_data(project_dir)
+                montage_data = load_montage_data()
 
                 # Remove the montage if it exists
                 if (
@@ -1750,7 +1748,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     and montage_name in montage_data["nets"][current_net][montage_type]
                 ):
                     del montage_data["nets"][current_net][montage_type][montage_name]
-                    save_montage_data(project_dir, montage_data)
+                    save_montage_data(montage_data)
 
                     self.update_output(
                         f"Removed montage '{montage_name}' from {montage_type}"

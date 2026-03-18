@@ -1678,13 +1678,12 @@ class ExSearchTab(QtWidgets.QWidget):
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
     def _build_ex_config(
-        self, subject_id, project_dir, roi_name, leadfield_hdf, eeg_net
+        self, subject_id, roi_name, leadfield_hdf, eeg_net
     ):
         """Build an ExConfig dataclass from current UI widget values.
 
         Args:
             subject_id: Subject identifier.
-            project_dir: Project root directory.
             roi_name: ROI name (with or without .csv extension).
             leadfield_hdf: Full path to the leadfield HDF5 file.
             eeg_net: Name of the selected EEG net.
@@ -1704,7 +1703,6 @@ class ExSearchTab(QtWidgets.QWidget):
 
         return ExConfig(
             subject_id=subject_id,
-            project_dir=project_dir,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
             electrodes=electrodes,
@@ -1803,7 +1801,6 @@ class ExSearchTab(QtWidgets.QWidget):
         # Build ExConfig dataclass from UI state
         ex_config = self._build_ex_config(
             subject_id,
-            project_dir,
             roi_name,
             selected_hdf5_path,
             selected_net_name,

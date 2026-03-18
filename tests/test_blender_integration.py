@@ -31,7 +31,6 @@ class TestMontageConfigSerialization:
         cfg = MontageConfig(
             subject_id="001",
             simulation_name="sim_A",
-            project_dir="/proj",
         )
         data = serialize_config(cfg)
         assert data["_type"] == "MontageConfig"
@@ -40,7 +39,6 @@ class TestMontageConfigSerialization:
         cfg = MontageConfig(
             subject_id="001",
             simulation_name="sim_A",
-            project_dir="/proj",
             output_dir="/out",
             show_full_net=False,
             electrode_diameter_mm=12.0,
@@ -50,7 +48,6 @@ class TestMontageConfigSerialization:
         data = serialize_config(cfg)
         assert data["subject_id"] == "001"
         assert data["simulation_name"] == "sim_A"
-        assert data["project_dir"] == "/proj"
         assert data["output_dir"] == "/out"
         assert data["show_full_net"] is False
         assert data["electrode_diameter_mm"] == 12.0
@@ -61,7 +58,6 @@ class TestMontageConfigSerialization:
         cfg = MontageConfig(
             subject_id="001",
             simulation_name="sim_A",
-            project_dir="/proj",
         )
         data = serialize_config(cfg)
         assert data["output_dir"] is None
@@ -178,9 +174,9 @@ class TestMainDispatch:
     def test_montage_dispatch(self, tmp_path):
         config_data = {
             "_type": "MontageConfig",
+            "project_dir": str(tmp_path),
             "subject_id": "001",
             "simulation_name": "sim_A",
-            "project_dir": str(tmp_path),
         }
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config_data))
@@ -205,6 +201,7 @@ class TestMainDispatch:
     def test_vector_dispatch(self, tmp_path):
         config_data = {
             "_type": "VectorConfig",
+            "project_dir": str(tmp_path),
             "mesh1": "/m1.msh",
             "mesh2": "/m2.msh",
             "output_dir": "/out",
@@ -216,6 +213,7 @@ class TestMainDispatch:
         with (
             patch.object(sys, "argv", ["blender", str(config_file)]),
             patch("tit.blender.vector_field_exporter.run_vectors") as mock_run,
+            patch("tit.paths.get_path_manager"),
         ):
             from tit.blender.__main__ import main
 
@@ -230,6 +228,7 @@ class TestMainDispatch:
     def test_region_dispatch(self, tmp_path):
         config_data = {
             "_type": "RegionConfig",
+            "project_dir": str(tmp_path),
             "m2m_dir": "/m2m",
             "output_dir": "/out",
             "mesh": "/mesh.msh",
@@ -240,6 +239,7 @@ class TestMainDispatch:
         with (
             patch.object(sys, "argv", ["blender", str(config_file)]),
             patch("tit.blender.region_exporter.run_regions") as mock_run,
+            patch("tit.paths.get_path_manager"),
         ):
             from tit.blender.__main__ import main
 
@@ -254,6 +254,7 @@ class TestMainDispatch:
     def test_region_coerces_field_range(self, tmp_path):
         config_data = {
             "_type": "RegionConfig",
+            "project_dir": str(tmp_path),
             "m2m_dir": "/m2m",
             "output_dir": "/out",
             "mesh": "/mesh.msh",
@@ -265,6 +266,7 @@ class TestMainDispatch:
         with (
             patch.object(sys, "argv", ["blender", str(config_file)]),
             patch("tit.blender.region_exporter.run_regions") as mock_run,
+            patch("tit.paths.get_path_manager"),
         ):
             from tit.blender.__main__ import main
 
@@ -275,11 +277,14 @@ class TestMainDispatch:
         assert cfg.field_range == (0.0, 5.0)
 
     def test_unknown_type_returns_error(self, tmp_path):
-        config_data = {"_type": "UnknownConfig", "foo": "bar"}
+        config_data = {"_type": "UnknownConfig", "project_dir": str(tmp_path), "foo": "bar"}
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config_data))
 
-        with patch.object(sys, "argv", ["blender", str(config_file)]):
+        with (
+            patch.object(sys, "argv", ["blender", str(config_file)]),
+            patch("tit.paths.get_path_manager"),
+        ):
             from tit.blender.__main__ import main
 
             result = main()
@@ -287,11 +292,14 @@ class TestMainDispatch:
         assert result == 1
 
     def test_missing_type_returns_error(self, tmp_path):
-        config_data = {"foo": "bar"}
+        config_data = {"project_dir": str(tmp_path), "foo": "bar"}
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config_data))
 
-        with patch.object(sys, "argv", ["blender", str(config_file)]):
+        with (
+            patch.object(sys, "argv", ["blender", str(config_file)]),
+            patch("tit.paths.get_path_manager"),
+        ):
             from tit.blender.__main__ import main
 
             result = main()

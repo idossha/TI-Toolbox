@@ -24,7 +24,6 @@ class TestSerializeConfig:
     def test_enum_values_serialized(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal=OptGoal.MEAN,
             postproc=FieldPostproc.MAX_TI,
             current_mA=2.0,
@@ -38,7 +37,6 @@ class TestSerializeConfig:
     def test_spherical_roi_has_type_discriminator(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,
@@ -54,7 +52,6 @@ class TestSerializeConfig:
     def test_atlas_roi_has_type_discriminator(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,
@@ -68,7 +65,6 @@ class TestSerializeConfig:
     def test_subcortical_roi_has_type_discriminator(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,
@@ -82,7 +78,6 @@ class TestSerializeConfig:
     def test_nested_electrode_config(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,
@@ -98,7 +93,6 @@ class TestSerializeConfig:
     def test_none_values_preserved(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,
@@ -125,7 +119,9 @@ class TestSerializeConfig:
     def test_non_dataclass_passthrough(self):
         """serialize_config handles dicts by recursively serializing values."""
         result = serialize_config({"key": "value"})
-        assert result == {"key": "value"}
+        assert result["key"] == "value"
+        # project_dir is always injected from PathManager
+        assert "project_dir" in result
 
 
 # ── write/read round-trip ───────────────────────────────────────────────────
@@ -136,7 +132,6 @@ class TestWriteReadRoundTrip:
     def test_flex_config_roundtrip(self, tmp_path):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp/project",
             goal=OptGoal.MAX,
             postproc=FieldPostproc.DIR_TI_NORMAL,
             current_mA=2.5,
@@ -163,7 +158,6 @@ class TestWriteReadRoundTrip:
     def test_ex_config_roundtrip(self, tmp_path):
         config = ExConfig(
             subject_id="001",
-            project_dir="/tmp/project",
             leadfield_hdf="test.hdf5",
             roi_name="my_roi.csv",
             electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz", "Pz"]),
@@ -182,7 +176,6 @@ class TestWriteReadRoundTrip:
     def test_json_is_valid(self):
         config = FlexConfig(
             subject_id="001",
-            project_dir="/tmp",
             goal="mean",
             postproc="max_TI",
             current_mA=1.0,

@@ -31,14 +31,14 @@ from tit.sim.config import (
 # ── Montage file I/O ────────────────────────────────────────────────────────────────
 
 
-def _montage_list_path(project_dir: str) -> str:
-    pm = get_path_manager(project_dir)
+def _montage_list_path() -> str:
+    pm = get_path_manager()
     return os.path.join(pm.config_dir(), const.FILE_MONTAGE_LIST)
 
 
-def ensure_montage_file(project_dir: str) -> str:
+def ensure_montage_file() -> str:
     """Return path to montage_list.json, creating it with default schema if absent."""
-    path = _montage_list_path(project_dir)
+    path = _montage_list_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -46,45 +46,44 @@ def ensure_montage_file(project_dir: str) -> str:
     return path
 
 
-def load_montage_data(project_dir: str) -> dict:
-    with open(ensure_montage_file(project_dir)) as f:
+def load_montage_data() -> dict:
+    with open(ensure_montage_file()) as f:
         return json.load(f)
 
 
-def save_montage_data(project_dir: str, data: dict) -> None:
-    with open(ensure_montage_file(project_dir), "w") as f:
+def save_montage_data(data: dict) -> None:
+    with open(ensure_montage_file(), "w") as f:
         json.dump(data, f, indent=4)
 
 
-def ensure_eeg_net_entry(project_dir: str, eeg_net: str) -> None:
-    data = load_montage_data(project_dir)
+def ensure_eeg_net_entry(eeg_net: str) -> None:
+    data = load_montage_data()
     data["nets"].setdefault(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
     )
-    save_montage_data(project_dir, data)
+    save_montage_data(data)
 
 
 def upsert_montage(
     *,
-    project_dir: str,
     eeg_net: str,
     montage_name: str,
     electrode_pairs: list[list[str]],
     mode: str,
 ) -> None:
     """mode: 'U' → uni_polar_montages, 'M' → multi_polar_montages"""
-    data = load_montage_data(project_dir)
+    data = load_montage_data()
     net = data["nets"].setdefault(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
     )
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
     net[key][montage_name] = electrode_pairs
-    save_montage_data(project_dir, data)
+    save_montage_data(data)
 
 
-def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> list[str]:
+def list_montage_names(eeg_net: str, *, mode: str) -> list[str]:
     """mode: 'U' or 'M'. Returns [] for missing nets."""
-    data = load_montage_data(project_dir)
+    data = load_montage_data()
     net = data.get("nets", {}).get(eeg_net, {})
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
     return sorted(net.get(key, {}).keys())
@@ -132,11 +131,10 @@ def parse_flex_montage(flex: dict) -> Montage:
 
 def load_montages(
     montage_names: list[str],
-    project_dir: str,
     eeg_net: str,
     include_flex: bool = True,
 ) -> list[Montage]:
-    data = load_montage_data(project_dir)
+    data = load_montage_data()
     net = data.get("nets", {}).get(eeg_net, {})
     uni = net.get("uni_polar_montages", {})
     multi = net.get("multi_polar_montages", {})
@@ -200,7 +198,6 @@ def run_montage_visualization(
     simulation_mode: SimulationMode,
     eeg_net: str,
     output_dir: str,
-    project_dir: str,
     logger,
     electrode_pairs: list | None = None,
 ) -> None:

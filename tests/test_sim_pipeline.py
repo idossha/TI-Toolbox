@@ -37,7 +37,6 @@ def _make_sim_config(**overrides):
     """Build a minimal SimulationConfig for testing."""
     defaults = dict(
         subject_id="001",
-        project_dir="/fake/project",
         conductivity="scalar",
         intensities=[1.0, 1.0],
         montages=[],

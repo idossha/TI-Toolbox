@@ -1,11 +1,7 @@
 #!/usr/bin/env simnibs_python
 
-import tit
-tit.init()
-
 from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
 
-PROJECT_DIR = "/mnt/000/"
 SUBJECTS = ["101"]
 
 # Construct montages explicitly
@@ -22,7 +18,6 @@ montages = [
 for subject_id in SUBJECTS:
     config = SimulationConfig(
         subject_id=subject_id,
-        project_dir=PROJECT_DIR,
         montages=montages,
         conductivity="scalar",
         intensities=[1.0, 1.0],

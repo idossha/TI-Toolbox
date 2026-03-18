@@ -19,7 +19,7 @@ from .results import process_and_save
 def run_ex_search(config: ExConfig) -> ExResult:
     """Run exhaustive search from a typed config object."""
 
-    pm = get_path_manager(config.project_dir)
+    pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)
     os.makedirs(logs_dir, exist_ok=True)
@@ -29,7 +29,7 @@ def run_ex_search(config: ExConfig) -> ExResult:
     logger = logging.getLogger(logger_name)
 
     logger.info(f"{'=' * 60}\nTI Exhaustive Search\n{'=' * 60}")
-    logger.info(f"Project: {config.project_dir}")
+    logger.info(f"Project: {pm.project_dir}")
     logger.info(f"Subject: {config.subject_id}")
 
     run_name = config.run_name or time.strftime("%Y%m%d_%H%M%S")

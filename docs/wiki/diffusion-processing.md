@@ -89,6 +89,7 @@ run_qsiprep(
 | `unringing_method` | Gibbs ringing removal (`mrdegibbs`, `rpg`, `none`) | `"mrdegibbs"` |
 | `skip_bids_validation` | Skip BIDS validation | `True` |
 
+
 ### Output Structure
 
 ```
@@ -224,64 +225,7 @@ Index 4: Dyz (off-diagonal yz)
 Index 5: Dzz (diffusion along z-axis)
 ```
 
-### Verification
 
-After extraction, verify the tensor file is correctly formatted:
-
-```python
-import nibabel as nib
-
-tensor_path = "/path/to/project/derivatives/SimNIBS/sub-101/m2m_101/DTI_coregT1_tensor.nii.gz"
-t1_path = "/path/to/project/derivatives/SimNIBS/sub-101/m2m_101/T1.nii.gz"
-
-tensor = nib.load(tensor_path)
-t1 = nib.load(t1_path)
-
-# Verify dimensions match
-assert tensor.shape[:3] == t1.shape[:3], "Spatial dimensions must match T1"
-assert tensor.shape[3] == 6, "Tensor must have 6 components"
-print("Tensor format verified!")
-```
-
-## Complete Workflow Example
-
-### Full Pipeline
-
-```python
-from tit.pre.qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("dti_pipeline")
-
-project_dir = "/path/to/project"
-subject_id = "101"
-
-# Stage 1: QSIPrep
-run_qsiprep(
-    project_dir=project_dir,
-    subject_id=subject_id,
-    logger=logger,
-    output_resolution=2.0,
-)
-
-# Stage 2: QSIRecon with DSI Studio (recommended for DTI)
-run_qsirecon(
-    project_dir=project_dir,
-    subject_id=subject_id,
-    logger=logger,
-    recon_specs=["dsi_studio_gqi"],
-)
-
-# Stage 3: Extract DTI tensor for SimNIBS
-tensor_path = extract_dti_tensor(
-    project_dir=project_dir,
-    subject_id=subject_id,
-    logger=logger,
-)
-
-logger.info(f"Pipeline complete! Tensor saved to: {tensor_path}")
-```
 
 ## Integration with Simulations
 

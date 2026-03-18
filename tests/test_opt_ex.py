@@ -24,7 +24,6 @@ from tit.opt.config import (
 def _make_ex_config(**overrides):
     defaults = dict(
         subject_id="001",
-        project_dir="/proj",
         leadfield_hdf="/lf.hdf5",
         roi_name="motor.csv",
         electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2", "E3", "E4"]),

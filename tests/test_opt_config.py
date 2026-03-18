@@ -44,7 +44,6 @@ def _make_flex_config(**overrides):
     """Build a valid FlexConfig with sensible defaults, applying overrides."""
     defaults = dict(
         subject_id="001",
-        project_dir="/proj",
         goal=OptGoal.MEAN,
         postproc=FieldPostproc.MAX_TI,
         current_mA=2.0,
@@ -128,7 +127,6 @@ class TestExConfigValidation:
     def test_flat_current_fields(self):
         cfg = ExConfig(
             subject_id="001",
-            project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
             electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2"]),
@@ -141,7 +139,6 @@ class TestExConfigValidation:
     def test_dict_to_pool_electrodes(self):
         cfg = ExConfig(
             subject_id="001",
-            project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
             electrodes={"electrodes": ["E1", "E2", "E3"]},
@@ -152,7 +149,6 @@ class TestExConfigValidation:
     def test_dict_to_bucket_electrodes(self):
         cfg = ExConfig(
             subject_id="001",
-            project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="region",
             electrodes={
@@ -168,7 +164,6 @@ class TestExConfigValidation:
     def test_roi_name_gets_csv_suffix(self):
         cfg = ExConfig(
             subject_id="001",
-            project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region",
             electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
@@ -178,7 +173,6 @@ class TestExConfigValidation:
     def test_roi_name_keeps_csv_suffix(self):
         cfg = ExConfig(
             subject_id="001",
-            project_dir="/proj",
             leadfield_hdf="/lf.hdf5",
             roi_name="my_region.csv",
             electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
@@ -189,7 +183,6 @@ class TestExConfigValidation:
         with pytest.raises(ValueError, match="current_step must be positive"):
             ExConfig(
                 subject_id="001",
-                project_dir="/proj",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
                 electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
@@ -200,7 +193,6 @@ class TestExConfigValidation:
         with pytest.raises(ValueError, match="total_current must be positive"):
             ExConfig(
                 subject_id="001",
-                project_dir="/proj",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
                 electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
@@ -211,7 +203,6 @@ class TestExConfigValidation:
         with pytest.raises(ValueError, match="channel_limit must be positive"):
             ExConfig(
                 subject_id="001",
-                project_dir="/proj",
                 leadfield_hdf="/lf.hdf5",
                 roi_name="region",
                 electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),

@@ -27,6 +27,10 @@ def main() -> None:
     with open(config_path) as f:
         data = json.load(f)
 
+    from tit.paths import get_path_manager
+
+    get_path_manager(data.pop("project_dir"))
+
     mode = data.pop("mode", "group_comparison")
 
     if mode == "correlation":
@@ -40,7 +44,6 @@ def _run_group_comparison(data: dict) -> None:
 
     subjects = _build_group_subjects(data.pop("subjects"))
     config = GroupComparisonConfig(
-        project_dir=data["project_dir"],
         analysis_name=data["analysis_name"],
         subjects=subjects,
         test_type=GroupComparisonConfig.TestType(data.get("test_type", "unpaired")),
@@ -62,7 +65,6 @@ def _run_correlation(data: dict) -> None:
 
     subjects = _build_correlation_subjects(data.pop("subjects"))
     config = CorrelationConfig(
-        project_dir=data["project_dir"],
         analysis_name=data["analysis_name"],
         subjects=subjects,
         correlation_type=CorrelationConfig.CorrelationType(

@@ -109,11 +109,9 @@ class TestMainConfigs:
     def test_group_comparison_config_construction(self):
         subjects = self._make_group_subjects()
         cfg = GroupComparisonConfig(
-            project_dir="/data/project",
             analysis_name="test_analysis",
             subjects=subjects,
         )
-        assert cfg.project_dir == "/data/project"
         assert cfg.analysis_name == "test_analysis"
         assert len(cfg.subjects) == 2
         # Verify defaults
@@ -135,11 +133,9 @@ class TestMainConfigs:
     def test_correlation_config_construction(self):
         subjects = self._make_correlation_subjects()
         cfg = CorrelationConfig(
-            project_dir="/data/project",
             analysis_name="corr_test",
             subjects=subjects,
         )
-        assert cfg.project_dir == "/data/project"
         assert cfg.analysis_name == "corr_test"
         assert len(cfg.subjects) == 3
         # Verify defaults

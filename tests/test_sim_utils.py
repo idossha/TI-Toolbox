@@ -40,18 +40,18 @@ class TestEnsureMontageFile:
     """ensure_montage_file creates or returns montage_list.json."""
 
     def test_creates_json_if_missing(self, tmp_project, init_pm):
-        path = ensure_montage_file(str(tmp_project))
+        path = ensure_montage_file()
         assert os.path.isfile(path)
         with open(path) as f:
             data = json.load(f)
         assert data == {"nets": {}}
 
     def test_returns_existing_file(self, tmp_project, init_pm):
-        path1 = ensure_montage_file(str(tmp_project))
+        path1 = ensure_montage_file()
         # Write extra data so we can verify it is not overwritten
         with open(path1, "w") as f:
             json.dump({"nets": {"my_net": {}}}, f)
-        path2 = ensure_montage_file(str(tmp_project))
+        path2 = ensure_montage_file()
         assert path1 == path2
         with open(path2) as f:
             data = json.load(f)
@@ -63,7 +63,7 @@ class TestLoadSaveMontageData:
     """Round-trip load/save through montage_list.json."""
 
     def test_load_returns_default_schema(self, tmp_project, init_pm):
-        data = load_montage_data(str(tmp_project))
+        data = load_montage_data()
         assert data == {"nets": {}}
 
     def test_save_then_load_roundtrip(self, tmp_project, init_pm):
@@ -75,8 +75,8 @@ class TestLoadSaveMontageData:
                 }
             }
         }
-        save_montage_data(str(tmp_project), payload)
-        loaded = load_montage_data(str(tmp_project))
+        save_montage_data(payload)
+        loaded = load_montage_data()
         assert loaded == payload
 
 
@@ -85,8 +85,8 @@ class TestEnsureEegNetEntry:
     """ensure_eeg_net_entry adds net entry with correct sub-keys."""
 
     def test_adds_new_net(self, tmp_project, init_pm):
-        ensure_eeg_net_entry(str(tmp_project), "GSN-256")
-        data = load_montage_data(str(tmp_project))
+        ensure_eeg_net_entry("GSN-256")
+        data = load_montage_data()
         assert "GSN-256" in data["nets"]
         assert data["nets"]["GSN-256"] == {
             "uni_polar_montages": {},
@@ -94,19 +94,17 @@ class TestEnsureEegNetEntry:
         }
 
     def test_idempotent(self, tmp_project, init_pm):
-        pd = str(tmp_project)
-        ensure_eeg_net_entry(pd, "GSN-256")
+        ensure_eeg_net_entry("GSN-256")
         # Add a montage under the net
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="m1",
             electrode_pairs=[["E1", "E2"], ["E3", "E4"]],
             mode="U",
         )
         # Calling ensure again should NOT wipe existing montages
-        ensure_eeg_net_entry(pd, "GSN-256")
-        data = load_montage_data(pd)
+        ensure_eeg_net_entry("GSN-256")
+        data = load_montage_data()
         assert "m1" in data["nets"]["GSN-256"]["uni_polar_montages"]
 
 
@@ -115,46 +113,39 @@ class TestUpsertMontage:
     """upsert_montage writes montages under correct polarity key."""
 
     def test_uni_polar(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="alpha",
             electrode_pairs=[["E1", "E2"], ["E3", "E4"]],
             mode="U",
         )
-        data = load_montage_data(pd)
+        data = load_montage_data()
         assert "alpha" in data["nets"]["GSN-256"]["uni_polar_montages"]
 
     def test_multi_polar(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="beta",
             electrode_pairs=[["E1", "E2"], ["E3", "E4"], ["E5", "E6"], ["E7", "E8"]],
             mode="M",
         )
-        data = load_montage_data(pd)
+        data = load_montage_data()
         assert "beta" in data["nets"]["GSN-256"]["multi_polar_montages"]
 
     def test_overwrites_existing(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="m1",
             electrode_pairs=[["E1", "E2"]],
             mode="U",
         )
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="m1",
             electrode_pairs=[["E9", "E10"]],
             mode="U",
         )
-        data = load_montage_data(pd)
+        data = load_montage_data()
         assert data["nets"]["GSN-256"]["uni_polar_montages"]["m1"] == [["E9", "E10"]]
 
 
@@ -163,33 +154,28 @@ class TestListMontageNames:
     """list_montage_names returns sorted names or empty list."""
 
     def test_returns_sorted_names(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         for name in ("charlie", "alpha", "bravo"):
             upsert_montage(
-                project_dir=pd,
                 eeg_net="GSN-256",
                 montage_name=name,
                 electrode_pairs=[["E1", "E2"]],
                 mode="U",
             )
-        result = list_montage_names(pd, "GSN-256", mode="U")
+        result = list_montage_names("GSN-256", mode="U")
         assert result == ["alpha", "bravo", "charlie"]
 
     def test_empty_for_missing_net(self, tmp_project, init_pm):
-        pd = str(tmp_project)
-        result = list_montage_names(pd, "nonexistent_net", mode="U")
+        result = list_montage_names("nonexistent_net", mode="U")
         assert result == []
 
     def test_empty_for_wrong_mode(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256",
             montage_name="m1",
             electrode_pairs=[["E1", "E2"]],
             mode="U",
         )
-        result = list_montage_names(pd, "GSN-256", mode="M")
+        result = list_montage_names("GSN-256", mode="M")
         assert result == []
 
 
@@ -288,17 +274,15 @@ class TestLoadMontages:
     """load_montages loads named montages from montage_list.json."""
 
     def test_loads_named_montages_with_montage_mode(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         pairs = [["E1", "E2"], ["E3", "E4"]]
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256.csv",
             montage_name="m1",
             electrode_pairs=pairs,
             mode="U",
         )
         # Disable flex loading to isolate named montages
-        montages = load_montages(["m1"], pd, "GSN-256.csv", include_flex=False)
+        montages = load_montages(["m1"], "GSN-256.csv", include_flex=False)
         assert len(montages) == 1
         assert not montages[0].is_xyz
         assert montages[0].mode == Montage.Mode.NET
@@ -306,31 +290,27 @@ class TestLoadMontages:
         assert montages[0].electrode_pairs == pairs
 
     def test_skips_missing_names(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         upsert_montage(
-            project_dir=pd,
             eeg_net="GSN-256.csv",
             montage_name="exists",
             electrode_pairs=[["E1", "E2"]],
             mode="U",
         )
         montages = load_montages(
-            ["exists", "does_not_exist"], pd, "GSN-256.csv", include_flex=False
+            ["exists", "does_not_exist"], "GSN-256.csv", include_flex=False
         )
         assert len(montages) == 1
         assert montages[0].name == "exists"
 
     def test_freehand_net_returns_freehand_montage(self, tmp_project, init_pm):
-        pd = str(tmp_project)
         coords = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]
         upsert_montage(
-            project_dir=pd,
             eeg_net="freehand",
             montage_name="fh",
             electrode_pairs=coords,
             mode="U",
         )
-        montages = load_montages(["fh"], pd, "freehand", include_flex=False)
+        montages = load_montages(["fh"], "freehand", include_flex=False)
         assert len(montages) == 1
         assert montages[0].is_xyz
         assert montages[0].mode == Montage.Mode.FREEHAND

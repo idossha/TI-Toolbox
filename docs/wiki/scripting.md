@@ -4,69 +4,7 @@ title: Scripting
 permalink: /wiki/scripting/
 ---
 
-The TI-Toolbox provides two ways to run tools outside the GUI:
-
-- **JSON config entry points**: Invoke any module as a subprocess with a JSON config file
-- **Python scripting**: Import `tit` modules directly and build custom pipelines with full API access
-
-Both approaches use the same underlying functions and dataclasses.
-
----
-
-## JSON Config Entry Points
-
-Each major module has a `__main__.py` that accepts a JSON config file. This is the same pattern the GUI uses internally:
-
-```bash
-simnibs_python -m tit.pre        config.json
-simnibs_python -m tit.opt.flex   config.json
-simnibs_python -m tit.opt.ex     config.json
-simnibs_python -m tit.sim        config.json
-simnibs_python -m tit.analyzer   config.json
-simnibs_python -m tit.stats      config.json
-```
-
-Each entry point reads the JSON file, reconstructs typed config dataclasses (using `_type` discriminators for union types), and calls the corresponding `run_*` function.
-
-### Config Serialization (`tit/config_io.py`)
-
-The `tit/config_io.py` module handles serialization of typed config dataclasses to JSON and back. It supports:
-
-- **Enum fields** -- serialized as their `.value`
-- **Nested dataclasses** -- recursively serialized
-- **Union-typed fields** -- uses a `_type` discriminator to identify the concrete class (e.g., `SphericalROI`, `AtlasROI`)
-
-```python
-from tit.config_io import write_config_json, read_config_json
-
-# Serialize a config dataclass to a temp JSON file
-path = write_config_json(my_flex_config, prefix="flex")
-
-# Read it back as a plain dict
-data = read_config_json(path)
-```
-
-The `_type` discriminator pattern allows `__main__.py` entry points to reconstruct the correct dataclass variant from a plain JSON dict. For example, an ROI field in the JSON might look like:
-
-```json
-{
-  "_type": "SphericalROI",
-  "center": [-45.0, 0.0, 0.0],
-  "radius": 5.0
-}
-```
-
-### How the GUI Uses This
-
-The GUI tabs build config dataclasses, serialize them via `write_config_json()`, then launch:
-
-```
-simnibs_python -m tit.<module> /tmp/flex_abc123.json
-```
-
-in a `QThread`. Stdout from the subprocess is captured by `BaseProcessThread` and displayed in the tab's console widget.
-
----
+The TI-Toolbox allows **Python scripting**: Import `tit` modules directly and build custom pipelines with full API access
 
 ## Python Scripting API
 
@@ -74,22 +12,12 @@ All tools can be used as a Python library by importing `tit` modules directly. E
 
 ### Setup
 
-```python
-import tit
-tit.init()
-```
-
-This single call configures logging and enables terminal output. That's all you need — every script starts with these two lines.
-
-For advanced control you can still call the underlying functions directly:
+Just import -- logging and path resolution are automatic. No initialization call is needed.
 
 ```python
-from tit import setup_logging, add_file_handler, add_stream_handler
-
-setup_logging("DEBUG")                       # set log level
-add_stream_handler("tit")                    # print to terminal
-add_file_handler("/path/to/run.log")         # also write to file
+from tit.sim import SimulationConfig, run_simulation
 ```
+
 
 ### Preprocessing
 
@@ -97,8 +25,7 @@ add_file_handler("/path/to/run.log")         # also write to file
 from tit.pre import run_pipeline
 
 run_pipeline(
-    "/path/to/project",
-    ["101", "102"],
+    subject_ids=["101", "102"],
     convert_dicom=True,
     run_recon=True,
     create_m2m=True,
@@ -128,7 +55,6 @@ from tit.opt.config import OptGoal, FieldPostproc
 
 config = FlexConfig(
     subject_id="101",
-    project_dir="/path/to/project",
     goal=OptGoal.MEAN,              # "mean", "max", or "focality"
     postproc=FieldPostproc.MAX_TI,  # "max_TI", "dir_TI_normal", or "dir_TI_tangential"
     current_mA=8.0,
@@ -144,14 +70,6 @@ print(result.success, result.best_value, result.output_folder)
 
 `FlexConfig` validates parameters in `__post_init__`, including automatic string-to-enum coercion for `goal`, `postproc`, and `non_roi_method`, and validation that focality goal with `specific` non-ROI method requires a `non_roi` specification.
 
-#### Reading the Output Manifest
-
-```python
-from tit.opt.flex.manifest import read_manifest
-
-meta = read_manifest("/path/to/flex-search/run_001")
-print(meta["goal"], meta["result"]["best_value"])
-```
 
 ### Ex-Search (Exhaustive Leadfield Optimization)
 
@@ -162,7 +80,6 @@ from tit.opt.ex import run_ex_search
 # Pooled mode: all electrodes can go to any channel
 config = ExConfig(
     subject_id="101",
-    project_dir="/path/to/project",
     leadfield_hdf="/path/to/leadfield.hdf5",
     roi_name="target_roi",
     electrodes=PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4", "Pz", "Oz"]),
@@ -174,7 +91,6 @@ config = ExConfig(
 # Bucketed mode: electrodes pre-assigned to channels
 config = ExConfig(
     subject_id="101",
-    project_dir="/path/to/project",
     leadfield_hdf="/path/to/leadfield.hdf5",
     roi_name="target_roi",
     electrodes=BucketElectrodes(
@@ -205,7 +121,6 @@ from tit.sim import (
 # Load pre-defined montages from the project's montage file
 montages = load_montages(
     montage_names=["L_Insula"],
-    project_dir="/path/to/project",
     eeg_net="GSN-HydroCel-185.csv",
 )
 
@@ -221,7 +136,6 @@ montages = [
 
 config = SimulationConfig(
     subject_id="101",
-    project_dir="/path/to/project",
     montages=montages,
     conductivity="scalar",
     intensities=[1.0, 1.0],
@@ -295,7 +209,6 @@ from tit.stats import (
 # Group comparison
 subjects = load_group_subjects("subjects_classification.csv")
 config = GroupComparisonConfig(
-    project_dir="/path/to/project",
     analysis_name="responders_vs_nonresponders",
     subjects=subjects,
     n_permutations=1000,
@@ -305,7 +218,6 @@ result = run_group_comparison(config)
 # Correlation analysis
 subjects = load_correlation_subjects("subjects_correlation.csv")
 config = CorrelationConfig(
-    project_dir="/path/to/project",
     analysis_name="dose_response",
     subjects=subjects,
     correlation_type="pearson",
@@ -315,10 +227,3 @@ result = run_correlation(config)
 ```
 
 See also: `scripts/cluster_permutation.py`
-
----
-
-
-## Full Pipeline Example
-
-See `scripts/pipeline.py` for a complete end-to-end script that chains preprocessing, leadfield generation, optimization (flex + ex), simulation, and analysis.

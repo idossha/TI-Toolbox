@@ -209,7 +209,6 @@ def _run_subject_pipeline(
 
 
 def run_pipeline(
-    project_dir: str,
     subject_ids: Iterable[str],
     *,
     convert_dicom: bool = False,
@@ -233,8 +232,6 @@ def run_pipeline(
 
     Parameters
     ----------
-    project_dir : str
-        BIDS project root.
     subject_ids : iterable of str
         Subject identifiers without the `sub-` prefix.
     convert_dicom : bool, optional
@@ -277,7 +274,8 @@ def run_pipeline(
     if not subject_list:
         raise PreprocessError("No subjects provided.")
 
-    pm = get_path_manager(project_dir)
+    pm = get_path_manager()
+    project_dir = pm._root()
 
     for sid in subject_list:
         ensure_subject_dirs(project_dir, sid)

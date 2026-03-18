@@ -93,7 +93,6 @@ class BaseSimulation(ABC):
             simulation_mode=self._simulation_mode,
             eeg_net=self.montage.eeg_net,
             output_dir=dirs[self._montage_imgs_key],
-            project_dir=self.config.project_dir,
             logger=self.logger,
             electrode_pairs=viz_pairs,
         )

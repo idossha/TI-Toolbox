@@ -81,7 +81,6 @@ class FlexConfig:
 
     # ── required ──
     subject_id: str
-    project_dir: str
     goal: OptGoal
     postproc: FieldPostproc
     current_mA: float
@@ -176,7 +175,6 @@ class ExConfig:
 
     # ── Required fields ────────────────────────────────────────────────
     subject_id: str
-    project_dir: str
     leadfield_hdf: str
     roi_name: str
     electrodes: BucketElectrodes | PoolElectrodes

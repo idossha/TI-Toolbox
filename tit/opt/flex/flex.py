@@ -20,7 +20,7 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     from .manifest import write_manifest
     from .utils import generate_label, generate_run_dirname
 
-    pm = get_path_manager(config.project_dir)
+    pm = get_path_manager()
 
     logger = logging.getLogger(__name__)
 
