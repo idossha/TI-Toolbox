@@ -19,7 +19,7 @@ from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
+from tit.gui.utils import confirm_overwrite, is_important_message
 from tit.gui.components.console import (
     ConsoleWidget,
     format_message,
@@ -2123,38 +2123,16 @@ class ExSearchTab(QtWidgets.QWidget):
         self.console_output.clear()
 
     def update_output(self, text, message_type="default"):
-        """Update the console output with colored text."""
+        """Update the console output."""
         if not text.strip():
             return
 
         # Filter messages based on debug mode
         if not self.debug_mode:
-            # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, "exsearch"):
                 return
-            # Colorize summary lines: blue for starts, white for completes, green for final
-            lower = text.lower()
-            is_final = lower.startswith("└─") or "completed successfully" in lower
-            is_start = lower.startswith("beginning ") or ": starting" in lower
-            color = "#55ff55" if is_final else ("#55aaff" if is_start else "#ffffff")
-            formatted_text = f'<span style="color: {color};">{text}</span>'
-            append_with_autoscroll(self.console_output, formatted_text)
-            return
 
-        # Use shared color mapping for known message types
-        if message_type in ("error", "warning", "debug", "command", "success", "info"):
-            formatted_text = format_message(text, message_type)
-        else:
-            # Fallback to content-based formatting for backward compatibility
-            if "Processing... Only the Stop button is available" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-            elif text.strip().startswith("-"):
-                formatted_text = (
-                    f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
-                )
-            else:
-                formatted_text = format_message(text, "default")
-
+        formatted_text = format_message(text)
         append_with_autoscroll(self.console_output, formatted_text)
 
     def set_debug_mode(self, debug_mode):

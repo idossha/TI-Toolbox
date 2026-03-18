@@ -527,24 +527,11 @@ class PreProcessTab(QtWidgets.QWidget):
         self.output_text.clear()
 
     def update_output(self, text, message_type="default"):
-        """Update the console output with colored text."""
+        """Update the console output."""
         if not text.strip():
             return
 
-        # Use shared color mapping for known message types
-        if message_type in ("error", "warning", "debug", "command", "success", "info"):
-            formatted_text = format_message(text, message_type)
-        else:
-            # Fallback to content-based formatting for backward compatibility
-            if "Processing... Only the Stop button is available" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-            elif text.strip().startswith("-"):
-                formatted_text = (
-                    f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
-                )
-            else:
-                formatted_text = format_message(text, "default")
-
+        formatted_text = format_message(text)
         append_with_autoscroll(self.output_text, formatted_text)
 
     def select_all_subjects(self):

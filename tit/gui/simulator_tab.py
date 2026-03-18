@@ -1534,28 +1534,13 @@ class SimulatorTab(QtWidgets.QWidget):
         return bool(electrode and electrode.strip())
 
     def update_output(self, text, message_type="default"):
-        """Update the console output with colored text, preserving original formatting."""
+        """Update the console output, preserving original formatting."""
         if not text.strip():
             return
 
-        # Strip ANSI escape sequences before any formatting
         text = strip_ansi_codes(text)
-
-        # Preserve line breaks and spacing in the text by converting to HTML
         text_html = text.replace("\n", "<br>").replace(" ", "&nbsp;")
-
-        # Use shared color mapping for known message types
-        if message_type in ("error", "warning", "debug", "command", "success", "info"):
-            formatted_text = format_message(text_html, message_type)
-        else:
-            # Fallback to content-based formatting for backward compatibility
-            if "Processing... Only the Stop button is available" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text_html}</span></div>'
-            elif text.strip().startswith("-"):
-                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">&nbsp;&nbsp;{text_html}</span>'
-            else:
-                formatted_text = format_message(text_html, "default")
-
+        formatted_text = format_message(text_html)
         append_with_autoscroll(self.output_console, formatted_text)
 
     def _open_file_safely(self, file_path):

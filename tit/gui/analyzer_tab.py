@@ -1987,56 +1987,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not text or not text.strip():
             return
 
-        # Use shared color mapping for known message types
-        if message_type == "debug":
-            # Analyzer uses italic for debug messages
-            formatted_text = f'<span style="color: #7f7f7f;"><i>{text}</i></span>'
-        elif message_type in ("error", "warning", "command", "success", "info"):
-            formatted_text = format_message(text, message_type)
-        else:
-            # Fallback to content-based formatting for backward compatibility
-            # Group analysis specific patterns
-            if (
-                "=== Processing subject:" in text
-                or "=== GROUP ANALYSIS SUMMARY ===" in text
-            ):
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 5px; margin: 5px 0; border-radius: 3px;"><span style="color: #55ffff; font-weight: bold;">{text}</span></div>'
-            elif "[OK] Subject" in text or "[FAILED] Subject" in text:
-                formatted_text = (
-                    f'<span style="color: #55ff55; font-weight: bold;">{text}</span>'
-                    if "[OK]" in text
-                    else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
-                )
-            elif (
-                "Group analysis complete" in text
-                or "Comprehensive group results" in text
-            ):
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-            elif "Analysis Results Summary:" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-            elif any(
-                value_type in text
-                for value_type in [
-                    "Mean Value:",
-                    "Max Value:",
-                    "Min Value:",
-                    "Focality:",
-                ]
-            ):
-                parts = text.split(":")
-                if len(parts) == 2:
-                    value_type, value = parts
-                    formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
-                else:
-                    formatted_text = format_message(text, "default")
-            elif text.strip().startswith("-"):
-                formatted_text = (
-                    f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
-                )
-            else:
-                formatted_text = format_message(text, "default")
-
-        # Append with autoscroll; no processEvents to prevent re-entrant recursion
+        formatted_text = format_message(text)
+        # No processEvents to prevent re-entrant recursion
         append_with_autoscroll(
             self.output_console, formatted_text, process_events=False
         )

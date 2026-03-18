@@ -8,44 +8,22 @@ Reusable console output widget with associated controls for TI-Toolbox GUI
 
 from PyQt5 import QtWidgets, QtCore
 
-from tit.gui.style import (
-    COLOR_CONSOLE_RED,
-    COLOR_CONSOLE_YELLOW,
-    COLOR_CONSOLE_GRAY,
-    COLOR_CONSOLE_BLUE,
-    COLOR_CONSOLE_GREEN,
-    COLOR_CONSOLE_CYAN,
-    COLOR_CONSOLE_WHITE,
-)
+from tit.gui.style import COLOR_CONSOLE_WHITE
 from tit.gui.utils import strip_ansi_codes
-
-_COLOR_MAP = {
-    "error": (COLOR_CONSOLE_RED, True),  # (color, bold)
-    "warning": (COLOR_CONSOLE_YELLOW, False),
-    "debug": (COLOR_CONSOLE_GRAY, False),
-    "command": (COLOR_CONSOLE_BLUE, False),
-    "success": (COLOR_CONSOLE_GREEN, True),
-    "info": (COLOR_CONSOLE_CYAN, False),
-    "default": (COLOR_CONSOLE_WHITE, False),
-}
 
 
 def format_message(text: str, message_type: str = "default") -> str:
     """
-    Return an HTML-formatted string with color based on message_type.
+    Return an HTML-formatted string for console display.
 
     Args:
         text: The text to format (may contain HTML entities / <br> already).
-        message_type: One of 'error', 'warning', 'debug', 'command',
-                      'success', 'info', or 'default'.
+        message_type: Accepted for API compatibility but ignored.
 
     Returns:
-        An HTML ``<span>`` string with the appropriate color and optional bold.
+        An HTML ``<span>`` string in the default console color.
     """
-    color, bold = _COLOR_MAP.get(message_type, _COLOR_MAP["default"])
-    if bold:
-        return f'<span style="color: {color};"><b>{text}</b></span>'
-    return f'<span style="color: {color};">{text}</span>'
+    return f'<span style="color: {COLOR_CONSOLE_WHITE};">{text}</span>'
 
 
 def append_with_autoscroll(text_edit, html_text: str, process_events: bool = True):

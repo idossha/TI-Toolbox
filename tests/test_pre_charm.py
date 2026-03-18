@@ -26,9 +26,12 @@ def mock_pm(tmp_path):
 class TestRunCharm:
     """Tests for the run_charm function."""
 
+    @patch(f"{MODULE}._get_form_flag", return_value="--forcesform")
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
-    def test_success_with_t1_only(self, mock_find, mock_gpm, mock_pm, tmp_path):
+    def test_success_with_t1_only(
+        self, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
+    ):
         """charm runs successfully with T1 only."""
         mock_gpm.return_value = mock_pm
         t1 = tmp_path / "sub-001" / "anat" / "sub-001_T1w.nii.gz"
@@ -45,12 +48,16 @@ class TestRunCharm:
         runner.run.assert_called_once()
         cmd = runner.run.call_args[0][0]
         assert cmd[0] == "charm"
+        assert "--forcesform" in cmd
         assert "001" in cmd
         assert str(t1) in cmd
 
+    @patch(f"{MODULE}._get_form_flag", return_value="--forceqform")
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
-    def test_success_with_t1_and_t2(self, mock_find, mock_gpm, mock_pm, tmp_path):
+    def test_success_with_t1_and_t2(
+        self, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
+    ):
         """charm includes T2 file in command when available."""
         mock_gpm.return_value = mock_pm
         t1 = tmp_path / "t1.nii.gz"
@@ -64,6 +71,7 @@ class TestRunCharm:
         run_charm("/proj", "001", logger=logger, runner=runner)
 
         cmd = runner.run.call_args[0][0]
+        assert "--forceqform" in cmd
         assert str(t2) in cmd
 
     @patch(f"{MODULE}.get_path_manager")
@@ -90,9 +98,12 @@ class TestRunCharm:
         with pytest.raises(PreprocessError, match="already exists"):
             run_charm("/proj", "001", logger=MagicMock())
 
+    @patch(f"{MODULE}._get_form_flag", return_value="--forcesform")
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
-    def test_charm_failure_raises(self, mock_find, mock_gpm, mock_pm, tmp_path):
+    def test_charm_failure_raises(
+        self, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
+    ):
         """Raises PreprocessError when charm exits non-zero."""
         mock_gpm.return_value = mock_pm
         mock_find.return_value = (tmp_path / "t1.nii.gz", None)
@@ -103,11 +114,12 @@ class TestRunCharm:
         with pytest.raises(PreprocessError, match="charm failed"):
             run_charm("/proj", "001", logger=MagicMock(), runner=runner)
 
+    @patch(f"{MODULE}._get_form_flag", return_value="--forcesform")
     @patch(f"{MODULE}.get_path_manager")
     @patch(f"{MODULE}._find_anat_files")
     @patch(f"{MODULE}.CommandRunner")
     def test_default_runner_created(
-        self, mock_runner_cls, mock_find, mock_gpm, mock_pm, tmp_path
+        self, mock_runner_cls, mock_find, mock_gpm, mock_flag, mock_pm, tmp_path
     ):
         """Creates default CommandRunner when none provided."""
         mock_gpm.return_value = mock_pm
