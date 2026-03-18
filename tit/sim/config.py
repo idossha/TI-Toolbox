@@ -23,6 +23,7 @@ class MTIFieldMethod(Enum):
     RECURSIVE_TI = "recursive_ti"
     DIRECT_FIELD_MAGNITUDE = "direct_field_magnitude"
     DIRECT_FIELD_DIRECTIONAL = "direct_field_directional"
+    FULL_FIELD_DIRECTIONAL_AM = "full_field_directional_am"
 
 
 @dataclass

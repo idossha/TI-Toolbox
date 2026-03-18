@@ -204,6 +204,7 @@ class mTISimulation:
         if self.config.mti_field_method in (
             MTIFieldMethod.DIRECT_FIELD_MAGNITUDE,
             MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL,
+            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
         ):
             peak_hf = compute_direct_field_peak_hf(
                 e_fields,

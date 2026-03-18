@@ -245,6 +245,10 @@ class SimulatorTab(QtWidgets.QWidget):
             "Direct Field (Directional AM)",
             MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
         )
+        self.mti_method_combo.addItem(
+            "Full Field (Directional AM)",
+            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
+        )
         self.mti_method_combo.setToolTip(
             "Controls how mTI fields are combined for multipolar simulations.\n"
             "This applies to mTI runs only; TI runs ignore this setting."
@@ -728,12 +732,16 @@ class SimulatorTab(QtWidgets.QWidget):
         if method in {
             MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
             MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
+            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
         }:
-            mode_text = (
-                "magnitude AM from the summed field norm"
-                if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value
-                else "directional AM optimized over direction"
-            )
+            if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
+                mode_text = "magnitude AM from the summed field norm"
+            elif method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
+                mode_text = "directional AM optimized over direction"
+            else:
+                mode_text = (
+                    "directional AM from full-field pair envelopes, optimized over direction"
+                )
             self.mti_method_warning.setText(
                 f"{method} computes {mode_text}. It interprets each electrode pair "
                 "as ordered (+,-) using the pair order shown in the montage, "

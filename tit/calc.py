@@ -201,6 +201,8 @@ def compute_mti_vectors(
         return compute_direct_field_magnitude_vectors(fields, phase_deg=phase_deg)
     if method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
         return compute_direct_field_directional_vectors(fields, phase_deg=phase_deg)
+    if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
+        return compute_full_field_directional_am_vectors(fields, phase_deg=phase_deg)
     raise ValueError(f"Unsupported mTI field method: {method!r}")
 
 
@@ -229,6 +231,28 @@ def compute_direct_field_directional_vectors(fields, *, phase_deg: float = 0.0):
     return mti_vectors
 
 
+def compute_full_field_directional_am_vectors(fields, *, phase_deg: float = 0.0):
+    """Compute directional AM from full-field pair envelopes.
+
+    For a fixed direction ``u``, project each carrier field onto ``u``.
+    For each adjacent carrier pair, compute the exact scalar pair envelope
+    amplitude over the shared beat phase ``psi``:
+
+    ``A_pair(psi) = sqrt(a^2 + b^2 + 2ab cos(psi + phi_pair))``
+
+    The total directional envelope is approximated as the sum of these
+    pair envelopes. The modulation depth is then
+
+    ``max_psi A_u(psi) - min_psi A_u(psi)``
+
+    and is optimized over direction ``u``.
+    """
+    mti_vectors, _peak_env = _full_field_directional_am_components(
+        fields, phase_deg=phase_deg
+    )
+    return mti_vectors
+
+
 def compute_direct_field_peak_hf(
     fields,
     method: MTIFieldMethod | str,
@@ -239,6 +263,7 @@ def compute_direct_field_peak_hf(
     if method in {
         MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
         MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
+        MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
     }:
         return _direct_field_peak_hf_actual(fields, phase_deg=phase_deg)
     raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
@@ -307,6 +332,41 @@ def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
         best_peak[start:stop] = env_max[rows, best_idx]
 
     return best_vectors, best_peak
+
+
+def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
+    arrs = _validate_field_list(fields)
+    directions = _fibonacci_sphere(192)
+    voxel_chunk_size = 16384
+    if abs(float(phase_deg)) > 1e-9:
+        raise ValueError(
+            "full_field_directional_am currently supports only phase_deg = 0."
+        )
+
+    n_vox = arrs[0].shape[0]
+    best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
+    best_peak_env = np.zeros(n_vox, dtype=np.float64)
+
+    for start in range(0, n_vox, voxel_chunk_size):
+        stop = min(start + voxel_chunk_size, n_vox)
+        proj_fields = [field[start:stop] @ directions.T for field in arrs]
+
+        env_max = np.zeros((stop - start, directions.shape[0]), dtype=np.float64)
+        env_min = np.zeros_like(env_max)
+        for pair_idx in range(len(arrs) // 2):
+            a = proj_fields[2 * pair_idx]
+            b = proj_fields[2 * pair_idx + 1]
+            env_max += np.abs(a + b)
+            env_min += np.abs(a - b)
+
+        amp = env_max - env_min
+        best_idx = np.argmax(amp, axis=1)
+        rows = np.arange(stop - start)
+        best_amp = amp[rows, best_idx]
+        best_peak_env[start:stop] = env_max[rows, best_idx]
+        best_vectors[start:stop] = directions[best_idx] * best_amp[:, None]
+
+    return best_vectors, best_peak_env
 
 
 def _direct_field_peak_hf_actual(fields, *, phase_deg: float = 0.0):

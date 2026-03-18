@@ -21,6 +21,7 @@ from tit.calc import (
     compute_direct_field_directional_vectors,
     compute_direct_field_magnitude_vectors,
     compute_direct_field_peak_hf,
+    compute_full_field_directional_am_vectors,
     get_TI_vectors,
     get_nTI_vectors,
     get_mTI_vectors,
@@ -546,3 +547,39 @@ class TestDirectFieldDirectional:
         assert directional_vec.shape == (1, 3)
         np.testing.assert_allclose(directional, magnitude, atol=2e-2)
         np.testing.assert_allclose(peak, [10.0], atol=1e-12)
+
+
+@pytest.mark.unit
+class TestFullFieldDirectionalAM:
+    def test_overlapping_half_strength_pairs_match_unipolar_ti(self):
+        fields = [
+            np.array([[0.5, 0.0, 0.0]]),
+            np.array([[0.5, 0.0, 0.0]]),
+            np.array([[0.5, 0.0, 0.0]]),
+            np.array([[0.5, 0.0, 0.0]]),
+        ]
+        result_vec = compute_full_field_directional_am_vectors(fields)
+        result = np.linalg.norm(result_vec, axis=1)
+        np.testing.assert_allclose(result, [2.0], atol=3e-2)
+
+    def test_collinear_equal_fields_give_expected_modulation(self):
+        fields = [
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+        ]
+        result_vec = compute_full_field_directional_am_vectors(fields)
+        result = np.linalg.norm(result_vec, axis=1)
+        np.testing.assert_allclose(result, [4.0], atol=3e-2)
+
+    def test_single_pair_flip_changes_result(self):
+        fields = [
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[-1.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+        ]
+        result_vec = compute_full_field_directional_am_vectors(fields)
+        result = np.linalg.norm(result_vec, axis=1)
+        np.testing.assert_allclose(result, [0.0], atol=3e-2)
