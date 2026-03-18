@@ -122,13 +122,19 @@ def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:
     pm = get_path_manager()
     bids_anat_dir = Path(pm.bids_anat(subject_id))
 
-    t1_file = bids_anat_dir / f"sub-{subject_id}_T1w.nii.gz"
-    t2_file = bids_anat_dir / f"sub-{subject_id}_T2w.nii.gz"
+    t1_file = _find_nifti(bids_anat_dir, f"sub-{subject_id}_T1w")
+    t2_file = _find_nifti(bids_anat_dir, f"sub-{subject_id}_T2w")
 
-    return (
-        t1_file if t1_file.exists() else None,
-        t2_file if t2_file.exists() else None,
-    )
+    return t1_file, t2_file
+
+
+def _find_nifti(directory: Path, stem: str) -> Path | None:
+    """Return the first existing .nii.gz or .nii file matching *stem*."""
+    for ext in (".nii.gz", ".nii"):
+        path = directory / f"{stem}{ext}"
+        if path.exists():
+            return path
+    return None
 
 
 def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
