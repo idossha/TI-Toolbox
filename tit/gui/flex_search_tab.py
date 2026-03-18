@@ -559,8 +559,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_picker.set_subject(subject_id, project_dir)
             self.nonroi_picker.set_subject(subject_id, project_dir)
 
-        # Update multiple subject restrictions
-        self._update_multiple_subject_restrictions()
 
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
