@@ -126,11 +126,11 @@ leadfield_path = run_leadfield(config)
     options:
       show_root_heading: true
 
-::: tit.opt.config.SphericalROI
+::: tit.opt.config.FlexConfig.SphericalROI
     options:
       show_root_heading: true
 
-::: tit.opt.config.AtlasROI
+::: tit.opt.config.FlexConfig.AtlasROI
     options:
       show_root_heading: true
 
@@ -145,6 +145,6 @@ leadfield_path = run_leadfield(config)
     options:
       show_root_heading: true
 
-::: tit.opt.config.PoolElectrodes
+::: tit.opt.config.ExConfig.PoolElectrodes
     options:
       show_root_heading: true

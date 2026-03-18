@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -1019,14 +1019,7 @@ to the format expected by SimNIBS for anisotropic conductivity simulations.</p>
 
 
 <a href="#tit.pre.qsi.dti_extractor.extract_dti_tensor" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_dti_tensor</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">skip_registration</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_dti_tensor</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;qsirecon&#39;</span><span class="p">,</span> <span class="n">skip_registration</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1057,9 +1050,7 @@ skip_registration : bool, optional
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/qsi/dti_extractor.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-667">667</a></span>
-<span class="normal"><a href="#__codelineno-0-668">668</a></span>
-<span class="normal"><a href="#__codelineno-0-669">669</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-669">669</a></span>
 <span class="normal"><a href="#__codelineno-0-670">670</a></span>
 <span class="normal"><a href="#__codelineno-0-671">671</a></span>
 <span class="normal"><a href="#__codelineno-0-672">672</a></span>
@@ -1224,174 +1215,176 @@ skip_registration : bool, optional
 <span class="normal"><a href="#__codelineno-0-831">831</a></span>
 <span class="normal"><a href="#__codelineno-0-832">832</a></span>
 <span class="normal"><a href="#__codelineno-0-833">833</a></span>
-<span class="normal"><a href="#__codelineno-0-834">834</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_dti_tensor</span><span class="p">(</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>    <span class="n">skip_registration</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    Extract DTI tensor from QSIRecon output for SimNIBS.</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">    This function finds the DTI tensor in QSIRecon outputs, converts it</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a><span class="sd">    to SimNIBS format, and saves it to the m2m directory.</span>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">    project_dir : str</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">        Path to the BIDS project root directory.</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">        Subject identifier (without &#39;sub-&#39; prefix).</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    logger : logging.Logger</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">        Logger for status messages.</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a><span class="sd">    source : str, optional</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">        Source of DTI tensor. Currently only &#39;qsirecon&#39; is supported.</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">        Default: &#39;qsirecon&#39;.</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a><span class="sd">    skip_registration : bool, optional</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">        If True, skip registration to SimNIBS T1 space. Use this if the</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a><span class="sd">        tensor is already in the correct space. Default: False.</span>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a><span class="sd">    Path</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a><span class="sd">        Path to the extracted DTI tensor file in m2m directory.</span>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>
-<a id="__codelineno-0-701" name="__codelineno-0-701"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a><span class="sd">    PreprocessError</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a><span class="sd">        If tensor extraction fails.</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="c1"># Delayed import to avoid circular dependencies</span>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extracting DTI tensor for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-834">834</a></span>
+<span class="normal"><a href="#__codelineno-0-835">835</a></span>
+<span class="normal"><a href="#__codelineno-0-836">836</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_dti_tensor</span><span class="p">(</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="n">skip_registration</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">    Extract DTI tensor from QSIRecon output for SimNIBS.</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    This function finds the DTI tensor in QSIRecon outputs, converts it</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    to SimNIBS format, and saves it to the m2m directory.</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    project_dir : str</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">        Path to the BIDS project root directory.</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">        Subject identifier (without &#39;sub-&#39; prefix).</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a><span class="sd">    logger : logging.Logger</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">        Logger for status messages.</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">    source : str, optional</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a><span class="sd">        Source of DTI tensor. Currently only &#39;qsirecon&#39; is supported.</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">        Default: &#39;qsirecon&#39;.</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a><span class="sd">    skip_registration : bool, optional</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a><span class="sd">        If True, skip registration to SimNIBS T1 space. Use this if the</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a><span class="sd">        tensor is already in the correct space. Default: False.</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a><span class="sd">    Path</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a><span class="sd">        Path to the extracted DTI tensor file in m2m directory.</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a><span class="sd">    PreprocessError</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a><span class="sd">        If tensor extraction fails.</span>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="c1"># Delayed import to avoid circular dependencies</span>
+<a id="__codelineno-0-709" name="__codelineno-0-709"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
 <a id="__codelineno-0-710" name="__codelineno-0-710"></a>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a>    <span class="c1"># Get paths</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-713" name="__codelineno-0-713"></a>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">):</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a>            <span class="sa">f</span><span class="s2">&quot;m2m directory not found for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">. &quot;</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a>            <span class="s2">&quot;Run SimNIBS charm first.&quot;</span>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a>        <span class="p">)</span>
-<a id="__codelineno-0-720" name="__codelineno-0-720"></a>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a>    <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
+<a id="__codelineno-0-711" name="__codelineno-0-711"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extracting DTI tensor for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-712" name="__codelineno-0-712"></a>
+<a id="__codelineno-0-713" name="__codelineno-0-713"></a>    <span class="c1"># Get paths</span>
+<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-715" name="__codelineno-0-715"></a>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">):</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a>            <span class="sa">f</span><span class="s2">&quot;m2m directory not found for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">. &quot;</span>
+<a id="__codelineno-0-720" name="__codelineno-0-720"></a>            <span class="s2">&quot;Run SimNIBS charm first.&quot;</span>
+<a id="__codelineno-0-721" name="__codelineno-0-721"></a>        <span class="p">)</span>
 <a id="__codelineno-0-722" name="__codelineno-0-722"></a>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="c1"># Check for existing output</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>    <span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a>            <span class="sa">f</span><span class="s2">&quot;DTI tensor already exists at </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">. &quot;</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a>            <span class="s2">&quot;Remove the file manually before rerunning.&quot;</span>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a>        <span class="p">)</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a>    <span class="c1"># Find source tensor</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a>    <span class="k">if</span> <span class="n">source</span> <span class="o">!=</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown source: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a>    <span class="n">qsirecon_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;derivatives&quot;</span> <span class="o">/</span> <span class="s2">&quot;qsirecon&quot;</span>
+<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a>
+<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="c1"># Check for existing output</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a>    <span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
+<a id="__codelineno-0-728" name="__codelineno-0-728"></a>            <span class="sa">f</span><span class="s2">&quot;DTI tensor already exists at </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">. &quot;</span>
+<a id="__codelineno-0-729" name="__codelineno-0-729"></a>            <span class="s2">&quot;Remove the file manually before rerunning.&quot;</span>
+<a id="__codelineno-0-730" name="__codelineno-0-730"></a>        <span class="p">)</span>
+<a id="__codelineno-0-731" name="__codelineno-0-731"></a>
+<a id="__codelineno-0-732" name="__codelineno-0-732"></a>    <span class="c1"># Find source tensor</span>
+<a id="__codelineno-0-733" name="__codelineno-0-733"></a>    <span class="k">if</span> <span class="n">source</span> <span class="o">!=</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-734" name="__codelineno-0-734"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown source: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-735" name="__codelineno-0-735"></a>
-<a id="__codelineno-0-736" name="__codelineno-0-736"></a>    <span class="c1"># Try to find DSI Studio tensor components first (most common)</span>
-<a id="__codelineno-0-737" name="__codelineno-0-737"></a>    <span class="n">dsistudio_components</span> <span class="o">=</span> <span class="n">_find_dsistudio_tensor_components</span><span class="p">(</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a>        <span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a>    <span class="p">)</span>
-<a id="__codelineno-0-740" name="__codelineno-0-740"></a>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a>    <span class="k">if</span> <span class="n">dsistudio_components</span><span class="p">:</span>
-<a id="__codelineno-0-742" name="__codelineno-0-742"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using DSI Studio tensor components&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-743" name="__codelineno-0-743"></a>        <span class="n">tensor_data</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">header</span> <span class="o">=</span> <span class="n">_combine_dsistudio_tensor_components</span><span class="p">(</span>
-<a id="__codelineno-0-744" name="__codelineno-0-744"></a>            <span class="n">dsistudio_components</span><span class="p">,</span> <span class="n">logger</span>
-<a id="__codelineno-0-745" name="__codelineno-0-745"></a>        <span class="p">)</span>
-<a id="__codelineno-0-746" name="__codelineno-0-746"></a>        <span class="c1"># Already in the correct format [Dxx, Dxy, Dxz, Dyy, Dyz, Dzz]</span>
-<a id="__codelineno-0-747" name="__codelineno-0-747"></a>        <span class="n">simnibs_tensor</span> <span class="o">=</span> <span class="n">tensor_data</span>
-<a id="__codelineno-0-748" name="__codelineno-0-748"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-749" name="__codelineno-0-749"></a>        <span class="c1"># Try to find DKI tensor</span>
-<a id="__codelineno-0-750" name="__codelineno-0-750"></a>        <span class="n">dt_file</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_find_dki_tensor_files</span><span class="p">(</span><span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
-<a id="__codelineno-0-751" name="__codelineno-0-751"></a>
-<a id="__codelineno-0-752" name="__codelineno-0-752"></a>        <span class="k">if</span> <span class="n">dt_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-753" name="__codelineno-0-753"></a>            <span class="n">source_file</span> <span class="o">=</span> <span class="n">dt_file</span>
-<a id="__codelineno-0-754" name="__codelineno-0-754"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using DKI diffusion tensor: </span><span class="si">{</span><span class="n">dt_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-755" name="__codelineno-0-755"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-756" name="__codelineno-0-756"></a>            <span class="c1"># Fall back to general DTI tensor search</span>
-<a id="__codelineno-0-757" name="__codelineno-0-757"></a>            <span class="n">source_file</span> <span class="o">=</span> <span class="n">_find_dti_tensor_file</span><span class="p">(</span><span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
-<a id="__codelineno-0-758" name="__codelineno-0-758"></a>
-<a id="__codelineno-0-759" name="__codelineno-0-759"></a>        <span class="k">if</span> <span class="n">source_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-760" name="__codelineno-0-760"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
-<a id="__codelineno-0-761" name="__codelineno-0-761"></a>                <span class="sa">f</span><span class="s2">&quot;No DTI tensor found for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> in QSIRecon output. &quot;</span>
-<a id="__codelineno-0-762" name="__codelineno-0-762"></a>                <span class="s2">&quot;Ensure QSIRecon was run with DSI Studio (dsi_studio_gqi) or &quot;</span>
-<a id="__codelineno-0-763" name="__codelineno-0-763"></a>                <span class="s2">&quot;another DTI-producing spec like dipy_dki.&quot;</span>
-<a id="__codelineno-0-764" name="__codelineno-0-764"></a>            <span class="p">)</span>
-<a id="__codelineno-0-765" name="__codelineno-0-765"></a>
-<a id="__codelineno-0-766" name="__codelineno-0-766"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Source tensor file: </span><span class="si">{</span><span class="n">source_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-736" name="__codelineno-0-736"></a>    <span class="n">qsirecon_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;derivatives&quot;</span> <span class="o">/</span> <span class="s2">&quot;qsirecon&quot;</span>
+<a id="__codelineno-0-737" name="__codelineno-0-737"></a>
+<a id="__codelineno-0-738" name="__codelineno-0-738"></a>    <span class="c1"># Try to find DSI Studio tensor components first (most common)</span>
+<a id="__codelineno-0-739" name="__codelineno-0-739"></a>    <span class="n">dsistudio_components</span> <span class="o">=</span> <span class="n">_find_dsistudio_tensor_components</span><span class="p">(</span>
+<a id="__codelineno-0-740" name="__codelineno-0-740"></a>        <span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-741" name="__codelineno-0-741"></a>    <span class="p">)</span>
+<a id="__codelineno-0-742" name="__codelineno-0-742"></a>
+<a id="__codelineno-0-743" name="__codelineno-0-743"></a>    <span class="k">if</span> <span class="n">dsistudio_components</span><span class="p">:</span>
+<a id="__codelineno-0-744" name="__codelineno-0-744"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using DSI Studio tensor components&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-745" name="__codelineno-0-745"></a>        <span class="n">tensor_data</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">header</span> <span class="o">=</span> <span class="n">_combine_dsistudio_tensor_components</span><span class="p">(</span>
+<a id="__codelineno-0-746" name="__codelineno-0-746"></a>            <span class="n">dsistudio_components</span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-747" name="__codelineno-0-747"></a>        <span class="p">)</span>
+<a id="__codelineno-0-748" name="__codelineno-0-748"></a>        <span class="c1"># Already in the correct format [Dxx, Dxy, Dxz, Dyy, Dyz, Dzz]</span>
+<a id="__codelineno-0-749" name="__codelineno-0-749"></a>        <span class="n">simnibs_tensor</span> <span class="o">=</span> <span class="n">tensor_data</span>
+<a id="__codelineno-0-750" name="__codelineno-0-750"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-751" name="__codelineno-0-751"></a>        <span class="c1"># Try to find DKI tensor</span>
+<a id="__codelineno-0-752" name="__codelineno-0-752"></a>        <span class="n">dt_file</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_find_dki_tensor_files</span><span class="p">(</span><span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-753" name="__codelineno-0-753"></a>
+<a id="__codelineno-0-754" name="__codelineno-0-754"></a>        <span class="k">if</span> <span class="n">dt_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-755" name="__codelineno-0-755"></a>            <span class="n">source_file</span> <span class="o">=</span> <span class="n">dt_file</span>
+<a id="__codelineno-0-756" name="__codelineno-0-756"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using DKI diffusion tensor: </span><span class="si">{</span><span class="n">dt_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-757" name="__codelineno-0-757"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-758" name="__codelineno-0-758"></a>            <span class="c1"># Fall back to general DTI tensor search</span>
+<a id="__codelineno-0-759" name="__codelineno-0-759"></a>            <span class="n">source_file</span> <span class="o">=</span> <span class="n">_find_dti_tensor_file</span><span class="p">(</span><span class="n">qsirecon_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-760" name="__codelineno-0-760"></a>
+<a id="__codelineno-0-761" name="__codelineno-0-761"></a>        <span class="k">if</span> <span class="n">source_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-762" name="__codelineno-0-762"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
+<a id="__codelineno-0-763" name="__codelineno-0-763"></a>                <span class="sa">f</span><span class="s2">&quot;No DTI tensor found for subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> in QSIRecon output. &quot;</span>
+<a id="__codelineno-0-764" name="__codelineno-0-764"></a>                <span class="s2">&quot;Ensure QSIRecon was run with DSI Studio (dsi_studio_gqi) or &quot;</span>
+<a id="__codelineno-0-765" name="__codelineno-0-765"></a>                <span class="s2">&quot;another DTI-producing spec like dipy_dki.&quot;</span>
+<a id="__codelineno-0-766" name="__codelineno-0-766"></a>            <span class="p">)</span>
 <a id="__codelineno-0-767" name="__codelineno-0-767"></a>
-<a id="__codelineno-0-768" name="__codelineno-0-768"></a>        <span class="c1"># Load and convert tensor</span>
-<a id="__codelineno-0-769" name="__codelineno-0-769"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a>            <span class="n">tensor_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">source_file</span><span class="p">))</span>
-<a id="__codelineno-0-771" name="__codelineno-0-771"></a>            <span class="n">tensor_data</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a>            <span class="n">affine</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">affine</span>
-<a id="__codelineno-0-773" name="__codelineno-0-773"></a>            <span class="n">header</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">header</span>
-<a id="__codelineno-0-774" name="__codelineno-0-774"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-775" name="__codelineno-0-775"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load tensor file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-776" name="__codelineno-0-776"></a>
-<a id="__codelineno-0-777" name="__codelineno-0-777"></a>        <span class="c1"># Convert to SimNIBS format</span>
-<a id="__codelineno-0-778" name="__codelineno-0-778"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-779" name="__codelineno-0-779"></a>            <span class="n">simnibs_tensor</span> <span class="o">=</span> <span class="n">_convert_tensor_to_simnibs_format</span><span class="p">(</span><span class="n">tensor_data</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
-<a id="__codelineno-0-780" name="__codelineno-0-780"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-781" name="__codelineno-0-781"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to convert tensor: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-782" name="__codelineno-0-782"></a>
-<a id="__codelineno-0-783" name="__codelineno-0-783"></a>    <span class="n">_validate_tensor</span><span class="p">(</span><span class="n">simnibs_tensor</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-768" name="__codelineno-0-768"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Source tensor file: </span><span class="si">{</span><span class="n">source_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-769" name="__codelineno-0-769"></a>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a>        <span class="c1"># Load and convert tensor</span>
+<a id="__codelineno-0-771" name="__codelineno-0-771"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a>            <span class="n">tensor_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">source_file</span><span class="p">))</span>
+<a id="__codelineno-0-773" name="__codelineno-0-773"></a>            <span class="n">tensor_data</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-0-774" name="__codelineno-0-774"></a>            <span class="n">affine</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">affine</span>
+<a id="__codelineno-0-775" name="__codelineno-0-775"></a>            <span class="n">header</span> <span class="o">=</span> <span class="n">tensor_img</span><span class="o">.</span><span class="n">header</span>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load tensor file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>        <span class="c1"># Convert to SimNIBS format</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-781" name="__codelineno-0-781"></a>            <span class="n">simnibs_tensor</span> <span class="o">=</span> <span class="n">_convert_tensor_to_simnibs_format</span><span class="p">(</span><span class="n">tensor_data</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-782" name="__codelineno-0-782"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-0-783" name="__codelineno-0-783"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to convert tensor: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-784" name="__codelineno-0-784"></a>
-<a id="__codelineno-0-785" name="__codelineno-0-785"></a>    <span class="c1"># Save intermediate tensor (before registration)</span>
-<a id="__codelineno-0-786" name="__codelineno-0-786"></a>    <span class="n">intermediate_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;DTI_ACPC_tensor.nii.gz&quot;</span>
-<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-788" name="__codelineno-0-788"></a>        <span class="n">intermediate_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">simnibs_tensor</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
-<a id="__codelineno-0-789" name="__codelineno-0-789"></a>        <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">intermediate_img</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">intermediate_path</span><span class="p">))</span>
-<a id="__codelineno-0-790" name="__codelineno-0-790"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved intermediate tensor to: </span><span class="si">{</span><span class="n">intermediate_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-791" name="__codelineno-0-791"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-792" name="__codelineno-0-792"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save intermediate tensor: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-793" name="__codelineno-0-793"></a>
-<a id="__codelineno-0-794" name="__codelineno-0-794"></a>    <span class="c1"># Register to SimNIBS T1 space</span>
-<a id="__codelineno-0-795" name="__codelineno-0-795"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_registration</span><span class="p">:</span>
-<a id="__codelineno-0-796" name="__codelineno-0-796"></a>        <span class="n">simnibs_t1_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_T1</span>
-<a id="__codelineno-0-797" name="__codelineno-0-797"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">simnibs_t1_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-<a id="__codelineno-0-798" name="__codelineno-0-798"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
-<a id="__codelineno-0-799" name="__codelineno-0-799"></a>                <span class="sa">f</span><span class="s2">&quot;SimNIBS T1 not found at </span><span class="si">{</span><span class="n">simnibs_t1_path</span><span class="si">}</span><span class="s2">. &quot;</span>
-<a id="__codelineno-0-800" name="__codelineno-0-800"></a>                <span class="s2">&quot;Run SimNIBS charm first.&quot;</span>
-<a id="__codelineno-0-801" name="__codelineno-0-801"></a>            <span class="p">)</span>
-<a id="__codelineno-0-802" name="__codelineno-0-802"></a>
-<a id="__codelineno-0-803" name="__codelineno-0-803"></a>        <span class="n">qsiprep_t1_path</span> <span class="o">=</span> <span class="n">_find_qsiprep_t1</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">),</span> <span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-804" name="__codelineno-0-804"></a>        <span class="k">if</span> <span class="n">qsiprep_t1_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-805" name="__codelineno-0-805"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-<a id="__codelineno-0-806" name="__codelineno-0-806"></a>                <span class="s2">&quot;qsiprep T1 not found. Using simple resampling instead of &quot;</span>
-<a id="__codelineno-0-807" name="__codelineno-0-807"></a>                <span class="s2">&quot;proper registration.&quot;</span>
-<a id="__codelineno-0-808" name="__codelineno-0-808"></a>            <span class="p">)</span>
-<a id="__codelineno-0-809" name="__codelineno-0-809"></a>            <span class="n">_resample_tensor_to_target</span><span class="p">(</span>
-<a id="__codelineno-0-810" name="__codelineno-0-810"></a>                <span class="n">intermediate_path</span><span class="p">,</span> <span class="n">simnibs_t1_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="n">logger</span>
-<a id="__codelineno-0-811" name="__codelineno-0-811"></a>            <span class="p">)</span>
-<a id="__codelineno-0-812" name="__codelineno-0-812"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-813" name="__codelineno-0-813"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-814" name="__codelineno-0-814"></a>                <span class="n">_register_tensor_to_simnibs_t1</span><span class="p">(</span>
-<a id="__codelineno-0-815" name="__codelineno-0-815"></a>                    <span class="n">intermediate_path</span><span class="p">,</span>
-<a id="__codelineno-0-816" name="__codelineno-0-816"></a>                    <span class="n">qsiprep_t1_path</span><span class="p">,</span>
-<a id="__codelineno-0-817" name="__codelineno-0-817"></a>                    <span class="n">simnibs_t1_path</span><span class="p">,</span>
-<a id="__codelineno-0-818" name="__codelineno-0-818"></a>                    <span class="n">output_path</span><span class="p">,</span>
-<a id="__codelineno-0-819" name="__codelineno-0-819"></a>                    <span class="n">logger</span><span class="p">,</span>
-<a id="__codelineno-0-820" name="__codelineno-0-820"></a>                <span class="p">)</span>
-<a id="__codelineno-0-821" name="__codelineno-0-821"></a>            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-822" name="__codelineno-0-822"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-<a id="__codelineno-0-823" name="__codelineno-0-823"></a>                    <span class="sa">f</span><span class="s2">&quot;Registration failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Falling back to simple resampling.&quot;</span>
-<a id="__codelineno-0-824" name="__codelineno-0-824"></a>                <span class="p">)</span>
-<a id="__codelineno-0-825" name="__codelineno-0-825"></a>                <span class="n">_resample_tensor_to_target</span><span class="p">(</span>
-<a id="__codelineno-0-826" name="__codelineno-0-826"></a>                    <span class="n">intermediate_path</span><span class="p">,</span> <span class="n">simnibs_t1_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="n">logger</span>
-<a id="__codelineno-0-827" name="__codelineno-0-827"></a>                <span class="p">)</span>
-<a id="__codelineno-0-828" name="__codelineno-0-828"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-829" name="__codelineno-0-829"></a>        <span class="c1"># Just copy the intermediate file to output</span>
-<a id="__codelineno-0-830" name="__codelineno-0-830"></a>        <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">intermediate_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">)</span>
-<a id="__codelineno-0-831" name="__codelineno-0-831"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Copied tensor to output (skip_registration=True)&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-832" name="__codelineno-0-832"></a>
-<a id="__codelineno-0-833" name="__codelineno-0-833"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved DTI tensor to: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-834" name="__codelineno-0-834"></a>    <span class="k">return</span> <span class="n">output_path</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>    <span class="n">_validate_tensor</span><span class="p">(</span><span class="n">simnibs_tensor</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="c1"># Save intermediate tensor (before registration)</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a>    <span class="n">intermediate_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;DTI_ACPC_tensor.nii.gz&quot;</span>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a>        <span class="n">intermediate_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">simnibs_tensor</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>        <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">intermediate_img</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">intermediate_path</span><span class="p">))</span>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved intermediate tensor to: </span><span class="si">{</span><span class="n">intermediate_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save intermediate tensor: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a>    <span class="c1"># Register to SimNIBS T1 space</span>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_registration</span><span class="p">:</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a>        <span class="n">simnibs_t1_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_T1</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">simnibs_t1_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a>            <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
+<a id="__codelineno-0-801" name="__codelineno-0-801"></a>                <span class="sa">f</span><span class="s2">&quot;SimNIBS T1 not found at </span><span class="si">{</span><span class="n">simnibs_t1_path</span><span class="si">}</span><span class="s2">. &quot;</span>
+<a id="__codelineno-0-802" name="__codelineno-0-802"></a>                <span class="s2">&quot;Run SimNIBS charm first.&quot;</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a>            <span class="p">)</span>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a>        <span class="n">qsiprep_t1_path</span> <span class="o">=</span> <span class="n">_find_qsiprep_t1</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">),</span> <span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a>        <span class="k">if</span> <span class="n">qsiprep_t1_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a>                <span class="s2">&quot;qsiprep T1 not found. Using simple resampling instead of &quot;</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a>                <span class="s2">&quot;proper registration.&quot;</span>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a>            <span class="p">)</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>            <span class="n">_resample_tensor_to_target</span><span class="p">(</span>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a>                <span class="n">intermediate_path</span><span class="p">,</span> <span class="n">simnibs_t1_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a>            <span class="p">)</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a>                <span class="n">_register_tensor_to_simnibs_t1</span><span class="p">(</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a>                    <span class="n">intermediate_path</span><span class="p">,</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>                    <span class="n">qsiprep_t1_path</span><span class="p">,</span>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a>                    <span class="n">simnibs_t1_path</span><span class="p">,</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a>                    <span class="n">output_path</span><span class="p">,</span>
+<a id="__codelineno-0-821" name="__codelineno-0-821"></a>                    <span class="n">logger</span><span class="p">,</span>
+<a id="__codelineno-0-822" name="__codelineno-0-822"></a>                <span class="p">)</span>
+<a id="__codelineno-0-823" name="__codelineno-0-823"></a>            <span class="k">except</span> <span class="n">PreprocessError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a>                    <span class="sa">f</span><span class="s2">&quot;Registration failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Falling back to simple resampling.&quot;</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a>                <span class="p">)</span>
+<a id="__codelineno-0-827" name="__codelineno-0-827"></a>                <span class="n">_resample_tensor_to_target</span><span class="p">(</span>
+<a id="__codelineno-0-828" name="__codelineno-0-828"></a>                    <span class="n">intermediate_path</span><span class="p">,</span> <span class="n">simnibs_t1_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-829" name="__codelineno-0-829"></a>                <span class="p">)</span>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a>        <span class="c1"># Just copy the intermediate file to output</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a>        <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">intermediate_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">)</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Copied tensor to output (skip_registration=True)&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved DTI tensor to: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a>    <span class="k">return</span> <span class="n">output_path</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1406,9 +1399,7 @@ skip_registration : bool, optional
 
 
 <a href="#tit.pre.qsi.dti_extractor.check_dti_tensor_exists" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_dti_tensor_exists</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_dti_tensor_exists</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1426,9 +1417,7 @@ subject_id : str
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/qsi/dti_extractor.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-837">837</a></span>
-<span class="normal"><a href="#__codelineno-0-838">838</a></span>
-<span class="normal"><a href="#__codelineno-0-839">839</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-839">839</a></span>
 <span class="normal"><a href="#__codelineno-0-840">840</a></span>
 <span class="normal"><a href="#__codelineno-0-841">841</a></span>
 <span class="normal"><a href="#__codelineno-0-842">842</a></span>
@@ -1449,30 +1438,32 @@ subject_id : str
 <span class="normal"><a href="#__codelineno-0-857">857</a></span>
 <span class="normal"><a href="#__codelineno-0-858">858</a></span>
 <span class="normal"><a href="#__codelineno-0-859">859</a></span>
-<span class="normal"><a href="#__codelineno-0-860">860</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-837" name="__codelineno-0-837"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_dti_tensor_exists</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-838" name="__codelineno-0-838"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-839" name="__codelineno-0-839"></a><span class="sd">    Check if a DTI tensor file exists for a subject.</span>
-<a id="__codelineno-0-840" name="__codelineno-0-840"></a>
-<a id="__codelineno-0-841" name="__codelineno-0-841"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-842" name="__codelineno-0-842"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="sd">    project_dir : str</span>
-<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="sd">        Path to the project directory.</span>
-<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="sd">        Subject identifier.</span>
-<a id="__codelineno-0-847" name="__codelineno-0-847"></a>
-<a id="__codelineno-0-848" name="__codelineno-0-848"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-849" name="__codelineno-0-849"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="sd">    bool</span>
-<a id="__codelineno-0-851" name="__codelineno-0-851"></a><span class="sd">        True if the DTI tensor file exists in the m2m directory.</span>
-<a id="__codelineno-0-852" name="__codelineno-0-852"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-853" name="__codelineno-0-853"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-854" name="__codelineno-0-854"></a>
-<a id="__codelineno-0-855" name="__codelineno-0-855"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-856" name="__codelineno-0-856"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">):</span>
-<a id="__codelineno-0-857" name="__codelineno-0-857"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-858" name="__codelineno-0-858"></a>
-<a id="__codelineno-0-859" name="__codelineno-0-859"></a>    <span class="n">tensor_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
-<a id="__codelineno-0-860" name="__codelineno-0-860"></a>    <span class="k">return</span> <span class="n">tensor_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+<span class="normal"><a href="#__codelineno-0-860">860</a></span>
+<span class="normal"><a href="#__codelineno-0-861">861</a></span>
+<span class="normal"><a href="#__codelineno-0-862">862</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-839" name="__codelineno-0-839"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_dti_tensor_exists</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a><span class="sd">    Check if a DTI tensor file exists for a subject.</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="sd">    project_dir : str</span>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="sd">        Path to the project directory.</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a><span class="sd">        Subject identifier.</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a><span class="sd">    bool</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a><span class="sd">        True if the DTI tensor file exists in the m2m directory.</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">):</span>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a>    <span class="n">tensor_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a>    <span class="k">return</span> <span class="n">tensor_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

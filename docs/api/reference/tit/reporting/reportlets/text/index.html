@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -1052,12 +1052,7 @@ including methods boilerplate text for publications.</p>
 
 
 <a href="#tit.reporting.reportlets.text.MethodsBoilerplateReportlet" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MethodsBoilerplateReportlet</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">boilerplate_text</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">pipeline_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;simulation&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Dict" href="https://docs.python.org/3/library/typing.html#typing.Dict">Dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MethodsBoilerplateReportlet</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">boilerplate_text</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;simulation&#39;</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1088,7 +1083,7 @@ in the analysis, with a copy-to-clipboard button.</p>
                 <code>title</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1104,7 +1099,7 @@ in the analysis, with a copy-to-clipboard button.</p>
                 <code>boilerplate_text</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1136,7 +1131,7 @@ in the analysis, with a copy-to-clipboard button.</p>
                 <code>parameters</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" title="typing.Dict" href="https://docs.python.org/3/library/typing.html#typing.Dict">Dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1158,8 +1153,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-23">23</a></span>
 <span class="normal"><a href="#__codelineno-0-24">24</a></span>
 <span class="normal"><a href="#__codelineno-0-25">25</a></span>
 <span class="normal"><a href="#__codelineno-0-26">26</a></span>
@@ -1177,26 +1171,27 @@ in the analysis, with a copy-to-clipboard button.</p>
 <span class="normal"><a href="#__codelineno-0-38">38</a></span>
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">boilerplate_text</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">pipeline_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;simulation&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="p">):</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">    Initialize the methods boilerplate reportlet.</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">        title: Title for the section</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">        boilerplate_text: Pre-written boilerplate text</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">        pipeline_type: Type of pipeline (simulation, preprocessing, optimization)</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">        parameters: Parameters to include in generated text</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;Methods Boilerplate&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span> <span class="o">=</span> <span class="n">boilerplate_text</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span> <span class="o">=</span> <span class="n">pipeline_type</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span> <span class="ow">or</span> <span class="p">{}</span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">boilerplate_text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">pipeline_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;simulation&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="p">):</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    Initialize the methods boilerplate reportlet.</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">        title: Title for the section</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">        boilerplate_text: Pre-written boilerplate text</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">        pipeline_type: Type of pipeline (simulation, preprocessing, optimization)</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">        parameters: Parameters to include in generated text</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;Methods Boilerplate&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span> <span class="o">=</span> <span class="n">boilerplate_text</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span> <span class="o">=</span> <span class="n">pipeline_type</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span> <span class="ow">or</span> <span class="p">{}</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1230,11 +1225,11 @@ in the analysis, with a copy-to-clipboard button.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="k">def</span><span class="w"> </span><span class="nf">set_boilerplate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the boilerplate text directly.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span> <span class="o">=</span> <span class="n">text</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="k">def</span><span class="w"> </span><span class="nf">set_boilerplate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the boilerplate text directly.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span> <span class="o">=</span> <span class="n">text</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1282,8 +1277,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
@@ -1299,24 +1293,27 @@ in the analysis, with a copy-to-clipboard button.</p>
 <span class="normal"><a href="#__codelineno-0-65">65</a></span>
 <span class="normal"><a href="#__codelineno-0-66">66</a></span>
 <span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="k">def</span><span class="w"> </span><span class="nf">generate_boilerplate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    Generate boilerplate text based on pipeline type and parameters.</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        Generated boilerplate text</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span><span class="p">:</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span> <span class="o">==</span> <span class="s2">&quot;simulation&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_simulation_boilerplate</span><span class="p">()</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span> <span class="o">==</span> <span class="s2">&quot;preprocessing&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_preprocessing_boilerplate</span><span class="p">()</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span> <span class="o">==</span> <span class="s2">&quot;optimization&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_optimization_boilerplate</span><span class="p">()</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_generic_boilerplate</span><span class="p">()</span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="k">def</span><span class="w"> </span><span class="nf">generate_boilerplate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    Generate boilerplate text based on pipeline type and parameters.</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        Generated boilerplate text</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span><span class="p">:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boilerplate_text</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">match</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_type</span><span class="p">:</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="k">case</span> <span class="s2">&quot;simulation&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_simulation_boilerplate</span><span class="p">()</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="k">case</span> <span class="s2">&quot;preprocessing&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_preprocessing_boilerplate</span><span class="p">()</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>        <span class="k">case</span> <span class="s2">&quot;optimization&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_optimization_boilerplate</span><span class="p">()</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_generic_boilerplate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1341,9 +1338,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-178">178</a></span>
-<span class="normal"><a href="#__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-180">180</a></span>
 <span class="normal"><a href="#__codelineno-0-181">181</a></span>
 <span class="normal"><a href="#__codelineno-0-182">182</a></span>
 <span class="normal"><a href="#__codelineno-0-183">183</a></span>
@@ -1361,27 +1356,29 @@ in the analysis, with a copy-to-clipboard button.</p>
 <span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span>
-<span class="normal"><a href="#__codelineno-0-198">198</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the boilerplate text as HTML.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="n">boilerplate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_boilerplate</span><span class="p">()</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the boilerplate text as HTML.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">boilerplate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_boilerplate</span><span class="p">()</span>
 <a id="__codelineno-0-183" name="__codelineno-0-183"></a>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="s2">    &lt;div class=&quot;reportlet methods-boilerplate-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="s2">        &lt;p class=&quot;boilerplate-intro&quot;&gt;</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="s2">            The following text can be used as a starting point for the methods</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="s2">            section of a publication. Please verify and adapt as needed.</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="s2">        &lt;/p&gt;</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="s2">        &lt;button class=&quot;copy-btn&quot; onclick=&quot;copyToClipboard(&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">-content&#39;)&quot;&gt;</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="s2">            Copy to Clipboard</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="s2">        &lt;/button&gt;</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="s2">        &lt;div class=&quot;text-content monospace copyable&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">-content&quot;&gt;</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="s2">            </span><span class="si">{</span><span class="n">boilerplate</span><span class="si">}</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="s2">        &lt;/div&gt;</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="s2">    &lt;/div&gt;</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="s2">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="s2">    &lt;div class=&quot;reportlet methods-boilerplate-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="s2">        &lt;p class=&quot;boilerplate-intro&quot;&gt;</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="s2">            The following text can be used as a starting point for the methods</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="s2">            section of a publication. Please verify and adapt as needed.</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="s2">        &lt;/p&gt;</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="s2">        &lt;button class=&quot;copy-btn&quot; onclick=&quot;copyToClipboard(&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">-content&#39;)&quot;&gt;</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="s2">            Copy to Clipboard</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="s2">        &lt;/button&gt;</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="s2">        &lt;div class=&quot;text-content monospace copyable&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">-content&quot;&gt;</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="s2">            </span><span class="si">{</span><span class="n">boilerplate</span><span class="si">}</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="s2">        &lt;/div&gt;</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="s2">    &lt;/div&gt;</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="s2">    &quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1405,11 +1402,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
 
 <a href="#tit.reporting.reportlets.text.DescriptionReportlet" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DescriptionReportlet</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">format_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;paragraphs&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DescriptionReportlet</span><span class="p">(</span><span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">format_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;paragraphs&#39;</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1455,7 +1448,7 @@ in the analysis, with a copy-to-clipboard button.</p>
                 <code>title</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1493,9 +1486,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-220">220</a></span>
 <span class="normal"><a href="#__codelineno-0-221">221</a></span>
 <span class="normal"><a href="#__codelineno-0-222">222</a></span>
 <span class="normal"><a href="#__codelineno-0-223">223</a></span>
@@ -1509,23 +1500,25 @@ in the analysis, with a copy-to-clipboard button.</p>
 <span class="normal"><a href="#__codelineno-0-231">231</a></span>
 <span class="normal"><a href="#__codelineno-0-232">232</a></span>
 <span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">format_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;paragraphs&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="p">):</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    Initialize the description reportlet.</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">        content: Text content to display</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">        title: Optional section title</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">        format_type: How to format content (paragraphs, html, preformatted)</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">=</span> <span class="n">format_type</span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>    <span class="n">format_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;paragraphs&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="p">):</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    Initialize the description reportlet.</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">        content: Text content to display</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">        title: Optional section title</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">        format_type: How to format content (paragraphs, html, preformatted)</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">=</span> <span class="n">format_type</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1559,9 +1552,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-242">242</a></span>
 <span class="normal"><a href="#__codelineno-0-243">243</a></span>
 <span class="normal"><a href="#__codelineno-0-244">244</a></span>
 <span class="normal"><a href="#__codelineno-0-245">245</a></span>
@@ -1581,29 +1572,31 @@ in the analysis, with a copy-to-clipboard button.</p>
 <span class="normal"><a href="#__codelineno-0-259">259</a></span>
 <span class="normal"><a href="#__codelineno-0-260">260</a></span>
 <span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the description text as HTML.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">==</span> <span class="s2">&quot;html&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">==</span> <span class="s2">&quot;preformatted&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;pre&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/pre&gt;&quot;</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="c1"># Split into paragraphs</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="n">paragraphs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>            <span class="sa">f</span><span class="s2">&quot;&lt;p&gt;</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="s2">&lt;/p&gt;&quot;</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paragraphs</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="p">)</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="s2">    &lt;div class=&quot;reportlet description-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="s2">        &lt;div class=&quot;text-content&quot;&gt;</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="s2">            </span><span class="si">{</span><span class="n">formatted_content</span><span class="si">}</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="s2">        &lt;/div&gt;</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="s2">    &lt;/div&gt;</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="s2">    &quot;&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the description text as HTML.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">==</span> <span class="s2">&quot;html&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_type</span> <span class="o">==</span> <span class="s2">&quot;preformatted&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;pre&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/pre&gt;&quot;</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="c1"># Split into paragraphs</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">paragraphs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="n">formatted_content</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="sa">f</span><span class="s2">&quot;&lt;p&gt;</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="s2">&lt;/p&gt;&quot;</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paragraphs</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="p">)</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="s2">    &lt;div class=&quot;reportlet description-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="s2">        &lt;div class=&quot;text-content&quot;&gt;</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="s2">            </span><span class="si">{</span><span class="n">formatted_content</span><span class="si">}</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="s2">        &lt;/div&gt;</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="s2">    &lt;/div&gt;</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="s2">    &quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1627,10 +1620,7 @@ in the analysis, with a copy-to-clipboard button.</p>
 
 
 <a href="#tit.reporting.reportlets.text.CommandLogReportlet" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CommandLogReportlet</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">commands</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Dict" href="https://docs.python.org/3/library/typing.html#typing.Dict">Dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CommandLogReportlet</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">commands</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1661,7 +1651,7 @@ terminal-like display.</p>
                 <code>title</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1677,7 +1667,7 @@ terminal-like display.</p>
                 <code>commands</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a>[<a class="autorefs autorefs-external" title="typing.Dict" href="https://docs.python.org/3/library/typing.html#typing.Dict">Dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]]]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1699,9 +1689,7 @@ terminal-like display.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-293">293</a></span>
 <span class="normal"><a href="#__codelineno-0-294">294</a></span>
 <span class="normal"><a href="#__codelineno-0-295">295</a></span>
 <span class="normal"><a href="#__codelineno-0-296">296</a></span>
@@ -1712,20 +1700,22 @@ terminal-like display.</p>
 <span class="normal"><a href="#__codelineno-0-301">301</a></span>
 <span class="normal"><a href="#__codelineno-0-302">302</a></span>
 <span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="n">commands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="p">):</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    Initialize the command log reportlet.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">        title: Optional section title</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">        commands: List of command dicts with &#39;command&#39; and optional &#39;output&#39;</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;Command Log&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">commands</span> <span class="ow">or</span> <span class="p">[]</span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>    <span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="p">):</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    Initialize the command log reportlet.</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">        title: Optional section title</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        commands: List of command dicts with &#39;command&#39; and optional &#39;output&#39;</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;Command Log&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">commands</span> <span class="ow">or</span> <span class="p">[]</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1749,11 +1739,7 @@ terminal-like display.</p>
 
 
 <a href="#tit.reporting.reportlets.text.CommandLogReportlet.add_command" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_command</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">command</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">output</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">status</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_command</span><span class="p">(</span><span class="n">command</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;success&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1793,7 +1779,7 @@ terminal-like display.</p>
                 <code>output</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1826,9 +1812,7 @@ terminal-like display.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span>
-<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-312">312</a></span>
 <span class="normal"><a href="#__codelineno-0-313">313</a></span>
 <span class="normal"><a href="#__codelineno-0-314">314</a></span>
 <span class="normal"><a href="#__codelineno-0-315">315</a></span>
@@ -1846,27 +1830,29 @@ terminal-like display.</p>
 <span class="normal"><a href="#__codelineno-0-327">327</a></span>
 <span class="normal"><a href="#__codelineno-0-328">328</a></span>
 <span class="normal"><a href="#__codelineno-0-329">329</a></span>
-<span class="normal"><a href="#__codelineno-0-330">330</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_command</span><span class="p">(</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">output</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">    Add a command to the log.</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        command: The command that was executed</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">        output: Command output (if any)</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">        status: Execution status (success, error)</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="p">{</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="n">command</span><span class="p">,</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="n">output</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="p">}</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_command</span><span class="p">(</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">output</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    Add a command to the log.</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">        command: The command that was executed</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">        output: Command output (if any)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">        status: Execution status (success, error)</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="p">{</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="n">command</span><span class="p">,</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>            <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="n">output</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="p">}</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1891,9 +1877,7 @@ terminal-like display.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/reportlets/text.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-332">332</a></span>
-<span class="normal"><a href="#__codelineno-0-333">333</a></span>
-<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-334">334</a></span>
 <span class="normal"><a href="#__codelineno-0-335">335</a></span>
 <span class="normal"><a href="#__codelineno-0-336">336</a></span>
 <span class="normal"><a href="#__codelineno-0-337">337</a></span>
@@ -1919,35 +1903,37 @@ terminal-like display.</p>
 <span class="normal"><a href="#__codelineno-0-357">357</a></span>
 <span class="normal"><a href="#__codelineno-0-358">358</a></span>
 <span class="normal"><a href="#__codelineno-0-359">359</a></span>
-<span class="normal"><a href="#__codelineno-0-360">360</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the command log as HTML.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">command_items</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="k">for</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="n">status_class</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span> <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;success&quot;</span> <span class="k">else</span> <span class="s2">&quot;error&quot;</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="n">output_html</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>            <span class="n">output_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;div class=&quot;command-output&quot;&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="n">cmd</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">])</span><span class="si">}</span><span class="s1">&lt;/div&gt;&#39;</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="n">command_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="s2">            &lt;div class=&quot;command-item </span><span class="si">{</span><span class="n">status_class</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="s2">                &lt;div class=&quot;command-prompt&quot;&gt;$ </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="n">cmd</span><span class="p">[</span><span class="s2">&quot;command&quot;</span><span class="p">])</span><span class="si">}</span><span class="s2">&lt;/div&gt;</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="s2">                </span><span class="si">{</span><span class="n">output_html</span><span class="si">}</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a><span class="s2">            &lt;/div&gt;</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_html</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the command log as HTML.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="n">command_items</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="k">for</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="n">status_class</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span> <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;success&quot;</span> <span class="k">else</span> <span class="s2">&quot;error&quot;</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="n">output_html</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>            <span class="n">output_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&lt;div class=&quot;command-output&quot;&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="n">cmd</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">])</span><span class="si">}</span><span class="s1">&lt;/div&gt;&#39;</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="n">command_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="s2">            &lt;div class=&quot;command-item </span><span class="si">{</span><span class="n">status_class</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a><span class="s2">                &lt;div class=&quot;command-prompt&quot;&gt;$ </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_escape_html</span><span class="p">(</span><span class="n">cmd</span><span class="p">[</span><span class="s2">&quot;command&quot;</span><span class="p">])</span><span class="si">}</span><span class="s2">&lt;/div&gt;</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a><span class="s2">                </span><span class="si">{</span><span class="n">output_html</span><span class="si">}</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a><span class="s2">            &lt;/div&gt;</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-352" name="__codelineno-0-352"></a>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="s2">    &lt;div class=&quot;reportlet command-log-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="s2">        &lt;div class=&quot;command-log&quot;&gt;</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="s2">            </span><span class="si">{</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command_items</span><span class="p">)</span><span class="si">}</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="s2">        &lt;/div&gt;</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="s2">    &lt;/div&gt;</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="s2">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;h3&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="si">}</span><span class="s2">&lt;/h3&gt;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="s2">    &lt;div class=&quot;reportlet command-log-reportlet&quot; id=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reportlet_id</span><span class="si">}</span><span class="s2">&quot;&gt;</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="s2">        </span><span class="si">{</span><span class="n">title_html</span><span class="si">}</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="s2">        &lt;div class=&quot;command-log&quot;&gt;</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="s2">            </span><span class="si">{</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command_items</span><span class="p">)</span><span class="si">}</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="s2">        &lt;/div&gt;</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="s2">    &lt;/div&gt;</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="s2">    &quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

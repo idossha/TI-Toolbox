@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -920,9 +920,7 @@ subject, simulation, and analysis space (mesh or voxel).</p>
 
 
 <a href="#tit.analyzer.field_selector.select_field_file" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">select_field_file</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">select_field_file</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;GM&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1079,33 +1077,43 @@ for the existence of the mTI mesh directory.</p>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">select_field_file</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (field_path, field_name) for a given subject/simulation/space.</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    Detects whether the simulation is TI (2-pair) or mTI (4-pair) by checking</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">    for the existence of the mTI mesh directory.</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="sd">        subject_id: Subject identifier (without ``sub-`` prefix).</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">        simulation: Simulation (montage) folder name.</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">        space: ``&quot;mesh&quot;`` or ``&quot;voxel&quot;``.</span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">select_field_file</span><span class="p">(</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;GM&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (field_path, field_name) for a given subject/simulation/space.</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">    Detects whether the simulation is TI (2-pair) or mTI (4-pair) by checking</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">    for the existence of the mTI mesh directory.</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27"></a>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">        Tuple of (resolved field path, SimNIBS field name).</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">        FileNotFoundError: If the expected field file does not exist.</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">        ValueError: If *space* is not ``&quot;mesh&quot;`` or ``&quot;voxel&quot;``.</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="n">sim_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="p">))</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="n">is_mti</span> <span class="o">=</span> <span class="p">(</span><span class="n">sim_dir</span> <span class="o">/</span> <span class="s2">&quot;mTI&quot;</span> <span class="o">/</span> <span class="s2">&quot;mesh&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;mesh&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>        <span class="k">return</span> <span class="n">_select_mesh</span><span class="p">(</span><span class="n">sim_dir</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">is_mti</span><span class="p">)</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;voxel&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>        <span class="k">return</span> <span class="n">_select_voxel</span><span class="p">(</span><span class="n">sim_dir</span><span class="p">,</span> <span class="n">is_mti</span><span class="p">)</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported space: </span><span class="si">{</span><span class="n">space</span><span class="si">!r}</span><span class="s2"> (expected &#39;mesh&#39; or &#39;voxel&#39;)&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">        subject_id: Subject identifier (without ``sub-`` prefix).</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">        simulation: Simulation (montage) folder name.</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">        space: ``&quot;mesh&quot;`` or ``&quot;voxel&quot;``.</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">        Tuple of (resolved field path, SimNIBS field name).</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">        FileNotFoundError: If the expected field file does not exist.</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">        ValueError: If *space* is not ``&quot;mesh&quot;`` or ``&quot;voxel&quot;``.</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">sim_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="p">))</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">is_mti</span> <span class="o">=</span> <span class="p">(</span><span class="n">sim_dir</span> <span class="o">/</span> <span class="s2">&quot;mTI&quot;</span> <span class="o">/</span> <span class="s2">&quot;mesh&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;mesh&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>        <span class="k">return</span> <span class="n">_select_mesh</span><span class="p">(</span><span class="n">sim_dir</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">is_mti</span><span class="p">)</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;voxel&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>        <span class="k">return</span> <span class="n">_select_voxel</span><span class="p">(</span><span class="n">sim_dir</span><span class="p">,</span> <span class="n">is_mti</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">)</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported space: </span><span class="si">{</span><span class="n">space</span><span class="si">!r}</span><span class="s2"> (expected &#39;mesh&#39; or &#39;voxel&#39;)&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

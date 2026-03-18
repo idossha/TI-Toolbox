@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -1009,7 +1009,7 @@
 
 
 <a href="#tit.pre.utils.discover_subjects" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">discover_subjects</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">discover_subjects</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1023,7 +1023,8 @@
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
 <span class="normal"><a href="#__codelineno-0-35">35</a></span>
 <span class="normal"><a href="#__codelineno-0-36">36</a></span>
 <span class="normal"><a href="#__codelineno-0-37">37</a></span>
@@ -1087,73 +1088,72 @@
 <span class="normal"><a href="#__codelineno-0-95">95</a></span>
 <span class="normal"><a href="#__codelineno-0-96">96</a></span>
 <span class="normal"><a href="#__codelineno-0-97">97</a></span>
-<span class="normal"><a href="#__codelineno-0-98">98</a></span>
-<span class="normal"><a href="#__codelineno-0-99">99</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="k">def</span><span class="w"> </span><span class="nf">discover_subjects</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return sorted, deduplicated subject IDs found in a BIDS project tree.</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    Discovery order:</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    1. sourcedata/sub-*/T1w/ or T2w/ — any subdir, NIfTI (.nii/.nii.gz), or .tgz</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    2. sourcedata/sub-*/*.tgz (compressed bundles at top level)</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    3. sub-*/anat/*T1w*.nii[.gz] or *T2w*.nii[.gz] at project root</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">found</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">sourcedata_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;sourcedata&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sourcedata_dir</span><span class="p">):</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>        <span class="k">for</span> <span class="n">subj_dir</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourcedata_dir</span><span class="p">,</span> <span class="s2">&quot;sub-*&quot;</span><span class="p">)):</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">):</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>                <span class="n">t1w_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;T1w&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>                <span class="n">t2w_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;T2w&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>                <span class="n">has_valid_structure</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>                    <span class="p">(</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>                        <span class="ow">and</span> <span class="p">(</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>                            <span class="nb">any</span><span class="p">(</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>                                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>                            <span class="p">)</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>                            <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>                                <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.tgz&quot;</span><span class="p">,</span> <span class="s2">&quot;.json&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>                                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>                            <span class="p">)</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>                        <span class="p">)</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>                    <span class="p">)</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>                    <span class="ow">or</span> <span class="p">(</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>                        <span class="ow">and</span> <span class="p">(</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>                            <span class="nb">any</span><span class="p">(</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>                                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>                            <span class="p">)</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>                            <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>                                <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.tgz&quot;</span><span class="p">,</span> <span class="s2">&quot;.json&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>                                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>                            <span class="p">)</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>                        <span class="p">)</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>                    <span class="p">)</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>                    <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.tgz&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">))</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>                <span class="p">)</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>                <span class="k">if</span> <span class="n">has_valid_structure</span><span class="p">:</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>                    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>                    <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="k">for</span> <span class="n">subj_dir</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;sub-*&quot;</span><span class="p">)):</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">):</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>            <span class="n">subject_id</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="k">if</span> <span class="n">subject_id</span> <span class="ow">in</span> <span class="n">found</span><span class="p">:</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>                <span class="k">continue</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="n">anat_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;anat&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">):</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>                <span class="n">has_nifti</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>                    <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;T1w&quot;</span> <span class="ow">in</span> <span class="n">f</span> <span class="ow">or</span> <span class="s2">&quot;T2w&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">)</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>                    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>                <span class="p">)</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>                <span class="k">if</span> <span class="n">has_nifti</span><span class="p">:</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>                    <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">found</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-98">98</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="k">def</span><span class="w"> </span><span class="nf">discover_subjects</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return sorted, deduplicated subject IDs found in a BIDS project tree.</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    Discovery order:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    1. sourcedata/sub-*/T1w/ or T2w/ — any subdir, NIfTI (.nii/.nii.gz), or .tgz</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    2. sourcedata/sub-*/*.tgz (compressed bundles at top level)</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    3. sub-*/anat/*T1w*.nii[.gz] or *T2w*.nii[.gz] at project root</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">found</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="n">sourcedata_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;sourcedata&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sourcedata_dir</span><span class="p">):</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>        <span class="k">for</span> <span class="n">subj_dir</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourcedata_dir</span><span class="p">,</span> <span class="s2">&quot;sub-*&quot;</span><span class="p">)):</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">):</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>                <span class="n">t1w_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;T1w&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>                <span class="n">t2w_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;T2w&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>                <span class="n">has_valid_structure</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>                    <span class="p">(</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>                        <span class="ow">and</span> <span class="p">(</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>                            <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>                                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>                            <span class="p">)</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>                            <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>                                <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.tgz&quot;</span><span class="p">,</span> <span class="s2">&quot;.json&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>                                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t1w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>                            <span class="p">)</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>                        <span class="p">)</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>                    <span class="p">)</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>                    <span class="ow">or</span> <span class="p">(</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>                        <span class="ow">and</span> <span class="p">(</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>                            <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>                                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>                            <span class="p">)</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>                            <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>                                <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.tgz&quot;</span><span class="p">,</span> <span class="s2">&quot;.json&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>                                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">t2w_dir</span><span class="p">)</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>                            <span class="p">)</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>                        <span class="p">)</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>                    <span class="p">)</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>                    <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.tgz&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">))</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>                <span class="p">)</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>                <span class="k">if</span> <span class="n">has_valid_structure</span><span class="p">:</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>                    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>                    <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">for</span> <span class="n">subj_dir</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;sub-*&quot;</span><span class="p">)):</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">):</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>            <span class="n">subject_id</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>            <span class="k">if</span> <span class="n">subject_id</span> <span class="ow">in</span> <span class="n">found</span><span class="p">:</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="n">anat_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subj_dir</span><span class="p">,</span> <span class="s2">&quot;anat&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">):</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>                <span class="n">has_nifti</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>                    <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s2">&quot;.nii&quot;</span><span class="p">,</span> <span class="s2">&quot;.nii.gz&quot;</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;T1w&quot;</span> <span class="ow">in</span> <span class="n">f</span> <span class="ow">or</span> <span class="s2">&quot;T2w&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">)</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>                    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">anat_dir</span><span class="p">)</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>                <span class="p">)</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>                <span class="k">if</span> <span class="n">has_nifti</span><span class="p">:</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>                    <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">found</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1179,7 +1179,8 @@
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-102">102</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
 <span class="normal"><a href="#__codelineno-0-103">103</a></span>
 <span class="normal"><a href="#__codelineno-0-104">104</a></span>
 <span class="normal"><a href="#__codelineno-0-105">105</a></span>
@@ -1190,20 +1191,19 @@
 <span class="normal"><a href="#__codelineno-0-110">110</a></span>
 <span class="normal"><a href="#__codelineno-0-111">111</a></span>
 <span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_m2m_exists</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if the SimNIBS m2m directory for subject_id already exists.</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    Path: &lt;project_dir&gt;/derivatives/SimNIBS/sub-&lt;subject_id&gt;/m2m_&lt;subject_id&gt;</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>        <span class="s2">&quot;derivatives&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="s2">&quot;SimNIBS&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>        <span class="sa">f</span><span class="s2">&quot;m2m_</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="p">)</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_m2m_exists</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if the SimNIBS m2m directory for subject_id already exists.</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">    Path: &lt;project_dir&gt;/derivatives/SimNIBS/sub-&lt;subject_id&gt;/m2m_&lt;subject_id&gt;</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="s2">&quot;derivatives&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>        <span class="s2">&quot;SimNIBS&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="sa">f</span><span class="s2">&quot;m2m_</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="p">)</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

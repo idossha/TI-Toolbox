@@ -10,24 +10,24 @@
       
       
       
-        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/mesh_utils/">
+        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/gmsh_opt/">
       
       
-        <link rel="prev" href="../mesh2nii/">
+        <link rel="prev" href="../field_extract/">
       
       
-        <link rel="next" href="../montage_visualizer/">
+        <link rel="next" href="../map_electrodes/">
       
       
         
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
-        <title>mesh_utils - TI-Toolbox API Reference</title>
+        <title>gmsh_opt - TI-Toolbox API Reference</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tit.tools.mesh_utils" class="md-skip">
+        <a href="#tit.tools.gmsh_opt" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              mesh_utils
+              gmsh_opt
             
           </span>
         </div>
@@ -721,19 +721,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tit.tools.mesh_utils" class="md-nav__link">
+  <a href="#tit.tools.gmsh_opt" class="md-nav__link">
     <span class="md-ellipsis">
       
-        mesh_utils
+        gmsh_opt
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="mesh_utils">
+    <nav class="md-nav" aria-label="gmsh_opt">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tit.tools.mesh_utils.create_mesh_opt_file" class="md-nav__link">
+  <a href="#tit.tools.gmsh_opt.create_mesh_opt_file" class="md-nav__link">
     <span class="md-ellipsis">
       
         create_mesh_opt_file
@@ -745,7 +745,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tit.tools.mesh_utils.create_mesh_opt_file--parameters" class="md-nav__link">
+  <a href="#tit.tools.gmsh_opt.create_mesh_opt_file--parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
         Parameters
@@ -868,7 +868,7 @@
     
     
       <li class="md-path__item">
-        <a href="../extract_labels/" class="md-path__link">
+        <a href="../check_for_update/" class="md-path__link">
           
   <span class="md-ellipsis">
     tools
@@ -893,22 +893,22 @@
   
 
 
-  <h1>mesh_utils</h1>
+  <h1>gmsh_opt</h1>
 
 <div class="doc doc-object doc-module">
 
 
 
-<h2 id="tit.tools.mesh_utils" class="doc doc-heading">
-            <span class="doc doc-object-name doc-module-name">tit.tools.mesh_utils</span>
+<h2 id="tit.tools.gmsh_opt" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tit.tools.gmsh_opt</span>
 
 
-<a href="#tit.tools.mesh_utils" class="headerlink" title="Permanent link">&para;</a></h2>
+<a href="#tit.tools.gmsh_opt" class="headerlink" title="Permanent link">&para;</a></h2>
 
     <div class="doc doc-contents first">
 
-        <p>Mesh visualization utilities for TI-Toolbox.</p>
-<p>Provides helpers for Gmsh .opt file generation.</p>
+        <p>Gmsh .opt file generation for TI-Toolbox.</p>
+<p>Provides helpers for creating Gmsh visualization option files.</p>
 
 
 
@@ -931,18 +931,18 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.tools.mesh_utils.create_mesh_opt_file" class="doc doc-heading">
+<h3 id="tit.tools.gmsh_opt.create_mesh_opt_file" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">create_mesh_opt_file</span>
 
 
-<a href="#tit.tools.mesh_utils.create_mesh_opt_file" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#tit.tools.gmsh_opt.create_mesh_opt_file" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_mesh_opt_file</span><span class="p">(</span><span class="n">mesh_path</span><span class="p">,</span> <span class="n">field_info</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Create a .opt file for Gmsh visualization of mesh fields.</p>
-<h5 id="tit.tools.mesh_utils.create_mesh_opt_file--parameters">Parameters<a class="headerlink" href="#tit.tools.mesh_utils.create_mesh_opt_file--parameters" title="Permanent link">&para;</a></h5>
+<h5 id="tit.tools.gmsh_opt.create_mesh_opt_file--parameters">Parameters<a class="headerlink" href="#tit.tools.gmsh_opt.create_mesh_opt_file--parameters" title="Permanent link">&para;</a></h5>
 <p>mesh_path : str
     Path to the .msh file (without .opt extension)
 field_info : dict, optional
@@ -953,7 +953,7 @@ field_info : dict, optional
 
 
             <details class="quote">
-              <summary>Source code in <code>tit/tools/mesh_utils.py</code></summary>
+              <summary>Source code in <code>tit/tools/gmsh_opt.py</code></summary>
               <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-10">10</a></span>
 <span class="normal"><a href="#__codelineno-0-11">11</a></span>
 <span class="normal"><a href="#__codelineno-0-12">12</a></span>

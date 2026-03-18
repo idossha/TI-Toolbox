@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -695,10 +695,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.ElectrodeConfig" class="md-nav__link">
+  <a href="#tit.sim.config.Montage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ElectrodeConfig
+        Montage
       
     </span>
   </a>
@@ -706,10 +706,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.IntensityConfig" class="md-nav__link">
+  <a href="#tit.sim.config.MontageMode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        IntensityConfig
+        MontageMode
       
     </span>
   </a>
@@ -717,10 +717,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.ConductivityType" class="md-nav__link">
+  <a href="#tit.sim.config.SimulationMode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ConductivityType
+        SimulationMode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.sim.config.parse_intensities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse_intensities
       
     </span>
   </a>
@@ -1023,10 +1034,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.ElectrodeConfig" class="md-nav__link">
+  <a href="#tit.sim.config.Montage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ElectrodeConfig
+        Montage
       
     </span>
   </a>
@@ -1034,10 +1045,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.IntensityConfig" class="md-nav__link">
+  <a href="#tit.sim.config.MontageMode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        IntensityConfig
+        MontageMode
       
     </span>
   </a>
@@ -1045,10 +1056,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tit.sim.config.ConductivityType" class="md-nav__link">
+  <a href="#tit.sim.config.SimulationMode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ConductivityType
+        SimulationMode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.sim.config.parse_intensities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse_intensities
       
     </span>
   </a>
@@ -1157,8 +1179,8 @@
     style SIM fill:#2d5a27,stroke:#4a8,color:#fff</code></pre>
 <h2 id="running-a-simulation">Running a Simulation<a class="headerlink" href="#running-a-simulation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">ElectrodeConfig</span><span class="p">,</span> <span class="n">IntensityConfig</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">ConductivityType</span><span class="p">,</span> <span class="n">run_simulation</span><span class="p">,</span> <span class="n">load_montages</span><span class="p">,</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">Montage</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">run_simulation</span><span class="p">,</span> <span class="n">load_montages</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Load montages from the project&#39;s montage_list.json</span>
@@ -1168,21 +1190,20 @@
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">eeg_net</span><span class="o">=</span><span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Configure the simulation</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Configure the simulation (montages are part of the config)</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SimulationConfig</span><span class="p">(</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">subject_id</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;/data/my_project&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">conductivity_type</span><span class="o">=</span><span class="n">ConductivityType</span><span class="o">.</span><span class="n">SCALAR</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">intensities</span><span class="o">=</span><span class="n">IntensityConfig</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">electrode</span><span class="o">=</span><span class="n">ElectrodeConfig</span><span class="p">(</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="p">),</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="p">)</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Run (auto-detects TI vs mTI based on number of electrode pairs)</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">results</span> <span class="o">=</span> <span class="n">run_simulation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montages</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">montages</span><span class="o">=</span><span class="n">montages</span><span class="p">,</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">conductivity</span><span class="o">=</span><span class="s2">&quot;scalar&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">intensities</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">electrode_shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">electrode_dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># Run (auto-detects TI vs mTI based on number of electrode pairs)</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">results</span> <span class="o">=</span> <span class="n">run_simulation</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="simulation-modes">Simulation Modes<a class="headerlink" href="#simulation-modes" title="Permanent link">&para;</a></h2>
 <p>The simulation mode is auto-detected from the montage configuration:</p>
@@ -1233,31 +1254,41 @@
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="conductivity-types">Conductivity Types<a class="headerlink" href="#conductivity-types" title="Permanent link">&para;</a></h2>
+<p>The <code>conductivity</code> field on <code>SimulationConfig</code> accepts one of four string values:</p>
 <table>
 <thead>
 <tr>
-<th>Type</th>
+<th>Value</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>ConductivityType.SCALAR</code></td>
-<td>Isotropic conductivity (default, faster)</td>
+<td><code>"scalar"</code></td>
+<td>Isotropic, piecewise-constant conductivity (default, faster)</td>
 </tr>
 <tr>
-<td><code>ConductivityType.TENSOR</code></td>
-<td>Anisotropic conductivity from DTI data (requires diffusion preprocessing)</td>
+<td><code>"vn"</code></td>
+<td>Volume-normalized anisotropic conductivity from DTI data</td>
+</tr>
+<tr>
+<td><code>"dir"</code></td>
+<td>Direct linear rescaling of diffusion tensor eigenvalues</td>
+</tr>
+<tr>
+<td><code>"mc"</code></td>
+<td>Mean-conductivity (isotropic but spatially varying, from DTI)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="electrode-configuration">Electrode Configuration<a class="headerlink" href="#electrode-configuration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElectrodeConfig</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">electrode</span> <span class="o">=</span> <span class="n">ElectrodeConfig</span><span class="p">(</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>         <span class="c1"># &quot;ellipse&quot; or &quot;rect&quot;</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>   <span class="c1"># [width, height] in mm</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>        <span class="c1"># gel layer thickness in mm</span>
+<p>Electrode parameters are flat fields on <code>SimulationConfig</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SimulationConfig</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="o">...</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">electrode_shape</span><span class="o">=</span><span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>         <span class="c1"># &quot;ellipse&quot; or &quot;rect&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">electrode_dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>   <span class="c1"># [width, height] in mm</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>                  <span class="c1"># gel layer thickness in mm</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">rubber_thickness</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>              <span class="c1"># rubber layer thickness in mm</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="output-fields">Output Fields<a class="headerlink" href="#output-fields" title="Permanent link">&para;</a></h2>
@@ -1313,21 +1344,7 @@
   </span>
 
 <a href="#tit.sim.config.SimulationConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">conductivity_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.ConductivityType" href="#tit.sim.config.ConductivityType">ConductivityType</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.IntensityConfig" href="#tit.sim.config.IntensityConfig">IntensityConfig</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">electrode</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.ElectrodeConfig" href="#tit.sim.config.ElectrodeConfig">ElectrodeConfig</a></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="#tit.sim.config.Montage">Montage</a></span><span class="p">],</span> <span class="n">conductivity</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;scalar&#39;</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])(),</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;ellipse&#39;</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;all&#39;</span><span class="p">,</span> <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -1364,91 +1381,22 @@
 
 
 
-<h2 id="tit.sim.config.ElectrodeConfig" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">tit.sim.config.ElectrodeConfig</span>
+<h2 id="tit.sim.config.Montage" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tit.sim.config.Montage</span>
 
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
   </span>
 
-<a href="#tit.sim.config.ElectrodeConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ElectrodeConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;ellipse&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<a href="#tit.sim.config.Montage" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Montage</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.MontageMode" href="#tit.sim.config.MontageMode">MontageMode</a></span><span class="p">,</span> <span class="n">electrode_pairs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">],</span> <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
 
 
-        <p>Electrode shape and geometry (2-layer: gel + rubber).</p>
-<p>SimNIBS models the electrode–skin interface as two stacked layers:
-  [TOP]  Silicone rubber  (rubber_thickness)
-         Saline gel       (gel_thickness)
-  [SKIN] ── head surface ──</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="tit.sim.config.ElectrodeConfig.shape">shape</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Electrode shape — "ellipse" or "rect".</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="tit.sim.config.ElectrodeConfig.dimensions">dimensions</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>[x, y] size in mm (diameters for ellipse,
-sides for rect).</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="tit.sim.config.ElectrodeConfig.gel_thickness">gel_thickness</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Saline gel layer thickness in mm. Defaults to 4.0.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="tit.sim.config.ElectrodeConfig.rubber_thickness">rubber_thickness</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Silicone rubber layer thickness in mm.
-Defaults to 2.0.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Unified montage: EEG-cap labels or 3-D XYZ coordinates.</p>
 
 
 
@@ -1481,24 +1429,17 @@ Defaults to 2.0.</p>
 
 
 
-<h2 id="tit.sim.config.IntensityConfig" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">tit.sim.config.IntensityConfig</span>
+<h2 id="tit.sim.config.MontageMode" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tit.sim.config.MontageMode</span>
 
 
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
-  </span>
+<a href="#tit.sim.config.MontageMode" class="headerlink" title="Permanent link">&para;</a></h2>
 
-<a href="#tit.sim.config.IntensityConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">IntensityConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">values</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])()</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
-</code></pre></div>
 
     <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-external" title="enum.Enum" href="https://docs.python.org/3/library/enum.html#enum.Enum">Enum</a></code></p>
 
-
-        <p>Per-pair current intensities in mA. Supports N pairs (any even count).</p>
 
 
 
@@ -1531,11 +1472,11 @@ Defaults to 2.0.</p>
 
 
 
-<h2 id="tit.sim.config.ConductivityType" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">tit.sim.config.ConductivityType</span>
+<h2 id="tit.sim.config.SimulationMode" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tit.sim.config.SimulationMode</span>
 
 
-<a href="#tit.sim.config.ConductivityType" class="headerlink" title="Permanent link">&para;</a></h2>
+<a href="#tit.sim.config.SimulationMode" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents first">
@@ -1573,37 +1514,69 @@ Defaults to 2.0.</p>
 <div class="doc doc-object doc-function">
 
 
+<h2 id="tit.sim.config.parse_intensities" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tit.sim.config.parse_intensities</span>
+
+
+<a href="#tit.sim.config.parse_intensities" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Parse comma-separated intensity string into list of floats.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/sim/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse comma-separated intensity string into list of floats.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="k">return</span> <span class="n">v</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="sa">f</span><span class="s2">&quot;Invalid intensity format: expected 1 or an even number of values; got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h2 id="tit.sim.utils.run_simulation" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">tit.sim.utils.run_simulation</span>
 
 
 <a href="#tit.sim.utils.run_simulation" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_simulation</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><span title="tit.sim.config.MontageConfig">MontageConfig</span></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a></span><span class="p">[</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n"><a class="autorefs autorefs-external" title="typing.Callable" href="https://docs.python.org/3/library/typing.html#typing.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_simulation</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Callable" href="https://docs.python.org/3/library/typing.html#typing.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
 
         <p>Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
+Montages are read from <code>config.montages</code>.
 Returns list of result dicts: montage_name, montage_type, status, output_mesh.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-318">318</a></span>
-<span class="normal"><a href="#__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#__codelineno-0-322">322</a></span>
-<span class="normal"><a href="#__codelineno-0-323">323</a></span>
-<span class="normal"><a href="#__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-325">325</a></span>
 <span class="normal"><a href="#__codelineno-0-326">326</a></span>
 <span class="normal"><a href="#__codelineno-0-327">327</a></span>
 <span class="normal"><a href="#__codelineno-0-328">328</a></span>
@@ -1637,48 +1610,57 @@ Returns list of result dicts: montage_name, montage_type, status, output_mesh.</
 <span class="normal"><a href="#__codelineno-0-356">356</a></span>
 <span class="normal"><a href="#__codelineno-0-357">357</a></span>
 <span class="normal"><a href="#__codelineno-0-358">358</a></span>
-<span class="normal"><a href="#__codelineno-0-359">359</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_simulation</span><span class="p">(</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="n">montages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MontageConfig</span><span class="p">],</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    Run TI/mTI simulations sequentially. Mode is auto-detected per montage.</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    Returns list of result dicts: montage_name, montage_type, status, output_mesh.</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>            <span class="n">log_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Simulator_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.log&#39;</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="p">)</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="n">logger</span> <span class="o">=</span> <span class="n">_make_file_logger</span><span class="p">(</span><span class="s2">&quot;tit.sim&quot;</span><span class="p">,</span> <span class="n">log_file</span><span class="p">)</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">simulation_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">simulations</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.TI</span><span class="w"> </span><span class="kn">import</span> <span class="n">TISimulation</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.mTI</span><span class="w"> </span><span class="kn">import</span> <span class="n">mTISimulation</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">montage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">montages</span><span class="p">):</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>            <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">idx</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="p">)</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>            <span class="n">progress_callback</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="n">TISimulation</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>            <span class="k">if</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">TI</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>            <span class="k">else</span> <span class="n">mTISimulation</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="p">)</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">simulation_dir</span><span class="p">))</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="n">progress_callback</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="s2">&quot;Complete&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="k">return</span> <span class="n">results</span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_simulation</span><span class="p">(</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>    <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">    Run TI/mTI simulations sequentially. Mode is auto-detected per montage.</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">    Montages are read from ``config.montages``.</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">    Returns list of result dicts: montage_name, montage_type, status, output_mesh.</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="n">log_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Simulator_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.log&#39;</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="p">)</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="n">logger</span> <span class="o">=</span> <span class="n">_make_file_logger</span><span class="p">(</span><span class="s2">&quot;tit.sim&quot;</span><span class="p">,</span> <span class="n">log_file</span><span class="p">)</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="n">simulation_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">simulations</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.TI</span><span class="w"> </span><span class="kn">import</span> <span class="n">TISimulation</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.mTI</span><span class="w"> </span><span class="kn">import</span> <span class="n">mTISimulation</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="n">montages</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">montages</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">montage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">montages</span><span class="p">):</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>            <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">idx</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="p">)</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>            <span class="n">progress_callback</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>            <span class="n">TISimulation</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>            <span class="k">if</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">TI</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>            <span class="k">else</span> <span class="n">mTISimulation</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>        <span class="p">)</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">simulation_dir</span><span class="p">))</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="n">progress_callback</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="s2">&quot;Complete&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1693,12 +1675,7 @@ Returns list of result dicts: montage_name, montage_type, status, output_mesh.</
 
 
 <a href="#tit.sim.utils.load_montages" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_montages</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">montage_names</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">include_flex</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="typing.List" href="https://docs.python.org/3/library/typing.html#typing.List">List</a></span><span class="p">[</span><span class="n"><span title="tit.sim.config.MontageConfig">MontageConfig</span></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_montages</span><span class="p">(</span><span class="n">montage_names</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">include_flex</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="#tit.sim.config.Montage">Montage</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -1706,10 +1683,7 @@ Returns list of result dicts: montage_name, montage_type, status, output_mesh.</
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-130">130</a></span>
-<span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span>
-<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-133">133</a></span>
 <span class="normal"><a href="#__codelineno-0-134">134</a></span>
 <span class="normal"><a href="#__codelineno-0-135">135</a></span>
 <span class="normal"><a href="#__codelineno-0-136">136</a></span>
@@ -1734,35 +1708,48 @@ Returns list of result dicts: montage_name, montage_type, status, output_mesh.</
 <span class="normal"><a href="#__codelineno-0-155">155</a></span>
 <span class="normal"><a href="#__codelineno-0-156">156</a></span>
 <span class="normal"><a href="#__codelineno-0-157">157</a></span>
-<span class="normal"><a href="#__codelineno-0-158">158</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_montages</span><span class="p">(</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">montage_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="n">include_flex</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">MontageConfig</span><span class="p">]:</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_montage_data</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="n">net</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">eeg_net</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a>    <span class="n">uni</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;uni_polar_montages&quot;</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="n">multi</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multi_polar_montages&quot;</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a>    <span class="n">is_xyz</span> <span class="o">=</span> <span class="n">eeg_net</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;freehand&quot;</span><span class="p">,</span> <span class="s2">&quot;flex_mode&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="n">montages</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a>        <span class="p">(</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a>            <span class="n">XYZMontage</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">multi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="ow">or</span> <span class="n">uni</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span><span class="p">)</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a>            <span class="k">if</span> <span class="n">is_xyz</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>            <span class="k">else</span> <span class="n">LabelMontage</span><span class="p">(</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>                <span class="n">name</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">multi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="ow">or</span> <span class="n">uni</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>            <span class="p">)</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="p">)</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a>        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">montage_names</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>        <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">multi</span> <span class="ow">or</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">uni</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="p">]</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a>    <span class="k">if</span> <span class="n">include_flex</span><span class="p">:</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>        <span class="k">for</span> <span class="n">flex</span> <span class="ow">in</span> <span class="n">load_flex_montages</span><span class="p">():</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>            <span class="n">montages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parse_flex_montage</span><span class="p">(</span><span class="n">flex</span><span class="p">))</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="k">return</span> <span class="n">montages</span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_montages</span><span class="p">(</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="n">montage_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="n">include_flex</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Montage</span><span class="p">]:</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_montage_data</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>    <span class="n">net</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">eeg_net</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="n">uni</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;uni_polar_montages&quot;</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="n">multi</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multi_polar_montages&quot;</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>    <span class="k">if</span> <span class="n">eeg_net</span> <span class="o">==</span> <span class="s2">&quot;freehand&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a>        <span class="n">mode</span> <span class="o">=</span> <span class="n">Montage</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">FREEHAND</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="k">elif</span> <span class="n">eeg_net</span> <span class="o">==</span> <span class="s2">&quot;flex_mode&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="n">mode</span> <span class="o">=</span> <span class="n">Montage</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">FLEX_FREE</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="n">mode</span> <span class="o">=</span> <span class="n">Montage</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">NET</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">montages</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="n">Montage</span><span class="p">(</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>            <span class="n">name</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>            <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>            <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">multi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="ow">or</span> <span class="n">uni</span><span class="p">[</span><span class="n">n</span><span class="p">],</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>            <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span><span class="p">,</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>        <span class="p">)</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">montage_names</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>        <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">multi</span> <span class="ow">or</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">uni</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>    <span class="p">]</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="k">if</span> <span class="n">include_flex</span><span class="p">:</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>        <span class="k">for</span> <span class="n">flex</span> <span class="ow">in</span> <span class="n">load_flex_montages</span><span class="p">():</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>            <span class="n">montages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parse_flex_montage</span><span class="p">(</span><span class="n">flex</span><span class="p">))</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="k">return</span> <span class="n">montages</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
