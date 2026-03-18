@@ -6,8 +6,22 @@ SimNIBS charm (m2m) creation + subject atlas segmentation.
 
 from pathlib import Path
 
+import nibabel as nib
+
 from tit.paths import get_path_manager
 from .utils import CommandRunner, PreprocessError, _find_anat_files
+
+
+def _get_form_flag(nifti_path: Path) -> str:
+    """Return --forcesform or --forceqform based on which header code is set."""
+    header = nib.load(str(nifti_path)).header
+    if header["sform_code"] > 0:
+        return "--forcesform"
+    if header["qform_code"] > 0:
+        return "--forceqform"
+    raise PreprocessError(
+        f"Neither sform nor qform is set in {nifti_path}. Fix the NIfTI header."
+    )
 
 # All available atlases for subject_atlas command
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
@@ -50,7 +64,8 @@ def run_charm(
             "Remove the directory manually before rerunning."
         )
 
-    cmd = ["charm", "--forcesform", subject_id, str(t1_file)]
+    form_flag = _get_form_flag(t1_file)
+    cmd = ["charm", form_flag, subject_id, str(t1_file)]
     if t2_file:
         cmd.append(str(t2_file))
 
