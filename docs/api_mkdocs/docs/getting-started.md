@@ -295,10 +295,9 @@ metadata = ReportMetadata(title="My Analysis", subject_id="001")
 assembler = ReportAssembler(metadata=metadata, title="Custom Report")
 
 section = assembler.add_section("results", "Results", description="Analysis output")
-section.add_reportlet(SummaryCardsReportlet(
-    title="Key Metrics",
-    cards=[],
-).add_card(label="ROI Mean", value="0.152 V/m", color="#4CAF50"))
+cards = SummaryCardsReportlet(title="Key Metrics")
+cards.add_card(label="ROI Mean", value="0.152 V/m", color="#4CAF50")
+section.add_reportlet(cards)
 
 assembler.save("/data/output/report.html")
 ```

@@ -13,7 +13,19 @@
          <lastmod>2026-03-18</lastmod>
     </url>
     <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/atlas/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/core/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/optimization/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/plotting/</loc>
          <lastmod>2026-03-18</lastmod>
     </url>
     <url>
@@ -26,6 +38,14 @@
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/simulation/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/statistics/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/tools/</loc>
          <lastmod>2026-03-18</lastmod>
     </url>
     <url>

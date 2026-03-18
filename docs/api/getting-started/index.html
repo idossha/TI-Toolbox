@@ -16,7 +16,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../pipeline/preprocessing/">
+        <link rel="next" href="../pipeline/core/">
       
       
         
@@ -269,7 +269,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../pipeline/preprocessing/" class="md-tabs__link">
+        <a href="../pipeline/core/" class="md-tabs__link">
           
   
   
@@ -759,6 +759,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -805,6 +815,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -925,6 +963,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../pipeline/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/atlas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../pipeline/reporting/" class="md-nav__link">
         
   
@@ -933,6 +1027,62 @@
     
   
     Reporting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utility Tools
   
 
     
@@ -1621,12 +1771,11 @@ and preprocessing runs.</p>
 <a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="n">assembler</span> <span class="o">=</span> <span class="n">ReportAssembler</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Custom Report&quot;</span><span class="p">)</span>
 <a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>
 <a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="n">section</span> <span class="o">=</span> <span class="n">assembler</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;results&quot;</span><span class="p">,</span> <span class="s2">&quot;Results&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis output&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">section</span><span class="o">.</span><span class="n">add_reportlet</span><span class="p">(</span><span class="n">SummaryCardsReportlet</span><span class="p">(</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Key Metrics&quot;</span><span class="p">,</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>    <span class="n">cards</span><span class="o">=</span><span class="p">[],</span>
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="p">)</span><span class="o">.</span><span class="n">add_card</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">&quot;ROI Mean&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;0.152 V/m&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#4CAF50&quot;</span><span class="p">))</span>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="n">assembler</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;/data/output/report.html&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">cards</span> <span class="o">=</span> <span class="n">SummaryCardsReportlet</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Key Metrics&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="n">cards</span><span class="o">.</span><span class="n">add_card</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">&quot;ROI Mean&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;0.152 V/m&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#4CAF50&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="n">section</span><span class="o">.</span><span class="n">add_reportlet</span><span class="p">(</span><span class="n">cards</span><span class="p">)</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="n">assembler</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;/data/output/report.html&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="mesh-and-nifti-tools">Mesh and NIfTI Tools<a class="headerlink" href="#mesh-and-nifti-tools" title="Permanent link">&para;</a></h2>
 <p>Standalone utilities for working with simulation outputs:</p>

@@ -267,7 +267,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../pipeline/preprocessing/" class="md-tabs__link">
+        <a href="../../../../pipeline/core/" class="md-tabs__link">
           
   
   
@@ -423,6 +423,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -469,6 +479,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../pipeline/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -589,6 +627,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../pipeline/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../pipeline/atlas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../pipeline/reporting/" class="md-nav__link">
         
   
@@ -597,6 +691,62 @@
     
   
     Reporting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../pipeline/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../pipeline/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utility Tools
   
 
     
@@ -1013,7 +1163,7 @@ Mirrors the tit.opt.config / tit.sim.config pattern.</p>
   </span>
 
 <a href="#tit.stats.config.GroupComparisonConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonConfig</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">test_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType">TestType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType.UNPAIRED">UNPAIRED</span></span><span class="p">,</span> <span class="n">alternative</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative">Alternative</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative.TWO_SIDED">TWO_SIDED</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">group1_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Responders&#39;</span><span class="p">,</span> <span class="n">group2_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Non-Responders&#39;</span><span class="p">,</span> <span class="n">value_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Current Intensity&#39;</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">())</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonConfig</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">test_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType">TestType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType.UNPAIRED">UNPAIRED</span></span><span class="p">,</span> <span class="n">alternative</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative">Alternative</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative.TWO_SIDED">TWO_SIDED</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">group1_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Responders&#39;</span><span class="p">,</span> <span class="n">group2_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Non-Responders&#39;</span><span class="p">,</span> <span class="n">value_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Current Intensity&#39;</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">())</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1100,7 +1250,7 @@ Mirrors the tit.opt.config / tit.sim.config pattern.</p>
   </span>
 
 <a href="#tit.stats.config.GroupComparisonConfig.load_subjects" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1191,7 +1341,7 @@ Mirrors the tit.opt.config / tit.sim.config pattern.</p>
   </span>
 
 <a href="#tit.stats.config.CorrelationConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationConfig</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">correlation_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType">CorrelationType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType.PEARSON">PEARSON</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">use_weights</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">effect_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Effect Size&#39;</span><span class="p">,</span> <span class="n">field_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Electric Field Magnitude&#39;</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">())</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationConfig</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">correlation_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType">CorrelationType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType.PEARSON">PEARSON</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">use_weights</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">effect_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Effect Size&#39;</span><span class="p">,</span> <span class="n">field_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;Electric Field Magnitude&#39;</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">())</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1278,7 +1428,7 @@ Mirrors the tit.opt.config / tit.sim.config pattern.</p>
   </span>
 
 <a href="#tit.stats.config.CorrelationConfig.load_subjects" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">

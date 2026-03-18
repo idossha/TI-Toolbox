@@ -87,17 +87,18 @@ For a full walkthrough, see the [Getting Started](getting-started.md) guide.
 | 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, FreeSurfer recon-all, CHARM head mesh | [Preprocessing](pipeline/preprocessing.md) |
 | 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
 | 3. Simulation | [`tit.sim`](reference/tit/sim/index.md) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
-| 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical, cortical, and subcortical ROIs | [Analysis](pipeline/analysis.md) |
+| 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical and cortical ROIs | [Analysis](pipeline/analysis.md) |
 | 5. Reporting | [`tit.reporting`](reference/tit/reporting/index.md) | HTML report generation and visualization | [Reporting](pipeline/reporting.md) |
 
 ## Supporting Modules
 
-| Module | Description |
-|--------|-------------|
-| [`tit`](reference/tit/index.md) | Core utilities — path management, constants, logging, field calculations |
-| [`tit.stats`](reference/tit/stats/index.md) | Cluster-based permutation testing and group-level statistics |
-| [`tit.plotting`](reference/tit/plotting/index.md) | Visualization utilities (histograms, overlays, statistical plots) |
-| [`tit.tools`](reference/tit/tools/index.md) | Standalone mesh/NIfTI conversion and electrode mapping utilities |
+| Module | Description | Guide |
+|--------|-------------|-------|
+| [`tit`](reference/tit/index.md) | Path management, constants, logging, config IO, error handling | [Core Utilities](pipeline/core.md) |
+| [`tit.stats`](reference/tit/stats/index.md) | Cluster-based permutation testing and group-level statistics | [Statistics](pipeline/statistics.md) |
+| [`tit.atlas`](reference/tit/atlas/index.md) | Surface and volumetric atlas discovery, overlap analysis | [Atlas](pipeline/atlas.md) |
+| [`tit.plotting`](reference/tit/plotting/index.md) | Visualization utilities (histograms, overlays, statistical plots) | [Plotting](pipeline/plotting.md) |
+| [`tit.tools`](reference/tit/tools/index.md) | Standalone mesh/NIfTI conversion and electrode mapping utilities | [Utility Tools](pipeline/tools.md) |
 
 ## Build Locally
 

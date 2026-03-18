@@ -43,11 +43,16 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Pipeline:
+    - Core Utilities: pipeline/core.md
     - Preprocessing: pipeline/preprocessing.md
     - Optimization: pipeline/optimization.md
     - Simulation: pipeline/simulation.md
     - Analysis: pipeline/analysis.md
+    - Statistics: pipeline/statistics.md
+    - Atlas: pipeline/atlas.md
     - Reporting: pipeline/reporting.md
+    - Plotting: pipeline/plotting.md
+    - Utility Tools: pipeline/tools.md
   - API Reference: reference/
 
 plugins:
