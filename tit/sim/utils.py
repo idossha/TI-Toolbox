@@ -246,7 +246,6 @@ def create_simulation_config_file(
         "mti_field_method": config.mti_field_method.value,
         "direct_field_assumptions": {
             "pair_polarity": config.direct_field_pair_polarity,
-            "phase_deg": config.direct_field_phase_deg,
         },
         "created_at": datetime.now().isoformat(),
     }

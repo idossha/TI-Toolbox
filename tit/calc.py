@@ -1,10 +1,5 @@
 #!/usr/bin/env simnibs_python
-"""
-Shared TI field calculation utilities.
-
-Includes the current recursive TI implementation plus direct-field
-alternatives for mTI aggregation.
-"""
+"""Shared TI field calculation utilities."""
 
 from __future__ import annotations
 
@@ -190,48 +185,16 @@ def get_nTI_vectors(fields):
 def compute_mti_vectors(
     fields,
     method: MTIFieldMethod | str,
-    *,
-    phase_deg: float = 0.0,
 ):
     """Dispatch mTI field computation by method."""
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
     if method == MTIFieldMethod.RECURSIVE_TI.value:
         return get_nTI_vectors(fields)
-    if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
-        return compute_direct_field_magnitude_vectors(fields, phase_deg=phase_deg)
-    if method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
-        return compute_direct_field_directional_vectors(fields, phase_deg=phase_deg)
     if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
-        return compute_full_field_directional_am_vectors(fields, phase_deg=phase_deg)
+        return compute_full_field_directional_am_vectors(fields)
     raise ValueError(f"Unsupported mTI field method: {method!r}")
 
-
-def compute_direct_field_magnitude_vectors(fields, *, phase_deg: float = 0.0):
-    """Compute direct-field AM from the envelope of ``||E(t)||``.
-
-    This follows the low-pass analytic form used in the MATLAB prototype:
-    ``S(t) = S0 + B cos(beat)`` for the low-frequency part of ``||E(t)||^2``.
-    The returned field is the peak-to-trough envelope magnitude.
-    """
-    mti_amp, _env_max = _direct_field_magnitude_components(fields, phase_deg=phase_deg)
-    return mti_amp
-
-
-def compute_direct_field_directional_vectors(fields, *, phase_deg: float = 0.0):
-    """Compute direct-field AM optimized over direction.
-
-    For each sampled unit direction ``u``, we project the carrier fields onto
-    ``u`` and apply the same low-pass envelope logic as the magnitude method.
-    The output is the vector field whose direction is the maximizing direction
-    and whose magnitude is the maximum peak-to-trough directional modulation.
-    """
-    mti_vectors, _env_max = _direct_field_directional_components(
-        fields, phase_deg=phase_deg
-    )
-    return mti_vectors
-
-
-def compute_full_field_directional_am_vectors(fields, *, phase_deg: float = 0.0):
+def compute_full_field_directional_am_vectors(fields):
     """Compute directional AM from full-field pair envelopes.
 
     For a fixed direction ``u``, project each carrier field onto ``u``.
@@ -247,101 +210,23 @@ def compute_full_field_directional_am_vectors(fields, *, phase_deg: float = 0.0)
 
     and is optimized over direction ``u``.
     """
-    mti_vectors, _peak_env = _full_field_directional_am_components(
-        fields, phase_deg=phase_deg
-    )
+    mti_vectors, _peak_env = _full_field_directional_am_components(fields)
     return mti_vectors
 
 
 def compute_direct_field_peak_hf(
     fields,
     method: MTIFieldMethod | str,
-    *,
-    phase_deg: float = 0.0,
 ):
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
-    if method in {
-        MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-        MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-        MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
-    }:
-        return _direct_field_peak_hf_actual(fields, phase_deg=phase_deg)
+    if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
+        return _direct_field_peak_hf_actual(fields)
     raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
 
-
-def _direct_field_magnitude_components(fields, *, phase_deg: float = 0.0):
-    arrs = _validate_field_list(fields)
-    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
-
-    s0 = np.zeros(arrs[0].shape[0], dtype=np.float64)
-    for field in arrs:
-        s0 += np.sum(field * field, axis=1)
-    s0 *= 0.5
-
-    b = np.zeros_like(s0)
-    for pair_idx, weight in enumerate(weights):
-        f1 = arrs[2 * pair_idx]
-        f2 = arrs[2 * pair_idx + 1]
-        b += weight * np.sum(f1 * f2, axis=1)
-
-    abs_b = np.abs(b)
-    smin = np.maximum(s0 - abs_b, 0.0)
-    smax = np.maximum(s0 + abs_b, 0.0)
-    env_min = np.sqrt(smin)
-    env_max = np.sqrt(smax)
-    return env_max - env_min, env_max
-
-
-def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
-    arrs = _validate_field_list(fields)
-    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
-    directions = _fibonacci_sphere(192)
-    chunk_size = 16384
-
-    n_vox = arrs[0].shape[0]
-    best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
-    best_peak = np.zeros(n_vox, dtype=np.float64)
-
-    for start in range(0, n_vox, chunk_size):
-        stop = min(start + chunk_size, n_vox)
-        proj_fields = [field[start:stop] @ directions.T for field in arrs]
-
-        s0 = np.zeros_like(proj_fields[0], dtype=np.float64)
-        for proj in proj_fields:
-            s0 += proj * proj
-        s0 *= 0.5
-
-        b = np.zeros_like(s0, dtype=np.float64)
-        for pair_idx, weight in enumerate(weights):
-            p1 = proj_fields[2 * pair_idx]
-            p2 = proj_fields[2 * pair_idx + 1]
-            b += weight * (p1 * p2)
-
-        abs_b = np.abs(b)
-        smin = np.maximum(s0 - abs_b, 0.0)
-        smax = np.maximum(s0 + abs_b, 0.0)
-        env_min = np.sqrt(smin)
-        env_max = np.sqrt(smax)
-        amp = env_max - env_min
-
-        best_idx = np.argmax(amp, axis=1)
-        rows = np.arange(stop - start)
-        best_amp = amp[rows, best_idx]
-        best_dirs = directions[best_idx]
-        best_vectors[start:stop] = best_dirs * best_amp[:, None]
-        best_peak[start:stop] = env_max[rows, best_idx]
-
-    return best_vectors, best_peak
-
-
-def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
+def _full_field_directional_am_components(fields):
     arrs = _validate_field_list(fields)
     directions = _fibonacci_sphere(192)
     voxel_chunk_size = 16384
-    if abs(float(phase_deg)) > 1e-9:
-        raise ValueError(
-            "full_field_directional_am currently supports only phase_deg = 0."
-        )
 
     n_vox = arrs[0].shape[0]
     best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
@@ -369,12 +254,12 @@ def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
     return best_vectors, best_peak_env
 
 
-def _direct_field_peak_hf_actual(fields, *, phase_deg: float = 0.0):
+def _direct_field_peak_hf_actual(fields):
     """Return the peak instantaneous magnitude of the full carrier sum.
 
     For the direct-field workflow we assume the HF carriers are phase-aligned
     at the peak instant, so the peak field is the norm of the signed vector sum
-    of the pair fields. ``phase_deg`` is ignored here by design.
+    of the pair fields.
     """
     arrs = _validate_field_list(fields)
     total = np.sum(np.stack(arrs, axis=0), axis=0)
@@ -397,16 +282,6 @@ def _validate_field_list(fields):
                 f"All fields must have identical shape; field 1 has {ref_shape}, field {i} has {arr.shape}"
             )
     return arrs
-
-
-def _pair_phase_weights(num_fields: int, phase_deg: float = 0.0):
-    num_pairs = num_fields // 2
-    if num_pairs == 0:
-        return []
-    if num_pairs == 1:
-        return [1.0]
-    phase_weight = float(np.cos(np.deg2rad(phase_deg)))
-    return [1.0] + [phase_weight] * (num_pairs - 1)
 
 
 def _fibonacci_sphere(num_dirs: int) -> np.ndarray:

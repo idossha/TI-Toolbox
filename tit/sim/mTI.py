@@ -189,7 +189,6 @@ class mTISimulation:
         mti_vectors = compute_mti_vectors(
             e_fields,
             self.config.mti_field_method,
-            phase_deg=self.config.direct_field_phase_deg,
         )
         if np.asarray(mti_vectors).ndim == 2:
             mti_field = np.linalg.norm(mti_vectors, axis=1)
@@ -201,15 +200,10 @@ class mTISimulation:
             mout.add_element_field(np.asarray(mti_vectors, dtype=float), "TI_vectors")
         mout.add_element_field(mti_field, "TI_Max")
 
-        if self.config.mti_field_method in (
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE,
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL,
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
-        ):
+        if self.config.mti_field_method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM:
             peak_hf = compute_direct_field_peak_hf(
                 e_fields,
                 self.config.mti_field_method,
-                phase_deg=self.config.direct_field_phase_deg,
             )
             mout.add_element_field(peak_hf, "Peak_HF")
 

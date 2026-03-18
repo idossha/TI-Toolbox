@@ -18,10 +18,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tit.calc import (
-    compute_direct_field_directional_vectors,
-    compute_direct_field_magnitude_vectors,
     compute_direct_field_peak_hf,
     compute_full_field_directional_am_vectors,
+    compute_mti_vectors,
     get_TI_vectors,
     get_nTI_vectors,
     get_mTI_vectors,
@@ -503,53 +502,6 @@ class TestMTIVectors:
 
 
 @pytest.mark.unit
-class TestDirectFieldMagnitude:
-    def test_parallel_pairs_have_expected_amplitude(self):
-        fields = [
-            np.array([[2.0, 0.0, 0.0]]),
-            np.array([[1.0, 0.0, 0.0]]),
-            np.array([[4.0, 0.0, 0.0]]),
-            np.array([[3.0, 0.0, 0.0]]),
-        ]
-        result = compute_direct_field_magnitude_vectors(fields)
-        peak = compute_direct_field_peak_hf(
-            fields, MTIFieldMethod.DIRECT_FIELD_MAGNITUDE
-        )
-        np.testing.assert_allclose(result, [np.sqrt(29.0) - 1.0], atol=1e-12)
-        np.testing.assert_allclose(peak, [10.0], atol=1e-12)
-
-    def test_phase_shift_reduces_combined_modulation(self):
-        fields = [
-            np.array([[2.0, 0.0, 0.0]]),
-            np.array([[1.0, 0.0, 0.0]]),
-            np.array([[4.0, 0.0, 0.0]]),
-            np.array([[3.0, 0.0, 0.0]]),
-        ]
-        result = compute_direct_field_magnitude_vectors(fields, phase_deg=180.0)
-        np.testing.assert_allclose(result, [5.0 - np.sqrt(5.0)], atol=1e-12)
-
-
-@pytest.mark.unit
-class TestDirectFieldDirectional:
-    def test_directional_matches_magnitude_for_collinear_fields(self):
-        fields = [
-            np.array([[2.0, 0.0, 0.0]]),
-            np.array([[1.0, 0.0, 0.0]]),
-            np.array([[4.0, 0.0, 0.0]]),
-            np.array([[3.0, 0.0, 0.0]]),
-        ]
-        directional_vec = compute_direct_field_directional_vectors(fields)
-        directional = np.linalg.norm(directional_vec, axis=1)
-        magnitude = compute_direct_field_magnitude_vectors(fields)
-        peak = compute_direct_field_peak_hf(
-            fields, MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL
-        )
-        assert directional_vec.shape == (1, 3)
-        np.testing.assert_allclose(directional, magnitude, atol=2e-2)
-        np.testing.assert_allclose(peak, [10.0], atol=1e-12)
-
-
-@pytest.mark.unit
 class TestFullFieldDirectionalAM:
     def test_overlapping_half_strength_pairs_match_unipolar_ti(self):
         fields = [
@@ -583,3 +535,18 @@ class TestFullFieldDirectionalAM:
         result_vec = compute_full_field_directional_am_vectors(fields)
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [0.0], atol=3e-2)
+
+    def test_dispatch_and_peak_hf(self):
+        fields = [
+            np.array([[2.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[4.0, 0.0, 0.0]]),
+            np.array([[3.0, 0.0, 0.0]]),
+        ]
+        dispatched = compute_mti_vectors(fields, MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM)
+        direct = compute_full_field_directional_am_vectors(fields)
+        peak = compute_direct_field_peak_hf(
+            fields, MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM
+        )
+        np.testing.assert_allclose(dispatched, direct, atol=1e-6)
+        np.testing.assert_allclose(peak, [10.0], atol=1e-12)

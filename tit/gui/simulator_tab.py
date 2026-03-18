@@ -238,14 +238,6 @@ class SimulatorTab(QtWidgets.QWidget):
         self.mti_method_combo = QtWidgets.QComboBox()
         self.mti_method_combo.addItem("Recursive TI", MTIFieldMethod.RECURSIVE_TI.value)
         self.mti_method_combo.addItem(
-            "Direct Field (Magnitude AM)",
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-        )
-        self.mti_method_combo.addItem(
-            "Direct Field (Directional AM)",
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-        )
-        self.mti_method_combo.addItem(
             "Full Field (Directional AM)",
             MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
         )
@@ -729,23 +721,12 @@ class SimulatorTab(QtWidgets.QWidget):
         if not has_mti_jobs:
             self.mti_method_warning.setVisible(False)
             return
-        if method in {
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
-        }:
-            if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
-                mode_text = "magnitude AM from the summed field norm"
-            elif method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
-                mode_text = "directional AM optimized over direction"
-            else:
-                mode_text = (
-                    "directional AM from full-field pair envelopes, optimized over direction"
-                )
+        if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
             self.mti_method_warning.setText(
-                f"{method} computes {mode_text}. It interprets each electrode pair "
+                f"{method} computes directional AM from full-field pair envelopes, "
+                "optimized over direction. It interprets each electrode pair "
                 "as ordered (+,-) using the pair order shown in the montage, "
-                "assumes phase = 0 degrees."
+                "with all pair envelopes assumed in phase."
             )
             self.mti_method_warning.setVisible(True)
         else:
