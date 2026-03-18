@@ -571,12 +571,16 @@ class SimulatorTab(QtWidgets.QWidget):
                 break
 
     def _on_row_mode_changed(self, text):
-        """Update current input placeholder when U/M mode changes."""
+        """Reset selections and refresh montage list when U/M mode changes."""
         combo = self.sender()
-        for card in self._job_cards:
+        for i, card in enumerate(self._job_cards):
             if card.mode_combo is combo:
                 ph = "1.0,1.0,1.0,1.0" if text == "M" else "1.0,1.0"
                 card.current_edit.setPlaceholderText(ph)
+                self._job_selections[i] = []
+                self._update_count_cell(i)
+                if i == self._selected_card_idx:
+                    self._refresh_selection_list()
                 break
 
     def _update_count_cell(self, row):
