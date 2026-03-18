@@ -7,17 +7,17 @@ This guide covers the core APIs you'll interact with most frequently.
 Every TI-Toolbox session starts with logging setup and path management:
 
 ```python
-from tit import setup_logging, add_file_handler, get_path_manager
+from tit import init, add_file_handler, get_path_manager
 
-# Configure logging (file-only by default, no terminal output)
-setup_logging("INFO")
+# Configure logging with terminal output (or use setup_logging for file-only)
+init("INFO")
 
 # Initialize the path manager singleton (BIDS-compliant paths)
-pm = get_path_manager("/data/my_project", "001")
+pm = get_path_manager("/data/my_project")
 
 # Access BIDS paths directly
-mesh_path = pm.get_head_mesh()          # -> .../derivatives/SimNIBS/sub-001/m2m_001/
-sims_path = pm.simulations("001")       # -> .../derivatives/SimNIBS/sub-001/Simulations/
+mesh_path = pm.m2m("001")              # -> .../derivatives/SimNIBS/sub-001/m2m_001/
+sims_path = pm.simulations("001")      # -> .../derivatives/SimNIBS/sub-001/Simulations/
 ```
 
 ## Running Simulations
@@ -111,7 +111,7 @@ group_result = run_group_analysis(
 ### Flex-Search (Differential Evolution)
 
 ```python
-from tit.opt import FlexConfig, FlexElectrodeConfig, SphericalROI, run_flex_search
+from tit.opt import FlexConfig, run_flex_search
 
 config = FlexConfig(
     subject_id="001",
@@ -119,8 +119,8 @@ config = FlexConfig(
     goal="mean",              # "mean", "max", or "focality"
     postproc="max_TI",        # "max_TI", "dir_TI_normal", "dir_TI_tangential"
     current_mA=1.0,
-    electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
-    roi=SphericalROI(center=(-42, -20, 55), radius=10, use_mni=True),
+    electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+    roi=FlexConfig.SphericalROI(x=-42, y=-20, z=55, radius=10, use_mni=True),
     eeg_net="GSN-HydroCel-185",
     n_multistart=3,
 )
@@ -133,15 +133,14 @@ print(f"Output: {result.output_folder}")
 ### Exhaustive Search
 
 ```python
-from tit.opt import ExConfig, PoolElectrodes, run_ex_search
+from tit.opt import ExConfig, run_ex_search
 
 config = ExConfig(
     subject_id="001",
     project_dir="/data/my_project",
     leadfield_hdf="/path/to/leadfield.hdf5",
     roi_name="motor_roi",
-    electrodes=PoolElectrodes(pool=["C3", "C4", "F3", "F4", "P3", "P4"]),
-    eeg_net="GSN-HydroCel-185",
+    electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "F3", "F4", "P3", "P4"]),
 )
 
 result = run_ex_search(config)
@@ -152,13 +151,10 @@ print(f"Results CSV: {result.results_csv}")
 ## Statistical Testing
 
 ```python
-from tit.stats import (
-    GroupComparisonConfig, GroupSubject,
-    run_group_comparison, load_group_subjects,
-)
+from tit.stats import GroupComparisonConfig, run_group_comparison
 
-# Load subjects from CSV
-subjects = load_group_subjects("/data/subjects.csv")
+# Load subjects from CSV (classmethod on GroupComparisonConfig)
+subjects = GroupComparisonConfig.load_subjects("/data/subjects.csv")
 
 config = GroupComparisonConfig(
     project_dir="/data/my_project",
@@ -171,7 +167,7 @@ config = GroupComparisonConfig(
 )
 
 result = run_group_comparison(config)
-print(f"Significant clusters: {result.n_clusters}")
+print(f"Significant clusters: {result.n_significant_clusters}")
 print(f"Output: {result.output_dir}")
 ```
 
@@ -254,11 +250,11 @@ print(f"Report: {output_path}")
 ```python
 from tit.reporting import create_flex_search_report
 
-# Generate directly from a flex-search output directory
+# Generate from optimization data dict
 output_path = create_flex_search_report(
     project_dir="/data/my_project",
     subject_id="001",
-    data=None,  # auto-loads from output_dir
+    data=optimization_data,  # dict with optimization results
     output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
 )
 ```
@@ -319,17 +315,16 @@ from tit.tools.montage_visualizer import visualize_montage
 convert_mesh_dir(
     mesh_dir="/data/sim_output/TI/mesh",
     output_dir="/data/sim_output/TI/niftis",
-    subject_id="001",
     m2m_dir="/data/derivatives/SimNIBS/sub-001/m2m_001",
 )
 
 # Visualize electrode montage on the scalp
 visualize_montage(
     montage_name="motor_cortex",
-    sim_mode="U",  # "U" for TI, "M" for mTI
+    electrode_pairs=[["E030", "E020"], ["E095", "E070"]],
     eeg_net="GSN-HydroCel-185",
     output_dir="/data/output/montage_imgs",
-    project_dir="/data/my_project",
+    sim_mode="U",  # "U" for TI, "M" for mTI
 )
 ```
 
@@ -339,9 +334,9 @@ visualize_montage(
 All paths are managed by `PathManager`, which enforces a BIDS-compliant directory structure. You never construct paths manually.
 
 ### Field Types
-- **TI_max**: Maximum TI envelope magnitude (scalar field)
+- **TI_max**: Maximum TI envelope magnitude (2-pair simulations)
 - **TI_normal**: TI field component normal to the cortical surface
-- **mTI_max**: Multi-channel TI maximum envelope (from binary-tree combination)
+- **TI_Max**: Multi-channel TI maximum envelope (4-pair mTI simulations, from binary-tree combination)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

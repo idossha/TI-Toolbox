@@ -50,15 +50,15 @@ graph TD
 ## Quick Start
 
 ```python
-from tit import setup_logging, get_path_manager
+from tit import init, get_path_manager
 from tit.sim import SimulationConfig, Montage
 from tit.sim import run_simulation, load_montages
 from tit.analyzer import Analyzer
-from tit.opt import FlexConfig, SphericalROI, run_flex_search
+from tit.opt import FlexConfig, run_flex_search
 
-# Initialize
-setup_logging("INFO")
-pm = get_path_manager("/path/to/project", "001")
+# Initialize (configures logging with terminal output)
+init("INFO")
+pm = get_path_manager("/path/to/project")
 
 # Run a simulation
 montages = load_montages(["my_montage"], "/path/to/project", "GSN-HydroCel-185")
@@ -84,20 +84,20 @@ For a full walkthrough, see the [Getting Started](getting-started.md) guide.
 
 | Step | Module | Description | Guide |
 |------|--------|-------------|-------|
-| 1. Preprocessing | [`tit.pre`](reference/tit/pre/) | DICOM conversion, FreeSurfer recon-all, CHARM head mesh | [Preprocessing](pipeline/preprocessing.md) |
-| 2. Optimization | [`tit.opt`](reference/tit/opt/) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
-| 3. Simulation | [`tit.sim`](reference/tit/sim/) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
-| 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/) | Field analysis with spherical, cortical, and subcortical ROIs | [Analysis](pipeline/analysis.md) |
-| 5. Reporting | [`tit.reporting`](reference/tit/reporting/) | HTML report generation and visualization | [Reporting](pipeline/reporting.md) |
+| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, FreeSurfer recon-all, CHARM head mesh | [Preprocessing](pipeline/preprocessing.md) |
+| 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
+| 3. Simulation | [`tit.sim`](reference/tit/sim/index.md) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
+| 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical, cortical, and subcortical ROIs | [Analysis](pipeline/analysis.md) |
+| 5. Reporting | [`tit.reporting`](reference/tit/reporting/index.md) | HTML report generation and visualization | [Reporting](pipeline/reporting.md) |
 
 ## Supporting Modules
 
 | Module | Description |
 |--------|-------------|
-| [`tit`](reference/tit/) | Core utilities — path management, constants, logging, field calculations |
-| [`tit.stats`](reference/tit/stats/) | Cluster-based permutation testing and group-level statistics |
-| [`tit.plotting`](reference/tit/plotting/) | Visualization utilities (histograms, overlays, statistical plots) |
-| [`tit.tools`](reference/tit/tools/) | Standalone mesh/NIfTI conversion and electrode mapping utilities |
+| [`tit`](reference/tit/index.md) | Core utilities — path management, constants, logging, field calculations |
+| [`tit.stats`](reference/tit/stats/index.md) | Cluster-based permutation testing and group-level statistics |
+| [`tit.plotting`](reference/tit/plotting/index.md) | Visualization utilities (histograms, overlays, statistical plots) |
+| [`tit.tools`](reference/tit/tools/index.md) | Standalone mesh/NIfTI conversion and electrode mapping utilities |
 
 ## Build Locally
 

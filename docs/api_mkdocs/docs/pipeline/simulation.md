@@ -1,6 +1,6 @@
 # Simulation
 
-The simulation engine runs finite element method (FEM) calculations using SimNIBS to compute temporal interference electric fields in the brain. TI-Toolbox supports two simulation modes: **TI** (2-pair) and **mTI** (4-pair).
+The simulation engine runs finite element method (FEM) calculations using SimNIBS to compute temporal interference electric fields in the brain. TI-Toolbox supports two simulation modes: **TI** (2-pair) and **mTI** (4+ pairs, even).
 
 ```mermaid
 graph LR
@@ -51,10 +51,10 @@ The simulation mode is auto-detected from the montage configuration:
 | Mode | Electrode Pairs | Description |
 |------|----------------|-------------|
 | **TI** | 2 pairs | Standard temporal interference — two pairs of electrodes at slightly different frequencies |
-| **mTI** | 4 pairs | Multi-channel TI — four electrode pairs combined via binary-tree algorithm |
+| **mTI** | 4+ pairs (even) | Multi-channel TI — N electrode pairs combined via binary-tree algorithm |
 
 !!! info "Auto-Detection"
-    You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 pairs triggers TI mode, 4 pairs triggers mTI mode.
+    You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 pairs triggers TI mode, 4 or more pairs (even) triggers mTI mode.
 
 ## Montage Configuration
 
@@ -115,10 +115,10 @@ After simulation, TI-Toolbox produces several derived field types:
 
 | Field | Description |
 |-------|-------------|
-| **TI_max** | Maximum TI envelope magnitude (scalar field) |
-| **TI_normal** | TI field component normal to cortical surface |
-| **TI_tangential** | TI field component tangential to cortical surface |
-| **mTI_max** | Multi-channel TI maximum envelope (mTI mode only) |
+| **TI_max** | Maximum TI envelope magnitude — scalar field on volume elements (TI mode) |
+| **TI_normal** | TI field component normal to cortical surface — node field on surface overlay (TI mode) |
+| **TI_Max** | Maximum mTI envelope magnitude — scalar field on volume elements (mTI mode) |
+| **TI_vectors** | Intermediate pairwise TI vector fields for each adjacent pair (mTI mode) |
 
 Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).
 
@@ -127,10 +127,20 @@ Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (f
 ```
 derivatives/SimNIBS/sub-001/Simulations/
 └── motor_cortex/
+    ├── high_Frequency/
+    │   ├── mesh/             # Per-pair HF mesh files
+    │   ├── niftis/           # Per-pair HF NIfTI volumes
+    │   └── analysis/         # fields_summary.txt
     ├── TI/
-    │   ├── mesh/         # Surface mesh files
-    │   └── niftis/       # NIfTI volumes (subject + MNI space)
-    └── simulation.log
+    │   ├── mesh/             # TI_max and GM/WM mesh files
+    │   ├── niftis/           # TI NIfTI volumes (subject + MNI space)
+    │   ├── surface_overlays/ # Cortical surface overlays (for TI_normal)
+    │   └── montage_imgs/     # Electrode placement visualizations
+    ├── mTI/                  # (mTI mode only)
+    │   ├── mesh/             # mTI_max and intermediate TI meshes
+    │   ├── niftis/           # mTI NIfTI volumes
+    │   └── montage_imgs/     # Electrode placement visualizations
+    └── documentation/        # config.json, SimNIBS logs
 ```
 
 ## API Reference
@@ -157,10 +167,35 @@ derivatives/SimNIBS/sub-001/Simulations/
     options:
       show_root_heading: true
 
+::: tit.sim.base.BaseSimulation
+    options:
+      show_root_heading: true
+      members_order: source
+
 ::: tit.sim.utils.run_simulation
     options:
       show_root_heading: true
 
 ::: tit.sim.utils.load_montages
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.list_montage_names
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.load_montage_data
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.save_montage_data
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.ensure_montage_file
+    options:
+      show_root_heading: true
+
+::: tit.sim.utils.upsert_montage
     options:
       show_root_heading: true
