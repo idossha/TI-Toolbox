@@ -12,8 +12,9 @@ def main() -> None:
     with open(config_path) as f:
         data = json.load(f)
 
-    from tit.logger import add_stream_handler
+    from tit.logger import setup_logging, add_stream_handler
 
+    setup_logging()
     add_stream_handler("tit.pre")
 
     exit_code = run_pipeline(

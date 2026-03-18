@@ -6,10 +6,12 @@ Public API: ``run_flex_search(config) -> FlexResult``
 import logging
 import os
 import shutil
+import time
 
 import numpy as np
 
 from tit.opt.config import FlexConfig, FlexResult
+from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 from . import builder
 
@@ -22,7 +24,14 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
 
     pm = get_path_manager()
 
-    logger = logging.getLogger(__name__)
+    # Set up file logging — capture both tit and simnibs output
+    logs_dir = pm.logs(config.subject_id)
+    os.makedirs(logs_dir, exist_ok=True)
+    log_file = os.path.join(logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
+    logger_name = f"tit.opt.flex.{config.subject_id}"
+    add_file_handler(log_file, logger_name=logger_name)
+    add_file_handler(log_file, logger_name="simnibs")
+    logger = logging.getLogger(logger_name)
 
     n = config.n_multistart
 

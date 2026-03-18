@@ -24,8 +24,9 @@ def _build_electrodes(data: dict):
 
 def _make_stdout_logger() -> None:
     """Attach a stdout handler so log messages are captured by BaseProcessThread."""
-    from tit.logger import add_stream_handler
+    from tit.logger import setup_logging, add_stream_handler
 
+    setup_logging()
     add_stream_handler("tit.opt.ex_search")
 
 

@@ -370,4 +370,6 @@ def _make_file_logger(
     from tit.logger import add_file_handler
 
     add_file_handler(log_file, level=logging.getLevelName(level), logger_name=name)
+    # Also capture simnibs output in the same log file
+    add_file_handler(log_file, logger_name="simnibs")
     return logging.getLogger(name)

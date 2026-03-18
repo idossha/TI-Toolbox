@@ -26,6 +26,7 @@ def run_ex_search(config: ExConfig) -> ExResult:
     log_file = os.path.join(logs_dir, f'ex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
     logger_name = f"tit.opt.ex_search.{config.subject_id}"
     add_file_handler(log_file, logger_name=logger_name)
+    add_file_handler(log_file, logger_name="simnibs")
     logger = logging.getLogger(logger_name)
 
     logger.info(f"{'=' * 60}\nTI Exhaustive Search\n{'=' * 60}")

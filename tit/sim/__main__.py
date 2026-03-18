@@ -2,7 +2,6 @@
 
 
 import json
-import logging
 import sys
 
 from tit.paths import get_path_manager
@@ -23,19 +22,12 @@ def _build_montage(data: dict) -> Montage:
     )
 
 
-def _make_stdout_logger() -> logging.Logger:
-    """Create a logger that writes to stdout (captured by BaseProcessThread)."""
-    from tit.logger import add_stream_handler
-
-    logger = logging.getLogger("tit.sim.subprocess")
-    logger.handlers.clear()
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    add_stream_handler("tit.sim.subprocess")
-    return logger
-
-
 def main() -> None:
+    from tit.logger import setup_logging, add_stream_handler
+
+    setup_logging()
+    add_stream_handler("tit.sim")
+
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)
@@ -64,8 +56,7 @@ def main() -> None:
         aniso_maxcond=data.get("aniso_maxcond", 2.0),
     )
 
-    logger = _make_stdout_logger()
-    results = run_simulation(config, logger=logger)
+    results = run_simulation(config)
     failed = [r for r in results if r.get("status") == "failed"]
     sys.exit(1 if failed else 0)
 

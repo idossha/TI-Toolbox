@@ -22,8 +22,9 @@ def _build_roi(data: dict | None):
 
 
 def main() -> None:
-    from tit.logger import add_stream_handler
+    from tit.logger import setup_logging, add_stream_handler
 
+    setup_logging()
     add_stream_handler("tit.opt.flex")
 
     config_path = sys.argv[1]
