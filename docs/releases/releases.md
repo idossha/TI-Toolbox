@@ -9,7 +9,6 @@ permalink: /releases/
 **Release Date**: March 17, 2026
 
 This is a major release that introduces a number of new features, but mainly a massive change to internal modernization of the codebase. Plus, we are now wrapping SimNIBS 4.6.0.
----
 
 #### New Features
 

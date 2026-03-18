@@ -14,8 +14,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 This is a major release that introduces a number of new features, but mainly a massive change to internal modernization of the codebase. Plus, we are now wrapping SimNIBS 4.6.0.
 
----
-
 #### New Features
 
 - **Combined ROI Analysis**: You can now select multiple atlas regions to analyze as a single combined ROI. Pass a list of region names (e.g., `["precentral", "postcentral"]`) and they are unioned before analysis. Output directories and file names use a `+`-joined convention (e.g., `precentral+postcentral/`).
