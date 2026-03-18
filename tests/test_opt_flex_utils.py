@@ -155,7 +155,8 @@ class TestConfigureSphericalROI:
 
         assert call_count[0] == 2  # Both ROI and non-ROI transformed
 
-    def test_zero_coords_warning(self):
+    def test_zero_coords_no_warning(self):
+        """(0,0,0) in subject space is valid — no warning should be emitted."""
         from tit.opt.flex.utils import configure_roi
 
         opt = MagicMock()
@@ -167,7 +168,7 @@ class TestConfigureSphericalROI:
         )
         with patch("tit.opt.flex.utils.log") as mock_log:
             configure_roi(opt, config)
-            mock_log.warning.assert_called_once()
+            mock_log.warning.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

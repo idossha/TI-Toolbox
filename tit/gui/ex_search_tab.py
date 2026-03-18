@@ -283,6 +283,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.current_roi_index = 0
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        self.use_all_combinations = False
         # Initialize summary mode and timing trackers for non-debug summaries
         self.SUMMARY_MODE = True
         self.EXSEARCH_START_TIME = None

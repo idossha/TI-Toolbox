@@ -60,6 +60,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Multi-subject optimization state
         self.selected_subjects = None
         self.current_subject_index = 0
+        self.successful_runs = 0
+        self.failed_runs = 0
         self.roi_params = None
         self.goal = None
         self.postproc = None
@@ -69,6 +71,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.electrode_shape = None
         self.dimensions = None
         self.thickness = None
+        self.optimization_thread = None
 
         # Initialize data structures
         self.subjects = []
@@ -642,24 +645,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Get ROI parameters from picker
         roi_params = self.roi_picker.get_roi_params()
 
-        # Validate spherical ROI origin in subject space
-        if (
-            roi_params.get("method") == "spherical"
-            and not self.roi_picker.is_mni_space()
-        ):
-            cx, cy, cz = roi_params["center"]
-            if cx == 0.0 and cy == 0.0 and cz == 0.0:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Invalid ROI Coordinates",
-                    "The ROI center is at (0, 0, 0) in subject space.\n\n"
-                    "This position is outside the brain and will cause the "
-                    "optimization to fail with an empty-ROI error.\n\n"
-                    "Please enter valid brain coordinates in the ROI fields, "
-                    "or switch to MNI coordinates using the coordinate space selector.",
-                )
-                return
-
         # Get optimization parameters
         selected_subjects = [item.text() for item in selected_items]
         goal = self.goal_combo.currentData()
@@ -687,8 +672,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             f"Number of subjects: {len(selected_subjects)}\n"
             f"ROI: {roi_description}\n"
             f"Goal: {goal}\n"
-            f"EEG Net: {eeg_net}\n"
-            f"Current: {electrode_current}mA\n"
+            + (f"EEG Net: {eeg_net}\n" if self.run_mapped_simulation_checkbox.isChecked() else "")
+            + f"Current: {electrode_current}mA\n"
             f"Electrode shape: {electrode_shape}\n"
             f"Dimensions: {dimensions}mm\n"
             f"Thickness: {thickness}mm"
@@ -1032,7 +1017,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         cmd, config_path = self._launch_flex_config(config)
 
         # Only set parent busy state for single subjects
-        if not self.selected_subjects is not None or len(self.selected_subjects) == 1:
+        if self.selected_subjects is None or len(self.selected_subjects) == 1:
             if self.parent:
                 self.parent.set_tab_busy(
                     self,

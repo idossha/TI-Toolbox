@@ -182,13 +182,6 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
     roi_z = roi_spec.z
     radius = roi_spec.radius
 
-    if roi_x == 0.0 and roi_y == 0.0 and roi_z == 0.0 and not roi_spec.use_mni:
-        log.warning(
-            "ROI center coordinates are (0, 0, 0) in subject space. "
-            "This position is typically outside the brain mesh and the optimization will fail. "
-            "Set ROI coordinates to valid brain coordinates, or enable MNI coordinate mode."
-        )
-
     if roi_spec.use_mni:
         log.info(
             f"Transforming MNI coordinates [{roi_x}, {roi_y}, {roi_z}] to subject space"

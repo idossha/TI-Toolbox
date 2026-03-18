@@ -38,11 +38,6 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     os.makedirs(base_folder, exist_ok=True)
     fvals = np.full(n, float("inf"))
 
-    logger.info(
-        f"Flex-search ({config.subject_id}): "
-        f"goal={config.goal}, postproc={config.postproc}, runs={n}"
-    )
-
     folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
 
     # -- Run optimizations --
@@ -52,12 +47,8 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
         os.makedirs(opt.output_folder, exist_ok=True)
         builder.configure_optimizer_options(opt, config, logger)
 
-        step = f"Run {i + 1}/{n}" if n > 1 else "Optimization"
-        logger.info(f"├─ {step}: started")
-
         opt.run(cpus=config.cpus)
         fvals[i] = opt.optim_funvalue
-        logger.info(f"├─ {step}: value={fvals[i]:.6f}")
 
     # -- Select best --
     valid_mask = fvals < float("inf")

@@ -186,44 +186,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Connect signals after all widgets are created
 
-        # After all widgets are created, set field name visibility and connect toggles
-        # This needs to be robust if widgets aren't found (e.g., during initial setup)
-        if (
-            hasattr(self, "field_name_label")
-            and hasattr(self, "field_name_input")
-            and hasattr(self, "space_mesh")
-            and hasattr(self, "space_voxel")
-        ):
-            self.field_name_label.setVisible(self.space_mesh.isChecked())
-            self.field_name_input.setVisible(self.space_mesh.isChecked())
-            self.space_mesh.toggled.connect(
-                lambda checked: (
-                    self.field_name_label.setVisible(checked)
-                    if hasattr(self, "field_name_label")
-                    else None
-                )
-            )
-            self.space_mesh.toggled.connect(
-                lambda checked: (
-                    self.field_name_input.setVisible(checked)
-                    if hasattr(self, "field_name_input")
-                    else None
-                )
-            )
-            self.space_voxel.toggled.connect(
-                lambda checked: (
-                    self.field_name_label.setVisible(not checked)
-                    if hasattr(self, "field_name_label")
-                    else None
-                )
-            )
-            self.space_voxel.toggled.connect(
-                lambda checked: (
-                    self.field_name_input.setVisible(not checked)
-                    if hasattr(self, "field_name_input")
-                    else None
-                )
-            )
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""
