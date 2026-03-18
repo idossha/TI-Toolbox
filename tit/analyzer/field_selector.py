@@ -96,10 +96,14 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
 
     preferred_prefix = prefix_map[tissue]
     if preferred_prefix is None:
-        # Prefer subject-space, full-field files (no tissue prefix, no MNI tag).
+        # Prefer subject-space TI/TI_Max files (no tissue prefix, no MNI tag).
         for nii in niftis:
             name = nii.name
-            if not name.startswith(("grey_", "white_")) and "_MNI" not in name:
+            if (
+                not name.startswith(("grey_", "white_"))
+                and "_MNI" not in name
+                and field_name in name
+            ):
                 logger.debug(
                     "Selected voxel field file: %s (field=%s, tissue=%s)",
                     nii,
@@ -110,9 +114,37 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
     else:
         for nii in niftis:
             name = nii.name
-            if name.startswith(preferred_prefix) and "_MNI" not in name:
+            if (
+                name.startswith(preferred_prefix)
+                and "_MNI" not in name
+                and field_name in name
+            ):
                 logger.debug(
                     "Selected voxel field file: %s (field=%s, tissue=%s)",
+                    nii,
+                    field_name,
+                    tissue,
+                )
+                return nii, field_name
+
+    # Fall back to tissue/space-compatible files before giving up completely.
+    if preferred_prefix is None:
+        for nii in niftis:
+            name = nii.name
+            if not name.startswith(("grey_", "white_")) and "_MNI" not in name:
+                logger.debug(
+                    "Selected voxel field file (non-field fallback): %s (field=%s, tissue=%s)",
+                    nii,
+                    field_name,
+                    tissue,
+                )
+                return nii, field_name
+    else:
+        for nii in niftis:
+            name = nii.name
+            if name.startswith(preferred_prefix) and "_MNI" not in name:
+                logger.debug(
+                    "Selected voxel field file (non-field fallback): %s (field=%s, tissue=%s)",
                     nii,
                     field_name,
                     tissue,
