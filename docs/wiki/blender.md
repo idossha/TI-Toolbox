@@ -8,15 +8,7 @@ The Blender extension was built to enable publication level visualization and pr
 
 ## Overview
 
-- **Location**: `tit/gui/extensions/visual_exporter.py`
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
-- **Back-end scripts**:
-  - `tit/blender/region_exporter.py` (unified STL/PLY cortical region export)
-  - `tit/blender/vector_field_exporter.py` (field vector arrow clouds)
-  - `tit/blender/montage_publication.py` (electrode placement scenes)
-  - `tit/blender/__main__.py` (JSON config entry point)
-  - `tools/extract_labels.py`
-  - `tools/nifti_to_mesh.py`
 - **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
 
 ## Supported Modes
@@ -209,41 +201,6 @@ This can be incoporated into other visualization to produce images and animation
 
 The **Stop** button terminates the active subprocess if you need to cancel a long export.
 
-## Running the scripts individually
-
-You can call the Python scripts directly whenever you need command-line automation or custom batching. From within the TI-Toolbox environment, run:
-
-```bash
-# Via JSON config (recommended for automation)
-simnibs_python -m tit.blender config.json
-
-# Via CLI script
-simnibs_python scripts/blender.py regions \
-  --mesh <path/to/central.msh> \
-  --m2m-dir <path/to/m2m_subject> \
-  --output-dir <output_folder> \
-  --format ply \
-  --atlas DK40
-
-simnibs_python scripts/blender.py vectors \
-  --mesh1 tdcs1.msh --mesh2 tdcs2.msh \
-  --output-dir <output_folder> \
-  --central-surface <path/to/central.msh>
-
-simnibs_python scripts/blender.py montage \
-  --subject 001 --sim sim1 \
-  --project-dir <project_root>
-
-# Sub-cortical extraction (unchanged)
-simnibs_python tools/extract_labels.py \
-  <path/to/labeling.nii.gz> \
-  --labels 10 49 \
-  --output <temp_extracted.nii.gz>
-
-simnibs_python tools/nifti_to_mesh.py \
-  <temp_extracted.nii.gz> \
-  <output_mesh.stl> \
-  --clean-components
 ```
 
 ## Python API
@@ -272,13 +229,10 @@ config = RegionConfig(
 run_regions(config)
 ```
 
-The JSON entry point (`simnibs_python -m tit.blender config.json`) dispatches on a `_type` field in the JSON file. Valid values are `MontageConfig`, `VectorConfig`, and `RegionConfig`. Each config's fields map directly to the corresponding dataclass.
-
 
 ## Tips and troubleshooting
 
 - **Environment**: Run the commands from within the TI-Toolbox environment. The scripts handle SimNIBS dependencies automatically.
-- **Missing fields**: The cortical exporters expect the requested `--field` (default `TI_max`) to exist on the mesh. Inspect field names with `simnibs_python -c "import simnibs; print(simnibs.read_msh('mesh.msh').field.keys())"`.
 - **Large vector clouds**: Start with smaller `--count` values or enable `--top-percent` to reduce file sizes before ramping up density.
 - **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before launching the GUI.
 - **Label extraction**: When extracting specific labels, use comma-separated values (e.g., "10,49" for left/right thalamus). Check FreeSurfer's label lookup table for anatomical region codes.

@@ -1,54 +1,41 @@
 # Core Utilities
 
-The core utilities provide foundational services used throughout TI-Toolbox: BIDS-compliant path resolution, logging configuration, project-wide constants, dataclass-to-JSON serialization, and custom exception classes.
+TI-Toolbox provides opinionated, BIDS-compliant infrastructure for path resolution, logging, constants, and config serialization. These modules enforce a strict project structure so that all pipeline stages produce consistent, discoverable outputs.
 
 ```mermaid
 graph LR
-    PM[PathManager] --> PATHS[BIDS Paths]
-    LOG[Logger] --> FILE[File Logs]
-    LOG --> STREAM[Stream Output]
-    CONST[Constants] --> CONFIG[Config Values]
-    CIO[Config IO] --> JSON[JSON Files]
-    style PM fill:#2d5a27,stroke:#4a8,color:#fff
-    style LOG fill:#2d5a27,stroke:#4a8,color:#fff
+    INIT["tit.init()"] --> LOG[Logger]
+    INIT --> PM[PathManager]
+    PM --> PATHS[BIDS Paths]
+    LOG --> FILE[File Logs]
+    CONFIG[Config IO] --> JSON[JSON Files]
+    JSON --> CLI[CLI Subprocesses]
+    style INIT fill:#2d5a27,stroke:#4a8,color:#fff
 ```
 
-## Quick Setup
+## Initialization
 
-The `init()` convenience function configures logging with terminal output in a single call:
+Every script or entry point starts with a single call:
 
 ```python
 import tit
 
-tit.init("INFO")  # sets up logging + attaches stdout handler
+tit.init("INFO")
+pm = tit.get_path_manager("/data/my_project")
 ```
 
-This is equivalent to:
+`init()` configures the `tit` logger hierarchy and attaches a stdout handler. `get_path_manager()` returns a global singleton that resolves all paths for the project.
 
-```python
-from tit import setup_logging, add_stream_handler
-
-setup_logging("INFO")
-add_stream_handler("tit", "INFO")
-```
+!!! note "Docker Environment"
+    Inside Docker containers, `get_path_manager()` can auto-detect the project directory from the `PROJECT_DIR` or `PROJECT_DIR_NAME` environment variables. No argument is needed in that case.
 
 ## PathManager
 
-`PathManager` is a singleton that resolves all file and directory paths following BIDS conventions. Obtain the global instance via `get_path_manager()`.
-
-### Initialization
-
-```python
-from tit import get_path_manager
-
-pm = get_path_manager("/data/my_project")
-```
-
-If no `project_dir` is passed, PathManager auto-detects from the `PROJECT_DIR` or `PROJECT_DIR_NAME` environment variables.
+`PathManager` is a singleton that enforces the BIDS directory layout. All modules use it instead of constructing paths manually.
 
 ### Project-Level Paths
 
-Methods that take no arguments and return top-level directories:
+These methods take no arguments and return top-level directories or files:
 
 | Method | Returns |
 |--------|---------|
@@ -61,108 +48,109 @@ Methods that take no arguments and return top-level directories:
 | `pm.montage_config()` | `<project>/code/ti-toolbox/config/montage_list.json` |
 | `pm.project_status()` | `<project>/code/ti-toolbox/config/project_status.json` |
 | `pm.reports()` | `<project>/derivatives/ti-toolbox/reports` |
+| `pm.stats_data()` | `<project>/derivatives/ti-toolbox/stats/data` |
 | `pm.qsiprep()` | `<project>/derivatives/qsiprep` |
 | `pm.qsirecon()` | `<project>/derivatives/qsirecon` |
 
 ### Subject-Level Paths
 
-Methods that accept a subject ID (`sid`) string (without the `sub-` prefix):
+Methods that accept a subject ID (`sid`) string without the `sub-` prefix:
 
-```python
-pm.m2m("001")          # <project>/derivatives/SimNIBS/sub-001/m2m_001
-pm.t1("001")           # .../m2m_001/T1.nii.gz
-pm.eeg_positions("001")  # .../m2m_001/eeg_positions
-pm.rois("001")         # .../m2m_001/ROIs
-pm.simulations("001")  # .../sub-001/Simulations
-pm.leadfields("001")   # .../sub-001/leadfields
-pm.logs("001")         # .../ti-toolbox/logs/sub-001
-pm.bids_anat("001")    # <project>/sub-001/anat
-pm.bids_dwi("001")     # <project>/sub-001/dwi
-pm.freesurfer_subject("001")  # .../derivatives/freesurfer/sub-001
-pm.ex_search("001")    # .../sub-001/ex-search
-pm.flex_search("001")  # .../sub-001/flex-search
-```
+| Method | Returns |
+|--------|---------|
+| `pm.sub("001")` | `<simnibs>/sub-001` |
+| `pm.m2m("001")` | `<simnibs>/sub-001/m2m_001` |
+| `pm.t1("001")` | `.../m2m_001/T1.nii.gz` |
+| `pm.segmentation("001")` | `.../m2m_001/segmentation` |
+| `pm.tissue_labeling("001")` | `.../segmentation/Labeling.nii.gz` |
+| `pm.eeg_positions("001")` | `.../m2m_001/eeg_positions` |
+| `pm.rois("001")` | `.../m2m_001/ROIs` |
+| `pm.simulations("001")` | `<simnibs>/sub-001/Simulations` |
+| `pm.leadfields("001")` | `<simnibs>/sub-001/leadfields` |
+| `pm.ex_search("001")` | `<simnibs>/sub-001/ex-search` |
+| `pm.flex_search("001")` | `<simnibs>/sub-001/flex-search` |
+| `pm.logs("001")` | `<ti-toolbox>/logs/sub-001` |
+| `pm.tissue_analysis_output("001")` | `<ti-toolbox>/tissue_analysis/sub-001` |
+| `pm.bids_subject("001")` | `<project>/sub-001` |
+| `pm.bids_anat("001")` | `<project>/sub-001/anat` |
+| `pm.bids_dwi("001")` | `<project>/sub-001/dwi` |
+| `pm.freesurfer_subject("001")` | `<freesurfer>/sub-001` |
+| `pm.freesurfer_mri("001")` | `<freesurfer>/sub-001/mri` |
+| `pm.sourcedata_subject("001")` | `<sourcedata>/sub-001` |
+| `pm.qsiprep_subject("001")` | `<qsiprep>/sub-001` |
+| `pm.qsirecon_subject("001")` | `<qsirecon>/sub-001` |
 
 ### Simulation-Level Paths
 
-Methods that accept both a subject ID and a simulation name:
+Methods that accept a subject ID and simulation name:
 
-```python
-pm.simulation("001", "motor_cortex")     # .../Simulations/motor_cortex
-pm.ti_mesh("001", "motor_cortex")        # .../TI/mesh/motor_cortex_TI.msh
-pm.ti_mesh_dir("001", "motor_cortex")    # .../TI/mesh
-pm.mti_mesh_dir("001", "motor_cortex")   # .../mTI/mesh
-pm.analysis_dir("001", "motor_cortex", "mesh")   # .../Analyses/Mesh
-pm.analysis_dir("001", "motor_cortex", "voxel")  # .../Analyses/Voxel
-```
+| Method | Returns |
+|--------|---------|
+| `pm.simulation("001", "motor")` | `.../Simulations/motor` |
+| `pm.ti_mesh("001", "motor")` | `.../TI/mesh/motor_TI.msh` |
+| `pm.ti_mesh_dir("001", "motor")` | `.../TI/mesh` |
+| `pm.ti_central_surface("001", "motor")` | `.../TI/mesh/surfaces/motor_TI_central.msh` |
+| `pm.mti_mesh_dir("001", "motor")` | `.../mTI/mesh` |
+| `pm.analysis_dir("001", "motor", "mesh")` | `.../Analyses/Mesh` |
+| `pm.analysis_dir("001", "motor", "voxel")` | `.../Analyses/Voxel` |
+
+Additional paths for optimization runs and statistics:
+
+| Method | Returns |
+|--------|---------|
+| `pm.flex_search_run("001", "run_01")` | `.../flex-search/run_01` |
+| `pm.flex_manifest("001", "run_01")` | `.../flex-search/run_01/flex_meta.json` |
+| `pm.flex_electrode_positions("001", "run_01")` | `.../flex-search/run_01/electrode_positions.json` |
+| `pm.ex_search_run("001", "run_01")` | `.../ex-search/run_01` |
+| `pm.sourcedata_dicom("001", "anat")` | `<sourcedata>/sub-001/anat/dicom` |
+| `pm.stats_output("group_comparison", "motor_study")` | `<ti-toolbox>/stats/group_comparison/motor_study` |
+| `pm.logs_group()` | `<ti-toolbox>/logs/group_analysis` |
 
 ### Listing Methods
 
 ```python
-pm.list_simnibs_subjects()         # ["001", "002"] — subjects with m2m folders
-pm.list_simulations("001")         # ["motor_cortex", "frontal"] — simulation folders
-pm.list_eeg_caps("001")            # ["GSN-HydroCel-185.csv"] — EEG cap CSV files
-pm.list_flex_search_runs("001")    # ["run_01"] — flex-search runs with metadata
+pm.list_simnibs_subjects()       # ["001", "002"] — subjects with m2m folders
+pm.list_simulations("001")       # ["motor_cortex", "frontal"]
+pm.list_eeg_caps("001")          # ["GSN-HydroCel-185.csv"]
+pm.list_flex_search_runs("001")  # ["run_01"] — runs with metadata files
 ```
-
-### Analysis Naming Helpers
-
-PathManager provides static/class methods for constructing standardized analysis directory names:
-
-```python
-PathManager.spherical_analysis_name(-42, -20, 55, 10.0, "MNI")
-# "sphere_x-42.00_y-20.00_z55.00_r10.0_MNI"
-
-PathManager.cortical_analysis_name(whole_head=False, region="precentral-lh", atlas_name="DK40")
-# "region_precentral-lh_DK40"
-```
-
-The `analysis_output_dir()` method combines these with subject, simulation, and space to produce a full output path.
 
 ### Utility
 
 ```python
-pm.ensure("/some/path")  # creates directory (with parents) and returns path
+pm.ensure("/some/path")  # creates directory (with parents) and returns the path
 ```
 
 ## Logging
 
-TI-Toolbox logging is designed for file-first output. The `tit` logger hierarchy has `propagate=False`, so nothing reaches the terminal unless you explicitly attach a stream handler.
-
-### Functions
+TI-Toolbox logging is file-first. The `tit` logger hierarchy has `propagate=False`, so nothing reaches the terminal unless you explicitly opt in.
 
 | Function | Purpose |
 |----------|---------|
 | `setup_logging(level)` | Configure the `tit` logger level; adds NO handlers |
-| `add_file_handler(log_file, level, logger_name)` | Attach a `FileHandler` (append mode) to a named logger; creates parent dirs |
-| `add_stream_handler(logger_name, level)` | Attach a `StreamHandler` (stdout) to a named logger |
-| `get_file_only_logger(name, log_file, level)` | Return a fresh logger that writes ONLY to the given file |
+| `add_file_handler(log_file, level, logger_name)` | Attach a `FileHandler` (append mode); creates parent dirs |
+| `add_stream_handler(logger_name, level)` | Attach a `StreamHandler` (stdout) |
+| `get_file_only_logger(name, log_file, level)` | Return a logger that writes ONLY to the given file |
 
-### Typical Usage
+### Typical Patterns
+
+**File logging** (used by pipeline modules):
 
 ```python
 from tit import setup_logging, add_file_handler
 
-# 1. Configure the logger hierarchy (no output yet)
 setup_logging("DEBUG")
-
-# 2. Attach a file handler to capture everything
 fh = add_file_handler("/data/logs/run.log", level="DEBUG")
-
-# 3. In modules, use standard logging
-import logging
-log = logging.getLogger(__name__)  # e.g., "tit.sim.simulator"
-log.info("Simulation started")
 ```
 
-For standalone scripts that need terminal output:
+**Terminal output** (used by scripts):
 
 ```python
 import tit
 tit.init("INFO")  # setup_logging + add_stream_handler in one call
 ```
 
-For isolated file-only loggers (e.g., per-ROI analysis logs):
+**Isolated file logger** (used per-analysis):
 
 ```python
 from tit.logger import get_file_only_logger
@@ -173,76 +161,60 @@ log.info("Analyzing ROI...")
 
 ### Log Format
 
-File handlers use the format:
-
+File handlers:
 ```
 2025-01-15 14:30:00 | INFO | tit.sim.simulator | Simulation started
 ```
 
-Stream handlers use a minimal format: `%(message)s`.
+Stream handlers use minimal format: `%(message)s`.
 
 ## Constants
 
-All hardcoded values live in `tit.constants`. The table below lists the major categories with representative examples.
+All hardcoded values live in `tit.constants`. Key categories:
 
-| Category | Examples | Description |
-|----------|----------|-------------|
-| Directory names | `DIR_DERIVATIVES`, `DIR_SIMNIBS`, `DIR_FLEX_SEARCH` | BIDS-compliant directory structure names |
-| File names | `FILE_MONTAGE_LIST`, `FILE_T1`, `FILE_EGI_TEMPLATE` | Standard file names used across the pipeline |
-| File extensions | `EXT_NIFTI` (`.nii.gz`), `EXT_MESH` (`.msh`), `EXT_CSV` | Canonical file extension strings |
-| Naming prefixes | `PREFIX_SUBJECT` (`sub-`), `PREFIX_SESSION` (`ses-`) | BIDS naming conventions |
-| Environment variables | `ENV_PROJECT_DIR`, `ENV_SUBJECT_ID`, `ENV_DISPLAY` | Docker and project environment variable names |
-| Field names | `FIELD_TI_MAX`, `FIELD_MTI_MAX`, `FIELD_TI_NORMAL` | SimNIBS field identifiers for TI/mTI simulations |
-| Analysis defaults | `DEFAULT_PERCENTILES`, `DEFAULT_FOCALITY_CUTOFFS`, `DEFAULT_RADIUS_MM` | Default analysis parameters |
-| Simulation constants | `SIM_TYPE_TI`, `SIM_TYPE_MTI`, `ELECTRODE_SHAPE_ELLIPSE`, `DEFAULT_INTENSITY` | Simulation type identifiers and electrode defaults |
-| Tissue tags | `GM_TISSUE_TAG` (2), `WM_TISSUE_TAG` (1), `BRAIN_TISSUE_TAG_RANGES` | SimNIBS mesh element tag values |
-| Atlas names | `ATLAS_DK40`, `ATLAS_A2009S`, `ATLAS_ASEG` | Cortical and subcortical atlas identifiers |
-| Conductivities | `CONDUCTIVITY_GRAY_MATTER` (0.275 S/m), `CONDUCTIVITY_WHITE_MATTER` (0.126 S/m) | Physical tissue conductivity values |
-| Tissue properties | `TISSUE_PROPERTIES` | List of dicts with tissue number, name, conductivity, and reference |
-| EEG nets | `EEG_NETS` | List of supported EEG net definitions (value, label, electrode count) |
-| Validation bounds | `VALIDATION_BOUNDS` | Min/max ranges for GUI and API input validation |
-| Default parameters | `DEFAULT_ELECTRODE`, `DEFAULT_OPTIMIZATION`, `DEFAULT_STATISTICS` | Dicts with default values for electrode, optimization, and statistics configs |
-| GUI constants | `GUI_MIN_WIDTH`, `TAB_SIMULATOR`, `CONSOLE_MAX_LINES` | Window sizes, tab names, buffer sizes |
-| Visualization | `PLOT_DPI` (600), `PLOT_FIGSIZE_DEFAULT`, terminal color codes | Plot settings and ANSI color constants |
-| Timestamp formats | `TIMESTAMP_FORMAT_DEFAULT`, `TIMESTAMP_FORMAT_READABLE` | Standard datetime format strings |
-| QSI integration | `QSI_RECON_SPECS`, `QSI_ATLASES`, `QSI_DEFAULT_CPUS` | QSIPrep/QSIRecon pipeline constants |
+| Category | Examples |
+|----------|----------|
+| **Directory names** | `DIR_DERIVATIVES`, `DIR_SIMNIBS`, `DIR_FLEX_SEARCH`, `DIR_ANALYSIS` |
+| **File names** | `FILE_MONTAGE_LIST`, `FILE_T1`, `FILE_EGI_TEMPLATE` |
+| **File extensions** | `EXT_NIFTI` (`.nii.gz`), `EXT_MESH` (`.msh`), `EXT_CSV` |
+| **BIDS prefixes** | `PREFIX_SUBJECT` (`sub-`), `PREFIX_SESSION` (`ses-`) |
+| **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`TI_Max`), `FIELD_TI_NORMAL` (`TI_normal`) |
+| **Tissue tags** | `GM_TISSUE_TAG` (2), `WM_TISSUE_TAG` (1), `BRAIN_TISSUE_TAG_RANGES` |
+| **Conductivities** | `CONDUCTIVITY_GRAY_MATTER` (0.275 S/m), `CONDUCTIVITY_WHITE_MATTER` (0.126 S/m), 12 tissues total |
+| **Tissue properties** | `TISSUE_PROPERTIES` — list of dicts with number, name, conductivity, and reference |
+| **Atlas names** | `ATLAS_DK40`, `ATLAS_A2009S`, `ATLAS_ASEG`, `ATLAS_APARC_ASEG` |
+| **Analysis defaults** | `DEFAULT_PERCENTILES` ([95, 99, 99.9]), `DEFAULT_FOCALITY_CUTOFFS` ([50, 75, 90, 95]), `DEFAULT_RADIUS_MM` (5.0) |
+| **Simulation** | `SIM_TYPE_TI`, `SIM_TYPE_MTI`, `ELECTRODE_SHAPE_ELLIPSE`, `DEFAULT_INTENSITY` (1.0) |
+| **EEG nets** | `EEG_NETS` — list of dicts with value, label, electrode_count |
+| **Validation bounds** | `VALIDATION_BOUNDS` — min/max for radius, current, iterations, etc. |
+| **Plot settings** | `PLOT_DPI` (600), `PLOT_FIGSIZE_DEFAULT` ((10, 8)) |
+| **Timestamps** | `TIMESTAMP_FORMAT_DEFAULT` (`%Y%m%d_%H%M%S`), `TIMESTAMP_FORMAT_READABLE` |
+| **QSI integration** | `QSI_RECON_SPECS`, `QSI_ATLASES`, `QSI_DEFAULT_CPUS` (8) |
 
 ```python
 from tit import constants as const
 
-print(const.FIELD_TI_MAX)         # "TI_max"
-print(const.DEFAULT_RADIUS_MM)    # 5.0
-print(const.GM_TISSUE_TAG)        # 2
-print(const.PREFIX_SUBJECT)       # "sub-"
+const.FIELD_TI_MAX         # "TI_max"
+const.GM_TISSUE_TAG        # 2
+const.DEFAULT_RADIUS_MM    # 5.0
+const.TISSUE_PROPERTIES    # [{"number": 1, "name": "White Matter", ...}, ...]
 ```
 
 ## Config IO
 
-The `tit.config_io` module serializes typed config dataclasses to JSON and reads them back. It handles Enum fields, nested dataclasses, and union-typed ROI/electrode specs by adding a `_type` discriminator field.
-
-### Writing a Config
+The `tit.config_io` module serializes typed config dataclasses to JSON for CLI subprocesses. This is the mechanism the GUI uses to pass configurations to optimizer and analyzer processes.
 
 ```python
-from tit.config_io import serialize_config, write_config_json, read_config_json
+from tit.config_io import write_config_json, read_config_json
 
-# serialize_config returns a JSON-serializable dict
-data = serialize_config(my_flex_config)
-
-# write_config_json writes to a temp file and returns the path
+# Write: dataclass -> temp JSON file, returns path
 path = write_config_json(my_flex_config, prefix="flex")
-# e.g., "/tmp/flex_abc123.json"
-```
 
-### Reading a Config
-
-```python
+# Read: JSON file -> plain dict
 data = read_config_json(path)
-# Returns a plain dict parsed from the JSON file
 ```
 
-### Type Discriminators
-
-When serializing union-typed fields (e.g., different ROI specs within `FlexConfig`), the serializer adds a `_type` key to distinguish subtypes:
+Union-typed fields (ROI specs, electrode specs) get a `_type` discriminator so the subprocess can reconstruct the correct type:
 
 | Class | `_type` value |
 |-------|---------------|
@@ -253,28 +225,15 @@ When serializing union-typed fields (e.g., different ROI specs within `FlexConfi
 | `ExConfig.BucketElectrodes` | `"BucketElectrodes"` |
 | `Montage` | `"Montage"` |
 
-Blender config types (`MontageConfig`, `VectorConfig`, `RegionConfig`) are matched by class name to avoid importing heavy dependencies.
-
 ## Error Handling
 
-TI-Toolbox defines custom exception classes in domain-specific modules rather than a central `errors.py` file.
+Custom exceptions are defined in domain-specific modules:
 
-### Preprocessing Exceptions
-
-Defined in `tit.pre.utils`:
-
-| Exception | Base Class | Description |
-|-----------|------------|-------------|
-| `PreprocessError` | `RuntimeError` | Raised when a preprocessing step fails |
-| `PreprocessCancelled` | `RuntimeError` | Raised when a preprocessing run is cancelled by the user |
-
-### Docker Exceptions
-
-Defined in `tit.pre.qsi.docker_builder`:
-
-| Exception | Base Class | Description |
-|-----------|------------|-------------|
-| `DockerBuildError` | `Exception` | Raised when Docker command construction fails |
+| Exception | Module | Base Class | When Raised |
+|-----------|--------|------------|-------------|
+| `PreprocessError` | `tit.pre.utils` | `RuntimeError` | A preprocessing step fails |
+| `PreprocessCancelled` | `tit.pre.utils` | `RuntimeError` | User cancels a preprocessing run |
+| `DockerBuildError` | `tit.pre.qsi.docker_builder` | `Exception` | Docker command construction fails |
 
 ```python
 from tit.pre.utils import PreprocessError, PreprocessCancelled
@@ -289,6 +248,8 @@ except PreprocessError as e:
 
 ## API Reference
 
+### Path Management
+
 ::: tit.paths.PathManager
     options:
       show_root_heading: true
@@ -302,9 +263,13 @@ except PreprocessError as e:
     options:
       show_root_heading: true
 
+### Initialization
+
 ::: tit.init
     options:
       show_root_heading: true
+
+### Logging
 
 ::: tit.logger.setup_logging
     options:
@@ -322,6 +287,8 @@ except PreprocessError as e:
     options:
       show_root_heading: true
 
+### Config IO
+
 ::: tit.config_io.serialize_config
     options:
       show_root_heading: true
@@ -333,6 +300,8 @@ except PreprocessError as e:
 ::: tit.config_io.read_config_json
     options:
       show_root_heading: true
+
+### Exceptions
 
 ::: tit.pre.utils.PreprocessError
     options:
