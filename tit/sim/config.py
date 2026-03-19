@@ -148,7 +148,9 @@ class SimulationConfig:
     conductivity_type: ConductivityType
     intensities: IntensityConfig
     electrode: ElectrodeConfig
-    mti_field_method: MTIFieldMethod = MTIFieldMethod.RECURSIVE_TI
+    mti_field_methods: List[MTIFieldMethod] = field(
+        default_factory=lambda: [MTIFieldMethod.RECURSIVE_TI]
+    )
     direct_field_pair_polarity: str = "first_positive_second_negative"
     direct_field_phase_deg: float = 0.0
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
@@ -162,3 +164,7 @@ class SimulationConfig:
     tissues_in_niftis: str = "all"
     aniso_maxratio: float = 10.0
     aniso_maxcond: float = 2.0
+
+    @property
+    def primary_mti_field_method(self) -> MTIFieldMethod:
+        return self.mti_field_methods[0]

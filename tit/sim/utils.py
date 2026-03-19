@@ -175,9 +175,11 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> Dict[st
         "documentation": os.path.join(montage_dir, "documentation"),
     }
     if mode == SimulationMode.MTI:
-        dirs["mti_mesh"] = os.path.join(montage_dir, "mTI", "mesh")
-        dirs["mti_niftis"] = os.path.join(montage_dir, "mTI", "niftis")
         dirs["mti_montage_imgs"] = os.path.join(montage_dir, "mTI", "montage_imgs")
+        dirs["shared_fields_mesh"] = os.path.join(montage_dir, "shared_fields", "mesh")
+        dirs["shared_fields_niftis"] = os.path.join(
+            montage_dir, "shared_fields", "niftis"
+        )
 
     for path in dirs.values():
         os.makedirs(path, exist_ok=True)
@@ -243,7 +245,7 @@ def create_simulation_config_file(
             "map_to_mni": config.map_to_mni,
             "map_to_fsavg": config.map_to_fsavg,
         },
-        "mti_field_method": config.mti_field_method.value,
+        "mti_field_methods": [m.value for m in config.mti_field_methods],
         "direct_field_assumptions": {
             "pair_polarity": config.direct_field_pair_polarity,
             "phase_deg": config.direct_field_phase_deg,

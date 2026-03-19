@@ -21,7 +21,12 @@ import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 
 from tit import constants as const
-from tit.calc import compute_direct_field_peak_hf, compute_mti_vectors, get_TI_vectors
+from tit.calc import (
+    compute_direct_field_peak_hf,
+    compute_full_field_directional_am_stats,
+    compute_mti_vectors,
+    get_TI_vectors,
+)
 from tit.paths import get_path_manager
 from tit.sim.config import (
     MTIFieldMethod,
@@ -185,47 +190,81 @@ class mTISimulation:
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI using the configured aggregation method.
-        mti_vectors = compute_mti_vectors(
+        selected_methods = self.config.mti_field_methods
+        self.logger.info(
+            "mTI field methods: %s",
+            ", ".join(method.value for method in selected_methods),
+        )
+
+        # Shared Peak_HF is computed once from the common HF fields.
+        peak_hf = compute_direct_field_peak_hf(
             e_fields,
-            self.config.mti_field_method,
+            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
             phase_deg=self.config.direct_field_phase_deg,
         )
-        if np.asarray(mti_vectors).ndim == 2:
-            mti_field = np.linalg.norm(mti_vectors, axis=1)
-        else:
-            mti_field = np.asarray(mti_vectors, dtype=float)
-        mout = deepcopy(meshes[0])
-        mout.elmdata = []
-        if np.asarray(mti_vectors).ndim == 2:
-            mout.add_element_field(np.asarray(mti_vectors, dtype=float), "TI_vectors")
-        mout.add_element_field(mti_field, "TI_Max")
-
-        if self.config.mti_field_method in (
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE,
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL,
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
-        ):
-            peak_hf = compute_direct_field_peak_hf(
-                e_fields,
-                self.config.mti_field_method,
-                phase_deg=self.config.direct_field_phase_deg,
-            )
-            mout.add_element_field(peak_hf, "Peak_HF")
-
-        mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
-        mesh_io.write_msh(mout, mti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max").write_opt(
-            mti_path
+        shared_peak_path = self._save_shared_peak_hf(
+            meshes[0], peak_hf, dirs["shared_fields_mesh"], name
         )
-        self.logger.info(f"mTI_max saved: {mti_path}")
-        self.logger.info("mTI field method: %s", self.config.mti_field_method.value)
 
-        # Field extraction — mTI mesh and all intermediate TI meshes
+        method_outputs = []
+        for method in selected_methods:
+            method_dirs = self._ensure_method_dirs(dirs["montage_dir"], method)
+            method_base = f"{name}_mTI_{method.value}"
+            extra_scalar_fields = {}
+            if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM:
+                full_stats = compute_full_field_directional_am_stats(
+                    e_fields,
+                    phase_deg=self.config.direct_field_phase_deg,
+                )
+                mti_vectors = full_stats["vectors"]
+                mti_field = np.linalg.norm(mti_vectors, axis=1)
+                extra_scalar_fields["TI_Avg"] = np.asarray(full_stats["avg"], dtype=float)
+            else:
+                mti_vectors = compute_mti_vectors(
+                    e_fields,
+                    method,
+                    phase_deg=self.config.direct_field_phase_deg,
+                )
+                if np.asarray(mti_vectors).ndim == 2:
+                    mti_field = np.linalg.norm(mti_vectors, axis=1)
+                else:
+                    mti_field = np.asarray(mti_vectors, dtype=float)
+
+            mout = deepcopy(meshes[0])
+            mout.elmdata = []
+            if np.asarray(mti_vectors).ndim == 2:
+                mout.add_element_field(np.asarray(mti_vectors, dtype=float), "TI_vectors")
+            mout.add_element_field(mti_field, "TI_Max")
+            for field_name, field_values in extra_scalar_fields.items():
+                mout.add_element_field(field_values, field_name)
+
+            method_path = os.path.join(method_dirs["mesh"], f"{method_base}.msh")
+            mesh_io.write_msh(mout, method_path)
+            mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max").write_opt(
+                method_path
+            )
+            self.logger.info("mTI_max saved (%s): %s", method.value, method_path)
+            method_outputs.append((method, method_base, method_path, method_dirs))
+
+        # Field extraction — measure meshes, shared fields, and intermediate TI meshes
         self.logger.info("Field extraction: Started")
         extract_fields(
-            mti_path, dirs["mti_mesh"], f"{name}_mTI", self.m2m_dir, sid, self.logger
+            shared_peak_path,
+            dirs["shared_fields_mesh"],
+            f"{name}_Peak_HF",
+            self.m2m_dir,
+            sid,
+            self.logger,
         )
+        for method, method_base, method_path, method_dirs in method_outputs:
+            extract_fields(
+                method_path,
+                method_dirs["mesh"],
+                method_base,
+                self.m2m_dir,
+                sid,
+                self.logger,
+            )
         for suffix in ti_pair_suffixes:
             extract_fields(
                 os.path.join(dirs["ti_mesh"], f"{name}_{suffix}.msh"),
@@ -243,8 +282,20 @@ class mTISimulation:
 
         self.logger.info("NIfTI transformation: Started")
         transform_to_nifti(
-            dirs["mti_mesh"], dirs["mti_niftis"], sid, self.m2m_dir, self.logger
+            dirs["shared_fields_mesh"],
+            dirs["shared_fields_niftis"],
+            sid,
+            self.m2m_dir,
+            self.logger,
         )
+        for _method, _method_base, _method_path, method_dirs in method_outputs:
+            transform_to_nifti(
+                method_dirs["mesh"],
+                method_dirs["niftis"],
+                sid,
+                self.m2m_dir,
+                self.logger,
+            )
         transform_to_nifti(
             dirs["hf_mesh"],
             dirs["hf_niftis"],
@@ -257,7 +308,7 @@ class mTISimulation:
 
         convert_t1_to_mni(self.m2m_dir, sid, self.logger)
 
-        return mti_path
+        return method_outputs[0][2]
 
     def _save_ti_vectors(
         self, base_mesh, ti_vectors, output_dir: str, filename: str
@@ -272,6 +323,27 @@ class mTISimulation:
             path
         )
         self.logger.debug(f"Saved: {path}")
+
+    def _save_shared_peak_hf(self, base_mesh, peak_hf, output_dir: str, name: str) -> str:
+        mout = deepcopy(base_mesh)
+        mout.elmdata = []
+        mout.add_element_field(np.asarray(peak_hf, dtype=float), "Peak_HF")
+        path = os.path.join(output_dir, f"{name}_Peak_HF.msh")
+        mesh_io.write_msh(mout, path)
+        mout.view(visible_tags=[1002, 1006], visible_fields="Peak_HF").write_opt(path)
+        self.logger.info("Peak_HF saved: %s", path)
+        return path
+
+    def _ensure_method_dirs(self, montage_dir: str, method: MTIFieldMethod) -> dict:
+        root = os.path.join(montage_dir, f"mTI_{method.value}")
+        dirs = {
+            "root": root,
+            "mesh": os.path.join(root, "mesh"),
+            "niftis": os.path.join(root, "niftis"),
+        }
+        for path in dirs.values():
+            os.makedirs(path, exist_ok=True)
+        return dirs
 
     def _organize_files(self, dirs: dict) -> None:
         """Move HF files, renaming pairs 1..N → A..Z for mTI convention."""

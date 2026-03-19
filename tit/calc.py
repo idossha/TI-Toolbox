@@ -247,10 +247,27 @@ def compute_full_field_directional_am_vectors(fields, *, phase_deg: float = 0.0)
 
     and is optimized over direction ``u``.
     """
-    mti_vectors, _peak_env = _full_field_directional_am_components(
+    mti_vectors, _peak_env, _avg = _full_field_directional_am_components(
         fields, phase_deg=phase_deg
     )
     return mti_vectors
+
+
+def compute_full_field_directional_am_stats(fields, *, phase_deg: float = 0.0):
+    """Return shared full-field directional AM summaries.
+
+    Returns
+    -------
+    dict
+        Keys:
+        - ``vectors``: best-direction AM vectors
+        - ``avg``: orientation-averaged AM across sampled directions
+        - ``peak_env``: peak directional upper envelope for the best direction
+    """
+    vectors, peak_env, avg = _full_field_directional_am_components(
+        fields, phase_deg=phase_deg
+    )
+    return {"vectors": vectors, "avg": avg, "peak_env": peak_env}
 
 
 def compute_direct_field_peak_hf(
@@ -346,6 +363,7 @@ def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
     n_vox = arrs[0].shape[0]
     best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
     best_peak_env = np.zeros(n_vox, dtype=np.float64)
+    avg_amp = np.zeros(n_vox, dtype=np.float64)
 
     for start in range(0, n_vox, voxel_chunk_size):
         stop = min(start + voxel_chunk_size, n_vox)
@@ -360,13 +378,14 @@ def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
             env_min += np.abs(a - b)
 
         amp = env_max - env_min
+        avg_amp[start:stop] = np.mean(amp, axis=1)
         best_idx = np.argmax(amp, axis=1)
         rows = np.arange(stop - start)
         best_amp = amp[rows, best_idx]
         best_peak_env[start:stop] = env_max[rows, best_idx]
         best_vectors[start:stop] = directions[best_idx] * best_amp[:, None]
 
-    return best_vectors, best_peak_env
+    return best_vectors, best_peak_env, avg_amp
 
 
 def _direct_field_peak_hf_actual(fields, *, phase_deg: float = 0.0):

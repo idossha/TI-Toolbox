@@ -113,6 +113,7 @@ FIELD_E_NORMAL = "E_normal"
 # Field names (SimNIBS convention)
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
+FIELD_MTI_AVG = "TI_Avg"  # Orientation-averaged mTI field name
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
 
 # Tissue region indices (SimNIBS convention)

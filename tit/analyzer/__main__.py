@@ -49,31 +49,51 @@ def _run_group(data: dict) -> None:
 
 def _run_single(data: dict) -> None:
     from tit.analyzer import Analyzer
+    from tit.analyzer.field_selector import list_field_targets
 
     analysis_type = data.pop("analysis_type")
     visualize = data.get("visualize", True)
+    subject_id = data["subject_id"]
+    simulation = data["simulation"]
+    space = data.get("space", "mesh")
+    tissue_type = data.get("tissue_type", "GM")
+    base_output_dir = data.get("output_dir")
+    targets = list_field_targets(subject_id, simulation, space, tissue_type)
 
-    analyzer = Analyzer(
-        subject_id=data["subject_id"],
-        simulation=data["simulation"],
-        space=data.get("space", "mesh"),
-        tissue_type=data.get("tissue_type", "GM"),
-        output_dir=data.get("output_dir"),
-    )
+    for target in targets:
+        measure_output_dir = base_output_dir
+        if base_output_dir and len(targets) > 1:
+            import os
 
-    if analysis_type == "spherical":
-        analyzer.analyze_sphere(
-            center=tuple(data["center"]),
-            radius=data["radius"],
-            coordinate_space=data.get("coordinate_space", "subject"),
-            visualize=visualize,
+            measure_output_dir = os.path.join(base_output_dir, target.measure)
+            if os.path.exists(measure_output_dir) and os.listdir(measure_output_dir):
+                print(
+                    f"[INFO] Skipping analysis for measure '{target.measure}' because output already exists: {measure_output_dir}"
+                )
+                continue
+
+        analyzer = Analyzer(
+            subject_id=subject_id,
+            simulation=simulation,
+            space=space,
+            tissue_type=tissue_type,
+            measure=target.measure if len(targets) > 1 else None,
+            output_dir=measure_output_dir,
         )
-    elif analysis_type == "cortical":
-        analyzer.analyze_cortex(
-            atlas=data["atlas"],
-            region=data.get("region", ""),
-            visualize=visualize,
-        )
+
+        if analysis_type == "spherical":
+            analyzer.analyze_sphere(
+                center=tuple(data["center"]),
+                radius=data["radius"],
+                coordinate_space=data.get("coordinate_space", "subject"),
+                visualize=visualize,
+            )
+        elif analysis_type == "cortical":
+            analyzer.analyze_cortex(
+                atlas=data["atlas"],
+                region=data.get("region", ""),
+                visualize=visualize,
+            )
 
 
 if __name__ == "__main__":

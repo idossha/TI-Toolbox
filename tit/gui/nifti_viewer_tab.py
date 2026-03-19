@@ -232,10 +232,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.high_freq_chk.setChecked(False)
         sim_block_layout.addWidget(self.high_freq_chk, 4, 0, 1, 4)
 
+        # Peak HF field checkbox
+        self.peak_hf_chk = QtWidgets.QCheckBox("Load Peak HF Field")
+        self.peak_hf_chk.setChecked(True)
+        sim_block_layout.addWidget(self.peak_hf_chk, 5, 0, 1, 4)
+
         # Refresh button
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
-        sim_block_layout.addWidget(self.refresh_btn, 5, 0, 1, 4)
+        sim_block_layout.addWidget(self.refresh_btn, 6, 0, 1, 4)
 
         config_layout.addWidget(sim_block)
         main_layout.addWidget(self.config_section)
@@ -328,7 +333,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.colormap_combo.addItems(
             ["grayscale", "heat", "jet", "gecolor", "nih", "surface"]
         )
-        self.colormap_combo.setCurrentText("heat")
+        self.colormap_combo.setCurrentText("jet")
         vis_layout.addWidget(self.colormap_combo)
 
         # Opacity
@@ -345,20 +350,20 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Percentile Mode
         self.percentile_chk = QtWidgets.QCheckBox("Percentile Mode")
-        self.percentile_chk.setChecked(True)
+        self.percentile_chk.setChecked(False)
         vis_layout.addWidget(self.percentile_chk)
 
         # Thresholds
-        vis_layout.addWidget(QtWidgets.QLabel("Threshold (%):"))
+        vis_layout.addWidget(QtWidgets.QLabel("Threshold:"))
         self.min_threshold = QtWidgets.QDoubleSpinBox()
-        self.min_threshold.setRange(0, 100)
-        self.min_threshold.setValue(95)
+        self.min_threshold.setRange(0, 1000)
+        self.min_threshold.setValue(0.45)
         self.min_threshold.setDecimals(1)
         vis_layout.addWidget(self.min_threshold)
         vis_layout.addWidget(QtWidgets.QLabel("to"))
         self.max_threshold = QtWidgets.QDoubleSpinBox()
-        self.max_threshold.setRange(0, 100)
-        self.max_threshold.setValue(99.9)
+        self.max_threshold.setRange(0, 1000)
+        self.max_threshold.setValue(2.45)
         self.max_threshold.setDecimals(1)
         vis_layout.addWidget(self.max_threshold)
 
@@ -740,24 +745,31 @@ class NiftiViewerTab(QtWidgets.QWidget):
             simulation_name: Name of the simulation
 
         Returns:
-            Tuple of (is_valid, nifti_path or error_message)
+            Tuple of (is_valid, nifti_paths or error_message)
         """
-        # Look for MNI NIfTI files
         sim_dir = self.pm.simulation(subject_id, simulation_name)
-
-        # Check mTI and TI directories
-        for sim_type in ["mTI", "TI"]:
-            nifti_dir = os.path.join(sim_dir, sim_type, "niftis")
-            if os.path.exists(nifti_dir):
-                # Look for MNI files
-                mni_files = glob.glob(os.path.join(nifti_dir, "*_MNI*.nii*"))
-                if mni_files:
-                    return True, nifti_dir
+        nifti_dirs = self._simulation_nifti_dirs(sim_dir)
+        for nifti_dir in nifti_dirs:
+            if glob.glob(os.path.join(nifti_dir, "*_MNI*.nii*")):
+                return True, nifti_dirs
 
         return (
             False,
             f"No MNI files found for subject {subject_id}, simulation {simulation_name}",
         )
+
+    def _simulation_nifti_dirs(self, sim_dir):
+        dirs = []
+        candidates = [
+            os.path.join(sim_dir, "shared_fields", "niftis"),
+            os.path.join(sim_dir, "TI", "niftis"),
+            os.path.join(sim_dir, "mTI", "niftis"),
+        ]
+        candidates.extend(sorted(glob.glob(os.path.join(sim_dir, "mTI_*", "niftis"))))
+        for nifti_dir in candidates:
+            if os.path.isdir(nifti_dir):
+                dirs.append(nifti_dir)
+        return dirs
 
     def load_group_data(self):
         """Load group visualization with multiple subject-simulation pairs."""
@@ -789,6 +801,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         threshold_min = self.min_threshold.value()
         threshold_max = self.max_threshold.value()
         visible = 1 if self.visibility_chk.isChecked() else 0
+        include_peak_hf = self.peak_hf_chk.isChecked()
 
         file_specs = []
 
@@ -863,43 +876,45 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 self.console_widget.update_console(result, "warning")
                 continue
 
-            nifti_dir = result
+            for nifti_dir in result:
+                for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
+                    basename = os.path.basename(nifti_file)
 
-            # Find MNI TI_max files
-            for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
-                basename = os.path.basename(nifti_file)
+                    if "_MNI" not in basename:
+                        continue
+                    if "TDCS" in basename:
+                        continue
+                    is_ti_field = "TI_max" in basename or "TI_Max" in basename
+                    is_peak_hf = "Peak_HF" in basename
+                    if not is_ti_field and not (include_peak_hf and is_peak_hf):
+                        continue
 
-                # Only include TI_max/TI_Max MNI files, exclude TDCS
-                if "_MNI" not in basename:
-                    continue
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
-                    continue
+                    # Only load grey matter files by default for group
+                    if "grey_" not in basename:
+                        continue
 
-                # Only load grey matter files by default for group
-                if "grey_" not in basename:
-                    continue
+                    # Adjust opacity based on number of subjects to avoid oversaturation
+                    adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
 
-                # Adjust opacity based on number of subjects to avoid oversaturation
-                adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
+                    is_visible = not is_peak_hf
 
-                file_specs.append(
-                    {
-                        "path": nifti_file,
-                        "type": "volume",
-                        "colormap": colormap,
-                        "opacity": adjusted_opacity,
-                        "visible": visible,
-                        "percentile": 1 if percentile else 0,
-                        "threshold_min": threshold_min,
-                        "threshold_max": threshold_max,
-                    }
-                )
+                    file_specs.append(
+                        {
+                            "path": nifti_file,
+                            "type": "volume",
+                            "colormap": colormap,
+                            "opacity": adjusted_opacity,
+                            "visible": visible if is_visible else 0,
+                            "percentile": 1 if percentile else 0,
+                            "threshold_min": threshold_min,
+                            "threshold_max": threshold_max,
+                        }
+                    )
 
-                self.console_widget.update_console(
-                    f"Loading: sub-{subject_id}/{simulation_name} - {basename}", "info"
-                )
+                    self.console_widget.update_console(
+                        f"Loading: sub-{subject_id}/{simulation_name} - {basename}",
+                        "info",
+                    )
 
             valid_pairs += 1
 
@@ -953,6 +968,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         threshold_min = self.min_threshold.value()
         threshold_max = self.max_threshold.value()
         visible = 1 if self.visibility_chk.isChecked() else 0
+        include_peak_hf = self.peak_hf_chk.isChecked()
 
         # Initialize file specifications for Freeview
         file_specs = []
@@ -1066,33 +1082,21 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Add simulation results
         sim_dir = os.path.join(simulations_dir, simulation_name)
 
-        # Look for NIfTI files in the mTI/niftis or TI/niftis directory
-        mti_nifti_dir = os.path.join(sim_dir, "mTI", "niftis")
-        ti_nifti_dir = os.path.join(sim_dir, "TI", "niftis")
+        nifti_dirs = self._simulation_nifti_dirs(sim_dir)
 
-        # Check for mTI simulation first
-        if os.path.exists(mti_nifti_dir):
-            nifti_dir = mti_nifti_dir
-        elif os.path.exists(ti_nifti_dir):
-            nifti_dir = ti_nifti_dir
-        else:
-            nifti_dir = None
-
-        if nifti_dir:
-            # First, add the TI_max files
+        for nifti_dir in nifti_dirs:
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
 
-                # Only include TI_max/TI_Max files and exclude TDCS files
-                # mTI uses TI_Max (capital M) while regular TI uses TI_max (lowercase m)
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
+                if "TDCS" in basename:
+                    continue
+                is_ti_field = "TI_max" in basename or "TI_Max" in basename
+                is_peak_hf = "Peak_HF" in basename
+                if not is_ti_field and not (include_peak_hf and is_peak_hf):
                     continue
 
-                # Determine if this file should be visible by default
-                # Only grey matter is visible by default
-                is_visible = "grey_" in basename
+                # Only the grey TI/TI_Max overlay is visible by default.
+                is_visible = "grey_" in basename and not is_peak_hf
 
                 # Check if file matches the selected space
                 if is_mni_space:
@@ -1116,37 +1120,37 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     }
                 )
 
-            # Load high frequency fields if requested
-            if self.high_freq_chk.isChecked():
-                high_freq_dir = os.path.join(sim_dir, "high_Frequency", "niftis")
-                if os.path.exists(high_freq_dir):
-                    # Look for scalar_magnE files
-                    for nifti_file in glob.glob(
-                        os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")
-                    ):
-                        basename = os.path.basename(nifti_file)
+        # Load high frequency fields if requested
+        if self.high_freq_chk.isChecked():
+            high_freq_dir = os.path.join(sim_dir, "high_Frequency", "niftis")
+            if os.path.exists(high_freq_dir):
+                # Look for scalar_magnE files
+                for nifti_file in glob.glob(
+                    os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")
+                ):
+                    basename = os.path.basename(nifti_file)
 
-                        file_specs.append(
-                            {
-                                "path": nifti_file,
-                                "type": "volume",
-                                "colormap": colormap,
-                                "opacity": opacity
-                                * 0.8,  # Slightly lower opacity for high frequency fields
-                                "visible": visible,
-                                "percentile": 1 if percentile else 0,
-                                "threshold_min": threshold_min,
-                                "threshold_max": threshold_max,
-                            }
-                        )
-                        self.console_widget.update_console(
-                            f"Loading high frequency field: {basename}", "info"
-                        )
-                else:
-                    self.console_widget.update_console(
-                        f"Warning: High frequency directory not found at {high_freq_dir}",
-                        "warning",
+                    file_specs.append(
+                        {
+                            "path": nifti_file,
+                            "type": "volume",
+                            "colormap": colormap,
+                            "opacity": opacity
+                            * 0.8,  # Slightly lower opacity for high frequency fields
+                            "visible": visible,
+                            "percentile": 1 if percentile else 0,
+                            "threshold_min": threshold_min,
+                            "threshold_max": threshold_max,
+                        }
                     )
+                    self.console_widget.update_console(
+                        f"Loading high frequency field: {basename}", "info"
+                    )
+            else:
+                self.console_widget.update_console(
+                    f"Warning: High frequency directory not found at {high_freq_dir}",
+                    "warning",
+                )
 
         if not any(
             spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))
@@ -1232,9 +1236,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
                     # Add threshold options if present
                     if "percentile" in spec and spec["percentile"]:
-                        arg += ":percentile=1"  # Enable percentile mode
-                        if "threshold_min" in spec and "threshold_max" in spec:
-                            arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
+                        arg += ":percentile=1"
+                    if "threshold_min" in spec and "threshold_max" in spec:
+                        min_val = spec["threshold_min"]
+                        max_val = spec["threshold_max"]
+                        # Freeview's heatscale syntax expects min, midpoint, max.
+                        # Use the lower bound as the midpoint so the GUI's min/max
+                        # fields map directly onto an absolute visible range.
+                        arg += f":heatscale={min_val},{min_val},{max_val}"
 
                     freeview_args.append(arg)
                 else:

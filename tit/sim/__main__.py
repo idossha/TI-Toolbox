@@ -60,8 +60,12 @@ def main() -> None:
         vals = [raw_intensities[k] for k in sorted(raw_intensities.keys())]
         intensities = IntensityConfig(values=vals)
     conductivity_type = ConductivityType(data.pop("conductivity_type"))
-    if "mti_field_method" in data:
-        data["mti_field_method"] = MTIFieldMethod(data["mti_field_method"])
+    if "mti_field_methods" in data:
+        data["mti_field_methods"] = [
+            MTIFieldMethod(v) for v in data["mti_field_methods"]
+        ]
+    elif "mti_field_method" in data:
+        data["mti_field_methods"] = [MTIFieldMethod(data.pop("mti_field_method"))]
 
     config = SimulationConfig(
         conductivity_type=conductivity_type,

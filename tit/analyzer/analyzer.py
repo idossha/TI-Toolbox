@@ -92,6 +92,7 @@ class Analyzer:
         simulation: str,
         space: str = "mesh",
         tissue_type: str = "GM",
+        measure: str | None = None,
         output_dir: str | None = None,
     ) -> None:
         self.subject_id = subject_id
@@ -104,9 +105,11 @@ class Analyzer:
             simulation,
             space,
             tissue_type=self.tissue_type,
+            measure=measure,
         )
         self.field_path = field_path
         self.field_name = field_name
+        self.measure = measure
 
         pm = get_path_manager()
         self.m2m_path = pm.m2m(subject_id)
@@ -573,13 +576,10 @@ class Analyzer:
     def _normal_mesh_path(self) -> Path | None:
         """Derive the normal mesh path from the field mesh path."""
         name = self.field_path.name
-        replacements = {
-            "_mTI.msh": "_mTI_normal.msh",
-            "_TI.msh": "_normal.msh",
-        }
-        for suffix, replacement in replacements.items():
-            if name.endswith(suffix):
-                return self.field_path.parent / name.replace(suffix, replacement)
+        if "_mTI" in name and name.endswith(".msh"):
+            return self.field_path.parent / name.replace(".msh", "_normal.msh")
+        if name.endswith("_TI.msh"):
+            return self.field_path.parent / name.replace("_TI.msh", "_normal.msh")
         return None
 
     # ------------------------------------------------------------------

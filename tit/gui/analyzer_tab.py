@@ -9,6 +9,7 @@ This module provides a GUI interface for the analyzer functionality.
 import traceback
 import time
 import os
+import glob
 import json
 import tempfile
 import subprocess
@@ -2646,8 +2647,16 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not output_dir:
                 return None
 
-            if os.path.exists(output_dir) and not confirm_overwrite(
-                self, output_dir, "analysis output directory"
+            sim_dir = self.pm.simulation(subject_id, simulation_name)
+            multi_measure_mti = bool(
+                sim_dir and glob.glob(os.path.join(sim_dir, "mTI_*", "niftis"))
+            )
+            if (
+                os.path.exists(output_dir)
+                and not multi_measure_mti
+                and not confirm_overwrite(
+                    self, output_dir, "analysis output directory"
+                )
             ):
                 return None
             os.makedirs(output_dir, exist_ok=True)

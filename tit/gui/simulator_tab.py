@@ -234,30 +234,24 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Row 3: mTI field method
         row3 = QtWidgets.QHBoxLayout()
-        self.mti_method_label = QtWidgets.QLabel("mTI Field:")
-        self.mti_method_combo = QtWidgets.QComboBox()
-        self.mti_method_combo.addItem("Recursive TI", MTIFieldMethod.RECURSIVE_TI.value)
-        self.mti_method_combo.addItem(
-            "Direct Field (Magnitude AM)",
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-        )
-        self.mti_method_combo.addItem(
-            "Direct Field (Directional AM)",
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-        )
-        self.mti_method_combo.addItem(
-            "Full Field (Directional AM)",
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
-        )
-        self.mti_method_combo.setToolTip(
-            "Controls how mTI fields are combined for multipolar simulations.\n"
-            "This applies to mTI runs only; TI runs ignore this setting."
-        )
-        self.mti_method_combo.currentIndexChanged.connect(
-            self._update_mti_method_warning
-        )
+        self.mti_method_label = QtWidgets.QLabel("mTI Fields:")
+        self.mti_method_checks = {}
+        for label, method, checked in [
+            ("Recursive TI", MTIFieldMethod.RECURSIVE_TI, True),
+            ("Direct Field (Magnitude AM)", MTIFieldMethod.DIRECT_FIELD_MAGNITUDE, False),
+            ("Direct Field (Directional AM)", MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL, False),
+            ("Full Field (Directional AM)", MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM, False),
+        ]:
+            cb = QtWidgets.QCheckBox(label)
+            cb.setChecked(checked)
+            cb.toggled.connect(self._update_mti_method_warning)
+            cb.setToolTip(
+                "Select one or more mTI field calculations. All selected measures reuse the same SimNIBS pair simulations."
+            )
+            self.mti_method_checks[method] = cb
         row3.addWidget(self.mti_method_label)
-        row3.addWidget(self.mti_method_combo)
+        for cb in self.mti_method_checks.values():
+            row3.addWidget(cb)
         row3.addStretch()
         global_layout.addLayout(row3)
 
@@ -722,28 +716,32 @@ class SimulatorTab(QtWidgets.QWidget):
         return False
 
     def _update_mti_method_warning(self):
-        method = self.mti_method_combo.currentData()
+        methods = self._selected_mti_methods()
         has_mti_jobs = self._has_mti_jobs_configured()
         self.mti_method_label.setEnabled(has_mti_jobs)
-        self.mti_method_combo.setEnabled(has_mti_jobs)
+        for cb in self.mti_method_checks.values():
+            cb.setEnabled(has_mti_jobs)
         if not has_mti_jobs:
             self.mti_method_warning.setVisible(False)
             return
-        if method in {
+        method_values = {m.value for m in methods}
+        if method_values & {
             MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
             MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
             MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
         }:
-            if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
+            if method_values == {MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value}:
                 mode_text = "magnitude AM from the summed field norm"
-            elif method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
+            elif method_values == {MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value}:
                 mode_text = "directional AM optimized over direction"
-            else:
+            elif method_values == {MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value}:
                 mode_text = (
                     "directional AM from full-field pair envelopes, optimized over direction"
                 )
+            else:
+                mode_text = "multiple direct-field variants"
             self.mti_method_warning.setText(
-                f"{method} computes {mode_text}. It interprets each electrode pair "
+                f"Selected methods compute {mode_text}. They interpret each electrode pair "
                 "as ordered (+,-) using the pair order shown in the montage, "
                 "assumes phase = 0 degrees."
             )
@@ -753,6 +751,18 @@ class SimulatorTab(QtWidgets.QWidget):
                 "recursive_ti applies the current binary-tree TI combination used by TI-Toolbox."
             )
             self.mti_method_warning.setVisible(False)
+
+    def _selected_mti_methods(self):
+        methods = [
+            method for method, cb in self.mti_method_checks.items() if cb.isChecked()
+        ]
+        return methods or [MTIFieldMethod.RECURSIVE_TI]
+
+    def _selected_mti_method_labels(self):
+        labels = [
+            cb.text() for method, cb in self.mti_method_checks.items() if cb.isChecked()
+        ]
+        return labels or ["Recursive TI"]
 
     # ── Data helpers ────────────────────────────────────────────────────────
 
@@ -1197,7 +1207,7 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             if any(mc.simulation_mode == SimulationMode.MTI for _, mc, _ in jobs):
                 details += (
-                    f"\n* mTI Field Method: {self.mti_method_combo.currentText()}"
+                    f"\n* mTI Field Methods: {', '.join(self._selected_mti_method_labels())}"
                 )
             if not ConfirmationDialog.confirm(
                 self,
@@ -1268,7 +1278,7 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             if any(mc.simulation_mode == SimulationMode.MTI for _, mc, _ in jobs):
                 self.update_output(
-                    f"mTI field method: {self.mti_method_combo.currentData()}"
+                    f"mTI field methods: {', '.join(m.value for m in self._selected_mti_methods())}"
                 )
 
             # ── Report generator ───────────────────────────────────────────
@@ -1295,7 +1305,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     intensity_ch4=None,
                     quiet_mode=False,
                     conductivities=self._get_conductivities_for_report(),
-                    mti_field_method=self.mti_method_combo.currentData(),
+                    mti_field_method=", ".join(
+                        m.value for m in self._selected_mti_methods()
+                    ),
                 )
                 dim_p = dimensions.split(",")
                 self.report_generator.add_electrode_parameters(
@@ -1351,7 +1363,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     dimensions=electrode_dims,
                     gel_thickness=float(thickness),
                 ),
-                mti_field_method=MTIFieldMethod(self.mti_method_combo.currentData()),
+                mti_field_methods=self._selected_mti_methods(),
             )
             montage_list = [mc for _, mc, _ in jobs]
 
@@ -1489,7 +1501,9 @@ class SimulatorTab(QtWidgets.QWidget):
                             quiet_mode=True,
                             conductivities=self._get_conductivities_for_report(),
                             mti_field_method=(
-                                self.mti_method_combo.currentData()
+                                ", ".join(
+                                    m.value for m in self._selected_mti_methods()
+                                )
                                 if mc.simulation_mode == SimulationMode.MTI
                                 else None
                             ),
