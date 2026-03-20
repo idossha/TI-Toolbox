@@ -639,13 +639,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
     ) -> str:
         """Convert a UI atlas display name to the subject-specific atlas base name.
 
-        E.g. display "101_DK40" with subject_id="102" yields "102_DK40".
+        The display name is already the atlas type (e.g. "DK40", "HCP_MMP1")
+        because ``find_all_atlases`` strips the subject prefix. We just prepend
+        the target subject ID.
         """
-        atlas_base_name = self.atlas_display_map.get(display_name, display_name)
-        if "_" in atlas_base_name:
-            atlas_type = atlas_base_name.split("_", 1)[-1]
-        else:
-            atlas_type = atlas_base_name
+        atlas_type = self.atlas_display_map.get(display_name, display_name)
         return f"{subject_id}_{atlas_type}"
 
     # ------------------------------------------------------------------
