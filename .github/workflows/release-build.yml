@@ -188,9 +188,10 @@ jobs:
 
   release:
     name: Upload to Release
-    needs: [build-mac, build-windows, build-linux]
+    needs: [create-release, build-mac, build-windows, build-linux]
+    if: always() && needs.create-release.result == 'success'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -201,6 +202,7 @@ jobs:
         run: ls -R artifacts
 
       - name: Upload macOS Intel DMG to release
+        if: needs.build-mac.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/macOS-Intel-dmg/*
@@ -208,6 +210,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload macOS Silicon DMG to release
+        if: needs.build-mac.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/macOS-Silicon-dmg/*
@@ -215,6 +218,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows to release
+        if: needs.build-windows.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/Windows/*
@@ -222,6 +226,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Linux to release
+        if: needs.build-linux.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/Linux/*
