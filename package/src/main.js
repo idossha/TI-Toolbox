@@ -211,8 +211,12 @@ async function gracefulShutdown() {
   await resetDisplayAccess().catch(() => {});
 }
 
-app.whenReady().then(() => {
-  startApplication();
+app.whenReady().then(async () => {
+  await startApplication().catch((err) => {
+    const { dialog: dlg } = require('electron');
+    dlg.showErrorBox('Startup Error', `TI-Toolbox failed to start:\n${err.message}`);
+    app.quit();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
