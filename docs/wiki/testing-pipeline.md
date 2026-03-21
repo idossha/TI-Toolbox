@@ -128,7 +128,7 @@ The testing pipeline is configured in `.circleci/config.yml`:
 ### TI-Toolbox Test Image
 
 - **Image**: `idossha/ti-toolbox-test:latest`
-- **Contains**: Ubuntu 22.04, SimNIBS 4.5, Python 3.11, all scientific packages, pytest
+- **Contains**: Ubuntu 22.04, SimNIBS 4.6, Python 3.11, all scientific packages, pytest
 - **No TI-Toolbox code** -- PR code is mounted at runtime
 
 ### Test Execution Flow

@@ -373,11 +373,11 @@ class DockerManager extends EventEmitter {
       SUBJECTS_DIR: '/usr/local/freesurfer/subjects',
       FS_LICENSE: '/usr/local/freesurfer/license.txt',
       // SimNIBS environment
-      SIMNIBSDIR: '/root/SimNIBS-4.5',
+      SIMNIBSDIR: '/root/SimNIBS-4.6',
       // Prevent OpenMP issues
       KMP_AFFINITY: 'disabled',
       // Explicitly set PATH to include FreeSurfer bin (for freeview, recon-all) and SimNIBS bin
-      PATH: '/usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+      PATH: '/usr/local/freesurfer/bin:/root/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     };
 
     // Log full environment for debugging

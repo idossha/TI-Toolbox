@@ -4,7 +4,7 @@ From: ubuntu:22.04
 %labels
     Author Ido Haber
     Version 2.2.4
-    Description TI-Toolbox combined image (SimNIBS 4.5 + FreeSurfer 7.4.1) for HPC deployment
+    Description TI-Toolbox combined image (SimNIBS 4.6 + FreeSurfer 7.4.1) for HPC deployment
     URL https://github.com/idossha/TI-toolbox
 
 %environment
@@ -12,8 +12,8 @@ From: ubuntu:22.04
     export FREESURFER_HOME=/usr/local/freesurfer
     export FS_LICENSE=/usr/local/freesurfer/license.txt
     export SUBJECTS_DIR=/usr/local/freesurfer/subjects
-    export SIMNIBSDIR=/opt/SimNIBS-4.5
-    export PATH="/opt/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
+    export SIMNIBSDIR=/opt/SimNIBS-4.6
+    export PATH="/opt/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:$PATH"
     export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:$LD_LIBRARY_PATH"
     export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)
     export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
@@ -141,22 +141,22 @@ From: ubuntu:22.04
     chmod a+r $FREESURFER_HOME/license.txt
 
     # ================================================================
-    # SimNIBS 4.5
+    # SimNIBS 4.6
     # ================================================================
     export OMP_NUM_THREADS=1
     export KMP_AFFINITY=disabled
 
     mkdir -p /simnibs && chmod -R 755 /simnibs
-    wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
+    wget https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
         && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
         && /simnibs/simnibs_installer/install -s
 
     # Move SimNIBS to /opt for multi-user access and symlink back
-    mv /root/SimNIBS-4.5 /opt/SimNIBS-4.5
-    ln -s /opt/SimNIBS-4.5 /root/SimNIBS-4.5
+    mv /root/SimNIBS-4.6 /opt/SimNIBS-4.6
+    ln -s /opt/SimNIBS-4.6 /root/SimNIBS-4.6
 
-    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
-    export SIMNIBSDIR=/opt/SimNIBS-4.5
+    export PATH="/opt/SimNIBS-4.6/bin:$PATH"
+    export SIMNIBSDIR=/opt/SimNIBS-4.6
 
     # Clean up installer
     rm -rf /simnibs
@@ -202,7 +202,7 @@ export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
 
 [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && . "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
 
-export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:$PATH"
+export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:$PATH"
 export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:${LD_LIBRARY_PATH:-}"
 
 alias GUI='simnibs_python -m tit.gui.main'
@@ -243,7 +243,7 @@ TI_RC_EOF
 
 %test
     # Verify SimNIBS
-    export PATH="/opt/SimNIBS-4.5/bin:$PATH"
+    export PATH="/opt/SimNIBS-4.6/bin:$PATH"
     simnibs_python -c "import simnibs; print('SimNIBS', simnibs.__version__)" || exit 1
 
     # Verify TI-Toolbox
@@ -282,7 +282,7 @@ TI_RC_EOF
 %help
     TI-Toolbox: Temporal Interference Stimulation Toolbox for HPC
 
-    This image contains SimNIBS 4.5, FreeSurfer 7.4.1, and TI-Toolbox
+    This image contains SimNIBS 4.6, FreeSurfer 7.4.1, and TI-Toolbox
     pre-installed for high-performance computing environments.
 
     Usage:
@@ -309,7 +309,7 @@ TI_RC_EOF
 
     Environment Variables:
       FREESURFER_HOME=/usr/local/freesurfer
-      SIMNIBSDIR=/opt/SimNIBS-4.5
+      SIMNIBSDIR=/opt/SimNIBS-4.6
       OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
 
     For full documentation, see:

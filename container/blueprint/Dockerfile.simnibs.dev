@@ -108,12 +108,12 @@ ENV KMP_AFFINITY=disabled
 ######## Install SimNIBS ################
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs
 
-RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
+RUN wget https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
     && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
     && /simnibs/simnibs_installer/install -s
 
-ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
-ENV SIMNIBSDIR="/root/SimNIBS-4.5"
+ENV PATH="/root/SimNIBS-4.6/bin:$PATH"
+ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
 # Install additional Python packages to simnibs_python
 RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn
