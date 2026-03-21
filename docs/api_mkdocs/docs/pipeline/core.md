@@ -62,7 +62,7 @@ Methods that accept a subject ID (`sid`) string without the `sub-` prefix:
 | `pm.m2m("001")` | `<simnibs>/sub-001/m2m_001` |
 | `pm.t1("001")` | `.../m2m_001/T1.nii.gz` |
 | `pm.segmentation("001")` | `.../m2m_001/segmentation` |
-| `pm.tissue_labeling("001")` | `.../segmentation/Labeling.nii.gz` |
+| `pm.tissue_labeling("001")` | `.../segmentation/labeling.nii.gz` |
 | `pm.eeg_positions("001")` | `.../m2m_001/eeg_positions` |
 | `pm.rois("001")` | `.../m2m_001/ROIs` |
 | `pm.simulations("001")` | `<simnibs>/sub-001/Simulations` |

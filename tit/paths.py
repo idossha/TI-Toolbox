@@ -144,7 +144,7 @@ class PathManager:
         return os.path.join(self.m2m(sid), "segmentation")
 
     def tissue_labeling(self, sid: str) -> str:
-        return os.path.join(self.segmentation(sid), "Labeling.nii.gz")
+        return os.path.join(self.segmentation(sid), "labeling.nii.gz")
 
     def leadfields(self, sid: str) -> str:
         return os.path.join(self.sub(sid), "leadfields")

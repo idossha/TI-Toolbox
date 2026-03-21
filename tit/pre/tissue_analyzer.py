@@ -693,7 +693,7 @@ def run_tissue_analysis(
 
     label_path = Path(pm.tissue_labeling(subject_id))
     if not label_path.exists():
-        raise PreprocessError(f"Labeling.nii.gz not found: {label_path}")
+        raise PreprocessError(f"labeling.nii.gz not found: {label_path}")
 
     output_root = Path(pm.ensure(pm.tissue_analysis_output(subject_id)))
     results = {}

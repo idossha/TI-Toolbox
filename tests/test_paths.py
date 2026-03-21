@@ -223,7 +223,7 @@ class TestSubjectLevelPaths:
 
     def test_tissue_labeling(self, pm):
         p, root = pm
-        assert p.tissue_labeling("001").endswith("segmentation/Labeling.nii.gz")
+        assert p.tissue_labeling("001").endswith("segmentation/labeling.nii.gz")
 
     def test_leadfields(self, pm):
         p, root = pm
