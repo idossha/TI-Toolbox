@@ -3,32 +3,32 @@
 Pre-processing pipeline orchestration.
 """
 
-
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tit import constants as const
 from tit.paths import get_path_manager
+
 from .charm import run_charm, run_subject_atlas
+from .dicom2nifti import run_dicom_to_nifti
+from .qsi import extract_dti_tensor, run_qsiprep, run_qsirecon
+from .recon_all import run_recon_all, run_subcortical_segmentations
+from .tissue_analyzer import run_tissue_analysis
 from .utils import (
     CommandRunner,
     PreprocessCancelled,
     PreprocessError,
+    build_logger,
     ensure_dataset_descriptions,
     ensure_subject_dirs,
-    build_logger,
 )
-from .dicom2nifti import run_dicom_to_nifti
-from .recon_all import run_recon_all, run_subcortical_segmentations
-from .tissue_analyzer import run_tissue_analysis
-from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 
 
 def _run_step(label: str, func, logger) -> None:
-    logger.info(f"├─ {label}: Started")
+    logger.info(f"{label}: Started")
     func()
-    logger.info(f"├─ {label}: ✓ Complete")
+    logger.info(f"{label}: ✓ Complete")
 
 
 def _run_subject_pipeline(
@@ -205,7 +205,7 @@ def _run_subject_pipeline(
             logger,
         )
 
-    logger.info(f"└─ Pre-processing completed successfully for subject: {subject_id}")
+    logger.info(f"Pre-processing completed successfully for subject: {subject_id}")
 
 
 def run_pipeline(
