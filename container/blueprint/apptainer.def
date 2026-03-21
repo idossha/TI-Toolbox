@@ -183,6 +183,9 @@ From: ubuntu:22.04
     cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
         $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
+    # Fix SimNIBS 4.6 atlas2subject split_labels bug (name-label misalignment for DK40)
+    simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py
+
     # Install TIT package
     cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 

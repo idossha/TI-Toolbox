@@ -45,6 +45,7 @@ def save_mesh_roi_overlay(
     output_dir = Path(get_path_manager().ensure(str(output_dir)))
 
     region_mesh = simnibs.read_msh(str(surface_mesh_path))
+    region_mesh.elmdata = []
 
     roi_data = np.zeros(region_mesh.nodes.nr)
     roi_data[roi_mask] = field_values[roi_mask]
@@ -87,6 +88,9 @@ Mesh.SurfaceFaces = 0;
 Mesh.SurfaceEdges = 0;
 Mesh.Points = 0;
 Mesh.Lines = 0;
+
+// View[0]: whole-surface field (initially hidden, toggle in Gmsh)
+View[0].Visible = 0;
 
 // View[1]: primary ROI field
 View[1].Visible = 1;

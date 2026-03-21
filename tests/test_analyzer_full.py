@@ -176,7 +176,7 @@ class TestCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_raw = {"lh": {"V1": np.array([True, False, True, False])}}
+        atlas_raw = ({"lh": {"V1": np.array([True, False, True, False])}})
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -650,12 +650,12 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_raw = {
+        atlas_raw = ({
             "lh": {
                 "V1": np.array([True, False, False, False]),
                 "V2": np.array([False, False, True, False]),
             }
-        }
+        })
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -667,18 +667,22 @@ class TestCombinedCortexMesh:
         call_args = a._analyze_mesh_roi.call_args
         mask = call_args[0][3]
         np.testing.assert_array_equal(mask, [True, False, True, False])
-        # Check region_name is joined with +
-        assert call_args[1]["region_name"] == "V1+V2"
+        # Check region_name is joined with + (bare names get lh./rh. prefix)
+        assert call_args[1]["region_name"] == "lh.V1+lh.V2"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
     def test_hemisphere_suffix_resolved_to_prefixed_keys(self, mock_load):
-        """GUI names like 'cuneus-lh' resolve to atlas keys like 'lh.cuneus'."""
+        """GUI names like 'cuneus-lh' resolve to atlas keys like 'lh.cuneus'.
+
+        The joined central surface has lh nodes first, then rh (4+4=8).
+        Per-hemisphere masks are padded to the full surface length.
+        """
         a = _make_analyzer(space="mesh")
-        values = np.array([1.0, 2.0, 3.0, 4.0])
+        values = np.arange(1.0, 9.0)  # 8 nodes: 4 lh + 4 rh
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_raw = {
+        atlas_raw = ({
             "lh": {
                 "lh.cuneus": np.array([True, False, False, False]),
                 "lh.precentral": np.array([False, False, True, False]),
@@ -687,7 +691,7 @@ class TestCombinedCortexMesh:
                 "rh.cuneus": np.array([False, True, False, False]),
                 "rh.precentral": np.array([False, False, False, True]),
             },
-        }
+        })
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -697,21 +701,27 @@ class TestCombinedCortexMesh:
 
         call_args = a._analyze_mesh_roi.call_args
         mask = call_args[0][3]
-        np.testing.assert_array_equal(mask, [True, False, False, True])
+        # lh.cuneus padded: [T,F,F,F, F,F,F,F]; rh.precentral padded: [F,F,F,F, F,F,F,T]
+        np.testing.assert_array_equal(
+            mask, [True, False, False, False, False, False, False, True]
+        )
         assert call_args[1]["region_name"] == "lh.cuneus+rh.precentral"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
     def test_bare_name_unions_both_hemispheres(self, mock_load):
-        """Bare 'cuneus' resolves to both lh.cuneus + rh.cuneus."""
+        """Bare 'cuneus' resolves to both lh.cuneus + rh.cuneus.
+
+        Joined surface: 2 lh nodes + 2 rh nodes = 4 total.
+        """
         a = _make_analyzer(space="mesh")
-        values = np.array([1.0, 2.0])
+        values = np.array([1.0, 2.0, 3.0, 4.0])  # 4 nodes: 2 lh + 2 rh
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_raw = {
+        atlas_raw = ({
             "lh": {"lh.cuneus": np.array([True, False])},
             "rh": {"rh.cuneus": np.array([False, True])},
-        }
+        })
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -721,7 +731,8 @@ class TestCombinedCortexMesh:
 
         call_args = a._analyze_mesh_roi.call_args
         mask = call_args[0][3]
-        np.testing.assert_array_equal(mask, [True, True])
+        # lh.cuneus: [T,F,F,F]; rh.cuneus: [F,F,F,T]; union: [T,F,F,T]
+        np.testing.assert_array_equal(mask, [True, False, False, True])
         assert call_args[1]["region_name"] == "lh.cuneus+rh.cuneus"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
@@ -731,10 +742,10 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(np.array([1.0, 2.0]))
         mock_load.return_value = surface
 
-        atlas_raw = {
+        atlas_raw = ({
             "lh": {"lh.cuneus": np.array([True, False])},
             "rh": {"rh.cuneus": np.array([False, True])},
-        }
+        })
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -749,7 +760,7 @@ class TestCombinedCortexMesh:
         surface = _mock_surface(values)
         mock_load.return_value = surface
 
-        atlas_raw = {"lh": {"V1": np.array([True, False, True, False])}}
+        atlas_raw = ({"lh": {"V1": np.array([True, False, True, False])}})
         with patch(
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
@@ -758,7 +769,7 @@ class TestCombinedCortexMesh:
             result = a._cortex_mesh("DK40", "V1", False)
 
         call_args = a._analyze_mesh_roi.call_args
-        assert call_args[1]["region_name"] == "V1"
+        assert call_args[1]["region_name"] == "lh.V1"
 
 
 class TestMainRegionsKey:

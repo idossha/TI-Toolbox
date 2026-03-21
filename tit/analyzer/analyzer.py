@@ -17,12 +17,8 @@ from pathlib import Path
 import numpy as np
 
 from tit.analyzer.field_selector import select_field_file
-from tit.analyzer.visualizer import (
-    save_histogram,
-    save_mesh_roi_overlay,
-    save_nifti_roi_overlay,
-    save_results_csv,
-)
+from tit.analyzer.visualizer import (save_histogram, save_mesh_roi_overlay,
+                                     save_nifti_roi_overlay, save_results_csv)
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 
@@ -232,20 +228,31 @@ class Analyzer:
         values = self._field_values(surface)
         node_areas = self._node_areas(surface)
 
+        # The joined central surface has lh nodes first, then rh.
+        # Pad per-hemisphere masks to full length and prefix keys with
+        # "lh."/"rh." so bare names (e.g. DK40 "cuneus") don't collide.
+        atlas_raw = atlas2subject(self.m2m_path, atlas, split_labels=True)
+        lh_labels = atlas_raw.get("lh", {})
+        rh_labels = atlas_raw.get("rh", {})
+        n_lh = len(next(iter(lh_labels.values()))) if lh_labels else 0
+        n_rh = len(next(iter(rh_labels.values()))) if rh_labels else 0
+
         atlas_map = {}
-        for hemi_dict in atlas2subject(self.m2m_path, atlas, split_labels=True).values():
-            atlas_map.update(hemi_dict)
+        for name, mask in lh_labels.items():
+            key = name if name.startswith("lh.") else f"lh.{name}"
+            atlas_map[key] = np.concatenate([mask, np.zeros(n_rh, dtype=bool)])
+        for name, mask in rh_labels.items():
+            key = name if name.startswith("rh.") else f"rh.{name}"
+            atlas_map[key] = np.concatenate([np.zeros(n_lh, dtype=bool), mask])
 
         regions = region if isinstance(region, list) else [region]
 
-        # Resolve region names to atlas keys. MeshAtlasManager shows names
-        # like "cuneus-lh" but subject_atlas() may use "lh.cuneus", "cuneus",
-        # or just "cuneus" depending on the atlas version.
+        # Resolve user-facing names to atlas keys (handles "cuneus-lh",
+        # "lh.cuneus", or bare "cuneus" → both hemispheres).
         atlas_keys = []
         seen = set()
         for r in regions:
-            keys = self._resolve_mesh_region(r, atlas_map)
-            for k in keys:
+            for k in self._resolve_mesh_region(r, atlas_map):
                 if k not in seen:
                     seen.add(k)
                     atlas_keys.append(k)
@@ -255,6 +262,11 @@ class Analyzer:
         for m in masks[1:]:
             mask = mask | m
         region_name = "+".join(atlas_keys)
+
+        logger.info(
+            "Cortical ROI: atlas=%s regions=%s mask=%d/%d nodes",
+            atlas, atlas_keys, int(mask.sum()), len(mask),
+        )
 
         return self._analyze_mesh_roi(
             surface,
@@ -392,6 +404,21 @@ class Analyzer:
         pos_within_roi = roi_values > 0
         roi_pos = roi_values[pos_within_roi]
         roi_areas = node_areas[roi_mask][pos_within_roi]
+
+        if roi_pos.size == 0:
+            logger.warning("ROI %s: empty mask, returning zeros", region_name)
+            out_dir = self._resolve_output_dir(
+                analysis_type=analysis_type, region_name=region_name, **kwargs,
+            )
+            result = AnalysisResult(
+                field_name=self.field_name, region_name=region_name,
+                space="mesh", analysis_type=analysis_type,
+                roi_mean=0.0, roi_max=0.0, roi_min=0.0,
+                roi_focality=0.0, gm_mean=0.0, gm_max=0.0,
+                n_elements=int(np.sum(roi_mask)),
+            )
+            save_results_csv(asdict(result), Path(out_dir))
+            return result
 
         surface_pos_mask = values > 0
         surface_pos = values[surface_pos_mask]
@@ -803,10 +830,11 @@ class Analyzer:
         if found:
             return found
 
-        # Nothing matched — build helpful error
+        # Nothing matched
         available = list(atlas_map.keys()) if hasattr(atlas_map, "keys") else []
-        close = [a for a in available if name.lower().rstrip("-lhrh") in a.lower()]
-        hint = f" Similar: {close[:5]}" if close else ""
+        bare = name[:-3] if name.endswith(("-lh", "-rh")) else name
+        close = [a for a in available if bare.lower() in a.lower()][:5]
+        hint = f" Similar: {close}" if close else ""
         raise KeyError(f"Region {name!r} not found in atlas.{hint}")
 
     def _maybe_transform_coords(

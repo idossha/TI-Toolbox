@@ -133,6 +133,9 @@ RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/Electrode
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
     cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
+# Fix SimNIBS 4.6 atlas2subject split_labels bug (name-label misalignment for DK40)
+RUN simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py
+
 # Install TIT package (non-editable). For dev mounts, `entrypoint.sh` sets PYTHONPATH=/ti-toolbox.
 RUN cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 
