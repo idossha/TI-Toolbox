@@ -7,6 +7,7 @@ Entry point: ``run_vectors(config: VectorConfig)``
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -26,6 +27,28 @@ BASE_VECTOR_SCALE = 1.0
 BASE_VECTOR_LENGTH = 1.0
 BASE_LENGTH_SCALE = 10.0
 BASE_VECTOR_WIDTH = 0.10
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Config helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _read_conductivity(sid: str, sim: str) -> str:
+    """Read conductivity type from the simulation's config.json.
+
+    Returns one of ``"scalar"``, ``"vn"``, ``"dir"``, or ``"mc"``.
+    Raises if the config is missing — a completed simulation always has one.
+    """
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    config_path = os.path.join(
+        pm.simulation(sid, sim), "documentation", "config.json"
+    )
+    with open(config_path) as f:
+        data = json.load(f)
+    return data["conductivity"]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -724,25 +747,55 @@ def _write_outputs(config, sampled, colors):
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _resolve_paths(config: VectorConfig) -> None:
+    """Resolve all paths from subject_id + simulation_name via PathManager."""
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    sid = config.subject_id
+    sim = config.simulation_name
+    sim_base = pm.simulation(sid, sim)
+    hf_dir = os.path.join(sim_base, "high_Frequency", "mesh")
+    cond = _read_conductivity(sid, sim)
+
+    config.mesh1 = os.path.join(hf_dir, f"{sid}_TDCS_1_{cond}.msh")
+    config.mesh2 = os.path.join(hf_dir, f"{sid}_TDCS_2_{cond}.msh")
+
+    # Auto-detect mTI when TDCS meshes 3 and 4 exist
+    m3 = os.path.join(hf_dir, f"{sid}_TDCS_3_{cond}.msh")
+    m4 = os.path.join(hf_dir, f"{sid}_TDCS_4_{cond}.msh")
+    if os.path.exists(m3) and os.path.exists(m4):
+        config.mesh3 = m3
+        config.mesh4 = m4
+
+    config.central_surface = pm.ti_central_surface(sid, sim)
+    config.output_dir = os.path.join(
+        pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "vectors"
+    )
+
+
 def run_vectors(config: VectorConfig) -> None:
     """Export TI/mTI vector arrow PLY files from simulation meshes.
 
     This is the primary programmatic entry point.  It performs:
 
-    1. Load volumetric + central surface meshes
-    2. Interpolate E fields to surface face barycenters
-    3. Compute TI (or mTI) vectors, optional E_sum and TI_normal
-    4. Filter and sample nodes
-    5. Colorize arrows (RGB channel colors or magnitude-scale)
-    6. Write PLY output files
+    1. Resolve any missing paths via PathManager (when subject_id is given)
+    2. Load volumetric + central surface meshes
+    3. Interpolate E fields to surface face barycenters
+    4. Compute TI (or mTI) vectors, optional E_sum and TI_normal
+    5. Filter and sample nodes
+    6. Colorize arrows (RGB channel colors or magnitude-scale)
+    7. Write PLY output files
 
     Args:
-        config: A fully-populated :class:`VectorConfig`.
+        config: A :class:`VectorConfig` with either ``subject_id`` +
+            ``simulation_name`` or explicit paths.
 
     Raises:
         FileNotFoundError: If any required mesh file is missing.
         ValueError: If E fields are missing or no vectors remain after filtering.
     """
+    _resolve_paths(config)
     logger.info("Starting vector field export")
 
     # 1 -- Load meshes

@@ -8,7 +8,6 @@ Export STL/PLY cortical regions & vector clouds of simulation results.
 
 import os
 import shutil
-import subprocess
 import glob
 import logging
 from pathlib import Path
@@ -450,16 +449,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         config.addWidget(self.electrode_height_spin, r, 3)
         r += 1
 
-        # Export GLB checkbox
-        self.export_glb_checkbox = QtWidgets.QCheckBox(
-            "Export GLB file for web viewing"
-        )
-        self.export_glb_checkbox.setChecked(False)
-        self.export_glb_checkbox.setToolTip(
-            "Export a GLB (glTF binary) file that can be viewed in web browsers"
-        )
-        config.addWidget(self.export_glb_checkbox, r, 0, 1, 4)
-        r += 1
+        # GLB is always exported alongside .blend files
 
         # Info label
         info_label = QtWidgets.QLabel(
@@ -901,56 +891,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
             return None
         return self.pm.m2m(subject_id)
 
-    # Surface mesh ensuring and caching
-    def _ensure_central_surface(self, subject_id: str, simulation_name: str) -> str:
-        m2m_dir = self._m2m_dir(subject_id)
-        if not m2m_dir:
-            raise ValueError("m2m directory not found")
-        # Paths from PathManager
-        if not self.pm:
-            raise ValueError("PathManager not available")
-        central_path = self.pm.ti_central_surface(subject_id, simulation_name)
-        ti_mesh_path = self.pm.ti_mesh(subject_id, simulation_name)
-        surfaces_dir = os.path.dirname(central_path)
-        os.makedirs(surfaces_dir, exist_ok=True)
-        if os.path.exists(central_path):
-            return central_path
-        if not os.path.exists(ti_mesh_path):
-            raise ValueError(
-                "Volumetric TI mesh not found; expected at: " + ti_mesh_path
-            )
-        # Generate central surface in the simulation's surfaces dir
-        cmd = [
-            "msh2cortex",
-            "-i",
-            ti_mesh_path,
-            "-m",
-            self._m2m_dir(subject_id),
-            "-o",
-            surfaces_dir,
-        ]
-        self._update_output("Generating cortical surface via msh2cortex…", "info")
-        completed = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-        )
-        self._update_output(completed.stdout or "", "debug")
-        if completed.returncode != 0:
-            raise RuntimeError("msh2cortex failed to generate surface mesh")
-        # Find any *_central.msh and rename to canonical if necessary
-        produced = None
-        for p in Path(surfaces_dir).glob("*_central.msh"):
-            produced = str(p)
-            break
-        if not produced or not os.path.exists(produced):
-            raise FileNotFoundError("Central surface not found after msh2cortex")
-        if os.path.abspath(produced) != os.path.abspath(central_path):
-            try:
-                shutil.copyfile(produced, central_path)
-            except Exception:
-                # File copy may fail if destination already exists or permissions issue
-                pass
-        return central_path if os.path.exists(central_path) else produced
-
     # Vector mesh autodetect
     def _autodetect_tdcs_pair(self, subject_id: str, simulation_name: str):
         sim_dir = self._simulation_dir(subject_id, simulation_name)
@@ -1084,7 +1024,9 @@ class VisualExporterWidget(QtWidgets.QWidget):
             if self.rb_stl.isChecked():
                 atlas = self.stl_atlas_combo.currentText().strip() or const.ATLAS_DK40
                 field = self.stl_field_edit.text().strip() or "TI_max"
-                central_surface = self._ensure_central_surface(
+                if not self.pm:
+                    raise ValueError("PathManager not available")
+                central_surface = self.pm.ti_central_surface(
                     subject_id, simulation_name
                 )
                 # Build commands for all formats (STL/PLY/MSH)
@@ -1097,15 +1039,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 ]
                 self._selected_regions = selected
 
-                m2m_dir = self._m2m_dir(subject_id)
-
                 # Always export STL via config dataclass
-                stl_dir = os.path.join(out_base, "stl")
-                os.makedirs(stl_dir, exist_ok=True)
                 stl_config = RegionConfig(
-                    m2m_dir=m2m_dir,
-                    output_dir=stl_dir,
-                    mesh=central_surface,
+                    subject_id=subject_id,
+                    simulation_name=simulation_name,
                     format=RegionConfig.Format.STL,
                     atlas=atlas,
                     field_name=field,
@@ -1119,6 +1056,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 commands.append(
                     (["simnibs_python", "-m", "tit.blender", stl_config_path], None)
                 )
+                stl_dir = os.path.join(out_base, "stl")
                 self._prune_infos.append(
                     {
                         "format": "stl",
@@ -1129,12 +1067,9 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 )
 
                 # Always export PLY via config dataclass
-                ply_dir = os.path.join(out_base, "ply")
-                os.makedirs(ply_dir, exist_ok=True)
                 ply_config = RegionConfig(
-                    m2m_dir=m2m_dir,
-                    output_dir=ply_dir,
-                    mesh=central_surface,
+                    subject_id=subject_id,
+                    simulation_name=simulation_name,
                     format=RegionConfig.Format.PLY,
                     atlas=atlas,
                     field_name=field,
@@ -1148,6 +1083,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 commands.append(
                     (["simnibs_python", "-m", "tit.blender", ply_config_path], None)
                 )
+                ply_dir = os.path.join(out_base, "ply")
                 self._prune_infos.append(
                     {
                         "format": "ply",
@@ -1158,51 +1094,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 )
 
             elif self.rb_vec.isChecked():
-                mode_dir = os.path.join(out_base, "vectors")
-                os.makedirs(mode_dir, exist_ok=True)
-                # Auto-detect if not supplied
-                m1 = self.vec_m1.text().strip()
-                m2 = self.vec_m2.text().strip()
-                if not m1 or not m2:
-                    ad1, ad2 = self._autodetect_tdcs_pair(subject_id, simulation_name)
-                    if not m1 and ad1:
-                        m1 = ad1
-                    if not m2 and ad2:
-                        m2 = ad2
-                if not m1 or not m2 or not os.path.exists(m1) or not os.path.exists(m2):
-                    raise ValueError(
-                        "TDCS meshes 1 and 2 not found. Provide files or ensure simulation outputs exist."
-                    )
-
-                # Get central surface (required)
-                try:
-                    central_surface = self._ensure_central_surface(
-                        subject_id, simulation_name
-                    )
-                    if not central_surface or not os.path.exists(central_surface):
-                        raise ValueError(
-                            "Central surface mesh is required but could not be generated"
-                        )
-                except Exception as e:
-                    raise ValueError(f"Failed to get central surface: {e}")
-
-                # mTI mesh handling
-                m3 = None
-                m4 = None
-                if self.vec_enable_mti.isChecked():
-                    m3 = self.vec_m3.text().strip() or None
-                    m4 = self.vec_m4.text().strip() or None
-                    if not (m3 and m4 and os.path.exists(m3) and os.path.exists(m4)):
-                        raise ValueError("mTI enabled: TDCS meshes 3 and 4 required.")
-
-                # Build VectorConfig from UI widgets
+                # Build VectorConfig — paths resolved by PathManager
                 vec_config = VectorConfig(
-                    mesh1=m1,
-                    mesh2=m2,
-                    output_dir=mode_dir,
-                    central_surface=central_surface,
-                    mesh3=m3,
-                    mesh4=m4,
+                    subject_id=subject_id,
+                    simulation_name=simulation_name,
                     export_ch1_ch2=self.vec_export_ch1_ch2.isChecked(),
                     export_sum=self.vec_do_sum.isChecked(),
                     export_ti_normal=self.vec_do_ti_normal.isChecked(),
@@ -1238,7 +1133,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     show_full_net=not self.montage_only_checkbox.isChecked(),
                     electrode_diameter_mm=self.electrode_diameter_spin.value(),
                     electrode_height_mm=self.electrode_height_spin.value(),
-                    export_glb=self.export_glb_checkbox.isChecked(),
                 )
                 montage_config_path = write_config_json(
                     montage_config, prefix="blender_montage"

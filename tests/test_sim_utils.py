@@ -342,6 +342,7 @@ class TestSetupMontageDirectories:
             "hf_analysis",
             "ti_mesh",
             "ti_niftis",
+            "ti_surfaces",
             "ti_surface_overlays",
             "ti_montage_imgs",
             "documentation",
@@ -354,10 +355,11 @@ class TestSetupMontageDirectories:
 
         # Should have all TI keys plus mti_* keys
         assert "mti_mesh" in dirs
+        assert "mti_surfaces" in dirs
         assert "mti_niftis" in dirs
         assert "mti_montage_imgs" in dirs
 
-        for key in ("mti_mesh", "mti_niftis", "mti_montage_imgs"):
+        for key in ("mti_mesh", "mti_surfaces", "mti_niftis", "mti_montage_imgs"):
             assert os.path.isdir(dirs[key])
 
     def test_returns_correct_paths(self, tmp_path):

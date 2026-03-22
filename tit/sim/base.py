@@ -18,14 +18,14 @@ Subclasses implement:
   - _post_process()       (field computation and file organization)
 """
 
-
 import os
+import subprocess
 from abc import ABC, abstractmethod
 
 from simnibs import run_simnibs, sim_struct
 
 from tit.paths import get_path_manager
-from tit.sim.config import SimulationConfig, Montage
+from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import (
     create_simulation_config_file,
     run_montage_visualization,
@@ -175,6 +175,24 @@ class BaseSimulation(ABC):
             el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]
 
         return tdcs
+
+    def _generate_central_surface(self, mesh_path: str, surfaces_dir: str) -> None:
+        """Generate the central cortical surface mesh via msh2cortex.
+
+        Parameters
+        ----------
+        mesh_path : str
+            Path to the input TI/mTI mesh file.
+        surfaces_dir : str
+            Output directory for the generated surface mesh.
+        """
+        self.logger.info("Central surface generation: Started")
+        subprocess.run(
+            ["msh2cortex", "-i", mesh_path, "-m", self.m2m_dir, "-o", surfaces_dir],
+            check=True,
+            capture_output=True,
+        )
+        self.logger.info("Central surface generation: Complete")
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         """Override tissue conductivities from environment variables if set."""

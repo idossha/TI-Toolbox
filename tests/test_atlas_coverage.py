@@ -896,13 +896,13 @@ class TestMeshListRegions:
         mgr = MeshAtlasManager(str(tmp_path))
         regions = mgr.list_regions("DK40")
 
-        assert "precentral-lh" in regions
-        assert "postcentral-lh" in regions
-        assert "precentral-rh" in regions
-        assert "postcentral-rh" in regions
+        assert "lh.precentral" in regions
+        assert "lh.postcentral" in regions
+        assert "rh.precentral" in regions
+        assert "rh.postcentral" in regions
         # "unknown" must be filtered out
-        assert "unknown-lh" not in regions
-        assert "unknown-rh" not in regions
+        assert "lh.unknown" not in regions
+        assert "rh.unknown" not in regions
         # Should be sorted
         assert regions == sorted(regions)
 
@@ -925,7 +925,7 @@ class TestMeshListRegions:
         mgr = MeshAtlasManager(str(tmp_path))
         regions = mgr.list_regions("DK40")
 
-        assert "superiorfrontal-lh" in regions
+        assert "lh.superiorfrontal" in regions
         assert len(regions) == 1  # only lh regions, unknown filtered
 
     def test_no_matching_files_returns_empty(self, tmp_path):
@@ -967,9 +967,9 @@ class TestMeshListRegions:
         mgr = MeshAtlasManager(str(tmp_path))
         regions = mgr.list_regions("DK40")
 
-        assert "insula-lh" in regions
-        assert "fusiform-lh" in regions
-        assert "unknown-lh" not in regions
+        assert "lh.insula" in regions
+        assert "lh.fusiform" in regions
+        assert "lh.unknown" not in regions
 
     def test_empty_directory_no_annot_files(self, tmp_path):
         """Directory exists but contains no .annot files -> returns []."""

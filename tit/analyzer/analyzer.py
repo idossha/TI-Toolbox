@@ -6,7 +6,6 @@ ROI analyses to the appropriate mesh- or voxel-based implementation, returning
 a typed ``AnalysisResult`` dataclass.
 """
 
-
 import logging
 import subprocess
 import tempfile
@@ -17,8 +16,12 @@ from pathlib import Path
 import numpy as np
 
 from tit.analyzer.field_selector import select_field_file
-from tit.analyzer.visualizer import (save_histogram, save_mesh_roi_overlay,
-                                     save_nifti_roi_overlay, save_results_csv)
+from tit.analyzer.visualizer import (
+    save_histogram,
+    save_mesh_roi_overlay,
+    save_nifti_roi_overlay,
+    save_results_csv,
+)
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 
@@ -265,7 +268,10 @@ class Analyzer:
 
         logger.info(
             "Cortical ROI: atlas=%s regions=%s mask=%d/%d nodes",
-            atlas, atlas_keys, int(mask.sum()), len(mask),
+            atlas,
+            atlas_keys,
+            int(mask.sum()),
+            len(mask),
         )
 
         return self._analyze_mesh_roi(
@@ -408,13 +414,21 @@ class Analyzer:
         if roi_pos.size == 0:
             logger.warning("ROI %s: empty mask, returning zeros", region_name)
             out_dir = self._resolve_output_dir(
-                analysis_type=analysis_type, region_name=region_name, **kwargs,
+                analysis_type=analysis_type,
+                region_name=region_name,
+                **kwargs,
             )
             result = AnalysisResult(
-                field_name=self.field_name, region_name=region_name,
-                space="mesh", analysis_type=analysis_type,
-                roi_mean=0.0, roi_max=0.0, roi_min=0.0,
-                roi_focality=0.0, gm_mean=0.0, gm_max=0.0,
+                field_name=self.field_name,
+                region_name=region_name,
+                space="mesh",
+                analysis_type=analysis_type,
+                roi_mean=0.0,
+                roi_max=0.0,
+                roi_min=0.0,
+                roi_focality=0.0,
+                gm_mean=0.0,
+                gm_max=0.0,
                 n_elements=int(np.sum(roi_mask)),
             )
             save_results_csv(asdict(result), Path(out_dir))
@@ -550,42 +564,23 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _load_surface_mesh(self):
-        """Load or generate the cortical surface mesh, cached on instance."""
+        """Load the cortical surface mesh, cached on instance."""
         if self._surface_mesh is not None:
             return self._surface_mesh
 
         import simnibs
 
-        surface_path = self._ensure_central_surface()
+        surface_path = Path(
+            self._pm.ti_central_surface(self.subject_id, self.simulation)
+        )
+        if not surface_path.exists():
+            raise FileNotFoundError(
+                f"Central surface not found at {surface_path}. Run simulation first."
+            )
         self._surface_mesh = simnibs.read_msh(str(surface_path))
         self._surface_mesh_path = surface_path
         logger.info("Loaded surface mesh: %s", surface_path)
         return self._surface_mesh
-
-    def _ensure_central_surface(self) -> Path:
-        """Return path to central surface mesh, generating via msh2cortex if needed."""
-        base = self.field_path.stem  # e.g. "montage1_TI"
-        mesh_dir = self.field_path.parent
-        surfaces_dir = mesh_dir / "surfaces"
-        central_path = surfaces_dir / f"{base}_central.msh"
-
-        if central_path.exists():
-            logger.debug("Using cached central surface: %s", central_path)
-            return central_path
-
-        self._pm.ensure(str(surfaces_dir))
-        logger.info("Generating central surface via msh2cortex...")
-        cmd = [
-            "msh2cortex",
-            "-i",
-            str(self.field_path),
-            "-m",
-            str(self.m2m_path),
-            "-o",
-            str(surfaces_dir),
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
-        return central_path
 
     # ------------------------------------------------------------------
     # Normal field extraction (mesh only)
@@ -799,43 +794,20 @@ class Analyzer:
 
     @staticmethod
     def _resolve_mesh_region(name: str, atlas_map) -> list[str]:
-        """Resolve a user-facing region name to atlas key(s).
+        """Resolve a region name to atlas key(s).
 
-        Handles three naming conventions:
         - Direct match: ``"lh.cuneus"`` → ``["lh.cuneus"]``
-        - GUI suffix: ``"cuneus-lh"`` → ``["lh.cuneus"]``
         - Bare name: ``"cuneus"`` → ``["lh.cuneus", "rh.cuneus"]`` (both hemis)
         """
-        # 1. Direct match (user typed exact atlas key)
         if name in atlas_map:
             return [name]
 
-        # 2. GUI-style suffix: "cuneus-lh" → try "lh.cuneus"
-        if name.endswith(("-lh", "-rh")):
-            hemi = name[-2:]  # "lh" or "rh"
-            bare = name[:-3]
-            prefixed = f"{hemi}.{bare}"
-            if prefixed in atlas_map:
-                return [prefixed]
-            # Also try bare (some atlases don't prefix)
-            if bare in atlas_map:
-                return [bare]
-
-        # 3. Bare name: "cuneus" → try "lh.cuneus" + "rh.cuneus"
-        found = []
-        for hemi in ("lh", "rh"):
-            prefixed = f"{hemi}.{name}"
-            if prefixed in atlas_map:
-                found.append(prefixed)
+        # Bare name → expand to both hemispheres
+        found = [f"{h}.{name}" for h in ("lh", "rh") if f"{h}.{name}" in atlas_map]
         if found:
             return found
 
-        # Nothing matched
-        available = list(atlas_map.keys()) if hasattr(atlas_map, "keys") else []
-        bare = name[:-3] if name.endswith(("-lh", "-rh")) else name
-        close = [a for a in available if bare.lower() in a.lower()][:5]
-        hint = f" Similar: {close}" if close else ""
-        raise KeyError(f"Region {name!r} not found in atlas.{hint}")
+        raise KeyError(f"Region {name!r} not found in atlas.")
 
     def _maybe_transform_coords(
         self,
@@ -964,8 +936,9 @@ class Analyzer:
         for path in candidates:
             if path.exists():
                 return path
+
         raise FileNotFoundError(
-            f"Atlas file not found for '{atlas}' in {fs_mri} or {seg_dir}"
+            f"Atlas {atlas!r} not found in {fs_mri} or {seg_dir}"
         )
 
     @staticmethod

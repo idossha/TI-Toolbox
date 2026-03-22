@@ -427,7 +427,7 @@ class TestRunGroupAnalysis:
                 simulation="sim1",
                 analysis_type="cortical",
                 atlas="DK40",
-                region="precentral-lh",
+                region="lh.precentral",
                 output_dir=str(out_dir),
             )
 

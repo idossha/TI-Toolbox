@@ -10,7 +10,6 @@ Shared utilities for TI/mTI simulations.
 - Simulation orchestration (sequential + parallel)
 """
 
-
 import json
 import logging
 import os
@@ -176,12 +175,14 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[st
         "hf_analysis": os.path.join(montage_dir, "high_Frequency", "analysis"),
         "ti_mesh": os.path.join(montage_dir, "TI", "mesh"),
         "ti_niftis": os.path.join(montage_dir, "TI", "niftis"),
+        "ti_surfaces": os.path.join(montage_dir, "TI", "mesh", "surfaces"),
         "ti_surface_overlays": os.path.join(montage_dir, "TI", "surface_overlays"),
         "ti_montage_imgs": os.path.join(montage_dir, "TI", "montage_imgs"),
         "documentation": os.path.join(montage_dir, "documentation"),
     }
     if mode == SimulationMode.MTI:
         dirs["mti_mesh"] = os.path.join(montage_dir, "mTI", "mesh")
+        dirs["mti_surfaces"] = os.path.join(montage_dir, "mTI", "mesh", "surfaces")
         dirs["mti_niftis"] = os.path.join(montage_dir, "mTI", "niftis")
         dirs["mti_montage_imgs"] = os.path.join(montage_dir, "mTI", "montage_imgs")
 

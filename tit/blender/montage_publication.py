@@ -63,86 +63,13 @@ def _find_tetrahedral_mesh(sim_dir: str) -> str:
 def _find_central_surface_mesh(
     sim_dir: str, subject_id: str, simulation_name: str
 ) -> str:
-    import subprocess
-    import shutil
-    from pathlib import Path
-
     pm = get_path_manager()
-    expected = pm.ti_central_surface(subject_id, simulation_name)
-    if expected and os.path.exists(expected):
-        logger.debug(f"Found existing central surface: {expected}")
-        return expected
-
-    # Check for existing central surface in known locations
-    for d in (
-        os.path.join(sim_dir, "TI", "mesh", "surfaces"),
-        os.path.join(sim_dir, "TI", "mesh"),
-    ):
-        if not os.path.isdir(d):
-            continue
-        for f in os.listdir(d):
-            if f.endswith("_TI_central.msh"):
-                found_path = os.path.join(d, f)
-                logger.debug(f"Found existing central surface: {found_path}")
-                return found_path
-
-    # Central surface not found - generate it using msh2cortex
-    logger.info("Central surface not found, generating using msh2cortex...")
-
-    # Get paths
-    ti_mesh_path = pm.ti_mesh(subject_id, simulation_name)
-    if not ti_mesh_path or not os.path.exists(ti_mesh_path):
+    path = pm.ti_central_surface(subject_id, simulation_name)
+    if not os.path.exists(path):
         raise FileNotFoundError(
-            f"Volumetric TI mesh not found; expected at: {ti_mesh_path}"
+            f"Central surface not found at {path}. Run simulation first."
         )
-
-    m2m_dir = pm.m2m(subject_id)
-    if not m2m_dir or not os.path.isdir(m2m_dir):
-        raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
-
-    # Create surfaces directory if it doesn't exist
-    surfaces_dir = os.path.join(sim_dir, "TI", "mesh", "surfaces")
-    os.makedirs(surfaces_dir, exist_ok=True)
-
-    # Run msh2cortex
-    cmd = ["msh2cortex", "-i", ti_mesh_path, "-m", m2m_dir, "-o", surfaces_dir]
-    logger.info(f"Running: {' '.join(cmd)}")
-
-    try:
-        result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
-        )
-        if result.stdout:
-            logger.debug(f"msh2cortex output: {result.stdout}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"msh2cortex failed with exit code {e.returncode}")
-        if e.stdout:
-            logger.error(f"msh2cortex output: {e.stdout}")
-        raise RuntimeError(f"msh2cortex failed to generate surface mesh: {e}")
-
-    # Find the generated central surface
-    produced = None
-    for p in Path(surfaces_dir).glob("*_central.msh"):
-        produced = str(p)
-        break
-
-    if not produced or not os.path.exists(produced):
-        raise FileNotFoundError(
-            f"Central surface not found after msh2cortex in {surfaces_dir}"
-        )
-
-    # Copy to expected path if different
-    if expected and os.path.abspath(produced) != os.path.abspath(expected):
-        try:
-            os.makedirs(os.path.dirname(expected), exist_ok=True)
-            shutil.copyfile(produced, expected)
-            logger.info(f"Generated central surface: {expected}")
-            return expected
-        except Exception as e:
-            logger.warning(f"Could not copy to expected path: {e}")
-
-    logger.info(f"Generated central surface: {produced}")
-    return produced
+    return path
 
 
 def export_scalp_stl_from_sim(
@@ -302,7 +229,6 @@ def run_montage(
         show_full_net=bool(cfg.show_full_net),
         electrode_diameter_mm=float(cfg.electrode_diameter_mm),
         electrode_height_mm=float(cfg.electrode_height_mm),
-        export_glb=bool(cfg.export_glb),
     )
 
 
@@ -314,7 +240,6 @@ def build_montage_publication_blend(
     show_full_net: bool = True,
     electrode_diameter_mm: float = 10.0,
     electrode_height_mm: float = 6.0,
-    export_glb: bool = False,
 ) -> MontageResult:
     import bpy
 
@@ -392,7 +317,6 @@ def build_montage_publication_blend(
             for p in electrode_pairs
             if isinstance(p, (list, tuple)) and len(p) >= 2
         ],
-        export_glb=export_glb,
         show_full_net=show_full_net,
     )
 

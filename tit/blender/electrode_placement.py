@@ -84,9 +84,6 @@ class ElectrodePlacementConfig:
     # Optional montage highlighting: list of electrode pairs
     montage_pairs: list[tuple[str, str]] | None = None
 
-    # Exports
-    export_glb: bool = True
-
     # Visibility control:
     # - True: place the entire net
     # - False: place only electrodes referenced by montage_pairs (if provided)
@@ -547,16 +544,13 @@ class ElectrodePlacer:
         self.logger.info(f"Saving: {blend_path}")
         bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 
-        if self.config.export_glb:
-            self.logger.info(f"Exporting: {glb_path}")
-            try:
-                bpy.ops.export_scene.gltf(
-                    filepath=glb_path, export_format="GLB", use_selection=False
-                )
-            except Exception as e:
-                self.logger.warning(f"GLB export failed: {e}")
-        else:
-            self.logger.info("Skipping GLB export (export_glb=False)")
+        self.logger.info(f"Exporting: {glb_path}")
+        try:
+            bpy.ops.export_scene.gltf(
+                filepath=glb_path, export_format="GLB", use_selection=False
+            )
+        except Exception as e:
+            self.logger.warning(f"GLB export failed: {e}")
 
         return blend_path, glb_path
 

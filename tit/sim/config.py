@@ -1,7 +1,6 @@
 #!/usr/bin/env simnibs_python
 """Configuration dataclasses for TI/mTI simulations."""
 
-
 from dataclasses import dataclass, field
 from enum import Enum
 

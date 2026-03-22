@@ -131,21 +131,17 @@ class TestMontageConfig:
         assert cfg.show_full_net is True
         assert cfg.electrode_diameter_mm == 10.0
         assert cfg.electrode_height_mm == 6.0
-        assert cfg.export_glb is False
-
     def test_custom_values(self):
         cfg = _montage(
             output_dir="/out",
             show_full_net=False,
             electrode_diameter_mm=12.0,
             electrode_height_mm=8.0,
-            export_glb=True,
         )
         assert cfg.output_dir == "/out"
         assert cfg.show_full_net is False
         assert cfg.electrode_diameter_mm == 12.0
         assert cfg.electrode_height_mm == 8.0
-        assert cfg.export_glb is True
 
     def test_empty_subject_id_raises(self):
         with pytest.raises(ValueError, match="subject_id is required"):
@@ -188,10 +184,8 @@ class TestMontageConfig:
 def _vector(**overrides):
     """Build a valid VectorConfig with sensible defaults."""
     defaults = dict(
-        mesh1="/mesh1.msh",
-        mesh2="/mesh2.msh",
-        output_dir="/out",
-        central_surface="/central.msh",
+        subject_id="ernie",
+        simulation_name="L_Insula",
     )
     defaults.update(overrides)
     return VectorConfig(**defaults)
@@ -202,15 +196,11 @@ class TestVectorConfig:
 
     def test_required_fields(self):
         cfg = _vector()
-        assert cfg.mesh1 == "/mesh1.msh"
-        assert cfg.mesh2 == "/mesh2.msh"
-        assert cfg.output_dir == "/out"
-        assert cfg.central_surface == "/central.msh"
+        assert cfg.subject_id == "ernie"
+        assert cfg.simulation_name == "L_Insula"
 
     def test_default_values(self):
         cfg = _vector()
-        assert cfg.mesh3 is None
-        assert cfg.mesh4 is None
         assert cfg.export_ch1_ch2 is False
         assert cfg.export_sum is False
         assert cfg.export_ti_normal is False
@@ -231,15 +221,25 @@ class TestVectorConfig:
         assert cfg.red_percentile == 95.0
         assert cfg.verbose is False
 
-    # -- is_mti property --
+    def test_internal_path_fields_empty(self):
+        cfg = _vector()
+        assert cfg.mesh1 == ""
+        assert cfg.mesh2 == ""
+        assert cfg.output_dir == ""
+        assert cfg.central_surface == ""
+        assert cfg.mesh3 is None
+        assert cfg.mesh4 is None
 
-    def test_is_mti_false_with_two_meshes(self):
+    def test_with_options(self):
+        cfg = _vector(export_ti_normal=True, count=50_000)
+        assert cfg.export_ti_normal is True
+        assert cfg.count == 50_000
+
+    # -- is_mti property (reflects internal state after resolution) --
+
+    def test_is_mti_false_by_default(self):
         cfg = _vector()
         assert cfg.is_mti is False
-
-    def test_is_mti_true_with_four_meshes(self):
-        cfg = _vector(mesh3="/mesh3.msh", mesh4="/mesh4.msh")
-        assert cfg.is_mti is True
 
     # -- String-to-enum coercion --
 
@@ -271,33 +271,15 @@ class TestVectorConfig:
         with pytest.raises(ValueError):
             _vector(anchor="middle")
 
-    # -- Validation: required paths --
+    # -- Validation: required IDs --
 
-    def test_empty_mesh1_raises(self):
-        with pytest.raises(ValueError, match="mesh1 is required"):
-            _vector(mesh1="")
+    def test_empty_subject_id_raises(self):
+        with pytest.raises(ValueError, match="subject_id is required"):
+            VectorConfig(subject_id="", simulation_name="sim")
 
-    def test_empty_mesh2_raises(self):
-        with pytest.raises(ValueError, match="mesh2 is required"):
-            _vector(mesh2="")
-
-    def test_empty_output_dir_raises(self):
-        with pytest.raises(ValueError, match="output_dir is required"):
-            _vector(output_dir="")
-
-    def test_empty_central_surface_raises(self):
-        with pytest.raises(ValueError, match="central_surface is required"):
-            _vector(central_surface="")
-
-    # -- Validation: mTI requires both mesh3 and mesh4 --
-
-    def test_mesh3_without_mesh4_raises(self):
-        with pytest.raises(ValueError, match="both mesh3 and mesh4"):
-            _vector(mesh3="/m3.msh", mesh4=None)
-
-    def test_mesh4_without_mesh3_raises(self):
-        with pytest.raises(ValueError, match="both mesh3 and mesh4"):
-            _vector(mesh3=None, mesh4="/m4.msh")
+    def test_empty_simulation_name_raises(self):
+        with pytest.raises(ValueError, match="simulation_name is required"):
+            VectorConfig(subject_id="ernie", simulation_name="")
 
     # -- Validation: count and top_percent --
 
@@ -366,9 +348,8 @@ class TestVectorConfig:
 def _region(**overrides):
     """Build a valid RegionConfig with sensible defaults."""
     defaults = dict(
-        m2m_dir="/m2m_001",
-        output_dir="/out",
-        mesh="/central.msh",
+        subject_id="ernie",
+        simulation_name="L_Insula",
     )
     defaults.update(overrides)
     return RegionConfig(**defaults)
@@ -379,18 +360,17 @@ class TestRegionConfig:
 
     def test_required_fields(self):
         cfg = _region()
-        assert cfg.m2m_dir == "/m2m_001"
-        assert cfg.output_dir == "/out"
-        assert cfg.mesh == "/central.msh"
+        assert cfg.subject_id == "ernie"
+        assert cfg.simulation_name == "L_Insula"
 
     def test_default_values(self):
         cfg = _region()
-        assert cfg.gm_mesh is None
         assert cfg.format is RegionConfig.Format.PLY
         assert cfg.atlas == "DK40"
         assert cfg.surface is RegionConfig.Surface.CENTRAL
-        assert cfg.msh2cortex_path is None
         assert cfg.field_name == "TI_max"
+        assert cfg.msh2cortex_path is None
+        assert cfg.gm_mesh is None
         assert cfg.skip_regions is False
         assert cfg.skip_whole_gm is False
         assert cfg.regions == []
@@ -399,6 +379,22 @@ class TestRegionConfig:
         assert cfg.colormap == "viridis"
         assert cfg.field_range is None
         assert cfg.global_from_nifti is None
+
+    def test_internal_path_fields_empty(self):
+        cfg = _region()
+        assert cfg.m2m_dir == ""
+        assert cfg.output_dir == ""
+        assert cfg.mesh is None
+
+    def test_with_options(self):
+        cfg = _region(
+            atlas="DK40",
+            regions=["V1", "PT"],
+            format=RegionConfig.Format.STL,
+        )
+        assert cfg.atlas == "DK40"
+        assert cfg.regions == ["V1", "PT"]
+        assert cfg.format is RegionConfig.Format.STL
 
     # -- String-to-enum coercion --
 
@@ -426,39 +422,15 @@ class TestRegionConfig:
         with pytest.raises(ValueError):
             _region(surface="inflated")
 
-    # -- Validation: required paths --
+    # -- Validation: required IDs --
 
-    def test_empty_m2m_dir_raises(self):
-        with pytest.raises(ValueError, match="m2m_dir is required"):
-            _region(m2m_dir="")
+    def test_empty_subject_id_raises(self):
+        with pytest.raises(ValueError, match="subject_id is required"):
+            RegionConfig(subject_id="", simulation_name="sim")
 
-    def test_empty_output_dir_raises(self):
-        with pytest.raises(ValueError, match="output_dir is required"):
-            _region(output_dir="")
-
-    # -- Validation: mesh vs gm_mesh --
-
-    def test_no_mesh_and_no_gm_mesh_raises(self):
-        with pytest.raises(ValueError, match="one of mesh or gm_mesh is required"):
-            RegionConfig(m2m_dir="/m2m", output_dir="/out")
-
-    def test_both_mesh_and_gm_mesh_raises(self):
-        with pytest.raises(ValueError, match="only one of mesh or gm_mesh"):
-            RegionConfig(
-                m2m_dir="/m2m",
-                output_dir="/out",
-                mesh="/a.msh",
-                gm_mesh="/b.msh",
-            )
-
-    def test_gm_mesh_only(self):
-        cfg = RegionConfig(
-            m2m_dir="/m2m",
-            output_dir="/out",
-            gm_mesh="/gm.msh",
-        )
-        assert cfg.gm_mesh == "/gm.msh"
-        assert cfg.mesh is None
+    def test_empty_simulation_name_raises(self):
+        with pytest.raises(ValueError, match="simulation_name is required"):
+            RegionConfig(subject_id="ernie", simulation_name="")
 
     # -- Validation: field_range --
 

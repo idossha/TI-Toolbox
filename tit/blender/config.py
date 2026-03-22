@@ -2,6 +2,9 @@
 
 Pure Python -- no SimNIBS, numpy, or heavy dependencies.
 Mirrors the tit.opt.config / tit.sim.config pattern.
+
+All paths are resolved automatically via PathManager based on
+subject_id and simulation_name.
 """
 
 from __future__ import annotations
@@ -27,8 +30,6 @@ class MontageConfig:
     show_full_net: bool = True
     electrode_diameter_mm: float = 10.0
     electrode_height_mm: float = 6.0
-    export_glb: bool = False
-
     def __post_init__(self) -> None:
         if not (self.subject_id or "").strip():
             raise ValueError("subject_id is required")
@@ -49,6 +50,10 @@ class VectorConfig:
 
     Vectors are placed at face barycenters of the central surface mesh and
     exported as colored PLY arrow geometry.
+
+    All paths are resolved automatically from ``subject_id`` +
+    ``simulation_name`` via PathManager.  mTI mode is auto-detected
+    when TDCS meshes 3 and 4 exist.
     """
 
     class Color(StrEnum):
@@ -69,15 +74,9 @@ class VectorConfig:
         LINEAR = "linear"
         VISUAL = "visual"
 
-    # ── Required paths ──
-    mesh1: str
-    mesh2: str
-    output_dir: str
-    central_surface: str
-
-    # ── mTI mode (optional extra pair) ──
-    mesh3: str | None = None
-    mesh4: str | None = None
+    # ── Required ──
+    subject_id: str
+    simulation_name: str
 
     # ── Optional outputs ──
     export_ch1_ch2: bool = False
@@ -108,7 +107,20 @@ class VectorConfig:
     # ── Debug ──
     verbose: bool = False
 
+    # ── Internal — resolved by run_vectors() via PathManager ──
+    mesh1: str = field(default="", repr=False)
+    mesh2: str = field(default="", repr=False)
+    output_dir: str = field(default="", repr=False)
+    central_surface: str = field(default="", repr=False)
+    mesh3: str | None = field(default=None, repr=False)
+    mesh4: str | None = field(default=None, repr=False)
+
     def __post_init__(self) -> None:
+        if not (self.subject_id or "").strip():
+            raise ValueError("subject_id is required")
+        if not (self.simulation_name or "").strip():
+            raise ValueError("simulation_name is required")
+
         # Coerce string enums
         if isinstance(self.length_mode, str):
             self.length_mode = VectorConfig.Length(self.length_mode)
@@ -116,16 +128,6 @@ class VectorConfig:
             self.anchor = VectorConfig.Anchor(self.anchor)
         if isinstance(self.color, str):
             self.color = VectorConfig.Color(self.color)
-
-        # Validate required paths
-        if not self.mesh1:
-            raise ValueError("mesh1 is required")
-        if not self.mesh2:
-            raise ValueError("mesh2 is required")
-        if not self.output_dir:
-            raise ValueError("output_dir is required")
-        if not self.central_surface:
-            raise ValueError("central_surface is required")
 
         # mTI requires both mesh3 and mesh4
         if (self.mesh3 is None) != (self.mesh4 is None):
@@ -169,8 +171,10 @@ class RegionConfig:
     """Configuration for cortical region mesh export (STL or PLY).
 
     Extracts atlas-labelled cortical regions and optionally the whole GM
-    surface from a SimNIBS surface mesh.  The ``format`` field selects STL
-    vs PLY output; PLY additionally supports per-vertex field coloring.
+    surface from a SimNIBS surface mesh.
+
+    All paths are resolved automatically from ``subject_id`` +
+    ``simulation_name`` via PathManager.
     """
 
     class Format(StrEnum):
@@ -187,12 +191,8 @@ class RegionConfig:
         WHITE = "white"
 
     # ── Required ──
-    m2m_dir: str
-    output_dir: str
-
-    # ── Mesh input (exactly one of mesh / gm_mesh must be set) ──
-    mesh: str | None = None
-    gm_mesh: str | None = None
+    subject_id: str
+    simulation_name: str
 
     # ── Format ──
     format: Format = Format.PLY
@@ -200,8 +200,11 @@ class RegionConfig:
     # ── Atlas and surface ──
     atlas: str = "DK40"
     surface: Surface = Surface.CENTRAL
-    msh2cortex_path: str | None = None
     field_name: str = "TI_max"
+    msh2cortex_path: str | None = None
+
+    # ── Alternative mesh input (bypasses auto-resolved central surface) ──
+    gm_mesh: str | None = None
 
     # ── Output scope ──
     skip_regions: bool = False
@@ -215,24 +218,22 @@ class RegionConfig:
     field_range: tuple[float, float] | None = None
     global_from_nifti: str | None = None
 
+    # ── Internal — resolved by run_regions() via PathManager ──
+    m2m_dir: str = field(default="", repr=False)
+    output_dir: str = field(default="", repr=False)
+    mesh: str | None = field(default=None, repr=False)
+
     def __post_init__(self) -> None:
+        if not (self.subject_id or "").strip():
+            raise ValueError("subject_id is required")
+        if not (self.simulation_name or "").strip():
+            raise ValueError("simulation_name is required")
+
         # Coerce string enums
         if isinstance(self.format, str):
             self.format = RegionConfig.Format(self.format)
         if isinstance(self.surface, str):
             self.surface = RegionConfig.Surface(self.surface)
-
-        # Validate required paths
-        if not self.m2m_dir:
-            raise ValueError("m2m_dir is required")
-        if not self.output_dir:
-            raise ValueError("output_dir is required")
-
-        # Exactly one of mesh / gm_mesh
-        if not self.mesh and not self.gm_mesh:
-            raise ValueError("one of mesh or gm_mesh is required")
-        if self.mesh and self.gm_mesh:
-            raise ValueError("only one of mesh or gm_mesh may be set")
 
         # field_range validation
         if self.field_range is not None:

@@ -9,12 +9,7 @@ Examples (programmatic):
     from tit.blender.config import RegionConfig
     from tit.blender.region_exporter import run_regions
 
-    cfg = RegionConfig(
-        m2m_dir="/data/m2m_001",
-        output_dir="/data/out",
-        mesh="/data/central.msh",
-        format=RegionConfig.Format.PLY,
-    )
+    cfg = RegionConfig(subject_id="ernie", simulation_name="L_Insula")
     run_regions(cfg)
 """
 
@@ -22,14 +17,9 @@ from __future__ import annotations
 
 import logging
 import os
-import platform
-import shutil
-import subprocess
 import tempfile
-from pathlib import Path
 
 import numpy as np
-import simnibs
 from simnibs import read_msh
 from simnibs.utils.transformations import atlas2subject
 
@@ -50,74 +40,22 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _resolve_msh2cortex(explicit_path: str | None) -> str | None:
-    """Resolve the ``msh2cortex`` executable on disk or PATH."""
-    if explicit_path:
-        p = Path(explicit_path)
-        if p.exists():
-            return str(p)
-    exe_name = (
-        "msh2cortex.exe"
-        if platform.system().lower().startswith("win")
-        else "msh2cortex"
-    )
-    found = shutil.which("msh2cortex") or shutil.which(exe_name)
-    if found:
-        return found
-    try:
-        simnibs_root = Path(simnibs.__file__).resolve().parents[1]
-        candidates = [
-            simnibs_root / "bin" / exe_name,
-            simnibs_root / "bin" / "msh2cortex",
-        ]
-        for c in candidates:
-            if c.exists():
-                return str(c)
-        for sub in ("bin", "."):
-            for p in (simnibs_root / sub).rglob("msh2cortex*"):
-                if p.is_file():
-                    return str(p)
-    except Exception:
-        pass
-    return None
+def _resolve_selected(regions: list[str], atlas_keys: set[str]) -> set[str]:
+    """Expand bare region names to lh./rh. prefixed atlas keys.
 
-
-def _generate_cortical_surface(
-    gm_mesh_path: str,
-    m2m_dir: str,
-    surface: str = "central",
-    msh2cortex_path: str | None = None,
-) -> str | None:
-    """Run ``msh2cortex`` to produce a cortical surface mesh from a GM tetra mesh."""
-    exe = _resolve_msh2cortex(msh2cortex_path)
-    if not exe:
-        logger.error("msh2cortex executable not found")
-        return None
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        out_dir = Path(tmpdir)
-        cmd = [exe, "-i", gm_mesh_path, "-m", str(m2m_dir), "-o", str(out_dir)]
-        try:
-            subprocess.run(
-                cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-        except subprocess.CalledProcessError as exc:
-            logger.error("msh2cortex failed: %s", exc)
-            return None
-
-        candidates = list(out_dir.glob(f"*_{surface}.msh"))
-        if not candidates and surface != "central":
-            candidates = list(out_dir.glob("*_central.msh"))
-        if not candidates:
-            candidates = list(out_dir.glob("*.msh"))
-        if not candidates:
-            logger.error("msh2cortex produced no output meshes")
-            return None
-
-        selected = candidates[0]
-        tmp_copy = Path(tempfile.mkstemp(suffix=f"_{surface}.msh")[1])
-        tmp_copy.write_bytes(selected.read_bytes())
-        return str(tmp_copy)
+    Users can specify "insula" to match both "lh.insula" and "rh.insula",
+    or "lh.insula" to match only the left hemisphere.
+    """
+    selected: set[str] = set()
+    for r in regions:
+        if r in atlas_keys:
+            selected.add(r)
+        else:
+            for prefix in ("lh.", "rh."):
+                candidate = f"{prefix}{r}"
+                if candidate in atlas_keys:
+                    selected.add(candidate)
+    return selected
 
 
 def _calculate_global_field_range(nifti_path: str, mesh_path: str | None = None):
@@ -194,58 +132,53 @@ def _export_region_stl(
     surface_mesh, atlas, region_name, field_name, regions_dir, temp_dir
 ) -> bool:
     """Export a single atlas region as a binary STL file."""
-    try:
-        roi_mask = atlas[region_name]
-        if np.sum(roi_mask) == 0:
-            return False
 
-        field_values = surface_mesh.field[field_name].value
-        if np.sum(field_values[roi_mask] > 0) == 0:
-            return False
-
-        temp_mesh_path = create_roi_mesh(
-            surface_mesh, roi_mask, field_values, field_name, region_name, temp_dir
-        )
-        roi_mesh = read_msh(temp_mesh_path)
-        roi_field = roi_mesh.field[field_name].value
-        vertices, faces = extract_roi_region_no_zeros(
-            roi_mesh, roi_field, return_field_values=False
-        )
-        if vertices is None or faces is None:
-            return False
-
-        stl_path = os.path.join(regions_dir, f"{region_name}.stl")
-        write_binary_stl(
-            stl_path, vertices, faces, header_text="Generated from SimNIBS ROI mesh"
-        )
-
-        os.remove(temp_mesh_path)
-        return True
-    except Exception as exc:
-        logger.debug("Skipping region %s (STL): %s", region_name, exc)
+    roi_mask = atlas[region_name]
+    if np.sum(roi_mask) == 0:
         return False
+
+    field_values = surface_mesh.field[field_name].value
+    if np.sum(field_values[roi_mask] > 0) == 0:
+        return False
+
+    temp_mesh_path = create_roi_mesh(
+        surface_mesh, roi_mask, field_values, field_name, region_name, temp_dir
+    )
+    roi_mesh = read_msh(temp_mesh_path)
+    roi_field = roi_mesh.field[field_name].value
+    vertices, faces = extract_roi_region_no_zeros(
+        roi_mesh, roi_field, return_field_values=False
+    )
+    if vertices is None or faces is None:
+        return False
+
+    stl_path = os.path.join(regions_dir, f"{region_name}.stl")
+    write_binary_stl(
+        stl_path, vertices, faces, header_text="Generated from SimNIBS ROI mesh"
+    )
+
+    os.remove(temp_mesh_path)
+    return True
 
 
 def _export_whole_gm_stl(surface_mesh, cortical_dir):
     """Export the full GM surface as a binary STL file."""
-    try:
-        triangular = surface_mesh.elm.elm_type == 2
-        triangle_nodes = surface_mesh.elm.node_number_list[triangular] - 1
-        if triangle_nodes.ndim == 1:
-            triangle_nodes = triangle_nodes.reshape(-1, 3)
 
-        unique_verts = np.unique(triangle_nodes.flatten())
-        vert_map = {old: new for new, old in enumerate(unique_verts)}
-        remapped = np.array([[vert_map[idx] for idx in tri] for tri in triangle_nodes])
-        vertices = surface_mesh.nodes.node_coord[unique_verts]
+    triangular = surface_mesh.elm.elm_type == 2
+    triangle_nodes = surface_mesh.elm.node_number_list[triangular] - 1
+    if triangle_nodes.ndim == 1:
+        triangle_nodes = triangle_nodes.reshape(-1, 3)
 
-        stl_path = os.path.join(cortical_dir, "whole_gm.stl")
-        write_binary_stl(
-            stl_path, vertices, remapped, header_text="Generated from SimNIBS ROI mesh"
-        )
-        logger.info("Exported whole GM STL: %s", stl_path)
-    except Exception as exc:
-        logger.warning("Failed to export whole GM STL: %s", exc)
+    unique_verts = np.unique(triangle_nodes.flatten())
+    vert_map = {old: new for new, old in enumerate(unique_verts)}
+    remapped = np.array([[vert_map[idx] for idx in tri] for tri in triangle_nodes])
+    vertices = surface_mesh.nodes.node_coord[unique_verts]
+
+    stl_path = os.path.join(cortical_dir, "whole_gm.stl")
+    write_binary_stl(
+        stl_path, vertices, remapped, header_text="Generated from SimNIBS ROI mesh"
+    )
+    logger.info("Exported whole GM STL: %s", stl_path)
 
 
 def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
@@ -253,18 +186,29 @@ def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
     converted = 0
     surface_mesh = read_msh(mesh_path)
 
-    if config.field_name not in surface_mesh.field:
-        raise ValueError(f"Field '{config.field_name}' not found in mesh: {mesh_path}")
+    atlas_raw = atlas2subject(config.m2m_dir, config.atlas, split_labels=True)
+    lh_labels = atlas_raw.get("lh", {})
+    rh_labels = atlas_raw.get("rh", {})
+    n_lh = len(next(iter(lh_labels.values()))) if lh_labels else 0
+    n_rh = len(next(iter(rh_labels.values()))) if rh_labels else 0
 
     atlas = {}
-    for hemi_dict in atlas2subject(config.m2m_dir, config.atlas, split_labels=True).values():
-        atlas.update(hemi_dict)
+    for name, mask in lh_labels.items():
+        key = name if name.startswith("lh.") else f"lh.{name}"
+        atlas[key] = np.concatenate([mask, np.zeros(n_rh, dtype=bool)])
+    for name, mask in rh_labels.items():
+        key = name if name.startswith("rh.") else f"rh.{name}"
+        atlas[key] = np.concatenate([np.zeros(n_lh, dtype=bool), mask])
 
     cortical_dir = os.path.join(config.output_dir, "cortical_stls")
     regions_dir = os.path.join(cortical_dir, "regions")
     os.makedirs(regions_dir, exist_ok=True)
 
-    selected = set(config.regions) if config.regions else None
+    selected = (
+        _resolve_selected(config.regions, set(atlas.keys()))
+        if config.regions
+        else None
+    )
 
     if not config.skip_regions:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -343,59 +287,52 @@ def _export_region_ply(
     meshes_dir,
 ) -> bool:
     """Export a single atlas region as a PLY file."""
-    try:
-        region_mask = atlas[region_name]
-        if np.sum(region_mask) == 0:
-            return False
-
-        field_values = mesh.field[field_name].value
-        if np.sum(field_values[region_mask] > 0) == 0:
-            return False
-
-        temp_mesh_path = create_roi_mesh(
-            mesh,
-            region_mask,
-            field_values,
-            field_name,
-            region_name,
-            temp_dir,
-        )
-        roi_mesh = read_msh(temp_mesh_path)
-        roi_field = roi_mesh.field[field_name].value
-
-        vertices, faces, vertex_field = extract_roi_region_no_zeros(
-            roi_mesh,
-            roi_field,
-            return_field_values=True,
-        )
-        if vertices is None or faces is None:
-            return False
-
-        ply_path = os.path.join(regions_dir, f"{region_name}.ply")
-        ok = _write_ply_from_field(
-            vertices,
-            faces,
-            vertex_field,
-            ply_path,
-            field_name,
-            use_colors,
-            colormap,
-            field_range,
-        )
-
-        if keep_meshes and meshes_dir:
-            msh_path = os.path.join(meshes_dir, f"{region_name}_region.msh")
-            try:
-                roi_mesh.write(msh_path)
-                _write_opt_file(roi_mesh, msh_path, field_name)
-            except Exception as exc:
-                logger.debug("Could not save mesh for %s: %s", region_name, exc)
-
-        os.remove(temp_mesh_path)
-        return ok
-    except Exception as exc:
-        logger.debug("Skipping region %s (PLY): %s", region_name, exc)
+    region_mask = atlas[region_name]
+    if np.sum(region_mask) == 0:
         return False
+
+    field_values = mesh.field[field_name].value
+    if np.sum(field_values[region_mask] > 0) == 0:
+        return False
+
+    temp_mesh_path = create_roi_mesh(
+        mesh,
+        region_mask,
+        field_values,
+        field_name,
+        region_name,
+        temp_dir,
+    )
+    roi_mesh = read_msh(temp_mesh_path)
+    roi_field = roi_mesh.field[field_name].value
+
+    vertices, faces, vertex_field = extract_roi_region_no_zeros(
+        roi_mesh,
+        roi_field,
+        return_field_values=True,
+    )
+    if vertices is None or faces is None:
+        return False
+
+    ply_path = os.path.join(regions_dir, f"{region_name}.ply")
+    ok = _write_ply_from_field(
+        vertices,
+        faces,
+        vertex_field,
+        ply_path,
+        field_name,
+        use_colors,
+        colormap,
+        field_range,
+    )
+
+    if keep_meshes and meshes_dir:
+        msh_path = os.path.join(meshes_dir, f"{region_name}_region.msh")
+        roi_mesh.write(msh_path)
+        _write_opt_file(roi_mesh, msh_path, field_name)
+
+    os.remove(temp_mesh_path)
+    return ok
 
 
 def _export_whole_gm_ply(
@@ -431,11 +368,8 @@ def _export_whole_gm_ply(
 
     if keep_meshes:
         whole_msh = os.path.join(output_dir, "whole_gm.msh")
-        try:
-            mesh.write(whole_msh)
-            _write_opt_file(mesh, whole_msh, field_name)
-        except Exception as exc:
-            logger.debug("Could not save whole GM mesh: %s", exc)
+        mesh.write(whole_msh)
+        _write_opt_file(mesh, whole_msh, field_name)
 
 
 def _write_opt_file(mesh, msh_path, field_name):
@@ -479,12 +413,19 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
     converted = 0
     mesh = read_msh(mesh_path)
 
-    if config.field_name not in getattr(mesh, "field", {}):
-        raise ValueError(f"Field '{config.field_name}' not found in mesh: {mesh_path}")
+    atlas_raw = atlas2subject(config.m2m_dir, config.atlas, split_labels=True)
+    lh_labels = atlas_raw.get("lh", {})
+    rh_labels = atlas_raw.get("rh", {})
+    n_lh = len(next(iter(lh_labels.values()))) if lh_labels else 0
+    n_rh = len(next(iter(rh_labels.values()))) if rh_labels else 0
 
     atlas = {}
-    for hemi_dict in atlas2subject(config.m2m_dir, config.atlas, split_labels=True).values():
-        atlas.update(hemi_dict)
+    for name, mask in lh_labels.items():
+        key = name if name.startswith("lh.") else f"lh.{name}"
+        atlas[key] = np.concatenate([mask, np.zeros(n_rh, dtype=bool)])
+    for name, mask in rh_labels.items():
+        key = name if name.startswith("rh.") else f"rh.{name}"
+        atlas[key] = np.concatenate([np.zeros(n_lh, dtype=bool), mask])
 
     cortical_dir = os.path.join(config.output_dir, "cortical_plys")
     regions_dir = os.path.join(cortical_dir, "regions")
@@ -497,7 +438,11 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
 
     use_colors = not config.scalars
     fr = _effective_field_range(config, mesh, mesh_path)
-    selected = set(config.regions) if config.regions else None
+    selected = (
+        _resolve_selected(config.regions, set(atlas.keys()))
+        if config.regions
+        else None
+    )
 
     if not config.skip_regions:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -541,13 +486,30 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _resolve_paths(config: RegionConfig) -> None:
+    """Resolve all paths from subject_id + simulation_name via PathManager."""
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    sid = config.subject_id
+    sim = config.simulation_name
+
+    config.m2m_dir = pm.m2m(sid)
+    config.mesh = pm.ti_central_surface(sid, sim)
+    fmt = str(config.format).lower()
+    config.output_dir = os.path.join(
+        pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, fmt
+    )
+
+
 def run_regions(config: RegionConfig) -> int:
     """Export atlas-labelled cortical regions (and whole GM) as mesh files.
 
     Dispatches to the STL or PLY export path based on ``config.format``.
 
     Args:
-        config: A fully-populated :class:`RegionConfig`.
+        config: A :class:`RegionConfig` with ``subject_id`` +
+            ``simulation_name``.
 
     Returns:
         Number of individual regions successfully exported.
@@ -556,27 +518,10 @@ def run_regions(config: RegionConfig) -> int:
         ValueError: If the mesh is missing the requested field.
         FileNotFoundError: If a required input file is missing.
     """
+    _resolve_paths(config)
     logger.info("Starting region export (format=%s)", config.format)
 
-    # Resolve mesh path (may need msh2cortex for gm_mesh input)
     mesh_path = config.mesh
-    if config.gm_mesh:
-        if not os.path.exists(config.gm_mesh):
-            raise FileNotFoundError(f"GM mesh not found: {config.gm_mesh}")
-        generated = _generate_cortical_surface(
-            config.gm_mesh,
-            config.m2m_dir,
-            str(config.surface),
-            config.msh2cortex_path,
-        )
-        if not generated:
-            raise RuntimeError("msh2cortex failed to produce a cortical surface mesh")
-        mesh_path = generated
-
-    if not os.path.exists(mesh_path):
-        raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
-    if not os.path.isdir(config.m2m_dir):
-        raise FileNotFoundError(f"m2m directory not found: {config.m2m_dir}")
 
     os.makedirs(config.output_dir, exist_ok=True)
 

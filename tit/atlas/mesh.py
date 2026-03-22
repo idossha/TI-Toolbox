@@ -40,7 +40,7 @@ class MeshAtlasManager:
         """List regions for a mesh atlas from .annot files.
 
         Returns:
-            Sorted list of region names with hemisphere suffix (e.g. "precentral-lh").
+            Sorted list of region names in SimNIBS format (e.g. "lh.precentral").
         """
         if os.path.isdir(self.seg_dir):
             import nibabel.freesurfer as nfs
@@ -56,7 +56,7 @@ class MeshAtlasManager:
                 for n in names:
                     name = n.decode("utf-8") if isinstance(n, bytes) else str(n)
                     if name != "unknown":
-                        regions.append(f"{name}-{hemi}")
+                        regions.append(f"{hemi}.{name}")
             if regions:
                 return sorted(regions)
 

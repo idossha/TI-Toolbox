@@ -117,6 +117,8 @@ class TISimulation(BaseSimulation):
         # final directories (hf_mesh/, ti_surface_overlays/, etc.)
         self._organize_files(dirs)
 
+        self._generate_central_surface(ti_path, dirs["ti_surfaces"])
+
         self.logger.info("NIfTI transformation: Started")
         transform_to_nifti(
             dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger
@@ -172,8 +174,9 @@ class TISimulation(BaseSimulation):
         hf = dirs["hf_dir"]
 
         # Move HF mesh files (.msh, .geo, .opt) into hf_mesh/
+        cond = self.config.conductivity
         for pattern in ("TDCS_1", "TDCS_2"):
-            for ext in (".geo", "scalar.msh", "scalar.msh.opt"):
+            for ext in (".geo", f"{cond}.msh", f"{cond}.msh.opt"):
                 for f in glob.glob(os.path.join(hf, f"*{pattern}*{ext}")):
                     safe_move(
                         f,

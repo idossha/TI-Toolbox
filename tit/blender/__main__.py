@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from dataclasses import fields as dc_fields
 
 from tit.logger import setup_logging, add_stream_handler
 
@@ -19,6 +20,12 @@ def _coerce_field_range(data: dict) -> dict:
     if fr is not None:
         data["field_range"] = tuple(fr)
     return data
+
+
+def _filter_fields(data: dict, cls: type) -> dict:
+    """Keep only keys that match dataclass constructor parameters."""
+    valid = {f.name for f in dc_fields(cls) if f.init}
+    return {k: v for k, v in data.items() if k in valid}
 
 
 def main() -> int:
@@ -44,7 +51,7 @@ def main() -> int:
         from tit.blender.montage_publication import run_montage
         from tit.blender.config import MontageConfig
 
-        config = MontageConfig(**data)
+        config = MontageConfig(**_filter_fields(data, MontageConfig))
         run_montage(config, logger_override=logger)
         return 0
 
@@ -52,7 +59,7 @@ def main() -> int:
         from tit.blender.config import VectorConfig
         from tit.blender.vector_field_exporter import run_vectors
 
-        config = VectorConfig(**data)
+        config = VectorConfig(**_filter_fields(data, VectorConfig))
         run_vectors(config)
         return 0
 
@@ -61,7 +68,7 @@ def main() -> int:
         from tit.blender.region_exporter import run_regions
 
         data = _coerce_field_range(data)
-        config = RegionConfig(**data)
+        config = RegionConfig(**_filter_fields(data, RegionConfig))
         run_regions(config)
         return 0
 

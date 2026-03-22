@@ -3,7 +3,7 @@
 Tests for tit/analyzer/analyzer.py — Analyzer class methods.
 
 Covers: dispatch, sphere/cortex mesh/voxel, _analyze_mesh_roi,
-_analyze_voxel_roi, _load_surface_mesh, _ensure_central_surface,
+_analyze_voxel_roi, _load_surface_mesh,
 _get_normal_stats, _resolve_output_dir, _maybe_transform_coords,
 _field_values, _node_areas, _resolve_voxel_atlas.
 """
@@ -119,8 +119,8 @@ class TestAnalyzeCortexDispatch:
     def test_dispatch_mesh(self):
         a = _make_analyzer(space="mesh")
         a._cortex_mesh = MagicMock(return_value="cortex_mesh")
-        result = a.analyze_cortex("DK40", "precentral-lh")
-        a._cortex_mesh.assert_called_once_with("DK40", "precentral-lh", False)
+        result = a.analyze_cortex("DK40", "lh.precentral")
+        a._cortex_mesh.assert_called_once_with("DK40", "lh.precentral", False)
         assert result == "cortex_mesh"
 
     def test_dispatch_voxel(self):
@@ -369,20 +369,22 @@ class TestAnalyzeVoxelROI:
 
 
 class TestLoadSurfaceMesh:
-    """Lines 489-498: _load_surface_mesh lazy-loads and caches."""
+    """_load_surface_mesh lazy-loads and caches."""
 
-    def test_loads_mesh_on_first_call(self):
+    def test_loads_mesh_on_first_call(self, tmp_path):
         a = _make_analyzer(space="mesh")
         fake_mesh = MagicMock()
-        a._ensure_central_surface = MagicMock(return_value=Path("/fake/central.msh"))
+        central = tmp_path / "central.msh"
+        central.touch()
+        a._pm.ti_central_surface = MagicMock(return_value=str(central))
 
         with patch("simnibs.read_msh", return_value=fake_mesh) as mock_read:
             result = a._load_surface_mesh()
 
         assert result is fake_mesh
-        mock_read.assert_called_once_with("/fake/central.msh")
+        mock_read.assert_called_once_with(str(central))
         assert a._surface_mesh is fake_mesh
-        assert a._surface_mesh_path == Path("/fake/central.msh")
+        assert a._surface_mesh_path == central
 
     def test_returns_cached_on_second_call(self):
         a = _make_analyzer(space="mesh")
@@ -392,30 +394,13 @@ class TestLoadSurfaceMesh:
         result = a._load_surface_mesh()
         assert result is cached
 
+    def test_raises_when_central_surface_missing(self, tmp_path):
+        a = _make_analyzer(space="mesh")
+        missing = str(tmp_path / "nonexistent_central.msh")
+        a._pm.ti_central_surface = MagicMock(return_value=missing)
 
-class TestEnsureCentralSurface:
-    """Lines 502-523: _ensure_central_surface generates surface if missing."""
-
-    def test_returns_existing_surface(self, tmp_path):
-        a = _make_analyzer(space="mesh", field_path=tmp_path / "montage1_TI.msh")
-        surfaces_dir = tmp_path / "surfaces"
-        surfaces_dir.mkdir()
-        central = surfaces_dir / "montage1_TI_central.msh"
-        central.touch()
-
-        result = a._ensure_central_surface()
-        assert result == central
-
-    @patch("subprocess.run")
-    def test_generates_surface_when_missing(self, mock_run, tmp_path):
-        a = _make_analyzer(space="mesh", field_path=tmp_path / "montage1_TI.msh")
-        # surfaces dir does not exist yet
-        result = a._ensure_central_surface()
-
-        mock_run.assert_called_once()
-        cmd = mock_run.call_args[0][0]
-        assert cmd[0] == "msh2cortex"
-        assert str(tmp_path / "montage1_TI.msh") in cmd
+        with pytest.raises(FileNotFoundError, match="Central surface not found"):
+            a._load_surface_mesh()
 
 
 class TestGetNormalStats:
@@ -636,7 +621,7 @@ class TestResolveVoxelAtlas:
         a._pm.segmentation.return_value = str(tmp_path / "seg")
         (tmp_path / "fs_mri").mkdir()
         (tmp_path / "seg").mkdir()
-        with pytest.raises(FileNotFoundError, match="Atlas file not found"):
+        with pytest.raises(FileNotFoundError, match="not found"):
             a._resolve_voxel_atlas("nonexistent")
 
 
@@ -671,8 +656,8 @@ class TestCombinedCortexMesh:
         assert call_args[1]["region_name"] == "lh.V1+lh.V2"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
-    def test_hemisphere_suffix_resolved_to_prefixed_keys(self, mock_load):
-        """GUI names like 'cuneus-lh' resolve to atlas keys like 'lh.cuneus'.
+    def test_hemisphere_prefixed_keys(self, mock_load):
+        """SimNIBS-format names like 'lh.cuneus' are used directly as atlas keys.
 
         The joined central surface has lh nodes first, then rh (4+4=8).
         Per-hemisphere masks are padded to the full surface length.
@@ -697,7 +682,7 @@ class TestCombinedCortexMesh:
         ):
             fake_result = MagicMock(spec=AnalysisResult)
             a._analyze_mesh_roi = MagicMock(return_value=fake_result)
-            result = a._cortex_mesh("DK40", ["cuneus-lh", "precentral-rh"], False)
+            result = a._cortex_mesh("DK40", ["lh.cuneus", "rh.precentral"], False)
 
         call_args = a._analyze_mesh_roi.call_args
         mask = call_args[0][3]
@@ -736,8 +721,8 @@ class TestCombinedCortexMesh:
         assert call_args[1]["region_name"] == "lh.cuneus+rh.cuneus"
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
-    def test_invalid_region_raises_keyerror_with_hint(self, mock_load):
-        """Bad region name gives a helpful error with similar matches."""
+    def test_invalid_region_raises_keyerror(self, mock_load):
+        """Bad region name raises KeyError."""
         a = _make_analyzer(space="mesh")
         surface = _mock_surface(np.array([1.0, 2.0]))
         mock_load.return_value = surface
@@ -750,7 +735,7 @@ class TestCombinedCortexMesh:
             "simnibs.utils.transformations.atlas2subject", return_value=atlas_raw
         ):
             with pytest.raises(KeyError, match="not found in atlas"):
-                a._cortex_mesh("DK40", ["cuneus-lh", "nosuchregion"], False)
+                a._cortex_mesh("DK40", ["lh.cuneus", "nosuchregion"], False)
 
     @patch("tit.analyzer.analyzer.Analyzer._load_surface_mesh")
     def test_single_region_string_unchanged(self, mock_load):

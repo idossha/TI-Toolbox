@@ -144,6 +144,8 @@ class mTISimulation(BaseSimulation):
         # final directories (hf_mesh/)
         self._organize_files(dirs)
 
+        self._generate_central_surface(mti_path, dirs["mti_surfaces"])
+
         self.logger.info("NIfTI transformation: Started")
         transform_to_nifti(
             dirs["mti_mesh"], dirs["mti_niftis"], sid, self.m2m_dir, self.logger
@@ -182,9 +184,10 @@ class mTISimulation(BaseSimulation):
         n_pairs = self.montage.num_pairs
         letters = string.ascii_uppercase
 
+        cond = self.config.conductivity
         for i in range(1, n_pairs + 1):
             ltr = letters[i - 1]
-            for ext in (".geo", "scalar.msh", "scalar.msh.opt"):
+            for ext in (".geo", f"{cond}.msh", f"{cond}.msh.opt"):
                 for f in glob.glob(os.path.join(hf, f"*TDCS_{i}*{ext}")):
                     new_name = os.path.basename(f).replace(f"TDCS_{i}", f"TDCS_{ltr}")
                     safe_move(f, os.path.join(dirs["hf_mesh"], new_name))
