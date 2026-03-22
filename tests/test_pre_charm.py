@@ -148,9 +148,12 @@ class TestRunSubjectAtlas:
         run_subject_atlas("/proj", "001", logger=logger, runner=runner)
 
         assert runner.run.call_count == len(ATLASES)
+        m2m = str(Path(mock_pm.m2m.return_value))
         for call in runner.run.call_args_list:
             cmd = call[0][0]
             assert cmd[0] == "subject_atlas"
+            assert "-m" not in cmd
+            assert cmd[-1] == m2m
 
     @patch(f"{MODULE}.get_path_manager")
     def test_m2m_missing_raises(self, mock_gpm, mock_pm):
