@@ -124,12 +124,11 @@ def run_subject_atlas(
     for atlas in ATLASES:
         cmd = [
             "subject_atlas",
-            "-m",
-            str(m2m_dir),
             "-a",
             atlas,
             "-o",
             str(output_dir),
+            str(m2m_dir),
         ]
 
         logger.info(f"  Creating {atlas} atlas...")
