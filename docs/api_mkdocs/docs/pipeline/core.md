@@ -4,27 +4,25 @@ TI-Toolbox provides opinionated, BIDS-compliant infrastructure for path resoluti
 
 ```mermaid
 graph LR
-    INIT["tit.init()"] --> LOG[Logger]
-    INIT --> PM[PathManager]
+    IMPORT["import tit"] --> LOG[Logger]
+    IMPORT --> PM[PathManager]
     PM --> PATHS[BIDS Paths]
     LOG --> FILE[File Logs]
     CONFIG[Config IO] --> JSON[JSON Files]
     JSON --> CLI[CLI Subprocesses]
-    style INIT fill:#2d5a27,stroke:#4a8,color:#fff
+    style IMPORT fill:#2d5a27,stroke:#4a8,color:#fff
 ```
 
 ## Initialization
 
-Every script or entry point starts with a single call:
+Logging auto-initializes on import — no explicit setup needed:
 
 ```python
-import tit
-
-tit.init("INFO")
+from tit.sim import SimulationConfig, run_simulation
 pm = tit.get_path_manager("/data/my_project")
 ```
 
-`init()` configures the `tit` logger hierarchy and attaches a stdout handler. `get_path_manager()` returns a global singleton that resolves all paths for the project.
+Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. `get_path_manager()` returns a global singleton that resolves all paths for the project.
 
 !!! note "Docker Environment"
     Inside Docker containers, `get_path_manager()` can auto-detect the project directory from the `PROJECT_DIR` or `PROJECT_DIR_NAME` environment variables. No argument is needed in that case.
@@ -143,11 +141,10 @@ setup_logging("DEBUG")
 fh = add_file_handler("/data/logs/run.log", level="DEBUG")
 ```
 
-**Terminal output** (used by scripts):
+**Terminal output** (automatic on import):
 
 ```python
-import tit
-tit.init("INFO")  # setup_logging + add_stream_handler in one call
+import tit  # auto-initializes: setup_logging("INFO") + add_stream_handler("tit", "INFO")
 ```
 
 **Isolated file logger** (used per-analysis):
@@ -260,12 +257,6 @@ except PreprocessError as e:
       show_root_heading: true
 
 ::: tit.paths.reset_path_manager
-    options:
-      show_root_heading: true
-
-### Initialization
-
-::: tit.init
     options:
       show_root_heading: true
 
