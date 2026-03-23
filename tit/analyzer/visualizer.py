@@ -5,8 +5,8 @@ Four module-level functions that write output artifacts (mesh overlays,
 NIfTI overlays, histograms, CSV) without any shared mutable state.
 """
 
-
 import csv
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -29,7 +29,6 @@ def save_mesh_roi_overlay(
     field_values: np.ndarray,
     roi_mask: np.ndarray,
     field_name: str,
-    region_name: str,
     output_dir: Path,
     normal_mesh_path: Path | None = None,
 ) -> Path:
@@ -67,7 +66,7 @@ def save_mesh_roi_overlay(
                 normal_max_value = float(np.max(positive_normal))
             del normal_mesh
 
-    out_msh = output_dir / f"{region_name}_ROI.msh"
+    out_msh = output_dir / "roi_overlay.msh"
     region_mesh.write(str(out_msh))
     _write_msh_opt(out_msh, max_value, normal_max_value)
 
@@ -125,7 +124,6 @@ View[2].ColormapAlphaPower = 0.08;
 def save_nifti_roi_overlay(
     field_data: np.ndarray,
     roi_mask: np.ndarray,
-    region_name: str,
     output_dir: Path,
     affine: np.ndarray,
 ) -> Path:
@@ -135,7 +133,7 @@ def save_nifti_roi_overlay(
     overlay = np.zeros_like(field_data)
     overlay[roi_mask] = field_data[roi_mask]
 
-    out_path = output_dir / f"{region_name}_ROI.nii.gz"
+    out_path = output_dir / "roi_overlay.nii.gz"
     nib.save(nib.Nifti1Image(overlay, affine), str(out_path))
 
     logger.info("Created NIfTI overlay: %s", out_path)
@@ -151,7 +149,6 @@ def save_histogram(
     whole_head_values: np.ndarray,
     roi_values: np.ndarray,
     output_dir: Path,
-    region_name: str,
     whole_head_weights: np.ndarray | None = None,
     roi_weights: np.ndarray | None = None,
     roi_mean: float | None = None,
@@ -169,7 +166,7 @@ def save_histogram(
         roi_field_data=roi_values,
         whole_head_element_sizes=whole_head_weights,
         roi_element_sizes=roi_weights,
-        region_name=region_name,
+        filename="histogram",
         roi_field_value=roi_mean,
     )
 
@@ -200,4 +197,19 @@ def save_results_csv(result: dict[str, Any], output_dir: Path) -> Path:
             writer.writerow([key, value])
 
     logger.info("Saved results CSV: %s", out_path)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
+# 5. Analysis metadata
+# ---------------------------------------------------------------------------
+
+
+def save_analysis_metadata(output_dir: Path, metadata: dict[str, Any]) -> Path:
+    """Write analysis configuration to analysis.json."""
+    output_dir = Path(get_path_manager().ensure(str(output_dir)))
+    out_path = output_dir / "analysis.json"
+    with open(out_path, "w") as fh:
+        json.dump(metadata, fh, indent=2)
+    logger.info("Saved analysis metadata: %s", out_path)
     return out_path

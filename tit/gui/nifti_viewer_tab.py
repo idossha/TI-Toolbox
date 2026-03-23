@@ -1008,8 +1008,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             )
             return
 
-        # Try specific ROI file, then fall back to first NIfTI
-        roi_file = os.path.join(analysis_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        # Try standardized name, then fall back to first NIfTI
+        roi_file = os.path.join(analysis_dir, "roi_overlay.nii.gz")
         if not os.path.exists(roi_file):
             nifti_files = glob.glob(os.path.join(analysis_dir, "*.nii*"))
             roi_file = nifti_files[0] if nifti_files else None
