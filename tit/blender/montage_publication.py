@@ -288,9 +288,7 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    electrode_template = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "Electrode.blend")
-    )
+    electrode_template = "/ti-toolbox/tit/blender/Electrode.blend"
 
     subject_m2m = pm.m2m(subject_id)
     if not subject_m2m or not os.path.isdir(subject_m2m):
