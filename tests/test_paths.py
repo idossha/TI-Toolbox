@@ -591,7 +591,39 @@ class TestAnalysisOutputDir:
             region="precentral",
             atlas_path="/some/path/aparc+aseg.nii.gz",
         )
-        assert "region_precentral_aparc_aseg" in result
+        assert "cortical_precentral_aparc_aseg" in result
+
+    def test_cortical_multi_region(self, pm):
+        result = pm.analysis_output_dir(
+            sid="001",
+            sim="mont1",
+            space="mesh",
+            analysis_type="cortical",
+            region="lh.cuneus+rh.cuneus",
+            atlas_name="DK40",
+        )
+        assert "cortical_2regions_DK40_" in result
+        assert len(result.split("/")[-1]) < 60
+
+    def test_cortical_multi_region_deterministic(self, pm):
+        """Same regions produce the same hash."""
+        r1 = pm.analysis_output_dir(
+            sid="001",
+            sim="mont1",
+            space="mesh",
+            analysis_type="cortical",
+            region="lh.A+lh.B+lh.C",
+            atlas_name="DK40",
+        )
+        r2 = pm.analysis_output_dir(
+            sid="001",
+            sim="mont1",
+            space="mesh",
+            analysis_type="cortical",
+            region="lh.A+lh.B+lh.C",
+            atlas_name="DK40",
+        )
+        assert r1 == r2
 
     def test_cortical_no_region_raises(self, pm):
         with pytest.raises(ValueError, match="region is required"):

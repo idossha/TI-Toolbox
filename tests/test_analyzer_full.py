@@ -823,7 +823,6 @@ class TestVisualizeMesh:
             surface,
             values,
             roi_mask,
-            "test_roi",
             "/tmp/out",
             result,
             np.array([1.0, 2.0]),
@@ -855,7 +854,6 @@ class TestVisualizeVoxel:
             roi_mask,
             gm_mask,
             affine,
-            "test_roi",
             "/tmp/out",
             result,
         )

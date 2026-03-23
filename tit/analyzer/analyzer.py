@@ -17,6 +17,7 @@ import numpy as np
 
 from tit.analyzer.field_selector import select_field_file
 from tit.analyzer.visualizer import (
+    save_analysis_metadata,
     save_histogram,
     save_mesh_roi_overlay,
     save_nifti_roi_overlay,
@@ -265,6 +266,7 @@ class Analyzer:
         for m in masks[1:]:
             mask = mask | m
         region_name = "+".join(atlas_keys)
+        region_labels = list(atlas_keys)
 
         logger.info(
             "Cortical ROI: atlas=%s regions=%s mask=%d/%d nodes",
@@ -282,6 +284,7 @@ class Analyzer:
             region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
+            region_labels=region_labels,
             visualize=visualize,
         )
 
@@ -372,6 +375,7 @@ class Analyzer:
         for rid in ids:
             region_mask_raw = region_mask_raw | (atlas_arr == rid)
         region_name = "+".join(regions)
+        region_labels = list(regions)
 
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
@@ -387,6 +391,7 @@ class Analyzer:
             region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
+            region_labels=region_labels,
             visualize=visualize,
         )
 
@@ -478,13 +483,18 @@ class Analyzer:
                 surface,
                 values,
                 roi_mask,
-                region_name,
                 out_dir,
                 result,
                 surface_pos,
                 surface_areas,
                 roi_pos,
                 roi_areas,
+                analysis_type=analysis_type,
+                region_labels=kwargs.get("region_labels"),
+                atlas=kwargs.get("atlas"),
+                center=kwargs.get("center"),
+                radius=kwargs.get("radius"),
+                coordinate_space=kwargs.get("coordinate_space"),
             )
 
         save_results_csv(asdict(result), Path(out_dir))
@@ -550,9 +560,14 @@ class Analyzer:
                 roi_mask,
                 analysis_mask,
                 affine,
-                region_name,
                 out_dir,
                 result,
+                analysis_type=analysis_type,
+                region_labels=kwargs.get("region_labels"),
+                atlas=kwargs.get("atlas"),
+                center=kwargs.get("center"),
+                radius=kwargs.get("radius"),
+                coordinate_space=kwargs.get("coordinate_space"),
             )
 
         save_results_csv(asdict(result), Path(out_dir))
@@ -697,13 +712,19 @@ class Analyzer:
         surface,
         values,
         roi_mask,
-        region_name,
         out_dir,
         result,
         gm_values,
         gm_areas,
         roi_values,
         roi_areas,
+        *,
+        analysis_type: str = "cortical",
+        region_labels: list[str] | None = None,
+        atlas: str | None = None,
+        center: tuple | None = None,
+        radius: float | None = None,
+        coordinate_space: str | None = None,
     ) -> None:
         out = Path(out_dir)
         save_mesh_roi_overlay(
@@ -711,7 +732,6 @@ class Analyzer:
             field_values=values,
             roi_mask=roi_mask,
             field_name=self.field_name,
-            region_name=region_name,
             output_dir=out,
             normal_mesh_path=self._normal_mesh_path(),
         )
@@ -719,10 +739,22 @@ class Analyzer:
             whole_head_values=gm_values,
             roi_values=roi_values,
             output_dir=out,
-            region_name=region_name,
             whole_head_weights=gm_areas,
             roi_weights=roi_areas,
             roi_mean=result.roi_mean,
+        )
+        save_analysis_metadata(
+            out,
+            {
+                "analysis_type": analysis_type,
+                "space": "mesh",
+                "field_name": self.field_name,
+                "atlas": atlas,
+                "regions": region_labels,
+                "center": list(center) if center else None,
+                "radius": radius,
+                "coordinate_space": coordinate_space,
+            },
         )
 
     def _visualize_voxel(
@@ -731,15 +763,20 @@ class Analyzer:
         roi_mask,
         analysis_mask,
         affine,
-        region_name,
         out_dir,
         result,
+        *,
+        analysis_type: str = "cortical",
+        region_labels: list[str] | None = None,
+        atlas: str | None = None,
+        center: tuple | None = None,
+        radius: float | None = None,
+        coordinate_space: str | None = None,
     ) -> None:
         out = Path(out_dir)
         save_nifti_roi_overlay(
             field_data=field_arr,
             roi_mask=roi_mask,
-            region_name=region_name,
             output_dir=out,
             affine=affine,
         )
@@ -749,8 +786,21 @@ class Analyzer:
             whole_head_values=tissue_values,
             roi_values=roi_values,
             output_dir=out,
-            region_name=region_name,
             roi_mean=result.roi_mean,
+        )
+        save_analysis_metadata(
+            out,
+            {
+                "analysis_type": analysis_type,
+                "space": "voxel",
+                "field_name": self.field_name,
+                "tissue_types": self._tissue_type_list(),
+                "atlas": atlas,
+                "regions": region_labels,
+                "center": list(center) if center else None,
+                "radius": radius,
+                "coordinate_space": coordinate_space,
+            },
         )
 
     # ------------------------------------------------------------------
@@ -861,6 +911,12 @@ class Analyzer:
             )
         return normalized
 
+    def _tissue_type_list(self) -> list[str]:
+        """Return tissue selection as a list of tissue names."""
+        if self.tissue_type == "BOTH":
+            return ["GM", "WM"]
+        return [self.tissue_type]
+
     def _voxel_tissue_mask(
         self,
         field_img,
@@ -937,9 +993,7 @@ class Analyzer:
             if path.exists():
                 return path
 
-        raise FileNotFoundError(
-            f"Atlas {atlas!r} not found in {fs_mri} or {seg_dir}"
-        )
+        raise FileNotFoundError(f"Atlas {atlas!r} not found in {fs_mri} or {seg_dir}")
 
     @staticmethod
     def _resample_if_needed(
@@ -949,22 +1003,35 @@ class Analyzer:
         target_affine: np.ndarray,
         atlas_path: Path,
     ) -> np.ndarray:
-        """Resample atlas array to *target_shape* if dimensions differ."""
+        """Resample atlas array to *target_shape* if dimensions differ.
+
+        The resampled result is saved next to *atlas_path* with a
+        shape-encoded suffix so that repeated analyses reuse the cached
+        file instead of re-running ``mri_convert``.
+        """
         if atlas_arr.shape[:3] == target_shape[:3]:
             return atlas_arr
 
         import nibabel as nib
 
+        atlas_path = Path(atlas_path)
+        sx, sy, sz = target_shape[:3]
+        cached_name = f"{atlas_path.stem.split('.')[0]}_resampled_{sx}x{sy}x{sz}.nii.gz"
+        cached_path = atlas_path.parent / cached_name
+
+        if cached_path.exists():
+            logger.info("Loading cached resampled atlas: %s", cached_path)
+            return nib.load(str(cached_path)).get_fdata()
+
         logger.info(
-            "Resampling atlas %s -> %s",
+            "Resampling atlas %s -> %s (caching to %s)",
             atlas_arr.shape[:3],
             target_shape[:3],
+            cached_path,
         )
 
         with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tf:
             template_path = tf.name
-        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tf:
-            output_path = tf.name
 
         template_img = nib.Nifti1Image(np.zeros(target_shape[:3]), target_affine)
         nib.save(template_img, template_path)
@@ -974,13 +1041,12 @@ class Analyzer:
             "--reslice_like",
             template_path,
             str(atlas_path),
-            output_path,
+            str(cached_path),
         ]
         subprocess.run(cmd, check=True, capture_output=True)
-
-        resampled = nib.load(output_path).get_fdata()
         Path(template_path).unlink()
-        Path(output_path).unlink()
+
+        resampled = nib.load(str(cached_path)).get_fdata()
         return resampled
 
     @staticmethod

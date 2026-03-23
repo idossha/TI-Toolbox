@@ -2500,7 +2500,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 sim=simulation_name,
                 space=space,
                 analysis_type=analysis_type,
-                tissue_type=self.tissue_combo.currentData(),
                 coordinates=coords,
                 radius=radius_val,
                 coordinate_space=coord_space,

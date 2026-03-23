@@ -462,11 +462,10 @@ class TestSaveMeshRoiOverlay:
             field_values=field_values,
             roi_mask=roi_mask,
             field_name="TI_max",
-            region_name="test_region",
             output_dir=tmp_path,
         )
 
-        assert result == tmp_path / "test_region_ROI.msh"
+        assert result == tmp_path / "roi_overlay.msh"
         mock_mesh.write.assert_called_once_with(str(result))
         mock_mesh.add_node_field.assert_called_once()
         # Check the opt file was written
@@ -504,7 +503,6 @@ class TestSaveMeshRoiOverlay:
             field_values=field_values,
             roi_mask=roi_mask,
             field_name="TI_max",
-            region_name="test_normal",
             output_dir=tmp_path,
             normal_mesh_path=normal_path,
         )
@@ -531,12 +529,11 @@ class TestSaveNiftiRoiOverlay:
         result = visualizer.save_nifti_roi_overlay(
             field_data=field_data,
             roi_mask=roi_mask,
-            region_name="roi_test",
             output_dir=tmp_path,
             affine=affine,
         )
 
-        assert result == tmp_path / "roi_test_ROI.nii.gz"
+        assert result == tmp_path / "roi_overlay.nii.gz"
         nib.save.assert_called_once()
         # Verify overlay: only roi_mask positions should have values
         save_call = nib.save.call_args
@@ -560,7 +557,6 @@ class TestSaveHistogram:
                 whole_head_values=np.array([1.0, 2.0, 3.0]),
                 roi_values=np.array([1.0, 2.0]),
                 output_dir=tmp_path,
-                region_name="roi",
                 roi_mean=1.5,
             )
 
@@ -579,7 +575,6 @@ class TestSaveHistogram:
                 whole_head_values=np.array([]),
                 roi_values=np.array([]),
                 output_dir=tmp_path,
-                region_name="empty_roi",
             )
 
         assert result is None

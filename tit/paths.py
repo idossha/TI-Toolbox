@@ -14,7 +14,7 @@ Usage:
     sim_dir = pm.simulation("001", "montage1")
 """
 
-
+import hashlib
 import os
 import re
 
@@ -360,7 +360,11 @@ class PathManager:
             raise ValueError(
                 "region is required for cortical analysis unless whole_head=True"
             )
-        return f"region_{region_val}_{atlas_clean}"
+        if "+" in region_val:
+            n = len(region_val.split("+"))
+            h = hashlib.md5(region_val.encode()).hexdigest()[:8]
+            return f"cortical_{n}regions_{atlas_clean}_{h}"
+        return f"cortical_{region_val}_{atlas_clean}"
 
     def analysis_output_dir(
         self,
@@ -369,7 +373,6 @@ class PathManager:
         sim: str,
         space: str,
         analysis_type: str,
-        tissue_type: str | None = None,
         coordinates=None,
         radius=None,
         coordinate_space: str = "subject",
@@ -400,10 +403,6 @@ class PathManager:
                 atlas_name=atlas_name,
                 atlas_path=atlas_path,
             )
-        if str(space).lower() == "voxel":
-            tissue = str(tissue_type or "GM").strip().lower()
-            if tissue in {"gm", "wm", "both"}:
-                name = f"{name}_{tissue}"
         return os.path.join(base, name)
 
 
