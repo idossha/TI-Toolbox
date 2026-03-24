@@ -20,7 +20,6 @@ graph LR
 from tit.reporting import SimulationReportGenerator
 
 report = SimulationReportGenerator(
-    project_dir="/data/my_project",
     simulation_session_id="motor_cortex",
     subject_id="001",
 )
@@ -45,7 +44,6 @@ output_path = report.generate()
 from tit.reporting import create_flex_search_report
 
 output_path = create_flex_search_report(
-    project_dir="/data/my_project",
     subject_id="001",
     data={"config": {...}, "results": [...], "best_solution": {...}},
     output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
@@ -58,7 +56,6 @@ For loading results from an output directory, use the class directly:
 from tit.reporting import FlexSearchReportGenerator
 
 generator = FlexSearchReportGenerator(
-    project_dir="/data/my_project",
     subject_id="001",
 )
 generator.load_from_output_dir("/data/my_project/derivatives/ti-toolbox/flex_output")
@@ -71,7 +68,6 @@ output_path = generator.generate()
 from tit.reporting import create_preprocessing_report
 
 output_path = create_preprocessing_report(
-    project_dir="/data/my_project",
     subject_id="001",
     processing_steps=[],  # list of step dicts passed to add_processing_step()
     output_path=None,     # auto-generates BIDS-compliant path

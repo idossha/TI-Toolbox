@@ -2,23 +2,15 @@
 
 This guide covers the core APIs you'll interact with most frequently.
 
-## Initialization
+## Setup
 
-Every TI-Toolbox session starts with logging setup and path management:
+Just import — logging and path resolution are automatic. No initialization call is needed.
 
 ```python
-from tit import init, add_file_handler, get_path_manager
-
-# Configure logging with terminal output (or use setup_logging for file-only)
-init("INFO")
-
-# Initialize the path manager singleton (BIDS-compliant paths)
-pm = get_path_manager("/data/my_project")
-
-# Access BIDS paths directly
-mesh_path = pm.m2m("001")              # -> .../derivatives/SimNIBS/sub-001/m2m_001/
-sims_path = pm.simulations("001")      # -> .../derivatives/SimNIBS/sub-001/Simulations/
+from tit.sim import SimulationConfig, run_simulation
 ```
+
+Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. Path resolution is handled internally via `PathManager`, which auto-detects the project directory from environment variables inside Docker containers.
 
 ## Running Simulations
 
@@ -33,14 +25,12 @@ from tit.sim import (
 # Load montages from the project's montage_list.json
 montages = load_montages(
     montage_names=["motor_cortex"],
-    project_dir="/data/my_project",
     eeg_net="GSN-HydroCel-185",
 )
 
 # Configure the simulation (montages are part of the config)
 config = SimulationConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     montages=montages,
     conductivity="scalar",
     intensities=[1.0, 1.0],
@@ -115,7 +105,6 @@ from tit.opt import FlexConfig, run_flex_search
 
 config = FlexConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     goal="mean",              # "mean", "max", or "focality"
     postproc="max_TI",        # "max_TI", "dir_TI_normal", "dir_TI_tangential"
     current_mA=1.0,
@@ -137,7 +126,6 @@ from tit.opt import ExConfig, run_ex_search
 
 config = ExConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     leadfield_hdf="/path/to/leadfield.hdf5",
     roi_name="motor_roi",
     electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "F3", "F4", "P3", "P4"]),
@@ -157,7 +145,6 @@ from tit.stats import GroupComparisonConfig, run_group_comparison
 subjects = GroupComparisonConfig.load_subjects("/data/subjects.csv")
 
 config = GroupComparisonConfig(
-    project_dir="/data/my_project",
     analysis_name="responder_comparison",
     subjects=subjects,
     test_type="unpaired",
@@ -177,7 +164,6 @@ print(f"Output: {result.output_dir}")
 from tit.pre import run_pipeline
 
 exit_code = run_pipeline(
-    project_dir="/data/my_project",
     subject_ids=["001", "002"],
     convert_dicom=True,
     run_recon=True,
@@ -207,11 +193,11 @@ from tit.pre import (
 )
 
 # Discover subjects from sourcedata
-subjects = discover_subjects("/data/my_project")
+subjects = discover_subjects()
 
 # Check if head mesh already exists
-if not check_m2m_exists("/data/my_project", "001"):
-    run_charm("/data/my_project", "001", logger=my_logger)
+if not check_m2m_exists("001"):
+    run_charm("001")
 ```
 
 ## Report Generation
@@ -225,7 +211,6 @@ and preprocessing runs.
 from tit.reporting import SimulationReportGenerator
 
 report = SimulationReportGenerator(
-    project_dir="/data/my_project",
     simulation_session_id="motor_cortex",
     subject_id="001",
 )
@@ -252,7 +237,6 @@ from tit.reporting import create_flex_search_report
 
 # Generate from optimization data dict
 output_path = create_flex_search_report(
-    project_dir="/data/my_project",
     subject_id="001",
     data=optimization_data,  # dict with optimization results
     output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
@@ -265,7 +249,6 @@ output_path = create_flex_search_report(
 from tit.reporting import create_preprocessing_report
 
 output_path = create_preprocessing_report(
-    project_dir="/data/my_project",
     subject_id="001",
     processing_steps=[],  # auto-populated if auto_scan=True
     output_path=None,     # auto-generates BIDS-compliant path

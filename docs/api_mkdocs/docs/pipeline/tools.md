@@ -63,7 +63,6 @@ from tit.tools.field_extract import main as extract_fields
 
 extract_fields(
     input_file="/data/sims/TI_max.msh",
-    project_dir="/data/my_project",
     subject_id="001",
     # gm_output_file and wm_output_file default to BIDS-compliant paths
 )

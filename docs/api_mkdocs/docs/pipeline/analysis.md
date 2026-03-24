@@ -173,7 +173,6 @@ from tit.stats import GroupComparisonConfig, run_group_comparison
 subjects = GroupComparisonConfig.load_subjects("/data/my_project/subjects.csv")
 
 config = GroupComparisonConfig(
-    project_dir="/data/my_project",
     analysis_name="responder_comparison",
     subjects=subjects,
     test_type=GroupComparisonConfig.TestType.UNPAIRED,

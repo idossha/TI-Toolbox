@@ -20,7 +20,6 @@ Run all preprocessing steps with a single call:
 from tit.pre import run_pipeline
 
 exit_code = run_pipeline(
-    project_dir="/data/my_project",
     subject_ids=["001", "002"],
     convert_dicom=True,
     run_recon=True,
@@ -57,11 +56,11 @@ from tit.pre import (
 )
 
 # Discover subjects from sourcedata/
-subjects = discover_subjects("/data/my_project")
+subjects = discover_subjects()
 
 # Check if head mesh already exists
-if not check_m2m_exists("/data/my_project", "001"):
-    run_charm("/data/my_project", "001", logger=my_logger)
+if not check_m2m_exists("001"):
+    run_charm("001")
 ```
 
 ### Step Details
@@ -89,13 +88,13 @@ import logging
 logger = logging.getLogger("my_pipeline")
 
 # Run QSIPrep DWI preprocessing
-run_qsiprep("/data/my_project", "001", logger=logger)
+run_qsiprep("001", logger=logger)
 
 # Run QSIRecon reconstruction
-run_qsirecon("/data/my_project", "001", logger=logger)
+run_qsirecon("001", logger=logger)
 
 # Extract DTI tensor for SimNIBS anisotropic conductivity
-extract_dti_tensor("/data/my_project", "001", logger=logger)
+extract_dti_tensor("001", logger=logger)
 ```
 
 These steps can also be included in the full pipeline by setting `run_qsiprep=True`, `run_qsirecon=True`, and `extract_dti=True`. Optional configuration dicts (`qsiprep_config`, `qsi_recon_config`) control parameters such as output resolution, recon specs, and atlases.

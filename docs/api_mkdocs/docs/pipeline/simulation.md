@@ -24,14 +24,12 @@ from tit.sim import (
 # Load montages from the project's montage_list.json
 montages = load_montages(
     montage_names=["motor_cortex"],
-    project_dir="/data/my_project",
     eeg_net="GSN-HydroCel-185",
 )
 
 # Configure the simulation (montages are part of the config)
 config = SimulationConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     montages=montages,
     conductivity="scalar",
     intensities=[1.0, 1.0],
@@ -79,7 +77,6 @@ from tit.sim import load_montages
 
 montages = load_montages(
     montage_names=["motor_cortex", "frontal_target"],
-    project_dir="/data/my_project",
     eeg_net="GSN-HydroCel-185",
 )
 ```

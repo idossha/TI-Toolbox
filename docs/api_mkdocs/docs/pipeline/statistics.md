@@ -27,7 +27,6 @@ from tit.stats import GroupComparisonConfig, run_group_comparison
 subjects = GroupComparisonConfig.load_subjects("/data/my_project/subjects.csv")
 
 config = GroupComparisonConfig(
-    project_dir="/data/my_project",
     analysis_name="responder_comparison",
     subjects=subjects,
     test_type=GroupComparisonConfig.TestType.UNPAIRED,
@@ -59,7 +58,6 @@ from tit.stats import CorrelationConfig, run_correlation
 subjects = CorrelationConfig.load_subjects("/data/my_project/correlation_subjects.csv")
 
 config = CorrelationConfig(
-    project_dir="/data/my_project",
     analysis_name="efield_outcome_correlation",
     subjects=subjects,
     correlation_type=CorrelationConfig.CorrelationType.PEARSON,
@@ -128,7 +126,6 @@ These parameters are shared by both `GroupComparisonConfig` and `CorrelationConf
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `project_dir` | `str` | | Path to the BIDS project root |
 | `analysis_name` | `str` | | Name for this analysis run |
 | `subjects` | `list[Subject]` | | List of subject definitions |
 | `cluster_threshold` | `float` | `0.05` | Uncorrected p-value threshold for cluster formation |

@@ -22,7 +22,6 @@ from tit.opt import FlexConfig, run_flex_search
 
 config = FlexConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     goal="mean",              # "mean", "max", or "focality"
     postproc="max_TI",        # "max_TI", "dir_TI_normal", "dir_TI_tangential"
     current_mA=1.0,
@@ -89,7 +88,6 @@ from tit.opt import ExConfig, run_ex_search
 
 config = ExConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     leadfield_hdf="leadfield.hdf5",  # filename within the leadfields directory
     roi_name="motor_roi",
     electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "F3", "F4", "P3", "P4"]),
@@ -105,7 +103,6 @@ You can also use bucket electrodes to specify separate pools for each channel po
 ```python
 config = ExConfig(
     subject_id="001",
-    project_dir="/data/my_project",
     leadfield_hdf="leadfield.hdf5",
     roi_name="motor_roi",
     electrodes=ExConfig.BucketElectrodes(

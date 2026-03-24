@@ -4,7 +4,7 @@ title: Logging Processes in the Toolbox
 permalink: /wiki/logging/
 ---
 
-The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. It configures the `tit` logger hierarchy but adds **no handlers by default** -- no console output, no file output -- until you explicitly attach one. This keeps terminal output clean and gives each entry point full control over where logs go.
+The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. On import, `tit/__init__.py` auto-configures the `tit` logger hierarchy with a stdout handler at INFO level — no explicit setup is needed. File logging is opt-in via `add_file_handler()`.
 
 ## Architecture
 
@@ -12,22 +12,24 @@ The logging module exposes three public functions:
 
 | Function | Purpose |
 |----------|---------|
-| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers |
+| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers (called automatically on import) |
 | `add_file_handler(log_file)` | Attach a `FileHandler` to a named logger |
 | `get_file_only_logger(name, log_file)` | Return a standalone logger that writes only to a file |
 
 ### `setup_logging(level)`
 
+Called automatically by `tit/__init__.py` on import. You only need to call it explicitly if you want to change the log level:
+
 ```python
 from tit.logger import setup_logging
 
-setup_logging("DEBUG")
+setup_logging("DEBUG")  # override the default INFO level
 ```
 
 This does three things:
 1. Clears any existing handlers on the `tit` logger
 2. Sets the log level (defaults to `INFO`)
-3. Sets `propagate = False` so messages never bubble to the root logger or terminal
+3. Sets `propagate = False` so messages never bubble to the root logger
 
 Third-party loggers (`matplotlib`, `PIL`) are silenced to `ERROR` level.
 
@@ -83,12 +85,11 @@ Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) u
 
 ### Library Usage
 
-When using `tit` as a library, call `setup_logging()` at your entry point and attach handlers as needed:
+When using `tit` as a library, logging is auto-configured on import — no setup call needed. To add file logging, attach a handler:
 
 ```python
-from tit.logger import setup_logging, add_file_handler
+from tit import add_file_handler
 
-setup_logging("INFO")
 fh = add_file_handler("my_analysis.log")
 
 # ... run analysis ...
@@ -112,7 +113,7 @@ All of this has been replaced by the three functions described above. There are 
 
 ## Best Practices
 
-1. **Call `setup_logging()` once** at your entry point -- not in library code
+1. **Logging auto-initializes on import** — no explicit `setup_logging()` call needed
 2. **Use `add_file_handler()`** to direct logs to a file when you need a record
 3. **Use `print()`** in `__main__.py` modules where output must reach subprocess capture
 4. **Use `logging.getLogger("tit.your_module")`** in library modules -- the hierarchy propagates to whatever handlers are attached to the `tit` logger

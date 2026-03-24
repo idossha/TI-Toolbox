@@ -35,9 +35,7 @@ As of v2.2.4, the `tit.core` sub-package has been dissolved. Modules that used t
 **One-liner imports for common operations:**
 
 ```python
-# Core
-from tit import get_path_manager
-from tit import setup_logging, add_file_handler
+# Core (logging auto-initializes on import — no setup needed)
 from tit import paths, constants
 
 # Simulation

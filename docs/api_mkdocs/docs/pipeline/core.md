@@ -15,17 +15,13 @@ graph LR
 
 ## Initialization
 
-Logging auto-initializes on import — no explicit setup needed:
+Just import — logging and path resolution are automatic:
 
 ```python
 from tit.sim import SimulationConfig, run_simulation
-pm = tit.get_path_manager("/data/my_project")
 ```
 
-Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. `get_path_manager()` returns a global singleton that resolves all paths for the project.
-
-!!! note "Docker Environment"
-    Inside Docker containers, `get_path_manager()` can auto-detect the project directory from the `PROJECT_DIR` or `PROJECT_DIR_NAME` environment variables. No argument is needed in that case.
+Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. `PathManager` auto-detects the project directory from the `PROJECT_DIR` or `PROJECT_DIR_NAME` environment variables inside Docker containers. No explicit initialization calls are needed.
 
 ## PathManager
 
@@ -132,19 +128,18 @@ TI-Toolbox logging is file-first. The `tit` logger hierarchy has `propagate=Fals
 
 ### Typical Patterns
 
-**File logging** (used by pipeline modules):
-
-```python
-from tit import setup_logging, add_file_handler
-
-setup_logging("DEBUG")
-fh = add_file_handler("/data/logs/run.log", level="DEBUG")
-```
-
-**Terminal output** (automatic on import):
+**Terminal output** (automatic on import — nothing to do):
 
 ```python
 import tit  # auto-initializes: setup_logging("INFO") + add_stream_handler("tit", "INFO")
+```
+
+**File logging** (opt-in, used by pipeline modules):
+
+```python
+from tit import add_file_handler
+
+fh = add_file_handler("/data/logs/run.log", level="DEBUG")
 ```
 
 **Isolated file logger** (used per-analysis):

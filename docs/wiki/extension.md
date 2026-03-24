@@ -62,7 +62,7 @@ ti_toolbox_path = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ti_toolbox_path))
 
 # Import required modules
-from core import get_path_manager
+from tit import paths, constants
 
 # Extension implementation
 def main(parent=None):
@@ -100,10 +100,7 @@ class MyExtensionDialog(QtWidgets.QDialog):
 Extensions can import and use TI-Toolbox core modules:
 
 ```python
-from core.paths import Paths
-from core.roi import ROICoordinateHelper
-from core.constants import Constants
-from core import get_path_manager
+from tit import paths, constants
 ```
 
 ### BIDS Convention Compliance
