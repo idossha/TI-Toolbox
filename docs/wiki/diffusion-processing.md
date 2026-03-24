@@ -4,12 +4,15 @@ title: Diffusion Processing (QSIPrep/QSIRecon)
 permalink: /wiki/diffusion-processing/
 ---
 
-The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
+### Known Issues:
 
+Currently the diffusion processing pipeline is not compatible with ARM Macs due to limitation of downstream qsi packages.
+
+The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
 
 ## Overview
 
-Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue, particularly white matter. The diffusion processing pipeline consists of three main stages:
+Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue. The diffusion processing pipeline consists of three main stages:
 
 1. **QSIPrep** - Preprocessing of raw DWI data
 2. **QSIRecon** - Reconstruction and tensor estimation
@@ -45,11 +48,11 @@ project_root/
 
 ### Data Requirements
 
-| Requirement | Description | Status |
-|-------------|-------------|--------|
-| **DWI acquisition** | Multi-shell or single-shell diffusion data | **Required** |
-| **SimNIBS head model** | m2m directory from charm | **Required** |
-| **T1-weighted MRI** | Used for registration | **Required** |
+| Requirement            | Description                                | Status       |
+| ---------------------- | ------------------------------------------ | ------------ |
+| **DWI acquisition**    | Multi-shell or single-shell diffusion data | **Required** |
+| **SimNIBS head model** | m2m directory from charm                   | **Required** |
+| **T1-weighted MRI**    | Used for registration                      | **Required** |
 
 ## Stage 1: QSIPrep
 
@@ -67,14 +70,9 @@ project_root/
 
 ```python
 from tit.pre.qsi import run_qsiprep
-import logging
-
-logger = logging.getLogger(__name__)
 
 run_qsiprep(
-    project_dir="/path/to/project",
     subject_id="101",
-    logger=logger,
     output_resolution=2.0,
     denoise_method="dwidenoise",
 )
@@ -82,13 +80,12 @@ run_qsiprep(
 
 ### Configuration Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `output_resolution` | Output voxel size (mm) | 2.0 |
-| `denoise_method` | Denoising algorithm (`dwidenoise`, `patch2self`, `none`) | `"dwidenoise"` |
-| `unringing_method` | Gibbs ringing removal (`mrdegibbs`, `rpg`, `none`) | `"mrdegibbs"` |
-| `skip_bids_validation` | Skip BIDS validation | `True` |
-
+| Option                 | Description                                              | Default        |
+| ---------------------- | -------------------------------------------------------- | -------------- |
+| `output_resolution`    | Output voxel size (mm)                                   | 2.0            |
+| `denoise_method`       | Denoising algorithm (`dwidenoise`, `patch2self`, `none`) | `"dwidenoise"` |
+| `unringing_method`     | Gibbs ringing removal (`mrdegibbs`, `rpg`, `none`)       | `"mrdegibbs"`  |
+| `skip_bids_validation` | Skip BIDS validation                                     | `True`         |
 
 ### Output Structure
 
@@ -118,12 +115,12 @@ derivatives/
 
 ### Available Reconstruction Specs
 
-| Spec | Description | DTI Output |
-|------|-------------|------------|
-| `dsi_studio_gqi` | DSI Studio GQI reconstruction | Yes (tensor components) |
-| `dipy_dki` | DIPY Diffusion Kurtosis Imaging | Yes (DT + KT) |
-| `mrtrix_multishell_msmt_ACT-fast` | MRtrix multi-shell CSD | No |
-| `amico_noddi` | NODDI model fitting | No |
+| Spec                              | Description                     | DTI Output              |
+| --------------------------------- | ------------------------------- | ----------------------- |
+| `dsi_studio_gqi`                  | DSI Studio GQI reconstruction   | Yes (tensor components) |
+| `dipy_dki`                        | DIPY Diffusion Kurtosis Imaging | Yes (DT + KT)           |
+| `mrtrix_multishell_msmt_ACT-fast` | MRtrix multi-shell CSD          | No                      |
+| `amico_noddi`                     | NODDI model fitting             | No                      |
 
 **Note:** For SimNIBS anisotropic simulations, use `dsi_studio_gqi` (recommended) or `dipy_dki`.
 
@@ -131,12 +128,8 @@ derivatives/
 
 ```python
 from tit.pre.qsi import run_qsirecon
-import logging
-
-logger = logging.getLogger(__name__)
 
 run_qsirecon(
-    project_dir="/path/to/project",
     subject_id="101",
     logger=logger,
     recon_specs=["dsi_studio_gqi"],  # Recommended for DTI
@@ -187,13 +180,8 @@ The DTI extractor performs three key operations:
 
 ```python
 from tit.pre.qsi import extract_dti_tensor
-import logging
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 tensor_path = extract_dti_tensor(
-    project_dir="/path/to/project",
     subject_id="101",
     logger=logger,
 )
@@ -225,8 +213,6 @@ Index 4: Dyz (off-diagonal yz)
 Index 5: Dzz (diffusion along z-axis)
 ```
 
-
-
 ## Integration with Simulations
 
 Once the DTI tensor is extracted, it's automatically available for anisotropic simulations:
@@ -237,17 +223,6 @@ Once the DTI tensor is extracted, it's automatically available for anisotropic s
 2. Select your subject
 3. Under **Conductivity Model**, select **Anisotropic**
 4. The simulator will automatically use `DTI_coregT1_tensor.nii.gz`
-
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| "No DTI tensor found" | QSIRecon not run with DTI spec | Run QSIRecon with `dsi_studio_gqi` |
-| "m2m directory not found" | SimNIBS charm not run | Run charm preprocessing first |
-| Tensor shape mismatch | Registration failed | Check T1 alignment, re-run extraction |
-| Missing tensor components | Incomplete QSIRecon | Re-run QSIRecon, check logs |
 
 ## Resource Requirements
 
