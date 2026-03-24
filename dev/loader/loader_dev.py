@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 from typing import Optional
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.dev"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.dev.yml"
@@ -83,32 +82,6 @@ def prompt_dir(label: str, prompt: str, current: str) -> Path:
         print("Invalid directory. Please provide a valid path.")
 
 
-def check_docker_available() -> None:
-    if not shutil.which("docker"):
-        print("Error: Docker is not installed or not in PATH.")
-        sys.exit(1)
-    result = subprocess.run(["docker", "info"], capture_output=True)
-    if result.returncode != 0:
-        print("Error: Docker daemon is not running. Please start Docker and try again.")
-        sys.exit(1)
-    result = subprocess.run(["docker", "compose", "version"], capture_output=True)
-    if result.returncode != 0:
-        print("Error: Docker Compose (v2) is not available.")
-        sys.exit(1)
-
-
-def check_xquartz_version() -> None:
-    xquartz_app = Path("/Applications/Utilities/XQuartz.app")
-    if not xquartz_app.exists():
-        return
-    version = capture(["mdls", "-name", "kMDItemVersion", str(xquartz_app)])
-    version = version.split('"')[-2] if '"' in version else version
-    if version and version > "2.8.0":
-        print(
-            "Warning: XQuartz version is above 2.8.0. Consider 2.7.7 for compatibility."
-        )
-
-
 def allow_network_clients() -> None:
     run(
         [
@@ -130,24 +103,6 @@ def set_display_env() -> None:
         os.environ.setdefault("DISPLAY", ":0")
     else:
         os.environ["DISPLAY"] = "host.docker.internal:0"
-
-
-def set_macos_opengl_env(env: dict[str, str]) -> None:
-    env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-    env["LIBGL_ALWAYS_INDIRECT"] = "1"
-    env["QT_X11_NO_MITSHM"] = "1"
-    env["QT_OPENGL"] = "desktop"
-    env["TI_GUI_QGL_FALLBACK"] = "1"
-
-
-def ensure_docker_volume(volume_name: str) -> None:
-    result = subprocess.run(
-        ["docker", "volume", "inspect", volume_name],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if result.returncode != 0:
-        run(["docker", "volume", "create", volume_name], check=False)
 
 
 def write_system_info(project_dir: Path) -> None:
@@ -205,13 +160,10 @@ def update_project_status(project_dir: Path) -> None:
 
 
 def initialize_project_structure(project_dir: Path) -> None:
-    try:
-        from tit.project_init import initializer
-    except Exception:
-        return
-    if initializer.is_new_project(project_dir):
-        initializer.initialize_project_structure(project_dir)
-        initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
+    from tit.project_init import initializer
+
+    initializer.initialize_project_structure(project_dir)
+    initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
 
 
 def get_compose_images() -> list[str]:
@@ -266,7 +218,9 @@ def run_docker_compose(env: dict[str, str], dev_codebase_dir: Path) -> None:
     else:
         subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
 
-    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env)
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env
+    )
 
 
 def display_welcome() -> None:
@@ -296,8 +250,6 @@ def main() -> None:
 
     args = parse_args()
     display_welcome()
-    check_docker_available()
-    ensure_docker_volume("ti-toolbox_freesurfer_data")
 
     default_project, default_dev = load_default_paths()
     project_dir = (
@@ -318,7 +270,6 @@ def main() -> None:
     )
 
     if platform.system() == "Darwin":
-        check_xquartz_version()
         allow_network_clients()
 
     set_display_env()
@@ -336,9 +287,6 @@ def main() -> None:
     env["TZ"] = capture(["date", "+%Z"])
     env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
     env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
-    if platform.system() == "Darwin":
-        set_macos_opengl_env(env)
-
     ensure_images_pulled(env)
     run_docker_compose(env, dev_codebase_dir)
 
