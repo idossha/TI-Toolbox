@@ -4,11 +4,9 @@ title: Diffusion Processing (QSIPrep/QSIRecon)
 permalink: /wiki/diffusion-processing/
 ---
 
-### Known Issues:
-
-Currently the diffusion processing pipeline is not compatible with ARM Macs due to limitation of downstream qsi packages.
-
 The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
+
+**Known Issues:** Currently the diffusion processing pipeline is not compatible with ARM Macs due to limitation of downstream qsi packages.
 
 ## Overview
 
