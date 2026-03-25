@@ -65,6 +65,9 @@ def build_optimization(config: FlexConfig):
     opt.aniso_maxcond = config.aniso_maxcond
     opt.open_in_gmsh = False  # Never auto-launch GUI
 
+    # Minimum distance between electrodes of different arrays (mm)
+    opt.min_electrode_distance = config.min_electrode_distance
+
     # Final electrode simulation control
     opt.run_final_electrode_simulation = config.run_final_electrode_simulation
 

@@ -114,6 +114,18 @@ class TestFlexConfigValidation:
         cfg = _make_flex_config(thresholds="0.5")
         assert cfg.thresholds == "0.5"
 
+    def test_min_electrode_distance_default(self):
+        cfg = _make_flex_config()
+        assert cfg.min_electrode_distance == 5.0
+
+    def test_min_electrode_distance_custom(self):
+        cfg = _make_flex_config(min_electrode_distance=50.0)
+        assert cfg.min_electrode_distance == 50.0
+
+    def test_min_electrode_distance_zero(self):
+        cfg = _make_flex_config(min_electrode_distance=0.0)
+        assert cfg.min_electrode_distance == 0.0
+
 
 # ---------------------------------------------------------------------------
 # ExConfig validation

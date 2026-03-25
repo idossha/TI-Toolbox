@@ -264,7 +264,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Left column: Basic Parameters
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
         basic_params_group.setSizePolicy(
-            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Preferred
         )
         basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
 
@@ -305,7 +305,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
         right_column_widget = QtWidgets.QWidget()
         right_column_widget.setSizePolicy(
-            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Preferred
         )
         right_column_layout = QtWidgets.QVBoxLayout(right_column_widget)
         right_column_layout.setContentsMargins(0, 0, 0, 0)
@@ -337,7 +337,10 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         right_column_layout.addWidget(self.mapping_group)
 
-        # Electrode Parameters — use component widget
+        # Electrode Parameters — use component widget; stretch to fill
+        self.electrode_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         right_column_layout.addWidget(self.electrode_widget)
 
         top_row_layout.addWidget(right_column_widget, 11)
@@ -892,6 +895,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             detailed_results=solver["detailed_results"],
             visualize_valid_skin_region=solver["visualize_valid_skin_region"],
             skin_visualization_net=skin_net_path,
+            min_electrode_distance=self.electrode_widget.get_min_electrode_distance(),
         )
 
     def _launch_flex_config(self, config: FlexConfig, env=None):

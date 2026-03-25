@@ -63,6 +63,7 @@ def write_manifest(
         ),
         "thresholds": config.thresholds,
         "n_multistart": config.n_multistart,
+        "min_electrode_distance": config.min_electrode_distance,
         "result": {
             "success": result.success,
             "best_value": result.best_value,

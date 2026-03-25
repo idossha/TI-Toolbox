@@ -40,6 +40,13 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
         self.thickness_input.setPlaceholderText("4")
         self.thickness_input.setText("4")
 
+        # --- Min electrode distance ---
+        self.min_distance_input = QtWidgets.QDoubleSpinBox()
+        self.min_distance_input.setRange(0.0, 100.0)
+        self.min_distance_input.setValue(5.0)
+        self.min_distance_input.setDecimals(1)
+        self.min_distance_input.setSingleStep(1.0)
+
         # --- Layout ---
         layout = QtWidgets.QFormLayout(self)
 
@@ -53,6 +60,7 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
 
         layout.addRow("Dimensions (mm, x,y):", self.dimensions_input)
         layout.addRow("Gel Thickness (mm):", self.thickness_input)
+        layout.addRow("Min Electrode Distance:", self.min_distance_input)
 
     # ------------------------------------------------------------------
     # Public API
@@ -81,6 +89,10 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
     def get_thickness_text(self) -> str:
         """Return raw thickness text, defaulting to ``'4'``."""
         return self.thickness_input.text() or "4"
+
+    def get_min_electrode_distance(self) -> float:
+        """Return minimum electrode distance in mm."""
+        return self.min_distance_input.value()
 
     def setEnabled(self, enabled: bool):
         """Enable or disable all child widgets."""

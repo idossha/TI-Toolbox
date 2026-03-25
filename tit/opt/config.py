@@ -113,6 +113,7 @@ class FlexConfig:
     mutation: str | None = None
     recombination: float | None = None
     cpus: int | None = None
+    min_electrode_distance: float = 5.0
 
     # ── debug ──
     detailed_results: bool = False
