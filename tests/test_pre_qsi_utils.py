@@ -13,7 +13,6 @@ from tit.pre.qsi.utils import (
     check_image_exists,
     format_memory_limit,
     get_container_resource_limits,
-    get_freesurfer_license_path,
     get_host_project_dir,
     get_inherited_dood_resources,
     pull_image_if_needed,
@@ -191,36 +190,6 @@ class TestValidateQsiprepOutput:
         (d / "sub-001_space-T1w_desc-preproc_dwi.nii.gz").touch()
         valid, msg = validate_qsiprep_output(str(tmp_path), "001")
         assert valid is True
-
-
-class TestGetFreesurferLicensePath:
-    """Tests for get_freesurfer_license_path."""
-
-    @patch.dict(os.environ, {"FS_LICENSE": "/opt/fs/license.txt"}, clear=True)
-    def test_fs_license_env(self):
-        os.environ.pop("LOCAL_FS_LICENSE", None)
-        assert get_freesurfer_license_path() == "/opt/fs/license.txt"
-
-    @patch.dict(os.environ, {"LOCAL_FS_LICENSE": "/host/fs/license.txt"}, clear=True)
-    def test_local_fs_license_preferred(self):
-        os.environ.pop("FS_LICENSE", None)
-        assert get_freesurfer_license_path() == "/host/fs/license.txt"
-
-    @patch.dict(
-        os.environ,
-        {
-            "LOCAL_FS_LICENSE": "/host/fs/license.txt",
-            "FS_LICENSE": "/opt/fs/license.txt",
-        },
-    )
-    def test_local_fs_license_takes_priority(self):
-        assert get_freesurfer_license_path() == "/host/fs/license.txt"
-
-    @patch.dict(os.environ, {}, clear=True)
-    def test_env_not_set(self):
-        os.environ.pop("FS_LICENSE", None)
-        os.environ.pop("LOCAL_FS_LICENSE", None)
-        assert get_freesurfer_license_path() is None
 
 
 class TestFormatMemoryLimit:

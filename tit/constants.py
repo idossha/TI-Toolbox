@@ -364,7 +364,9 @@ QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
 
 # QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
-ENV_LOCAL_FS_LICENSE = "LOCAL_FS_LICENSE"
+
+# FreeSurfer license (always present in SimNIBS container)
+FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 
 # ============================================================================
 # VERSION INFORMATION

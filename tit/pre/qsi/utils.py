@@ -241,25 +241,6 @@ def validate_qsiprep_output(
     return True, None
 
 
-def get_freesurfer_license_path() -> str | None:
-    """
-    Get the FreeSurfer license file path suitable for DooD volume mounts.
-
-    Resolution order:
-    1. LOCAL_FS_LICENSE env var (host path, preferred for DooD mounts)
-    2. FS_LICENSE env var (container path, fallback)
-
-    Returns
-    -------
-    str | None
-        Path to the license file, or None if not found.
-    """
-    local_fs_license = os.environ.get(const.ENV_LOCAL_FS_LICENSE)
-    if local_fs_license:
-        return local_fs_license
-    return os.environ.get("FS_LICENSE")
-
-
 def format_memory_limit(memory_gb: int) -> str:
     """
     Format memory limit for Docker --memory flag.

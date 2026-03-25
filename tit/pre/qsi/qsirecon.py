@@ -154,7 +154,7 @@ def run_qsirecon(
             raise PreprocessError(f"Failed to build QSIRecon command: {e}")
 
         # Log the command for debugging
-        logger.debug(f"QSIRecon command: {' '.join(cmd)}")
+        logger.info(f"QSIRecon command: {' '.join(cmd)}")
 
         # Run the container
         logger.info(f"Running QSIRecon {spec} for subject {subject_id}...")

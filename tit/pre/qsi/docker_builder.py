@@ -8,6 +8,7 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
+import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +17,6 @@ from tit import constants as const
 from .config import QSIPrepConfig, QSIReconConfig
 from .utils import (
     get_host_project_dir,
-    get_freesurfer_license_path,
     get_inherited_dood_resources,
     format_memory_limit,
 )
@@ -71,7 +71,16 @@ class DockerCommandBuilder:
         self.paths = paths or DockerPaths()
 
         self._host_project_dir = get_host_project_dir()
-        self._fs_license = get_freesurfer_license_path()
+        self._host_license_path = self._stage_fs_license()
+
+    def _stage_fs_license(self) -> str | None:
+        """Copy FS license into project dir so DooD siblings can mount it."""
+        src = Path(const.FS_LICENSE_PATH)
+        if not src.is_file():
+            return None
+        dest = Path(self.project_dir) / ".freesurfer_license.txt"
+        shutil.copy2(src, dest)
+        return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
@@ -120,12 +129,9 @@ class DockerCommandBuilder:
         )
 
         # Environment variables
-        cmd.extend(
-            [
-                "-e",
-                f"OMP_NUM_THREADS={config.resources.omp_threads}",
-            ]
-        )
+        cmd.extend(["-e", f"OMP_NUM_THREADS={config.resources.omp_threads}"])
+        if self._host_license_path:
+            cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
         # Volume mounts - mount host project directory
         # BIDS data is at project root
@@ -137,8 +143,8 @@ class DockerCommandBuilder:
         work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsiprep_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
-        if self._fs_license:
-            cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
+        if self._host_license_path:
+            cmd.extend(["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"])
 
         cmd.append(image)
 
@@ -158,7 +164,7 @@ class DockerCommandBuilder:
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
-        if self._fs_license:
+        if self._host_license_path:
             cmd.extend(["--fs-license-file", self.paths.license_file])
 
         if config.skip_bids_validation:
@@ -221,12 +227,9 @@ class DockerCommandBuilder:
             ]
         )
 
-        cmd.extend(
-            [
-                "-e",
-                f"OMP_NUM_THREADS={config.resources.omp_threads}",
-            ]
-        )
+        cmd.extend(["-e", f"OMP_NUM_THREADS={config.resources.omp_threads}"])
+        if self._host_license_path:
+            cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
         qsiprep_output = str(Path(self._host_project_dir) / "derivatives" / "qsiprep")
         cmd.extend(["-v", f"{qsiprep_output}:{self.paths.bids_dir}:ro"])
@@ -237,8 +240,8 @@ class DockerCommandBuilder:
         work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsirecon_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
-        if self._fs_license:
-            cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
+        if self._host_license_path:
+            cmd.extend(["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"])
 
         cmd.append(image)
 
@@ -257,7 +260,7 @@ class DockerCommandBuilder:
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
-        if self._fs_license:
+        if self._host_license_path:
             cmd.extend(["--fs-license-file", self.paths.license_file])
 
         if config.atlases:

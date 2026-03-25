@@ -19,13 +19,10 @@ MODULE = "tit.pre.qsi.docker_builder"
 @pytest.fixture
 def builder():
     """Create a DockerCommandBuilder with mocked dependencies."""
-    with (
-        patch(f"{MODULE}.get_host_project_dir", return_value="/host/project"),
-        patch(
-            f"{MODULE}.get_freesurfer_license_path", return_value="/opt/fs/license.txt"
-        ),
-    ):
-        return DockerCommandBuilder("/container/project")
+    with patch(f"{MODULE}.get_host_project_dir", return_value="/host/project"):
+        b = DockerCommandBuilder("/container/project")
+        b._host_license_path = "/host/project/.freesurfer_license.txt"
+        return b
 
 
 class TestDockerPaths:
@@ -51,14 +48,11 @@ class TestDockerCommandBuilder:
 
     def test_init(self, builder):
         assert builder._host_project_dir == "/host/project"
-        assert builder._fs_license == "/opt/fs/license.txt"
+        assert builder._host_license_path == "/host/project/.freesurfer_license.txt"
 
     def test_custom_paths(self):
         custom = DockerPaths(bids_dir="/custom/data")
-        with (
-            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
-            patch(f"{MODULE}.get_freesurfer_license_path", return_value="/fs"),
-        ):
+        with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
             b = DockerCommandBuilder("/proj", paths=custom)
             assert b.paths.bids_dir == "/custom/data"
 
@@ -162,13 +156,21 @@ class TestBuildQsiprepCmd:
         assert len(v_indices) >= 3  # bids, output, work (+ optional license)
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_fs_license_uses_host_path(self, mock_resources, builder):
+        """License mount source must be the host path, not container path."""
+        config = QSIPrepConfig(subject_id="001")
+        cmd = builder.build_qsiprep_cmd(config)
+        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
+        license_mounts = [v for v in v_args if "license" in v]
+        assert len(license_mounts) == 1
+        assert license_mounts[0].startswith("/host/project/")
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license(self, mock_resources):
-        """No license mount or --fs-license-file when no license path."""
-        with (
-            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
-            patch(f"{MODULE}.get_freesurfer_license_path", return_value=None),
-        ):
+        """No license mount or --fs-license-file when staging fails."""
+        with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
             b = DockerCommandBuilder("/proj")
+            b._host_license_path = None
             config = QSIPrepConfig(subject_id="001")
             cmd = b.build_qsiprep_cmd(config)
 
@@ -243,12 +245,10 @@ class TestBuildQsireconCmd:
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license_qsirecon(self, mock_resources):
-        """No license mount or --fs-license-file when no license path."""
-        with (
-            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
-            patch(f"{MODULE}.get_freesurfer_license_path", return_value=None),
-        ):
+        """No license mount or --fs-license-file when staging fails."""
+        with patch(f"{MODULE}.get_host_project_dir", return_value="/host"):
             b = DockerCommandBuilder("/proj")
+            b._host_license_path = None
             config = QSIReconConfig(subject_id="001")
             cmd = b.build_qsirecon_cmd(config, "dipy_dki")
 
