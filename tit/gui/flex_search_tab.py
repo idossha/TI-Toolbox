@@ -108,6 +108,36 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.anisotropy_combo.addItem("Multi-conductivity (mc)", "mc")
 
         self.anisotropy_label = QtWidgets.QLabel("Anisotropy Type:")
+        self.search_mode_combo = QtWidgets.QComboBox()
+        self.search_mode_combo.addItem("Standard Flex-Search", "standard")
+        self.search_mode_combo.addItem("Secondary Search (add one pair)", "secondary")
+        self.search_mode_label = QtWidgets.QLabel("Search Mode:")
+        self.secondary_metric_combo = QtWidgets.QComboBox()
+        self.secondary_metric_combo.addItem("recursive_ti (TI_Max)", "recursive_ti")
+        self.secondary_metric_combo.addItem(
+            "direct_field_magnitude (TI_Max)", "direct_field_magnitude"
+        )
+        self.secondary_metric_combo.addItem(
+            "direct_field_directional (TI_Max)", "direct_field_directional"
+        )
+        self.secondary_metric_combo.addItem(
+            "full_field_directional_am (TI_Max)", "full_field_directional_am"
+        )
+        self.secondary_metric_combo.addItem(
+            "full_field_directional_am (TI_Avg)", "full_field_directional_am_ti_avg"
+        )
+        self.secondary_metric_label = QtWidgets.QLabel("mTI Metric:")
+        self.base_simulation_combo = QtWidgets.QComboBox()
+        self.refresh_base_simulations_btn = QtWidgets.QPushButton("Refresh")
+        self.base_simulation_label = QtWidgets.QLabel("Base Simulation:")
+        self.base_simulation_summary_label = QtWidgets.QLabel("Base Summary:")
+        self.base_simulation_widget = QtWidgets.QWidget()
+        self.base_simulation_summary = QtWidgets.QTextEdit()
+        self.base_simulation_summary.setReadOnly(True)
+        self.base_simulation_summary.setMaximumHeight(120)
+        self.base_simulation_summary.setPlaceholderText(
+            "Selected base simulation summary and field readiness will appear here."
+        )
 
         # Initialize buttons that might be referenced
         self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
@@ -221,8 +251,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
         self.clear_subjects_btn.clicked.connect(self.clear_subject_selection)
         self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
+        self.refresh_base_simulations_btn.clicked.connect(
+            self.find_available_base_simulations
+        )
+        self.base_simulation_combo.currentIndexChanged.connect(
+            self.update_base_simulation_summary
+        )
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
+        self.search_mode_combo.currentIndexChanged.connect(
+            self._update_search_mode_visibility
+        )
         self.focality_mode_group.buttonClicked.connect(
             self._update_focality_mode_visibility
         )
@@ -283,10 +322,22 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
 
+        self.search_mode_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        basic_params_layout.addRow(self.search_mode_label, self.search_mode_combo)
+
         self.goal_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
         basic_params_layout.addRow(self.goal_label, self.goal_combo)
+
+        self.secondary_metric_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        basic_params_layout.addRow(
+            self.secondary_metric_label, self.secondary_metric_combo
+        )
 
         self.postproc_combo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
@@ -297,6 +348,18 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
         basic_params_layout.addRow(self.anisotropy_label, self.anisotropy_combo)
+
+        base_sim_layout = QtWidgets.QHBoxLayout(self.base_simulation_widget)
+        base_sim_layout.setContentsMargins(0, 0, 0, 0)
+        self.base_simulation_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        base_sim_layout.addWidget(self.base_simulation_combo)
+        base_sim_layout.addWidget(self.refresh_base_simulations_btn)
+        basic_params_layout.addRow(self.base_simulation_label, self.base_simulation_widget)
+        basic_params_layout.addRow(
+            self.base_simulation_summary_label, self.base_simulation_summary
+        )
 
         top_row_layout.addWidget(basic_params_group, 9)
 
@@ -464,6 +527,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Initialize focality visibility
         self._update_focality_visibility()
         self._update_nonroi_stacked()
+        self._update_search_mode_visibility()
 
     # ------------------------------------------------------------------ #
     #  Subject / EEG net discovery                                        #
@@ -496,6 +560,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Trigger EEG net refresh and atlas refresh for the first subject
         if self.subjects:
             self.find_available_eeg_nets()
+            self.find_available_base_simulations()
             # Populate atlas combos via the picker widgets
             first_subject = self.subjects[0]
             self.roi_picker.set_subject(first_subject, project_dir)
@@ -575,6 +640,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             pm = get_path_manager()
             project_dir = pm.project_dir
             self.find_available_eeg_nets()
+            self.find_available_base_simulations()
             self.roi_picker.set_subject(subject_id, project_dir)
             self.nonroi_picker.set_subject(subject_id, project_dir)
 
@@ -586,6 +652,80 @@ class FlexSearchTab(QtWidgets.QWidget):
         # No longer disable spherical ROI for multiple subjects
         # Instead, we'll use MNI coordinates for multiple subjects
         pass
+
+    def find_available_base_simulations(self):
+        """Populate existing simulations for the first selected subject."""
+        self.base_simulation_combo.clear()
+        self.base_simulation_summary.clear()
+        selected_items = self.subject_list.selectedItems()
+        if not selected_items:
+            return
+
+        subject_id = selected_items[0].text()
+        pm = get_path_manager()
+        simulations = pm.list_simulations(subject_id)
+        for simulation_name in simulations:
+            self.base_simulation_combo.addItem(simulation_name)
+
+        self.update_base_simulation_summary()
+
+    def _update_search_mode_visibility(self):
+        is_secondary = self.search_mode_combo.currentData() == "secondary"
+        self.base_simulation_label.setVisible(is_secondary)
+        self.base_simulation_widget.setVisible(is_secondary)
+        self.base_simulation_summary_label.setVisible(is_secondary)
+        self.base_simulation_summary.setVisible(is_secondary)
+        self.secondary_metric_label.setVisible(is_secondary)
+        self.secondary_metric_combo.setVisible(is_secondary)
+        self.postproc_label.setVisible(not is_secondary)
+        self.postproc_combo.setVisible(not is_secondary)
+        if is_secondary:
+            self.anisotropy_combo.setCurrentIndex(
+                self.anisotropy_combo.findData("scalar")
+            )
+            self.anisotropy_combo.setEnabled(False)
+        else:
+            self.anisotropy_combo.setEnabled(True)
+
+    def update_base_simulation_summary(self):
+        """Load a short summary of the selected base simulation and cached status."""
+        self.base_simulation_summary.clear()
+
+        selected_items = self.subject_list.selectedItems()
+        if not selected_items:
+            return
+
+        subject_id = selected_items[0].text()
+        simulation_name = self.base_simulation_combo.currentText().strip()
+        if not simulation_name:
+            return
+
+        pm = get_path_manager()
+        sim_dir = pm.simulation(subject_id, simulation_name)
+        hf_mesh_dir = os.path.join(sim_dir, "high_Frequency", "mesh")
+        hf_ready = os.path.isdir(hf_mesh_dir) and bool(os.listdir(hf_mesh_dir))
+        ti_dir = os.path.join(sim_dir, "TI")
+        mti_dirs = sorted(
+            p for p in Path(sim_dir).glob("mTI*") if p.is_dir()
+        ) if os.path.isdir(sim_dir) else []
+        shared_fields_dir = os.path.join(sim_dir, "shared_fields")
+
+        summary_lines = [
+            f"Simulation: {simulation_name}",
+            f"Pair fields: {'ready' if hf_ready else 'missing'}",
+        ]
+        if os.path.isdir(ti_dir):
+            summary_lines.append("Contains TI outputs")
+        if mti_dirs:
+            summary_lines.append(
+                "Contains mTI outputs: " + ", ".join(p.name for p in mti_dirs)
+            )
+        if os.path.isdir(shared_fields_dir):
+            summary_lines.append("Contains shared fields")
+        if not os.path.isdir(sim_dir):
+            summary_lines = ["Selected simulation folder does not exist."]
+
+        self.base_simulation_summary.setPlainText("\n".join(summary_lines))
 
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
@@ -611,6 +751,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.update_output(
                 "Optimization already running. Please wait or stop the current run."
             )
+            return
+
+        if self.search_mode_combo.currentData() == "secondary":
+            self._run_secondary_search_placeholder()
             return
 
         # Validate inputs
@@ -834,6 +978,78 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
+    def _run_secondary_search_placeholder(self):
+        """Validate secondary-search inputs and report placeholder status."""
+        selected_items = self.subject_list.selectedItems()
+        if not selected_items:
+            QtWidgets.QMessageBox.warning(
+                self, "Warning", "Please select at least one subject."
+            )
+            return
+
+        subject_id = selected_items[0].text()
+        base_simulation = self.base_simulation_combo.currentText().strip()
+        if not base_simulation:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Warning",
+                "Please select a base simulation for secondary search.",
+            )
+            return
+
+        error = self.roi_picker.validate()
+        if error:
+            QtWidgets.QMessageBox.warning(self, "Warning", error)
+            return
+
+        goal = self.goal_combo.currentData()
+        postproc = self.postproc_combo.currentData()
+        secondary_metric = self.secondary_metric_combo.currentData()
+        anisotropy_type = self.anisotropy_combo.currentData()
+        _electrode_config, electrode_current = self.electrode_widget.get_config()
+        electrode_shape = self.electrode_widget.get_shape()
+        dimensions = self.electrode_widget.get_dimensions_text()
+        thickness = self.electrode_widget.get_thickness_text()
+        roi_params = self.roi_picker.get_roi_params()
+
+        details = (
+            f"Subject: {subject_id}\n"
+            f"Base simulation: {base_simulation}\n"
+            f"mTI metric: {secondary_metric}\n"
+            f"Goal: {goal}\n"
+            f"Post-processing: {postproc}\n"
+            f"Anisotropy: {anisotropy_type}\n"
+            f"Added pair current: {electrode_current}mA\n"
+            f"Electrode shape: {electrode_shape}\n"
+            f"Dimensions: {dimensions}mm\n"
+            f"Thickness: {thickness}mm\n"
+            f"ROI method: {roi_params.get('method', 'unknown')}"
+        )
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Secondary Search",
+            message="Start secondary search setup with the selected base simulation?",
+            details=details,
+        ):
+            return
+
+        self.update_output("\n=== Secondary Search ===", "info")
+        if len(selected_items) > 1:
+            self.update_output(
+                "Secondary search currently supports one subject only; using the first selected subject.",
+                "warning",
+            )
+        self.update_output(f"Subject: {subject_id}", "info")
+        self.update_output(f"Base simulation: {base_simulation}", "info")
+        self.update_output(f"mTI metric: {secondary_metric}", "info")
+        self.update_output(f"Goal: {goal}", "info")
+        self.update_output(f"Post-processing: {postproc}", "info")
+        self.update_output(f"Added pair current: {electrode_current}mA", "info")
+        self.update_output(
+            "Secondary search backend is not implemented yet. The GUI wiring and input collection are ready.",
+            "warning",
+        )
 
     # ── Config-building helpers ──────────────────────────────────────────
 
