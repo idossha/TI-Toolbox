@@ -10,6 +10,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
+import tarfile
 from pathlib import Path
 from typing import Optional
 
@@ -85,20 +86,45 @@ def _process_modality(
     runner: Optional[CommandRunner],
 ) -> bool:
     """Process DICOM files for a specific modality."""
-    # DICOM files must be in dicom/ subdirectory
-    dicom_dir = sourcedata_dir / modality / "dicom"
+    modality_dir = sourcedata_dir / modality
+    dicom_dir = modality_dir / "dicom"
+    archive_patterns = ("*.tgz", "*.tar.gz", "*.tar")
 
-    # Check for .dcm files
-    dcm_files = list(dicom_dir.glob("*.dcm"))
+    archives: list[Path] = []
+    if dicom_dir.is_dir():
+        for pattern in archive_patterns:
+            archives.extend(sorted(dicom_dir.glob(pattern)))
 
-    logger.info(f"Processing {modality} DICOM files ({len(dcm_files)} files)")
+    if dicom_dir.is_dir():
+        logger.info("Processing %s from %s", modality, dicom_dir)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            if _run_dcm2niix(dicom_dir, temp_path, logger, runner) and _process_converted_files(
+                temp_path, bids_anat_dir, subject_id, modality, logger
+            ):
+                return True
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    for archive_path in archives:
+        logger.info("Processing %s archive %s", modality, archive_path)
+        with tempfile.TemporaryDirectory() as extract_dir, tempfile.TemporaryDirectory() as temp_dir:
+            extract_path = Path(extract_dir)
+            temp_path = Path(temp_dir)
+            try:
+                with tarfile.open(archive_path, "r:*") as tar:
+                    tar.extractall(extract_path)
+            except (tarfile.TarError, OSError) as exc:
+                logger.warning("Failed to extract %s: %s", archive_path, exc)
+                continue
 
-        return _process_converted_files(
-            temp_path, bids_anat_dir, subject_id, modality, logger
-        )
+            if not _run_dcm2niix(extract_path, temp_path, logger, runner):
+                continue
+            if _process_converted_files(
+                temp_path, bids_anat_dir, subject_id, modality, logger
+            ):
+                return True
+
+    logger.info("No convertible %s source found", modality)
+    return False
 
 
 def run_dicom_to_nifti(
