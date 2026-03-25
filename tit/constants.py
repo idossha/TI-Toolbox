@@ -332,28 +332,45 @@ DIR_DWI = "dwi"
 
 # QSI recon specs (available reconstruction pipelines)
 QSI_RECON_SPECS = [
+    "mrtrix_multishell_msmt_ACT-hsvs",
     "mrtrix_multishell_msmt_ACT-fast",
-    "multishell_scalarfest",
+    "mrtrix_multishell_msmt_noACT",
+    "mrtrix_singleshell_ss3t_ACT-hsvs",
+    "mrtrix_singleshell_ss3t_ACT-fast",
+    "mrtrix_singleshell_ss3t_noACT",
+    "dsi_studio_gqi",
+    "dsi_studio_autotrack",
     "dipy_dki",
     "dipy_mapmri",
+    "dipy_3dshore",
     "amico_noddi",
     "pyafq_tractometry",
     "mrtrix_multishell_msmt_pyafq_tractometry",
-    "dsi_studio_gqi",
-    "dsi_studio_autotrack",
+    "ss3t_fod_autotrack",
+    "multishell_scalarfest",
+    "hbcd_scalar_maps",
+    "TORTOISE",
+    "reorient_fslstd",
+    "csdsi_3dshore",
+    "abcd_recon",
 ]
 
 # QSI atlases (available for connectivity analysis)
 QSI_ATLASES = [
+    "4S156Parcels",
+    "4S256Parcels",
+    "4S356Parcels",
+    "4S456Parcels",
+    "4S556Parcels",
+    "4S656Parcels",
+    "4S756Parcels",
+    "4S856Parcels",
+    "4S956Parcels",
+    "4S1056Parcels",
     "AAL116",
-    "AICHA384Ext",
     "Brainnetome246Ext",
+    "AICHA384Ext",
     "Gordon333Ext",
-    "MICCAI2012",
-    "Schaefer100",
-    "Schaefer200",
-    "Schaefer400",
-    "power264Ext",
 ]
 
 # QSI default resource settings

@@ -206,11 +206,11 @@ class TestBuildQsireconCmd:
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_atlases(self, mock_resources, builder):
-        config = QSIReconConfig(subject_id="001", atlases=["AAL116", "Schaefer100"])
+        config = QSIReconConfig(subject_id="001", atlases=["AAL116", "4S156Parcels"])
         cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
         idx = cmd.index("--atlases")
         assert cmd[idx + 1] == "AAL116"
-        assert cmd[idx + 2] == "Schaefer100"
+        assert cmd[idx + 2] == "4S156Parcels"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_atlases(self, mock_resources, builder):

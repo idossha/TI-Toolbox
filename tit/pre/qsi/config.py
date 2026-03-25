@@ -23,17 +23,29 @@ class ReconSpec(StrEnum):
     algorithms and output formats.
     """
 
+    MRTRIX_MULTISHELL_MSMT_ACT_HSVS = "mrtrix_multishell_msmt_ACT-hsvs"
     MRTRIX_MULTISHELL_MSMT_ACT_FAST = "mrtrix_multishell_msmt_ACT-fast"
-    MULTISHELL_SCALARFEST = "multishell_scalarfest"
+    MRTRIX_MULTISHELL_MSMT_NOACT = "mrtrix_multishell_msmt_noACT"
+    MRTRIX_SINGLESHELL_SS3T_ACT_HSVS = "mrtrix_singleshell_ss3t_ACT-hsvs"
+    MRTRIX_SINGLESHELL_SS3T_ACT_FAST = "mrtrix_singleshell_ss3t_ACT-fast"
+    MRTRIX_SINGLESHELL_SS3T_NOACT = "mrtrix_singleshell_ss3t_noACT"
+    DSI_STUDIO_GQI = "dsi_studio_gqi"
+    DSI_STUDIO_AUTOTRACK = "dsi_studio_autotrack"
     DIPY_DKI = "dipy_dki"
     DIPY_MAPMRI = "dipy_mapmri"
+    DIPY_3DSHORE = "dipy_3dshore"
     AMICO_NODDI = "amico_noddi"
     PYAFQ_TRACTOMETRY = "pyafq_tractometry"
     MRTRIX_MULTISHELL_MSMT_PYAFQ_TRACTOMETRY = (
         "mrtrix_multishell_msmt_pyafq_tractometry"
     )
-    DSI_STUDIO_GQI = "dsi_studio_gqi"
-    DSI_STUDIO_AUTOTRACK = "dsi_studio_autotrack"
+    SS3T_FOD_AUTOTRACK = "ss3t_fod_autotrack"
+    MULTISHELL_SCALARFEST = "multishell_scalarfest"
+    HBCD_SCALAR_MAPS = "hbcd_scalar_maps"
+    TORTOISE = "TORTOISE"
+    REORIENT_FSLSTD = "reorient_fslstd"
+    CSDSI_3DSHORE = "csdsi_3dshore"
+    ABCD_RECON = "abcd_recon"
 
     def __str__(self) -> str:
         return self.value
@@ -57,17 +69,23 @@ class QSIAtlas(StrEnum):
     Available atlases for QSIRecon connectivity analysis.
 
     These atlases can be used for structural connectivity matrix generation.
+    The 4S series combines Schaefer cortical parcels with 56 subcortical ROIs.
     """
 
+    S4_156 = "4S156Parcels"
+    S4_256 = "4S256Parcels"
+    S4_356 = "4S356Parcels"
+    S4_456 = "4S456Parcels"
+    S4_556 = "4S556Parcels"
+    S4_656 = "4S656Parcels"
+    S4_756 = "4S756Parcels"
+    S4_856 = "4S856Parcels"
+    S4_956 = "4S956Parcels"
+    S4_1056 = "4S1056Parcels"
     AAL116 = "AAL116"
-    AICHA384EXT = "AICHA384Ext"
     BRAINNETOME246EXT = "Brainnetome246Ext"
+    AICHA384EXT = "AICHA384Ext"
     GORDON333EXT = "Gordon333Ext"
-    MICCAI2012 = "MICCAI2012"
-    SCHAEFER100 = "Schaefer100"
-    SCHAEFER200 = "Schaefer200"
-    SCHAEFER400 = "Schaefer400"
-    POWER264EXT = "power264Ext"
 
     def __str__(self) -> str:
         return self.value
@@ -189,7 +207,7 @@ class QSIReconConfig:
     recon_specs: list[str] = field(
         default_factory=lambda: ["mrtrix_multishell_msmt_ACT-fast"]
     )
-    atlases: list[str] | None = field(default_factory=lambda: ["Schaefer100", "AAL116"])
+    atlases: list[str] | None = field(default_factory=lambda: ["4S156Parcels", "AAL116"])
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     image_tag: str = const.QSI_QSIRECON_IMAGE_TAG

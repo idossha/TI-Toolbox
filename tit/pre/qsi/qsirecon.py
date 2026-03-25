@@ -56,7 +56,7 @@ def run_qsirecon(
         Available specs: mrtrix_multishell_msmt_ACT-fast, multishell_scalarfest,
         dipy_dki, dipy_mapmri, amico_noddi, pyafq_tractometry, etc.
     atlases : list[str] | None, optional
-        List of atlases for connectivity analysis. Default: ['Schaefer100', 'AAL116'].
+        List of atlases for connectivity analysis. Default: ['4S156Parcels', 'AAL116'].
     use_gpu : bool, optional
         Enable GPU acceleration. Default: False.
     cpus : int, optional
@@ -83,7 +83,7 @@ def run_qsirecon(
 
     # Default atlases for connectivity-based recon specs
     if atlases is None:
-        atlases = ["Schaefer100", "AAL116"]
+        atlases = ["4S156Parcels", "AAL116"]
 
     logger.info(
         f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
@@ -154,7 +154,7 @@ def run_qsirecon(
             raise PreprocessError(f"Failed to build QSIRecon command: {e}")
 
         # Log the command for debugging
-        logger.info(f"QSIRecon command: {' '.join(cmd)}")
+        logger.debug(f"QSIRecon command: {' '.join(cmd)}")
 
         # Run the container
         logger.info(f"Running QSIRecon {spec} for subject {subject_id}...")
