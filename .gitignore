@@ -1,4 +1,5 @@
-local/
+dev_scripts/
+diagrams/
 
 # Python
 __pycache__/
