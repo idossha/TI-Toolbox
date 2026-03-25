@@ -322,7 +322,7 @@ PATTERN_COORDINATE = r"^-?\d+\.?\d*$"
 # QSI Docker images
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_DEFAULT_IMAGE_TAG = "1.1.1"
+QSI_DEFAULT_IMAGE_TAG = "1.2.0"
 
 # QSI directories
 DIR_QSIPREP = "qsiprep"
