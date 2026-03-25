@@ -14,6 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tit import constants as const
+
+# Custom pipeline YAMLs shipped in resources/qsirecon_pipelines/.
+# These work around upstream QSIRecon bugs or missing features.
+_CUSTOM_PIPELINE_MAP = {
+    # dsi_studio_gqi without the connectivity node (avoids plot_reports bug
+    # and the mandatory --atlases requirement in QSIRecon >= 1.2.0).
+    "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
+}
 from .config import QSIPrepConfig, QSIReconConfig
 from .utils import (
     get_host_project_dir,
@@ -65,8 +73,6 @@ class DockerCommandBuilder:
         project_dir: str,
         paths: DockerPaths | None = None,
     ) -> None:
-        # Validate Docker availability
-
         self.project_dir = project_dir
         self.paths = paths or DockerPaths()
 
@@ -81,6 +87,26 @@ class DockerCommandBuilder:
         dest = Path(self.project_dir) / ".freesurfer_license.txt"
         shutil.copy2(src, dest)
         return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
+
+    def _stage_custom_pipeline(self, yaml_filename: str) -> str:
+        """Copy a custom pipeline YAML into the work dir for container access.
+
+        Returns the container-side path (``/work/<filename>``).
+        """
+        # Resolve the resource file on the host
+        src = (
+            Path(__file__).resolve().parents[3]
+            / "resources"
+            / "qsirecon_pipelines"
+            / yaml_filename
+        )
+        if not src.is_file():
+            raise DockerBuildError(f"Custom pipeline YAML not found: {src}")
+        dest_dir = Path(self.project_dir) / "derivatives" / ".qsirecon_work"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / yaml_filename
+        shutil.copy2(src, dest)
+        return f"{self.paths.work_dir}/{yaml_filename}"
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
@@ -144,7 +170,9 @@ class DockerCommandBuilder:
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
         if self._host_license_path:
-            cmd.extend(["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"])
+            cmd.extend(
+                ["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"]
+            )
 
         cmd.append(image)
 
@@ -241,7 +269,9 @@ class DockerCommandBuilder:
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
         if self._host_license_path:
-            cmd.extend(["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"])
+            cmd.extend(
+                ["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"]
+            )
 
         cmd.append(image)
 
@@ -254,7 +284,16 @@ class DockerCommandBuilder:
         )
 
         cmd.extend(["--participant-label", config.subject_id])
-        cmd.extend(["--recon-spec", recon_spec])
+
+        # Use custom pipeline YAML when no atlases are requested and a
+        # custom version exists (avoids upstream connectivity bugs).
+        container_spec = recon_spec
+        if not config.atlases and recon_spec in _CUSTOM_PIPELINE_MAP:
+            container_spec = self._stage_custom_pipeline(
+                _CUSTOM_PIPELINE_MAP[recon_spec]
+            )
+
+        cmd.extend(["--recon-spec", container_spec])
         cmd.extend(["-w", self.paths.work_dir])
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])

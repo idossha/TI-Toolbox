@@ -56,18 +56,19 @@ def run_qsirecon(
         This default produces DTI tensors for SimNIBS anisotropic modeling.
         Other specs (mrtrix_*, dipy_*, amico_noddi, pyafq_*, etc.) remain available.
     atlases : list[str] | None, optional
-        List of atlases for connectivity analysis. Default: ['4S156Parcels', 'AAL116'].
-        Not needed for DTI extraction but included for optional connectivity.
+        List of atlases for connectivity analysis. Default: None (no connectivity).
+        Not needed for DTI extraction. Set to e.g. ['4S156Parcels', 'AAL116']
+        if connectivity matrices are desired.
     use_gpu : bool, optional
         Enable GPU acceleration. Default: False.
-    cpus : int, optional
-        Number of CPUs to allocate. Default: 8.
-    memory_gb : int, optional
-        Memory limit in GB. Default: 32.
+    cpus : int | None, optional
+        Number of CPUs to allocate. None = inherit from current container.
+    memory_gb : int | None, optional
+        Memory limit in GB. None = inherit from current container.
     omp_threads : int, optional
         Number of OpenMP threads. Default: 1.
     image_tag : str, optional
-        QSIRecon Docker image tag. Default: '1.1.1'.
+        QSIRecon Docker image tag. Default from ``constants.QSI_QSIRECON_IMAGE_TAG``.
     skip_odf_reports : bool, optional
         Skip ODF report generation. Default: True.
     runner : CommandRunner | None, optional
@@ -82,9 +83,8 @@ def run_qsirecon(
     if recon_specs is None:
         recon_specs = [const.QSI_DEFAULT_RECON_SPEC]
 
-    # Default atlases for connectivity (optional, not needed for DTI)
-    if atlases is None:
-        atlases = list(const.QSI_DEFAULT_ATLASES)
+    # Atlases are optional — not needed for DTI extraction
+    # Pass through None/empty to skip connectivity workflows
 
     logger.info(
         f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
@@ -135,19 +135,17 @@ def run_qsirecon(
     if runner is None:
         runner = CommandRunner()
 
+    # Check for existing output before starting any specs
+    subject_output_dir = output_base / f"sub-{subject_id}"
+    if subject_output_dir.exists():
+        raise PreprocessError(
+            f"QSIRecon output already exists at {subject_output_dir}. "
+            "Remove the directory manually before rerunning."
+        )
+
     # Run each recon spec
     for spec in recon_specs:
         logger.info(f"Running QSIRecon spec: {spec}")
-
-        # Check for existing output for this spec
-        # QSIRecon outputs are organized by recon spec
-        spec_output_dir = output_base / f"sub-{subject_id}"
-
-        if spec_output_dir.exists():
-            raise PreprocessError(
-                f"QSIRecon output already exists at {spec_output_dir}. "
-                "Remove the directory manually before rerunning."
-            )
 
         try:
             cmd = builder.build_qsirecon_cmd(config, spec)

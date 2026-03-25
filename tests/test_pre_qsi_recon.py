@@ -141,7 +141,7 @@ class TestRunQsirecon:
         # Verify the config was built with defaults
         config = mock_builder.return_value.build_qsirecon_cmd.call_args[0][0]
         assert len(config.recon_specs) > 0
-        assert config.atlases is not None
+        assert config.atlases is None  # no atlases by default (DTI-only)
 
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")

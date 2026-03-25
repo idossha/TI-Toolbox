@@ -216,8 +216,7 @@ _SPEC_CATEGORIES = [
         [
             (
                 "dsi_studio_autotrack",
-                "QSDR + AutoTrack: identifies 56 white-matter bundles "
-                "in MNI space.",
+                "QSDR + AutoTrack: identifies 56 white-matter bundles " "in MNI space.",
             ),
             (
                 "pyafq_tractometry",
@@ -226,8 +225,7 @@ _SPEC_CATEGORIES = [
             ),
             (
                 "mrtrix_multishell_msmt_pyafq_tractometry",
-                "MRTrix3 CSD tractography combined with PyAFQ bundle "
-                "analysis.",
+                "MRTrix3 CSD tractography combined with PyAFQ bundle " "analysis.",
             ),
             (
                 "ss3t_fod_autotrack",
@@ -334,13 +332,11 @@ _ATLAS_CATEGORIES = [
             ),
             (
                 "Brainnetome246Ext",
-                "Connectivity-based parcellation: 246 regions "
-                "(Fan et al. 2016).",
+                "Connectivity-based parcellation: 246 regions " "(Fan et al. 2016).",
             ),
             (
                 "AICHA384Ext",
-                "Homotopic connectivity atlas: 384 regions "
-                "(Joliot et al. 2015).",
+                "Homotopic connectivity atlas: 384 regions " "(Joliot et al. 2015).",
             ),
             (
                 "Gordon333Ext",
@@ -398,9 +394,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         self.spec_checkboxes = {}
         self.atlas_checkboxes = {}
 
-        default_specs = self.config.get(
-            "recon_specs", [const.QSI_DEFAULT_RECON_SPEC]
-        )
+        default_specs = self.config.get("recon_specs", [const.QSI_DEFAULT_RECON_SPEC])
 
         from tit.pre.qsi.config import QSIReconConfig
 
@@ -424,18 +418,12 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         scroll_layout.addWidget(specs_group)
 
         # -- Atlases --
-        atlases_group = QtWidgets.QGroupBox(
-            "Atlases for Connectivity (Optional)"
-        )
+        atlases_group = QtWidgets.QGroupBox("Atlases for Connectivity (Optional)")
         atlases_inner = QtWidgets.QVBoxLayout(atlases_group)
         atlases_inner.setSpacing(2)
 
-        hint = QtWidgets.QLabel(
-            "Not required for the DTI-to-SimNIBS workflow."
-        )
-        hint.setStyleSheet(
-            _CSS_HINT.format(font=FONT_HELP)
-        )
+        hint = QtWidgets.QLabel("Not required for the DTI-to-SimNIBS workflow.")
+        hint.setStyleSheet(_CSS_HINT.format(font=FONT_HELP))
         hint.setWordWrap(True)
         atlases_inner.addWidget(hint)
 
@@ -466,9 +454,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
 
         self.memory_spin = QtWidgets.QSpinBox()
         self.memory_spin.setRange(4, max(256, int(inherited_mem_gb)))
-        self.memory_spin.setValue(
-            self.config.get("memory_gb", inherited_mem_gb)
-        )
+        self.memory_spin.setValue(self.config.get("memory_gb", inherited_mem_gb))
         self.memory_spin.setSuffix(" GB")
         resource_layout.addRow("Memory:", self.memory_spin)
 
@@ -486,12 +472,8 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         options_layout.addRow("Use GPU:", self.gpu_cb)
 
         self.skip_odf_cb = QtWidgets.QCheckBox()
-        self.skip_odf_cb.setChecked(
-            self.config.get("skip_odf_reports", True)
-        )
-        self.skip_odf_cb.setToolTip(
-            "Skip ODF report generation to save time"
-        )
+        self.skip_odf_cb.setChecked(self.config.get("skip_odf_reports", True))
+        self.skip_odf_cb.setToolTip("Skip ODF report generation to save time")
         options_layout.addRow("Skip ODF Reports:", self.skip_odf_cb)
 
         layout.addWidget(options_group)
@@ -552,9 +534,8 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         for spec, cb in self.spec_checkboxes.items():
             cb.setChecked(spec == const.QSI_DEFAULT_RECON_SPEC)
 
-        default_atlases = list(const.QSI_DEFAULT_ATLASES)
         for atlas, cb in self.atlas_checkboxes.items():
-            cb.setChecked(atlas in default_atlases)
+            cb.setChecked(False)
 
         try:
             from tit.pre.qsi.utils import get_inherited_dood_resources
@@ -577,20 +558,14 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
             spec for spec, cb in self.spec_checkboxes.items() if cb.isChecked()
         ]
         selected_atlases = [
-            atlas
-            for atlas, cb in self.atlas_checkboxes.items()
-            if cb.isChecked()
+            atlas for atlas, cb in self.atlas_checkboxes.items() if cb.isChecked()
         ]
 
         return {
             "recon_specs": (
-                selected_specs
-                if selected_specs
-                else [const.QSI_DEFAULT_RECON_SPEC]
+                selected_specs if selected_specs else [const.QSI_DEFAULT_RECON_SPEC]
             ),
-            "atlases": selected_atlases if selected_atlases else list(
-                const.QSI_DEFAULT_ATLASES
-            ),
+            "atlases": selected_atlases or None,
             "cpus": self.cpus_spin.value(),
             "memory_gb": self.memory_spin.value(),
             "use_gpu": self.gpu_cb.isChecked(),

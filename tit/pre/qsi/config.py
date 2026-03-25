@@ -192,7 +192,8 @@ class QSIReconConfig:
     recon_specs : list[str]
         List of reconstruction specs to run. Defaults to ['dsi_studio_gqi'].
     atlases : list[str] | None
-        List of atlases for connectivity analysis. None = no connectivity.
+        List of atlases for connectivity analysis. None (default) = no
+        connectivity. Set to e.g. ['4S156Parcels', 'AAL116'] if needed.
     use_gpu : bool
         Whether to enable GPU acceleration (requires NVIDIA Docker runtime).
     resources : ResourceConfig
@@ -207,9 +208,7 @@ class QSIReconConfig:
     recon_specs: list[str] = field(
         default_factory=lambda: [const.QSI_DEFAULT_RECON_SPEC]
     )
-    atlases: list[str] | None = field(
-        default_factory=lambda: list(const.QSI_DEFAULT_ATLASES)
-    )
+    atlases: list[str] | None = None
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     image_tag: str = const.QSI_QSIRECON_IMAGE_TAG

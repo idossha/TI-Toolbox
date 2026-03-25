@@ -73,7 +73,7 @@ required** for the DTI-to-SimNIBS workflow.
 | Parameter | Default |
 |-----------|---------|
 | Recon spec | `dsi_studio_gqi` |
-| Atlases (optional) | `4S156Parcels`, `AAL116` |
+| Atlases (optional) | None (not needed for DTI) |
 | Output resolution | 2 mm isotropic |
 
 ## Output Locations
