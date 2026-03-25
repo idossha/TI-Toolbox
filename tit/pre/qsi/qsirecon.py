@@ -52,11 +52,12 @@ def run_qsirecon(
     logger : logging.Logger
         Logger for status messages.
     recon_specs : list[str] | None, optional
-        List of reconstruction specifications to run. Default: ['mrtrix_multishell_msmt_ACT-fast'].
-        Available specs: mrtrix_multishell_msmt_ACT-fast, multishell_scalarfest,
-        dipy_dki, dipy_mapmri, amico_noddi, pyafq_tractometry, etc.
+        List of reconstruction specifications to run. Default: ['dsi_studio_gqi'].
+        This default produces DTI tensors for SimNIBS anisotropic modeling.
+        Other specs (mrtrix_*, dipy_*, amico_noddi, pyafq_*, etc.) remain available.
     atlases : list[str] | None, optional
         List of atlases for connectivity analysis. Default: ['4S156Parcels', 'AAL116'].
+        Not needed for DTI extraction but included for optional connectivity.
     use_gpu : bool, optional
         Enable GPU acceleration. Default: False.
     cpus : int, optional
@@ -77,13 +78,13 @@ def run_qsirecon(
     PreprocessError
         If QSIRecon fails or prerequisites are not met.
     """
-    # Default to mrtrix_multishell_msmt_ACT-fast if no specs provided
+    # Default to dsi_studio_gqi for SimNIBS DTI extraction
     if recon_specs is None:
-        recon_specs = ["mrtrix_multishell_msmt_ACT-fast"]
+        recon_specs = [const.QSI_DEFAULT_RECON_SPEC]
 
-    # Default atlases for connectivity-based recon specs
+    # Default atlases for connectivity (optional, not needed for DTI)
     if atlases is None:
-        atlases = ["4S156Parcels", "AAL116"]
+        atlases = list(const.QSI_DEFAULT_ATLASES)
 
     logger.info(
         f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"

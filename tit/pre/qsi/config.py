@@ -190,7 +190,7 @@ class QSIReconConfig:
     subject_id : str
         Subject identifier (without 'sub-' prefix).
     recon_specs : list[str]
-        List of reconstruction specs to run. Defaults to ['dipy_dki'].
+        List of reconstruction specs to run. Defaults to ['dsi_studio_gqi'].
     atlases : list[str] | None
         List of atlases for connectivity analysis. None = no connectivity.
     use_gpu : bool
@@ -205,9 +205,11 @@ class QSIReconConfig:
 
     subject_id: str
     recon_specs: list[str] = field(
-        default_factory=lambda: ["mrtrix_multishell_msmt_ACT-fast"]
+        default_factory=lambda: [const.QSI_DEFAULT_RECON_SPEC]
     )
-    atlases: list[str] | None = field(default_factory=lambda: ["4S156Parcels", "AAL116"])
+    atlases: list[str] | None = field(
+        default_factory=lambda: list(const.QSI_DEFAULT_ATLASES)
+    )
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     image_tag: str = const.QSI_QSIRECON_IMAGE_TAG

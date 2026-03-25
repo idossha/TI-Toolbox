@@ -331,31 +331,42 @@ DIR_QSIRECON = "qsirecon"
 DIR_DWI = "dwi"
 
 # QSI recon specs (available reconstruction pipelines)
+# Organized by category. The full list is flat for validation; comments mark groups.
 QSI_RECON_SPECS = [
+    # --- Primary: DTI/scalar extraction for SimNIBS anisotropic modeling ---
+    "dsi_studio_gqi",
+    # --- Tractography: MRTrix CSD-based pipelines ---
     "mrtrix_multishell_msmt_ACT-hsvs",
     "mrtrix_multishell_msmt_ACT-fast",
     "mrtrix_multishell_msmt_noACT",
     "mrtrix_singleshell_ss3t_ACT-hsvs",
     "mrtrix_singleshell_ss3t_ACT-fast",
     "mrtrix_singleshell_ss3t_noACT",
-    "dsi_studio_gqi",
+    # --- Tractography: PyAFQ and autotrack ---
+    "pyafq_tractometry",
+    "mrtrix_multishell_msmt_pyafq_tractometry",
+    "ss3t_fod_autotrack",
     "dsi_studio_autotrack",
+    # --- Scalar / microstructural models ---
     "dipy_dki",
     "dipy_mapmri",
     "dipy_3dshore",
     "amico_noddi",
-    "pyafq_tractometry",
-    "mrtrix_multishell_msmt_pyafq_tractometry",
-    "ss3t_fod_autotrack",
+    "TORTOISE",
     "multishell_scalarfest",
     "hbcd_scalar_maps",
-    "TORTOISE",
+    # --- Utility / experimental ---
     "reorient_fslstd",
     "csdsi_3dshore",
     "abcd_recon",
 ]
 
+# Default spec for SimNIBS anisotropic DTI extraction
+QSI_DEFAULT_RECON_SPEC = "dsi_studio_gqi"
+
 # QSI atlases (available for connectivity analysis)
+# The 4S series (Schaefer cortical + 56 subcortical ROIs) are resolution
+# variants of the same parcellation (100–1000 cortical parcels + 56 subcortical).
 QSI_ATLASES = [
     "4S156Parcels",
     "4S256Parcels",
@@ -372,6 +383,9 @@ QSI_ATLASES = [
     "AICHA384Ext",
     "Gordon333Ext",
 ]
+
+# Default atlases for connectivity (optional, not needed for DTI)
+QSI_DEFAULT_ATLASES = ["4S156Parcels", "AAL116"]
 
 # QSI default resource settings
 QSI_DEFAULT_CPUS = 8
