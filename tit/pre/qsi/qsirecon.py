@@ -8,7 +8,6 @@ This module provides functions to run QSIRecon as a sibling Docker container
 using the Docker-out-of-Docker (DooD) pattern.
 """
 
-
 import logging
 from pathlib import Path
 
@@ -31,7 +30,7 @@ def run_qsirecon(
     cpus: int | None = None,
     memory_gb: int | None = None,
     omp_threads: int = const.QSI_DEFAULT_OMP_THREADS,
-    image_tag: str = const.QSI_DEFAULT_IMAGE_TAG,
+    image_tag: str = const.QSI_QSIRECON_IMAGE_TAG,
     skip_odf_reports: bool = True,
     runner: CommandRunner | None = None,
 ) -> None:

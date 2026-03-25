@@ -8,7 +8,6 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
-
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,16 +157,15 @@ class DockerCommandBuilder:
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
-        cmd.extend(["--fs-license-file", self.paths.license_file])
+
+        if self._fs_license:
+            cmd.extend(["--fs-license-file", self.paths.license_file])
 
         if config.skip_bids_validation:
             cmd.append("--skip-bids-validation")
 
-        if config.denoise_method != "dwidenoise":
-            cmd.extend(["--denoise-method", config.denoise_method])
-
-        if config.unringing_method != "mrdegibbs":
-            cmd.extend(["--unringing-method", config.unringing_method])
+        cmd.extend(["--denoise-method", config.denoise_method])
+        cmd.extend(["--unringing-method", config.unringing_method])
 
         if config.distortion_group_merge != "none":
             cmd.extend(["--distortion-group-merge", config.distortion_group_merge])
@@ -239,7 +237,8 @@ class DockerCommandBuilder:
         work_dir = str(Path(self._host_project_dir) / "derivatives" / ".qsirecon_work")
         cmd.extend(["-v", f"{work_dir}:{self.paths.work_dir}"])
 
-        cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
+        if self._fs_license:
+            cmd.extend(["-v", f"{self._fs_license}:{self.paths.license_file}:ro"])
 
         cmd.append(image)
 
@@ -257,11 +256,13 @@ class DockerCommandBuilder:
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
-        cmd.extend(["--fs-license-file", self.paths.license_file])
+
+        if self._fs_license:
+            cmd.extend(["--fs-license-file", self.paths.license_file])
 
         if config.atlases:
-            for atlas in config.atlases:
-                cmd.extend(["--atlases", atlas])
+            cmd.append("--atlases")
+            cmd.extend(config.atlases)
 
         if config.skip_odf_reports:
             cmd.append("--skip-odf-reports")

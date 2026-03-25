@@ -78,7 +78,9 @@ class TestCheckImageExists:
         mock_run.return_value = MagicMock(returncode=1)
         assert check_image_exists("pennlinc/qsiprep", "1.1.1") is False
 
-    @patch(f"{MODULE}.subprocess.run", side_effect=FileNotFoundError("docker not found"))
+    @patch(
+        f"{MODULE}.subprocess.run", side_effect=FileNotFoundError("docker not found")
+    )
     def test_exception_returns_false(self, mock_run):
         assert check_image_exists("pennlinc/qsiprep", "1.1.1") is False
 
@@ -194,13 +196,30 @@ class TestValidateQsiprepOutput:
 class TestGetFreesurferLicensePath:
     """Tests for get_freesurfer_license_path."""
 
-    @patch.dict(os.environ, {"FS_LICENSE": "/opt/fs/license.txt"})
-    def test_env_set(self):
+    @patch.dict(os.environ, {"FS_LICENSE": "/opt/fs/license.txt"}, clear=True)
+    def test_fs_license_env(self):
+        os.environ.pop("LOCAL_FS_LICENSE", None)
         assert get_freesurfer_license_path() == "/opt/fs/license.txt"
+
+    @patch.dict(os.environ, {"LOCAL_FS_LICENSE": "/host/fs/license.txt"}, clear=True)
+    def test_local_fs_license_preferred(self):
+        os.environ.pop("FS_LICENSE", None)
+        assert get_freesurfer_license_path() == "/host/fs/license.txt"
+
+    @patch.dict(
+        os.environ,
+        {
+            "LOCAL_FS_LICENSE": "/host/fs/license.txt",
+            "FS_LICENSE": "/opt/fs/license.txt",
+        },
+    )
+    def test_local_fs_license_takes_priority(self):
+        assert get_freesurfer_license_path() == "/host/fs/license.txt"
 
     @patch.dict(os.environ, {}, clear=True)
     def test_env_not_set(self):
         os.environ.pop("FS_LICENSE", None)
+        os.environ.pop("LOCAL_FS_LICENSE", None)
         assert get_freesurfer_license_path() is None
 
 

@@ -149,7 +149,7 @@ def _run_subject_pipeline(
                 omp_threads=qsiprep_cfg.get(
                     "omp_threads", const.QSI_DEFAULT_OMP_THREADS
                 ),
-                image_tag=qsiprep_cfg.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG),
+                image_tag=qsiprep_cfg.get("image_tag", const.QSI_QSIPREP_IMAGE_TAG),
                 skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
                 denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
                 unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
@@ -175,7 +175,7 @@ def _run_subject_pipeline(
                 cpus=recon_cfg.get("cpus"),
                 memory_gb=recon_cfg.get("memory_gb"),
                 omp_threads=recon_cfg.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS),
-                image_tag=recon_cfg.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG),
+                image_tag=recon_cfg.get("image_tag", const.QSI_QSIRECON_IMAGE_TAG),
                 skip_odf_reports=recon_cfg.get("skip_odf_reports", True),
                 runner=runner,
             ),

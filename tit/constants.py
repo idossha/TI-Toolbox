@@ -322,7 +322,8 @@ PATTERN_COORDINATE = r"^-?\d+\.?\d*$"
 # QSI Docker images
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_DEFAULT_IMAGE_TAG = "1.2.0"
+QSI_QSIPREP_IMAGE_TAG = "1.2.0"
+QSI_QSIRECON_IMAGE_TAG = "1.2.0"
 
 # QSI directories
 DIR_QSIPREP = "qsiprep"
@@ -361,8 +362,9 @@ QSI_DEFAULT_MEMORY_GB = 32
 QSI_DEFAULT_OMP_THREADS = 1
 QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
 
-# QSI environment variable for local project directory
+# QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
+ENV_LOCAL_FS_LICENSE = "LOCAL_FS_LICENSE"
 
 # ============================================================================
 # VERSION INFORMATION

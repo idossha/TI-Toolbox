@@ -126,10 +126,18 @@ class TestBuildQsiprepCmd:
         assert cmd[idx + 1] == "patch2self"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
-    def test_default_denoise_not_added(self, mock_resources, builder):
+    def test_default_denoise_always_added(self, mock_resources, builder):
         config = QSIPrepConfig(subject_id="001", denoise_method="dwidenoise")
         cmd = builder.build_qsiprep_cmd(config)
-        assert "--denoise-method" not in cmd
+        idx = cmd.index("--denoise-method")
+        assert cmd[idx + 1] == "dwidenoise"
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_default_unringing_always_added(self, mock_resources, builder):
+        config = QSIPrepConfig(subject_id="001", unringing_method="mrdegibbs")
+        cmd = builder.build_qsiprep_cmd(config)
+        idx = cmd.index("--unringing-method")
+        assert cmd[idx + 1] == "mrdegibbs"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_custom_unringing(self, mock_resources, builder):
@@ -155,7 +163,7 @@ class TestBuildQsiprepCmd:
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license(self, mock_resources):
-        """No license mount when no license path."""
+        """No license mount or --fs-license-file when no license path."""
         with (
             patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
             patch(f"{MODULE}.get_freesurfer_license_path", return_value=None),
@@ -164,9 +172,9 @@ class TestBuildQsiprepCmd:
             config = QSIPrepConfig(subject_id="001")
             cmd = b.build_qsiprep_cmd(config)
 
-            # License file should still be in args, just no -v mount for it
             v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
             assert not any("license" in v for v in v_args)
+            assert "--fs-license-file" not in cmd
 
 
 class TestBuildQsireconCmd:
@@ -198,8 +206,9 @@ class TestBuildQsireconCmd:
     def test_atlases(self, mock_resources, builder):
         config = QSIReconConfig(subject_id="001", atlases=["AAL116", "Schaefer100"])
         cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
-        atlas_indices = [i for i, x in enumerate(cmd) if x == "--atlases"]
-        assert len(atlas_indices) == 2
+        idx = cmd.index("--atlases")
+        assert cmd[idx + 1] == "AAL116"
+        assert cmd[idx + 2] == "Schaefer100"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_atlases(self, mock_resources, builder):
@@ -231,3 +240,18 @@ class TestBuildQsireconCmd:
         assert cmd[idx + 1] == "16"
         idx = cmd.index("--memory")
         assert cmd[idx + 1] == "64g"
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_no_fs_license_qsirecon(self, mock_resources):
+        """No license mount or --fs-license-file when no license path."""
+        with (
+            patch(f"{MODULE}.get_host_project_dir", return_value="/host"),
+            patch(f"{MODULE}.get_freesurfer_license_path", return_value=None),
+        ):
+            b = DockerCommandBuilder("/proj")
+            config = QSIReconConfig(subject_id="001")
+            cmd = b.build_qsirecon_cmd(config, "dipy_dki")
+
+            v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
+            assert not any("license" in v for v in v_args)
+            assert "--fs-license-file" not in cmd

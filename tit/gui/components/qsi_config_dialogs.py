@@ -103,7 +103,7 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
         tag_layout = QtWidgets.QHBoxLayout()
         tag_layout.addWidget(QtWidgets.QLabel("Image Tag:"))
         self.tag_edit = QtWidgets.QLineEdit()
-        self.tag_edit.setText(self.config.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG))
+        self.tag_edit.setText(self.config.get("image_tag", const.QSI_QSIPREP_IMAGE_TAG))
         self.tag_edit.setToolTip("Docker image tag for QSIPrep")
         tag_layout.addWidget(self.tag_edit)
         layout.addLayout(tag_layout)
@@ -143,7 +143,7 @@ class QSIPrepConfigDialog(QtWidgets.QDialog):
         self.denoise_combo.setCurrentText("dwidenoise")
         self.unringing_combo.setCurrentText("mrdegibbs")
         self.skip_bids_cb.setChecked(True)
-        self.tag_edit.setText(const.QSI_DEFAULT_IMAGE_TAG)
+        self.tag_edit.setText(const.QSI_QSIPREP_IMAGE_TAG)
 
     def get_config(self):
         """Return the configuration as a dictionary."""
@@ -258,7 +258,9 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         tag_layout = QtWidgets.QHBoxLayout()
         tag_layout.addWidget(QtWidgets.QLabel("Image Tag:"))
         self.tag_edit = QtWidgets.QLineEdit()
-        self.tag_edit.setText(self.config.get("image_tag", const.QSI_DEFAULT_IMAGE_TAG))
+        self.tag_edit.setText(
+            self.config.get("image_tag", const.QSI_QSIRECON_IMAGE_TAG)
+        )
         tag_layout.addWidget(self.tag_edit)
         layout.addLayout(tag_layout)
 
@@ -300,7 +302,7 @@ class QSIReconConfigDialog(QtWidgets.QDialog):
         self.memory_spin.setValue(inherited_mem_gb)
         self.gpu_cb.setChecked(False)
         self.skip_odf_cb.setChecked(True)
-        self.tag_edit.setText(const.QSI_DEFAULT_IMAGE_TAG)
+        self.tag_edit.setText(const.QSI_QSIRECON_IMAGE_TAG)
 
     def get_config(self):
         """Return the configuration as a dictionary."""

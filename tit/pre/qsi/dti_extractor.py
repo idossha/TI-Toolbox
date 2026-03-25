@@ -13,7 +13,6 @@ SimNIBS expects a 4D NIfTI file with the diffusion tensor stored as a
 The tensor must be coregistered to the SimNIBS T1 space.
 """
 
-
 import logging
 import os
 import shutil

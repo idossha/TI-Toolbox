@@ -8,7 +8,6 @@ This module defines type-safe configuration objects for QSIPrep and QSIRecon
 Docker runs, including resource allocation and pipeline specifications.
 """
 
-
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Self
@@ -144,7 +143,7 @@ class QSIPrepConfig:
     subject_id: str
     output_resolution: float = const.QSI_DEFAULT_OUTPUT_RESOLUTION
     resources: ResourceConfig = field(default_factory=ResourceConfig)
-    image_tag: str = const.QSI_DEFAULT_IMAGE_TAG
+    image_tag: str = const.QSI_QSIPREP_IMAGE_TAG
     skip_bids_validation: bool = True
     denoise_method: str = "dwidenoise"
     unringing_method: str = "mrdegibbs"
@@ -193,7 +192,7 @@ class QSIReconConfig:
     atlases: list[str] | None = field(default_factory=lambda: ["Schaefer100", "AAL116"])
     use_gpu: bool = False
     resources: ResourceConfig = field(default_factory=ResourceConfig)
-    image_tag: str = const.QSI_DEFAULT_IMAGE_TAG
+    image_tag: str = const.QSI_QSIRECON_IMAGE_TAG
     skip_odf_reports: bool = True
 
     def __post_init__(self) -> None:

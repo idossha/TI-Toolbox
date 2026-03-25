@@ -8,7 +8,6 @@ This module provides path resolution, validation, and helper functions
 for the QSI Docker-out-of-Docker integration.
 """
 
-
 import logging
 import math
 import os
@@ -244,19 +243,21 @@ def validate_qsiprep_output(
 
 def get_freesurfer_license_path() -> str | None:
     """
-    Get the FreeSurfer license file path.
+    Get the FreeSurfer license file path suitable for DooD volume mounts.
 
-    QSIPrep and QSIRecon require a FreeSurfer license for certain operations.
-    This function checks common locations for the license file.
+    Resolution order:
+    1. LOCAL_FS_LICENSE env var (host path, preferred for DooD mounts)
+    2. FS_LICENSE env var (container path, fallback)
 
     Returns
     -------
     str | None
         Path to the license file, or None if not found.
     """
-    # Check environment variable
-    fs_license = os.environ.get("FS_LICENSE")
-    return fs_license
+    local_fs_license = os.environ.get(const.ENV_LOCAL_FS_LICENSE)
+    if local_fs_license:
+        return local_fs_license
+    return os.environ.get("FS_LICENSE")
 
 
 def format_memory_limit(memory_gb: int) -> str:
