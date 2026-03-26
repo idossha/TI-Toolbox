@@ -226,8 +226,11 @@ def _register_tensor(
     voxels[:, 5] = T_rot[:, 2, 2]
     resampled[nonzero] = voxels
 
-    nib.save(nib.Nifti1Image(resampled, target_affine), str(output_path))
-    logger.info(f"Registered tensor saved to {output_path}")
+    out_str = str(Path(output_path).resolve())
+    logger.info(f"Saving registered tensor ({resampled.shape}) to: {out_str}")
+    out_img = nib.Nifti1Image(resampled, target_affine)
+    nib.save(out_img, out_str)
+    logger.info(f"Registered tensor saved to {out_str}")
 
 
 # ============================================================================
