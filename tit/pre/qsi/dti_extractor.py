@@ -11,6 +11,13 @@ SimNIBS expects a 4D NIfTI (X, Y, Z, 6) with the diffusion tensor in
 FSL upper-triangular format: [Dxx, Dxy, Dxz, Dyy, Dyz, Dzz].
 The tensor must be coregistered to the T1 in the m2m directory.
 
+SimNIBS's ``cond2elmdata`` always applies ``correct_FSL=True``, which
+assumes tensors follow FSL's radiological voxel convention (implicit
+x-flip for neurological images).  DSI Studio stores tensors in the
+actual image voxel frame with no such flip.  The registration step
+pre-compensates for this so that the final world-space conductivity
+tensors are correct.
+
 QSIRecon DSI Studio GQI output structure (known, BIDS-compliant):
     derivatives/qsirecon/derivatives/qsirecon-DSIStudio/sub-{id}/dwi/
         sub-{id}_space-ACPC_model-tensor_param-{txx,txy,...,tzz}_dwimap.nii.gz
@@ -138,16 +145,50 @@ def _validate_tensor(tensor: np.ndarray, logger: logging.Logger) -> None:
 
 
 # ============================================================================
+# NIfTI save helper
+# ============================================================================
+
+
+def _save_nifti_gz(
+    data: np.ndarray, affine: np.ndarray, output_path: Path, logger: logging.Logger
+) -> None:
+    """Save 4D NIfTI with gzip workaround for Docker bind mounts.
+
+    nibabel's DeterministicGzipFile can fail with FileNotFoundError on
+    Docker bind-mount filesystems. Write uncompressed .nii first, then
+    compress with stdlib gzip.
+    """
+    import gzip as _gzip
+
+    import nibabel as nib
+
+    tmp_nii = output_path.with_suffix("").with_suffix(".nii")
+    nib.save(nib.Nifti1Image(data, affine), str(tmp_nii))
+    with open(tmp_nii, "rb") as f_in, _gzip.open(str(output_path), "wb") as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    tmp_nii.unlink()
+    logger.debug(f"Saved {output_path}")
+
+
+# ============================================================================
 # Registration — nibabel resampling + tensor reorientation
 #
-# SimNIBS's cond2elmdata (cond_utils.py) applies correct_FSL rotation
-# using the affine from the tensor NIfTI. The rotation matrix R is
-# extracted from the affine, and tensors are rotated via R * T * R^T.
+# SimNIBS's cond2elmdata (cond_utils.py:194-201) applies correct_FSL,
+# which extracts the rotation R_tgt from the tensor NIfTI affine, flips
+# the x-column when det(R_tgt) > 0 (neurological orientation), forming
+# M_fsl, then rotates: T_world = M_fsl @ T_stored @ M_fsl^T.
 #
-# When we resample from ACPC (LPS) to SimNIBS T1 (RAS), we must also
-# rotate each tensor by the relative rotation between the two voxel
-# coordinate frames so that correct_FSL produces correct world-space
-# tensors from the new affine.
+# FSL dtifit stores tensors with an implicit x-flip for neurological
+# images, so correct_FSL undoes that.  DSI Studio does NOT apply this
+# flip — tensors are in the actual image voxel frame.
+#
+# To produce correct world-space tensors after correct_FSL, we store:
+#   T_stored = R_fix @ T_orig @ R_fix^T,  where  R_fix = M_fsl^T @ R_src
+#
+# Proof:
+#   M_fsl @ (R_fix @ T @ R_fix^T) @ M_fsl^T
+#   = M_fsl @ M_fsl^T @ R_src @ T @ R_src^T @ M_fsl @ M_fsl^T
+#   = R_src @ T @ R_src^T  =  T_world  ✓
 # ============================================================================
 
 
@@ -179,8 +220,17 @@ def _build_target_grid(
     src_affine = target.affine
     src_shape = target.shape[:3]
 
-    # Physical bounding box in world coordinates
-    ijk_corners = np.array([[0, 0, 0], [s - 1 for s in src_shape]], dtype=float)
+    # Physical bounding box in world coordinates (all 8 volume corners)
+    s = src_shape
+    ijk_corners = np.array(
+        [
+            [i, j, k]
+            for i in (0, s[0] - 1)
+            for j in (0, s[1] - 1)
+            for k in (0, s[2] - 1)
+        ],
+        dtype=float,
+    )
     world_corners = nib.affines.apply_affine(src_affine, ijk_corners)
     origin = world_corners.min(axis=0)
     extent = world_corners.max(axis=0) - origin
@@ -198,16 +248,24 @@ def _build_target_grid(
 
 def _register_tensor(
     tensor_path: Path,
-    moving_t1: Path,
     fixed_t1: Path,
     output_path: Path,
     logger: logging.Logger,
 ) -> None:
-    """Resample tensor to SimNIBS T1 space with proper tensor reorientation.
+    """Resample tensor to SimNIBS T1 space with FSL-convention reorientation.
 
     1. Build a 1 mm isotropic target grid covering the SimNIBS T1 FOV
     2. Resample each of the 6 tensor components to that grid
-    3. Rotate each tensor by the relative voxel-frame rotation (R*T*R^T)
+    3. Rotate each tensor so that SimNIBS's ``correct_FSL`` (which assumes
+       FSL's radiological voxel convention) produces correct world-space
+       conductivity tensors.
+
+    The key insight is that ``correct_FSL`` builds ``M_fsl`` from the
+    target affine (with an x-flip when det > 0) and applies
+    ``T_world = M_fsl @ T_stored @ M_fsl^T``.  We pre-compensate by
+    storing ``T_stored = R_fix @ T_orig @ R_fix^T`` where
+    ``R_fix = M_fsl^T @ R_src``, so the final result is
+    ``R_src @ T_orig @ R_src^T`` — the correct world-space tensor.
     """
     import nibabel as nib
     from nibabel.processing import resample_from_to
@@ -230,13 +288,22 @@ def _register_tensor(
             comp, (target_shape, target_affine)
         ).get_fdata(dtype=np.float32)
 
-    # Step 2: Compute relative rotation between voxel frames
+    # Step 2: Pre-compensate for SimNIBS correct_FSL (cond_utils.py:194-201).
+    # correct_FSL assumes FSL's radiological tensor convention and applies:
+    #   M_fsl = R_tgt; if det(R_tgt) > 0: flip x-column
+    #   T_world = M_fsl @ T_stored @ M_fsl^T
+    # DSI Studio tensors are in actual voxel space (no FSL x-flip).
+    # We need: M_fsl @ T_stored @ M_fsl^T = R_src @ T_orig @ R_src^T
+    # Solution: T_stored = R_fix @ T_orig @ R_fix^T, where R_fix = M_fsl^T @ R_src
     R_src = _rotation_from_affine(tensor_img.affine)
     R_tgt = _rotation_from_affine(target_affine)
-    R_rel = np.linalg.inv(R_tgt) @ R_src
+    M_fsl = R_tgt.copy()
+    if np.linalg.det(R_tgt) > 0:
+        M_fsl[:, 0] *= -1
+    R_fix = M_fsl.T @ R_src
 
-    # Step 3: Apply tensor rotation R * T * R^T
-    logger.info("Rotating tensor components for target voxel frame...")
+    # Step 3: Apply tensor rotation R_fix @ T @ R_fix^T
+    logger.info("Rotating tensor components for FSL convention...")
     nonzero = np.any(resampled != 0, axis=-1)
     voxels = resampled[nonzero]  # (N, 6)
 
@@ -249,7 +316,7 @@ def _register_tensor(
     T[:, 1, 2] = T[:, 2, 1] = voxels[:, 4]
     T[:, 2, 2] = voxels[:, 5]
 
-    R32 = R_rel.astype(np.float32)
+    R32 = R_fix.astype(np.float32)
     T_rot = np.einsum("ij,njk,lk->nil", R32, T, R32)
 
     voxels[:, 0] = T_rot[:, 0, 0]
@@ -261,7 +328,7 @@ def _register_tensor(
     resampled[nonzero] = voxels
 
     logger.info(f"Saving registered tensor ({resampled.shape})...")
-    nib.save(nib.Nifti1Image(resampled, target_affine), str(output_path))
+    _save_nifti_gz(resampled, target_affine, output_path, logger)
     logger.info(f"Registered tensor saved to {output_path}")
 
 
@@ -279,9 +346,9 @@ def extract_dti_tensor(
 ) -> Path:
     """Extract DTI tensor from QSIRecon DSI Studio output for SimNIBS.
 
-    Loads the 6 tensor component files produced by `dsi_studio_gqi`,
-    validates the data, registers it to SimNIBS T1 space via ANTs,
-    and saves to the m2m directory.
+    Loads the 6 tensor component files produced by ``dsi_studio_gqi``,
+    validates the data, resamples it to SimNIBS T1 space with pure-Python
+    nibabel registration, and saves to the m2m directory.
 
     Parameters
     ----------
@@ -304,8 +371,6 @@ def extract_dti_tensor(
     PreprocessError
         If any step fails.
     """
-    import nibabel as nib
-
     project = Path(project_dir)
     logger.info(f"Extracting DTI tensor for subject {subject_id}")
 
@@ -339,7 +404,7 @@ def extract_dti_tensor(
 
     # Save intermediate tensor in ACPC space
     intermediate = m2m_dir / "DTI_ACPC_tensor.nii.gz"
-    nib.save(nib.Nifti1Image(tensor_data, affine, header), str(intermediate))
+    _save_nifti_gz(tensor_data, affine, intermediate, logger)
     logger.info(f"Intermediate tensor: {intermediate}")
 
     # Register to SimNIBS T1 space
@@ -347,12 +412,7 @@ def extract_dti_tensor(
         shutil.copy2(intermediate, output_path)
         logger.info("Copied tensor as-is (skip_registration=True)")
     else:
-        qsiprep_t1 = _qsiprep_t1(project, subject_id)
-        if not qsiprep_t1.exists():
-            raise PreprocessError(
-                f"QSIPrep T1 not found: {qsiprep_t1}. " "Run QSIPrep first."
-            )
-        _register_tensor(intermediate, qsiprep_t1, simnibs_t1, output_path, logger)
+        _register_tensor(intermediate, simnibs_t1, output_path, logger)
 
     logger.info(f"DTI tensor saved to: {output_path}")
 
