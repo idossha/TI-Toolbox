@@ -140,7 +140,7 @@ def _validate_tensor(tensor: np.ndarray, logger: logging.Logger) -> None:
 
 
 # ============================================================================
-# Registration — ANTs affine with tensor reorientation
+# Registration — FSL flirt + vecreg (available in SimNIBS container)
 # ============================================================================
 
 
@@ -151,63 +151,56 @@ def _register_tensor(
     output_path: Path,
     logger: logging.Logger,
 ) -> None:
-    """Register tensor from ACPC space to SimNIBS T1 space using ANTs.
+    """Register tensor from ACPC space to SimNIBS T1 space using FSL.
 
-    Performs a two-step registration:
-    1. Affine registration of QSIPrep T1 (ACPC) -> SimNIBS T1 (native)
-    2. Apply the transform to the tensor with -e 2 (PPD reorientation)
+    Uses the same approach as SimNIBS dwi2cond:
+    1. ``flirt`` for affine T1-to-T1 registration
+    2. ``vecreg`` to apply the transform to the tensor with PPD reorientation
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        xfm_prefix = str(Path(tmpdir) / "t1_to_simnibs_")
+        xfm_mat = str(Path(tmpdir) / "acpc_to_simnibs.mat")
 
-        # Step 1: T1-to-T1 affine registration
-        logger.info("ANTs: registering QSIPrep T1 -> SimNIBS T1 (affine)...")
+        # Step 1: Affine registration of QSIPrep T1 -> SimNIBS T1
+        logger.info("FSL flirt: registering QSIPrep T1 -> SimNIBS T1...")
         result = subprocess.run(
             [
-                "antsRegistrationSyN.sh",
-                "-d",
-                "3",
-                "-f",
-                str(fixed_t1),
-                "-m",
+                "flirt",
+                "-in",
                 str(moving_t1),
-                "-o",
-                xfm_prefix,
-                "-t",
-                "a",  # affine only
+                "-ref",
+                str(fixed_t1),
+                "-omat",
+                xfm_mat,
+                "-dof",
+                "12",
             ],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            raise PreprocessError(f"ANTs registration failed:\n{result.stderr}")
+            raise PreprocessError(f"FSL flirt registration failed:\n{result.stderr}")
 
         # Step 2: Apply transform to tensor with PPD reorientation
-        xfm_file = f"{xfm_prefix}0GenericAffine.mat"
-        logger.info("ANTs: applying affine to tensor (image type=tensor)...")
+        logger.info("FSL vecreg: applying transform to tensor (PPD)...")
         result = subprocess.run(
             [
-                "antsApplyTransforms",
-                "-d",
-                "3",
-                "-e",
-                "2",  # tensor image type (PPD reorientation)
+                "vecreg",
                 "-i",
                 str(tensor_path),
-                "-r",
-                str(fixed_t1),
                 "-o",
                 str(output_path),
+                "-r",
+                str(fixed_t1),
                 "-t",
-                xfm_file,
-                "-n",
-                "Linear",
+                xfm_mat,
             ],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            raise PreprocessError(f"ANTs tensor transform failed:\n{result.stderr}")
+            raise PreprocessError(
+                f"FSL vecreg tensor transform failed:\n{result.stderr}"
+            )
 
 
 def _resample_tensor(
