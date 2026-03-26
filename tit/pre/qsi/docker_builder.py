@@ -8,7 +8,9 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
+import os
 import shutil
+import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,7 +105,7 @@ class DockerCommandBuilder:
         if not src.is_file():
             raise DockerBuildError(f"Custom pipeline YAML not found: {src}")
         dest_dir = Path(self.project_dir) / "derivatives" / ".qsirecon_work"
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["mkdir", "-p", str(dest_dir)], check=True)
         dest = dest_dir / yaml_filename
         shutil.copy2(src, dest)
         return f"{self.paths.work_dir}/{yaml_filename}"
