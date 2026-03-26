@@ -57,14 +57,16 @@ def build_optimization(config: FlexConfig):
     os.makedirs(opt.output_folder, exist_ok=True)
 
     # Configure goals and thresholds
-    opt.goal = config.goal
+    opt.goal = config.goal.value if hasattr(config.goal, "value") else config.goal
     if config.goal == "focality":
         thr_raw = (config.thresholds or "").strip()
         if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
             vals = [float(v) for v in thr_raw.split(",")]
             opt.threshold = vals if len(vals) > 1 else vals[0]
 
-    opt.e_postproc = config.postproc
+    opt.e_postproc = (
+        config.postproc.value if hasattr(config.postproc, "value") else config.postproc
+    )
     opt.anisotropy_type = config.anisotropy_type
     opt.aniso_maxratio = config.aniso_maxratio
     opt.aniso_maxcond = config.aniso_maxcond
