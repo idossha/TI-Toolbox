@@ -13,6 +13,8 @@ from .flex_search import FlexSearchReportGenerator, create_flex_search_report
 
 from .preprocessing import PreprocessingReportGenerator, create_preprocessing_report
 
+from .dti_qc import DTIQCReportGenerator, create_dti_qc_report
+
 __all__ = [
     # Base
     "BaseReportGenerator",
@@ -26,4 +28,7 @@ __all__ = [
     # Preprocessing
     "PreprocessingReportGenerator",
     "create_preprocessing_report",
+    # DTI QC
+    "DTIQCReportGenerator",
+    "create_dti_qc_report",
 ]
