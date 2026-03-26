@@ -8,9 +8,7 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
-import os
 import shutil
-import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,12 +88,15 @@ class DockerCommandBuilder:
         shutil.copy2(src, dest)
         return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
 
-    def _stage_custom_pipeline(self, yaml_filename: str) -> str:
-        """Copy a custom pipeline YAML into the work dir for container access.
+    def _stage_custom_pipeline(self, yaml_filename: str) -> tuple[str, str]:
+        """Copy a custom pipeline YAML for container access.
 
-        Returns the container-side path (``/work/<filename>``).
+        Stages into ``derivatives/`` directly to avoid phantom bind-mount
+        entries that block directory creation on Docker Desktop.
+
+        Returns ``(container_path, host_file_path)`` so the caller can
+        add a ``-v`` file mount.
         """
-        # Resolve the resource file on the host
         src = (
             Path(__file__).resolve().parents[3]
             / "resources"
@@ -104,11 +105,14 @@ class DockerCommandBuilder:
         )
         if not src.is_file():
             raise DockerBuildError(f"Custom pipeline YAML not found: {src}")
-        dest_dir = Path(self.project_dir) / "derivatives" / ".qsirecon_work"
-        subprocess.run(["mkdir", "-p", str(dest_dir)], check=True)
-        dest = dest_dir / yaml_filename
+        # Write to derivatives/ (guaranteed writable) with a dot prefix
+        dest = Path(self.project_dir) / "derivatives" / f".{yaml_filename}"
         shutil.copy2(src, dest)
-        return f"{self.paths.work_dir}/{yaml_filename}"
+        host_path = str(
+            Path(self._host_project_dir) / "derivatives" / f".{yaml_filename}"
+        )
+        container_path = f"{self.paths.work_dir}/{yaml_filename}"
+        return container_path, host_path
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
@@ -279,6 +283,15 @@ class DockerCommandBuilder:
                 ["-v", f"{self._host_license_path}:{self.paths.license_file}:ro"]
             )
 
+        # Determine recon spec and stage custom YAML before appending image,
+        # so we can add the file mount with the other -v flags.
+        container_spec = recon_spec
+        if not config.atlases and recon_spec in _CUSTOM_PIPELINE_MAP:
+            container_spec, host_yaml = self._stage_custom_pipeline(
+                _CUSTOM_PIPELINE_MAP[recon_spec]
+            )
+            cmd.extend(["-v", f"{host_yaml}:{container_spec}:ro"])
+
         cmd.append(image)
 
         cmd.extend(
@@ -290,15 +303,6 @@ class DockerCommandBuilder:
         )
 
         cmd.extend(["--participant-label", config.subject_id])
-
-        # Use custom pipeline YAML when no atlases are requested and a
-        # custom version exists (avoids upstream connectivity bugs).
-        container_spec = recon_spec
-        if not config.atlases and recon_spec in _CUSTOM_PIPELINE_MAP:
-            container_spec = self._stage_custom_pipeline(
-                _CUSTOM_PIPELINE_MAP[recon_spec]
-            )
-
         cmd.extend(["--recon-spec", container_spec])
         cmd.extend(["-w", self.paths.work_dir])
         cmd.extend(["--nthreads", str(effective_cpus)])
