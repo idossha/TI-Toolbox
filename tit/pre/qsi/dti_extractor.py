@@ -19,8 +19,6 @@ QSIRecon DSI Studio GQI output structure (known, BIDS-compliant):
 import logging
 import os
 import shutil
-import subprocess
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -140,8 +138,26 @@ def _validate_tensor(tensor: np.ndarray, logger: logging.Logger) -> None:
 
 
 # ============================================================================
-# Registration — FSL flirt + vecreg (available in SimNIBS container)
+# Registration — nibabel resampling + tensor reorientation
+#
+# SimNIBS's cond2elmdata (cond_utils.py) applies correct_FSL rotation
+# using the affine from the tensor NIfTI. The rotation matrix R is
+# extracted from the affine, and tensors are rotated via R * T * R^T.
+#
+# When we resample from ACPC (LPS) to SimNIBS T1 (RAS), we must also
+# rotate each tensor by the relative rotation between the two voxel
+# coordinate frames so that correct_FSL produces correct world-space
+# tensors from the new affine.
 # ============================================================================
+
+
+def _rotation_from_affine(affine: np.ndarray) -> np.ndarray:
+    """Extract the pure rotation matrix from a 4x4 affine."""
+    M = affine[:3, :3]
+    # Normalize columns to remove scaling
+    norms = np.linalg.norm(M, axis=0)
+    norms[norms == 0] = 1.0
+    return M / norms
 
 
 def _register_tensor(
@@ -151,95 +167,67 @@ def _register_tensor(
     output_path: Path,
     logger: logging.Logger,
 ) -> None:
-    """Register tensor from ACPC space to SimNIBS T1 space using FSL.
+    """Resample tensor to SimNIBS T1 space with proper tensor reorientation.
 
-    Uses the same approach as SimNIBS dwi2cond:
-    1. ``flirt`` for affine T1-to-T1 registration
-    2. ``vecreg`` to apply the transform to the tensor with PPD reorientation
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        xfm_mat = str(Path(tmpdir) / "acpc_to_simnibs.mat")
-
-        # Step 1: Affine registration of QSIPrep T1 -> SimNIBS T1
-        logger.info("FSL flirt: registering QSIPrep T1 -> SimNIBS T1...")
-        result = subprocess.run(
-            [
-                "flirt",
-                "-in",
-                str(moving_t1),
-                "-ref",
-                str(fixed_t1),
-                "-omat",
-                xfm_mat,
-                "-dof",
-                "12",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise PreprocessError(f"FSL flirt registration failed:\n{result.stderr}")
-
-        # Step 2: Apply transform to tensor with PPD reorientation
-        logger.info("FSL vecreg: applying transform to tensor (PPD)...")
-        result = subprocess.run(
-            [
-                "vecreg",
-                "-i",
-                str(tensor_path),
-                "-o",
-                str(output_path),
-                "-r",
-                str(fixed_t1),
-                "-t",
-                xfm_mat,
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise PreprocessError(
-                f"FSL vecreg tensor transform failed:\n{result.stderr}"
-            )
-
-
-def _resample_tensor(
-    tensor_path: Path,
-    target_path: Path,
-    output_path: Path,
-    logger: logging.Logger,
-) -> None:
-    """Resample tensor to target space using nibabel (no reorientation).
-
-    Fallback when ANTs is unavailable. Spatial resampling only — tensor
-    eigenvectors are NOT rotated, reducing accuracy.
+    1. Resample each of the 6 tensor components to the target grid
+    2. Compute the relative rotation between source and target voxel frames
+    3. Apply R * T * R^T to rotate each tensor into the target frame
     """
     import nibabel as nib
     from nibabel.processing import resample_from_to
 
-    logger.warning(
-        "Using nibabel resampling (no tensor reorientation). "
-        "Anisotropic conductivity accuracy will be reduced."
-    )
-
     tensor_img = nib.load(str(tensor_path))
-    target_img = nib.load(str(target_path))
+    target_img = nib.load(str(fixed_t1))
     target_shape = target_img.shape[:3]
     target_affine = target_img.affine
 
     tensor_data = tensor_img.get_fdata(dtype=np.float32)
-    output = np.zeros((*target_shape, 6), dtype=np.float32)
 
+    # Step 1: Resample each component to target grid
+    logger.info("Resampling tensor components to SimNIBS T1 space...")
+    resampled = np.zeros((*target_shape, 6), dtype=np.float32)
     for i in range(6):
-        comp = nib.Nifti1Image(
-            tensor_data[..., i], tensor_img.affine, tensor_img.header
-        )
-        output[..., i] = resample_from_to(
+        comp = nib.Nifti1Image(tensor_data[..., i], tensor_img.affine)
+        resampled[..., i] = resample_from_to(
             comp, (target_shape, target_affine)
         ).get_fdata(dtype=np.float32)
 
-    nib.save(nib.Nifti1Image(output, target_affine), str(output_path))
-    logger.info(f"Resampled tensor saved to {output_path}")
+    # Step 2: Compute relative rotation between voxel frames
+    R_src = _rotation_from_affine(tensor_img.affine)
+    R_tgt = _rotation_from_affine(target_affine)
+    # Rotation that maps source voxel directions to target voxel directions
+    R_rel = np.linalg.inv(R_tgt) @ R_src
+
+    # Step 3: Apply tensor rotation R * T * R^T
+    logger.info("Rotating tensor components for target voxel frame...")
+    nonzero = np.any(resampled != 0, axis=-1)
+    voxels = resampled[nonzero]  # (N, 6)
+
+    # Reconstruct 3x3 symmetric tensors
+    N = voxels.shape[0]
+    T = np.zeros((N, 3, 3), dtype=np.float32)
+    T[:, 0, 0] = voxels[:, 0]  # Dxx
+    T[:, 0, 1] = T[:, 1, 0] = voxels[:, 1]  # Dxy
+    T[:, 0, 2] = T[:, 2, 0] = voxels[:, 2]  # Dxz
+    T[:, 1, 1] = voxels[:, 3]  # Dyy
+    T[:, 1, 2] = T[:, 2, 1] = voxels[:, 4]  # Dyz
+    T[:, 2, 2] = voxels[:, 5]  # Dzz
+
+    # R * T * R^T  (vectorized)
+    R32 = R_rel.astype(np.float32)
+    T_rot = np.einsum("ij,njk,lk->nil", R32, T, R32)
+
+    # Extract upper triangular back to 6 components
+    voxels[:, 0] = T_rot[:, 0, 0]
+    voxels[:, 1] = T_rot[:, 0, 1]
+    voxels[:, 2] = T_rot[:, 0, 2]
+    voxels[:, 3] = T_rot[:, 1, 1]
+    voxels[:, 4] = T_rot[:, 1, 2]
+    voxels[:, 5] = T_rot[:, 2, 2]
+    resampled[nonzero] = voxels
+
+    nib.save(nib.Nifti1Image(resampled, target_affine), str(output_path))
+    logger.info(f"Registered tensor saved to {output_path}")
 
 
 # ============================================================================

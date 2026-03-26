@@ -165,54 +165,28 @@ class TestValidateTensor:
 # ============================================================================
 
 
-class TestRegisterTensor:
-    @patch(f"{MODULE}.subprocess.run")
-    def test_ants_registration_succeeds(self, mock_run, tmp_path):
-        from tit.pre.qsi.dti_extractor import _register_tensor
+class TestRotationFromAffine:
+    def test_identity(self):
+        from tit.pre.qsi.dti_extractor import _rotation_from_affine
 
-        mock_run.return_value = MagicMock(returncode=0)
+        R = _rotation_from_affine(np.eye(4))
+        np.testing.assert_allclose(R, np.eye(3))
 
-        _register_tensor(
-            tmp_path / "tensor.nii.gz",
-            tmp_path / "moving_t1.nii.gz",
-            tmp_path / "fixed_t1.nii.gz",
-            tmp_path / "output.nii.gz",
-            MagicMock(),
-        )
-        assert mock_run.call_count == 2
+    def test_scaled_affine(self):
+        from tit.pre.qsi.dti_extractor import _rotation_from_affine
 
-    @patch(f"{MODULE}.subprocess.run")
-    def test_ants_registration_fails(self, mock_run, tmp_path):
-        from tit.pre.qsi.dti_extractor import _register_tensor
+        affine = np.diag([2.0, 2.0, 2.0, 1.0])
+        R = _rotation_from_affine(affine)
+        np.testing.assert_allclose(R, np.eye(3))
 
-        mock_run.return_value = MagicMock(returncode=1, stderr="error")
+    def test_lps_orientation(self):
+        from tit.pre.qsi.dti_extractor import _rotation_from_affine
 
-        with pytest.raises(PreprocessError, match="ANTs registration failed"):
-            _register_tensor(
-                tmp_path / "tensor.nii.gz",
-                tmp_path / "moving_t1.nii.gz",
-                tmp_path / "fixed_t1.nii.gz",
-                tmp_path / "output.nii.gz",
-                MagicMock(),
-            )
-
-    @patch(f"{MODULE}.subprocess.run")
-    def test_apply_transform_fails(self, mock_run, tmp_path):
-        from tit.pre.qsi.dti_extractor import _register_tensor
-
-        mock_run.side_effect = [
-            MagicMock(returncode=0),
-            MagicMock(returncode=1, stderr="apply error"),
-        ]
-
-        with pytest.raises(PreprocessError, match="tensor transform failed"):
-            _register_tensor(
-                tmp_path / "tensor.nii.gz",
-                tmp_path / "moving_t1.nii.gz",
-                tmp_path / "fixed_t1.nii.gz",
-                tmp_path / "output.nii.gz",
-                MagicMock(),
-            )
+        # LPS affine: negative x, negative y, positive z
+        affine = np.diag([-2.0, -2.0, 2.0, 1.0])
+        R = _rotation_from_affine(affine)
+        expected = np.diag([-1.0, -1.0, 1.0])
+        np.testing.assert_allclose(R, expected)
 
 
 # ============================================================================
@@ -327,14 +301,24 @@ class TestExtractDtiTensor:
         with pytest.raises(PreprocessError, match="QSIPrep T1 not found"):
             extract_dti_tensor(str(tmp_path), "001", logger=MagicMock())
 
-    @patch("tit.reporting.generators.dti_qc.create_dti_qc_report", return_value=Path("/fake"))
+    @patch(
+        "tit.reporting.generators.dti_qc.create_dti_qc_report",
+        return_value=Path("/fake"),
+    )
     @patch(f"{MODULE}.shutil.copy2")
     @patch(f"{MODULE}._validate_tensor")
     @patch(f"{MODULE}._load_dsistudio_tensor")
     @patch("nibabel.save")
     @patch(f"{MODULE}.get_path_manager")
     def test_skip_registration(
-        self, mock_gpm, mock_save, mock_load, mock_validate, mock_copy, mock_qc, tmp_path
+        self,
+        mock_gpm,
+        mock_save,
+        mock_load,
+        mock_validate,
+        mock_copy,
+        mock_qc,
+        tmp_path,
     ):
         pm = MagicMock()
         m2m = tmp_path / "m2m_001"
@@ -355,14 +339,24 @@ class TestExtractDtiTensor:
         assert result is not None
         mock_copy.assert_called_once()
 
-    @patch("tit.reporting.generators.dti_qc.create_dti_qc_report", return_value=Path("/fake"))
+    @patch(
+        "tit.reporting.generators.dti_qc.create_dti_qc_report",
+        return_value=Path("/fake"),
+    )
     @patch(f"{MODULE}._register_tensor")
     @patch(f"{MODULE}._validate_tensor")
     @patch(f"{MODULE}._load_dsistudio_tensor")
     @patch("nibabel.save")
     @patch(f"{MODULE}.get_path_manager")
     def test_with_registration(
-        self, mock_gpm, mock_save, mock_load, mock_validate, mock_register, mock_qc, tmp_path
+        self,
+        mock_gpm,
+        mock_save,
+        mock_load,
+        mock_validate,
+        mock_register,
+        mock_qc,
+        tmp_path,
     ):
         pm = MagicMock()
         m2m = tmp_path / "m2m_001"
