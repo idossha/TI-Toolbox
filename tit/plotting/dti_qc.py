@@ -8,6 +8,14 @@ generates color-coded FA direction maps overlaid on T1 for visual QC.
 from typing import Any
 
 
+# Maximum pixel size for the longest physical dimension of a display slice.
+# Slices are resampled from voxel-space to this display grid using the NIfTI
+# voxel sizes, so the same anatomy always produces the same pixel output
+# regardless of acquisition resolution (following the nilearn / nireports
+# pattern of affine-aware resampling before display).
+_DISPLAY_MAX_PX = 256
+
+
 def compute_dti_qc_metrics(tensor_file: str) -> dict[str, Any]:
     """Compute DTI quality control metrics from a 6-component tensor NIfTI.
 
@@ -200,12 +208,11 @@ def generate_color_fa_image(
     denom_t1 = (t1_max - t1_min) if (t1_max - t1_min) != 0 else 1.0
     t1_normalized = np.clip((t1_data - t1_min) / denom_t1, 0, 1)
 
-    # Voxel sizes for aspect ratios
+    # Voxel sizes (mm) — used to resample slices to a resolution-independent
+    # display grid so that the same anatomy produces the same pixel output
+    # regardless of acquisition resolution.
     voxel_sizes = t1_img.header.get_zooms()[:3]
-    aspects = {
-        "axial": voxel_sizes[1] / voxel_sizes[0],
-        "coronal": voxel_sizes[2] / voxel_sizes[0],
-    }
+    vx, vy, vz = (float(v) for v in voxel_sizes)
 
     # Slice positions
     dims = t1_data.shape
@@ -226,13 +233,31 @@ def generate_color_fa_image(
         "coronal": [],
     }
 
+    # Per-orientation voxel-size mapping (row_vox, col_vox) AFTER rot90.
+    #   axial   [:,:,z] shape (dx,dy) → rot90 → (dy,dx): row=vy, col=vx
+    #   coronal [:, y,:] shape (dx,dz) → rot90 → (dz,dx): row=vz, col=vx
     orientations = [
-        ("axial", 2, aspects["axial"]),
-        ("coronal", 1, aspects["coronal"]),
+        ("axial", 2, vy, vx),
+        ("coronal", 1, vz, vx),
     ]
 
-    for orientation, axis, aspect_ratio in orientations:
+    for orientation, axis, row_vox, col_vox in orientations:
         positions = slice_positions[orientation]
+
+        # Compute display-grid zoom factors for this orientation (constant
+        # across slices of the same orientation).
+        if orientation == "axial":
+            sample_shape = t1_normalized[:, :, positions[0]].shape
+        else:
+            sample_shape = t1_normalized[:, positions[0], :].shape
+        nrows, ncols = sample_shape[1], sample_shape[0]
+        phys_h = nrows * row_vox
+        phys_w = ncols * col_vox
+        scale = _DISPLAY_MAX_PX / max(phys_h, phys_w)
+        target_h = max(1, round(phys_h * scale))
+        target_w = max(1, round(phys_w * scale))
+        zh = target_h / nrows
+        zw = target_w / ncols
 
         for i, slice_pos in enumerate(positions):
             if orientation == "axial":
@@ -253,6 +278,14 @@ def generate_color_fa_image(
                 rgb_slice = np.fliplr(rgb_slice)
                 fa_slice = np.fliplr(fa_slice)
 
+            # Resample to resolution-independent display grid
+            t1_slice = zoom(t1_slice, (zh, zw), order=1)
+            rgb_slice = np.stack(
+                [zoom(rgb_slice[..., c], (zh, zw), order=1) for c in range(3)],
+                axis=-1,
+            )
+            fa_slice = zoom(fa_slice, (zh, zw), order=1)
+
             # Normalize RGB slice to [0,1] for display
             rgb_max = rgb_slice.max()
             if rgb_max > 0:
@@ -265,17 +298,21 @@ def generate_color_fa_image(
             rgba[..., :3] = rgb_display
             rgba[..., 3] = np.where(fa_slice > 0.05, 0.6, 0.0)
 
-            fig, ax = plt.subplots(1, 1, figsize=(4, 4 * aspect_ratio), dpi=100)
+            # Figure sized to the resampled pixel grid
+            dpi = 100
+            fig_w = target_w / dpi + 0.3
+            fig_h = target_h / dpi + 0.5
+            fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h), dpi=dpi)
             try:
                 ax.imshow(
                     t1_slice,
                     cmap="gray",
                     alpha=1.0,
-                    aspect=aspect_ratio,
+                    aspect="equal",
                     vmin=0,
                     vmax=1,
                 )
-                ax.imshow(rgba, aspect=aspect_ratio)
+                ax.imshow(rgba, aspect="equal")
 
                 ax.set_xticks([])
                 ax.set_yticks([])
@@ -337,7 +374,7 @@ def generate_color_fa_image(
                 buf = io.BytesIO()
                 plt.savefig(
                     buf,
-                    dpi=100,
+                    dpi=dpi,
                     bbox_inches="tight",
                     facecolor="white",
                     edgecolor="none",

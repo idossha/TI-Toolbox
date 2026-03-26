@@ -9,6 +9,14 @@ small PNG slices (base64-encoded) for HTML reports.
 from typing import Any
 
 
+# Maximum pixel size for the longest physical dimension of a display slice.
+# Slices are resampled from voxel-space to this display grid using the NIfTI
+# voxel sizes, so the same anatomy always produces the same pixel output
+# regardless of acquisition resolution (following the nilearn / nireports
+# pattern of affine-aware resampling before display).
+_DISPLAY_MAX_PX = 256
+
+
 def generate_static_overlay_images(
     *,
     t1_file: str,
@@ -51,8 +59,9 @@ def generate_static_overlay_images(
         zoom_factors = [t1_data.shape[i] / overlay_data.shape[i] for i in range(3)]
         overlay_data = zoom(overlay_data, zoom_factors, order=1)
 
-    # Get voxel dimensions (spacing) from header
-    voxel_sizes = t1_img.header.get_zooms()[:3]  # x, y, z dimensions in mm
+    # Voxel sizes (mm) from the T1 header — used to resample slices to a
+    # resolution-independent display grid.
+    voxel_sizes = t1_img.header.get_zooms()[:3]
 
     # Normalize T1 data for display (robust normalization)
     nonzero = t1_data[t1_data > 0]
@@ -95,12 +104,17 @@ def generate_static_overlay_images(
     cmap = plt.cm.hot
     cmap.set_bad(color=(0, 0, 0, 0))  # transparent for masked values
 
-    # Calculate aspect ratios for each view based on voxel dimensions
-    aspects = {
-        "axial": voxel_sizes[1] / voxel_sizes[0],  # y/x ratio
-        "sagittal": voxel_sizes[2] / voxel_sizes[1],  # z/y ratio
-        "coronal": voxel_sizes[2] / voxel_sizes[0],  # z/x ratio
-    }
+    # Per-orientation voxel-size mapping (row_vox, col_vox) AFTER rot90.
+    # rot90(k=1) maps input (m, n) → output (n, m), so:
+    #   axial   [:,:,z] shape (dx,dy) → rot90 → (dy,dx): row=vy, col=vx
+    #   sagittal[x,:,:] shape (dy,dz) → rot90 → (dz,dy): row=vz, col=vy
+    #   coronal [:, y,:] shape (dx,dz) → rot90 → (dz,dx): row=vz, col=vx
+    vx, vy, vz = (float(v) for v in voxel_sizes)
+    orientations = [
+        ("axial", 2, vy, vx),
+        ("sagittal", 0, vz, vy),
+        ("coronal", 1, vz, vx),
+    ]
 
     generated_images: dict[str, list[dict[str, Any]]] = {
         "axial": [],
@@ -108,14 +122,27 @@ def generate_static_overlay_images(
         "coronal": [],
     }
 
-    orientations = [
-        ("axial", 2, aspects["axial"]),  # slice along z-axis
-        ("sagittal", 0, aspects["sagittal"]),  # slice along x-axis
-        ("coronal", 1, aspects["coronal"]),  # slice along y-axis
-    ]
-
-    for orientation, axis, aspect_ratio in orientations:
+    for orientation, axis, row_vox, col_vox in orientations:
         positions = slice_positions[orientation]
+
+        # Compute display-grid zoom factors for this orientation (constant
+        # across slices of the same orientation).
+        sample_pos = positions[0]
+        if orientation == "axial":
+            sample_shape = t1_normalized[:, :, sample_pos].shape
+        elif orientation == "sagittal":
+            sample_shape = t1_normalized[sample_pos, :, :].shape
+        else:
+            sample_shape = t1_normalized[:, sample_pos, :].shape
+        # After rot90 the shape flips
+        nrows, ncols = sample_shape[1], sample_shape[0]
+        phys_h = nrows * row_vox
+        phys_w = ncols * col_vox
+        scale = _DISPLAY_MAX_PX / max(phys_h, phys_w)
+        target_h = max(1, round(phys_h * scale))
+        target_w = max(1, round(phys_w * scale))
+        zh = target_h / nrows
+        zw = target_w / ncols
 
         for i, slice_pos in enumerate(positions):
             # Extract slice data based on orientation
@@ -142,15 +169,24 @@ def generate_static_overlay_images(
                 overlay_slice = np.fliplr(overlay_slice)
                 mask_slice = np.fliplr(mask_slice)
 
+            # Resample to resolution-independent display grid
+            t1_slice = zoom(t1_slice, (zh, zw), order=1)
+            overlay_slice = zoom(overlay_slice, (zh, zw), order=1)
+            mask_slice = zoom(mask_slice.astype(np.float32), (zh, zw), order=0) > 0.5
+
             overlay_masked = np.ma.masked_where(~mask_slice, overlay_slice)
 
-            fig, ax = plt.subplots(1, 1, figsize=(4, 4 * aspect_ratio), dpi=100)
+            # Figure sized to the resampled pixel grid
+            dpi = 100
+            fig_w = target_w / dpi + 0.3
+            fig_h = target_h / dpi + 0.5
+            fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h), dpi=dpi)
             try:
                 ax.imshow(
                     t1_slice,
                     cmap="gray",
                     alpha=1.0,
-                    aspect=aspect_ratio,
+                    aspect="equal",
                     vmin=0,
                     vmax=1,
                 )
@@ -161,7 +197,7 @@ def generate_static_overlay_images(
                         overlay_masked,
                         cmap=cmap,
                         alpha=0.6,
-                        aspect=aspect_ratio,
+                        aspect="equal",
                         vmin=0,
                         vmax=1,
                     )
@@ -249,7 +285,7 @@ def generate_static_overlay_images(
                 buf = io.BytesIO()
                 plt.savefig(
                     buf,
-                    dpi=100,
+                    dpi=dpi,
                     bbox_inches="tight",
                     facecolor="white",
                     edgecolor="none",

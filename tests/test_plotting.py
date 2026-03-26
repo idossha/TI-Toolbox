@@ -601,7 +601,11 @@ class TestGenerateStaticOverlayImages:
                 overlay_file="/path/to/overlay.nii.gz",
             )
 
-            mock_zoom.assert_called_once()
+            # First zoom call is the 3D overlay→T1 dimension resample;
+            # subsequent calls are for display-grid resampling of 2D slices.
+            assert mock_zoom.call_count >= 1
+            first_call = mock_zoom.call_args_list[0]
+            assert list(first_call[0][1]) == [2.0, 2.0, 2.0]
         assert len(result["axial"]) == 7
 
     def test_zero_overlay_max(self):
