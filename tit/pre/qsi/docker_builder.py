@@ -89,13 +89,20 @@ class DockerCommandBuilder:
         return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
 
     def _stage_custom_pipeline(self, yaml_filename: str) -> tuple[str, str]:
-        """Copy a custom pipeline YAML for container access.
+        """Stage a custom pipeline YAML so the QSIRecon container can read it.
 
-        Stages into ``derivatives/`` directly to avoid phantom bind-mount
-        entries that block directory creation on Docker Desktop.
+        Docker Desktop bind mounts can retain phantom directory entries from
+        previous sibling containers, making ``mkdir`` fail inside the current
+        container.  To avoid this we stage the file into the **project root**
+        (always writable — same pattern as ``_stage_fs_license``) and return
+        paths for a ``-v`` file mount into the QSIRecon container.
 
-        Returns ``(container_path, host_file_path)`` so the caller can
-        add a ``-v`` file mount.
+        Returns
+        -------
+        container_path : str
+            Where QSIRecon will see the file (``/tmp/recon_spec.yaml``).
+        host_path : str
+            Host-side path for the ``-v`` mount source.
         """
         src = (
             Path(__file__).resolve().parents[3]
@@ -105,13 +112,14 @@ class DockerCommandBuilder:
         )
         if not src.is_file():
             raise DockerBuildError(f"Custom pipeline YAML not found: {src}")
-        # Write to derivatives/ (guaranteed writable) with a dot prefix
-        dest = Path(self.project_dir) / "derivatives" / f".{yaml_filename}"
+
+        # Stage to project root — always exists, always writable
+        staged_name = ".qsirecon_spec.yaml"
+        dest = Path(self.project_dir) / staged_name
         shutil.copy2(src, dest)
-        host_path = str(
-            Path(self._host_project_dir) / "derivatives" / f".{yaml_filename}"
-        )
-        container_path = f"{self.paths.work_dir}/{yaml_filename}"
+
+        host_path = str(Path(self._host_project_dir) / staged_name)
+        container_path = "/tmp/recon_spec.yaml"
         return container_path, host_path
 
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:

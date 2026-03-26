@@ -98,10 +98,10 @@ def run_qsirecon(
             "Run QSIPrep first before running QSIRecon."
         )
 
-    # Docker `-v` bind mounts create host directories automatically,
-    # so we skip mkdir here to avoid phantom-entry errors on Windows/macOS.
+    # No mkdir here — Docker's `-v` creates host directories automatically.
+    # Creating them from SimNIBS fails on Docker Desktop due to phantom
+    # bind-mount entries left by previous sibling containers.
     output_base = Path(project_dir) / "derivatives" / "qsirecon"
-    work_dir = Path(project_dir) / "derivatives" / ".qsirecon_work"
 
     # Build configuration
     config = QSIReconConfig(
