@@ -79,25 +79,29 @@ if not check_m2m_exists("001"):
 
 ## DTI / Diffusion Pipeline
 
-For anisotropic conductivity simulations, TI-Toolbox supports diffusion processing via QSIPrep/QSIRecon Docker containers:
+For anisotropic conductivity simulations, TI-Toolbox supports diffusion processing via QSIPrep/QSIRecon Docker containers. The default `dsi_studio_gqi` reconstruction spec directly produces the tensor components SimNIBS needs, and works with both single-shell and multi-shell acquisitions.
 
 ```python
 from tit.pre import run_qsiprep, run_qsirecon, extract_dti_tensor
 import logging
 
 logger = logging.getLogger("my_pipeline")
+project = "/path/to/bids_project"
 
 # Run QSIPrep DWI preprocessing
-run_qsiprep("001", logger=logger)
+run_qsiprep(project, "001", logger=logger)
 
-# Run QSIRecon reconstruction
-run_qsirecon("001", logger=logger)
+# Run QSIRecon reconstruction (default: dsi_studio_gqi)
+run_qsirecon(project, "001", logger=logger)
 
 # Extract DTI tensor for SimNIBS anisotropic conductivity
-extract_dti_tensor("001", logger=logger)
+extract_dti_tensor(project, "001", logger=logger)
 ```
 
 These steps can also be included in the full pipeline by setting `run_qsiprep=True`, `run_qsirecon=True`, and `extract_dti=True`. Optional configuration dicts (`qsiprep_config`, `qsi_recon_config`) control parameters such as output resolution, recon specs, and atlases.
+
+!!! note "Validation & Platform Notes"
+    This pipeline is functional and producing stable, consistent results. The full chain warrants further validation by domain experts — community input is welcome. On Apple Silicon Macs, QSIPrep/QSIRecon run under Rosetta 2 emulation and may be slower or less stable; allocate 32 GB+ Docker memory.
 
 ## BIDS Directory Structure
 

@@ -4,17 +4,21 @@ title: Diffusion Processing (QSIPrep/QSIRecon)
 permalink: /wiki/diffusion-processing/
 ---
 
-The TI-Toolbox integrates with QSIPrep and QSIRecon to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data and converts them to the format required by SimNIBS.
+The TI-Toolbox integrates with [QSIPrep](https://qsiprep.readthedocs.io/) and [QSIRecon](https://qsirecon.readthedocs.io/) to process diffusion-weighted imaging (DWI) data for anisotropic conductivity simulations. This pipeline extracts diffusion tensors from preprocessed DWI data, registers them into SimNIBS head-model space, and pre-compensates for SimNIBS's internal FSL tensor rotation — producing a ready-to-use `DTI_coregT1_tensor.nii.gz` file.
 
-**Known Issues:** Currently the diffusion processing pipeline is not compatible with ARM Macs due to limitation of downstream qsi packages.
+!!! warning "Validation Status"
+    This pipeline is **functional and producing stable, consistent results** in our testing. However, the full chain — from QSIRecon tensor output through cross-correlation registration and FSL convention pre-compensation — **warrants further validation** by domain experts in diffusion MRI and conductivity modeling. We welcome input from the community on registration accuracy, tensor reorientation correctness, and downstream simulation fidelity. If you have expertise in this area, please open an issue or reach out.
+
+!!! warning "Apple Silicon (ARM) Compatibility"
+    The QSIPrep and QSIRecon Docker containers are built for `linux/amd64`. On Apple Silicon Macs (M1/M2/M3/M4), Docker runs these under Rosetta 2 emulation via `--platform linux/amd64`. This works but has known issues: significantly slower performance, occasional segfaults during eddy current correction, and higher memory usage. If you encounter failures on Apple Silicon, try increasing Docker's memory allocation (32 GB+ recommended) or running on an Intel/AMD machine.
 
 ## Overview
 
-Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue. The diffusion processing pipeline consists of three main stages:
+Anisotropic conductivity modeling uses diffusion tensor imaging (DTI) to account for the direction-dependent electrical conductivity of brain tissue — white matter conducts current preferentially along fiber tracts. The diffusion processing pipeline consists of three stages:
 
-1. **QSIPrep** - Preprocessing of raw DWI data
-2. **QSIRecon** - Reconstruction and tensor estimation
-3. **DTI Extraction** - Conversion to SimNIBS format
+1. **QSIPrep** — Preprocessing of raw DWI data (denoising, motion/eddy/distortion correction)
+2. **QSIRecon** — Reconstruction and tensor estimation (DSI Studio GQI)
+3. **DTI Extraction** — Registration to SimNIBS space and format conversion
 
 ```mermaid
 graph LR
@@ -24,6 +28,19 @@ graph LR
     D --> E[SimNIBS Tensor]
     E --> F[Anisotropic Simulation]
 ```
+
+### Why `dsi_studio_gqi`?
+
+QSIRecon supports over 20 reconstruction workflows (MRtrix CSD, DIPY DKI, NODDI, MAP-MRI, and more). For the specific purpose of producing DTI tensors for SimNIBS anisotropic conductivity simulations, we ship **`dsi_studio_gqi`** as the default because:
+
+- It produces the six tensor component maps (`txx`–`tzz`) that SimNIBS needs directly
+- It works with both single-shell and multi-shell acquisitions
+- It does not require FreeSurfer surfaces or atlas parcellations
+- It has proven reliable across our test datasets
+
+We use a **custom pipeline YAML** (`resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml`) that removes the upstream connectivity node — this avoids a mandatory `--atlases` requirement and a reporting bug in QSIRecon >= 1.2.0. The custom pipeline retains GQI reconstruction, scalar export (tensor components), and optional tractography.
+
+Other recon specs (e.g., `dipy_dki`, `mrtrix_multishell_msmt_*`) may also produce usable tensors, but they are not currently validated in our extraction pipeline. If you use a different spec, you will need to adapt the DTI extraction step accordingly.
 
 ## Required Input Data
 
@@ -68,9 +85,14 @@ project_root/
 
 ```python
 from tit.pre.qsi import run_qsiprep
+import logging
+
+logger = logging.getLogger("diffusion")
 
 run_qsiprep(
+    project_dir="/path/to/bids_project",
     subject_id="101",
+    logger=logger,
     output_resolution=2.0,
     denoise_method="dwidenoise",
 )
@@ -128,9 +150,10 @@ derivatives/
 from tit.pre.qsi import run_qsirecon
 
 run_qsirecon(
+    project_dir="/path/to/bids_project",
     subject_id="101",
     logger=logger,
-    recon_specs=["dsi_studio_gqi"],  # Recommended for DTI
+    recon_specs=["dsi_studio_gqi"],  # Default and recommended for DTI
 )
 ```
 
@@ -168,11 +191,12 @@ D = | Dxy  Dyy  Dyz |
 
 ### Process Overview
 
-The DTI extractor performs three key operations:
+The DTI extractor performs four key operations:
 
-1. **Component Combination**: Combines 6 separate tensor files into a single 4D NIfTI
-2. **Space Registration**: Resamples tensor from ACPC space to SimNIBS T1 space
-3. **Format Conversion**: Ensures correct tensor ordering for SimNIBS
+1. **Component Combination**: Loads 6 separate tensor files (`txx`–`tzz`) into a single 4D NIfTI `(X, Y, Z, 6)`
+2. **Cross-Correlation Alignment**: Finds the translation between ACPC space (QSIPrep) and SimNIBS native space using 3D cross-correlation between the two T1 images — this resolves the ~50 mm coordinate offset without requiring FSL or ANTs
+3. **Resampling**: Each tensor component is resampled onto the SimNIBS T1 grid (typically 0.5 mm isotropic) using trilinear interpolation
+4. **FSL Convention Pre-Compensation**: Pre-rotates tensors so that SimNIBS's internal `correct_FSL` function produces correct world-space conductivity tensors (DSI Studio does not apply the implicit x-flip that FSL `dtifit` does)
 
 ### Usage
 
@@ -180,6 +204,7 @@ The DTI extractor performs three key operations:
 from tit.pre.qsi import extract_dti_tensor
 
 tensor_path = extract_dti_tensor(
+    project_dir="/path/to/bids_project",
     subject_id="101",
     logger=logger,
 )
@@ -211,20 +236,44 @@ Index 4: Dyz (off-diagonal yz)
 Index 5: Dzz (diffusion along z-axis)
 ```
 
+### QC Report
+
+After extraction, an automated QC report is generated containing:
+
+- **FA overlaid on T1**: Checks registration quality — white matter FA should align with T1 anatomy
+- **Color-coded FA**: Verifies tensor orientations (red = left-right, green = anterior-posterior, blue = superior-inferior)
+- **Tensor statistics**: FA mean/median/max, eigenvalue ranges, component statistics
+
+A diagnostic tool is also available for deeper investigation:
+
+```bash
+# Inside the SimNIBS container
+python -m tit.pre.qsi.debug_dti /mnt/<project> <subject_id>
+```
+
 ## Integration with Simulations
 
-Once the DTI tensor is extracted, it's automatically available for anisotropic simulations:
+Once the DTI tensor is extracted, it is automatically available for anisotropic simulations:
 
 ### GUI Usage
 
 1. Navigate to the **Simulator** tab
 2. Select your subject
 3. Under **Conductivity Model**, select **Anisotropic**
-4. The simulator will automatically use `DTI_coregT1_tensor.nii.gz`
+4. The simulator will automatically detect and use `DTI_coregT1_tensor.nii.gz`
+
+## Docker Execution Model
+
+QSIPrep and QSIRecon run as **sibling Docker containers** spawned from within the SimNIBS container using the Docker-out-of-Docker (DooD) pattern. The SimNIBS container shares the Docker socket and uses `LOCAL_PROJECT_DIR` to resolve host paths for volume mounts. CPU and memory limits are inherited from the parent container.
 
 ## Resource Requirements
 
-Highly varible as it depends on type of aquisition and power of processing machine at hand. See below documentation.
+Highly variable depending on acquisition type and hardware:
+
+- **Memory**: 16 GB minimum, 32 GB recommended (especially on Apple Silicon under emulation)
+- **CPU**: Scales well with 4–8 cores; OMP threads default to 1 to avoid over-subscription
+- **Disk**: QSIPrep work directories can require 10–20 GB per subject
+- **Time**: QSIPrep typically takes 2–6 hours per subject; QSIRecon is faster (30–90 minutes)
 
 ## References
 
@@ -232,8 +281,10 @@ Highly varible as it depends on type of aquisition and power of processing machi
 - [QSIRecon Documentation](https://qsirecon.readthedocs.io/)
 - [SimNIBS dwi2cond](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html)
 - [DSI Studio](https://dsi-studio.labsolver.org/)
+- Cieslak, M., Cook, P.A., He, X. et al. *QSIPrep: an integrative platform for preprocessing and reconstructing diffusion MRI data.* Nature Methods 18, 775–778 (2021). [doi:10.1038/s41592-021-01185-5](https://doi.org/10.1038/s41592-021-01185-5)
 
 ## Related Documentation
 
-- [Pre-Processing](pre-processing.md) - Structural MRI preprocessing
-- [Simulator](simulator.md) - Running TI simulations with anisotropic conductivity
+- [Pre-Processing](pre-processing.md) — Structural MRI preprocessing
+- [QSIPrep & QSIRecon Reference](qsiprep-reference.md) — Quick reference for the diffusion pipeline
+- [Simulator](simulator.md) — Running TI simulations with anisotropic conductivity
