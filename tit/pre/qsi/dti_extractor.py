@@ -160,6 +160,42 @@ def _rotation_from_affine(affine: np.ndarray) -> np.ndarray:
     return M / norms
 
 
+def _build_target_grid(
+    target_img_path: Path, resolution_mm: float = 1.0
+) -> tuple[tuple[int, ...], np.ndarray]:
+    """Build a target grid covering the same physical space as *target_img*
+    but at a uniform *resolution_mm* isotropic voxel size.
+
+    Resampling the DTI tensor to the full SimNIBS T1 grid (e.g. 240x512x512
+    at 0.5 mm) would produce a ~1.5 GB volume.  A 1 mm grid covers the same
+    brain region at a fraction of the memory while still being sufficient for
+    SimNIBS mesh interpolation.
+
+    Returns (shape, affine).
+    """
+    import nibabel as nib
+
+    target = nib.load(str(target_img_path))
+    src_affine = target.affine
+    src_shape = target.shape[:3]
+
+    # Physical bounding box in world coordinates
+    ijk_corners = np.array([[0, 0, 0], [s - 1 for s in src_shape]], dtype=float)
+    world_corners = nib.affines.apply_affine(src_affine, ijk_corners)
+    origin = world_corners.min(axis=0)
+    extent = world_corners.max(axis=0) - origin
+
+    # New shape at the requested resolution
+    new_shape = tuple(int(np.ceil(e / resolution_mm)) for e in extent)
+
+    # Build a RAS-aligned affine at *resolution_mm*
+    new_affine = np.eye(4)
+    new_affine[:3, :3] = np.diag([resolution_mm] * 3)
+    new_affine[:3, 3] = origin
+
+    return new_shape, new_affine
+
+
 def _register_tensor(
     tensor_path: Path,
     moving_t1: Path,
@@ -169,22 +205,24 @@ def _register_tensor(
 ) -> None:
     """Resample tensor to SimNIBS T1 space with proper tensor reorientation.
 
-    1. Resample each of the 6 tensor components to the target grid
-    2. Compute the relative rotation between source and target voxel frames
-    3. Apply R * T * R^T to rotate each tensor into the target frame
+    1. Build a 1 mm isotropic target grid covering the SimNIBS T1 FOV
+    2. Resample each of the 6 tensor components to that grid
+    3. Rotate each tensor by the relative voxel-frame rotation (R*T*R^T)
     """
     import nibabel as nib
     from nibabel.processing import resample_from_to
 
     tensor_img = nib.load(str(tensor_path))
-    target_img = nib.load(str(fixed_t1))
-    target_shape = target_img.shape[:3]
-    target_affine = target_img.affine
-
     tensor_data = tensor_img.get_fdata(dtype=np.float32)
 
+    # Use a 1 mm grid instead of the native T1 resolution to keep memory
+    # manageable.  SimNIBS interpolates onto the mesh, so exact T1 voxel
+    # alignment is not required — just a shared coordinate frame.
+    target_shape, target_affine = _build_target_grid(fixed_t1, resolution_mm=1.0)
+    logger.info(f"Target grid: {target_shape} at 1 mm (covers SimNIBS T1 FOV)")
+
     # Step 1: Resample each component to target grid
-    logger.info("Resampling tensor components to SimNIBS T1 space...")
+    logger.info("Resampling tensor components...")
     resampled = np.zeros((*target_shape, 6), dtype=np.float32)
     for i in range(6):
         comp = nib.Nifti1Image(tensor_data[..., i], tensor_img.affine)
@@ -195,7 +233,6 @@ def _register_tensor(
     # Step 2: Compute relative rotation between voxel frames
     R_src = _rotation_from_affine(tensor_img.affine)
     R_tgt = _rotation_from_affine(target_affine)
-    # Rotation that maps source voxel directions to target voxel directions
     R_rel = np.linalg.inv(R_tgt) @ R_src
 
     # Step 3: Apply tensor rotation R * T * R^T
@@ -203,21 +240,18 @@ def _register_tensor(
     nonzero = np.any(resampled != 0, axis=-1)
     voxels = resampled[nonzero]  # (N, 6)
 
-    # Reconstruct 3x3 symmetric tensors
     N = voxels.shape[0]
     T = np.zeros((N, 3, 3), dtype=np.float32)
-    T[:, 0, 0] = voxels[:, 0]  # Dxx
-    T[:, 0, 1] = T[:, 1, 0] = voxels[:, 1]  # Dxy
-    T[:, 0, 2] = T[:, 2, 0] = voxels[:, 2]  # Dxz
-    T[:, 1, 1] = voxels[:, 3]  # Dyy
-    T[:, 1, 2] = T[:, 2, 1] = voxels[:, 4]  # Dyz
-    T[:, 2, 2] = voxels[:, 5]  # Dzz
+    T[:, 0, 0] = voxels[:, 0]
+    T[:, 0, 1] = T[:, 1, 0] = voxels[:, 1]
+    T[:, 0, 2] = T[:, 2, 0] = voxels[:, 2]
+    T[:, 1, 1] = voxels[:, 3]
+    T[:, 1, 2] = T[:, 2, 1] = voxels[:, 4]
+    T[:, 2, 2] = voxels[:, 5]
 
-    # R * T * R^T  (vectorized)
     R32 = R_rel.astype(np.float32)
     T_rot = np.einsum("ij,njk,lk->nil", R32, T, R32)
 
-    # Extract upper triangular back to 6 components
     voxels[:, 0] = T_rot[:, 0, 0]
     voxels[:, 1] = T_rot[:, 0, 1]
     voxels[:, 2] = T_rot[:, 0, 2]
@@ -226,11 +260,9 @@ def _register_tensor(
     voxels[:, 5] = T_rot[:, 2, 2]
     resampled[nonzero] = voxels
 
-    out_str = str(Path(output_path).resolve())
-    logger.info(f"Saving registered tensor ({resampled.shape}) to: {out_str}")
-    out_img = nib.Nifti1Image(resampled, target_affine)
-    nib.save(out_img, out_str)
-    logger.info(f"Registered tensor saved to {out_str}")
+    logger.info(f"Saving registered tensor ({resampled.shape})...")
+    nib.save(nib.Nifti1Image(resampled, target_affine), str(output_path))
+    logger.info(f"Registered tensor saved to {output_path}")
 
 
 # ============================================================================
