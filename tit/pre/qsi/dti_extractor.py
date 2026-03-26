@@ -154,19 +154,23 @@ def _save_nifti_gz(
 ) -> None:
     """Save 4D NIfTI with gzip workaround for Docker bind mounts.
 
-    nibabel's DeterministicGzipFile can fail with FileNotFoundError on
-    Docker bind-mount filesystems. Write uncompressed .nii first, then
-    compress with stdlib gzip.
+    Both nibabel's DeterministicGzipFile and stdlib gzip.open can fail
+    with FileNotFoundError when creating .nii.gz on Docker bind-mount
+    filesystems (macOS VirtioFS/gRPC-FUSE).  Work around this by
+    writing and compressing in /tmp, then copying the final file.
     """
     import gzip as _gzip
+    import tempfile
 
     import nibabel as nib
 
-    tmp_nii = output_path.with_suffix("").with_suffix(".nii")
-    nib.save(nib.Nifti1Image(data, affine), str(tmp_nii))
-    with open(tmp_nii, "rb") as f_in, _gzip.open(str(output_path), "wb") as f_out:
-        shutil.copyfileobj(f_in, f_out)
-    tmp_nii.unlink()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_nii = Path(tmpdir) / "tensor.nii"
+        tmp_gz = Path(tmpdir) / "tensor.nii.gz"
+        nib.save(nib.Nifti1Image(data, affine), str(tmp_nii))
+        with open(tmp_nii, "rb") as f_in, _gzip.open(str(tmp_gz), "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        shutil.copy2(str(tmp_gz), str(output_path))
     logger.debug(f"Saved {output_path}")
 
 
