@@ -40,13 +40,26 @@ class FlexConfig:
 
     @dataclass
     class SphericalROI:
-        """Spherical region of interest defined by center + radius."""
+        """Spherical region of interest defined by center + radius.
+
+        By default the sphere is evaluated on the cortical surface
+        (``volumetric=False``).  Set ``volumetric=True`` to evaluate on
+        volume tetrahedra instead — useful for deep/subcortical targets
+        like the amygdala or hippocampus where surface-only evaluation
+        would capture overlying cortex rather than the target structure.
+
+        When ``volumetric=True``, the ``tissues`` field controls which
+        tissue compartments are included (same semantics as
+        ``SubcorticalROI.tissues``).
+        """
 
         x: float
         y: float
         z: float
         radius: float = 10.0
         use_mni: bool = False
+        volumetric: bool = False
+        tissues: str = "GM"  # "GM", "WM", or "both" — only used when volumetric=True
 
     @dataclass
     class AtlasROI:

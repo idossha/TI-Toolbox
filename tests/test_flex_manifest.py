@@ -69,6 +69,18 @@ class TestSerializeROI:
         assert d["z"] == 55.0
         assert d["radius"] == 10.0
         assert d["use_mni"] is True
+        assert d["volumetric"] is False
+        assert "tissues" not in d  # omitted when not volumetric
+
+    def test_serialize_roi_spherical_volumetric(self):
+        roi = SphericalROI(
+            x=-24.0, y=-4.0, z=-20.0, radius=8.0,
+            volumetric=True, tissues="both",
+        )
+        d = _serialize_roi(roi)
+        assert d["type"] == "spherical"
+        assert d["volumetric"] is True
+        assert d["tissues"] == "both"
 
     def test_serialize_roi_atlas(self):
         roi = AtlasROI(

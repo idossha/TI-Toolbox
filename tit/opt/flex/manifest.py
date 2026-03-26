@@ -102,14 +102,18 @@ def read_manifest(output_folder: str) -> dict | None:
 def _serialize_roi(roi) -> dict:
     """Convert an ROISpec to a plain dict with a 'type' discriminator."""
     if isinstance(roi, FlexConfig.SphericalROI):
-        return {
+        d = {
             "type": "spherical",
             "x": roi.x,
             "y": roi.y,
             "z": roi.z,
             "radius": roi.radius,
             "use_mni": roi.use_mni,
+            "volumetric": roi.volumetric,
         }
+        if roi.volumetric:
+            d["tissues"] = roi.tissues
+        return d
     if isinstance(roi, FlexConfig.AtlasROI):
         return {
             "type": "atlas",

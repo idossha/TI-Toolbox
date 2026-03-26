@@ -161,71 +161,100 @@ def configure_roi(opt, config: FlexConfig) -> None:
         raise ValueError(f"Unknown ROI type: {type(config.roi)}")
 
 
+def _resolve_tissues(tissues_str: str) -> list:
+    """Resolve a tissues string ("GM", "WM", "both") to ElementTags.
+
+    Args:
+        tissues_str: One of ``"GM"``, ``"WM"``, or ``"both"`` (case-insensitive).
+
+    Returns:
+        List of ``ElementTags`` values for SimNIBS ``roi.tissues``.
+    """
+    from simnibs.mesh_tools.mesh_io import ElementTags
+
+    value = tissues_str.strip().upper()
+    if value == "WM":
+        return [ElementTags.WM]
+    if value == "BOTH":
+        return [ElementTags.WM, ElementTags.GM]
+    return [ElementTags.GM]
+
+
+def _resolve_sphere_center(roi_spec, opt):
+    """Return the sphere center, transforming from MNI if needed.
+
+    Args:
+        roi_spec: A ``SphericalROI`` instance.
+        opt: SimNIBS optimization object (needed for MNI transform).
+
+    Returns:
+        List of [x, y, z] coordinates in subject space.
+    """
+    from simnibs import mni2subject_coords
+
+    x, y, z = roi_spec.x, roi_spec.y, roi_spec.z
+    if roi_spec.use_mni:
+        log.info(f"Transforming MNI coordinates [{x}, {y}, {z}] to subject space")
+        coords = mni2subject_coords([x, y, z], opt.subpath)
+        log.info(f"Transformed coordinates: {coords}")
+        return coords
+    return [x, y, z]
+
+
 def _configure_spherical_roi(opt, config: FlexConfig) -> None:
     """Configure spherical ROI with optional MNI coordinate transformation.
+
+    When ``roi_spec.volumetric`` is True, uses volume method with tissue
+    filtering (evaluates on tetrahedra). Otherwise uses the surface method
+    on the central cortical surface (default, backwards-compatible).
 
     Args:
         opt: SimNIBS optimization object.
         config: Flex-search configuration with SphericalROI spec.
     """
-    from simnibs import mni2subject_coords
-
     roi_spec: FlexConfig.SphericalROI = config.roi  # type: ignore[assignment]
 
-    roi = opt.add_roi()
-    roi.method = "surface"
-    roi.surface_type = "central"
-    roi.roi_sphere_center_space = "subject"
-
-    roi_x = roi_spec.x
-    roi_y = roi_spec.y
-    roi_z = roi_spec.z
+    center = _resolve_sphere_center(roi_spec, opt)
     radius = roi_spec.radius
 
-    if roi_spec.use_mni:
+    roi = opt.add_roi()
+    if roi_spec.volumetric:
         log.info(
-            f"Transforming MNI coordinates [{roi_x}, {roi_y}, {roi_z}] to subject space"
+            f"Using volumetric sphere (tissues={roi_spec.tissues}) "
+            f"at {center} r={radius}"
         )
-        subject_coords = mni2subject_coords([roi_x, roi_y, roi_z], opt.subpath)
-        roi.roi_sphere_center = subject_coords
-        log.info(f"Transformed coordinates: {subject_coords}")
+        roi.method = "volume"
+        roi.tissues = _resolve_tissues(roi_spec.tissues)
     else:
-        roi.roi_sphere_center = [roi_x, roi_y, roi_z]
+        roi.method = "surface"
+        roi.surface_type = "central"
 
+    roi.roi_sphere_center_space = "subject"
+    roi.roi_sphere_center = center
     roi.roi_sphere_radius = radius
 
     # Add non-ROI if focality optimisation is requested
     if config.goal == "focality":
         non_roi = opt.add_roi()
-        non_roi.method = "surface"
-        non_roi.surface_type = "central"
+        if roi_spec.volumetric:
+            non_roi.method = "volume"
+            non_roi.tissues = roi.tissues
+        else:
+            non_roi.method = "surface"
+            non_roi.surface_type = "central"
 
         if config.non_roi_method == "everything_else":
             non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_center = roi.roi_sphere_center
+            non_roi.roi_sphere_center = center
             non_roi.roi_sphere_radius = radius
             non_roi.roi_sphere_operator = ["difference"]
             non_roi.weight = -1
         else:
             # Specific non-ROI from config.non_roi (unified ROISpec type)
             non_roi_spec: FlexConfig.SphericalROI = config.non_roi  # type: ignore[assignment]
-            nx = non_roi_spec.x
-            ny = non_roi_spec.y
-            nz = non_roi_spec.z
-            nr = non_roi_spec.radius
-
-            if non_roi_spec.use_mni:
-                log.info(
-                    f"Transforming non-ROI MNI coordinates [{nx}, {ny}, {nz}] to subject space"
-                )
-                non_roi_subject_coords = mni2subject_coords([nx, ny, nz], opt.subpath)
-                non_roi.roi_sphere_center = non_roi_subject_coords
-                log.info(f"Transformed non-ROI coordinates: {non_roi_subject_coords}")
-            else:
-                non_roi.roi_sphere_center = [nx, ny, nz]
-
+            non_roi.roi_sphere_center = _resolve_sphere_center(non_roi_spec, opt)
             non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_radius = nr
+            non_roi.roi_sphere_radius = non_roi_spec.radius
             non_roi.weight = -1
 
 
@@ -269,7 +298,7 @@ def _resolve_roi_tissues(config: FlexConfig) -> list:
     """Resolve tissue tags from the ROI specification.
 
     Reads the ``tissues`` field from a SubcorticalROI config.
-    Defaults to Gray Matter only when unset or unrecognised.
+    Delegates to :func:`_resolve_tissues`.
 
     Args:
         config: Flex-search configuration with SubcorticalROI spec.
@@ -277,15 +306,8 @@ def _resolve_roi_tissues(config: FlexConfig) -> list:
     Returns:
         List of ElementTags values to assign to ``roi.tissues``.
     """
-    from simnibs.mesh_tools.mesh_io import ElementTags
-
     roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
-    value = roi_spec.tissues.strip().upper()
-    if value == "WM":
-        return [ElementTags.WM]
-    if value == "BOTH":
-        return [ElementTags.WM, ElementTags.GM]
-    return [ElementTags.GM]
+    return _resolve_tissues(roi_spec.tissues)
 
 
 def _configure_subcortical_roi(opt, config: FlexConfig) -> None:

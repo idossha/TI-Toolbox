@@ -140,6 +140,8 @@ class DockerCommandBuilder:
             "docker",
             "run",
             "--rm",
+            "--platform",
+            "linux/amd64",
             "--name",
             f"qsiprep_{config.subject_id}_{uuid.uuid4().hex[:8]}",
         ]
@@ -239,6 +241,8 @@ class DockerCommandBuilder:
             "docker",
             "run",
             "--rm",
+            "--platform",
+            "linux/amd64",
             "--name",
             f"qsirecon_{config.subject_id}_{recon_spec.replace('-', '_')}_{uuid.uuid4().hex[:8]}",
         ]

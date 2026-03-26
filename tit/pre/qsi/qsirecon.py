@@ -19,6 +19,16 @@ from .docker_builder import DockerCommandBuilder, DockerBuildError
 from .utils import pull_image_if_needed, validate_qsiprep_output
 
 
+def _ensure_dir(path: Path) -> None:
+    """Create directory, removing phantom bind-mount entries if needed."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        if not path.is_dir():
+            path.unlink(missing_ok=True)
+            path.mkdir(parents=True, exist_ok=True)
+
+
 def run_qsirecon(
     project_dir: str,
     subject_id: str,
@@ -99,10 +109,12 @@ def run_qsirecon(
         )
 
     # Create output directories
+    # Docker bind mounts can leave phantom entries that look like files
+    # to pathlib after a sibling container deletes them. Handle gracefully.
     output_base = Path(project_dir) / "derivatives" / "qsirecon"
-    output_base.mkdir(parents=True, exist_ok=True)
+    _ensure_dir(output_base)
     work_dir = Path(project_dir) / "derivatives" / ".qsirecon_work"
-    work_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_dir(work_dir)
 
     # Build configuration
     config = QSIReconConfig(

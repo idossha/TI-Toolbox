@@ -170,6 +170,109 @@ class TestConfigureSphericalROI:
             configure_roi(opt, config)
             mock_log.warning.assert_not_called()
 
+    def test_volumetric_sphere_uses_volume_method(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(
+                x=-24, y=-4, z=-20, radius=8, volumetric=True, tissues="GM"
+            ),
+        )
+        configure_roi(opt, config)
+
+        opt.add_roi.assert_called_once()
+        assert roi_mock.method == "volume"
+        assert roi_mock.roi_sphere_center == [-24, -4, -20]
+        assert roi_mock.roi_sphere_radius == 8
+        # tissues should be set (list of ElementTags)
+        assert roi_mock.tissues is not None
+        assert len(roi_mock.tissues) == 1
+
+    def test_volumetric_sphere_both_tissues(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(
+                x=-24, y=-4, z=-20, radius=8, volumetric=True, tissues="both"
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.method == "volume"
+        assert len(roi_mock.tissues) == 2
+
+    def test_volumetric_sphere_focality_everything_else(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="everything_else",
+            roi=SphericalROI(
+                x=-24, y=-4, z=-20, radius=8, volumetric=True, tissues="GM"
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert opt.add_roi.call_count == 2
+        assert roi_mock.method == "volume"
+        assert non_roi_mock.method == "volume"
+        assert non_roi_mock.roi_sphere_operator == ["difference"]
+        assert non_roi_mock.weight == -1
+        # non-ROI should inherit tissue tags
+        assert non_roi_mock.tissues == roi_mock.tissues
+
+    def test_volumetric_false_preserves_surface(self):
+        """Default volumetric=False should keep surface method."""
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(x=10, y=20, z=30, radius=15, volumetric=False),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.method == "surface"
+        assert roi_mock.surface_type == "central"
+
+    def test_volumetric_sphere_with_mni(self):
+        from tit.opt.flex.utils import configure_roi
+        import simnibs
+
+        simnibs.mni2subject_coords = MagicMock(return_value=[-25, -5, -21])
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(
+                x=-24, y=-4, z=-20, radius=8,
+                use_mni=True, volumetric=True, tissues="WM",
+            ),
+        )
+        configure_roi(opt, config)
+
+        simnibs.mni2subject_coords.assert_called_once()
+        assert roi_mock.method == "volume"
+        assert roi_mock.roi_sphere_center == [-25, -5, -21]
+        assert len(roi_mock.tissues) == 1
+
 
 # ---------------------------------------------------------------------------
 # configure_roi -- atlas

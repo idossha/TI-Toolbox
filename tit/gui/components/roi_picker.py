@@ -233,6 +233,41 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.radius_input.setDecimals(2)
         layout.addRow(self.radius_label, self.radius_input)
 
+        # Volumetric toggle + tissue type
+        vol_widget = QtWidgets.QWidget()
+        vol_layout = QtWidgets.QHBoxLayout(vol_widget)
+        vol_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.volumetric_checkbox = QtWidgets.QCheckBox("Volumetric")
+        self.volumetric_checkbox.setToolTip(
+            "Evaluate field on volume tetrahedra instead of the cortical surface. "
+            "Use this for deep/subcortical targets (e.g. amygdala, hippocampus) "
+            "where surface-only evaluation would capture overlying cortex."
+        )
+        vol_layout.addWidget(self.volumetric_checkbox)
+
+        self.sphere_tissue_label = QtWidgets.QLabel("Tissue:")
+        self.sphere_tissue_label.setEnabled(False)
+        vol_layout.addWidget(self.sphere_tissue_label)
+
+        self.sphere_tissue_combo = QtWidgets.QComboBox()
+        self.sphere_tissue_combo.addItem("Gray Matter (GM)", "GM")
+        self.sphere_tissue_combo.addItem("White Matter (WM)", "WM")
+        self.sphere_tissue_combo.addItem("GM + WM (both)", "both")
+        self.sphere_tissue_combo.setToolTip(
+            "Tissue compartment(s) to include when evaluating the volumetric sphere. "
+            "GM is appropriate for most targets."
+        )
+        self.sphere_tissue_combo.setEnabled(False)
+        vol_layout.addWidget(self.sphere_tissue_combo)
+
+        vol_layout.addStretch()
+        layout.addRow(vol_widget)
+
+        # Wire checkbox to enable/disable tissue combo
+        self.volumetric_checkbox.toggled.connect(self.sphere_tissue_combo.setEnabled)
+        self.volumetric_checkbox.toggled.connect(self.sphere_tissue_label.setEnabled)
+
         return page
 
     def _build_cortical_page(self) -> QtWidgets.QWidget:
@@ -360,6 +395,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.y_input.valueChanged.connect(self.roi_changed)
         self.z_input.valueChanged.connect(self.roi_changed)
         self.radius_input.valueChanged.connect(self.roi_changed)
+        self.volumetric_checkbox.toggled.connect(self.roi_changed)
+        self.sphere_tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self.atlas_combo.currentIndexChanged.connect(self.roi_changed)
         self.hemi_combo.currentIndexChanged.connect(self.roi_changed)
         self.label_value_input.valueChanged.connect(self.roi_changed)
@@ -462,7 +499,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
         """
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
-            return {
+            d = {
                 "method": "spherical",
                 "center": [
                     self.x_input.value(),
@@ -470,7 +507,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
                     self.z_input.value(),
                 ],
                 "radius": self.radius_input.value(),
+                "volumetric": self.volumetric_checkbox.isChecked(),
             }
+            if self.volumetric_checkbox.isChecked():
+                d["tissues"] = self.sphere_tissue_combo.currentData()
+            return d
         elif roi_type == "atlas":
             return {
                 "method": "atlas",
@@ -506,12 +547,15 @@ class ROIPickerWidget(QtWidgets.QWidget):
 
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
+            vol = self.volumetric_checkbox.isChecked()
             return FlexConfig.SphericalROI(
                 x=self.x_input.value(),
                 y=self.y_input.value(),
                 z=self.z_input.value(),
                 radius=self.radius_input.value(),
                 use_mni=self.is_mni_space(),
+                volumetric=vol,
+                tissues=self.sphere_tissue_combo.currentData() if vol else "GM",
             )
         elif roi_type == "atlas":
             atlas_name = self._resolve_atlas_name_for_subject(
