@@ -8,10 +8,10 @@ The TI-Toolbox integrates with [QSIPrep](https://qsiprep.readthedocs.io/) and [Q
 
 ### Warnings:
 
-This pipeline is functional and producing stable, consistent results. The full chain — QSIRecon tensor output through cross-correlation
-registration and FSL convention pre-compensation — warrants further validation by domain experts. We welcome community input on registration accuracy and downstream simulation fidelity.
+This pipeline is functional and producing stable, consistent results. The full chain - QSIRecon tensor output through cross-correlation
+registration and FSL convention pre-compensation - warrants further validation by domain experts. We welcome community input on registration accuracy and downstream simulation fidelity.
 
-Apple Silicon:QSIPrep/QSIRecon containers are `linux/amd64` only. On Apple Silicon Macs they run under Rosetta 2 emulation — expect slower performance and occasional stability issues. Allocate 32 GB+ Docker memory.
+Apple Silicon machine have stability issues that are coming from upstream QSI package dependencies.
 
 ## Pipeline Overview
 
