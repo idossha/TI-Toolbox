@@ -147,7 +147,6 @@ Resource requirements are highly variable depending on acquisition and hardware:
 - [SimNIBS dwi2cond](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html) — SimNIBS native DTI workflow
 - [DSI Studio](https://dsi-studio.labsolver.org/) — GQI reconstruction engine
 - Cieslak et al. _QSIPrep: an integrative platform for preprocessing and reconstructing diffusion MRI data._ Nature Methods 18, 775–778 (2021). [doi:10.1038/s41592-021-01185-5](https://doi.org/10.1038/s41592-021-01185-5)
-- For developers: [`docs/dev/qsirecon-internal-reference.md`](../dev/qsirecon-internal-reference.md) — complete internal reference (recon specs, atlases, version history, BIDS details)
 
 ## Related
 
