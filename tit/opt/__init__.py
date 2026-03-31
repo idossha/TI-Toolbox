@@ -24,6 +24,7 @@ from tit.opt.config import (
 )
 from tit.opt.ex.ex import run_ex_search
 from tit.opt.flex.flex import run_flex_search
+from tit.opt.secondary import BaseSimulationFields, load_base_simulation_fields
 
 __all__ = [
     # Config classes
@@ -47,4 +48,6 @@ __all__ = [
     # Functions
     "run_flex_search",
     "run_ex_search",
+    "BaseSimulationFields",
+    "load_base_simulation_fields",
 ]

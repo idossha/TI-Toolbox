@@ -238,9 +238,9 @@ class SimulatorTab(QtWidgets.QWidget):
         self.mti_method_checks = {}
         for label, method, checked in [
             ("Recursive TI", MTIFieldMethod.RECURSIVE_TI, True),
-            ("Direct Field (Magnitude AM)", MTIFieldMethod.DIRECT_FIELD_MAGNITUDE, False),
-            ("Direct Field (Directional AM)", MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL, False),
-            ("Full Field (Directional AM)", MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM, False),
+            ("Botzanowski (Magnitude AM)", MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM, False),
+            ("Botzanowski (Directional AM)", MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM, False),
+            ("Grossman Ext (Directional AM)", MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM, False),
         ]:
             cb = QtWidgets.QCheckBox(label)
             cb.setChecked(checked)
@@ -726,15 +726,15 @@ class SimulatorTab(QtWidgets.QWidget):
             return
         method_values = {m.value for m in methods}
         if method_values & {
-            MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-            MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
+            MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM.value,
+            MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM.value,
+            MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM.value,
         }:
-            if method_values == {MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value}:
+            if method_values == {MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM.value}:
                 mode_text = "magnitude AM from the summed field norm"
-            elif method_values == {MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value}:
+            elif method_values == {MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM.value}:
                 mode_text = "directional AM optimized over direction"
-            elif method_values == {MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value}:
+            elif method_values == {MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM.value}:
                 mode_text = (
                     "directional AM from full-field pair envelopes, optimized over direction"
                 )

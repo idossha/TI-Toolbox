@@ -23,7 +23,7 @@ from simnibs import mesh_io, run_simnibs, sim_struct
 from tit import constants as const
 from tit.calc import (
     compute_direct_field_peak_hf,
-    compute_full_field_directional_am_stats,
+    compute_grossman_ext_directional_am_stats,
     compute_mti_vectors,
     get_TI_vectors,
 )
@@ -199,7 +199,7 @@ class mTISimulation:
         # Shared Peak_HF is computed once from the common HF fields.
         peak_hf = compute_direct_field_peak_hf(
             e_fields,
-            MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
+            MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM,
         )
         shared_peak_path = self._save_shared_peak_hf(
             meshes[0], peak_hf, dirs["shared_fields_mesh"], name
@@ -210,8 +210,8 @@ class mTISimulation:
             method_dirs = self._ensure_method_dirs(dirs["montage_dir"], method)
             method_base = f"{name}_mTI_{method.value}"
             extra_scalar_fields = {}
-            if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM:
-                full_stats = compute_full_field_directional_am_stats(
+            if method == MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM:
+                full_stats = compute_grossman_ext_directional_am_stats(
                     e_fields,
                 )
                 mti_vectors = full_stats["vectors"]

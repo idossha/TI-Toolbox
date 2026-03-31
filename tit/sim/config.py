@@ -21,9 +21,9 @@ class ConductivityType(Enum):
 
 class MTIFieldMethod(Enum):
     RECURSIVE_TI = "recursive_ti"
-    DIRECT_FIELD_MAGNITUDE = "direct_field_magnitude"
-    DIRECT_FIELD_DIRECTIONAL = "direct_field_directional"
-    FULL_FIELD_DIRECTIONAL_AM = "full_field_directional_am"
+    BOTZANOWSKI_MAGNITUDE_AM = "botzanowski_magnitude_am"
+    BOTZANOWSKI_DIRECTIONAL_AM = "botzanowski_directional_am"
+    GROSSMAN_EXT_DIRECTIONAL_AM = "grossman_ext_directional_am"
 
 
 @dataclass

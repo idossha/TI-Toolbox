@@ -27,6 +27,7 @@ from tit.gui.components.solver_params import SolverParamsWidget
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.gui.style import FONT_HELP
+from tit.opt.secondary import load_base_simulation_fields
 from tit.opt.config import (
     FlexConfig,
     FlexElectrodeConfig,
@@ -115,16 +116,16 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.secondary_metric_combo = QtWidgets.QComboBox()
         self.secondary_metric_combo.addItem("recursive_ti (TI_Max)", "recursive_ti")
         self.secondary_metric_combo.addItem(
-            "direct_field_magnitude (TI_Max)", "direct_field_magnitude"
+            "Botzanowski (Magnitude AM, TI_Max)", "botzanowski_magnitude_am"
         )
         self.secondary_metric_combo.addItem(
-            "direct_field_directional (TI_Max)", "direct_field_directional"
+            "Botzanowski (Directional AM, TI_Max)", "botzanowski_directional_am"
         )
         self.secondary_metric_combo.addItem(
-            "full_field_directional_am (TI_Max)", "full_field_directional_am"
+            "Grossman Ext (Directional AM, TI_Max)", "grossman_ext_directional_am"
         )
         self.secondary_metric_combo.addItem(
-            "full_field_directional_am (TI_Avg)", "full_field_directional_am_ti_avg"
+            "Grossman Ext (Directional AM, TI_Avg)", "grossman_ext_directional_am_ti_avg"
         )
         self.secondary_metric_label = QtWidgets.QLabel("mTI Metric:")
         self.base_simulation_combo = QtWidgets.QComboBox()
@@ -714,6 +715,14 @@ class FlexSearchTab(QtWidgets.QWidget):
             f"Simulation: {simulation_name}",
             f"Pair fields: {'ready' if hf_ready else 'missing'}",
         ]
+        if hf_ready:
+            try:
+                base_fields = load_base_simulation_fields(subject_id, simulation_name)
+                summary_lines.append(
+                    f"Cached HF pairs: {len(base_fields.e_fields)} ({', '.join(base_fields.pair_labels)})"
+                )
+            except (FileNotFoundError, ValueError, OSError):
+                pass
         if os.path.isdir(ti_dir):
             summary_lines.append("Contains TI outputs")
         if mti_dirs:
@@ -1034,6 +1043,16 @@ class FlexSearchTab(QtWidgets.QWidget):
         ):
             return
 
+        try:
+            base_fields = load_base_simulation_fields(subject_id, base_simulation)
+        except (FileNotFoundError, ValueError, OSError) as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Secondary Search",
+                f"Could not load cached pair fields for the selected base simulation.\n\n{exc}",
+            )
+            return
+
         self.update_output("\n=== Secondary Search ===", "info")
         if len(selected_items) > 1:
             self.update_output(
@@ -1042,6 +1061,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
         self.update_output(f"Subject: {subject_id}", "info")
         self.update_output(f"Base simulation: {base_simulation}", "info")
+        self.update_output(
+            f"Loaded cached HF pair fields: {len(base_fields.e_fields)} ({', '.join(base_fields.pair_labels)})",
+            "success",
+        )
         self.update_output(f"mTI metric: {secondary_metric}", "info")
         self.update_output(f"Goal: {goal}", "info")
         self.update_output(f"Post-processing: {postproc}", "info")

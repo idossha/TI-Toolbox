@@ -195,27 +195,27 @@ def compute_mti_vectors(
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
     if method == MTIFieldMethod.RECURSIVE_TI.value:
         return get_nTI_vectors(fields)
-    if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
-        return compute_direct_field_magnitude_vectors(fields)
-    if method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
-        return compute_direct_field_directional_vectors(fields)
-    if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
-        return compute_full_field_directional_am_stats(fields)["vectors"]
+    if method == MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM.value:
+        return compute_botzanowski_magnitude_am_vectors(fields)
+    if method == MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM.value:
+        return compute_botzanowski_directional_am_vectors(fields)
+    if method == MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM.value:
+        return compute_grossman_ext_directional_am_stats(fields)["vectors"]
     raise ValueError(f"Unsupported mTI field method: {method!r}")
 
 
-def compute_direct_field_magnitude_vectors(fields):
+def compute_botzanowski_magnitude_am_vectors(fields):
     """Compute direct-field AM from the envelope of ``||E(t)||``.
 
     This follows the low-pass analytic form used in the MATLAB prototype:
     ``S(t) = S0 + B cos(beat)`` for the low-frequency part of ``||E(t)||^2``.
     The returned field is the peak-to-trough envelope magnitude.
     """
-    mti_amp, _env_max = _direct_field_magnitude_components(fields)
+    mti_amp, _env_max = _botzanowski_magnitude_am_components(fields)
     return mti_amp
 
 
-def compute_direct_field_directional_vectors(fields):
+def compute_botzanowski_directional_am_vectors(fields):
     """Compute direct-field AM optimized over direction.
 
     For each sampled unit direction ``u``, we project the carrier fields onto
@@ -223,11 +223,11 @@ def compute_direct_field_directional_vectors(fields):
     The output is the vector field whose direction is the maximizing direction
     and whose magnitude is the maximum peak-to-trough directional modulation.
     """
-    mti_vectors, _env_max = _direct_field_directional_components(fields)
+    mti_vectors, _env_max = _botzanowski_directional_am_components(fields)
     return mti_vectors
 
 
-def compute_full_field_directional_am_stats(fields):
+def compute_grossman_ext_directional_am_stats(fields):
     """Return shared full-field directional AM summaries.
 
     Returns
@@ -238,7 +238,7 @@ def compute_full_field_directional_am_stats(fields):
         - ``avg``: orientation-averaged AM across sampled directions
         - ``peak_env``: peak directional upper envelope for the best direction
     """
-    vectors, peak_env, avg = _full_field_directional_am_components(fields)
+    vectors, peak_env, avg = _grossman_ext_directional_am_components(fields)
     return {"vectors": vectors, "avg": avg, "peak_env": peak_env}
 
 
@@ -248,15 +248,15 @@ def compute_direct_field_peak_hf(
 ):
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
     if method in {
-        MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value,
-        MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
-        MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
+        MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM.value,
+        MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM.value,
+        MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM.value,
     }:
         return _direct_field_peak_hf_actual(fields)
     raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
 
 
-def _direct_field_magnitude_components(fields):
+def _botzanowski_magnitude_am_components(fields):
     arrs = _validate_field_list(fields)
     weights = _pair_weights(len(arrs))
 
@@ -279,7 +279,7 @@ def _direct_field_magnitude_components(fields):
     return env_max - env_min, env_max
 
 
-def _direct_field_directional_components(fields):
+def _botzanowski_directional_am_components(fields):
     arrs = _validate_field_list(fields)
     weights = _pair_weights(len(arrs))
     directions = _fibonacci_sphere(192)
@@ -321,7 +321,7 @@ def _direct_field_directional_components(fields):
     return best_vectors, best_peak
 
 
-def _full_field_directional_am_components(fields):
+def _grossman_ext_directional_am_components(fields):
     arrs = _validate_field_list(fields)
     directions = _fibonacci_sphere(192)
     voxel_chunk_size = 16384

@@ -18,10 +18,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tit.calc import (
-    compute_direct_field_directional_vectors,
-    compute_direct_field_magnitude_vectors,
+    compute_botzanowski_directional_am_vectors,
+    compute_botzanowski_magnitude_am_vectors,
     compute_direct_field_peak_hf,
-    compute_full_field_directional_am_stats,
+    compute_grossman_ext_directional_am_stats,
     get_TI_vectors,
     get_nTI_vectors,
     get_mTI_vectors,
@@ -511,9 +511,9 @@ class TestDirectFieldMagnitude:
             np.array([[4.0, 0.0, 0.0]]),
             np.array([[3.0, 0.0, 0.0]]),
         ]
-        result = compute_direct_field_magnitude_vectors(fields)
+        result = compute_botzanowski_magnitude_am_vectors(fields)
         peak = compute_direct_field_peak_hf(
-            fields, MTIFieldMethod.DIRECT_FIELD_MAGNITUDE
+            fields, MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM
         )
         np.testing.assert_allclose(result, [np.sqrt(29.0) - 1.0], atol=1e-12)
         np.testing.assert_allclose(peak, [10.0], atol=1e-12)
@@ -527,11 +527,11 @@ class TestDirectFieldDirectional:
             np.array([[4.0, 0.0, 0.0]]),
             np.array([[3.0, 0.0, 0.0]]),
         ]
-        directional_vec = compute_direct_field_directional_vectors(fields)
+        directional_vec = compute_botzanowski_directional_am_vectors(fields)
         directional = np.linalg.norm(directional_vec, axis=1)
-        magnitude = compute_direct_field_magnitude_vectors(fields)
+        magnitude = compute_botzanowski_magnitude_am_vectors(fields)
         peak = compute_direct_field_peak_hf(
-            fields, MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL
+            fields, MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM
         )
         assert directional_vec.shape == (1, 3)
         np.testing.assert_allclose(directional, magnitude, atol=2e-2)
@@ -547,7 +547,7 @@ class TestFullFieldDirectionalAM:
             np.array([[0.5, 0.0, 0.0]]),
             np.array([[0.5, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
+        result_vec = compute_grossman_ext_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [2.0], atol=3e-2)
 
@@ -558,7 +558,7 @@ class TestFullFieldDirectionalAM:
             np.array([[1.0, 0.0, 0.0]]),
             np.array([[1.0, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
+        result_vec = compute_grossman_ext_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [4.0], atol=3e-2)
 
@@ -569,6 +569,6 @@ class TestFullFieldDirectionalAM:
             np.array([[-1.0, 0.0, 0.0]]),
             np.array([[1.0, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
+        result_vec = compute_grossman_ext_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [0.0], atol=3e-2)

@@ -765,9 +765,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
             os.path.join(sim_dir, "TI", "niftis"),
             os.path.join(sim_dir, "mTI", "niftis"),
         ]
-        candidates.extend(sorted(glob.glob(os.path.join(sim_dir, "mTI_*", "niftis"))))
+        for mti_dir in sorted(glob.glob(os.path.join(sim_dir, "mTI*"))):
+            if not os.path.isdir(mti_dir):
+                continue
+            nested_niftis = os.path.join(mti_dir, "niftis")
+            if os.path.isdir(nested_niftis):
+                candidates.append(nested_niftis)
+            elif glob.glob(os.path.join(mti_dir, "*.nii*")):
+                candidates.append(mti_dir)
         for nifti_dir in candidates:
-            if os.path.isdir(nifti_dir):
+            if os.path.isdir(nifti_dir) and nifti_dir not in dirs:
                 dirs.append(nifti_dir)
         return dirs
 
