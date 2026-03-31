@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tit.calc import (
-    compute_botzanowski_directional_am_vectors,
+    compute_botzanowski_directional_am_stats,
     compute_botzanowski_magnitude_am_vectors,
     compute_direct_field_peak_hf,
     compute_grossman_ext_directional_am_stats,
@@ -527,7 +527,7 @@ class TestDirectFieldDirectional:
             np.array([[4.0, 0.0, 0.0]]),
             np.array([[3.0, 0.0, 0.0]]),
         ]
-        directional_vec = compute_botzanowski_directional_am_vectors(fields)
+        directional_vec = compute_botzanowski_directional_am_stats(fields)["vectors"]
         directional = np.linalg.norm(directional_vec, axis=1)
         magnitude = compute_botzanowski_magnitude_am_vectors(fields)
         peak = compute_direct_field_peak_hf(
@@ -536,6 +536,19 @@ class TestDirectFieldDirectional:
         assert directional_vec.shape == (1, 3)
         np.testing.assert_allclose(directional, magnitude, atol=2e-2)
         np.testing.assert_allclose(peak, [10.0], atol=1e-12)
+
+    def test_directional_stats_include_avg(self):
+        fields = [
+            np.array([[2.0, 0.0, 0.0]]),
+            np.array([[1.0, 0.0, 0.0]]),
+            np.array([[4.0, 0.0, 0.0]]),
+            np.array([[3.0, 0.0, 0.0]]),
+        ]
+        stats = compute_botzanowski_directional_am_stats(fields)
+        assert set(stats) == {"vectors", "avg", "peak_env"}
+        assert stats["vectors"].shape == (1, 3)
+        assert stats["avg"].shape == (1,)
+        assert stats["peak_env"].shape == (1,)
 
 
 @pytest.mark.unit

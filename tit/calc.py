@@ -198,7 +198,7 @@ def compute_mti_vectors(
     if method == MTIFieldMethod.BOTZANOWSKI_MAGNITUDE_AM.value:
         return compute_botzanowski_magnitude_am_vectors(fields)
     if method == MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM.value:
-        return compute_botzanowski_directional_am_vectors(fields)
+        return compute_botzanowski_directional_am_stats(fields)["vectors"]
     if method == MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM.value:
         return compute_grossman_ext_directional_am_stats(fields)["vectors"]
     raise ValueError(f"Unsupported mTI field method: {method!r}")
@@ -207,7 +207,7 @@ def compute_mti_vectors(
 def compute_botzanowski_magnitude_am_vectors(fields):
     """Compute direct-field AM from the envelope of ``||E(t)||``.
 
-    This follows the low-pass analytic form used in the MATLAB prototype:
+    This follows the low-pass analytic form described in the Botzanowski appendix:
     ``S(t) = S0 + B cos(beat)`` for the low-frequency part of ``||E(t)||^2``.
     The returned field is the peak-to-trough envelope magnitude.
     """
@@ -215,16 +215,19 @@ def compute_botzanowski_magnitude_am_vectors(fields):
     return mti_amp
 
 
-def compute_botzanowski_directional_am_vectors(fields):
-    """Compute direct-field AM optimized over direction.
+def compute_botzanowski_directional_am_stats(fields):
+    """Return shared directional Botzanowski AM summaries.
 
-    For each sampled unit direction ``u``, we project the carrier fields onto
-    ``u`` and apply the same low-pass envelope logic as the magnitude method.
-    The output is the vector field whose direction is the maximizing direction
-    and whose magnitude is the maximum peak-to-trough directional modulation.
+    Returns
+    -------
+    dict
+        Keys:
+        - ``vectors``: best-direction AM vectors
+        - ``avg``: orientation-averaged AM across sampled directions
+        - ``peak_env``: peak directional upper envelope for the best direction
     """
-    mti_vectors, _env_max = _botzanowski_directional_am_components(fields)
-    return mti_vectors
+    vectors, peak_env, avg = _botzanowski_directional_am_components(fields)
+    return {"vectors": vectors, "avg": avg, "peak_env": peak_env}
 
 
 def compute_grossman_ext_directional_am_stats(fields):
@@ -260,11 +263,13 @@ def _botzanowski_magnitude_am_components(fields):
     arrs = _validate_field_list(fields)
     weights = _pair_weights(len(arrs))
 
+    # DC term
     s0 = np.zeros(arrs[0].shape[0], dtype=np.float64)
     for field in arrs:
         s0 += np.sum(field * field, axis=1)
     s0 *= 0.5
 
+    # C Delta term
     b = np.zeros_like(s0)
     for pair_idx, weight in enumerate(weights):
         f1 = arrs[2 * pair_idx]
@@ -274,8 +279,8 @@ def _botzanowski_magnitude_am_components(fields):
     abs_b = np.abs(b)
     smin = np.maximum(s0 - abs_b, 0.0)
     smax = np.maximum(s0 + abs_b, 0.0)
-    env_min = np.sqrt(smin)
-    env_max = np.sqrt(smax)
+    env_min = np.sqrt(2 * smin)
+    env_max = np.sqrt(2 * smax)
     return env_max - env_min, env_max
 
 
@@ -288,6 +293,7 @@ def _botzanowski_directional_am_components(fields):
     n_vox = arrs[0].shape[0]
     best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
     best_peak = np.zeros(n_vox, dtype=np.float64)
+    avg_amp = np.zeros(n_vox, dtype=np.float64)
 
     for start in range(0, n_vox, chunk_size):
         stop = min(start + chunk_size, n_vox)
@@ -307,10 +313,11 @@ def _botzanowski_directional_am_components(fields):
         abs_b = np.abs(b)
         smin = np.maximum(s0 - abs_b, 0.0)
         smax = np.maximum(s0 + abs_b, 0.0)
-        env_min = np.sqrt(smin)
-        env_max = np.sqrt(smax)
+        env_min = np.sqrt(2 * smin)
+        env_max = np.sqrt(2 * smax)
         amp = env_max - env_min
 
+        avg_amp[start:stop] = np.mean(amp, axis=1)
         best_idx = np.argmax(amp, axis=1)
         rows = np.arange(stop - start)
         best_amp = amp[rows, best_idx]
@@ -318,7 +325,7 @@ def _botzanowski_directional_am_components(fields):
         best_vectors[start:stop] = best_dirs * best_amp[:, None]
         best_peak[start:stop] = env_max[rows, best_idx]
 
-    return best_vectors, best_peak
+    return best_vectors, best_peak, avg_amp
 
 
 def _grossman_ext_directional_am_components(fields):

@@ -23,6 +23,7 @@ from simnibs import mesh_io, run_simnibs, sim_struct
 from tit import constants as const
 from tit.calc import (
     compute_direct_field_peak_hf,
+    compute_botzanowski_directional_am_stats,
     compute_grossman_ext_directional_am_stats,
     compute_mti_vectors,
     get_TI_vectors,
@@ -210,7 +211,16 @@ class mTISimulation:
             method_dirs = self._ensure_method_dirs(dirs["montage_dir"], method)
             method_base = f"{name}_mTI_{method.value}"
             extra_scalar_fields = {}
-            if method == MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM:
+            if method == MTIFieldMethod.BOTZANOWSKI_DIRECTIONAL_AM:
+                directional_stats = compute_botzanowski_directional_am_stats(
+                    e_fields,
+                )
+                mti_vectors = directional_stats["vectors"]
+                mti_field = np.linalg.norm(mti_vectors, axis=1)
+                extra_scalar_fields["TI_Avg"] = np.asarray(
+                    directional_stats["avg"], dtype=float
+                )
+            elif method == MTIFieldMethod.GROSSMAN_EXT_DIRECTIONAL_AM:
                 full_stats = compute_grossman_ext_directional_am_stats(
                     e_fields,
                 )

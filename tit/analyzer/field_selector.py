@@ -82,7 +82,10 @@ def list_field_targets(
         for method_dir in mti_method_dirs:
             measure = method_dir.name.removeprefix("mTI_")
             field_names = [const.FIELD_MTI_MAX]
-            if measure == "grossman_ext_directional_am":
+            if measure in {
+                "botzanowski_directional_am",
+                "grossman_ext_directional_am",
+            }:
                 field_names.append(const.FIELD_MTI_AVG)
             for field_name in field_names:
                 target = _select_measure_dir(
