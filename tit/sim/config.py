@@ -152,7 +152,6 @@ class SimulationConfig:
         default_factory=lambda: [MTIFieldMethod.RECURSIVE_TI]
     )
     direct_field_pair_polarity: str = "first_positive_second_negative"
-    direct_field_phase_deg: float = 0.0
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
     map_to_surf: bool = True
     # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).

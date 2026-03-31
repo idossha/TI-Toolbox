@@ -200,7 +200,6 @@ class mTISimulation:
         peak_hf = compute_direct_field_peak_hf(
             e_fields,
             MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM,
-            phase_deg=self.config.direct_field_phase_deg,
         )
         shared_peak_path = self._save_shared_peak_hf(
             meshes[0], peak_hf, dirs["shared_fields_mesh"], name
@@ -214,7 +213,6 @@ class mTISimulation:
             if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM:
                 full_stats = compute_full_field_directional_am_stats(
                     e_fields,
-                    phase_deg=self.config.direct_field_phase_deg,
                 )
                 mti_vectors = full_stats["vectors"]
                 mti_field = np.linalg.norm(mti_vectors, axis=1)
@@ -223,7 +221,6 @@ class mTISimulation:
                 mti_vectors = compute_mti_vectors(
                     e_fields,
                     method,
-                    phase_deg=self.config.direct_field_phase_deg,
                 )
                 if np.asarray(mti_vectors).ndim == 2:
                     mti_field = np.linalg.norm(mti_vectors, axis=1)

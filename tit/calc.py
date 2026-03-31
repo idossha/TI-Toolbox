@@ -190,34 +190,32 @@ def get_nTI_vectors(fields):
 def compute_mti_vectors(
     fields,
     method: MTIFieldMethod | str,
-    *,
-    phase_deg: float = 0.0,
 ):
     """Dispatch mTI field computation by method."""
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
     if method == MTIFieldMethod.RECURSIVE_TI.value:
         return get_nTI_vectors(fields)
     if method == MTIFieldMethod.DIRECT_FIELD_MAGNITUDE.value:
-        return compute_direct_field_magnitude_vectors(fields, phase_deg=phase_deg)
+        return compute_direct_field_magnitude_vectors(fields)
     if method == MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value:
-        return compute_direct_field_directional_vectors(fields, phase_deg=phase_deg)
+        return compute_direct_field_directional_vectors(fields)
     if method == MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value:
-        return compute_full_field_directional_am_vectors(fields, phase_deg=phase_deg)
+        return compute_full_field_directional_am_stats(fields)["vectors"]
     raise ValueError(f"Unsupported mTI field method: {method!r}")
 
 
-def compute_direct_field_magnitude_vectors(fields, *, phase_deg: float = 0.0):
+def compute_direct_field_magnitude_vectors(fields):
     """Compute direct-field AM from the envelope of ``||E(t)||``.
 
     This follows the low-pass analytic form used in the MATLAB prototype:
     ``S(t) = S0 + B cos(beat)`` for the low-frequency part of ``||E(t)||^2``.
     The returned field is the peak-to-trough envelope magnitude.
     """
-    mti_amp, _env_max = _direct_field_magnitude_components(fields, phase_deg=phase_deg)
+    mti_amp, _env_max = _direct_field_magnitude_components(fields)
     return mti_amp
 
 
-def compute_direct_field_directional_vectors(fields, *, phase_deg: float = 0.0):
+def compute_direct_field_directional_vectors(fields):
     """Compute direct-field AM optimized over direction.
 
     For each sampled unit direction ``u``, we project the carrier fields onto
@@ -225,35 +223,11 @@ def compute_direct_field_directional_vectors(fields, *, phase_deg: float = 0.0):
     The output is the vector field whose direction is the maximizing direction
     and whose magnitude is the maximum peak-to-trough directional modulation.
     """
-    mti_vectors, _env_max = _direct_field_directional_components(
-        fields, phase_deg=phase_deg
-    )
+    mti_vectors, _env_max = _direct_field_directional_components(fields)
     return mti_vectors
 
 
-def compute_full_field_directional_am_vectors(fields, *, phase_deg: float = 0.0):
-    """Compute directional AM from full-field pair envelopes.
-
-    For a fixed direction ``u``, project each carrier field onto ``u``.
-    For each adjacent carrier pair, compute the exact scalar pair envelope
-    amplitude over the shared beat phase ``psi``:
-
-    ``A_pair(psi) = sqrt(a^2 + b^2 + 2ab cos(psi + phi_pair))``
-
-    The total directional envelope is approximated as the sum of these
-    pair envelopes. The modulation depth is then
-
-    ``max_psi A_u(psi) - min_psi A_u(psi)``
-
-    and is optimized over direction ``u``.
-    """
-    mti_vectors, _peak_env, _avg = _full_field_directional_am_components(
-        fields, phase_deg=phase_deg
-    )
-    return mti_vectors
-
-
-def compute_full_field_directional_am_stats(fields, *, phase_deg: float = 0.0):
+def compute_full_field_directional_am_stats(fields):
     """Return shared full-field directional AM summaries.
 
     Returns
@@ -264,17 +238,13 @@ def compute_full_field_directional_am_stats(fields, *, phase_deg: float = 0.0):
         - ``avg``: orientation-averaged AM across sampled directions
         - ``peak_env``: peak directional upper envelope for the best direction
     """
-    vectors, peak_env, avg = _full_field_directional_am_components(
-        fields, phase_deg=phase_deg
-    )
+    vectors, peak_env, avg = _full_field_directional_am_components(fields)
     return {"vectors": vectors, "avg": avg, "peak_env": peak_env}
 
 
 def compute_direct_field_peak_hf(
     fields,
     method: MTIFieldMethod | str,
-    *,
-    phase_deg: float = 0.0,
 ):
     method = method.value if isinstance(method, MTIFieldMethod) else str(method)
     if method in {
@@ -282,13 +252,13 @@ def compute_direct_field_peak_hf(
         MTIFieldMethod.DIRECT_FIELD_DIRECTIONAL.value,
         MTIFieldMethod.FULL_FIELD_DIRECTIONAL_AM.value,
     }:
-        return _direct_field_peak_hf_actual(fields, phase_deg=phase_deg)
+        return _direct_field_peak_hf_actual(fields)
     raise ValueError(f"Peak HF output is unsupported for method: {method!r}")
 
 
-def _direct_field_magnitude_components(fields, *, phase_deg: float = 0.0):
+def _direct_field_magnitude_components(fields):
     arrs = _validate_field_list(fields)
-    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
+    weights = _pair_weights(len(arrs))
 
     s0 = np.zeros(arrs[0].shape[0], dtype=np.float64)
     for field in arrs:
@@ -309,9 +279,9 @@ def _direct_field_magnitude_components(fields, *, phase_deg: float = 0.0):
     return env_max - env_min, env_max
 
 
-def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
+def _direct_field_directional_components(fields):
     arrs = _validate_field_list(fields)
-    weights = _pair_phase_weights(len(arrs), phase_deg=phase_deg)
+    weights = _pair_weights(len(arrs))
     directions = _fibonacci_sphere(192)
     chunk_size = 16384
 
@@ -351,14 +321,10 @@ def _direct_field_directional_components(fields, *, phase_deg: float = 0.0):
     return best_vectors, best_peak
 
 
-def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
+def _full_field_directional_am_components(fields):
     arrs = _validate_field_list(fields)
     directions = _fibonacci_sphere(192)
     voxel_chunk_size = 16384
-    if abs(float(phase_deg)) > 1e-9:
-        raise ValueError(
-            "full_field_directional_am currently supports only phase_deg = 0."
-        )
 
     n_vox = arrs[0].shape[0]
     best_vectors = np.zeros((n_vox, 3), dtype=np.float64)
@@ -369,31 +335,35 @@ def _full_field_directional_am_components(fields, *, phase_deg: float = 0.0):
         stop = min(start + voxel_chunk_size, n_vox)
         proj_fields = [field[start:stop] @ directions.T for field in arrs]
 
-        env_max = np.zeros((stop - start, directions.shape[0]), dtype=np.float64)
-        env_min = np.zeros_like(env_max)
+        env_psi0 = np.zeros((stop - start, directions.shape[0]), dtype=np.float64)
+        env_psi_pi = np.zeros_like(env_psi0)
+        
         for pair_idx in range(len(arrs) // 2):
             a = proj_fields[2 * pair_idx]
             b = proj_fields[2 * pair_idx + 1]
-            env_max += np.abs(a + b)
-            env_min += np.abs(a - b)
+            env_psi0 += np.abs(a + b)
+            env_psi_pi += np.abs(a - b)
 
-        amp = env_max - env_min
+        env_hi = np.maximum(env_psi0, env_psi_pi)
+        env_lo = np.minimum(env_psi0, env_psi_pi)
+        amp = env_hi - env_lo
+
         avg_amp[start:stop] = np.mean(amp, axis=1)
         best_idx = np.argmax(amp, axis=1)
         rows = np.arange(stop - start)
         best_amp = amp[rows, best_idx]
-        best_peak_env[start:stop] = env_max[rows, best_idx]
+        best_peak_env[start:stop] = env_hi[rows, best_idx]
         best_vectors[start:stop] = directions[best_idx] * best_amp[:, None]
 
     return best_vectors, best_peak_env, avg_amp
 
 
-def _direct_field_peak_hf_actual(fields, *, phase_deg: float = 0.0):
+def _direct_field_peak_hf_actual(fields):
     """Return the peak instantaneous magnitude of the full carrier sum.
 
     For the direct-field workflow we assume the HF carriers are phase-aligned
     at the peak instant, so the peak field is the norm of the signed vector sum
-    of the pair fields. ``phase_deg`` is ignored here by design.
+    of the pair fields.
     """
     arrs = _validate_field_list(fields)
     total = np.sum(np.stack(arrs, axis=0), axis=0)
@@ -418,14 +388,11 @@ def _validate_field_list(fields):
     return arrs
 
 
-def _pair_phase_weights(num_fields: int, phase_deg: float = 0.0):
+def _pair_weights(num_fields: int):
     num_pairs = num_fields // 2
     if num_pairs == 0:
         return []
-    if num_pairs == 1:
-        return [1.0]
-    phase_weight = float(np.cos(np.deg2rad(phase_deg)))
-    return [1.0] + [phase_weight] * (num_pairs - 1)
+    return [1.0] * num_pairs
 
 
 def _fibonacci_sphere(num_dirs: int) -> np.ndarray:

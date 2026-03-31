@@ -21,7 +21,7 @@ from tit.calc import (
     compute_direct_field_directional_vectors,
     compute_direct_field_magnitude_vectors,
     compute_direct_field_peak_hf,
-    compute_full_field_directional_am_vectors,
+    compute_full_field_directional_am_stats,
     get_TI_vectors,
     get_nTI_vectors,
     get_mTI_vectors,
@@ -518,17 +518,6 @@ class TestDirectFieldMagnitude:
         np.testing.assert_allclose(result, [np.sqrt(29.0) - 1.0], atol=1e-12)
         np.testing.assert_allclose(peak, [10.0], atol=1e-12)
 
-    def test_phase_shift_reduces_combined_modulation(self):
-        fields = [
-            np.array([[2.0, 0.0, 0.0]]),
-            np.array([[1.0, 0.0, 0.0]]),
-            np.array([[4.0, 0.0, 0.0]]),
-            np.array([[3.0, 0.0, 0.0]]),
-        ]
-        result = compute_direct_field_magnitude_vectors(fields, phase_deg=180.0)
-        np.testing.assert_allclose(result, [5.0 - np.sqrt(5.0)], atol=1e-12)
-
-
 @pytest.mark.unit
 class TestDirectFieldDirectional:
     def test_directional_matches_magnitude_for_collinear_fields(self):
@@ -558,7 +547,7 @@ class TestFullFieldDirectionalAM:
             np.array([[0.5, 0.0, 0.0]]),
             np.array([[0.5, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_vectors(fields)
+        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [2.0], atol=3e-2)
 
@@ -569,7 +558,7 @@ class TestFullFieldDirectionalAM:
             np.array([[1.0, 0.0, 0.0]]),
             np.array([[1.0, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_vectors(fields)
+        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [4.0], atol=3e-2)
 
@@ -580,6 +569,6 @@ class TestFullFieldDirectionalAM:
             np.array([[-1.0, 0.0, 0.0]]),
             np.array([[1.0, 0.0, 0.0]]),
         ]
-        result_vec = compute_full_field_directional_am_vectors(fields)
+        result_vec = compute_full_field_directional_am_stats(fields)["vectors"]
         result = np.linalg.norm(result_vec, axis=1)
         np.testing.assert_allclose(result, [0.0], atol=3e-2)
