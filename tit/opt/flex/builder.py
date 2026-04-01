@@ -107,9 +107,10 @@ def build_optimization(config: FlexConfig):
     else:  # rectangle
         effective_radius = max(dimensions) / 2.0
 
-    # Create electrode pairs for TI stimulation (2 pairs)
+    # Create electrode pairs for TI stimulation (n_pairs pairs)
+    n_pairs = config.n_pairs
     electrode_pairs = []
-    for _ in range(2):
+    for _ in range(n_pairs):
         electrode_pair = ElectrodeArrayPair()
 
         if electrode_shape == "ellipse":

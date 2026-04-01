@@ -62,6 +62,7 @@ def write_manifest(
             else str(config.non_roi_method) if config.non_roi_method else None
         ),
         "thresholds": config.thresholds,
+        "n_pairs": config.n_pairs,
         "n_multistart": config.n_multistart,
         "min_electrode_distance": config.min_electrode_distance,
         "result": {

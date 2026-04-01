@@ -1862,13 +1862,40 @@ class TesFlexOptimization:
         # post-process raw electric field (components Ex, Ey, Ez)
         if np.array(["TI" in _t for _t in self.e_postproc]).any():
             e_pp = [[0 for _ in range(self._n_roi)]]
-            for i_roi in range(self._n_roi):
-                e_pp[0][i_roi] = postprocess_e(
-                    e=e[0][i_roi],
-                    e2=e[1][i_roi],
-                    dirvec=self._goal_dir[i_roi],
-                    type=self.e_postproc[i_roi],
-                )
+            if self.n_channel_stim == 2:
+                # Standard 2-pair TI
+                for i_roi in range(self._n_roi):
+                    e_pp[0][i_roi] = postprocess_e(
+                        e=e[0][i_roi],
+                        e2=e[1][i_roi],
+                        dirvec=self._goal_dir[i_roi],
+                        type=self.e_postproc[i_roi],
+                    )
+            else:
+                # [TI-TOOLBOX] Multi-polar TI (N > 2 pairs)
+                from tit.calc import get_nTI_vectors
+                for i_roi in range(self._n_roi):
+                    fields = [e[ch][i_roi] for ch in range(self.n_channel_stim)]
+                    ti_vectors = get_nTI_vectors(fields)
+                    pp_type = self.e_postproc[i_roi]
+                    if pp_type == "max_TI":
+                        e_pp[0][i_roi] = np.linalg.norm(ti_vectors, axis=1)
+                    elif pp_type in ("dir_TI", "dir_TI_normal"):
+                        dirvec = self._goal_dir[i_roi]
+                        if dirvec is not None and dirvec.shape[0] == 1:
+                            dirvec = np.repeat(dirvec, ti_vectors.shape[0], axis=0)
+                        e_pp[0][i_roi] = np.abs(np.sum(ti_vectors * dirvec, axis=1))
+                    elif pp_type == "dir_TI_tangential":
+                        dirvec = self._goal_dir[i_roi]
+                        if dirvec is not None and dirvec.shape[0] == 1:
+                            dirvec = np.repeat(dirvec, ti_vectors.shape[0], axis=0)
+                        max_ti = np.linalg.norm(ti_vectors, axis=1)
+                        normal_ti = np.abs(np.sum(ti_vectors * dirvec, axis=1))
+                        e_pp[0][i_roi] = np.sqrt(np.maximum(0, max_ti**2 - normal_ti**2))
+                    else:
+                        raise NotImplementedError(
+                            f"Multi-polar TI postprocessing '{pp_type}' not supported"
+                        )
         else:
             e_pp = [[0 for _ in range(self._n_roi)] for _ in range(self.n_channel_stim)]
             for i_channel_stim in range(self.n_channel_stim):
@@ -3046,7 +3073,7 @@ def write_visualization(
             data /= n_results
             headmesh_newdata.append(m_head.add_element_field(data, "average__magnE"))
 
-        if "max_TI" in e_postproc and n_results == 2:
+        if "max_TI" in e_postproc and n_results >= 2:
             # append maxTI
             fieldnames = [results_txt[i] + "__E" for i in range(len(results_txt))]
             idx = [
@@ -3054,15 +3081,22 @@ def write_visualization(
                 for i, data in enumerate(m_head.elmdata)
                 if data.field_name in fieldnames
             ]
-            if len(idx) != 2:
-                raise ValueError("Exact two E fields needed to calculate maxTI")
+            if len(idx) < 2:
+                raise ValueError("At least two E fields needed to calculate maxTI")
 
-            data = postprocess_e(
-                m_head.elmdata[idx[0]].value,
-                e2=m_head.elmdata[idx[1]].value,
-                dirvec=None,
-                type="max_TI",
-            )
+            if len(idx) == 2:
+                data = postprocess_e(
+                    m_head.elmdata[idx[0]].value,
+                    e2=m_head.elmdata[idx[1]].value,
+                    dirvec=None,
+                    type="max_TI",
+                )
+            else:
+                # [TI-TOOLBOX] Multi-polar TI: combine N channel fields
+                from tit.calc import get_nTI_vectors
+                fields = [m_head.elmdata[i].value for i in idx]
+                ti_vectors = get_nTI_vectors(fields)
+                data = np.linalg.norm(ti_vectors, axis=1)
             headmesh_newdata.append(m_head.add_element_field(data, "max_TI"))
 
     # 2b) append surface data to visualization
@@ -3126,26 +3160,40 @@ def write_visualization(
                     )
 
         # [TI-TOOLBOX] added dir_TI_normal and dir_TI_tangential to metric loop
+        # Extended for multi-polar TI (N >= 2 pairs)
         for metric in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential"]:
-            if metric in e_postproc and n_results == 2:
-                # append maxTI, dirTI, dir_TI_normal, and dir_TI_tangential
+            if metric in e_postproc and n_results >= 2:
                 fieldnames = [results_txt[i] + "__E" for i in range(len(results_txt))]
                 idx = [
                     i
                     for i, data in enumerate(m_surf.nodedata)
                     if data.field_name in fieldnames
                 ]
-                if len(idx) != 2:
+                if len(idx) < 2:
                     raise ValueError(
-                        "Exact two E fields needed to calculate maxTI and dirTI"
+                        "At least two E fields needed to calculate TI metrics"
                     )
 
-                data = postprocess_e(
-                    m_surf.nodedata[idx[0]].value,
-                    e2=m_surf.nodedata[idx[1]].value,
-                    dirvec=dirvec,
-                    type=metric,
-                )
+                if len(idx) == 2:
+                    data = postprocess_e(
+                        m_surf.nodedata[idx[0]].value,
+                        e2=m_surf.nodedata[idx[1]].value,
+                        dirvec=dirvec,
+                        type=metric,
+                    )
+                else:
+                    # [TI-TOOLBOX] Multi-polar TI: combine N channel fields
+                    from tit.calc import get_nTI_vectors
+                    fields = [m_surf.nodedata[i].value for i in idx]
+                    ti_vectors = get_nTI_vectors(fields)
+                    if metric == "max_TI":
+                        data = np.linalg.norm(ti_vectors, axis=1)
+                    elif metric in ("dir_TI", "dir_TI_normal"):
+                        data = np.abs(np.sum(ti_vectors * dirvec, axis=1))
+                    elif metric == "dir_TI_tangential":
+                        max_ti = np.linalg.norm(ti_vectors, axis=1)
+                        normal_ti = np.abs(np.sum(ti_vectors * dirvec, axis=1))
+                        data = np.sqrt(np.maximum(0, max_ti**2 - normal_ti**2))
                 surfacemesh_newdata.append(m_surf.add_node_field(data, metric))
 
     # 3) create new meshes including geo and opt file data
