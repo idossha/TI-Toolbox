@@ -16,8 +16,10 @@ services:
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw              # X11 socket mount for GUI
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw      # X11 auth for remote displays
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
