@@ -1,7 +1,18 @@
 #!/usr/bin/env simnibs_python
-"""
-Shared TI Field Calculation Utilities
-Used by optimization tools
+"""Temporal interference field calculation utilities.
+
+Vectorised NumPy implementations of the TI modulation-amplitude algorithm
+from Grossman et al. (2017), extended to multi-channel (mTI) configurations.
+Used by the simulation engine and optimisation tools.
+
+Public API
+----------
+get_TI_vectors
+    Compute TI modulation-amplitude vectors for a single electrode pair.
+get_nTI_vectors
+    Generalised N-channel TI via recursive binary-tree pairing.
+get_mTI_vectors
+    4-channel mTI (convenience wrapper around :func:`get_TI_vectors`).
 """
 
 import numpy as np
@@ -47,6 +58,11 @@ def get_TI_vectors(E1_org, E2_org):
     ----------
     Grossman, N. et al. (2017). Noninvasive Deep Brain Stimulation via
     Temporally Interfering Electric Fields. Cell, 169(6), 1029-1041.
+
+    See Also
+    --------
+    get_mTI_vectors : 4-channel mTI (two pairs of pairs).
+    get_nTI_vectors : Generalised N-channel recursive TI.
     """
     # Input validation
     assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
@@ -130,15 +146,16 @@ def get_TI_vectors(E1_org, E2_org):
 
 
 def get_nTI_vectors(fields):
-    """Compute mTI vectors for N E-fields using recursive binary-tree pairwise TI.
+    """Compute TI vectors for *N* E-fields using recursive binary-tree pairing.
 
-    N must be even. Fields are paired sequentially: (E1,E2), (E3,E4), etc.
-    Then intermediate TI results are paired recursively until one result remains.
+    *N* must be even.  Fields are paired sequentially — ``(E1, E2)``,
+    ``(E3, E4)``, etc. — then intermediate TI results are paired recursively
+    until a single result remains.
 
-    For 2 fields: TI(E1, E2)
-    For 4 fields: TI(TI(E1,E2), TI(E3,E4))
-    For 6 fields: TI(TI(TI(E1,E2), TI(E3,E4)), TI(E5,E6))
-    For 8 fields: TI(TI(TI(E1,E2), TI(E3,E4)), TI(TI(E5,E6), TI(E7,E8)))
+    For 2 fields: ``TI(E1, E2)``
+    For 4 fields: ``TI(TI(E1,E2), TI(E3,E4))``
+    For 6 fields: ``TI(TI(TI(E1,E2), TI(E3,E4)), TI(E5,E6))``
+    For 8 fields: ``TI(TI(TI(E1,E2), TI(E3,E4)), TI(TI(E5,E6), TI(E7,E8)))``
 
     Parameters
     ----------
@@ -154,6 +171,11 @@ def get_nTI_vectors(fields):
     ------
     ValueError
         If number of fields is not even or less than 2.
+
+    See Also
+    --------
+    get_TI_vectors : Core 2-field TI calculation.
+    get_mTI_vectors : 4-channel convenience wrapper.
     """
     n = len(fields)
     if n < 2 or n % 2 != 0:
@@ -182,27 +204,38 @@ def get_nTI_vectors(fields):
 
 
 def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):
-    """
-    Calculate multi-temporal interference (mTI) vectors from four channel E-fields.
+    """Calculate multi-temporal interference (mTI) vectors from four E-fields.
 
-    This computes TI between channels 1 and 2 to get TI_A, TI between channels 3 and 4
-    to get TI_B, and finally TI between TI_A and TI_B to produce the mTI vector field.
+    Computes TI between channels 1 and 2 to get ``TI_A``, TI between
+    channels 3 and 4 to get ``TI_B``, and finally TI between ``TI_A`` and
+    ``TI_B`` to produce the mTI vector field.
 
     Parameters
     ----------
     E1_org : np.ndarray, shape (N, 3)
-        Electric field vectors for channel 1
+        Electric field vectors for channel 1.
     E2_org : np.ndarray, shape (N, 3)
-        Electric field vectors for channel 2
+        Electric field vectors for channel 2.
     E3_org : np.ndarray, shape (N, 3)
-        Electric field vectors for channel 3
+        Electric field vectors for channel 3.
     E4_org : np.ndarray, shape (N, 3)
-        Electric field vectors for channel 4
+        Electric field vectors for channel 4.
 
     Returns
     -------
     mTI_vectors : np.ndarray, shape (N, 3)
-        Multi-TI modulation amplitude vectors
+        Multi-TI modulation amplitude vectors [V/m].
+
+    Raises
+    ------
+    ValueError
+        If any input array does not have shape ``(N, 3)`` or if the shapes
+        are not identical.
+
+    See Also
+    --------
+    get_TI_vectors : Core 2-field TI calculation.
+    get_nTI_vectors : Generalised N-channel recursive TI.
     """
     # Validate shapes
     for i, arr in enumerate([E1_org, E2_org, E3_org, E4_org], start=1):

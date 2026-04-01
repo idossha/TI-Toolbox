@@ -1,10 +1,54 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox Constants
-Centralized constants for the entire TI-Toolbox codebase.
-This module contains all hardcoded values, magic numbers, and configuration constants.
+"""Project-wide constants for TI-Toolbox.
+
+Centralises all hard-coded values, magic numbers, and configuration defaults
+used across the TI-Toolbox codebase.  Constants are grouped by domain:
+
+Sections
+--------
+Directory Names
+    BIDS-compliant directory structure names (``DIR_*``).
+File Names and Extensions
+    Configuration filenames (``FILE_*``), NIfTI filenames, and common
+    extensions (``EXT_*``).
+Subject and Naming Patterns
+    BIDS prefixes (``PREFIX_*``).
+Environment Variables
+    Expected ``os.environ`` keys (``ENV_*``).
+Docker and Mount Paths
+    Container-specific path constants.
+Analysis Constants
+    Field names (``FIELD_*``), default percentiles, and focality cutoffs.
+Simulation Constants
+    Simulation types (``SIM_TYPE_*``), modes, electrode shapes, and default
+    electrode parameters.
+Atlas Names
+    Cortical (``ATLAS_DK40``, ``ATLAS_A2009S``) and subcortical atlas
+    identifiers.
+Logging Constants
+    Log levels (``LOG_LEVEL_*``) and format strings (``LOG_FORMAT_*``).
+Numerical Constants
+    Floating-point tolerances and tissue conductivities (S/m) with
+    literature references.
+Tissue Conductivity Table
+    ``TISSUE_PROPERTIES`` lookup list mapping SimNIBS tissue tag numbers
+    to names, conductivities, and references.
+GUI Constants
+    Window dimensions, tab names, and console buffer sizes.
+QSI Integration
+    QSIPrep / QSIRecon Docker images, recon specs, atlases, and resource
+    defaults.
+Validation Bounds
+    Min/max ranges for frontend and API input validation.
+Default Parameters
+    ``DEFAULT_ELECTRODE``, ``DEFAULT_OPTIMIZATION``,
+    ``DEFAULT_STATISTICS`` dictionaries.
+
+See Also
+--------
+tit.paths : Uses many of these constants for BIDS path resolution.
 """
 
 # ============================================================================
