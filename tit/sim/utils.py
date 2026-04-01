@@ -36,7 +36,14 @@ def _montage_list_path() -> str:
 
 
 def ensure_montage_file() -> str:
-    """Return path to montage_list.json, creating it with default schema if absent."""
+    """Return path to montage_list.json, creating it if absent.
+
+    If the file does not exist, creates it with the default schema
+    ``{"nets": {}}``.
+
+    Returns:
+        str: Absolute path to the montage_list.json file.
+    """
     path = _montage_list_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if not os.path.exists(path):
@@ -46,16 +53,35 @@ def ensure_montage_file() -> str:
 
 
 def load_montage_data() -> dict:
+    """Load the full montage_list.json as a dict.
+
+    Returns:
+        dict: Parsed JSON with top-level key ``"nets"`` mapping EEG net
+            names to their uni/multi polar montage definitions.
+    """
     with open(ensure_montage_file()) as f:
         return json.load(f)
 
 
 def save_montage_data(data: dict) -> None:
+    """Write *data* to montage_list.json, overwriting the file.
+
+    Args:
+        data: Full montage dict (must contain a ``"nets"`` key).
+    """
     with open(ensure_montage_file(), "w") as f:
         json.dump(data, f, indent=4)
 
 
 def ensure_eeg_net_entry(eeg_net: str) -> None:
+    """Ensure an entry for *eeg_net* exists in montage_list.json.
+
+    If the net is not yet present, creates it with empty
+    ``uni_polar_montages`` and ``multi_polar_montages`` dicts.
+
+    Args:
+        eeg_net: EEG net identifier (e.g. ``"GSN-HydroCel-185.csv"``).
+    """
     data = load_montage_data()
     data["nets"].setdefault(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
@@ -70,7 +96,18 @@ def upsert_montage(
     electrode_pairs: list[list[str]],
     mode: str,
 ) -> None:
-    """mode: 'U' → uni_polar_montages, 'M' → multi_polar_montages"""
+    """Insert or update a montage definition in montage_list.json.
+
+    Creates the EEG net entry if it does not already exist.
+
+    Args:
+        eeg_net: EEG net identifier (e.g. ``"GSN-HydroCel-185.csv"``).
+        montage_name: Human-readable montage name.
+        electrode_pairs: List of electrode pairs, each a two-element list
+            of electrode labels (e.g. ``[["E1","E2"],["E3","E4"]]``).
+        mode: ``"U"`` for uni-polar montages (2-pair TI) or ``"M"`` for
+            multi-polar montages (4-pair mTI).
+    """
     data = load_montage_data()
     net = data["nets"].setdefault(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
@@ -81,7 +118,17 @@ def upsert_montage(
 
 
 def list_montage_names(eeg_net: str, *, mode: str) -> list[str]:
-    """mode: 'U' or 'M'. Returns [] for missing nets."""
+    """List all montage names defined under an EEG net.
+
+    Args:
+        eeg_net: EEG net identifier (e.g. ``"GSN-HydroCel-185.csv"``).
+        mode: ``"U"`` for uni-polar montage names or ``"M"`` for
+            multi-polar montage names.
+
+    Returns:
+        list[str]: Sorted montage names. Returns an empty list if the
+        net or mode key does not exist.
+    """
     data = load_montage_data()
     net = data.get("nets", {}).get(eeg_net, {})
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
@@ -92,6 +139,16 @@ def list_montage_names(eeg_net: str, *, mode: str) -> list[str]:
 
 
 def load_flex_montages(flex_file: str | None = None) -> list[dict]:
+    """Load flex/freehand montage definitions from a JSON file.
+
+    Args:
+        flex_file: Path to the flex montages JSON file. Falls back to the
+            ``FLEX_MONTAGES_FILE`` environment variable if not provided.
+
+    Returns:
+        list[dict]: List of raw flex montage dicts. Returns an empty list
+        if no file is found.
+    """
     if not flex_file:
         flex_file = os.environ.get("FLEX_MONTAGES_FILE")
     if not flex_file or not os.path.exists(flex_file):
@@ -104,6 +161,20 @@ def load_flex_montages(flex_file: str | None = None) -> list[dict]:
 
 
 def parse_flex_montage(flex: dict) -> Montage:
+    """Convert a raw flex montage dict into a Montage dataclass.
+
+    Args:
+        flex: Dict with keys ``"name"``, ``"type"``, and either
+            ``"pairs"`` (for ``flex_mapped``) or
+            ``"electrode_positions"`` (for ``flex_optimized`` /
+            ``freehand_xyz``).
+
+    Returns:
+        Montage: Populated Montage instance.
+
+    Raises:
+        ValueError: If ``flex["type"]`` is not a recognised montage type.
+    """
     name, mtype = flex["name"], flex["type"]
     if mtype == "flex_mapped":
         p = flex["pairs"]
@@ -133,6 +204,30 @@ def load_montages(
     eeg_net: str,
     include_flex: bool = True,
 ) -> list[Montage]:
+    """Load named montages from the project's montage_list.json.
+
+    Reads the montage_list.json file (managed by ``ensure_montage_file``),
+    looks up each name under the given EEG net's uni- and multi-polar
+    sections, and returns them as ``Montage`` instances. When
+    *include_flex* is True, any flex/freehand montages found via
+    ``load_flex_montages`` are appended.
+
+    The ``eeg_net`` value determines the montage mode:
+    - ``"freehand"`` sets ``Montage.Mode.FREEHAND``
+    - ``"flex_mode"`` sets ``Montage.Mode.FLEX_FREE``
+    - Any other value (e.g. ``"GSN-HydroCel-185.csv"``) sets
+      ``Montage.Mode.NET``
+
+    Args:
+        montage_names: Names to look up in the montage file.
+        eeg_net: EEG net identifier that selects the sub-dict inside
+            ``montage_list.json["nets"]``.
+        include_flex: If True, append flex/freehand montages loaded from
+            the ``FLEX_MONTAGES_FILE`` environment variable.
+
+    Returns:
+        list[Montage]: Resolved montage objects ready for simulation.
+    """
     data = load_montage_data()
     net = data.get("nets", {}).get(eeg_net, {})
     uni = net.get("uni_polar_montages", {})
@@ -167,6 +262,20 @@ def load_montages(
 
 
 def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[str, str]:
+    """Create the BIDS-compliant output directory tree for one montage.
+
+    Creates sub-directories for high-frequency fields, TI fields, meshes,
+    NIfTIs, surface overlays, montage images, and documentation. For mTI
+    mode, additional ``mTI/`` sub-directories are created.
+
+    Args:
+        montage_dir: Root output directory for this montage.
+        mode: ``SimulationMode.TI`` or ``SimulationMode.MTI``.
+
+    Returns:
+        dict[str, str]: Mapping of logical names (e.g. ``"ti_mesh"``,
+        ``"hf_niftis"``) to their absolute paths.
+    """
     dirs = {
         "montage_dir": montage_dir,
         "hf_dir": os.path.join(montage_dir, "high_Frequency"),
@@ -202,6 +311,20 @@ def run_montage_visualization(
     logger,
     electrode_pairs: list | None = None,
 ) -> None:
+    """Render a 2-D montage diagram for an EEG-cap montage.
+
+    Skips rendering for freehand and flex_mode montages (no cap layout).
+
+    Args:
+        montage_name: Name of the montage to visualize.
+        simulation_mode: ``SimulationMode.TI`` or ``SimulationMode.MTI``.
+        eeg_net: EEG net identifier. Visualization is skipped when this
+            is ``"freehand"`` or ``"flex_mode"``.
+        output_dir: Directory where the image file is saved.
+        logger: Logger instance for status messages.
+        electrode_pairs: Electrode pair list to annotate on the diagram.
+            Defaults to an empty list.
+    """
     if eeg_net in ("freehand", "flex_mode"):
         logger.info(f"Skipping montage visualization for {eeg_net} mode")
         return
@@ -227,6 +350,17 @@ def create_simulation_config_file(
     documentation_dir: str,
     logger,
 ) -> None:
+    """Write a JSON snapshot of the simulation configuration to disk.
+
+    Serialises subject ID, montage details, electrode geometry, mapping
+    options, and a timestamp into ``config.json`` inside *documentation_dir*.
+
+    Args:
+        config: The full simulation configuration.
+        montage: The specific montage being simulated.
+        documentation_dir: Directory to write ``config.json`` into.
+        logger: Logger instance for status messages.
+    """
     path = os.path.join(documentation_dir, "config.json")
     data = {
         "subject_id": config.subject_id,
@@ -268,7 +402,22 @@ def extract_fields(
     subject_id: str,
     logger,
 ) -> None:
-    """Extract GM (tag 2) and WM (tag 1) meshes from a full-head mesh."""
+    """Extract grey-matter and white-matter meshes from a full-head mesh.
+
+    Crops the input mesh by SimNIBS tissue tags (tag 2 = GM, tag 1 = WM)
+    and writes the results as separate ``.msh`` files.
+
+    Args:
+        input_mesh: Path to the full-head ``.msh`` file.
+        output_dir: Directory to write the cropped meshes into.
+        base_name: Stem used for output filenames (e.g.
+            ``"grey_{base_name}.msh"``).
+        m2m_dir: Path to the subject's m2m directory (unused here but
+            kept for interface consistency).
+        subject_id: Subject identifier (unused here but kept for
+            interface consistency).
+        logger: Logger instance for status messages.
+    """
     from simnibs import mesh_io
 
     full_mesh = mesh_io.read_msh(input_mesh)
@@ -287,7 +436,23 @@ def transform_to_nifti(
     fields: list[str] | None = None,
     skip_patterns: list[str] | None = None,
 ) -> None:
-    """Convert mesh files to NIfTI (subject + MNI space)."""
+    """Convert mesh files in a directory to NIfTI volumes.
+
+    Delegates to ``tit.tools.mesh2nii.convert_mesh_dir`` which transforms
+    each ``.msh`` file into subject-space (and optionally MNI-space)
+    NIfTI images.
+
+    Args:
+        mesh_dir: Directory containing ``.msh`` files to convert.
+        output_dir: Directory to write the resulting NIfTI files.
+        subject_id: Subject identifier (unused here but kept for
+            interface consistency).
+        m2m_dir: Path to the subject's m2m directory, used for
+            coordinate transforms.
+        logger: Logger instance for status messages.
+        fields: Mesh field names to convert. Converts all fields if None.
+        skip_patterns: Filename patterns to skip during conversion.
+    """
     from tit.tools.mesh2nii import convert_mesh_dir
 
     convert_mesh_dir(
@@ -300,7 +465,17 @@ def transform_to_nifti(
 
 
 def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
-    """Convert T1 to MNI space (no-op if already done)."""
+    """Convert the subject's T1 image to MNI space via ``subject2mni``.
+
+    Calls the SimNIBS ``subject2mni`` CLI tool. Logs a warning (but does
+    not raise) if the conversion fails.
+
+    Args:
+        m2m_dir: Path to the subject's m2m directory containing
+            ``T1.nii.gz``.
+        subject_id: Subject identifier, used for the output filename.
+        logger: Logger instance for status/warning messages.
+    """
     t1 = os.path.join(m2m_dir, "T1.nii.gz")
     out = os.path.join(m2m_dir, f"T1_{subject_id}")
     result = subprocess.run(
@@ -314,6 +489,12 @@ def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
 
 
 def safe_move(src: str, dest: str) -> None:
+    """Move a file or directory from *src* to *dest*.
+
+    Args:
+        src: Source path.
+        dest: Destination path.
+    """
     shutil.move(src, dest)
 
 
@@ -325,10 +506,35 @@ def run_simulation(
     logger=None,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> list[dict]:
-    """
-    Run TI/mTI simulations sequentially. Mode is auto-detected per montage.
-    Montages are read from ``config.montages``.
-    Returns list of result dicts: montage_name, montage_type, status, output_mesh.
+    """Run TI or mTI simulations for every montage in *config*.
+
+    For each montage in ``config.montages``, this function:
+
+    1. Auto-detects TI (2 pairs) vs mTI (4+ pairs) from the montage.
+    2. Builds a SimNIBS SESSION with electrode geometry and conductivity
+       settings from *config*.
+    3. Runs the FEM solver to compute electric-field distributions.
+    4. Computes temporal-interference envelope fields (TI_max, TI_normal)
+       and, for mTI, the multi-channel superposition.
+    5. Writes output meshes, surface overlays, and NIfTIs to the
+       BIDS-compliant simulation directory.
+
+    Montages are processed sequentially. If no *logger* is provided, a
+    file logger is created under the subject's log directory.
+
+    Args:
+        config: Full simulation configuration including subject ID,
+            montage list, electrode geometry, and conductivity model.
+        logger: Logger instance. If None, a file logger is created
+            automatically in the subject's BIDS logs directory.
+        progress_callback: Optional callback invoked before each montage
+            as ``callback(current_index, total, montage_name)`` and once
+            more with ``(total, total, "Complete")`` when finished.
+
+    Returns:
+        list[dict]: One result dict per montage with keys
+        ``montage_name``, ``montage_type``, ``status``, and
+        ``output_mesh``.
     """
     if logger is None:
         pm = get_path_manager()

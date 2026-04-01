@@ -40,7 +40,16 @@ _NUMERIC_COLS = [
 
 @dataclass
 class GroupResult:
-    """Outcome of a multi-subject group analysis."""
+    """Outcome of a multi-subject group analysis.
+
+    Attributes:
+        subject_results: Mapping of subject ID to its
+            :class:`~tit.analyzer.analyzer.AnalysisResult`.
+        summary_csv_path: Path to the summary CSV (one row per subject
+            plus an AVERAGE row).
+        comparison_plot_path: Path to the 2x2 comparison bar-chart PDF,
+            or ``None`` if plotting failed.
+    """
 
     subject_results: dict[str, AnalysisResult]
     summary_csv_path: Path
@@ -61,11 +70,36 @@ def run_group_analysis(
     visualize: bool = False,
     output_dir: str | Path | None = None,
 ) -> GroupResult:
-    """Run the same ROI analysis across *subject_ids* and summarise.
+    """Run the same ROI analysis across multiple subjects and summarise.
 
     Dispatches to ``analyze_sphere`` or ``analyze_cortex`` on each subject,
     builds a summary CSV (with an AVERAGE row), and generates a 2x2
-    comparison bar-chart PDF.  Returns a :class:`GroupResult`.
+    comparison bar-chart PDF.
+
+    Args:
+        subject_ids: List of subject identifiers (without ``sub-`` prefix).
+        simulation: Simulation (montage) folder name, shared by all subjects.
+        space: ``"mesh"`` or ``"voxel"``.
+        tissue_type: ``"GM"``, ``"WM"``, or ``"both"`` (voxel only).
+        analysis_type: ``"spherical"`` or ``"cortical"``.
+        center: ``(x, y, z)`` sphere centre; required when
+            *analysis_type* is ``"spherical"``.
+        radius: Sphere radius in mm; required when *analysis_type* is
+            ``"spherical"``.
+        coordinate_space: ``"subject"`` or ``"MNI"`` (spherical only).
+        atlas: Atlas name (cortical only).
+        region: Region name or list of region names (cortical only).
+        visualize: Generate per-subject visualization artifacts.
+        output_dir: Override output directory. If ``None``, derived from
+            PathManager.
+
+    Returns:
+        A :class:`GroupResult` containing per-subject results, the summary
+        CSV path, and the comparison plot path.
+
+    Raises:
+        KeyError: If *analysis_type* is not ``"spherical"`` or
+            ``"cortical"``.
     """
     out = _resolve_output_dir(output_dir)
 

@@ -36,7 +36,36 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AnalysisResult:
-    """Immutable container for ROI analysis statistics."""
+    """Immutable container for ROI analysis statistics.
+
+    Attributes:
+        field_name: Name of the field that was analyzed (e.g. ``"TI_max"``).
+        region_name: Human-readable ROI label.
+        space: ``"mesh"`` or ``"voxel"``.
+        analysis_type: ``"spherical"`` or ``"cortical"``.
+        roi_mean: Area/volume-weighted mean field value inside the ROI.
+        roi_max: Maximum field value inside the ROI.
+        roi_min: Minimum field value inside the ROI.
+        roi_focality: Ratio of ROI mean to whole-GM mean (> 1 means
+            the ROI is stronger than the GM average).
+        gm_mean: Mean field value across all positive GM elements.
+        gm_max: Maximum field value across all GM elements.
+        normal_mean: Weighted mean of the normal-component field in the ROI
+            (mesh only; ``None`` when unavailable).
+        normal_max: Maximum normal-component field in the ROI.
+        normal_focality: Normal-component focality ratio.
+        percentile_95: 95th percentile of the whole-GM field distribution.
+        percentile_99: 99th percentile of the whole-GM field distribution.
+        percentile_99_9: 99.9th percentile of the whole-GM field distribution.
+        focality_50_area: Area/volume (cm^2/cm^3) where the field exceeds
+            50 % of the 99.9th percentile value.
+        focality_75_area: Same for 75 % threshold.
+        focality_90_area: Same for 90 % threshold.
+        focality_95_area: Same for 95 % threshold.
+        n_elements: Number of mesh nodes or voxels in the ROI mask.
+        total_area_or_volume: Total surface area (mm^2) or volume (mm^3)
+            of positive-valued ROI elements.
+    """
 
     field_name: str
     region_name: str
@@ -70,19 +99,38 @@ class AnalysisResult:
 class Analyzer:
     """Unified analyzer for mesh and voxel field data.
 
-    Lazily loads the field file on first analysis call.  All coordinate
+    Lazily loads the field file on first analysis call. All coordinate
     transforms and ROI masking are handled internally.
 
-    Parameters
-    ----------
-    subject_id:
-        Subject identifier (without ``sub-`` prefix).
-    simulation:
-        Simulation (montage) folder name.
-    space:
-        ``"mesh"`` or ``"voxel"``.
-    output_dir:
-        Override output directory.  If *None*, derived from PathManager.
+    Example::
+
+        from tit.analyzer import Analyzer
+
+        analyzer = Analyzer("001", "montage_bipolar", space="mesh")
+        result = analyzer.analyze_sphere(
+            center=(-30.0, -20.0, 50.0), radius=10.0,
+        )
+        print(result.roi_mean, result.roi_focality)
+
+    Args:
+        subject_id: Subject identifier (without ``sub-`` prefix).
+        simulation: Simulation (montage) folder name.
+        space: ``"mesh"`` or ``"voxel"``.
+        tissue_type: ``"GM"``, ``"WM"``, or ``"both"``. Only affects voxel
+            analyses; mesh analyses always use the GM cortical surface.
+        output_dir: Override output directory. If ``None``, derived from
+            PathManager.
+
+    Attributes:
+        subject_id: Subject identifier.
+        simulation: Simulation folder name.
+        space: Analysis space (``"mesh"`` or ``"voxel"``).
+        tissue_type: Normalised tissue selection (``"GM"``, ``"WM"``, or
+            ``"BOTH"``).
+        field_path: Resolved path to the field file.
+        field_name: Short name of the field (e.g. ``"TI_max"``).
+        m2m_path: Path to the subject's ``m2m_*`` directory.
+        output_dir: Output directory override, or ``None``.
     """
 
     def __init__(
@@ -146,16 +194,20 @@ class Analyzer:
     ) -> AnalysisResult:
         """Analyze a spherical ROI.
 
-        Parameters
-        ----------
-        center:
-            (x, y, z) coordinates of the sphere centre.
-        radius:
-            Radius in mm.
-        coordinate_space:
-            ``"subject"`` (default) or ``"MNI"``.
-        visualize:
-            Generate overlay, histogram and CSV artifacts.
+        Args:
+            center: ``(x, y, z)`` coordinates of the sphere centre.
+            radius: Radius in mm.
+            coordinate_space: ``"subject"`` (default) or ``"MNI"``. When
+                ``"MNI"``, coordinates are transformed to subject space
+                via SimNIBS ``mni2subject_coords``.
+            visualize: Generate overlay, histogram, and CSV artifacts.
+
+        Returns:
+            An :class:`AnalysisResult` with ROI and whole-GM statistics.
+
+        Raises:
+            FileNotFoundError: If the required field or surface mesh file
+                does not exist.
         """
         dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
         return dispatch[self.space](center, radius, coordinate_space, visualize)
@@ -168,15 +220,22 @@ class Analyzer:
     ) -> AnalysisResult:
         """Analyze a cortical atlas region.
 
-        Parameters
-        ----------
-        atlas:
-            Atlas name recognised by SimNIBS (e.g. ``"DK40"``, ``"HCP_MMP1"``).
-        region:
-            Region name within the atlas, or a list of region names whose
-            masks will be unioned into a single combined ROI.
-        visualize:
-            Generate overlay, histogram and CSV artifacts.
+        Args:
+            atlas: Atlas name recognised by SimNIBS (e.g. ``"DK40"``,
+                ``"HCP_MMP1"``), or an absolute path to an atlas NIfTI
+                (voxel mode only).
+            region: Region name within the atlas (e.g. ``"lh.cuneus"``),
+                or a list of region names whose masks are unioned into a
+                single combined ROI. Bare names like ``"cuneus"`` expand
+                to both hemispheres in mesh mode.
+            visualize: Generate overlay, histogram, and CSV artifacts.
+
+        Returns:
+            An :class:`AnalysisResult` with ROI and whole-GM statistics.
+
+        Raises:
+            KeyError: If a region name cannot be resolved in the atlas.
+            FileNotFoundError: If the atlas or field file does not exist.
         """
         dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
         return dispatch[self.space](atlas, region, visualize)
