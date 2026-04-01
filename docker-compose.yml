@@ -31,6 +31,8 @@ services:
       TZ: ${TZ}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "v2.3.0"
+    ports:
+      - "8888:8888"
     networks:
       - ti_network
     depends_on:
