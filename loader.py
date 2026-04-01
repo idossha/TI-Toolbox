@@ -109,7 +109,7 @@ def find_xhost() -> Optional[str]:
 def check_x_forwarding() -> Optional[str]:
     system = platform.system()
     dispatch = {
-        "Linux": (":0", find_xhost),
+        "Linux": (os.environ.get("DISPLAY", ":0"), find_xhost),
         "Darwin": ("host.docker.internal:0", find_xhost),
         "Windows": ("host.docker.internal:0", None),
     }
