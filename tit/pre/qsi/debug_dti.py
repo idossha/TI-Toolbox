@@ -132,6 +132,7 @@ def _compute_fa(eigenvalues):
 
 
 def main():
+    """CLI entry point for DTI registration debugging diagnostics."""
     if len(sys.argv) < 3:
         print(f"Usage: python -m tit.pre.qsi.debug_dti <project_dir> <subject_id>")
         sys.exit(1)

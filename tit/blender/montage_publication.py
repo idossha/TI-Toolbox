@@ -75,6 +75,22 @@ def _find_central_surface_mesh(
 def export_scalp_stl_from_sim(
     sim_dir: str, *, output_stl: str, skin_tag: int = 1005
 ) -> str:
+    """Extract the scalp surface from a simulation mesh and write it as STL.
+
+    Parameters
+    ----------
+    sim_dir : str
+        Path to the simulation directory containing tetrahedral meshes.
+    output_stl : str
+        Destination path for the binary STL file.
+    skin_tag : int, optional
+        Element tag identifying scalp tissue in the mesh (default 1005).
+
+    Returns
+    -------
+    str
+        The *output_stl* path that was written.
+    """
     tetra_mesh = _find_tetrahedral_mesh(sim_dir)
     vertices, faces = be_utils.extract_scalp_from_msh(tetra_mesh, skin_tag=skin_tag)
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
@@ -85,6 +101,24 @@ def export_scalp_stl_from_sim(
 def export_gm_stl_from_sim(
     sim_dir: str, *, subject_id: str, simulation_name: str, output_stl: str
 ) -> str:
+    """Extract the grey-matter central surface from a simulation and write it as STL.
+
+    Parameters
+    ----------
+    sim_dir : str
+        Path to the simulation directory.
+    subject_id : str
+        Subject identifier (without the ``sub-`` prefix).
+    simulation_name : str
+        Name of the simulation whose central surface mesh is used.
+    output_stl : str
+        Destination path for the binary STL file.
+
+    Returns
+    -------
+    str
+        The *output_stl* path that was written.
+    """
     import numpy as np
     import simnibs
 
@@ -124,6 +158,20 @@ def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
 
 @dataclass(frozen=True)
 class MontageResult:
+    """Paths produced by a montage publication build.
+
+    Attributes
+    ----------
+    scalp_stl : str
+        Path to the exported scalp STL mesh.
+    gm_stl : str
+        Path to the exported grey-matter STL mesh.
+    electrodes_blend : str
+        Path to the intermediate Blender file with placed electrodes.
+    final_blend : str
+        Path to the final publication-ready Blender scene.
+    """
+
     scalp_stl: str
     gm_stl: str
     electrodes_blend: str
@@ -241,6 +289,29 @@ def build_montage_publication_blend(
     electrode_diameter_mm: float = 10.0,
     electrode_height_mm: float = 6.0,
 ) -> MontageResult:
+    """Build a complete publication-ready montage Blender scene from scratch.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without the ``sub-`` prefix).
+    simulation_name : str
+        Name of the simulation to visualise.
+    output_dir : str or None, optional
+        Directory for all output files.  When *None*, a default BIDS-derivative
+        path is constructed via :class:`PathManager`.
+    show_full_net : bool, optional
+        If *True*, render the entire EEG net; otherwise only active electrodes.
+    electrode_diameter_mm : float, optional
+        Diameter of each electrode cylinder in mm (default 10.0).
+    electrode_height_mm : float, optional
+        Height of each electrode cylinder in mm (default 6.0).
+
+    Returns
+    -------
+    MontageResult
+        Dataclass with paths to all generated assets.
+    """
     import bpy
 
     pm = get_path_manager()

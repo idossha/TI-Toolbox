@@ -1417,10 +1417,12 @@ class VisualExporterWindow(QtWidgets.QDialog):
 
 
 def main(parent=None):
+    """Create and show the Visual Exporter window."""
     window = VisualExporterWindow(parent)
     window.show()
     return window
 
 
 def run(parent=None):
+    """Alias for :func:`main` used by the extension loader."""
     return main(parent)

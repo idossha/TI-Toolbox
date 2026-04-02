@@ -43,6 +43,20 @@ def ensure_headless_matplotlib_backend(backend: str = "Agg") -> None:
 
 @dataclass(frozen=True, slots=True)
 class SaveFigOptions:
+    """Options forwarded to ``Figure.savefig``.
+
+    Attributes
+    ----------
+    dpi : int
+        Resolution in dots per inch (default 600).
+    bbox_inches : str
+        Bounding-box mode passed to *savefig* (default ``"tight"``).
+    facecolor : str
+        Background colour of the saved figure (default ``"white"``).
+    edgecolor : str
+        Edge colour of the saved figure (default ``"none"``).
+    """
+
     dpi: int = 600
     bbox_inches: str = "tight"
     facecolor: str = "white"
