@@ -1,8 +1,13 @@
-"""
-Stateless visualization helpers for the analyzer pipeline.
+"""Stateless visualization and output helpers for the analyzer pipeline.
 
-Four module-level functions that write output artifacts (mesh overlays,
-NIfTI overlays, histograms, CSV) without any shared mutable state.
+Module-level functions that write output artifacts (mesh overlays,
+NIfTI overlays, histograms, CSV, metadata JSON) without any shared mutable
+state.  These are package-internal; the public API is
+:class:`~tit.analyzer.Analyzer`.
+
+See Also
+--------
+tit.analyzer.analyzer : Analyzer class that calls these helpers.
 """
 
 import csv
@@ -38,6 +43,27 @@ def save_mesh_roi_overlay(
     writes both the mesh and a Gmsh options file for colour-map / range /
     transparency.  When *normal_mesh_path* is given the TI_normal field is
     added as a second (initially hidden) view.
+
+    Parameters
+    ----------
+    surface_mesh_path : pathlib.Path
+        Path to the cortical surface mesh file.
+    field_values : numpy.ndarray
+        Per-node field values for the entire surface.
+    roi_mask : numpy.ndarray
+        Boolean mask selecting ROI nodes.
+    field_name : str
+        Name of the primary field (used in the mesh view label).
+    output_dir : pathlib.Path
+        Directory where the overlay files are written.
+    normal_mesh_path : pathlib.Path or None, optional
+        Path to the TI_normal mesh file. When provided, the normal field
+        is added as an additional (hidden) view.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the written ``roi_overlay.msh`` file.
     """
     import simnibs
 
@@ -127,7 +153,24 @@ def save_nifti_roi_overlay(
     output_dir: Path,
     affine: np.ndarray,
 ) -> Path:
-    """Write NIfTI overlay with field values only inside ROI."""
+    """Write NIfTI overlay with field values only inside ROI.
+
+    Parameters
+    ----------
+    field_data : numpy.ndarray
+        3-D field intensity array.
+    roi_mask : numpy.ndarray
+        Boolean mask selecting ROI voxels.
+    output_dir : pathlib.Path
+        Directory where the overlay file is written.
+    affine : numpy.ndarray
+        4x4 affine matrix for the NIfTI image.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the written ``roi_overlay.nii.gz`` file.
+    """
     output_dir = Path(get_path_manager().ensure(str(output_dir)))
 
     overlay = np.zeros_like(field_data)
@@ -155,8 +198,28 @@ def save_histogram(
 ) -> Path | None:
     """Generate focality histogram PDF.
 
-    Delegates to :pyfunc:`tit.plotting.focality.plot_whole_head_roi_histogram`.
+    Delegates to :func:`tit.plotting.focality.plot_whole_head_roi_histogram`.
     Returns the PDF path or ``None`` if the plotter declines (empty data).
+
+    Parameters
+    ----------
+    whole_head_values : numpy.ndarray
+        Field values for the whole GM surface/volume.
+    roi_values : numpy.ndarray
+        Field values inside the ROI.
+    output_dir : pathlib.Path
+        Directory where the histogram PDF is written.
+    whole_head_weights : numpy.ndarray or None, optional
+        Per-element areas/volumes for the whole-head distribution.
+    roi_weights : numpy.ndarray or None, optional
+        Per-element areas/volumes for the ROI distribution.
+    roi_mean : float or None, optional
+        ROI mean value, drawn as a vertical line on the histogram.
+
+    Returns
+    -------
+    pathlib.Path or None
+        Path to the histogram PDF, or ``None`` if data was empty.
     """
     from tit.plotting.focality import plot_whole_head_roi_histogram
 
@@ -184,6 +247,18 @@ def save_results_csv(result: dict[str, Any], output_dir: Path) -> Path:
     """Write analysis result dict to a two-column CSV (Metric, Value).
 
     Entries whose value is ``None`` are silently skipped.
+
+    Parameters
+    ----------
+    result : dict of str to Any
+        Flat dictionary of metric names to scalar values.
+    output_dir : pathlib.Path
+        Directory where ``results.csv`` is written.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the written ``results.csv`` file.
     """
     output_dir = Path(get_path_manager().ensure(str(output_dir)))
 
@@ -206,7 +281,20 @@ def save_results_csv(result: dict[str, Any], output_dir: Path) -> Path:
 
 
 def save_analysis_metadata(output_dir: Path, metadata: dict[str, Any]) -> Path:
-    """Write analysis configuration to analysis.json."""
+    """Write analysis configuration to ``analysis.json``.
+
+    Parameters
+    ----------
+    output_dir : pathlib.Path
+        Directory where ``analysis.json`` is written.
+    metadata : dict of str to Any
+        Analysis configuration dictionary to persist.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the written ``analysis.json`` file.
+    """
     output_dir = Path(get_path_manager().ensure(str(output_dir)))
     out_path = output_dir / "analysis.json"
     with open(out_path, "w") as fh:

@@ -1,8 +1,16 @@
-"""
-Field selection utilities for automatic field file determination.
+"""Field selection utilities for automatic field file determination.
 
 Resolves the correct field file path and SimNIBS field name for a given
 subject, simulation, and analysis space (mesh or voxel).
+
+Public API
+----------
+select_field_file
+    Resolve the field path and SimNIBS field name for a subject/simulation.
+
+See Also
+--------
+tit.analyzer.analyzer : Analyzer class that consumes the resolved paths.
 """
 
 import logging
@@ -20,22 +28,39 @@ def select_field_file(
     space: str,
     tissue_type: str = "GM",
 ) -> tuple[Path, str]:
-    """Return (field_path, field_name) for a given subject/simulation/space.
+    """Return the field file path and SimNIBS field name.
 
     Detects whether the simulation is TI (2-pair) or mTI (4-pair) by checking
     for the existence of the mTI mesh directory.
 
-    Args:
-        subject_id: Subject identifier (without ``sub-`` prefix).
-        simulation: Simulation (montage) folder name.
-        space: ``"mesh"`` or ``"voxel"``.
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+    space : str
+        ``"mesh"`` or ``"voxel"``.
+    tissue_type : str, optional
+        ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
 
-    Returns:
-        Tuple of (resolved field path, SimNIBS field name).
+    Returns
+    -------
+    field_path : pathlib.Path
+        Resolved absolute path to the field file.
+    field_name : str
+        SimNIBS field name (e.g. ``"TI_max"``, ``"mTI_max"``).
 
-    Raises:
-        FileNotFoundError: If the expected field file does not exist.
-        ValueError: If *space* is not ``"mesh"`` or ``"voxel"``.
+    Raises
+    ------
+    FileNotFoundError
+        If the expected field file does not exist.
+    ValueError
+        If *space* is not ``"mesh"`` or ``"voxel"``.
+
+    See Also
+    --------
+    Analyzer : Consumes the resolved path to load and analyze fields.
     """
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))

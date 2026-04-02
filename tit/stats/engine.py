@@ -1,14 +1,16 @@
 """Core statistical computation engine for cluster-based permutation testing.
 
-Functions:
-- Voxelwise t-tests (paired / unpaired)
-- Voxelwise correlations (Pearson / Spearman / weighted)
-- Cluster-based permutation correction
-- Cluster analysis (connected components + MNI mapping)
-- P-value computation (MNE-style)
+Provides vectorised implementations of voxelwise t-tests, correlations,
+cluster-based permutation correction, connected-component cluster analysis,
+and MNE-style p-value computation.
 
 All orchestration functions accept an optional ``logger``.
 If *None* the module-level logger (``tit.stats.engine``) is used.
+
+See Also
+--------
+tit.stats.permutation : High-level orchestration that drives this engine.
+tit.stats.config : Configuration dataclasses consumed by the engine.
 """
 
 import gc
@@ -28,9 +30,23 @@ logger = logging.getLogger(__name__)
 
 
 def pval_from_histogram(observed_stats, null_distribution, tail=0):
-    """Compute per-cluster p-values from a null distribution.
+    """Compute per-cluster p-values from a permutation null distribution.
 
-    Reference: Maris & Oostenveld (2007), MNE-Python implementation.
+    Implements the MNE-Python approach based on Maris & Oostenveld (2007).
+
+    Parameters
+    ----------
+    observed_stats : array-like
+        Observed cluster-level statistics.
+    null_distribution : array-like
+        Max-cluster statistics from each permutation.
+    tail : {0, 1, -1}, optional
+        Tail of the test: 0 for two-sided, 1 for greater, -1 for less.
+
+    Returns
+    -------
+    numpy.ndarray
+        P-values, one per observed cluster.
     """
     observed_stats = np.atleast_1d(observed_stats)
     null_distribution = np.asarray(null_distribution)

@@ -1,4 +1,14 @@
-"""Entry point: simnibs_python -m tit.analyzer config.json"""
+"""CLI entry point for the analyzer package.
+
+Usage::
+
+    simnibs_python -m tit.analyzer config.json
+
+The JSON config is parsed and dispatched to either single-subject
+(:class:`~tit.analyzer.Analyzer`) or group
+(:func:`~tit.analyzer.run_group_analysis`) analysis depending on the
+``"mode"`` field (``"single"`` or ``"group"``).
+"""
 
 
 import json
@@ -8,6 +18,7 @@ from tit.paths import get_path_manager
 
 
 def main() -> None:
+    """Parse config JSON and dispatch to single or group analysis."""
     from tit.logger import add_stream_handler, setup_logging
 
     setup_logging("INFO")
@@ -31,6 +42,7 @@ def main() -> None:
 
 
 def _run_group(data: dict) -> None:
+    """Dispatch group analysis from parsed config dict."""
     from tit.analyzer import run_group_analysis
 
     print(
@@ -57,6 +69,7 @@ def _run_group(data: dict) -> None:
 
 
 def _run_single(data: dict) -> None:
+    """Dispatch single-subject analysis from parsed config dict."""
     from tit.analyzer import Analyzer
 
     analysis_type = data.pop("analysis_type")
