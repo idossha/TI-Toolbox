@@ -1,9 +1,18 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Simulator Tab
-This module provides a GUI interface for the simulator functionality.
+"""Simulator tab for the TI-Toolbox GUI.
+
+Provides a form-based interface for configuring and running TI/mTI
+simulations.  Users select subjects, choose or create montages, set
+electrode and conductivity parameters, and launch simulations via a
+background ``QThread``.
+
+See Also
+--------
+tit.sim.SimulationConfig : Backend dataclass consumed by the simulation engine.
+tit.gui.components.base_thread.BaseProcessThread : Thread base class.
+tit.gui.components.add_montage_dialog.AddMontageDialog : Montage creation dialog.
 """
 
 import logging
@@ -49,7 +58,15 @@ from tit.sim.utils import (
 
 
 class SimulationThread(BaseProcessThread):
-    """Run tit.sim via subprocess, streaming output to the GUI."""
+    """Background thread that runs ``tit.sim`` via subprocess.
+
+    Inherits real-time output streaming, ANSI stripping, and process-group
+    termination from ``BaseProcessThread``.
+
+    See Also
+    --------
+    BaseProcessThread : Provides ``execute_process`` and ``terminate_process``.
+    """
 
     def __init__(self, cmd, env=None):
         super().__init__(cmd=cmd, env=env)
@@ -62,7 +79,20 @@ class SimulationThread(BaseProcessThread):
 
 
 class SimulatorTab(QtWidgets.QWidget):
-    """Tab for simulator functionality."""
+    """Simulation configuration and execution tab.
+
+    Provides a form-based interface for configuring TI/mTI simulations
+    including subject selection, montage setup, electrode shape/current,
+    anisotropy options, and conductivity editing.  Simulations run in a
+    ``SimulationThread`` (background QThread) with real-time console
+    output.
+
+    See Also
+    --------
+    tit.sim.SimulationConfig : Backend configuration dataclass.
+    SimulationThread : Background thread for subprocess execution.
+    tit.gui.components.conductivity_dialog.ConductivityEditorDialog : Tissue editor.
+    """
 
     def __init__(self, parent=None):
         super(SimulatorTab, self).__init__(parent)

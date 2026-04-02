@@ -1,9 +1,18 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Ex-Search Tab
-This module provides a GUI interface for the ex-search optimization functionality.
+"""Exhaustive-search optimisation tab for the TI-Toolbox GUI.
+
+Provides an interface for brute-force evaluation of all electrode
+combinations using precomputed leadfield matrices.  Users generate
+leadfields, define ROIs, and launch exhaustive searches that rank every
+montage by field strength in the target region.
+
+See Also
+--------
+tit.opt.config.ExConfig : Backend configuration dataclass.
+tit.opt.ex.engine.ExSearchEngine : Exhaustive search computation engine.
+tit.opt.leadfield.LeadfieldGenerator : Leadfield creation utility.
 """
 
 import os
@@ -265,7 +274,18 @@ class ExSearchThread(BaseProcessThread):
 
 
 class ExSearchTab(QtWidgets.QWidget):
-    """Tab for ex-search optimization functionality."""
+    """Exhaustive-search electrode optimisation tab.
+
+    Manages leadfield generation, ROI definition, and exhaustive
+    evaluation of all electrode pair combinations.  Results are written
+    as ranked CSV files to the subject's ``ex-search/`` directory.
+
+    See Also
+    --------
+    tit.opt.config.ExConfig : Backend configuration dataclass.
+    tit.opt.ex.engine.ExSearchEngine : Core computation engine.
+    tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
+    """
 
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
