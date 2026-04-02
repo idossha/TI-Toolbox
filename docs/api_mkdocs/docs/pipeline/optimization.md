@@ -4,13 +4,22 @@ TI-Toolbox provides two optimization strategies for finding optimal electrode pl
 
 ```mermaid
 graph LR
-    ROI[Target ROI] --> OPT{Strategy}
+    ROI([Target ROI]) --> OPT{Strategy}
+    MESH([Head Mesh]) --> FLEX
+    MESH --> EX
+    NET([EEG Net]) --> FLEX
+    NET --> EX
     OPT -->|continuous| FLEX[Flex-Search]
     OPT -->|discrete| EX[Ex-Search]
-    FLEX --> RESULT[Optimal Montage]
+    FLEX --> RESULT([Optimal Montage])
     EX --> RESULT
-    RESULT -->|simulate| SIM[Simulation]
-    style RESULT fill:#2d5a27,stroke:#4a8,color:#fff
+    style ROI fill:#1a3a5c,stroke:#48a,color:#fff
+    style MESH fill:#1a3a5c,stroke:#48a,color:#fff
+    style NET fill:#1a3a5c,stroke:#48a,color:#fff
+    style OPT fill:#5c4a1a,stroke:#a84,color:#fff
+    style FLEX fill:#2d5a27,stroke:#4a8,color:#fff
+    style EX fill:#2d5a27,stroke:#4a8,color:#fff
+    style RESULT fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Flex-Search (Differential Evolution)

@@ -4,12 +4,17 @@ The `tit.plotting` module provides matplotlib-based visualization functions used
 
 ```mermaid
 graph LR
-    ANALYZER[Analyzer] --> PLOTS[tit.plotting]
-    STATS[Stats Module] --> PLOTS
-    REPORTING[Report Generators] --> PLOTS
-    PLOTS --> PDF[PDF Figures]
-    PLOTS --> PNG[PNG / base64 Images]
+    ANALYZER([Field Arrays]) --> PLOTS[tit.plotting]
+    STATS([Cluster Data]) --> PLOTS
+    REPORTING([Report Data]) --> PLOTS
+    PLOTS --> PDF([PDF Figures])
+    PLOTS --> PNG([PNG / base64 Images])
+    style ANALYZER fill:#1a3a5c,stroke:#48a,color:#fff
+    style STATS fill:#1a3a5c,stroke:#48a,color:#fff
+    style REPORTING fill:#1a3a5c,stroke:#48a,color:#fff
     style PLOTS fill:#2d5a27,stroke:#4a8,color:#fff
+    style PDF fill:#1a5c4a,stroke:#4a8,color:#fff
+    style PNG fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Focality Histograms
