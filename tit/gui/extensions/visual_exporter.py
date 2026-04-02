@@ -1,9 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: 3D Visual Exporter
-Export STL/PLY cortical regions & vector clouds of simulation results.
+"""3D Visual Exporter extension for the TI-Toolbox GUI.
+
+Exports cortical regions as STL/PLY meshes, TI/mTI field vector clouds,
+montage visualizations, and sub-cortical structures for 3D rendering in
+Blender or other tools.
 """
 
 import os
@@ -36,6 +38,8 @@ from tit.blender.config import (
 
 
 class Mode:
+    """Constants for the visual exporter operation modes."""
+
     STL = "STL"
     PLY = "PLY"
     VECTORS = "VECTORS"
@@ -82,6 +86,18 @@ class BlenderExportThread(BaseProcessThread):
 
 
 class VisualExporterWidget(QtWidgets.QWidget):
+    """Main widget for configuring and running 3D visual exports.
+
+    Provides mode selection (cortical regions, field vectors, montage
+    visualizer, sub-cortical), per-mode configuration panels, and a
+    console for monitoring Blender/export subprocess output.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
@@ -1387,6 +1403,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
 
 class VisualExporterWindow(QtWidgets.QDialog):
+    """Non-modal dialog wrapper for the visual exporter widget."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("3D Visual Exporter")

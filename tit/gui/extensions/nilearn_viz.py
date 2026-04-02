@@ -1,9 +1,10 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: Nilearn Visuals
-Create Nilearn visualizations for high-quality images.
+"""Nilearn Visuals extension for the TI-Toolbox GUI.
+
+Generates publication-ready slice images and glass-brain plots from
+group-averaged TI simulation NIfTI files using nilearn.
 """
 
 # Standard library imports
@@ -31,7 +32,17 @@ EXTENSION_DESCRIPTION = "Create Nilearn high resolution visualizations."
 
 
 class PublicationImageWorker(QtCore.QThread):
-    """Worker thread for running nilearn slices image generation."""
+    """Background thread for generating nilearn slice and glass-brain images.
+
+    Signals
+    -------
+    output_signal : str
+        Progress messages.
+    finished_signal : int
+        Exit code (0 = success).
+    error_signal : str
+        Error message on failure.
+    """
 
     output_signal = QtCore.pyqtSignal(str)
     finished_signal = QtCore.pyqtSignal(int)
@@ -334,7 +345,16 @@ class PublicationImageWorker(QtCore.QThread):
 
 
 class PublicationImageDialog(QtWidgets.QDialog):
-    """Dialog for generating publication-ready images."""
+    """Dialog for configuring and launching publication-ready image generation.
+
+    Provides subject/simulation selection, cutoff controls, atlas region
+    filtering, and glass-brain options.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)

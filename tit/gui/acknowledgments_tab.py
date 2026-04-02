@@ -1,9 +1,10 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Acknowledgments Tab for TI-Toolbox GUI
-This module provides an acknowledgments tab to properly cite all tools and resources used.
+"""Acknowledgments tab for the TI-Toolbox GUI.
+
+Displays citation information for all third-party tools and frameworks
+used by TI-Toolbox (SimNIBS, FreeSurfer, FSL, dcm2niix, etc.).
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -12,7 +13,13 @@ from tit.gui.style import FONT_SUBHEADING  # graphics tokens
 
 
 class AcknowledgmentsTab(QtWidgets.QWidget):
-    """Acknowledgments tab for TI-Toolbox GUI."""
+    """Scrollable panel listing citations for tools used by TI-Toolbox.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
 
     def __init__(self, parent=None):
         super(AcknowledgmentsTab, self).__init__(parent)

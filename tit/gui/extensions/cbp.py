@@ -1,10 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: Cluster-Based Permutation Testing
-Statistical analysis to identify brain regions with significantly different
-current intensity between responders and non-responders.
+"""Cluster-Based Permutation Testing extension for the TI-Toolbox GUI.
+
+Provides a unified interface for group comparison (classification) and
+correlation-based cluster permutation testing on TI simulation NIfTI
+outputs.
 """
 
 import os
@@ -25,7 +26,16 @@ from tit.gui.components.action_buttons import RunStopButtons
 
 
 class SubjectRow(QtWidgets.QWidget):
-    """Widget for a single subject configuration row"""
+    """Widget for a single subject row with response/effect-size input.
+
+    In ``classification`` mode a Responder/Non-Responder combo is shown;
+    in ``correlation`` mode a numeric effect-size field is shown instead.
+
+    Signals
+    -------
+    remove_requested : object
+        Emitted with ``self`` when the remove button is clicked.
+    """
 
     remove_requested = QtCore.pyqtSignal(object)  # Signal to remove this row
 
@@ -130,7 +140,12 @@ class SubjectRow(QtWidgets.QWidget):
 
 
 class ClusterPermutationWidget(QtWidgets.QWidget):
-    """Main widget for cluster-based permutation testing"""
+    """Main widget for configuring and running cluster permutation analysis.
+
+    Supports classification (two-group comparison) and correlation modes,
+    with configurable NIfTI patterns, permutation counts, cluster thresholds,
+    and TFCE options.
+    """
 
     def __init__(self, parent=None):
         super(ClusterPermutationWidget, self).__init__(parent)
@@ -1045,7 +1060,17 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
 
 class AnalysisThread(QtCore.QThread):
-    """Thread for running analysis in background"""
+    """Background thread for running cluster permutation analysis.
+
+    Signals
+    -------
+    output_signal : str
+        Progress messages.
+    finished_signal : dict
+        Results dictionary on success.
+    error_signal : str
+        Error message on failure.
+    """
 
     output_signal = QtCore.pyqtSignal(str)
     finished_signal = QtCore.pyqtSignal(dict)
@@ -1185,7 +1210,7 @@ class AnalysisThread(QtCore.QThread):
 
 
 class ClusterPermutationWindow(QtWidgets.QDialog):
-    """Dialog wrapper for the cluster-based permutation testing widget (for floating windows)"""
+    """Non-modal dialog wrapper for the cluster permutation testing widget."""
 
     def __init__(self, parent=None):
         super(ClusterPermutationWindow, self).__init__(parent)

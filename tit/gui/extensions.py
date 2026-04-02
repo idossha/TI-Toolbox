@@ -1,6 +1,8 @@
-"""Extensions Tab for TI-Toolbox GUI.
+"""Extensions management interface for the TI-Toolbox GUI.
 
-This module provides an interface for managing and launching extensions.
+Discovers Python extension scripts in ``tit/gui/extensions/``, displays
+them as cards with Launch/Add-Tab actions, and supports dynamic tab
+integration into the main window.
 """
 
 import importlib.util
@@ -10,7 +12,7 @@ from PyQt5 import QtWidgets, QtCore
 
 
 class ExtensionCard(QtWidgets.QGroupBox):
-    """Card widget for displaying a single extension."""
+    """Card widget for a single extension with Launch and Add/Remove Tab buttons."""
 
     def __init__(
         self,
@@ -190,7 +192,7 @@ class ExtensionCard(QtWidgets.QGroupBox):
 
 
 class ExtensionsTab(QtWidgets.QWidget):
-    """Extensions tab for TI-Toolbox GUI."""
+    """Scrollable panel listing all discovered extensions as cards."""
 
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
@@ -289,7 +291,7 @@ class ExtensionsTab(QtWidgets.QWidget):
 
 
 class FloatingExtensionsWindow(QtWidgets.QDialog):
-    """Floating window for Extensions content."""
+    """Non-modal floating window hosting the extensions panel."""
 
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)

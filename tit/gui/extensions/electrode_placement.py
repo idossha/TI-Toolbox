@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Electrode Placement Extension for TI-Toolbox
+"""Electrode Placement extension for the TI-Toolbox GUI.
 
-A minimal extension for placing electrode markers on head surfaces.
-Supports:
-- Fast loading of skin surfaces from m2m directory
-- 3D manipulation (rotation, zoom, translation)
-- Double-click to place markers
-- Load EEG cap positions
-- Export electrode coordinates with polarity naming (E1+, E1-, etc.)
+Interactive 3D electrode placement on head surfaces using OpenGL
+rendering. Supports loading skin meshes from SimNIBS m2m directories,
+EEG cap overlays, double-click marker placement, and CSV/JSON export
+of electrode coordinates with polarity naming.
 """
 
 # Extension metadata (required)
@@ -180,7 +176,16 @@ class _SkinSurface:
 
 
 class GLSurfaceWidget(OpenGLWidgetBase):
-    """OpenGL widget for rendering head surfaces and markers"""
+    """OpenGL widget for rendering head surfaces and electrode markers.
+
+    Handles mouse-driven rotation, zoom, translation, and double-click
+    ray-casting for marker placement on the skin surface.
+
+    Signals
+    -------
+    markerPlaced : list
+        Emitted with ``[x, y, z]`` when a marker is placed.
+    """
 
     markerPlaced = QtCore.pyqtSignal(list)  # Signal when a marker is placed
 
@@ -530,7 +535,11 @@ class GLSurfaceWidget(OpenGLWidgetBase):
 
 
 class ElectrodePlacementWidget(QtWidgets.QWidget):
-    """Main widget for electrode placement"""
+    """Main widget for interactive electrode placement on head surfaces.
+
+    Manages subject selection, mesh loading, the GL viewport, electrode
+    table, EEG cap overlay, and coordinate export.
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1044,7 +1053,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
 
 
 class ElectrodePlacementWindow(QtWidgets.QDialog):
-    """Dialog wrapper for floating window mode"""
+    """Non-modal dialog wrapper for the electrode placement widget."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
