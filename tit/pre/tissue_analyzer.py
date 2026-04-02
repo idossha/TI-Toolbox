@@ -1,9 +1,24 @@
 #!/usr/bin/env python
 """
-Tissue Analysis for TI-toolbox.
+Tissue analysis for TI-Toolbox.
 
 Analyzes tissue types (CSF, bone, skin) from segmented NIfTI data,
-calculating volumes, thickness, and generating visualizations.
+calculating volumes, thickness, and generating visualizations (thickness
+maps and methodology figures).
+
+Public API
+----------
+run_tissue_analysis
+    Run tissue analysis for one or more tissue types for a subject.
+TissueAnalyzer
+    Low-level class that performs volume, thickness, and visualization
+    analysis on a single tissue type.
+
+See Also
+--------
+tit.pre.structural.run_pipeline : Full preprocessing pipeline.
+tit.pre.charm : CHARM head-mesh generation (produces the segmentation
+    input consumed here).
 """
 
 
@@ -50,7 +65,42 @@ DEFAULT_TISSUES = ("bone", "csf", "skin")
 
 
 class TissueAnalyzer:
-    """Analyzes tissue from segmented NIfTI data."""
+    """Analyze a single tissue type from segmented NIfTI data.
+
+    Loads a labeling NIfTI volume, extracts the requested tissue mask,
+    filters it to the brain region, computes thickness statistics via a 3-D
+    distance transform, and writes a text report plus optional matplotlib
+    visualizations.
+
+    Parameters
+    ----------
+    nifti_path : str or pathlib.Path
+        Path to the segmented labeling NIfTI file (e.g. ``labeling.nii.gz``).
+    output_dir : str or pathlib.Path
+        Directory where reports and figures are written.
+    tissue_type : str
+        One of ``'csf'``, ``'bone'``, or ``'skin'``.
+    logger : logging.Logger
+        Logger for progress messages.
+
+    Attributes
+    ----------
+    tissue_name : str
+        Human-readable tissue name (e.g. ``'CSF'``).
+    tissue_labels : list[int]
+        Segmentation label IDs for this tissue.
+    voxel_volume : float
+        Volume of a single voxel in mm^3.
+
+    Raises
+    ------
+    PreprocessError
+        If *tissue_type* is not a recognised key in ``TISSUE_CONFIGS``.
+
+    See Also
+    --------
+    run_tissue_analysis : Convenience wrapper that analyses multiple tissues.
+    """
 
     def __init__(
         self,
@@ -86,7 +136,7 @@ class TissueAnalyzer:
         self.label_names = self._load_label_names()
 
     def _load_label_names(self) -> dict[int, str]:
-        """Load label names from labeling_LUT.txt if available."""
+        """Load label-ID-to-name mapping from ``labeling_LUT.txt``."""
         label_names = {}
 
         # Search for LUT file
@@ -130,14 +180,14 @@ class TissueAnalyzer:
         return label_names
 
     def _create_tissue_mask(self) -> np.ndarray:
-        """Create combined mask for all tissue labels."""
+        """Create a combined binary mask for all tissue labels."""
         mask = np.zeros_like(self.data, dtype=np.uint8)
         for label in self.tissue_labels:
             mask |= (self.data == label).astype(np.uint8)
         return mask
 
     def _create_brain_mask(self) -> np.ndarray:
-        """Create mask for brain reference regions."""
+        """Create a binary mask for brain reference regions."""
         mask = np.zeros_like(self.data, dtype=np.uint8)
         for label in self.brain_labels:
             mask |= (self.data == label).astype(np.uint8)
@@ -146,7 +196,7 @@ class TissueAnalyzer:
     def _filter_to_brain_region(
         self, tissue_mask: np.ndarray, brain_mask: np.ndarray
     ) -> np.ndarray:
-        """Filter tissue mask to brain region with padding."""
+        """Restrict tissue mask to the brain bounding box with padding."""
         brain_coords = np.where(brain_mask > 0)
         if len(brain_coords[0]) == 0:
             return tissue_mask
@@ -174,7 +224,7 @@ class TissueAnalyzer:
         return (tissue_mask * region_mask).astype(np.uint8)
 
     def _calculate_thickness(self, mask: np.ndarray) -> dict:
-        """Calculate thickness using 3D distance transform."""
+        """Calculate thickness statistics using a 3-D distance transform."""
         if np.sum(mask) == 0:
             return {"max": 0, "min": 0, "mean": 0, "std": 0, "thickness_map": None}
 
@@ -195,7 +245,7 @@ class TissueAnalyzer:
         thickness_stats: dict,
         plt,
     ) -> Path | None:
-        """Create thickness visualization: 3 views on top, histogram spanning bottom."""
+        """Create thickness visualization with 3 views and a histogram."""
         thickness_map = thickness_stats.get("thickness_map")
         if thickness_map is None or np.sum(filtered_mask) == 0:
             return None
@@ -379,7 +429,7 @@ class TissueAnalyzer:
         filtered_mask: np.ndarray,
         plt,
     ) -> Path | None:
-        """Create methodology figure showing brain regions, extraction, and Z-cutoff."""
+        """Create methodology figure showing brain regions and Z-cutoff."""
         if np.sum(tissue_mask) == 0:
             return None
 
@@ -543,7 +593,7 @@ class TissueAnalyzer:
         filtered_mask: np.ndarray,
         thickness_stats: dict,
     ) -> None:
-        """Create all visualization figures."""
+        """Create all visualization figures (thickness + methodology)."""
         try:
             import matplotlib.pyplot as plt
         except ImportError:
@@ -572,7 +622,7 @@ class TissueAnalyzer:
         filtered_mask: np.ndarray,
         thickness_stats: dict,
     ) -> Path:
-        """Write analysis summary report."""
+        """Write a plain-text analysis summary report."""
         volume_mm3 = float(np.sum(filtered_mask)) * self.voxel_volume
         volume_cm3 = volume_mm3 / 1000
 
@@ -603,7 +653,15 @@ class TissueAnalyzer:
         return report_path
 
     def analyze(self) -> dict:
-        """Run the complete tissue analysis."""
+        """Run the complete tissue analysis.
+
+        Returns
+        -------
+        dict
+            Analysis results with keys ``'volume_cm3'``, ``'volume_mm3'``,
+            ``'thickness'`` (dict with mean/std/min/max), ``'voxels'``
+            (dict with total/filtered), and ``'report_path'``.
+        """
         self.logger.info(f"Analyzing {self.tissue_name}...")
 
         # Create masks
@@ -671,23 +729,37 @@ def run_tissue_analysis(
 ) -> dict:
     """Run tissue analysis for a subject.
 
+    Creates a ``TissueAnalyzer`` for each requested tissue type, computes
+    volume and thickness statistics, and writes reports and visualizations.
+
     Parameters
     ----------
     project_dir : str
         BIDS project root.
     subject_id : str
-        Subject identifier without the 'sub-' prefix.
-    tissues : iterable of str
-        Tissue types to analyze (default: bone, csf, skin).
+        Subject identifier without the ``sub-`` prefix.
+    tissues : iterable of str, optional
+        Tissue types to analyze.  Defaults to ``('bone', 'csf', 'skin')``.
     logger : logging.Logger
         Logger for progress output.
-    runner : CommandRunner, optional
-        Not used, kept for API compatibility.
+    runner : CommandRunner or None, optional
+        Not used; kept for API compatibility with the pipeline runner.
 
     Returns
     -------
     dict
-        Analysis results for each tissue type.
+        Mapping of tissue name to per-tissue analysis results (volume,
+        thickness, voxel counts, report path).
+
+    Raises
+    ------
+    PreprocessError
+        If the segmentation labeling file does not exist.
+
+    See Also
+    --------
+    TissueAnalyzer : Low-level analysis for a single tissue type.
+    run_pipeline : Full preprocessing pipeline.
     """
     pm = get_path_manager(project_dir)
 
