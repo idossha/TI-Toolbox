@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""Convert a NIfTI segmentation/mask to a surface mesh (.stl or .msh)."""
+"""Convert a NIfTI segmentation/mask to a surface mesh.
+
+Applies marching cubes to a binary mask derived from a NIfTI volume
+and writes the resulting surface as binary STL or Gmsh ASCII ``.msh``.
+
+Usage
+-----
+$ python -m tit.tools.nifti_to_mesh segmentation.nii.gz -o thalamus.stl
+$ python -m tit.tools.nifti_to_mesh mask.nii.gz --clean --output mesh.msh
+
+See Also
+--------
+tit.tools.mesh2nii : Inverse operation (mesh to NIfTI).
+tit.tools.extract_labels : Pre-filter labels before meshing.
+"""
 
 import argparse
 import sys
@@ -111,7 +125,7 @@ def nifti_to_mesh(
 
 
 def save_stl(verts, faces, filename):
-    """Save mesh as binary STL format."""
+    """Save mesh as binary STL format using ``numpy-stl``."""
 
     from stl import mesh as stl_mesh
 
@@ -146,7 +160,7 @@ def save_gmsh(verts, faces, filename):
 
 
 def main():
-    """Command-line interface for converting NIfTI files to meshes."""
+    """Command-line entry point for NIfTI-to-mesh conversion."""
     parser = argparse.ArgumentParser(
         description="Convert NIfTI segmentation to surface mesh using marching cubes.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

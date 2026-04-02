@@ -1,9 +1,14 @@
-"""
-Electrode mapping utilities for TI-Toolbox.
+"""Map optimised electrode positions to the nearest EEG net electrodes.
 
-Maps optimized electrode positions to the nearest available positions
-in an EEG net using the Hungarian algorithm (linear sum assignment)
-for optimal matching.
+Uses the Hungarian algorithm (``scipy.optimize.linear_sum_assignment``)
+to find the globally optimal one-to-one assignment between optimised
+coordinates produced by the flex-search optimiser and the physical
+electrode sites in a SimNIBS EEG net CSV file.
+
+See Also
+--------
+tit.opt.flex : Differential-evolution flex-search optimiser.
+tit.tools.montage_visualizer : Render montage placement as PNG.
 """
 
 import json
@@ -28,8 +33,12 @@ def read_csv_positions(csv_path):
     -------
     positions : np.ndarray
         Array of electrode positions (Nx3).
-    labels : list
+    labels : list of str
         List of electrode labels/names.
+
+    See Also
+    --------
+    load_electrode_positions_json : Load positions from optimiser output.
     """
     from simnibs.utils.csv_reader import read_csv_positions as simnibs_read_csv
 
@@ -61,8 +70,12 @@ def load_electrode_positions_json(json_path):
     -------
     positions : np.ndarray
         Array of optimized electrode positions (Nx3).
-    channel_array_indices : list
-        List of [channel, array] indices for each electrode.
+    channel_array_indices : list of list
+        List of ``[channel, array]`` indices for each electrode.
+
+    See Also
+    --------
+    read_csv_positions : Load positions from a SimNIBS EEG net CSV.
     """
     with open(json_path, "r") as f:
         data = json.load(f)

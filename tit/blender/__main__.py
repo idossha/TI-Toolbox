@@ -1,7 +1,17 @@
-"""Entry point: simnibs_python -m tit.blender config.json
+"""Command-line entry point for Blender export utilities.
 
-Reads a JSON config file, dispatches to the correct blender export function
-based on the ``_type`` discriminator field.
+Usage
+-----
+$ simnibs_python -m tit.blender config.json
+
+Reads a JSON configuration file and dispatches to the appropriate
+export function based on the ``_type`` discriminator field
+(``MontageConfig``, ``VectorConfig``, or ``RegionConfig``).
+
+See Also
+--------
+tit.blender.config : Dataclass definitions for each export mode.
+tit.config_io : Serialise / deserialise config objects to JSON.
 """
 
 from __future__ import annotations
@@ -15,7 +25,7 @@ from tit.logger import setup_logging, add_stream_handler
 
 
 def _coerce_field_range(data: dict) -> dict:
-    """Convert field_range from JSON list to tuple if present."""
+    """Convert ``field_range`` from a JSON list to a tuple if present."""
     fr = data.get("field_range")
     if fr is not None:
         data["field_range"] = tuple(fr)
@@ -23,12 +33,13 @@ def _coerce_field_range(data: dict) -> dict:
 
 
 def _filter_fields(data: dict, cls: type) -> dict:
-    """Keep only keys that match dataclass constructor parameters."""
+    """Keep only keys that match *cls* dataclass constructor parameters."""
     valid = {f.name for f in dc_fields(cls) if f.init}
     return {k: v for k, v in data.items() if k in valid}
 
 
 def main() -> int:
+    """Parse the config JSON and dispatch to the matching export runner."""
     setup_logging("INFO")
     add_stream_handler("tit.blender")
     logger = logging.getLogger("tit.blender")
