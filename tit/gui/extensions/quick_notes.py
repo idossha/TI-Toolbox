@@ -1,10 +1,10 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Example Extension: Quick Notes
-A simple note-taking extension for recording observations during analysis.
-Notes are automatically saved to projectDIR/derivatives/ti-toolbox/notes.txt
+"""Quick Notes extension for the TI-Toolbox GUI.
+
+A simple note-taking utility for recording timestamped observations during
+analysis. Notes persist to ``derivatives/ti-toolbox/notes.txt``.
 """
 
 import logging
@@ -26,7 +26,16 @@ from tit.gui.style import FONT_MONOSPACE  # graphics tokens
 
 
 class NotesWindow(QtWidgets.QDialog):
-    """Quick notes window with persistent storage."""
+    """Modal dialog for adding, viewing, and clearing timestamped notes.
+
+    Notes are persisted to ``derivatives/ti-toolbox/notes.txt`` in the
+    active project directory.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
 
     def __init__(self, parent=None):
         super(NotesWindow, self).__init__(parent)
@@ -136,7 +145,11 @@ class NotesWindow(QtWidgets.QDialog):
         from zoneinfo import ZoneInfo
 
         tz_name = os.environ.get("TZ", "UTC")
-        iana = tz_name if "/" in tz_name else self._ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
+        iana = (
+            tz_name
+            if "/" in tz_name
+            else self._ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
+        )
         dt = datetime.now(ZoneInfo(iana))
         return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 

@@ -1,5 +1,16 @@
-"""Entry point: simnibs_python -m tit.pre config.json"""
+"""
+CLI entry point for the preprocessing package.
 
+Usage::
+
+    simnibs_python -m tit.pre config.json
+
+Reads a JSON configuration file and delegates to ``run_pipeline``.
+
+See Also
+--------
+tit.pre.structural.run_pipeline : Pipeline function invoked by this entry point.
+"""
 
 import json
 import sys
@@ -9,6 +20,7 @@ from tit.pre.structural import run_pipeline
 
 
 def main() -> None:
+    """Parse a JSON config and run the preprocessing pipeline."""
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)

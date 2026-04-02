@@ -6,7 +6,6 @@ creating comprehensive HTML reports with processing steps, input/output
 data, and quality control information.
 """
 
-
 import os
 from datetime import datetime
 from pathlib import Path

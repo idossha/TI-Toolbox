@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Extract specific labels from a NIfTI segmentation file."""
+"""Extract specific labels from a NIfTI segmentation file.
+
+Reads a NIfTI volume, masks all voxels whose integer label is not in
+the requested set, and writes the result as a new NIfTI file.
+
+Usage
+-----
+>>> from tit.tools.extract_labels import extract_labels
+>>> out = extract_labels("seg.nii.gz", [10, 11, 12])
+
+See Also
+--------
+tit.tools.field_extract : Extract tissue meshes from a SimNIBS head mesh.
+"""
 
 import nibabel as nib
 import numpy as np

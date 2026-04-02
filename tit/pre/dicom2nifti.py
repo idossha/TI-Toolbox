@@ -1,5 +1,19 @@
 #!/usr/bin/env python
-"""DICOM to NIfTI conversion with BIDS-compliant naming."""
+"""
+DICOM-to-NIfTI conversion with BIDS-compliant naming.
+
+Wraps ``dcm2niix`` to convert DICOM series into NIfTI files that follow
+the BIDS naming convention (``sub-{id}_{modality}.nii.gz``).
+
+Public API
+----------
+run_dicom_to_nifti
+    Convert DICOM files for a subject to BIDS-compliant NIfTI.
+
+See Also
+--------
+tit.pre.structural.run_pipeline : Full preprocessing pipeline.
+"""
 
 import subprocess
 from pathlib import Path
@@ -16,7 +30,7 @@ def _convert_modality(
     logger,
     runner: CommandRunner | None,
 ) -> bool:
-    """Convert DICOM files for one modality directly to BIDS location."""
+    """Convert DICOM files for a single modality to BIDS location."""
     if not list(dicom_dir.glob("*.dcm")):
         return False
 
@@ -30,10 +44,14 @@ def _convert_modality(
     logger.info(f"Converting {modality} DICOMs")
     cmd = [
         "dcm2niix",
-        "-z", "y",
-        "-b", "y",
-        "-f", bids_name,
-        "-o", str(output_dir),
+        "-z",
+        "y",
+        "-b",
+        "y",
+        "-f",
+        bids_name,
+        "-o",
+        str(output_dir),
         str(dicom_dir),
     ]
 
@@ -58,7 +76,32 @@ def run_dicom_to_nifti(
     logger,
     runner: CommandRunner | None = None,
 ) -> None:
-    """Convert DICOMs to BIDS-compliant NIfTI for a subject."""
+    """Convert DICOM files to BIDS-compliant NIfTI for a subject.
+
+    Looks for ``T1w`` and ``T2w`` DICOM directories under
+    ``sourcedata/sub-{subject_id}/`` and converts each found modality
+    using ``dcm2niix``.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root directory.
+    subject_id : str
+        Subject identifier without the ``sub-`` prefix.
+    logger : logging.Logger
+        Logger for progress messages.
+    runner : CommandRunner or None, optional
+        Subprocess runner for streaming output.
+
+    Raises
+    ------
+    PreprocessError
+        If output NIfTI files already exist for a modality.
+
+    See Also
+    --------
+    run_pipeline : Full preprocessing pipeline.
+    """
     pm = get_path_manager(project_dir)
     sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
     bids_anat_dir = Path(pm.bids_anat(subject_id))

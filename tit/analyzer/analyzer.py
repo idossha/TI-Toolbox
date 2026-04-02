@@ -1,9 +1,20 @@
-"""
-Unified field analyzer for mesh and voxel spaces.
+"""Unified field analyzer for mesh and voxel spaces.
 
 Provides a single ``Analyzer`` class that dispatches spherical and cortical
 ROI analyses to the appropriate mesh- or voxel-based implementation, returning
 a typed ``AnalysisResult`` dataclass.
+
+Public API
+----------
+Analyzer
+    Single-subject field analyzer dispatching to mesh or voxel backends.
+AnalysisResult
+    Immutable container for ROI analysis statistics.
+
+See Also
+--------
+tit.analyzer.group : Multi-subject group analysis.
+tit.analyzer.field_selector : Automatic field file resolution.
 """
 
 import logging
@@ -38,33 +49,64 @@ logger = logging.getLogger(__name__)
 class AnalysisResult:
     """Immutable container for ROI analysis statistics.
 
-    Attributes:
-        field_name: Name of the field that was analyzed (e.g. ``"TI_max"``).
-        region_name: Human-readable ROI label.
-        space: ``"mesh"`` or ``"voxel"``.
-        analysis_type: ``"spherical"`` or ``"cortical"``.
-        roi_mean: Area/volume-weighted mean field value inside the ROI.
-        roi_max: Maximum field value inside the ROI.
-        roi_min: Minimum field value inside the ROI.
-        roi_focality: Ratio of ROI mean to whole-GM mean (> 1 means
-            the ROI is stronger than the GM average).
-        gm_mean: Mean field value across all positive GM elements.
-        gm_max: Maximum field value across all GM elements.
-        normal_mean: Weighted mean of the normal-component field in the ROI
-            (mesh only; ``None`` when unavailable).
-        normal_max: Maximum normal-component field in the ROI.
-        normal_focality: Normal-component focality ratio.
-        percentile_95: 95th percentile of the whole-GM field distribution.
-        percentile_99: 99th percentile of the whole-GM field distribution.
-        percentile_99_9: 99.9th percentile of the whole-GM field distribution.
-        focality_50_area: Area/volume (cm^2/cm^3) where the field exceeds
-            50 % of the 99.9th percentile value.
-        focality_75_area: Same for 75 % threshold.
-        focality_90_area: Same for 90 % threshold.
-        focality_95_area: Same for 95 % threshold.
-        n_elements: Number of mesh nodes or voxels in the ROI mask.
-        total_area_or_volume: Total surface area (mm^2) or volume (mm^3)
-            of positive-valued ROI elements.
+    Returned by :meth:`Analyzer.analyze_sphere` and
+    :meth:`Analyzer.analyze_cortex`.
+
+    Attributes
+    ----------
+    field_name : str
+        Name of the field that was analyzed (e.g. ``"TI_max"``).
+    region_name : str
+        Human-readable ROI label.
+    space : str
+        ``"mesh"`` or ``"voxel"``.
+    analysis_type : str
+        ``"spherical"`` or ``"cortical"``.
+    roi_mean : float
+        Area/volume-weighted mean field value inside the ROI.
+    roi_max : float
+        Maximum field value inside the ROI.
+    roi_min : float
+        Minimum field value inside the ROI.
+    roi_focality : float
+        Ratio of ROI mean to whole-GM mean (> 1 means the ROI is stronger
+        than the GM average).
+    gm_mean : float
+        Mean field value across all positive GM elements.
+    gm_max : float
+        Maximum field value across all GM elements.
+    normal_mean : float or None
+        Weighted mean of the normal-component field in the ROI (mesh only;
+        ``None`` when unavailable).
+    normal_max : float or None
+        Maximum normal-component field in the ROI.
+    normal_focality : float or None
+        Normal-component focality ratio.
+    percentile_95 : float or None
+        95th percentile of the whole-GM field distribution.
+    percentile_99 : float or None
+        99th percentile of the whole-GM field distribution.
+    percentile_99_9 : float or None
+        99.9th percentile of the whole-GM field distribution.
+    focality_50_area : float or None
+        Area/volume (cm^2/cm^3) where the field exceeds 50 % of the 99.9th
+        percentile value.
+    focality_75_area : float or None
+        Same for 75 % threshold.
+    focality_90_area : float or None
+        Same for 90 % threshold.
+    focality_95_area : float or None
+        Same for 95 % threshold.
+    n_elements : int
+        Number of mesh nodes or voxels in the ROI mask.
+    total_area_or_volume : float
+        Total surface area (mm^2) or volume (mm^3) of positive-valued ROI
+        elements.
+
+    See Also
+    --------
+    Analyzer : Single-subject field analyzer.
+    GroupResult : Container for multi-subject group analysis.
     """
 
     field_name: str
@@ -102,35 +144,52 @@ class Analyzer:
     Lazily loads the field file on first analysis call. All coordinate
     transforms and ROI masking are handled internally.
 
-    Example::
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+    space : str, optional
+        ``"mesh"`` or ``"voxel"``. Default ``"mesh"``.
+    tissue_type : str, optional
+        ``"GM"``, ``"WM"``, or ``"both"``. Only affects voxel analyses;
+        mesh analyses always use the GM cortical surface. Default ``"GM"``.
+    output_dir : str or None, optional
+        Override output directory. If ``None``, derived from PathManager.
 
-        from tit.analyzer import Analyzer
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier.
+    simulation : str
+        Simulation folder name.
+    space : str
+        Analysis space (``"mesh"`` or ``"voxel"``).
+    tissue_type : str
+        Normalised tissue selection (``"GM"``, ``"WM"``, or ``"BOTH"``).
+    field_path : pathlib.Path
+        Resolved path to the field file.
+    field_name : str
+        Short name of the field (e.g. ``"TI_max"``).
+    m2m_path : str
+        Path to the subject's ``m2m_*`` directory.
+    output_dir : str or None
+        Output directory override, or ``None``.
 
-        analyzer = Analyzer("001", "montage_bipolar", space="mesh")
-        result = analyzer.analyze_sphere(
-            center=(-30.0, -20.0, 50.0), radius=10.0,
-        )
-        print(result.roi_mean, result.roi_focality)
+    Examples
+    --------
+    >>> from tit.analyzer import Analyzer
+    >>> analyzer = Analyzer("001", "montage_bipolar", space="mesh")
+    >>> result = analyzer.analyze_sphere(
+    ...     center=(-30.0, -20.0, 50.0), radius=10.0,
+    ... )
+    >>> print(result.roi_mean, result.roi_focality)
 
-    Args:
-        subject_id: Subject identifier (without ``sub-`` prefix).
-        simulation: Simulation (montage) folder name.
-        space: ``"mesh"`` or ``"voxel"``.
-        tissue_type: ``"GM"``, ``"WM"``, or ``"both"``. Only affects voxel
-            analyses; mesh analyses always use the GM cortical surface.
-        output_dir: Override output directory. If ``None``, derived from
-            PathManager.
-
-    Attributes:
-        subject_id: Subject identifier.
-        simulation: Simulation folder name.
-        space: Analysis space (``"mesh"`` or ``"voxel"``).
-        tissue_type: Normalised tissue selection (``"GM"``, ``"WM"``, or
-            ``"BOTH"``).
-        field_path: Resolved path to the field file.
-        field_name: Short name of the field (e.g. ``"TI_max"``).
-        m2m_path: Path to the subject's ``m2m_*`` directory.
-        output_dir: Output directory override, or ``None``.
+    See Also
+    --------
+    AnalysisResult : Container for single-subject analysis outputs.
+    run_group_analysis : Multi-subject group analysis.
     """
 
     def __init__(
@@ -194,20 +253,32 @@ class Analyzer:
     ) -> AnalysisResult:
         """Analyze a spherical ROI.
 
-        Args:
-            center: ``(x, y, z)`` coordinates of the sphere centre.
-            radius: Radius in mm.
-            coordinate_space: ``"subject"`` (default) or ``"MNI"``. When
-                ``"MNI"``, coordinates are transformed to subject space
-                via SimNIBS ``mni2subject_coords``.
-            visualize: Generate overlay, histogram, and CSV artifacts.
+        Parameters
+        ----------
+        center : tuple of float
+            ``(x, y, z)`` coordinates of the sphere centre.
+        radius : float
+            Radius in mm.
+        coordinate_space : str, optional
+            ``"subject"`` (default) or ``"MNI"``. When ``"MNI"``,
+            coordinates are transformed to subject space via SimNIBS
+            ``mni2subject_coords``.
+        visualize : bool, optional
+            Generate overlay, histogram, and CSV artifacts.
 
-        Returns:
-            An :class:`AnalysisResult` with ROI and whole-GM statistics.
+        Returns
+        -------
+        AnalysisResult
+            ROI and whole-GM statistics for the spherical region.
 
-        Raises:
-            FileNotFoundError: If the required field or surface mesh file
-                does not exist.
+        Raises
+        ------
+        FileNotFoundError
+            If the required field or surface mesh file does not exist.
+
+        See Also
+        --------
+        analyze_cortex : Atlas-based cortical ROI analysis.
         """
         dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
         return dispatch[self.space](center, radius, coordinate_space, visualize)
@@ -220,22 +291,35 @@ class Analyzer:
     ) -> AnalysisResult:
         """Analyze a cortical atlas region.
 
-        Args:
-            atlas: Atlas name recognised by SimNIBS (e.g. ``"DK40"``,
-                ``"HCP_MMP1"``), or an absolute path to an atlas NIfTI
-                (voxel mode only).
-            region: Region name within the atlas (e.g. ``"lh.cuneus"``),
-                or a list of region names whose masks are unioned into a
-                single combined ROI. Bare names like ``"cuneus"`` expand
-                to both hemispheres in mesh mode.
-            visualize: Generate overlay, histogram, and CSV artifacts.
+        Parameters
+        ----------
+        atlas : str
+            Atlas name recognised by SimNIBS (e.g. ``"DK40"``,
+            ``"HCP_MMP1"``), or an absolute path to an atlas NIfTI
+            (voxel mode only).
+        region : str or list of str
+            Region name within the atlas (e.g. ``"lh.cuneus"``), or a
+            list of region names whose masks are unioned into a single
+            combined ROI. Bare names like ``"cuneus"`` expand to both
+            hemispheres in mesh mode.
+        visualize : bool, optional
+            Generate overlay, histogram, and CSV artifacts.
 
-        Returns:
-            An :class:`AnalysisResult` with ROI and whole-GM statistics.
+        Returns
+        -------
+        AnalysisResult
+            ROI and whole-GM statistics for the cortical region.
 
-        Raises:
-            KeyError: If a region name cannot be resolved in the atlas.
-            FileNotFoundError: If the atlas or field file does not exist.
+        Raises
+        ------
+        KeyError
+            If a region name cannot be resolved in the atlas.
+        FileNotFoundError
+            If the atlas or field file does not exist.
+
+        See Also
+        --------
+        analyze_sphere : Spherical ROI analysis.
         """
         dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
         return dispatch[self.space](atlas, region, visualize)

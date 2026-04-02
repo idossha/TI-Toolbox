@@ -1,9 +1,18 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Analyzer Tab
-This module provides a GUI interface for the analyzer functionality.
+"""Analyzer tab for the TI-Toolbox GUI.
+
+Provides a comprehensive interface for analysing simulation results:
+mesh-based and voxel-based ROI statistics, atlas selection, single-subject
+and group-mode comparison, Gmsh 3-D visualisation, and HTML report
+generation.  Analysis runs in a background ``QThread`` via subprocess.
+
+See Also
+--------
+tit.analyzer.Analyzer : Backend analysis engine.
+tit.gui.components.base_thread.BaseProcessThread : Thread base class.
+tit.gui.nifti_viewer_tab.NiftiViewerTab : Receives refresh events on completion.
 """
 
 import traceback
@@ -29,7 +38,12 @@ from tit.paths import get_path_manager
 
 
 class AnalysisThread(BaseProcessThread):
-    """Thread to run analysis in background to prevent GUI freezing."""
+    """Background thread that runs ``tit.analyzer`` via subprocess.
+
+    See Also
+    --------
+    BaseProcessThread : Provides ``execute_process`` and ``terminate_process``.
+    """
 
     def __init__(self, cmd, env=None, cwd=None):
         super().__init__(cmd=cmd, env=env, cwd=cwd)
@@ -40,7 +54,27 @@ class AnalysisThread(BaseProcessThread):
 
 
 class AnalyzerTab(QtWidgets.QWidget):
-    """Tab for analyzer functionality."""
+    """Analysis configuration and execution tab.
+
+    Supports single-subject and group-mode analysis of TI simulation
+    results.  Users select subject--simulation pairs, choose an analysis
+    type (mesh or voxel), pick an atlas and ROI, and launch the analysis
+    subprocess.  Results are displayed in the console and optionally
+    visualised with Gmsh.
+
+    Signals
+    -------
+    analysis_completed(str, str, str)
+        Emitted with ``(subject_id, simulation_name, analysis_type)``
+        when a run completes, allowing the main window to refresh
+        dependent tabs.
+
+    See Also
+    --------
+    AnalysisThread : Background execution thread.
+    tit.analyzer.Analyzer : Backend analysis engine.
+    tit.gui.main.MainWindow.on_analysis_completed : Cross-tab refresh handler.
+    """
 
     analysis_completed = QtCore.pyqtSignal(str, str, str)
 
@@ -185,7 +219,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.output_console = self.console_widget.get_console_widget()
 
         # Connect signals after all widgets are created
-
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""

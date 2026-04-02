@@ -1,8 +1,23 @@
-"""Flex-search output manifest (flex_meta.json).
+"""Flex-search output manifest (``flex_meta.json``).
 
 Every flex-search run writes a manifest alongside its outputs.
 This is the single source of truth for run metadata -- downstream
 consumers (simulator, GUI) read this instead of parsing folder names.
+
+Public API
+----------
+write_manifest
+    Serialize run metadata to ``flex_meta.json``.
+read_manifest
+    Load and parse an existing manifest.
+MANIFEST_FILENAME
+    Canonical filename (``"flex_meta.json"``).
+MANIFEST_VERSION
+    Integer schema version for forward compatibility.
+
+See Also
+--------
+tit.opt.flex.flex.run_flex_search : Writes a manifest after each run.
 """
 
 import json
@@ -22,17 +37,29 @@ def write_manifest(
     label: str,
     pareto_data: dict | None = None,
 ) -> str:
-    """Write flex_meta.json to output_folder.
+    """Write ``flex_meta.json`` to *output_folder*.
 
-    Args:
-        output_folder: Directory to write the manifest into.
-        config: The FlexConfig used for this run.
-        result: The FlexResult from the completed run.
-        label: Human-readable summary label for GUI display.
-        pareto_data: Optional dict with pareto sweep summary (for sweep runs).
+    Parameters
+    ----------
+    output_folder : str
+        Directory to write the manifest into.
+    config : FlexConfig
+        The configuration used for this run.
+    result : FlexResult
+        The result from the completed run.
+    label : str
+        Human-readable summary label for GUI display.
+    pareto_data : dict or None
+        Optional dict with Pareto sweep summary (for sweep runs).
 
-    Returns:
+    Returns
+    -------
+    str
         Absolute path to the written manifest file.
+
+    See Also
+    --------
+    read_manifest : Load a previously written manifest.
     """
     data = {
         "version": MANIFEST_VERSION,
@@ -81,13 +108,21 @@ def write_manifest(
 
 
 def read_manifest(output_folder: str) -> dict | None:
-    """Read flex_meta.json from a folder.
+    """Read ``flex_meta.json`` from a folder.
 
-    Args:
-        output_folder: Directory that should contain the manifest.
+    Parameters
+    ----------
+    output_folder : str
+        Directory that should contain the manifest.
 
-    Returns:
-        Parsed manifest dict, or None if missing or invalid.
+    Returns
+    -------
+    dict or None
+        Parsed manifest dict, or ``None`` if missing or invalid.
+
+    See Also
+    --------
+    write_manifest : Create a new manifest.
     """
     path = os.path.join(output_folder, MANIFEST_FILENAME)
     if not os.path.isfile(path):
@@ -100,7 +135,7 @@ def read_manifest(output_folder: str) -> dict | None:
 
 
 def _serialize_roi(roi) -> dict:
-    """Convert an ROISpec to a plain dict with a 'type' discriminator."""
+    """Convert an ROI spec to a plain dict with a ``type`` discriminator."""
     if isinstance(roi, FlexConfig.SphericalROI):
         d = {
             "type": "spherical",

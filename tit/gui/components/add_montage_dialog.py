@@ -15,7 +15,16 @@ from tit.gui.style import FONT_SUBHEADING
 
 
 class AddMontageDialog(QtWidgets.QDialog):
-    """Dialog for adding new montages."""
+    """Dialog for adding new electrode montages to the simulator.
+
+    Supports both unipolar (2-pair) and multipolar (4-pair) montage types
+    and provides a searchable electrode list from the selected EEG net.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget, typically the SimulatorTab.
+    """
 
     def __init__(self, parent=None):
         super(AddMontageDialog, self).__init__(parent)

@@ -1,10 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Pre-Process Tab
-This module provides a GUI interface for the pre-processing functionality.
-Thread-safe version with deadlock prevention.
+"""Pre-processing tab for the TI-Toolbox GUI.
+
+Provides subject selection, processing options (DICOM conversion, FreeSurfer,
+CHARM, tissue analysis, QSIPrep/QSIRecon, DTI extraction), and a console
+panel for monitoring the ``tit.pre`` subprocess.
 """
 
 import json
@@ -34,7 +35,11 @@ from tit.gui.components.qsi_config_dialogs import (
 
 
 class PreProcessThread(BaseProcessThread):
-    """Run tit.pre via subprocess, streaming output to the GUI."""
+    """QThread wrapper that runs ``tit.pre`` via subprocess.
+
+    Streams stdout/stderr back to the GUI console through
+    ``BaseProcessThread`` signals.
+    """
 
     def __init__(self, cmd, env=None):
         super().__init__(cmd=cmd, env=env)
@@ -44,7 +49,17 @@ class PreProcessThread(BaseProcessThread):
 
 
 class PreProcessTab(QtWidgets.QWidget):
-    """Tab for pre-processing functionality."""
+    """GUI tab for the pre-processing pipeline.
+
+    Manages subject selection, processing option checkboxes (DICOM, FreeSurfer,
+    CHARM, tissue analysis, QSIPrep, QSIRecon, DTI extraction), and
+    run/stop lifecycle for the ``tit.pre`` subprocess.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (main window).
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)

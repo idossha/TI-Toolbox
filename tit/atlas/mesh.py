@@ -1,6 +1,5 @@
 """Mesh (surface) atlas discovery and region listing."""
 
-
 import glob
 import os
 

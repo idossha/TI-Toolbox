@@ -1,6 +1,5 @@
 """Voxel (volumetric) atlas discovery and region listing."""
 
-
 import os
 import subprocess
 

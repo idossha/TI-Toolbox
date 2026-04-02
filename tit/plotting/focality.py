@@ -5,7 +5,6 @@ Contains simple 2D plots that are shared by analyzers (voxel/mesh) and are not
 the complex 3D/SimNIBS mesh visualization.
 """
 
-
 import os
 from pathlib import Path
 

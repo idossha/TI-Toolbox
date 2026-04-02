@@ -5,7 +5,6 @@ This module provides reportlets for displaying text content,
 including methods boilerplate text for publications.
 """
 
-
 from typing import Any
 
 from ..core.base import BaseReportlet

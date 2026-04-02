@@ -43,9 +43,7 @@ def _read_conductivity(sid: str, sim: str) -> str:
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
-    config_path = os.path.join(
-        pm.simulation(sid, sim), "documentation", "config.json"
-    )
+    config_path = os.path.join(pm.simulation(sid, sim), "documentation", "config.json")
     with open(config_path) as f:
         data = json.load(f)
     return data["conductivity"]

@@ -1,8 +1,28 @@
+"""Read and display FreeSurfer ``.annot`` annotation files.
+
+Prints region names, RGBA colour table entries, and (optionally) the
+region membership of a single vertex.
+
+Usage
+-----
+$ python -m tit.tools.read_annot lh.aparc.annot
+$ python -m tit.tools.read_annot lh.aparc.annot --vertex 12345
+"""
+
 import nibabel.freesurfer.io as fsio
 import argparse
 
 
 def read_annot_file(annot_path, vertex_id=None):
+    """Read a FreeSurfer annotation and print its contents.
+
+    Parameters
+    ----------
+    annot_path : str
+        Path to the ``.annot`` file.
+    vertex_id : int, optional
+        If given, also print the region label for this vertex.
+    """
     # Load annotation data
     labels, ctab, names = fsio.read_annot(annot_path)
 

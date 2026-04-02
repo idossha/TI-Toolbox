@@ -35,7 +35,7 @@ _DSISTUDIO_DIR = "qsirecon-DSIStudio"
 
 
 def _dsistudio_dwi_dir(project_dir: Path, subject_id: str) -> Path:
-    """Return the known DSI Studio DWI output directory."""
+    """Return the expected DSI Studio DWI output directory for *subject_id*."""
     return (
         project_dir
         / "derivatives"
@@ -48,7 +48,7 @@ def _dsistudio_dwi_dir(project_dir: Path, subject_id: str) -> Path:
 
 
 def _qsiprep_t1(project_dir: Path, subject_id: str) -> Path:
-    """Return the known QSIPrep ACPC T1 path."""
+    """Return the expected QSIPrep ACPC T1 path for *subject_id*."""
     return (
         project_dir
         / "derivatives"
@@ -65,7 +65,7 @@ def _qsiprep_t1(project_dir: Path, subject_id: str) -> Path:
 def _load_tensor(
     dwi_dir: Path, subject_id: str, logger: logging.Logger
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load 6 DSI Studio tensor components → (X, Y, Z, 6) array + affine."""
+    """Load 6 DSI Studio tensor component NIfTIs into a ``(X, Y, Z, 6)`` array."""
     import nibabel as nib
 
     arrays = []
@@ -94,7 +94,7 @@ def _load_tensor(
 
 
 def _validate_tensor(tensor: np.ndarray, logger: logging.Logger) -> None:
-    """Check tensor data for NaN/Inf and adequate brain coverage."""
+    """Check tensor for NaN/Inf values and adequate brain coverage."""
     if tensor.ndim != 4 or tensor.shape[-1] != 6:
         raise PreprocessError(
             f"Invalid tensor shape {tensor.shape}, expected (X, Y, Z, 6)"
@@ -124,7 +124,7 @@ def _validate_tensor(tensor: np.ndarray, logger: logging.Logger) -> None:
 def _save_nifti_gz(
     data: np.ndarray, affine: np.ndarray, output_path: Path, logger: logging.Logger
 ) -> None:
-    """Save NIfTI via /tmp to work around Docker bind-mount gzip failures."""
+    """Save a NIfTI ``.nii.gz`` via tmpdir to avoid Docker bind-mount gzip issues."""
     import gzip as _gzip
     import tempfile
 
@@ -151,7 +151,7 @@ def _save_nifti_gz(
 
 
 def _rotation_from_affine(affine: np.ndarray) -> np.ndarray:
-    """Extract pure rotation from a 4x4 affine (column-normalize the 3x3)."""
+    """Extract a pure rotation matrix from a 4x4 affine (column-normalize)."""
     M = affine[:3, :3].copy()
     norms = np.linalg.norm(M, axis=0)
     norms[norms == 0] = 1.0
@@ -161,12 +161,7 @@ def _rotation_from_affine(affine: np.ndarray) -> np.ndarray:
 def _find_alignment(
     moving_path: Path, fixed_path: Path, logger: logging.Logger
 ) -> np.ndarray:
-    """Find the translation aligning moving to fixed via cross-correlation.
-
-    Resamples both images to a common 2 mm RAS grid and uses 3D
-    cross-correlation to find the voxel shift that maximizes overlap.
-    Returns the shift in mm (world coordinates).
-    """
+    """Find the translation aligning *moving* to *fixed* via 3-D cross-correlation."""
     import nibabel as nib
     from nibabel.processing import resample_from_to
     from scipy.signal import fftconvolve
@@ -212,12 +207,7 @@ def _register_tensor(
     output_path: Path,
     logger: logging.Logger,
 ) -> None:
-    """Resample tensor to the SimNIBS T1 grid with correct orientation.
-
-    1. Cross-correlation alignment (ACPC ↔ SimNIBS coords differ)
-    2. Resample each component onto the T1 grid
-    3. Rotate tensors to pre-compensate for SimNIBS ``correct_FSL``
-    """
+    """Resample and reorient tensor onto the SimNIBS T1 grid."""
     import nibabel as nib
     from nibabel.processing import resample_from_to
 
@@ -296,9 +286,36 @@ def extract_dti_tensor(
     logger: logging.Logger,
     skip_registration: bool = False,
 ) -> Path:
-    """Extract DTI tensor from QSIRecon DSI Studio output for SimNIBS.
+    """Extract and register a DTI tensor from QSIRecon DSI Studio output.
 
-    Returns path to ``DTI_coregT1_tensor.nii.gz`` in the m2m directory.
+    Loads the six tensor components produced by DSI Studio GQI,
+    validates them, registers the tensor to the SimNIBS T1 grid
+    (with FSL-convention pre-compensation), saves
+    ``DTI_coregT1_tensor.nii.gz`` into the m2m directory, and
+    generates a QC report.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root directory.
+    subject_id : str
+        Subject identifier (e.g. ``'070'``).
+    logger : logging.Logger
+        Logger instance for progress and diagnostic messages.
+    skip_registration : bool, optional
+        When *True*, copy the tensor as-is without resampling or
+        reorientation.  Default is *False*.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the saved ``DTI_coregT1_tensor.nii.gz``.
+
+    Raises
+    ------
+    tit.pre.utils.PreprocessError
+        If required inputs are missing, the tensor already exists, or
+        the tensor data is invalid.
     """
     project = Path(project_dir)
     logger.info(f"Extracting DTI tensor for subject {subject_id}")
@@ -360,7 +377,21 @@ def extract_dti_tensor(
 
 
 def check_dti_tensor_exists(project_dir: str, subject_id: str) -> bool:
-    """Check if DTI tensor exists in the m2m directory."""
+    """Check whether a registered DTI tensor already exists for *subject_id*.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root directory.
+    subject_id : str
+        Subject identifier.
+
+    Returns
+    -------
+    bool
+        *True* if ``DTI_coregT1_tensor.nii.gz`` is present in the m2m
+        directory.
+    """
     pm = get_path_manager(project_dir)
     m2m_dir = pm.m2m(subject_id)
     if not os.path.isdir(m2m_dir):

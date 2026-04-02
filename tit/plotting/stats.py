@@ -5,7 +5,6 @@ These were previously implemented in `tit.stats.visualization` and are kept here
 encourage reuse across modules.
 """
 
-
 from typing import Mapping, Sequence
 
 import numpy as np

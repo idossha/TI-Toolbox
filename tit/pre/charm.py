@@ -1,8 +1,23 @@
 #!/usr/bin/env simnibs_python
 """
-SimNIBS charm (m2m) creation + subject atlas segmentation.
-"""
+SimNIBS CHARM head-mesh creation and subject atlas segmentation.
 
+Wraps the SimNIBS ``charm`` command to generate m2m head-mesh directories
+and the ``subject_atlas`` command to create cortical parcellation
+``.annot`` files for a2009s, DK40, and HCP_MMP1 atlases.
+
+Public API
+----------
+run_charm
+    Run SimNIBS ``charm`` for a subject.
+run_subject_atlas
+    Create atlas ``.annot`` files from an existing m2m directory.
+
+See Also
+--------
+tit.pre.recon_all : FreeSurfer ``recon-all`` cortical reconstruction.
+tit.pre.structural.run_pipeline : Full preprocessing pipeline.
+"""
 
 from pathlib import Path
 
@@ -13,7 +28,7 @@ from .utils import CommandRunner, PreprocessError, _find_anat_files
 
 
 def _get_form_flag(nifti_path: Path) -> str:
-    """Return --forcesform or --forceqform based on which header code is set."""
+    """Return ``--forcesform`` or ``--forceqform`` based on NIfTI header."""
     header = nib.load(str(nifti_path)).header
     if header["sform_code"] > 0:
         return "--forcesform"
@@ -22,6 +37,7 @@ def _get_form_flag(nifti_path: Path) -> str:
     raise PreprocessError(
         f"Neither sform nor qform is set in {nifti_path}. Fix the NIfTI header."
     )
+
 
 # All available atlases for subject_atlas command
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
@@ -34,18 +50,32 @@ def run_charm(
     logger,
     runner: CommandRunner | None = None,
 ) -> None:
-    """Run SimNIBS charm for a subject.
+    """Run SimNIBS ``charm`` to generate a head mesh for a subject.
+
+    Creates an m2m directory at the standard BIDS derivatives location
+    containing the volumetric head model required for TI simulations.
 
     Parameters
     ----------
     project_dir : str
         BIDS project root.
     subject_id : str
-        Subject identifier without the `sub-` prefix.
+        Subject identifier without the ``sub-`` prefix.
     logger : logging.Logger
         Logger used for progress and command output.
-    runner : CommandRunner, optional
+    runner : CommandRunner or None, optional
         Subprocess runner used to stream output.
+
+    Raises
+    ------
+    PreprocessError
+        If no T1 image is found, the m2m directory already exists, or
+        ``charm`` exits with a non-zero code.
+
+    See Also
+    --------
+    run_subject_atlas : Create atlas ``.annot`` files after CHARM.
+    run_recon_all : FreeSurfer cortical reconstruction.
     """
     pm = get_path_manager(project_dir)
 
@@ -87,9 +117,9 @@ def run_subject_atlas(
     logger,
     runner: CommandRunner | None = None,
 ) -> None:
-    """Run subject_atlas to create .annot files for a subject.
+    """Run ``subject_atlas`` to create ``.annot`` files for a subject.
 
-    This should be called after charm completes successfully.
+    Should be called after ``run_charm`` completes successfully.
     Generates all three atlases: a2009s, DK40, and HCP_MMP1.
 
     Parameters
@@ -97,11 +127,20 @@ def run_subject_atlas(
     project_dir : str
         BIDS project root.
     subject_id : str
-        Subject identifier without the `sub-` prefix.
+        Subject identifier without the ``sub-`` prefix.
     logger : logging.Logger
         Logger used for progress and command output.
-    runner : CommandRunner, optional
+    runner : CommandRunner or None, optional
         Subprocess runner used to stream output.
+
+    Raises
+    ------
+    PreprocessError
+        If the m2m directory does not exist or ``subject_atlas`` fails.
+
+    See Also
+    --------
+    run_charm : Generate the m2m head mesh (prerequisite).
     """
 
     pm = get_path_manager(project_dir)

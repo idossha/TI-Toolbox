@@ -1,13 +1,41 @@
 """Pareto sweep module for focality threshold grid optimization.
 
-This module provides the data structures and functions needed to run a
-Cartesian-product sweep over (ROI%, non-ROI%) threshold combinations for
-TI stimulation focality optimization. After all combinations are run, the
-results are saved as JSON, a PNG scatter plot, and an ASCII summary table.
+Provides data structures and functions for running a Cartesian-product
+sweep over (ROI%, non-ROI%) threshold combinations for TI stimulation
+focality optimization.  After all combinations are run, the results are
+saved as JSON, a PNG scatter plot, and an ASCII summary table.
 
-All thresholds are expressed as percentages of ``achievable_ROI_mean`` --
-the mean field in the target ROI at the mean-optimal electrode configuration
-obtained in step 1 of the adaptive workflow.
+All thresholds are expressed as percentages of ``achievable_ROI_mean``
+-- the mean field in the target ROI at the mean-optimal electrode
+configuration obtained in step 1 of the adaptive workflow.
+
+Public API
+----------
+SweepPoint
+    One (roi_pct, nonroi_pct) combination in the sweep grid.
+ParetoSweepConfig
+    Configuration for a full Pareto threshold sweep.
+ParetoSweepResult
+    Result container for a completed sweep.
+compute_sweep_grid
+    Build the Cartesian product of threshold percentages.
+validate_grid
+    Check that all combinations are valid.
+build_focality_config
+    Produce a :class:`~tit.opt.config.FlexConfig` for one sweep point.
+build_pareto_manifest_data
+    Build the ``pareto`` section for ``flex_meta.json``.
+generate_pareto_plot
+    Save a Pareto trade-off scatter plot as PNG.
+generate_summary_text
+    Return a formatted ASCII summary table.
+save_results
+    Persist sweep results to disk (JSON + PNG + best-run promotion).
+
+See Also
+--------
+tit.opt.flex.flex.run_flex_search : Called once per sweep point.
+tit.opt.flex.manifest.write_manifest : Consumes the pareto manifest data.
 """
 
 import copy
@@ -34,18 +62,27 @@ from tit.opt.config import FlexConfig
 class SweepPoint:
     """One (roi_pct, nonroi_pct) combination in the sweep grid.
 
-    Attributes:
-        roi_pct: ROI threshold expressed as a percentage (e.g. 80.0).
-        nonroi_pct: Non-ROI threshold expressed as a percentage (e.g. 20.0).
-        roi_threshold: Absolute ROI threshold in V/m
-            (= roi_pct / 100 * achievable_ROI_mean).
-        nonroi_threshold: Absolute non-ROI threshold in V/m.
-        run_index: 0-based index; determines the subfolder name.
-        output_folder: Absolute path to this run's output directory.
-        focality_score: optim_funvalue returned by SimNIBS (negative float;
-            values closer to 0 are better focality).  ``None`` until the run
-            completes successfully.
-        status: One of ``"pending"``, ``"running"``, ``"done"``, ``"failed"``.
+    Attributes
+    ----------
+    roi_pct : float
+        ROI threshold expressed as a percentage (e.g. 80.0).
+    nonroi_pct : float
+        Non-ROI threshold expressed as a percentage (e.g. 20.0).
+    roi_threshold : float
+        Absolute ROI threshold in V/m
+        (``roi_pct / 100 * achievable_ROI_mean``).
+    nonroi_threshold : float
+        Absolute non-ROI threshold in V/m.
+    run_index : int
+        Zero-based index; determines the subfolder name.
+    output_folder : str
+        Absolute path to this run's output directory.
+    focality_score : float or None
+        ``optim_funvalue`` returned by SimNIBS (negative float; values
+        closer to 0 are better focality).  ``None`` until the run
+        completes successfully.
+    status : str
+        One of ``"pending"``, ``"running"``, ``"done"``, ``"failed"``.
     """
 
     roi_pct: float
@@ -62,11 +99,16 @@ class SweepPoint:
 class ParetoSweepConfig:
     """Configuration for a full Pareto threshold sweep.
 
-    Attributes:
-        roi_pcts: List of ROI% values to sweep (e.g. [80.0, 70.0]).
-        nonroi_pcts: List of non-ROI% values to sweep (e.g. [20.0, 30.0, 40.0]).
-        achievable_roi_mean: Mean field strength in V/m from step-1 mean opt.
-        base_output_folder: Parent directory for all sweep run subdirectories.
+    Attributes
+    ----------
+    roi_pcts : list of float
+        ROI% values to sweep (e.g. ``[80.0, 70.0]``).
+    nonroi_pcts : list of float
+        Non-ROI% values to sweep (e.g. ``[20.0, 30.0, 40.0]``).
+    achievable_roi_mean : float
+        Mean field strength in V/m from step-1 mean optimization.
+    base_output_folder : str
+        Parent directory for all sweep run subdirectories.
     """
 
     roi_pcts: list

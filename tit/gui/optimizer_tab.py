@@ -1,8 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Optimize Tab - Combined interface for Ex-Search and Flex-Search
+"""Combined optimizer tab for Ex-Search and Flex-Search.
+
+Hosts a dropdown selector that switches between the ``FlexSearchTab``
+(differential evolution) and the ``ExSearchTab`` (exhaustive leadfield
+search) via a ``QStackedWidget``.
 """
 
 from PyQt5 import QtWidgets, QtCore
@@ -10,7 +13,16 @@ from tit.gui.style import FONT_MD  # graphics tokens  # noqa: F401
 
 
 class OptimizerTab(QtWidgets.QWidget):
-    """Combined tab for all optimization methods."""
+    """Combined tab hosting Flex-Search and Ex-Search optimizers.
+
+    A dropdown at the top switches between the two optimization methods
+    using a stacked widget layout.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (main window).
+    """
 
     def __init__(self, parent=None):
         super(OptimizerTab, self).__init__(parent)

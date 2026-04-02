@@ -1,10 +1,30 @@
-"""
-Base reportlet classes for the TI-Toolbox reporting system.
+"""Base reportlet classes for the TI-Toolbox reporting system.
 
-This module provides the foundational reportlet implementations that can be
-used directly or extended for specialized purposes.
-"""
+Provides the foundational reportlet implementations that can be used
+directly or extended for domain-specific purposes.
 
+Public API
+----------
+BaseReportlet
+    Abstract base class for all reportlets.
+MetadataReportlet
+    Key-value metadata display (table or card grid).
+ImageReportlet
+    Inline image display (base64-embedded).
+TableReportlet
+    Tabular data display.
+TextReportlet
+    Text content display with optional copy-to-clipboard.
+ErrorReportlet
+    Error and warning message display.
+ReferencesReportlet
+    Citation and reference list display.
+
+See Also
+--------
+tit.reporting.reportlets : Domain-specific reportlet subclasses.
+tit.reporting.core.protocols : Protocol and enum definitions.
+"""
 
 import base64
 import io
@@ -17,7 +37,22 @@ from .protocols import ReportletType, SeverityLevel, StatusType
 
 
 class BaseReportlet(ABC):
-    """Abstract base class for all reportlets."""
+    """Abstract base class for all reportlets.
+
+    Subclasses must implement ``reportlet_type``, ``render_html``, and
+    ``to_dict``.
+
+    Parameters
+    ----------
+    title : str or None, optional
+        Optional title displayed above the reportlet content.
+
+    See Also
+    --------
+    MetadataReportlet : Key-value pair display.
+    ImageReportlet : Inline image display.
+    TableReportlet : Tabular data display.
+    """
 
     def __init__(self, title: str | None = None):
         self._title = title
@@ -41,7 +76,7 @@ class BaseReportlet(ABC):
 
     @abstractmethod
     def render_html(self) -> str:
-        """Render the reportlet as HTML."""
+        """Render the reportlet as an HTML fragment."""
         pass
 
     @abstractmethod

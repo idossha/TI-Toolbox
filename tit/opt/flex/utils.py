@@ -1,5 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""ROI configuration and output naming for flex-search."""
+"""ROI configuration and output naming for flex-search.
+
+Provides helper functions for directory naming, human-readable labelling,
+SimNIBS log parsing, and ROI setup on ``TesFlexOptimization`` objects.
+
+Public API
+----------
+generate_run_dirname
+    Create a datetime-stamped directory name for a run.
+generate_label
+    Build a human-readable label string for a flex-search run.
+parse_optimization_output
+    Extract the goal-function value from a SimNIBS log line.
+configure_roi
+    Set up ROI(s) on a SimNIBS optimization object.
+
+See Also
+--------
+tit.opt.flex.flex : Main flex-search orchestrator.
+"""
 
 import logging
 import os
@@ -14,15 +33,21 @@ from tit.opt.config import FlexConfig
 
 
 def generate_run_dirname(base_path: str) -> str:
-    """Generate a datetime-based directory name for a flex-search run.
+    """Generate a datetime-stamped directory name for a flex-search run.
 
-    Format: YYYYMMDD_HHMMSS. Appends _1, _2, etc. if the folder already exists.
+    Format is ``YYYYMMDD_HHMMSS``.  When a collision exists, ``_1``,
+    ``_2``, etc. are appended.
 
-    Args:
-        base_path: Parent directory (e.g. flex-search/) to check for collisions.
+    Parameters
+    ----------
+    base_path : str
+        Parent directory (e.g. ``flex-search/``) to check for
+        collisions.
 
-    Returns:
-        Directory name string (not full path).
+    Returns
+    -------
+    str
+        Directory name string (not the full path).
     """
     from datetime import datetime
 
@@ -38,15 +63,20 @@ def generate_run_dirname(base_path: str) -> str:
 def generate_label(config, pareto: bool = False) -> str:
     """Build a human-readable label for a flex-search run.
 
-    This label is stored in flex_meta.json for GUI display purposes.
-    It is NOT used for folder naming or machine parsing.
+    The label is stored in ``flex_meta.json`` for GUI display and is
+    **not** used for folder naming or machine parsing.
 
-    Args:
-        config: FlexConfig instance.
-        pareto: True if this is a pareto sweep run.
+    Parameters
+    ----------
+    config : FlexConfig
+        Flex-search configuration instance.
+    pareto : bool, optional
+        When *True* the goal component is replaced by ``"pareto"``.
 
-    Returns:
-        Label string like "mean_maxTI_sphere(-42,-20,55)r10".
+    Returns
+    -------
+    str
+        Label string, e.g. ``"mean_maxTI_sphere(-42,-20,55)r10"``.
     """
     postproc_short = {
         "max_TI": "maxTI",
@@ -97,18 +127,25 @@ def generate_label(config, pareto: bool = False) -> str:
 
 
 def parse_optimization_output(line: str) -> float | None:
-    """Extract the optimization function value from a SimNIBS log line.
+    """Extract the goal-function value from a SimNIBS log line.
 
-    Handles patterns:
-        - "Final goal function value:   -42.123"
-        - "Goal function value.*:  -42.123"
-        - Table row with max_TI column (scientific notation)
+    Recognises three patterns:
 
-    Args:
-        line: A single line of SimNIBS stdout/stderr.
+    * ``"Final goal function value:   -42.123"``
+    * ``"Goal function value<anything>:  -42.123"``
+    * Table row with a ``max_TI`` column (optionally in scientific
+      notation)
 
-    Returns:
-        The function value as a float, or None if the line does not match.
+    Parameters
+    ----------
+    line : str
+        A single line of SimNIBS stdout / stderr.
+
+    Returns
+    -------
+    float or None
+        The extracted function value, or *None* when the line does not
+        match any known pattern.
     """
     import re
 
@@ -142,14 +179,22 @@ def parse_optimization_output(line: str) -> float | None:
 
 
 def configure_roi(opt, config: FlexConfig) -> None:
-    """Configure ROI based on the config's ROI specification.
+    """Configure ROI(s) on a SimNIBS optimization object.
 
-    This is the main entry point for ROI configuration that delegates to
-    the appropriate method-specific function.
+    Delegates to the appropriate private helper based on the ROI type
+    stored in ``config.roi`` (spherical, atlas, or subcortical).
 
-    Args:
-        opt: SimNIBS ``TesFlexOptimization`` object.
-        config: Flex-search configuration with ROI spec.
+    Parameters
+    ----------
+    opt : simnibs.optimization.TesFlexOptimization
+        SimNIBS optimization object to configure.
+    config : FlexConfig
+        Flex-search configuration containing the ROI specification.
+
+    Raises
+    ------
+    ValueError
+        If the ROI type is not recognised.
     """
     if isinstance(config.roi, FlexConfig.SphericalROI):
         _configure_spherical_roi(opt, config)
@@ -162,14 +207,7 @@ def configure_roi(opt, config: FlexConfig) -> None:
 
 
 def _resolve_tissues(tissues_str: str) -> list:
-    """Resolve a tissues string ("GM", "WM", "both") to ElementTags.
-
-    Args:
-        tissues_str: One of ``"GM"``, ``"WM"``, or ``"both"`` (case-insensitive).
-
-    Returns:
-        List of ``ElementTags`` values for SimNIBS ``roi.tissues``.
-    """
+    """Map a ``"GM"``/``"WM"``/``"both"`` string to SimNIBS ``ElementTags``."""
     from simnibs.mesh_tools.mesh_io import ElementTags
 
     value = tissues_str.strip().upper()
@@ -181,15 +219,7 @@ def _resolve_tissues(tissues_str: str) -> list:
 
 
 def _resolve_sphere_center(roi_spec, opt):
-    """Return the sphere center, transforming from MNI if needed.
-
-    Args:
-        roi_spec: A ``SphericalROI`` instance.
-        opt: SimNIBS optimization object (needed for MNI transform).
-
-    Returns:
-        List of [x, y, z] coordinates in subject space.
-    """
+    """Return ``[x, y, z]`` in subject space, transforming from MNI if needed."""
     from simnibs import mni2subject_coords
 
     x, y, z = roi_spec.x, roi_spec.y, roi_spec.z
@@ -202,16 +232,7 @@ def _resolve_sphere_center(roi_spec, opt):
 
 
 def _configure_spherical_roi(opt, config: FlexConfig) -> None:
-    """Configure spherical ROI with optional MNI coordinate transformation.
-
-    When ``roi_spec.volumetric`` is True, uses volume method with tissue
-    filtering (evaluates on tetrahedra). Otherwise uses the surface method
-    on the central cortical surface (default, backwards-compatible).
-
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with SphericalROI spec.
-    """
+    """Set up a spherical ROI (surface or volumetric) with optional MNI transform."""
     roi_spec: FlexConfig.SphericalROI = config.roi  # type: ignore[assignment]
 
     center = _resolve_sphere_center(roi_spec, opt)
@@ -259,12 +280,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
 
 
 def _configure_atlas_roi(opt, config: FlexConfig) -> None:
-    """Configure cortical atlas-based ROI.
-
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with AtlasROI spec.
-    """
+    """Set up a cortical atlas-based ROI on the central surface."""
     roi_spec: FlexConfig.AtlasROI = config.roi  # type: ignore[assignment]
 
     roi = opt.add_roi()
@@ -295,28 +311,13 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
 
 
 def _resolve_roi_tissues(config: FlexConfig) -> list:
-    """Resolve tissue tags from the ROI specification.
-
-    Reads the ``tissues`` field from a SubcorticalROI config.
-    Delegates to :func:`_resolve_tissues`.
-
-    Args:
-        config: Flex-search configuration with SubcorticalROI spec.
-
-    Returns:
-        List of ElementTags values to assign to ``roi.tissues``.
-    """
+    """Read the ``tissues`` field from a SubcorticalROI and resolve to ``ElementTags``."""
     roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
     return _resolve_tissues(roi_spec.tissues)
 
 
 def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
-    """Configure subcortical volume-based ROI.
-
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with SubcorticalROI spec.
-    """
+    """Set up a subcortical volume-based ROI from a label atlas."""
     roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
 
     volume_atlas_path = roi_spec.atlas_path

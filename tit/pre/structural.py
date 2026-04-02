@@ -1,6 +1,21 @@
 #!/usr/bin/env simnibs_python
 """
-Pre-processing pipeline orchestration.
+Preprocessing pipeline orchestration.
+
+This module contains the top-level ``run_pipeline`` function that drives
+all preprocessing steps for one or more subjects, including DICOM
+conversion, FreeSurfer recon-all, SimNIBS CHARM, tissue analysis, DWI
+preprocessing (QSIPrep/QSIRecon), DTI tensor extraction, and subcortical
+segmentation.
+
+Public API
+----------
+run_pipeline
+    Run the full preprocessing pipeline for one or more subjects.
+
+See Also
+--------
+tit.pre : Package-level overview and convenience re-exports.
 """
 
 import os
@@ -26,6 +41,7 @@ from .utils import (
 
 
 def _run_step(label: str, func, logger) -> None:
+    """Execute a single pipeline step with logging."""
     logger.info(f"{label}: Started")
     func()
     logger.info(f"{label}: ✓ Complete")
@@ -50,6 +66,7 @@ def _run_subject_pipeline(
     runner: CommandRunner,
     callback: Callable | None,
 ) -> None:
+    """Run the full preprocessing sequence for a single subject."""
     logger = build_logger(
         "preprocess",
         subject_id,
@@ -230,45 +247,70 @@ def run_pipeline(
 ) -> int:
     """Run the preprocessing pipeline for one or more subjects.
 
+    Orchestrates DICOM conversion, FreeSurfer recon-all, SimNIBS CHARM,
+    tissue analysis, QSIPrep/QSIRecon DWI preprocessing, DTI tensor
+    extraction, and subcortical segmentation.  Steps are enabled via
+    boolean flags; disabled steps are skipped.
+
     Parameters
     ----------
     subject_ids : iterable of str
-        Subject identifiers without the `sub-` prefix.
+        Subject identifiers without the ``sub-`` prefix.
     convert_dicom : bool, optional
-        Run DICOM to NIfTI conversion.
+        Run DICOM-to-NIfTI conversion.
     run_recon : bool, optional
-        Run FreeSurfer recon-all.
+        Run FreeSurfer ``recon-all``.
     parallel_recon : bool, optional
-        Run recon-all in parallel across subjects.
-    parallel_cores : int, optional
-        Max parallel subjects for recon-all.
+        Run ``recon-all`` in parallel across subjects.
+    parallel_cores : int or None, optional
+        Maximum number of parallel subjects for ``recon-all``.
     create_m2m : bool, optional
-        Run SimNIBS charm (also runs subject_atlas for .annot files).
+        Run SimNIBS ``charm`` (also runs ``subject_atlas`` for ``.annot``
+        files).
     run_tissue_analysis : bool, optional
-        Run tissue analysis pipeline.
+        Run tissue-volume and thickness analysis.
     run_qsiprep : bool, optional
         Run QSIPrep DWI preprocessing via Docker.
     run_qsirecon : bool, optional
         Run QSIRecon reconstruction via Docker.
-    qsi_recon_specs : iterable of str, optional
-        QSIRecon reconstruction specs to run. Default: ['dipy_dki'].
+    qsiprep_config : dict or None, optional
+        Extra configuration passed to ``run_qsiprep``.
+    qsi_recon_config : dict or None, optional
+        Extra configuration passed to ``run_qsirecon``.
     extract_dti : bool, optional
         Extract DTI tensor for SimNIBS anisotropic conductivity.
     run_subcortical_segmentations : bool, optional
-        Run thalamic nuclei and hippocampal subfield segmentations (standalone).
+        Run thalamic-nuclei and hippocampal-subfield segmentations.
     debug : bool, optional
         Enable verbose logging.
-    stop_event : object, optional
-        Event used to cancel running steps.
-    logger_callback : callable, optional
-        Callback used by GUI to capture log lines.
-    runner : CommandRunner, optional
-        Subprocess runner used to stream output.
+    stop_event : object or None, optional
+        Threading event used to cancel running steps.
+    logger_callback : callable or None, optional
+        Callback used by the GUI to capture log lines.
+    runner : CommandRunner or None, optional
+        Subprocess runner used to stream command output.
 
     Returns
     -------
     int
-        0 on success, 1 on failure.
+        ``0`` on success, ``1`` on failure.
+
+    Raises
+    ------
+    PreprocessError
+        If no subjects are provided or a preprocessing step fails.
+    PreprocessCancelled
+        If *stop_event* is set during execution.
+
+    See Also
+    --------
+    run_dicom_to_nifti : DICOM-to-NIfTI conversion step.
+    run_recon_all : FreeSurfer recon-all step.
+    run_charm : SimNIBS CHARM head-mesh step.
+    run_tissue_analysis : Tissue analysis step.
+    run_qsiprep : QSIPrep DWI preprocessing step.
+    run_qsirecon : QSIRecon reconstruction step.
+    extract_dti_tensor : DTI tensor extraction step.
     """
     subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
     if not subject_list:

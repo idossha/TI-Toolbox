@@ -1,25 +1,36 @@
-"""
-Gmsh .opt file generation for TI-Toolbox.
+"""Generate Gmsh ``.opt`` visualization option files.
 
-Provides helpers for creating Gmsh visualization option files.
+Creates a companion ``.opt`` file next to a ``.msh`` mesh so that Gmsh
+opens with sensible default view settings (visibility, colormap, range).
+
+See Also
+--------
+tit.blender.region_exporter : Uses ``create_mesh_opt_file`` when
+    ``keep_meshes=True``.
 """
 
 __all__ = ["create_mesh_opt_file"]
 
 
 def create_mesh_opt_file(mesh_path, field_info=None):
-    """
-    Create a .opt file for Gmsh visualization of mesh fields.
+    """Create a ``.opt`` file for Gmsh visualization of mesh fields.
 
     Parameters
     ----------
     mesh_path : str
-        Path to the .msh file (without .opt extension)
+        Path to the ``.msh`` file.  The ``.opt`` extension is appended
+        automatically.
     field_info : dict, optional
-        Dictionary with field information containing:
-        - 'fields': list of field names to visualize
-        - 'max_values': dict mapping field names to their max values (optional)
-        - 'field_type': str, either 'node' or 'element' (default: 'node')
+        Dictionary with field information.  Recognised keys:
+
+        * ``'fields'`` -- list of field names to visualise.
+        * ``'max_values'`` -- dict mapping field names to their max values.
+        * ``'field_type'`` -- ``'node'`` or ``'element'`` (default ``'node'``).
+
+    Returns
+    -------
+    str
+        Path to the written ``.opt`` file.
     """
     if field_info is None:
         field_info = {}

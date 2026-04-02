@@ -18,6 +18,7 @@ def _build_correlation_subjects(raw: list[dict]) -> list[CorrelationConfig.Subje
 
 
 def main() -> None:
+    """Run statistical analysis from a JSON config passed as the first CLI argument."""
     from tit.logger import add_stream_handler, setup_logging
 
     setup_logging("INFO")

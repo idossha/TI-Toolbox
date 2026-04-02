@@ -31,6 +31,7 @@ def _make_stdout_logger() -> None:
 
 
 def main() -> None:
+    """Run exhaustive search from a JSON config passed as the first CLI argument."""
     _make_stdout_logger()
 
     config_path = sys.argv[1]

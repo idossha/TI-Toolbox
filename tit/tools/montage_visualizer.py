@@ -1,12 +1,20 @@
 #!/usr/bin/env simnibs_python
-"""
-Montage Visualizer — renders PNG visualizations of electrode placements.
+"""Render PNG visualizations of electrode montage placements.
+
+Overlays coloured rings and arc connections on a template EEG cap
+image using ImageMagick ``convert``.  Called automatically by the
+simulation pipeline to document the active montage.
 
 Public API
 ----------
-    visualize_montage(montage_name, electrode_pairs, eeg_net, output_dir, sim_mode)
-"""
+visualize_montage
+    Render a PNG for a single montage or a combined multi-montage image.
 
+See Also
+--------
+tit.tools.map_electrodes : Map optimised positions to net labels.
+tit.sim : Simulation pipeline that invokes the visualiser.
+"""
 
 import os
 import subprocess
@@ -57,6 +65,7 @@ def _load_coordinates(eeg_net: str) -> dict[str, tuple[int, int]] | None:
 
 
 def _overlay_ring(image: str, x: int, y: int, color: str, ring: str) -> None:
+    """Composite a coloured ring PNG onto *image* at *(x, y)*."""
     subprocess.run(
         [
             "convert",
@@ -78,6 +87,7 @@ def _overlay_ring(image: str, x: int, y: int, color: str, ring: str) -> None:
 
 
 def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> None:
+    """Draw a Bezier arc between two electrode positions on *image*."""
     dx, dy = x2 - x1, y2 - y1
     dist = (dx**2 + dy**2) ** 0.5
     if dist == 0:
@@ -117,16 +127,23 @@ def visualize_montage(
     output_dir: str,
     sim_mode: str = "U",
 ) -> None:
-    """
-    Render a PNG showing electrode positions and connection arcs.
+    """Render a PNG showing electrode positions and connection arcs.
 
     Parameters
     ----------
-    montage_name    : used as output filename base (unipolar) or "combined" (multipolar)
-    electrode_pairs : list of [e1, e2] pairs, e.g. [["E030","E020"],["E095","E070"]]
-    eeg_net         : EEG cap name, e.g. "GSN-HydroCel-185.csv"
-    output_dir      : directory to write PNG(s) into
-    sim_mode        : "U" → one image per montage; "M" → single combined image
+    montage_name : str
+        Used as the output filename base (unipolar) or ``"combined"``
+        (multipolar).
+    electrode_pairs : list of list of str
+        Electrode pairs, e.g.
+        ``[["E030", "E020"], ["E095", "E070"]]``.
+    eeg_net : str
+        EEG cap name, e.g. ``"GSN-HydroCel-185.csv"``.
+    output_dir : str
+        Directory to write the output PNG(s) into.
+    sim_mode : str, optional
+        ``"U"`` produces one image per montage; ``"M"`` produces a
+        single combined image.  Default ``"U"``.
     """
     if eeg_net in _SKIP_NETS:
         return

@@ -7,25 +7,51 @@ A neuroscience research platform for simulating, optimizing, and analyzing
 temporal interference (TI) stimulation of the brain. Built on top of
 SimNIBS for finite-element modeling and FreeSurfer for cortical reconstruction.
 
-Submodules:
-    sim: TI/mTI simulation engine (electrode montages, field computation).
-    opt: Optimization of electrode placements (flex-search, exhaustive).
-    analyzer: Field analysis, ROI statistics, and visualization.
-    stats: Permutation testing and group-level comparisons.
-    pre: Preprocessing pipelines (DICOM conversion, FreeSurfer, CHARM).
-    gui: PyQt5 desktop interface (runs inside Docker with X11).
-    cli: Command-line tools built on a shared BaseCLI base class.
-    reporting: HTML report generation with composable reportlets.
+Modules
+-------
+sim
+    TI/mTI simulation engine (electrode montages, field computation).
+opt
+    Optimization of electrode placements (flex-search, exhaustive).
+analyzer
+    Field analysis, ROI statistics, and visualization.
+stats
+    Permutation testing and group-level comparisons.
+pre
+    Preprocessing pipelines (DICOM conversion, FreeSurfer, CHARM).
+gui
+    PyQt5 desktop interface (runs inside Docker with X11).
+cli
+    Command-line tools built on a shared ``BaseCLI`` base class.
+reporting
+    HTML report generation with composable reportlets.
 
-Example:
-    >>> from tit import get_path_manager
-    >>> pm = get_path_manager("/data/project", "001")
-    >>> from tit.sim import SimulationConfig, run_simulation
+Public API
+----------
+get_path_manager
+    Return the global :class:`~tit.paths.PathManager` singleton.
+setup_logging
+    Configure the package-wide logging level.
+add_file_handler
+    Attach a file handler to a named logger.
+add_stream_handler
+    Attach a console handler to a named logger.
+paths
+    BIDS-compliant path resolution module.
+constants
+    Project-wide constants and configuration values.
 
-Note:
-    Importing this package auto-initializes logging (with stream output at
-    INFO level) and exposes ``get_path_manager`` for BIDS path resolution.
-    No additional setup is required for typical usage.
+Examples
+--------
+>>> from tit import get_path_manager
+>>> pm = get_path_manager("/data/project")
+>>> from tit.sim import SimulationConfig, run_simulation
+
+Notes
+-----
+Importing this package auto-initializes logging (with stream output at
+INFO level) and exposes ``get_path_manager`` for BIDS path resolution.
+No additional setup is required for typical usage.
 """
 
 __version__ = "2.3.0"

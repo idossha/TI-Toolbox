@@ -1,9 +1,20 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Flex Search Tab
-This module provides a GUI interface for the flex-search optimization tool.
+"""Flex-search optimisation tab for the TI-Toolbox GUI.
+
+Provides a form-based interface for the differential-evolution electrode
+placement optimiser (Weise et al. 2025).  Users select subjects, define
+target ROIs (spherical, cortical atlas, or subcortical), set electrode
+and solver hyper-parameters, and launch optimisations in a background
+``QThread``.
+
+See Also
+--------
+tit.opt.config.FlexConfig : Backend configuration dataclass.
+tit.gui.components.roi_picker.ROIPickerWidget : ROI selection widget.
+tit.gui.components.electrode_config.ElectrodeConfigWidget : Electrode parameters.
+tit.gui.components.solver_params.SolverParamsWidget : Solver hyper-parameters.
 """
 
 import os
@@ -37,7 +48,12 @@ from tit.config_io import write_config_json
 
 
 class FlexSearchThread(BaseProcessThread):
-    """Thread to run flex-search in background to prevent GUI freezing."""
+    """Background thread that runs ``tit.opt.flex`` via subprocess.
+
+    See Also
+    --------
+    BaseProcessThread : Provides ``execute_process`` and ``terminate_process``.
+    """
 
     def __init__(self, cmd, env=None):
         super().__init__(cmd=cmd, env=env)
@@ -48,7 +64,19 @@ class FlexSearchThread(BaseProcessThread):
 
 
 class FlexSearchTab(QtWidgets.QWidget):
-    """Tab for flex-search electrode optimization."""
+    """Flex-search electrode optimisation tab.
+
+    Provides controls for differential-evolution optimisation of electrode
+    placements.  Supports multi-subject batch runs, adaptive focality,
+    Pareto sweep modes, and real-time console output.  Configuration is
+    serialised to JSON and executed via ``simnibs_python -m tit.opt.flex``.
+
+    See Also
+    --------
+    FlexSearchThread : Background execution thread.
+    tit.opt.config.FlexConfig : Backend configuration dataclass.
+    tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
+    """
 
     def __init__(self, parent=None):
         """Initialize the flex search tab."""
@@ -565,7 +593,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_picker.set_subject(subject_id, project_dir)
             self.nonroi_picker.set_subject(subject_id, project_dir)
 
-
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
         roi_type = self.roi_picker.get_roi_type()
@@ -675,7 +702,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             f"Number of subjects: {len(selected_subjects)}\n"
             f"ROI: {roi_description}\n"
             f"Goal: {goal}\n"
-            + (f"EEG Net: {eeg_net}\n" if self.run_mapped_simulation_checkbox.isChecked() else "")
+            + (
+                f"EEG Net: {eeg_net}\n"
+                if self.run_mapped_simulation_checkbox.isChecked()
+                else ""
+            )
             + f"Current: {electrode_current}mA\n"
             f"Electrode shape: {electrode_shape}\n"
             f"Dimensions: {dimensions}mm\n"

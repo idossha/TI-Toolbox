@@ -1,9 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 NIfTI Viewer Tab
-This module provides a GUI interface for visualizing NIfTI (.nii) files using Freeview.
+"""NIfTI viewer tab for the TI-Toolbox GUI.
+
+Provides an interface for launching Freeview with simulation outputs,
+atlas overlays, and voxel-space analysis results. Supports both single-
+subject and group visualization modes.
 """
 
 import os
@@ -19,7 +21,17 @@ from tit.gui.components.console import ConsoleWidget
 
 
 class NiftiViewerTab(QtWidgets.QWidget):
-    """Tab for NIfTI visualization using Freeview."""
+    """GUI tab for NIfTI visualization using Freeview.
+
+    Manages subject/simulation selection, atlas overlay options, and
+    launches Freeview as an external process with the appropriate command-line
+    arguments.  Supports single-subject and group visualization modes.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (main window).
+    """
 
     def __init__(self, parent=None):
         super(NiftiViewerTab, self).__init__(parent)

@@ -1,17 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""
-Mesh-to-NIfTI conversion using the SimNIBS Python API.
+"""Mesh-to-NIfTI conversion using the SimNIBS Python API.
 
-Provides callable functions that wrap ``simnibs.transformations`` so the
-simulator pipeline can convert meshes without shelling out to bash scripts.
+Wraps ``simnibs.transformations`` so that the simulation pipeline can
+convert ``.msh`` meshes to volumetric NIfTI files without shelling out
+to bash scripts.
 
 Public API
 ----------
-msh_to_nifti   – single mesh → subject-space NIfTI
-msh_to_mni     – single mesh → MNI-space NIfTI
-convert_mesh_dir – batch-convert every mesh in a directory
-"""
+msh_to_nifti
+    Convert a single mesh to subject-space NIfTI.
+msh_to_mni
+    Convert a single mesh to MNI-space NIfTI.
+convert_mesh_dir
+    Batch-convert every ``.msh`` file in a directory.
 
+See Also
+--------
+tit.tools.nifti_to_mesh : Inverse operation (NIfTI to surface mesh).
+tit.tools.field_extract : Extract tissue sub-meshes before conversion.
+"""
 
 import logging
 import os

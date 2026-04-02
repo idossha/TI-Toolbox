@@ -1,6 +1,18 @@
 """Flex-search optimization for TI stimulation.
 
-Public API: ``run_flex_search(config) -> FlexResult``
+Orchestrates multi-start differential-evolution runs, selects the best
+result, and writes a manifest + HTML report.
+
+Public API
+----------
+run_flex_search
+    Run differential-evolution electrode placement optimization.
+
+See Also
+--------
+tit.opt.config.FlexConfig : Input configuration.
+tit.opt.config.FlexResult : Output result container.
+tit.opt.flex.builder : SimNIBS object construction used internally.
 """
 
 import logging
@@ -17,7 +29,34 @@ from . import builder
 
 
 def run_flex_search(config: FlexConfig) -> FlexResult:
-    """Run flex-search optimization from a typed FlexConfig."""
+    """Run differential-evolution electrode placement optimization.
+
+    Uses ``scipy.optimize.differential_evolution`` (via SimNIBS
+    ``TesFlexOptimization``) to find electrode positions that maximize
+    field strength, peak intensity, or focality in a target ROI.
+
+    Multiple independent restarts (controlled by
+    ``config.n_multistart``) are executed sequentially; the best run's
+    output is promoted to the base output folder.
+
+    Parameters
+    ----------
+    config : FlexConfig
+        Fully specified optimization configuration including subject,
+        ROI definition, electrode geometry, and DE hyperparameters.
+
+    Returns
+    -------
+    FlexResult
+        Optimization outcomes including best montage, objective value,
+        and convergence diagnostics.
+
+    See Also
+    --------
+    FlexConfig : Configuration dataclass for flex-search.
+    FlexResult : Result container with per-restart function values.
+    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.
+    """
 
     from .manifest import write_manifest
     from .utils import generate_label, generate_run_dirname
@@ -27,7 +66,9 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     # Set up file logging — capture both tit and simnibs output
     logs_dir = pm.logs(config.subject_id)
     os.makedirs(logs_dir, exist_ok=True)
-    log_file = os.path.join(logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
+    log_file = os.path.join(
+        logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
+    )
     logger_name = f"tit.opt.flex.{config.subject_id}"
     add_file_handler(log_file, logger_name=logger_name)
     add_file_handler(log_file, logger_name="simnibs")

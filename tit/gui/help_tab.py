@@ -1,16 +1,24 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Help Tab for TI-Toolbox GUI
-This module provides a unified help tab for all TI-Toolbox tools.
+"""Unified help tab for the TI-Toolbox GUI.
+
+Provides scrollable, rich-text documentation covering the BIDS directory
+structure, preprocessing, simulation, optimization, analysis, NIfTI
+viewing, and system monitoring.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class HelpTab(QtWidgets.QWidget):
-    """Unified help tab for TI-Toolbox GUI."""
+    """Scrollable help centre aggregating documentation for every GUI tool.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (typically the main window or a floating dialog).
+    """
 
     def __init__(self, parent=None):
         super(HelpTab, self).__init__(parent)

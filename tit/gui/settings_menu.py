@@ -1,12 +1,29 @@
+"""Settings and extensions menu buttons for the TI-Toolbox GUI title bar.
 
-"""Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
+Provides the gear icon (``SettingsMenuButton``) for Help/Contact/Acknowledgments
+and the extensions icon (``ExtensionsButton``) that opens the extensions panel.
+"""
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.style import ICON_SIZE_GEAR, ICON_SIZE_EXTENSIONS
 
 
 class FloatingContentWindow(QtWidgets.QDialog):
-    """Generic floating window that hosts a content widget."""
+    """Generic floating dialog that hosts a content widget with a Close button.
+
+    Parameters
+    ----------
+    parent : QWidget
+        Parent widget.
+    title : str
+        Window title.
+    min_size : tuple[int, int]
+        Minimum (width, height) in pixels.
+    content_class : type
+        Widget class to instantiate as the dialog body.
+    **content_kwargs
+        Extra keyword arguments forwarded to *content_class*.
+    """
 
     def __init__(self, parent, title, min_size, content_class, **content_kwargs):
         super().__init__(parent)
@@ -28,7 +45,7 @@ class FloatingContentWindow(QtWidgets.QDialog):
 
 
 class SettingsMenuButton(QtWidgets.QPushButton):
-    """Gear icon button with dropdown menu for settings/info."""
+    """Gear icon button with a dropdown menu for Help, Contact, and Acknowledgments."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -102,7 +119,7 @@ class SettingsMenuButton(QtWidgets.QPushButton):
 
 
 class ExtensionsButton(QtWidgets.QPushButton):
-    """Extensions icon button for opening extensions window."""
+    """Icon button that opens the floating extensions window."""
 
     def __init__(self, parent=None):
         super().__init__(parent)

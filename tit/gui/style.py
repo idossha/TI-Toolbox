@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Shared design tokens and application-level stylesheet for TI-Toolbox GUI.
+
+All visual constants (colours, fonts, spacing, sizes) live in this single
+module so that every widget in the GUI draws from one source of truth.
+There is no user-facing settings file -- these are sensible defaults for
+the Docker container environment (96 DPI via ``QT_FONT_DPI``).
+
+Qt resolves pt sizes via ``pixelSize = DPI * pointSize / 72``.
+At 96 DPI: 9 pt = 12 px, 10 pt = 13 px, 12 pt = 16 px, 13 pt = 17 px.
+
+The module also exports ``build_stylesheet()`` which generates the
+application-wide Qt stylesheet string, and ``_NarrowSpinStyle``, a
+``QProxyStyle`` that shrinks the spin-box button column.
+
+See Also
+--------
+tit.gui.main : Applies the stylesheet at application startup.
 """
-Shared design tokens and application-level stylesheet for TI-Toolbox GUI.
-
-All visual constants (fonts, spacing, sizes) are defined here as plain
-module-level values.  There is no user-facing settings file -- these are
-sensible defaults for the Docker container environment (96 DPI via
-QT_FONT_DPI).
-
-Qt resolves pt sizes via: pixelSize = DPI * pointSize / 72.
-At 96 DPI:  9pt = 12px, 10pt ≈ 13px, 12pt = 16px, 13pt ≈ 17px.
-"""
-
 
 # ---------------------------------------------------------------------------
 # Semantic colors
@@ -114,7 +120,13 @@ ICON_SIZE_EXTENSIONS = 16
 
 
 def build_stylesheet():
-    """Build and return the application-level stylesheet string."""
+    """Build and return the application-level Qt stylesheet string.
+
+    Returns
+    -------
+    str
+        CSS-like stylesheet consumed by ``QApplication.setStyleSheet``.
+    """
     font_md = FONT_MD
     font_lg = FONT_LG
     font_tab = FONT_XL
@@ -342,7 +354,12 @@ from PyQt5 import QtWidgets as _QtW  # noqa: E402
 
 
 class _NarrowSpinStyle(_QtW.QProxyStyle):
-    """Wraps Fusion and narrows the up/down button column of every spin box."""
+    """QProxyStyle that narrows spin-box up/down button columns.
+
+    Wraps the Fusion style and overrides ``subControlRect`` to shrink the
+    button column to ``_TARGET_BTN_W`` pixels, giving text fields more
+    horizontal space without breaking native arrow rendering.
+    """
 
     _TARGET_BTN_W = 6  # desired button-column width in pixels
 

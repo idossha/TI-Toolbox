@@ -1,6 +1,5 @@
 """Entry point: simnibs_python -m tit.sim config.json"""
 
-
 import json
 import sys
 
@@ -23,6 +22,7 @@ def _build_montage(data: dict) -> Montage:
 
 
 def main() -> None:
+    """Run TI simulation from a JSON config passed as the first CLI argument."""
     from tit.logger import setup_logging, add_stream_handler
 
     setup_logging()

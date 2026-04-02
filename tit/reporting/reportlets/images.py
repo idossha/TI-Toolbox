@@ -5,7 +5,6 @@ This module provides specialized reportlets for brain imaging visualizations,
 including multi-slice brain views and electrode montage displays.
 """
 
-
 import base64
 import io
 from pathlib import Path

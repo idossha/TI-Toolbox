@@ -1,12 +1,10 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-GUI Components Package
-Reusable UI components for TI-Toolbox GUI
+"""Reusable UI components for the TI-Toolbox GUI.
 
-Note: PathManager lives at tit.paths
-Import it from there: from tit.paths import get_path_manager
+This package collects shared widgets (console, electrode config, ROI picker,
+subject rows, action buttons, etc.) used across multiple GUI tabs.
 """
 
 from .console import ConsoleWidget

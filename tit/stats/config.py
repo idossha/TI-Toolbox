@@ -1,7 +1,22 @@
-"""Configuration dataclasses for cluster-based permutation testing.
+"""Configuration and result dataclasses for cluster-based permutation testing.
 
-Pure Python — no numpy, nibabel, or heavy dependencies.
-Mirrors the tit.opt.config / tit.sim.config pattern.
+Pure Python -- no numpy, nibabel, or heavy dependencies.
+Mirrors the ``tit.opt.config`` / ``tit.sim.config`` pattern.
+
+Public API
+----------
+GroupComparisonConfig
+    Configuration for two-group cluster-based permutation testing.
+GroupComparisonResult
+    Result container for group comparison analysis.
+CorrelationConfig
+    Configuration for correlation-based cluster permutation testing.
+CorrelationResult
+    Result container for correlation analysis.
+
+See Also
+--------
+tit.stats.permutation : Orchestration functions that consume these configs.
 """
 
 from dataclasses import dataclass, field
@@ -44,25 +59,46 @@ class GroupComparisonConfig:
     using a t-test with cluster-based permutation correction for multiple
     comparisons.
 
-    Attributes:
-        analysis_name: Human-readable name for this analysis run.
-        subjects: List of Subject entries, each labelled as responder (1) or
-            non-responder (0).
-        test_type: Whether to use an unpaired or paired t-test.
-        alternative: Sidedness of the test hypothesis.
-        cluster_threshold: Uncorrected p-value threshold for forming clusters.
-        cluster_stat: Cluster-level statistic used for permutation testing.
-        n_permutations: Number of permutations for the null distribution.
-        alpha: Family-wise error rate for significance.
-        n_jobs: Number of parallel workers (-1 for all CPUs).
-        tissue_type: Which tissue compartment to analyze.
-        nifti_file_pattern: Filename pattern for subject NIfTI files.  If
-            ``None``, derived automatically from ``tissue_type``.
-        group1_name: Display label for the responder group.
-        group2_name: Display label for the non-responder group.
-        value_metric: Label for the field value axis in plots.
-        atlas_files: Atlas filenames for overlap analysis (looked up in the
-            bundled atlas directory).
+    Attributes
+    ----------
+    analysis_name : str
+        Human-readable name for this analysis run.
+    subjects : list of Subject
+        Subject entries, each labelled as responder (1) or non-responder (0).
+    test_type : TestType
+        Whether to use an unpaired or paired t-test.
+    alternative : Alternative
+        Sidedness of the test hypothesis.
+    cluster_threshold : float
+        Uncorrected p-value threshold for forming clusters.
+    cluster_stat : ClusterStat
+        Cluster-level statistic used for permutation testing
+        (``"mass"`` or ``"size"``).
+    n_permutations : int
+        Number of permutations for the null distribution.
+    alpha : float
+        Family-wise error rate for significance.
+    n_jobs : int
+        Number of parallel workers (``-1`` for all CPUs).
+    tissue_type : TissueType
+        Which tissue compartment to analyze.
+    nifti_file_pattern : str or None
+        Filename pattern for subject NIfTI files. If ``None``, derived
+        automatically from *tissue_type*.
+    group1_name : str
+        Display label for the responder group.
+    group2_name : str
+        Display label for the non-responder group.
+    value_metric : str
+        Label for the field value axis in plots.
+    atlas_files : list of str
+        Atlas filenames for overlap analysis (looked up in the bundled
+        atlas directory).
+
+    See Also
+    --------
+    GroupComparisonResult : Result container returned by the analysis.
+    run_group_comparison : Orchestration function that consumes this config.
     """
 
     # ── Nested types ──────────────────────────────────────────────────
@@ -86,10 +122,14 @@ class GroupComparisonConfig:
     class Subject:
         """A single subject in a group comparison analysis.
 
-        Attributes:
-            subject_id: Subject identifier (without ``sub-`` prefix).
-            simulation_name: Name of the simulation to load for this subject.
-            response: Group label -- 1 for responder, 0 for non-responder.
+        Attributes
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation to load for this subject.
+        response : int
+            Group label -- 1 for responder, 0 for non-responder.
         """
 
         subject_id: str
@@ -140,14 +180,20 @@ class GroupComparisonConfig:
         (0 or 1).  The ``sub-`` prefix is stripped from subject IDs
         automatically.
 
-        Args:
-            csv_path: Path to a CSV file with the required columns.
+        Parameters
+        ----------
+        csv_path : str
+            Path to a CSV file with the required columns.
 
-        Returns:
-            List of ``Subject`` instances parsed from the CSV rows.
+        Returns
+        -------
+        list of Subject
+            Subject instances parsed from the CSV rows.
 
-        Raises:
-            ValueError: If required columns are missing from the CSV.
+        Raises
+        ------
+        ValueError
+            If required columns are missing from the CSV.
         """
         import pandas as pd
 
@@ -180,23 +226,44 @@ class CorrelationConfig:
     continuous behavioral or clinical measure (effect size) across subjects,
     with cluster-based permutation correction for multiple comparisons.
 
-    Attributes:
-        analysis_name: Human-readable name for this analysis run.
-        subjects: List of Subject entries with associated effect sizes.
-        correlation_type: Pearson or Spearman rank correlation.
-        cluster_threshold: Uncorrected p-value threshold for forming clusters.
-        cluster_stat: Cluster-level statistic used for permutation testing.
-        n_permutations: Number of permutations for the null distribution.
-        alpha: Family-wise error rate for significance.
-        n_jobs: Number of parallel workers (-1 for all CPUs).
-        use_weights: Whether to apply per-subject weights during correlation.
-        tissue_type: Which tissue compartment to analyze.
-        nifti_file_pattern: Filename pattern for subject NIfTI files.  If
-            ``None``, derived automatically from ``tissue_type``.
-        effect_metric: Label for the behavioral/clinical variable in plots.
-        field_metric: Label for the field intensity axis in plots.
-        atlas_files: Atlas filenames for overlap analysis (looked up in the
-            bundled atlas directory).
+    Attributes
+    ----------
+    analysis_name : str
+        Human-readable name for this analysis run.
+    subjects : list of Subject
+        Subject entries with associated effect sizes.
+    correlation_type : CorrelationType
+        Pearson or Spearman rank correlation.
+    cluster_threshold : float
+        Uncorrected p-value threshold for forming clusters.
+    cluster_stat : ClusterStat
+        Cluster-level statistic used for permutation testing
+        (``"mass"`` or ``"size"``).
+    n_permutations : int
+        Number of permutations for the null distribution.
+    alpha : float
+        Family-wise error rate for significance.
+    n_jobs : int
+        Number of parallel workers (``-1`` for all CPUs).
+    use_weights : bool
+        Whether to apply per-subject weights during correlation.
+    tissue_type : TissueType
+        Which tissue compartment to analyze.
+    nifti_file_pattern : str or None
+        Filename pattern for subject NIfTI files. If ``None``, derived
+        automatically from *tissue_type*.
+    effect_metric : str
+        Label for the behavioral/clinical variable in plots.
+    field_metric : str
+        Label for the field intensity axis in plots.
+    atlas_files : list of str
+        Atlas filenames for overlap analysis (looked up in the bundled
+        atlas directory).
+
+    See Also
+    --------
+    CorrelationResult : Result container returned by the analysis.
+    run_correlation : Orchestration function that consumes this config.
     """
 
     # ── Nested types ──────────────────────────────────────────────────
@@ -213,12 +280,17 @@ class CorrelationConfig:
     class Subject:
         """A single subject in a correlation analysis.
 
-        Attributes:
-            subject_id: Subject identifier (without ``sub-`` prefix).
-            simulation_name: Name of the simulation to load for this subject.
-            effect_size: Continuous behavioral or clinical measure to correlate
-                with field intensity.
-            weight: Optional per-subject weight (default 1.0).
+        Attributes
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation to load for this subject.
+        effect_size : float
+            Continuous behavioral or clinical measure to correlate with
+            field intensity.
+        weight : float
+            Per-subject weight (default 1.0).
         """
 
         subject_id: str
@@ -270,15 +342,20 @@ class CorrelationConfig:
         ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``
         prefix is stripped from subject IDs automatically.
 
-        Args:
-            csv_path: Path to a CSV file with the required columns.
+        Parameters
+        ----------
+        csv_path : str
+            Path to a CSV file with the required columns.
 
-        Returns:
-            List of ``Subject`` instances parsed from valid CSV rows.
+        Returns
+        -------
+        list of Subject
+            Subject instances parsed from valid CSV rows.
 
-        Raises:
-            ValueError: If required columns are missing or no valid subjects
-                are found.
+        Raises
+        ------
+        ValueError
+            If required columns are missing or no valid subjects are found.
         """
         import pandas as pd
 
@@ -328,22 +405,37 @@ class CorrelationConfig:
 class GroupComparisonResult:
     """Result of a group comparison permutation test.
 
-    Attributes:
-        success: Whether the analysis completed without error.
-        output_dir: Absolute path to the directory containing all outputs
-            (NIfTI maps, plots, summary text, log).
-        n_responders: Number of responder subjects included.
-        n_non_responders: Number of non-responder subjects included.
-        n_significant_voxels: Total voxels surviving cluster-corrected
-            threshold.
-        n_significant_clusters: Number of spatially contiguous clusters that
-            survived permutation correction.
-        cluster_threshold: Cluster-level statistic threshold derived from the
-            permutation null distribution at the requested alpha.
-        analysis_time: Wall-clock duration of the full analysis in seconds.
-        clusters: List of dicts, one per significant cluster, containing
-            size, mass, peak coordinates, and atlas overlap info.
-        log_file: Absolute path to the analysis log file.
+    Attributes
+    ----------
+    success : bool
+        Whether the analysis completed without error.
+    output_dir : str
+        Absolute path to the directory containing all outputs (NIfTI maps,
+        plots, summary text, log).
+    n_responders : int
+        Number of responder subjects included.
+    n_non_responders : int
+        Number of non-responder subjects included.
+    n_significant_voxels : int
+        Total voxels surviving cluster-corrected threshold.
+    n_significant_clusters : int
+        Number of spatially contiguous clusters that survived permutation
+        correction.
+    cluster_threshold : float
+        Cluster-level statistic threshold derived from the permutation null
+        distribution at the requested alpha.
+    analysis_time : float
+        Wall-clock duration of the full analysis in seconds.
+    clusters : list of dict
+        One entry per significant cluster, containing size, mass, peak
+        coordinates, and atlas overlap info.
+    log_file : str
+        Absolute path to the analysis log file.
+
+    See Also
+    --------
+    GroupComparisonConfig : Configuration that produced this result.
+    run_group_comparison : Function that returns this result.
     """
 
     success: bool
@@ -362,22 +454,36 @@ class GroupComparisonResult:
 class CorrelationResult:
     """Result of a correlation-based cluster permutation test.
 
-    Attributes:
-        success: Whether the analysis completed without error.
-        output_dir: Absolute path to the directory containing all outputs
-            (NIfTI maps, plots, summary text, log).
-        n_subjects: Number of subjects included in the analysis.
-        n_significant_voxels: Total voxels surviving cluster-corrected
-            threshold.
-        n_significant_clusters: Number of spatially contiguous clusters that
-            survived permutation correction.
-        cluster_threshold: Cluster-level statistic threshold derived from the
-            permutation null distribution at the requested alpha.
-        analysis_time: Wall-clock duration of the full analysis in seconds.
-        clusters: List of dicts, one per significant cluster, containing
-            size, mass, peak coordinates, mean/peak correlation coefficients,
-            and atlas overlap info.
-        log_file: Absolute path to the analysis log file.
+    Attributes
+    ----------
+    success : bool
+        Whether the analysis completed without error.
+    output_dir : str
+        Absolute path to the directory containing all outputs (NIfTI maps,
+        plots, summary text, log).
+    n_subjects : int
+        Number of subjects included in the analysis.
+    n_significant_voxels : int
+        Total voxels surviving cluster-corrected threshold.
+    n_significant_clusters : int
+        Number of spatially contiguous clusters that survived permutation
+        correction.
+    cluster_threshold : float
+        Cluster-level statistic threshold derived from the permutation null
+        distribution at the requested alpha.
+    analysis_time : float
+        Wall-clock duration of the full analysis in seconds.
+    clusters : list of dict
+        One entry per significant cluster, containing size, mass, peak
+        coordinates, mean/peak correlation coefficients, and atlas overlap
+        info.
+    log_file : str
+        Absolute path to the analysis log file.
+
+    See Also
+    --------
+    CorrelationConfig : Configuration that produced this result.
+    run_correlation : Function that returns this result.
     """
 
     success: bool

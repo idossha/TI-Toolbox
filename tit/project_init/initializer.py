@@ -1,3 +1,8 @@
+"""BIDS-compliant project structure initializer.
+
+Creates directory scaffolding, dataset description files, README, and
+project status metadata for a new TI-Toolbox project.
+"""
 
 import json
 from datetime import datetime, timezone
@@ -15,6 +20,7 @@ MARKER_FILES = (
 
 
 def _dir_has_files(path: Path, *, patterns: Iterable[str] | None = None) -> bool:
+    """Check whether *path* contains any files, optionally matching *patterns*."""
     if not path.exists() or not path.is_dir():
         return False
     if patterns:
@@ -26,6 +32,19 @@ def _dir_has_files(path: Path, *, patterns: Iterable[str] | None = None) -> bool
 
 
 def has_project_data_or_markers(project_dir: Path) -> bool:
+    """Return ``True`` if *project_dir* contains any project data or marker files.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+
+    Returns
+    -------
+    bool
+        ``True`` when initialization markers, subject folders, source data,
+        derivatives, or loose NIfTI files are detected.
+    """
     for marker in MARKER_FILES:
         if (project_dir / marker).exists():
             return True
@@ -48,6 +67,18 @@ def has_project_data_or_markers(project_dir: Path) -> bool:
 
 
 def is_new_project(project_dir: Path) -> bool:
+    """Return ``True`` if *project_dir* exists and contains no project data.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+
+    Returns
+    -------
+    bool
+        ``True`` when the directory is empty of project data and markers.
+    """
     return (
         project_dir.exists()
         and project_dir.is_dir()
@@ -56,6 +87,7 @@ def is_new_project(project_dir: Path) -> bool:
 
 
 def initialize_readme(project_dir: Path) -> None:
+    """Create a top-level README in *project_dir* if it does not exist."""
     readme_file = project_dir / "README"
     if readme_file.exists():
         return
@@ -98,6 +130,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
 
 
 def initialize_dataset_description(project_dir: Path) -> None:
+    """Write a BIDS ``dataset_description.json`` at the project root."""
     dataset_file = project_dir / "dataset_description.json"
     if dataset_file.exists():
         return
@@ -119,6 +152,7 @@ def initialize_dataset_description(project_dir: Path) -> None:
 def initialize_derivative_dataset_description(
     project_dir: Path, derivative_name: str
 ) -> None:
+    """Write a BIDS derivative ``dataset_description.json`` for *derivative_name*."""
     derivative_dir = project_dir / "derivatives" / derivative_name
     dataset_file = derivative_dir / "dataset_description.json"
     if dataset_file.exists():
@@ -139,6 +173,7 @@ def initialize_derivative_dataset_description(
 
 
 def initialize_project_status(project_dir: Path) -> None:
+    """Create the ``project_status.json`` tracking file."""
     config_dir = project_dir / "code" / "ti-toolbox" / "config"
     status_file = config_dir / "project_status.json"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -159,6 +194,14 @@ def initialize_project_status(project_dir: Path) -> None:
 
 
 def initialize_project_structure(project_dir: Path) -> None:
+    """Scaffold a full BIDS-compliant directory structure for a new project.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the new project.  Directories, metadata files,
+        README, and an initialization marker are created idempotently.
+    """
     print("")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"  New project detected: {project_dir.name}")
@@ -204,6 +247,20 @@ def initialize_project_structure(project_dir: Path) -> None:
 
 
 def setup_example_data(toolbox_root: Path, project_dir: Path) -> bool:
+    """Copy bundled example data into *project_dir*.
+
+    Parameters
+    ----------
+    toolbox_root : Path
+        Root of the TI-Toolbox installation (contains example data).
+    project_dir : Path
+        Target project directory.
+
+    Returns
+    -------
+    bool
+        ``True`` on success, ``False`` on failure.
+    """
     try:
         success, _subjects = example_data_manager.setup_example_data(
             str(toolbox_root), str(project_dir)

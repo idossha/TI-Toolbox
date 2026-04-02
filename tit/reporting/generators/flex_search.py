@@ -5,7 +5,6 @@ This module provides a report generator for electrode placement
 optimization results from the flex-search algorithm.
 """
 
-
 import json
 from datetime import datetime
 from pathlib import Path

@@ -1,17 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""
-Electrode Placement Module for TI-Toolbox Blender integration.
+"""Place electrode objects on a scalp mesh using Blender.
 
-This module provides functionality for placing electrode objects on a scalp mesh
-using Blender. It supports both:
-- Direct .msh file input (extracts scalp automatically)
-- Pre-existing scalp.stl files
+Supports both direct ``.msh`` file input (scalp is extracted
+automatically via the SimNIBS skin tag) and pre-existing
+``scalp.stl`` files.  Designed for ``simnibs_python`` (headless
+``bpy``).
 
-The module is designed to work with simnibs_python (headless bpy).
+Classes
+-------
+ElectrodePlacementConfig
+    Dataclass with all placement parameters and file paths.
+ElectrodePlacer
+    Orchestrates the full placement workflow.
 
-Classes:
-    ElectrodePlacementConfig: Configuration for electrode placement
-    ElectrodePlacer: Main class for electrode placement operations
+See Also
+--------
+tit.blender.montage_publication : Higher-level scene builder that
+    delegates electrode placement to this module.
+tit.blender.scene_setup : Lighting, camera, and material helpers
+    used by the final scene composition step.
 """
 
 import os
@@ -31,30 +38,44 @@ from tit.blender.io import (
 class ElectrodePlacementConfig:
     """Configuration parameters for electrode placement.
 
-    Attributes:
-        subject_id: Subject identifier
-        electrode_csv_path: Path to CSV file with electrode positions (Label,X,Y,Z)
-        electrode_blend_path: Path to Blender file containing electrode template
-        output_dir: Directory for output files (.blend, .glb, scalp.stl)
-
-        # Scalp source (provide ONE of these):
-        subject_msh_path: Path to SimNIBS .msh file (extracts scalp from tag 1005)
-        scalp_stl_path: Path to existing scalp.stl file
-
-        # Placement settings:
-        scale_factor: Scaling factor for CSV coordinates (default: 1.0)
-        electrode_diameter_mm: Electrode diameter in mm (default: 10.0)
-        electrode_height_mm: Electrode height in mm (default: 6.0)
-        electrode_size: (Deprecated) uniform scale for electrode objects (legacy)
-        offset_distance: Distance to lift electrodes off scalp surface (default: 3.25 mm)
-        text_offset: Offset for label text above electrode (default: 0.090)
-
-        # Template object names:
-        electrode_name: Name of electrode object in template (default: "Electrode")
-        label_name: Name of label text object in template (default: "Label")
-
-        # Advanced:
-        skin_tag: SimNIBS tag for skin/scalp (default: 1005)
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier.
+    electrode_csv_path : str
+        Path to CSV file with electrode positions (Label, X, Y, Z).
+    electrode_blend_path : str
+        Path to Blender file containing the electrode template.
+    output_dir : str
+        Directory for output files (``.blend``, ``.glb``, ``scalp.stl``).
+    subject_msh_path : str or None
+        Path to SimNIBS ``.msh`` file (extracts scalp from *skin_tag*).
+        Provide this **or** *scalp_stl_path*.
+    scalp_stl_path : str or None
+        Path to an existing ``scalp.stl`` file.
+    scale_factor : float
+        Scaling factor applied to CSV coordinates.
+    electrode_diameter_mm : float
+        Electrode cylinder diameter in mm.
+    electrode_height_mm : float
+        Electrode cylinder height in mm.
+    electrode_size : float or None
+        *(Deprecated)* Legacy uniform scale for electrode objects.
+    offset_distance : float
+        Distance (mm) to lift electrodes off the scalp surface.
+    text_offset : float
+        Vertical offset for the label text above the electrode.
+    electrode_name : str
+        Name of the electrode object inside the template blend file.
+    label_name : str
+        Name of the label text object inside the template blend file.
+    skin_tag : int
+        SimNIBS element tag for the skin/scalp surface.
+    montage_pairs : list of tuple or None
+        Electrode pairs to highlight with pair colours.
+    show_full_net : bool
+        If ``True``, place every electrode; if ``False``, only those
+        referenced by *montage_pairs*.
     """
 
     subject_id: str

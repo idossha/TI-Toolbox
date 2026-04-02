@@ -1,3 +1,9 @@
+"""First-time user experience for the TI-Toolbox GUI.
+
+Manages project status persistence (``project_status.json``), welcome
+messages, and example-data setup for new projects.
+"""
+
 from PyQt5 import QtWidgets, QtCore
 
 import json

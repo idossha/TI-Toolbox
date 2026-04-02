@@ -1,9 +1,17 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox GUI Main Entry Point
-This module provides a GUI interface for the TI-Toolbox toolbox.
+"""Main window and application entry point for the TI-Toolbox GUI.
+
+Creates the ``QApplication``, assembles all tabs, loads saved extensions,
+registers signal handlers for graceful shutdown, and starts the Qt event
+loop.  The ``MainWindow`` class owns the tab widget and provides cross-tab
+event bridging (e.g. analysis completion refreshing the NIfTI viewer).
+
+See Also
+--------
+tit.gui.style : Shared design tokens and stylesheet.
+tit.gui.extensions : Extension discovery and tab integration.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -53,7 +61,32 @@ from tit.gui.settings_menu import SettingsMenuButton, ExtensionsButton
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    """Main window for the TI-Toolbox GUI."""
+    """Top-level window that hosts all TI-Toolbox tabs.
+
+    Assembles the core tabs (Pre-processing, Optimizer, Simulator,
+    Analyzer, NIfTI Viewer, System Monitor), loads user-enabled
+    extensions as additional tabs, and wires cross-tab signals such as
+    the ``analysis_completed`` bridge between the Analyzer and NIfTI
+    Viewer.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    tab_widget : QTabWidget
+        Central tab container.
+    pm : PathManager
+        Project path resolver singleton.
+    core_tab_count : int
+        Number of built-in tabs (extensions start after this index).
+
+    See Also
+    --------
+    tit.gui.settings_menu.SettingsMenuButton : Gear-icon menu (Help / Contact / Ack).
+    tit.gui.extensions.ExtensionsTab : Extension discovery panel.
+    """
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -274,7 +307,26 @@ class MainWindow(QtWidgets.QMainWindow):
         stop_btn=None,
         keep_enabled=None,
     ):
-        """Disable all interactive widgets in the given tab except the provided stop button, and show a message at the top of the tab."""
+        """Toggle the busy state of a tab, disabling interactive widgets.
+
+        When *busy* is ``True``, all interactive controls inside
+        *tab_widget* are disabled except for *stop_btn* and any widgets
+        in *keep_enabled*.  A warning label is shown at the top of the
+        tab layout.
+
+        Parameters
+        ----------
+        tab_widget : QWidget
+            The tab whose controls should be toggled.
+        busy : bool, optional
+            ``True`` to enter busy state, ``False`` to restore.
+        message : str, optional
+            Text shown in the busy-state warning label.
+        stop_btn : QPushButton or None, optional
+            Button that remains enabled during busy state.
+        keep_enabled : QWidget or list[QWidget] or None, optional
+            Additional widgets to keep enabled.
+        """
         interactive_types = (
             QtWidgets.QPushButton,
             QtWidgets.QLineEdit,
@@ -341,7 +393,17 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.center_on_screen()
 
     def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
-        """Handle analysis completion by updating relevant tabs."""
+        """Refresh dependent tabs after an analysis run completes.
+
+        Parameters
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation whose analysis just finished.
+        analysis_type : str
+            ``"Voxel"`` or ``"Mesh"`` -- determines which viewer to refresh.
+        """
         # Guard against recursive calls
         if self._processing_analysis_completion:
             return
@@ -365,11 +427,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def check_for_update(current_version, parent_window=None):
-    """Check for updates and show a notification dialog if a newer version is available.
+    """Check GitHub for a newer release and show a notification dialog.
 
-    Args:
-        current_version (str): The current version of the application
-        parent_window (QWidget, optional): The parent window to center the dialog on
+    Parameters
+    ----------
+    current_version : str
+        The running version string (e.g. ``"2.2.3"``).
+    parent_window : QWidget, optional
+        Parent for the notification dialog (centered relative to it).
     """
     from tit.tools.check_for_update import check_for_new_version
 
