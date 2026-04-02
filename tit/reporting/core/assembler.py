@@ -1,8 +1,18 @@
-"""
-Report assembler for combining reportlets into complete HTML reports.
+"""Report assembler for combining reportlets into complete HTML reports.
 
-The ReportAssembler class provides a high-level interface for building
+The ``ReportAssembler`` class provides a high-level interface for building
 reports from individual reportlets organized into sections.
+
+Public API
+----------
+ReportAssembler
+    Main assembler class that manages sections, renders the table of
+    contents, and produces the final HTML document.
+
+See Also
+--------
+tit.reporting.core.base : Base reportlet classes added to sections.
+tit.reporting.core.templates : HTML/CSS/JS templates used during rendering.
 """
 
 
@@ -15,11 +25,24 @@ from .templates import get_html_template
 
 
 class ReportAssembler:
-    """
-    Assembles reportlets into a complete HTML report.
+    """Assemble reportlets into a complete HTML report.
 
-    The assembler manages sections, handles ordering, generates
-    the table of contents, and renders the final HTML document.
+    Manages sections, handles ordering, generates the table of contents,
+    and renders the final HTML document.
+
+    Parameters
+    ----------
+    metadata : ReportMetadata or None, optional
+        Report metadata (title, subject, etc.).  A default is created
+        when *None*.
+    title : str or None, optional
+        Report title.  Overrides ``metadata.title`` when provided.
+
+    See Also
+    --------
+    ReportMetadata : Dataclass holding report-level metadata.
+    ReportSection : Container for reportlets within a section.
+    BaseReportGenerator : Abstract generator that wraps ``ReportAssembler``.
     """
 
     def __init__(
@@ -27,13 +50,6 @@ class ReportAssembler:
         metadata: ReportMetadata | None = None,
         title: str | None = None,
     ):
-        """
-        Initialize the report assembler.
-
-        Args:
-            metadata: Report metadata (title, subject, etc.)
-            title: Report title (overrides metadata.title if provided)
-        """
         self.metadata = metadata or ReportMetadata(title=title or "Report")
         if title:
             self.metadata.title = title
@@ -50,18 +66,26 @@ class ReportAssembler:
         collapsed: bool = False,
         order: int | None = None,
     ) -> ReportSection:
-        """
-        Add a new section to the report.
+        """Add a new section to the report.
 
-        Args:
-            section_id: Unique identifier for the section
-            title: Section title
-            description: Optional section description
-            collapsed: Whether section starts collapsed
-            order: Sort order (lower = earlier in report)
+        Parameters
+        ----------
+        section_id : str
+            Unique identifier for the section.
+        title : str
+            Section title displayed in the report.
+        description : str or None, optional
+            Optional section description shown below the title.
+        collapsed : bool, optional
+            Whether the section starts collapsed (default *False*).
+        order : int or None, optional
+            Sort order (lower = earlier in report).  Defaults to the
+            current number of sections.
 
-        Returns:
-            The created ReportSection object
+        Returns
+        -------
+        ReportSection
+            The newly created section object.
         """
         if order is None:
             order = len(self.sections)
@@ -77,14 +101,17 @@ class ReportAssembler:
         return section
 
     def get_section(self, section_id: str) -> ReportSection | None:
-        """
-        Get a section by its ID.
+        """Get a section by its ID.
 
-        Args:
-            section_id: The section identifier
+        Parameters
+        ----------
+        section_id : str
+            The section identifier.
 
-        Returns:
-            The ReportSection or None if not found
+        Returns
+        -------
+        ReportSection or None
+            The matching section, or *None* if not found.
         """
         for section in self.sections:
             if section.section_id == section_id:
@@ -98,14 +125,23 @@ class ReportAssembler:
         create_if_missing: bool = True,
         section_title: str | None = None,
     ) -> None:
-        """
-        Add a reportlet to a specific section.
+        """Add a reportlet to a specific section.
 
-        Args:
-            section_id: The section identifier
-            reportlet: The reportlet to add
-            create_if_missing: Create section if it doesn't exist
-            section_title: Title for new section (if created)
+        Parameters
+        ----------
+        section_id : str
+            The section identifier.
+        reportlet : Reportlet
+            The reportlet instance to add.
+        create_if_missing : bool, optional
+            Create the section if it does not exist (default *True*).
+        section_title : str or None, optional
+            Title for the new section when it is auto-created.
+
+        Raises
+        ------
+        ValueError
+            If the section is not found and *create_if_missing* is *False*.
         """
         section = self.get_section(section_id)
 
@@ -127,11 +163,12 @@ class ReportAssembler:
         self._custom_js = js
 
     def render_toc(self) -> str:
-        """
-        Render the table of contents as HTML.
+        """Render the table of contents as HTML.
 
-        Returns:
-            HTML string for the table of contents
+        Returns
+        -------
+        str
+            HTML string for the table of contents.
         """
         sorted_sections = sorted(self.sections, key=lambda s: s.order)
 
@@ -144,11 +181,12 @@ class ReportAssembler:
         return f'<ul class="toc-list">{"".join(links)}</ul>'
 
     def render_metadata(self) -> str:
-        """
-        Render the header metadata as HTML.
+        """Render the header metadata as HTML.
 
-        Returns:
-            HTML string for the header metadata
+        Returns
+        -------
+        str
+            HTML string for the header metadata.
         """
         parts = []
 
@@ -169,21 +207,23 @@ class ReportAssembler:
         return f'<div class="header-meta">{"".join(parts)}</div>'
 
     def render_sections(self) -> str:
-        """
-        Render all sections as HTML.
+        """Render all sections as HTML.
 
-        Returns:
-            HTML string for all sections
+        Returns
+        -------
+        str
+            HTML string for all sections.
         """
         sorted_sections = sorted(self.sections, key=lambda s: s.order)
         return "\n".join(section.render_html() for section in sorted_sections)
 
     def render_html(self) -> str:
-        """
-        Render the complete report as HTML.
+        """Render the complete report as HTML.
 
-        Returns:
-            Complete HTML document as a string
+        Returns
+        -------
+        str
+            Complete HTML document as a string.
         """
         content = self.render_sections()
         toc_html = self.render_toc()
@@ -203,15 +243,19 @@ class ReportAssembler:
         output_path: str | Path,
         create_dirs: bool = True,
     ) -> Path:
-        """
-        Save the report to a file.
+        """Save the report to a file.
 
-        Args:
-            output_path: Path to save the HTML file
-            create_dirs: Create parent directories if needed
+        Parameters
+        ----------
+        output_path : str or pathlib.Path
+            Path to save the HTML file.
+        create_dirs : bool, optional
+            Create parent directories if needed (default *True*).
 
-        Returns:
-            Path to the saved file
+        Returns
+        -------
+        pathlib.Path
+            Path to the saved file.
         """
         output_path = Path(output_path)
 
@@ -224,11 +268,12 @@ class ReportAssembler:
         return output_path
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert the report to a dictionary representation.
+        """Convert the report to a dictionary representation.
 
-        Returns:
-            Dictionary containing all report data
+        Returns
+        -------
+        dict
+            Dictionary containing all report data.
         """
         return {
             "metadata": self.metadata.to_dict(),
@@ -237,18 +282,20 @@ class ReportAssembler:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
-        """
-        Create a ReportAssembler from a dictionary.
+        """Create a ReportAssembler from a dictionary.
 
-        Args:
-            data: Dictionary containing report data
+        Reconstructs the structure but **not** the reportlet instances.
+        Use this for loading report metadata, not for full reconstruction.
 
-        Returns:
-            Reconstructed ReportAssembler instance
+        Parameters
+        ----------
+        data : dict
+            Dictionary containing report data (as produced by ``to_dict``).
 
-        Note:
-            This reconstructs the structure but not the reportlet instances.
-            Use this for loading report metadata, not for full reconstruction.
+        Returns
+        -------
+        ReportAssembler
+            Reconstructed instance.
         """
         metadata_dict = data.get("metadata", {})
         metadata = ReportMetadata(

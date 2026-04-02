@@ -1,8 +1,37 @@
-"""
-TI-Toolbox Reportlet-Based Reporting System.
+"""Reportlet-based reporting system for TI-Toolbox.
 
-A modular, NiPreps-inspired reporting system for TI-Toolbox that generates
-self-contained HTML reports across preprocessing, simulation, and flex-search modules.
+A modular, NiPreps-inspired reporting system that generates self-contained
+HTML reports across preprocessing, simulation, and flex-search modules.
+Reports follow a section/reportlet architecture: each ``ReportSection``
+contains one or more ``BaseReportlet`` subclasses, and the
+``ReportAssembler`` renders them into a single HTML document.
+
+Public API
+----------
+Core types
+    ReportletType, ReportMetadata, ReportSection, SeverityLevel, StatusType
+Base reportlets
+    BaseReportlet, MetadataReportlet, ImageReportlet, TableReportlet,
+    TextReportlet, ErrorReportlet, ReferencesReportlet
+Assembler
+    ReportAssembler
+Specialized reportlets
+    SliceSeriesReportlet, MontageImageReportlet, MultiViewBrainReportlet,
+    ConductivityTableReportlet, ProcessingStepReportlet,
+    SummaryCardsReportlet, ParameterListReportlet,
+    MethodsBoilerplateReportlet, DescriptionReportlet, CommandLogReportlet,
+    TIToolboxReferencesReportlet
+Generators
+    BaseReportGenerator, SimulationReportGenerator,
+    FlexSearchReportGenerator, PreprocessingReportGenerator
+Convenience functions
+    create_flex_search_report, create_preprocessing_report,
+    get_default_references, get_reference_by_key
+
+See Also
+--------
+tit.plotting : Visualization utilities used by report generators.
+tit.analyzer : Field analysis whose results feed into reports.
 """
 
 # Core infrastructure
