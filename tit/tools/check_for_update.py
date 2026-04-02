@@ -11,7 +11,6 @@ Usage
 ...     print(f"Update available: {newer}")
 """
 
-
 import logging
 
 logger = logging.getLogger(__name__)

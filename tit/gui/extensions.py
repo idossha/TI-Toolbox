@@ -1,4 +1,3 @@
-
 """Extensions Tab for TI-Toolbox GUI.
 
 This module provides an interface for managing and launching extensions.

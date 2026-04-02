@@ -16,7 +16,6 @@ tit.tools.map_electrodes : Map optimised positions to net labels.
 tit.sim : Simulation pipeline that invokes the visualiser.
 """
 
-
 import os
 import subprocess
 

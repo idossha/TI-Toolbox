@@ -205,9 +205,7 @@ def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
     os.makedirs(regions_dir, exist_ok=True)
 
     selected = (
-        _resolve_selected(config.regions, set(atlas.keys()))
-        if config.regions
-        else None
+        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
     )
 
     if not config.skip_regions:
@@ -439,9 +437,7 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
     use_colors = not config.scalars
     fr = _effective_field_range(config, mesh, mesh_path)
     selected = (
-        _resolve_selected(config.regions, set(atlas.keys()))
-        if config.regions
-        else None
+        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
     )
 
     if not config.skip_regions:

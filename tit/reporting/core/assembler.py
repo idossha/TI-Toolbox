@@ -15,7 +15,6 @@ tit.reporting.core.base : Base reportlet classes added to sections.
 tit.reporting.core.templates : HTML/CSS/JS templates used during rendering.
 """
 
-
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Self

@@ -6,7 +6,6 @@ Goals:
 - Avoid importing matplotlib globally when not needed.
 """
 
-
 from dataclasses import dataclass
 from typing import Any
 

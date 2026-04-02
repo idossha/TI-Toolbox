@@ -1,6 +1,5 @@
 """Entry point: simnibs_python -m tit.sim config.json"""
 
-
 import json
 import sys
 

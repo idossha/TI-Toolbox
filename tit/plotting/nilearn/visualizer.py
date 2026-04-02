@@ -12,7 +12,6 @@ Features:
 Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
 """
 
-
 import os
 import sys
 import argparse

@@ -1698,9 +1698,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Run the pipeline for the first ROI
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
-    def _build_ex_config(
-        self, subject_id, roi_name, leadfield_hdf, eeg_net
-    ):
+    def _build_ex_config(self, subject_id, roi_name, leadfield_hdf, eeg_net):
         """Build an ExConfig dataclass from current UI widget values.
 
         Args:

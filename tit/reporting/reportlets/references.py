@@ -5,7 +5,6 @@ This module provides the default citations and references used across
 TI-Toolbox reports.
 """
 
-
 from typing import Any
 
 from ..core.base import ReferencesReportlet

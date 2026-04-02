@@ -136,7 +136,11 @@ class NotesWindow(QtWidgets.QDialog):
         from zoneinfo import ZoneInfo
 
         tz_name = os.environ.get("TZ", "UTC")
-        iana = tz_name if "/" in tz_name else self._ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
+        iana = (
+            tz_name
+            if "/" in tz_name
+            else self._ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
+        )
         dt = datetime.now(ZoneInfo(iana))
         return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 

@@ -4,7 +4,6 @@ Handles reading and writing the extensions.json file that tracks
 which GUI extensions are enabled/disabled across sessions.
 """
 
-
 import json
 import logging
 from pathlib import Path

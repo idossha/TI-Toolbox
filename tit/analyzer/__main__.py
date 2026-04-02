@@ -10,7 +10,6 @@ The JSON config is parsed and dispatched to either single-subject
 ``"mode"`` field (``"single"`` or ``"group"``).
 """
 
-
 import json
 import sys
 

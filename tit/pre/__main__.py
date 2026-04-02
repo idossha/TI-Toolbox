@@ -12,7 +12,6 @@ See Also
 tit.pre.structural.run_pipeline : Pipeline function invoked by this entry point.
 """
 
-
 import json
 import sys
 

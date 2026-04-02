@@ -20,7 +20,6 @@ tit.tools.nifti_to_mesh : Inverse operation (NIfTI to surface mesh).
 tit.tools.field_extract : Extract tissue sub-meshes before conversion.
 """
 
-
 import logging
 import os
 import tempfile

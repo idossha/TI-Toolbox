@@ -6,7 +6,6 @@ TI-Toolbox specific NIfTI file operations.
 Provides functions for loading subject and group data from TI-Toolbox BIDS structure.
 """
 
-
 import os
 import gc
 import numpy as np

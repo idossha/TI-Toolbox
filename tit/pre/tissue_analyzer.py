@@ -21,7 +21,6 @@ tit.pre.charm : CHARM head-mesh generation (produces the segmentation
     input consumed here).
 """
 
-
 import logging
 from pathlib import Path
 from typing import Iterable

@@ -822,9 +822,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Build Montage list from montage names."""
         try:
             project_dir = self.pm.project_dir
-            return load_montages(
-                montage_names, eeg_net, include_flex=False
-            )
+            return load_montages(montage_names, eeg_net, include_flex=False)
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             self.update_output(f"Error building montage configs: {e}", "error")
             return []

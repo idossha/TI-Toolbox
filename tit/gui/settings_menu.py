@@ -1,4 +1,3 @@
-
 """Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
 
 from PyQt5 import QtWidgets, QtCore

@@ -16,7 +16,6 @@ See Also
 tit.analyzer.analyzer : Single-subject analyzer used per-subject.
 """
 
-
 import logging
 import time
 from dataclasses import dataclass

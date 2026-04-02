@@ -207,9 +207,7 @@ def generate_correlation_summary(
         f.write(f"Outcome Measure: {config.effect_metric}\n")
 
         f.write(f"Cluster Statistic: {cluster_stat_name}\n")
-        f.write(
-            f"Cluster-forming threshold: p < {config.cluster_threshold}\n"
-        )
+        f.write(f"Cluster-forming threshold: p < {config.cluster_threshold}\n")
         f.write(f"Number of permutations: {config.n_permutations}\n")
         f.write(f"Cluster-level alpha: {config.alpha}\n")
 
@@ -331,4 +329,3 @@ def generate_correlation_summary(
         f.write("References:\n")
         f.write("  - Wischnewski et al. (2021) - ACES approach\n")
         f.write("  - Maris & Oostenveld (2007) - Cluster-based permutation\n")
-

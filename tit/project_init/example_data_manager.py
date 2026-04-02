@@ -10,7 +10,6 @@ use in TI-Toolbox workflows.
 Author: TI-Toolbox Development Team
 """
 
-
 import os
 import shutil
 import logging

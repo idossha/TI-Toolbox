@@ -6,7 +6,6 @@ with common functionality for BIDS output management, software version
 collection, and error tracking.
 """
 
-
 import json
 import os
 import subprocess

@@ -66,7 +66,9 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     # Set up file logging — capture both tit and simnibs output
     logs_dir = pm.logs(config.subject_id)
     os.makedirs(logs_dir, exist_ok=True)
-    log_file = os.path.join(logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
+    log_file = os.path.join(
+        logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
+    )
     logger_name = f"tit.opt.flex.{config.subject_id}"
     add_file_handler(log_file, logger_name=logger_name)
     add_file_handler(log_file, logger_name="simnibs")

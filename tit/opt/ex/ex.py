@@ -51,7 +51,9 @@ def run_ex_search(config: ExConfig) -> ExResult:
         e2_minus = config.electrodes.e2_minus
         all_combinations = False
 
-    leadfield_path = os.path.join(pm.leadfields(config.subject_id), config.leadfield_hdf)
+    leadfield_path = os.path.join(
+        pm.leadfields(config.subject_id), config.leadfield_hdf
+    )
 
     engine = ExSearchEngine(leadfield_path, roi_file, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)

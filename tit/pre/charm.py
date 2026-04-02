@@ -19,7 +19,6 @@ tit.pre.recon_all : FreeSurfer ``recon-all`` cortical reconstruction.
 tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
-
 from pathlib import Path
 
 import nibabel as nib
@@ -38,6 +37,7 @@ def _get_form_flag(nifti_path: Path) -> str:
     raise PreprocessError(
         f"Neither sform nor qform is set in {nifti_path}. Fix the NIfTI header."
     )
+
 
 # All available atlases for subject_atlas command
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]

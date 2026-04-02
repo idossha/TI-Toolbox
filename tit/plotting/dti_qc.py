@@ -7,7 +7,6 @@ generates color-coded FA direction maps overlaid on T1 for visual QC.
 
 from typing import Any
 
-
 # Maximum pixel size for the longest physical dimension of a display slice.
 # Slices are resampled from voxel-space to this display grid using the NIfTI
 # voxel sizes, so the same anatomy always produces the same pixel output

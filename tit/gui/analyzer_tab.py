@@ -220,7 +220,6 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Connect signals after all widgets are created
 
-
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""
         if hasattr(self, "coordinates_label") and hasattr(self, "coords_radius_input"):

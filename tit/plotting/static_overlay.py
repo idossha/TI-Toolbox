@@ -5,9 +5,7 @@ This is shared plotting functionality used by reporting code to generate
 small PNG slices (base64-encoded) for HTML reports.
 """
 
-
 from typing import Any
-
 
 # Maximum pixel size for the longest physical dimension of a display slice.
 # Slices are resampled from voxel-space to this display grid using the NIfTI

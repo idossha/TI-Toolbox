@@ -24,7 +24,6 @@ tit.reporting.core.base : Concrete base reportlet implementations.
 tit.reporting.core.assembler : Assembler that organizes sections into a report.
 """
 
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto

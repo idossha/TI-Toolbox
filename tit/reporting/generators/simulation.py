@@ -6,7 +6,6 @@ creating comprehensive HTML reports with simulation parameters, results,
 and visualizations.
 """
 
-
 from datetime import datetime
 from pathlib import Path
 from typing import Any

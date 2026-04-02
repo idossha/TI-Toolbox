@@ -1113,7 +1113,9 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     vector_width=self.vec_vector_width.value(),
                     vector_length=1.0,
                     anchor=VectorConfig.Anchor(self.vec_anchor.currentText()),
-                    color=VectorConfig.Color(self.vec_color_mode.currentText().strip() or "rgb"),
+                    color=VectorConfig.Color(
+                        self.vec_color_mode.currentText().strip() or "rgb"
+                    ),
                     blue_percentile=self.spn_blue.value(),
                     green_percentile=self.spn_green.value(),
                     red_percentile=self.spn_red.value(),

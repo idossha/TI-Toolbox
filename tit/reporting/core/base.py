@@ -26,7 +26,6 @@ tit.reporting.reportlets : Domain-specific reportlet subclasses.
 tit.reporting.core.protocols : Protocol and enum definitions.
 """
 
-
 import base64
 import io
 import uuid

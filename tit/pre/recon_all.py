@@ -20,7 +20,6 @@ tit.pre.charm : SimNIBS CHARM head-mesh generation.
 tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
-
 import os
 import shutil
 import subprocess

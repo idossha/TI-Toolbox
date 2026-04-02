@@ -26,7 +26,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-
 # ── Montage config ──────────────────────────────────────────────────────────
 
 
@@ -66,6 +65,7 @@ class MontageConfig:
     show_full_net: bool = True
     electrode_diameter_mm: float = 10.0
     electrode_height_mm: float = 6.0
+
     def __post_init__(self) -> None:
         if not (self.subject_id or "").strip():
             raise ValueError("subject_id is required")

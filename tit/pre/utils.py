@@ -17,7 +17,6 @@ See Also
 tit.pre : Package-level overview and convenience re-exports.
 """
 
-
 import glob
 import json
 import logging

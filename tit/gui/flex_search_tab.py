@@ -593,7 +593,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_picker.set_subject(subject_id, project_dir)
             self.nonroi_picker.set_subject(subject_id, project_dir)
 
-
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
         roi_type = self.roi_picker.get_roi_type()
@@ -703,7 +702,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             f"Number of subjects: {len(selected_subjects)}\n"
             f"ROI: {roi_description}\n"
             f"Goal: {goal}\n"
-            + (f"EEG Net: {eeg_net}\n" if self.run_mapped_simulation_checkbox.isChecked() else "")
+            + (
+                f"EEG Net: {eeg_net}\n"
+                if self.run_mapped_simulation_checkbox.isChecked()
+                else ""
+            )
             + f"Current: {electrode_current}mA\n"
             f"Electrode shape: {electrode_shape}\n"
             f"Dimensions: {dimensions}mm\n"

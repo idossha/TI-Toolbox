@@ -44,10 +44,14 @@ def _convert_modality(
     logger.info(f"Converting {modality} DICOMs")
     cmd = [
         "dcm2niix",
-        "-z", "y",
-        "-b", "y",
-        "-f", bids_name,
-        "-o", str(output_dir),
+        "-z",
+        "y",
+        "-b",
+        "y",
+        "-f",
+        bids_name,
+        "-o",
+        str(output_dir),
         str(dicom_dir),
     ]
 

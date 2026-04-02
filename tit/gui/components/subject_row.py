@@ -12,7 +12,6 @@ SubjectRowManager handles:
 - Maintaining the rows list
 """
 
-
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.style import COLOR_ERROR, COLOR_ERROR_DARK
