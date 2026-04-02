@@ -1,15 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""
-2-pair Temporal Interference (TI) simulation.
+"""2-pair Temporal Interference (TI) simulation.
 
-Session structure mirrors the official SimNIBS TI example:
-  - SESSION with two TDCS lists (one per electrode pair)
-  - deepcopy pattern for the second pair
-  - TI_max computed with TI.get_maxTI on cropped meshes
-  - TI_normal computed on cortical surface overlays
+Implements :class:`TISimulation`, the concrete ``BaseSimulation`` subclass
+for standard 2-pair TI stimulation.  The session structure mirrors the
+official SimNIBS TI example:
 
-Output mesh includes per-pair E-field magnitudes and TI_max,
+* SESSION with two TDCS lists (one per electrode pair)
+* ``deepcopy`` pattern for the second pair
+* ``TI_max`` computed with ``TI.get_maxTI`` on cropped meshes
+* ``TI_normal`` computed on cortical surface overlays
+
+Output mesh includes per-pair E-field magnitudes and ``TI_max``,
 matching the reference visualisation layout.
+
+See Also
+--------
+BaseSimulation : Abstract base class providing the ``run`` template.
+mTISimulation : N-pair multi-channel TI variant.
+SimulationConfig : Configuration consumed by the simulation.
+run_simulation : Top-level orchestration that dispatches to this class.
 """
 
 import glob
@@ -36,33 +45,52 @@ _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_R
 
 
 class TISimulation(BaseSimulation):
-    """
-    Runs a single 2-pair TI simulation.
+    """Run a single 2-pair TI simulation.
 
-    Pipeline:
-      1. Set up BIDS output directory structure
-      2. Visualize electrode placement
-      3. Build SimNIBS SESSION, run FEM
-      4. Compute TI_max (volume) and TI_normal (surface)
-      5. Extract GM/WM meshes, convert to NIfTI, organize outputs
+    Pipeline
+    --------
+    1. Set up BIDS output directory structure.
+    2. Visualize electrode placement.
+    3. Build SimNIBS SESSION, run FEM.
+    4. Compute ``TI_max`` (volume) and ``TI_normal`` (surface).
+    5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
+
+    See Also
+    --------
+    BaseSimulation : Parent class with shared setup and template ``run``.
+    mTISimulation : Multi-channel variant for 4+ electrode pairs.
     """
 
     @property
     def _simulation_mode(self):
+        """Return ``SimulationMode.TI``."""
         return SimulationMode.TI
 
     @property
     def _montage_type_label(self) -> str:
+        """Return ``'TI'``."""
         return "TI"
 
     @property
     def _montage_imgs_key(self) -> str:
+        """Return ``'ti_montage_imgs'``."""
         return "ti_montage_imgs"
 
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for 2-pair TI."""
+        """Build SimNIBS SESSION for 2-pair TI.
+
+        Parameters
+        ----------
+        output_dir : str
+            Directory where SimNIBS writes FEM output.
+
+        Returns
+        -------
+        sim_struct.SESSION
+            Configured session with two TDCS lists.
+        """
         S = self._init_session(output_dir)
 
         # Pair 1
@@ -82,6 +110,18 @@ class TISimulation(BaseSimulation):
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
+        """Compute TI fields, extract meshes, convert to NIfTI.
+
+        Parameters
+        ----------
+        dirs : dict
+            Directory mapping returned by ``setup_montage_directories``.
+
+        Returns
+        -------
+        str
+            Path to the output TI mesh file.
+        """
         sid = self.config.subject_id
         cond = self.config.conductivity
         name = self.montage.name
@@ -140,7 +180,20 @@ class TISimulation(BaseSimulation):
     def _calculate_ti_normal(
         self, hf_dir: str, output_dir: str, montage_name: str
     ) -> None:
-        """Compute TI_normal on the cortical surface (requires surface overlays from SimNIBS)."""
+        """Compute TI_normal on the cortical surface.
+
+        Uses SimNIBS surface overlays to compute the directional TI
+        component normal to the cortical surface.
+
+        Parameters
+        ----------
+        hf_dir : str
+            High-frequency output directory containing ``subject_overlays/``.
+        output_dir : str
+            Directory to write the TI_normal mesh into.
+        montage_name : str
+            Montage name used for the output filename.
+        """
         sid = self.config.subject_id
         cond = self.config.conductivity
         overlays = os.path.join(hf_dir, "subject_overlays")
