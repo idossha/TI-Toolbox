@@ -1,8 +1,19 @@
-"""
-Report generation utilities for neuroimaging analysis
+"""Plain-text report generators for voxelwise statistical analyses.
 
-This module contains functions for:
-- Generating comprehensive summary reports
+Writes human-readable summary files covering sample information,
+cluster-based permutation results, and atlas overlap tables.
+
+Public API
+----------
+generate_summary
+    Summary report for a two-group comparison analysis.
+generate_correlation_summary
+    Summary report for a voxelwise correlation (ACES-style) analysis.
+
+See Also
+--------
+tit.stats.comparison : Group comparison pipeline that calls ``generate_summary``.
+tit.stats.correlation : Correlation pipeline that calls ``generate_correlation_summary``.
 """
 
 import numpy as np
@@ -18,26 +29,31 @@ def generate_summary(
     atlas_results,
     output_file,
 ):
-    """Generate comprehensive summary report for group comparison.
+    """Write a plain-text summary report for a two-group comparison.
+
+    The report includes analysis parameters, sample sizes, significant
+    voxel counts, top-10 clusters (sorted by the configured cluster
+    statistic), and atlas overlap tables.
 
     Parameters
     ----------
     config : GroupComparisonConfig
         Fully specified group-comparison configuration.
-    responders : ndarray
-        Responder data (group 1).
-    non_responders : ndarray
-        Non-responder data (group 2).
-    sig_mask : ndarray
-        Binary mask of significant voxels.
+    responders : numpy.ndarray
+        Electric-field data for group 1, shape ``(X, Y, Z, n_group1)``.
+    non_responders : numpy.ndarray
+        Electric-field data for group 2, shape ``(X, Y, Z, n_group2)``.
+    sig_mask : numpy.ndarray
+        Binary mask of significant voxels, shape ``(X, Y, Z)``.
     correction_threshold : float
-        Threshold used for multiple comparison correction.
-    clusters : list
-        List of cluster dictionaries.
+        Cluster-statistic threshold from the permutation distribution.
+    clusters : list of dict
+        Each dict contains at least ``'cluster_id'``, ``'size'``, and
+        ``'center_mni'`` keys.
     atlas_results : dict
-        Atlas overlap results.
+        Mapping of atlas name to list of region overlap dicts.
     output_file : str
-        Path to output summary file.
+        Destination path for the text report.
     """
     cluster_stat = config.cluster_stat.value
     cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
@@ -162,32 +178,38 @@ def generate_correlation_summary(
     subject_ids=None,
     weights=None,
 ):
-    """Generate comprehensive summary report for correlation analysis.
+    """Write a plain-text summary report for a correlation analysis.
+
+    The report covers analysis parameters, effect-size distribution,
+    per-subject details, correlation statistics in significant voxels,
+    cluster listings, and atlas overlap tables.
 
     Parameters
     ----------
     config : CorrelationConfig
         Fully specified correlation configuration.
-    subject_data : ndarray (x, y, z, n_subjects)
-        Electric field magnitude data.
-    effect_sizes : ndarray (n_subjects,)
-        Continuous outcome measures.
-    r_values : ndarray (x, y, z)
-        Correlation map.
-    sig_mask : ndarray (x, y, z)
-        Binary mask of significant voxels.
+    subject_data : numpy.ndarray
+        Electric-field magnitude data, shape ``(X, Y, Z, n_subjects)``.
+    effect_sizes : numpy.ndarray
+        Continuous outcome measures, shape ``(n_subjects,)``.
+    r_values : numpy.ndarray
+        Voxelwise correlation map, shape ``(X, Y, Z)``.
+    sig_mask : numpy.ndarray
+        Binary mask of significant voxels, shape ``(X, Y, Z)``.
     cluster_threshold : float
-        Cluster statistic threshold from permutation.
-    clusters : list
-        List of cluster dictionaries.
+        Cluster-statistic threshold from the permutation distribution.
+    clusters : list of dict
+        Each dict contains ``'cluster_id'``, ``'size'``, ``'center_mni'``,
+        and optionally ``'mean_r'`` / ``'peak_r'``.
     atlas_results : dict
-        Atlas overlap results.
+        Mapping of atlas name to list of region overlap dicts.
     output_file : str
-        Path to output summary file.
-    subject_ids : list, optional
-        List of subject IDs.
-    weights : ndarray, optional
-        Subject weights (if used).
+        Destination path for the text report.
+    subject_ids : list of str, optional
+        Subject identifiers (printed per-row when provided).
+    weights : numpy.ndarray or None, optional
+        Per-subject weights.  When provided the weight distribution is
+        included in the report.
     """
     cluster_stat = config.cluster_stat.value
     cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"

@@ -36,10 +36,21 @@ class DockerBuildError(Exception):
 
 @dataclass
 class DockerPaths:
-    """
-    Container paths for QSI containers.
+    """Container-side mount points for QSI containers.
 
-    QSI containers expect BIDS data at /data and outputs at /out.
+    QSI containers expect BIDS data at ``/data`` and write outputs to
+    ``/out``.
+
+    Attributes
+    ----------
+    bids_dir : str
+        Container path for BIDS input data.
+    output_dir : str
+        Container path for pipeline outputs.
+    work_dir : str
+        Container path for intermediate working files.
+    license_file : str
+        Container path for the FreeSurfer license.
     """
 
     bids_dir: str = "/data"
@@ -49,23 +60,36 @@ class DockerPaths:
 
 
 class DockerCommandBuilder:
-    """
-    Builds Docker commands for QSIPrep and QSIRecon.
+    """Build Docker ``run`` commands for QSIPrep and QSIRecon containers.
 
-    This class handles the complexity of constructing Docker run commands
-    with proper volume mounts, resource limits, and pipeline arguments.
+    Handles volume mounts (host ↔ container), resource limits (CPU /
+    memory), FreeSurfer license staging, and custom pipeline YAML
+    staging for Docker-outside-of-Docker (DooD) execution.
 
     Parameters
     ----------
     project_dir : str
-        Path to the BIDS project directory (container path).
-    paths : DockerPaths | None
-        Container path configuration. Uses defaults if not provided.
+        Path to the BIDS project directory **inside the current
+        container** (used to resolve relative paths).
+    paths : DockerPaths or None, optional
+        Container path configuration.  Uses ``DockerPaths()`` defaults
+        when *None*.
+
+    Attributes
+    ----------
+    project_dir : str
+        Container-side BIDS project directory.
+    paths : DockerPaths
+        Resolved container path configuration.
 
     Raises
     ------
     DockerBuildError
         If Docker is not available or required paths cannot be resolved.
+
+    See Also
+    --------
+    tit.pre.qsi.config : ``QSIPrepConfig`` and ``QSIReconConfig`` dataclasses.
     """
 
     def __init__(
@@ -80,7 +104,7 @@ class DockerCommandBuilder:
         self._host_license_path = self._stage_fs_license()
 
     def _stage_fs_license(self) -> str | None:
-        """Copy FS license into project dir so DooD siblings can mount it."""
+        """Copy the FreeSurfer license into the project dir for DooD siblings."""
         src = Path(const.FS_LICENSE_PATH)
         if not src.is_file():
             return None
@@ -89,21 +113,7 @@ class DockerCommandBuilder:
         return str(Path(self._host_project_dir) / ".freesurfer_license.txt")
 
     def _stage_custom_pipeline(self, yaml_filename: str) -> tuple[str, str]:
-        """Stage a custom pipeline YAML so the QSIRecon container can read it.
-
-        Docker Desktop bind mounts can retain phantom directory entries from
-        previous sibling containers, making ``mkdir`` fail inside the current
-        container.  To avoid this we stage the file into the **project root**
-        (always writable — same pattern as ``_stage_fs_license``) and return
-        paths for a ``-v`` file mount into the QSIRecon container.
-
-        Returns
-        -------
-        container_path : str
-            Where QSIRecon will see the file (``/tmp/recon_spec.yaml``).
-        host_path : str
-            Host-side path for the ``-v`` mount source.
-        """
+        """Stage a custom pipeline YAML into the project root for DooD mounting."""
         src = (
             Path(__file__).resolve().parents[3]
             / "resources"

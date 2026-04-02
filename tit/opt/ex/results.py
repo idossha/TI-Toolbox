@@ -1,4 +1,26 @@
-"""Result saving and visualization for exhaustive search."""
+"""Result persistence and visualization for TI exhaustive search.
+
+Handles writing run metadata (JSON), per-montage CSV tables, and
+histogram / scatter-plot visualizations after an exhaustive search
+completes.
+
+Public API
+----------
+save_run_config
+    Serialize run parameters to a JSON file.
+build_csv_rows
+    Convert the results dict into CSV-ready rows and metric arrays.
+save_csv
+    Write ``final_output.csv``.
+generate_plots
+    Create histogram and scatter-plot PNGs.
+process_and_save
+    Convenience wrapper that runs the full output pipeline.
+
+See Also
+--------
+tit.opt.ex.ex_search : Orchestrator that calls :func:`process_and_save`.
+"""
 
 import csv
 import json
@@ -8,7 +30,24 @@ from typing import Any
 
 
 def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -> str:
-    """Write run configuration metadata to JSON for reproducibility."""
+    """Write run configuration metadata to JSON for reproducibility.
+
+    Parameters
+    ----------
+    config : ExConfig
+        Exhaustive-search configuration dataclass.
+    n_combinations : int
+        Total number of montage combinations evaluated.
+    output_dir : str
+        Directory where ``run_config.json`` will be written.
+    logger : logging.Logger
+        Logger instance for status messages.
+
+    Returns
+    -------
+    str
+        Path to the saved JSON file.
+    """
     if isinstance(config.electrodes, config.PoolElectrodes):
         electrode_mode = "pool"
         electrode_info = {"electrodes": config.electrodes.electrodes}
@@ -45,7 +84,29 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
 def build_csv_rows(
     results: dict, roi_name: str
 ) -> tuple[list[list], list[float], list[float], list[float], list[float]]:
-    """Build CSV rows and extract metric arrays for plotting."""
+    """Build CSV rows and extract per-montage metric arrays.
+
+    Parameters
+    ----------
+    results : dict
+        Mapping of mesh filename to per-montage metric dict.
+    roi_name : str
+        ROI name prefix used to look up metric keys
+        (e.g. ``'{roi_name}_TImax_ROI'``).
+
+    Returns
+    -------
+    rows : list of list
+        Rows suitable for ``csv.writer``, including a header row.
+    timax_vals : list of float
+        TI-max values for each montage.
+    timean_vals : list of float
+        TI-mean values for each montage.
+    foc_vals : list of float
+        Focality values for each montage.
+    comp_vals : list of float
+        Composite index (``timean * focality``) for each montage.
+    """
     header = [
         "Montage",
         "Current_Ch1_mA",
@@ -88,7 +149,24 @@ def build_csv_rows(
 
 
 def save_csv(results: dict, roi_name: str, output_dir: str, logger: Any) -> str:
-    """Write final_output.csv."""
+    """Write ``final_output.csv`` with one row per evaluated montage.
+
+    Parameters
+    ----------
+    results : dict
+        Mapping of mesh filename to per-montage metric dict.
+    roi_name : str
+        ROI name prefix for metric key lookup.
+    output_dir : str
+        Directory where the CSV will be written.
+    logger : logging.Logger
+        Logger instance for status messages.
+
+    Returns
+    -------
+    str
+        Path to the saved CSV file.
+    """
     rows, *_ = build_csv_rows(results, roi_name)
     path = os.path.join(output_dir, "final_output.csv")
     with open(path, "w", newline="") as f:
@@ -106,7 +184,30 @@ def generate_plots(
     timean_vals: list[float],
     foc_vals: list[float],
 ) -> list[str]:
-    """Generate histogram and scatter plot visualizations."""
+    """Generate histogram and scatter-plot PNGs for search results.
+
+    Parameters
+    ----------
+    results : dict
+        Mapping of mesh filename to per-montage metric dict.
+    roi_name : str
+        ROI name prefix for metric key lookup.
+    output_dir : str
+        Directory where images will be saved.
+    logger : logging.Logger
+        Logger instance.
+    timax_vals : list of float
+        TI-max values across montages.
+    timean_vals : list of float
+        TI-mean values across montages.
+    foc_vals : list of float
+        Focality values across montages.
+
+    Returns
+    -------
+    list of str
+        Paths to the saved plot files.
+    """
     from tit.plotting.ti_metrics import (
         plot_intensity_vs_focality,
         plot_montage_distributions,
@@ -153,7 +254,25 @@ def generate_plots(
 
 
 def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dict:
-    """Full results pipeline: run config JSON + CSV + plots."""
+    """Run the full post-search output pipeline (JSON + CSV + plots).
+
+    Parameters
+    ----------
+    results : dict
+        Mapping of mesh filename to per-montage metric dict.
+    config : ExConfig
+        Exhaustive-search configuration.
+    output_dir : str
+        Root output directory for this search run.
+    logger : logging.Logger
+        Logger instance.
+
+    Returns
+    -------
+    dict
+        Summary with keys ``'config_json_path'``, ``'csv_path'``,
+        ``'visualization_paths'``, and ``'summary_stats'``.
+    """
     roi_name = config.roi_name
     config_json_path = save_run_config(config, len(results), output_dir, logger)
     rows, timax_vals, timean_vals, foc_vals, comp_vals = build_csv_rows(
