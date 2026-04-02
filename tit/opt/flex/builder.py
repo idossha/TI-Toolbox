@@ -3,10 +3,20 @@
 All SimNIBS imports are isolated here so that ``flex.py`` remains a
 pure-Python orchestrator with zero SimNIBS coupling.
 
-Public API:
-    - ``build_optimization(config) -> TesFlexOptimization``
-    - ``configure_optimizer_options(opt, config, logger)``
-    - ``generate_report(config, n_multistart, funvalue_list, best_idx, base_folder, logger)``
+Public API
+----------
+build_optimization
+    Construct a SimNIBS ``TesFlexOptimization`` from a
+    :class:`~tit.opt.config.FlexConfig`.
+configure_optimizer_options
+    Apply DE hyperparameters to a SimNIBS optimization object.
+generate_report
+    Create an HTML report summarising the flex-search run.
+
+See Also
+--------
+tit.opt.flex.flex.run_flex_search : Calls these functions internally.
+tit.opt.config.FlexConfig : Configuration dataclass consumed here.
 """
 
 import json
@@ -27,13 +37,27 @@ from . import utils
 
 
 def build_optimization(config: FlexConfig):
-    """Build a SimNIBS TesFlexOptimization object from a FlexConfig.
+    """Build a SimNIBS ``TesFlexOptimization`` object from a FlexConfig.
 
-    Args:
-        config: Fully-populated FlexConfig.
+    Translates every field from *config* into the corresponding SimNIBS
+    attribute, including electrode geometry, ROI specification, and
+    mapping settings.
 
-    Returns:
-        A configured ``TesFlexOptimization`` object.
+    Parameters
+    ----------
+    config : FlexConfig
+        Fully-populated flex-search configuration.
+
+    Returns
+    -------
+    TesFlexOptimization
+        A configured SimNIBS optimization object ready for
+        ``opt.run()``.
+
+    See Also
+    --------
+    configure_optimizer_options : Apply DE solver parameters after build.
+    tit.opt.flex.utils.configure_roi : Delegates ROI setup.
     """
     from simnibs import opt_struct
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
@@ -139,12 +163,24 @@ def build_optimization(config: FlexConfig):
 def configure_optimizer_options(
     opt, config: FlexConfig, logger: logging.Logger
 ) -> None:
-    """Configure differential-evolution optimizer options on the SimNIBS object.
+    """Apply differential-evolution solver parameters to a SimNIBS object.
 
-    Args:
-        opt: SimNIBS optimization object.
-        config: FlexConfig with solver parameters.
-        logger: Logger instance.
+    Reads optional DE hyperparameters from *config* and writes them
+    into ``opt._optimizer_options_std``.  Parameters that are ``None``
+    in the config are left at their SimNIBS defaults.
+
+    Parameters
+    ----------
+    opt : TesFlexOptimization
+        SimNIBS optimization object (mutated in-place).
+    config : FlexConfig
+        Configuration carrying optional DE parameters.
+    logger : logging.Logger
+        Logger for debug-level messages.
+
+    See Also
+    --------
+    build_optimization : Creates the *opt* object that this function configures.
     """
 
     if config.max_iterations is not None:
@@ -185,15 +221,27 @@ def generate_report(
     base_output_folder: str,
     logger: logging.Logger,
 ) -> None:
-    """Generate an HTML report from config fields (no env vars).
+    """Generate an HTML report summarising the flex-search run.
 
-    Args:
-        config: FlexConfig with all parameters.
-        n_multistart: Number of multi-start runs.
-        optim_funvalue_list: Array of function values.
-        best_opt_idx: Index of best run (-1 if all failed).
-        base_output_folder: Path to the output directory.
-        logger: Logger instance.
+    Delegates to :class:`~tit.reporting.FlexSearchReportGenerator` to
+    produce a self-contained HTML file in the project's reports
+    directory.
+
+    Parameters
+    ----------
+    config : FlexConfig
+        Configuration with all run parameters.
+    n_multistart : int
+        Number of multi-start DE runs executed.
+    optim_funvalue_list : numpy.ndarray
+        Array of objective function values, one per restart.
+    best_opt_idx : int
+        Zero-based index of the best run (``-1`` if all failed).
+    base_output_folder : str
+        Absolute path to the output directory (used to locate
+        ``electrode_positions.json``).
+    logger : logging.Logger
+        Logger for info-level progress messages.
     """
     from tit.reporting import FlexSearchReportGenerator
     from tit.paths import get_path_manager
@@ -265,7 +313,7 @@ def generate_report(
                 }
             )
     elif isinstance(roi, FlexConfig.AtlasROI):
-        atlas_name = atlas_name_from_path(roi.atlas_path, roi.hemisphere)
+        atlas_name = _atlas_name_from_path(roi.atlas_path, roi.hemisphere)
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "atlas",
@@ -359,16 +407,8 @@ def generate_report(
     logger.info(f"Report generated: {report_path}")
 
 
-def atlas_name_from_path(path_value: str, hemisphere: str) -> str:
-    """Extract a human-readable atlas name from an annotation file path.
-
-    Args:
-        path_value: Full path to the .annot file.
-        hemisphere: Hemisphere string (e.g. "lh").
-
-    Returns:
-        Clean atlas name, or empty string if extraction fails.
-    """
+def _atlas_name_from_path(path_value: str, hemisphere: str) -> str:
+    """Extract a human-readable atlas name from an annotation file path."""
     atlas_filename = os.path.basename(path_value)
     atlas_with_subject = atlas_filename.replace(f"{hemisphere}.", "").replace(
         ".annot", ""

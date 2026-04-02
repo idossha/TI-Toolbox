@@ -1,14 +1,21 @@
 """Leadfield matrix generator for TI optimization.
 
-Integrates with SimNIBS to create leadfield matrices via TDCSLEADFIELD.
+Integrates with SimNIBS to create leadfield matrices via
+``TDCSLEADFIELD``.  The leadfield encodes each electrode's
+contribution to the electric field at every mesh element, enabling
+fast objective-function evaluation during optimization without
+re-running the full FEM solver.
 
 Public API
 ----------
 LeadfieldGenerator
-    Object-oriented interface for generation and listing.
+    Object-oriented interface for leadfield generation, listing, and
+    electrode-name extraction.
 
-ensure_leadfield(subject_id, eeg_net, *, project_dir, tissues, force) -> Path
-    Return an existing leadfield path or generate a new one.
+See Also
+--------
+tit.opt.flex.flex.run_flex_search : Uses the leadfield indirectly via SimNIBS.
+tit.opt.ex.engine.ExSearchEngine : Loads the leadfield for exhaustive search.
 """
 
 import glob
@@ -24,7 +31,26 @@ log = logging.getLogger(__name__)
 
 
 class LeadfieldGenerator:
-    """Generate and list leadfield matrices for TI optimization."""
+    """Generate and list leadfield matrices for TI optimization.
+
+    Wraps SimNIBS ``TDCSLEADFIELD`` to produce HDF5 leadfield files
+    that the exhaustive-search and flex-search pipelines consume.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (e.g. ``"101"``).
+    electrode_cap : str
+        EEG cap name without ``.csv`` (e.g. ``"GSN-HydroCel-185"``).
+    progress_callback : callable or None
+        Optional ``callback(message, level)`` for GUI progress updates.
+    termination_flag : callable or None
+        Optional callable returning ``True`` when the user cancels.
+
+    See Also
+    --------
+    tit.opt.ex.engine.ExSearchEngine : Consumes the generated leadfield.
+    """
 
     def __init__(
         self,
@@ -33,14 +59,6 @@ class LeadfieldGenerator:
         progress_callback: Callable | None = None,
         termination_flag: Callable[[], bool] | None = None,
     ) -> None:
-        """Initialize leadfield generator.
-
-        Args:
-            subject_id: Subject identifier (e.g. "101").
-            electrode_cap: EEG cap name without .csv (e.g. "GSN-HydroCel-185").
-            progress_callback: Optional callback(message, level) for GUI updates.
-            termination_flag: Optional callable returning True when cancelled.
-        """
         self.subject_id = subject_id
         self.electrode_cap = electrode_cap
         self._progress_callback = progress_callback
@@ -48,6 +66,7 @@ class LeadfieldGenerator:
         self.pm = get_path_manager()
 
     def _log(self, message: str, level: str = "info") -> None:
+        """Emit a log message, forwarding to the progress callback if set."""
         if self._progress_callback:
             self._progress_callback(message, level)
         getattr(log, level, log.info)(message)
@@ -75,16 +94,25 @@ class LeadfieldGenerator:
     ) -> Path:
         """Generate a leadfield matrix via SimNIBS.
 
-        Args:
-            output_dir: Output directory (default: pm.leadfields(subject_id)).
-            tissues: Tissue tags [1=WM, 2=GM]. Default: [1, 2].
-            cleanup: Remove stale SimNIBS artefacts before running.
+        Parameters
+        ----------
+        output_dir : str or Path or None
+            Output directory.  Defaults to
+            ``pm.leadfields(subject_id)``.
+        tissues : list of int or None
+            Tissue tags (1 = WM, 2 = GM).  Default: ``[1, 2]``.
+        cleanup : bool
+            Remove stale SimNIBS artefacts before running.
 
-        Returns:
+        Returns
+        -------
+        Path
             Path to the generated HDF5 leadfield file.
 
-        Raises:
-            InterruptedError: If cancelled via termination_flag.
+        Raises
+        ------
+        InterruptedError
+            If cancelled via *termination_flag*.
         """
         from simnibs import sim_struct
         import simnibs
@@ -133,11 +161,15 @@ class LeadfieldGenerator:
     ) -> list[tuple[str, str, float]]:
         """List available leadfield HDF5 files for a subject.
 
-        Args:
-            subject_id: Subject ID (defaults to self.subject_id).
+        Parameters
+        ----------
+        subject_id : str or None
+            Subject ID.  Defaults to ``self.subject_id``.
 
-        Returns:
-            Sorted list of (net_name, hdf5_path, size_gb) tuples.
+        Returns
+        -------
+        list of tuple[str, str, float]
+            Sorted list of ``(net_name, hdf5_path, size_gb)`` tuples.
         """
         sid = subject_id or self.subject_id
         leadfields_dir = Path(self.pm.leadfields(sid))
@@ -166,10 +198,15 @@ class LeadfieldGenerator:
     def get_electrode_names(self, cap_name: str | None = None) -> list[str]:
         """Extract electrode labels from an EEG cap via SimNIBS.
 
-        Args:
-            cap_name: EEG cap name (without .csv). Defaults to self.electrode_cap.
+        Parameters
+        ----------
+        cap_name : str or None
+            EEG cap name (without ``.csv``).  Defaults to
+            ``self.electrode_cap``.
 
-        Returns:
+        Returns
+        -------
+        list of str
             Sorted list of electrode label strings.
         """
         from simnibs.utils.csv_reader import eeg_positions
