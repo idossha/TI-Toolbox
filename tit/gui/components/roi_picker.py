@@ -569,9 +569,14 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 hemisphere=hemi,
             )
         else:  # subcortical
-            volume_atlas_path = os.path.join(
-                seg_dir, self.volume_atlas_combo.currentText()
-            )
+            atlas_filename = self.volume_atlas_combo.currentText()
+            if atlas_filename == "labeling.nii.gz":
+                volume_atlas_path = os.path.join(seg_dir, atlas_filename)
+            else:
+                pm = get_path_manager()
+                volume_atlas_path = os.path.join(
+                    pm.freesurfer_mri(subject_id), atlas_filename
+                )
             return FlexConfig.SubcorticalROI(
                 atlas_path=volume_atlas_path,
                 label=int(self.volume_label_input.value()),
