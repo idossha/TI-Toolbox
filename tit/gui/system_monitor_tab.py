@@ -527,18 +527,16 @@ class SystemMonitorTab(QtWidgets.QWidget):
             x_axis = [0]
 
         self.cpu_line.set_data(x_axis, cpu_values)
-        self.cpu_ax.set_xlim(
-            0, max(60, max(x_axis) if x_axis else 60)
-        )  # Show at least 60 seconds
-        self.cpu_ax.set_ylim(0, max(100, max(cpu_values) if cpu_values else 100))
+        x_max = float(max(x_axis)) if x_axis else 60.0
+        cpu_max = float(max(cpu_values)) if cpu_values else 100.0
+        mem_max = float(max(memory_values)) if memory_values else 100.0
+
+        self.cpu_ax.set_xlim(0.0, max(60.0, x_max))
+        self.cpu_ax.set_ylim(0.0, max(100.0, cpu_max))
 
         self.memory_line.set_data(x_axis, memory_values)
-        self.memory_ax.set_xlim(
-            0, max(60, max(x_axis) if x_axis else 60)
-        )  # Show at least 60 seconds
-        self.memory_ax.set_ylim(
-            0, max(100, max(memory_values) if memory_values else 100)
-        )
+        self.memory_ax.set_xlim(0.0, max(60.0, x_max))
+        self.memory_ax.set_ylim(0.0, max(100.0, mem_max))
 
         self.cpu_canvas.draw()
         self.memory_canvas.draw()
