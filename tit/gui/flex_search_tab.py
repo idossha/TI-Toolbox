@@ -1251,8 +1251,12 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _update_sweep_preview(self):
         """Recomputes N combinations and updates self.sweep_preview_label."""
-        roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
-        nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        try:
+            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        except ValueError:
+            self.sweep_preview_label.setText("")
+            return
         n = len(roi_pcts) * len(nonroi_pcts)
         self.sweep_preview_label.setText(
             f"\u2192 {n} combination{'s' if n != 1 else ''} will be run"
