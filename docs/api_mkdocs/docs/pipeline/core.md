@@ -4,13 +4,21 @@ TI-Toolbox provides opinionated, BIDS-compliant infrastructure for path resoluti
 
 ```mermaid
 graph LR
-    IMPORT["import tit"] --> LOG[Logger]
+    IMPORT(["import tit"]) --> LOG[Logger]
     IMPORT --> PM[PathManager]
-    PM --> PATHS[BIDS Paths]
-    LOG --> FILE[File Logs]
-    CONFIG[Config IO] --> JSON[JSON Files]
+    IMPORT --> CONFIG[Config IO]
+    PM --> PATHS([BIDS Paths])
+    LOG --> FILE([File Logs])
+    CONFIG --> JSON([JSON Files])
     JSON --> CLI[CLI Subprocesses]
-    style IMPORT fill:#2d5a27,stroke:#4a8,color:#fff
+    style IMPORT fill:#1a3a5c,stroke:#48a,color:#fff
+    style LOG fill:#2d5a27,stroke:#4a8,color:#fff
+    style PM fill:#2d5a27,stroke:#4a8,color:#fff
+    style CONFIG fill:#2d5a27,stroke:#4a8,color:#fff
+    style CLI fill:#2d5a27,stroke:#4a8,color:#fff
+    style PATHS fill:#1a5c4a,stroke:#4a8,color:#fff
+    style FILE fill:#1a5c4a,stroke:#4a8,color:#fff
+    style JSON fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Initialization

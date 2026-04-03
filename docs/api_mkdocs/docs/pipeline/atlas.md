@@ -4,15 +4,21 @@ The atlas module provides unified atlas discovery, region listing, and overlap a
 
 ```mermaid
 graph LR
-    SEG[Segmentation Dir] --> MESH[MeshAtlasManager]
-    FS[FreeSurfer mri/] --> VOXEL[VoxelAtlasManager]
-    MESH --> REGIONS[Region Lists]
+    SEG([Segmentation Dir]) --> MESH[MeshAtlasManager]
+    FS([FreeSurfer mri/]) --> VOXEL[VoxelAtlasManager]
+    MESH --> REGIONS([Region Lists])
     VOXEL --> REGIONS
-    SIG[Significant Mask] --> OVERLAP[atlas_overlap_analysis]
+    SIG([Significant Mask]) --> OVERLAP[atlas_overlap_analysis]
     VOXEL --> OVERLAP
-    OVERLAP --> RESULTS[Overlap Results]
+    OVERLAP --> RESULTS([Overlap Results])
+    style SEG fill:#1a3a5c,stroke:#48a,color:#fff
+    style FS fill:#1a3a5c,stroke:#48a,color:#fff
+    style SIG fill:#1a3a5c,stroke:#48a,color:#fff
     style MESH fill:#2d5a27,stroke:#4a8,color:#fff
     style VOXEL fill:#2d5a27,stroke:#4a8,color:#fff
+    style OVERLAP fill:#2d5a27,stroke:#4a8,color:#fff
+    style REGIONS fill:#1a5c4a,stroke:#4a8,color:#fff
+    style RESULTS fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Surface (Mesh) Atlases

@@ -4,12 +4,21 @@ The preprocessing pipeline converts raw imaging data into simulation-ready head 
 
 ```mermaid
 graph LR
-    A[DICOM] -->|dcm2niix| B[NIfTI]
-    B -->|CHARM| C[Head Mesh]
-    C -->|subject_atlas| D[Atlas Parcellations]
-    B -->|recon-all| E[FreeSurfer Surfaces]
-    C -->|tissue analysis| F[Tissue Report]
-    style C fill:#2d5a27,stroke:#4a8,color:#fff
+    A([DICOM]) -->|dcm2niix| B([NIfTI T1/T2])
+    B -->|CHARM| C([Head Mesh])
+    C -->|subject_atlas| D([Atlas Parcellations])
+    B -->|recon-all| E([FreeSurfer Surfaces])
+    C -->|tissue analysis| F([Tissue Report])
+    B -->|QSIPrep| G([DWI Preprocessed])
+    G -->|QSIRecon| H([DTI Tensors])
+    style A fill:#1a3a5c,stroke:#48a,color:#fff
+    style B fill:#1a5c4a,stroke:#4a8,color:#fff
+    style C fill:#1a5c4a,stroke:#4a8,color:#fff
+    style D fill:#1a5c4a,stroke:#4a8,color:#fff
+    style E fill:#1a5c4a,stroke:#4a8,color:#fff
+    style F fill:#1a5c4a,stroke:#4a8,color:#fff
+    style G fill:#1a5c4a,stroke:#4a8,color:#fff
+    style H fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Full Pipeline

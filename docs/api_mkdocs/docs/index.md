@@ -30,6 +30,7 @@ graph TD
 
     PRE -->|head mesh| OPT
     PRE -->|head mesh| SIM
+    PRE -->|atlas data| ANA
     OPT -->|optimal montage| SIM
     SIM -->|field data| ANA
     ANA -->|metrics| REP

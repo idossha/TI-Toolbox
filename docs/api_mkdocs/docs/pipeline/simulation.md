@@ -4,13 +4,19 @@ The simulation engine runs finite element method (FEM) calculations using SimNIB
 
 ```mermaid
 graph LR
-    MESH[Head Mesh] --> SIM[SimNIBS FEM]
-    MONT[Montage Config] --> SIM
-    INT[Intensity Config] --> SIM
-    SIM --> TI_MAX[TI_max Field]
-    SIM --> TI_NORM[TI_normal Field]
-    SIM --> NIFTI[NIfTI Volumes]
+    MESH([Head Mesh]) --> SIM[SimNIBS FEM]
+    MONT([Montage Config]) --> SIM
+    INT([Intensity Config]) --> SIM
+    SIM --> TI_MAX([TI_max Field])
+    SIM --> TI_NORM([TI_normal Field])
+    SIM --> NIFTI([NIfTI Volumes])
+    style MESH fill:#1a3a5c,stroke:#48a,color:#fff
+    style MONT fill:#1a3a5c,stroke:#48a,color:#fff
+    style INT fill:#1a3a5c,stroke:#48a,color:#fff
     style SIM fill:#2d5a27,stroke:#4a8,color:#fff
+    style TI_MAX fill:#1a5c4a,stroke:#4a8,color:#fff
+    style TI_NORM fill:#1a5c4a,stroke:#4a8,color:#fff
+    style NIFTI fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Running a Simulation
