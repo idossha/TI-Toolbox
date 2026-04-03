@@ -5,15 +5,37 @@ Public API: ``run_flex_search(config) -> FlexResult``
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
+import multiprocessing
 import os
 import shutil
+import traceback
 
 import numpy as np
 
 from tit.opt.config import FlexConfig, FlexResult
 from tit.paths import get_path_manager
 from . import builder
+
+
+def _run_single_flex_start(
+    config: FlexConfig,
+    run_idx: int,
+    output_folder: str,
+    per_run_cpus: int | None,
+) -> tuple[int, float, str | None]:
+    """Execute one flex-search multistart in an isolated process."""
+    logger = logging.getLogger(__name__)
+    try:
+        opt = builder.build_optimization(config)
+        opt.output_folder = output_folder
+        os.makedirs(opt.output_folder, exist_ok=True)
+        builder.configure_optimizer_options(opt, config, logger)
+        opt.run(cpus=per_run_cpus)
+        return run_idx, float(opt.optim_funvalue), None
+    except Exception:
+        return run_idx, float("inf"), traceback.format_exc()
 
 
 def run_flex_search(config: FlexConfig) -> FlexResult:
@@ -46,20 +68,57 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     )
 
     folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
+    total_cpus = max(1, int(config.cpus or 1))
 
     # -- Run optimizations --
-    for i in range(n):
-        opt = builder.build_optimization(config)
-        opt.output_folder = folders[i]
-        os.makedirs(opt.output_folder, exist_ok=True)
-        builder.configure_optimizer_options(opt, config, logger)
+    if n > 1 and total_cpus > 1:
+        parallel_runs = min(n, total_cpus)
+        per_run_cpus = max(1, total_cpus // parallel_runs)
+        logger.info(
+            "├─ Parallel multistart: %d concurrent runs, %d CPU(s) per run",
+            parallel_runs,
+            per_run_cpus,
+        )
+        ctx = multiprocessing.get_context("spawn")
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=parallel_runs,
+            mp_context=ctx,
+        ) as executor:
+            futures = []
+            for i in range(n):
+                step = f"Run {i + 1}/{n}"
+                logger.info(f"├─ {step}: queued")
+                futures.append(
+                    executor.submit(
+                        _run_single_flex_start,
+                        config,
+                        i,
+                        folders[i],
+                        per_run_cpus,
+                    )
+                )
 
-        step = f"Run {i + 1}/{n}" if n > 1 else "Optimization"
-        logger.info(f"├─ {step}: started")
+            for future in concurrent.futures.as_completed(futures):
+                run_idx, funvalue, error_text = future.result()
+                fvals[run_idx] = funvalue
+                step = f"Run {run_idx + 1}/{n}"
+                if error_text is not None:
+                    logger.error(f"├─ {step}: failed\n%s", error_text)
+                else:
+                    logger.info(f"├─ {step}: value={fvals[run_idx]:.6f}")
+    else:
+        for i in range(n):
+            opt = builder.build_optimization(config)
+            opt.output_folder = folders[i]
+            os.makedirs(opt.output_folder, exist_ok=True)
+            builder.configure_optimizer_options(opt, config, logger)
 
-        opt.run(cpus=config.cpus)
-        fvals[i] = opt.optim_funvalue
-        logger.info(f"├─ {step}: value={fvals[i]:.6f}")
+            step = f"Run {i + 1}/{n}" if n > 1 else "Optimization"
+            logger.info(f"├─ {step}: started")
+
+            opt.run(cpus=config.cpus)
+            fvals[i] = opt.optim_funvalue
+            logger.info(f"├─ {step}: value={fvals[i]:.6f}")
 
     # -- Select best --
     valid_mask = fvals < float("inf")
