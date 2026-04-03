@@ -53,7 +53,7 @@ Simply download and run the installer — the app handles Docker management and 
 ### Step 1: Download Required Files
 
 Download these files to your **Windows filesystem**:
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)**
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
 
 **Recommended**: Create a dedicated folder like `C:\TI-Toolbox\` for these files.
@@ -66,14 +66,10 @@ Download these files to your **Windows filesystem**:
    cd /mnt/c/TI-Toolbox/
    ```
    *(Note: Windows `C:\TI-Toolbox\` becomes `/mnt/c/TI-Toolbox/` in WSL)*
-3. **Make loader.sh executable**:
+3. **Ensure Docker Desktop is running** on Windows
+4. **Launch TI-Toolbox**:
    ```bash
-   chmod +x loader.sh
-   ```
-4. **Ensure Docker Desktop is running** on Windows
-5. **Launch TI-Toolbox**:
-   ```bash
-   ./loader.sh
+   python3 loader.py
    ```
 6. **First run will download Docker images (~30GB)** - this may take 30+ minutes
 

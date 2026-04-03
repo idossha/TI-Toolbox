@@ -10,7 +10,7 @@ permalink: /installation/bash-cli/
 ### Step 1: Download Required Files
 
 **Download the required files:**
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
 ## Usage
@@ -18,11 +18,7 @@ permalink: /installation/bash-cli/
 ### Basic Launch
 
 ```bash
-# Run the script
-bash loader.sh
-
-# Or if made executable
-./loader.sh
+python3 loader.py
 ```
 
 The script will guide you through:
@@ -42,7 +38,7 @@ The script will guide you through:
    - Starts containers
    - Manages environment variables
 
-When loader program completed:
+When the loader program has completed:
 
 ```bash
 #Try ebter the core GUI tool

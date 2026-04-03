@@ -22,7 +22,7 @@ Simply download, install, and launch — the app handles Docker management for y
 ## Option 2: Command Line (Bash)
 
 **Download the required files:**
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
 <br>

@@ -89,7 +89,7 @@ export DISPLAY=:0
 3. Launch XQuartz from Applications > Utilities
 4. Check XQuartz preferences: Allow connections from network clients
 
-If still running into issues, download the **[config_sys.sh](https://github.com/idossha/TI-toolbox/blob/main/dev/bash_dev/config_sys.sh)** place it next to your loader.sh, and run it:
+If still running into issues, download the **[config_sys.sh](https://github.com/idossha/TI-toolbox/blob/main/dev/bash_dev/config_sys.sh)** place it next to your loader.py, and run it:
 
 ```bash
 bash config_sys.sh
