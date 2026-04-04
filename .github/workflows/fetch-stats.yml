@@ -18,7 +18,7 @@ jobs:
       - name: Fetch stats
         run: python tracking/fetch_stats.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.STATS_GITHUB_TOKEN }}
           STATS_DB_PATH: /tmp/stats.db
 
       - name: Push db to private stats repo
