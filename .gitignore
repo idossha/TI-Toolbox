@@ -28,6 +28,9 @@ ENV/
 
 # Logs
 *.log
+
+# Stats database (stored in private repo idossha/TI-toolbox-stats)
+tracking/stats.db
 logs/
 
 # Docker

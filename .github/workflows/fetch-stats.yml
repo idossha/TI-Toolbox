@@ -1,0 +1,43 @@
+name: Fetch Download Stats
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
+  workflow_dispatch: # Allow manual trigger from Actions tab
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch stats
+        run: python tracking/fetch_stats.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATS_DB_PATH: /tmp/stats.db
+
+      - name: Push db to private stats repo
+        env:
+          STATS_DEPLOY_KEY: ${{ secrets.STATS_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$STATS_DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+
+          git clone git@github.com:idossha/TI-toolbox-stats.git /tmp/stats-repo
+          cp /tmp/stats.db /tmp/stats-repo/stats.db
+
+          cd /tmp/stats-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add stats.db
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: update download stats $(date -u +%Y-%m-%d)"
+          git push
