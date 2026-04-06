@@ -20,7 +20,7 @@ usernames, tracebacks, or any scientific data.
 Opt-Out
 -------
 1. Environment variable: ``TIT_NO_TELEMETRY=1``
-2. Config file: ``~/.config/ti-toolbox/telemetry.json`` → ``"enabled": false``
+2. Config file: user config dir ``telemetry.json`` → ``"enabled": false``
 3. GUI: Settings → Privacy toggle
 
 Public API
@@ -49,6 +49,7 @@ import json
 import logging
 import os
 import platform
+import ssl
 import sys
 import threading
 import urllib.error
@@ -94,24 +95,40 @@ class TelemetryConfig:
 # ---------------------------------------------------------------------------
 
 
-def _config_path() -> Path:
-    """Return the path to the telemetry config file.
+def _config_path() -> Path | None:
+    """Return the path to the telemetry config file, or ``None``.
 
-    Uses ``~/.config/ti-toolbox/telemetry.json`` on all platforms (XDG
-    convention).  Creates the parent directory if it does not exist.
+    Uses the **user-level** config directory
+    (``PathManager.user_config_dir()``) so that telemetry consent and
+    the anonymous client ID persist across projects and container
+    restarts.  Inside Docker, this resolves to
+    ``/root/.config/ti-toolbox/`` which the Electron launcher mounts
+    from the host.
+
+    Returns ``None`` when the user config directory cannot be resolved
+    (e.g. the mount is missing and ``/root/.config`` is not writable).
+    Callers treat ``None`` as “telemetry unavailable”.
 
     Returns
     -------
-    pathlib.Path
-        Absolute path to the JSON config file.
+    pathlib.Path or None
+        Absolute path to the JSON config file, or ``None``.
     """
-    config_dir = Path.home() / ".config" / const.TELEMETRY_CONFIG_DIR
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir / const.TELEMETRY_CONFIG_FILE
+    try:
+        from tit.paths import PathManager
+
+        config_dir = Path(PathManager.user_config_dir())
+        config_dir.mkdir(parents=True, exist_ok=True)
+        return config_dir / const.TELEMETRY_CONFIG_FILE
+    except Exception:
+        return None
 
 
 def load_config() -> TelemetryConfig:
     """Load telemetry config from disk, or return defaults.
+
+    Returns ``TelemetryConfig(enabled=False)`` when no project is active
+    (i.e. :func:`_config_path` returns ``None``).
 
     Returns
     -------
@@ -119,6 +136,8 @@ def load_config() -> TelemetryConfig:
         Loaded or default configuration.
     """
     path = _config_path()
+    if path is None:
+        return TelemetryConfig()
     if path.exists():
         try:
             with open(path) as f:
@@ -136,6 +155,7 @@ def load_config() -> TelemetryConfig:
 def save_config(config: TelemetryConfig) -> None:
     """Persist telemetry config to disk.
 
+    Does nothing when no project is active (no config path available).
     Sets file permissions to ``0o600`` (owner read/write only).
 
     Parameters
@@ -144,6 +164,9 @@ def save_config(config: TelemetryConfig) -> None:
         Configuration to write.
     """
     path = _config_path()
+    if path is None:
+        logger.debug("No project active; telemetry config not saved.")
+        return
     try:
         with open(path, "w") as f:
             json.dump(asdict(config), f, indent=2)
@@ -227,24 +250,66 @@ def set_enabled(enabled: bool) -> None:
 def _system_params() -> dict[str, str]:
     """Return a dict of non-identifying system metadata.
 
+    Uses ``TIT_HOST_*`` environment variables (set by the Electron
+    launcher or dev loader) to report the **host** OS, not the Docker
+    container's Linux.  Falls back to ``platform`` for non-Docker use.
+
     Returns
     -------
     dict[str, str]
-        Keys: ``tit_version``, ``python_version``, ``os_name``,
-        ``os_version``, ``platform``.
+        Keys: ``tit_version``, ``os_name``, ``os_version``, ``platform``.
     """
     return {
         "tit_version": tit.__version__,
-        "python_version": platform.python_version(),
-        "os_name": platform.system(),
-        "os_version": platform.release(),
-        "platform": platform.machine(),
+        "os_name": os.environ.get("TIT_HOST_OS", platform.system()),
+        "os_version": os.environ.get("TIT_HOST_OS_VERSION", platform.release()),
+        "platform": os.environ.get("TIT_HOST_ARCH", platform.machine()),
     }
 
 
 # ---------------------------------------------------------------------------
 # GA4 Measurement Protocol sender
 # ---------------------------------------------------------------------------
+
+
+# System CA bundle paths to try when the default SSL context has no certs
+# (common in conda-based environments like SimNIBS inside Docker).
+_CA_BUNDLE_PATHS = (
+    "/etc/ssl/certs/ca-certificates.crt",  # Debian / Ubuntu
+    "/etc/pki/tls/certs/ca-bundle.crt",  # RHEL / CentOS / Fedora
+    "/etc/ssl/cert.pem",  # Alpine / macOS
+    "/etc/ssl/ca-bundle.pem",  # openSUSE
+)
+
+
+def _ssl_context() -> ssl.SSLContext | None:
+    """Return an SSL context that can verify GA4's certificate.
+
+    The default context works on most hosts, but inside Docker the
+    conda-built Python used by SimNIBS often has no CA bundle.
+    This helper falls back to well-known system CA paths.
+
+    Returns ``None`` (use default context) when certs are fine,
+    or a configured :class:`ssl.SSLContext` when a system bundle was
+    found.
+    """
+    # Fast path: default context works
+    ctx = ssl.create_default_context()
+    if ctx.get_ca_certs():
+        return None  # urllib will use its own default — no override needed
+
+    # Try system CA bundles
+    for ca_path in _CA_BUNDLE_PATHS:
+        if os.path.isfile(ca_path):
+            ctx.load_verify_locations(ca_path)
+            return ctx
+
+    # Last resort: no verification (still encrypted, just no cert check).
+    # Acceptable for anonymous telemetry — not for auth or sensitive data.
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def _send_ga4(payload: dict[str, Any]) -> None:
@@ -271,7 +336,10 @@ def _send_ga4(payload: dict[str, Any]) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=const.TELEMETRY_TIMEOUT_S):
+        ctx = _ssl_context()
+        with urllib.request.urlopen(
+            req, timeout=const.TELEMETRY_TIMEOUT_S, context=ctx
+        ):
             pass  # GA4 MP returns 204 No Content on success
     except (urllib.error.URLError, OSError, ValueError):
         pass  # Network issues, firewall, DNS — silently drop
@@ -373,22 +441,18 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
 
 _CONSENT_BANNER = """\
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  TI-Toolbox — Anonymous Usage Statistics
+  TI-Toolbox — Usage Data
 
-  TI-Toolbox can collect anonymous usage data to
-  help us improve the software. We collect:
+  TI-Toolbox can send anonymous usage data to
+  help us identify issues and improve stability.
 
-    • OS, Python version, TI-Toolbox version
-    • Which operations you run (simulation,
-      optimization, analysis)
-    • Whether operations succeed or fail
+  This includes which operations ran and whether
+  they succeeded or failed. No personal data,
+  file paths, or scientific results are collected.
 
-  We do NOT collect any personal information,
-  file paths, subject data, or scientific results.
-
-  You can change this at any time:
+  You can disable this at any time:
     • Set  TIT_NO_TELEMETRY=1  in your environment
-    • Edit ~/.config/ti-toolbox/telemetry.json
+    • Toggle in GUI: Settings → Usage Statistics
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
 
@@ -447,19 +511,16 @@ def consent_prompt_gui(parent: Any = None) -> None:
     from PyQt5 import QtWidgets
 
     msg = QtWidgets.QMessageBox(parent)
-    msg.setWindowTitle("TI-Toolbox — Usage Statistics")
+    msg.setWindowTitle("TI-Toolbox — Usage Data")
     msg.setIcon(QtWidgets.QMessageBox.Question)
     msg.setText(
-        "<b>Anonymous Usage Statistics</b><br><br>"
-        "TI-Toolbox can collect anonymous usage data to help us "
-        "improve the software.<br><br>"
-        "<b>We collect:</b><br>"
-        "• OS, Python version, TI-Toolbox version<br>"
-        "• Which operations you run (simulation, optimization, analysis)<br>"
-        "• Whether operations succeed or fail<br><br>"
-        "<b>We do NOT collect</b> any personal information, file paths, "
-        "subject data, or scientific results.<br><br>"
-        "You can change this at any time in Settings → Privacy."
+        "<b>Usage Data</b><br><br>"
+        "TI-Toolbox can send anonymous usage data to help us "
+        "identify issues and improve stability.<br><br>"
+        "This includes which operations ran and whether they "
+        "succeeded or failed. No personal data, file paths, or "
+        "scientific results are collected.<br><br>"
+        "You can disable this at any time in Settings → Privacy."
     )
     msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
     msg.setDefaultButton(QtWidgets.QMessageBox.Yes)

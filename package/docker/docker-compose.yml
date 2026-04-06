@@ -19,6 +19,7 @@ services:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox    # User-level config (telemetry, prefs)
       - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
       - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
     environment:
@@ -31,6 +32,9 @@ services:
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       TZ: ${TZ}
+      TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
+      TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
+      TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "v2.3.0"
     ports:

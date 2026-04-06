@@ -231,6 +231,24 @@ def display_welcome() -> None:
     print("")
 
 
+def _get_user_config_dir() -> str:
+    """Return the host-side user config directory for TI-Toolbox.
+
+    Mirrors the logic in ``tit.paths.PathManager.user_config_dir()`` and
+    ``package/src/backend/env.js:getUserConfigDir()``.
+    """
+    system = platform.system()
+    if system == "Darwin":
+        base = Path.home() / ".config"
+    elif system == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    config_dir = base / "ti-toolbox"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return str(config_dir)
+
+
 def is_process_running(name: str) -> bool:
     output = capture(["ps", "aux"])
     return name.lower() in output.lower()
@@ -287,6 +305,10 @@ def main() -> None:
     env["TZ"] = capture(["date", "+%Z"])
     env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
     env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
+    env["TIT_USER_CONFIG"] = _get_user_config_dir()
+    env["TIT_HOST_OS"] = platform.system().lower()  # darwin, linux, windows
+    env["TIT_HOST_OS_VERSION"] = platform.release()
+    env["TIT_HOST_ARCH"] = platform.machine()  # x86_64, arm64
     ensure_images_pulled(env)
     run_docker_compose(env, dev_codebase_dir)
 

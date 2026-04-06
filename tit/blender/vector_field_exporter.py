@@ -794,6 +794,11 @@ def run_vectors(config: VectorConfig) -> None:
         ValueError: If E fields are missing or no vectors remain after filtering.
     """
     _resolve_paths(config)
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_BLENDER_VECTORS, {"status": "start"})
+
     logger.info("Starting vector field export")
 
     # 1 -- Load meshes

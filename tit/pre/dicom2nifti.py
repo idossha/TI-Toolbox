@@ -102,6 +102,11 @@ def run_dicom_to_nifti(
     --------
     run_pipeline : Full preprocessing pipeline.
     """
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_PRE_DICOM, {"status": "start"})
+
     pm = get_path_manager(project_dir)
     sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
     bids_anat_dir = Path(pm.bids_anat(subject_id))

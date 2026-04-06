@@ -350,6 +350,14 @@ class BaseReportGenerator(ABC):
         Returns:
             Path to the generated report file
         """
+        from tit.telemetry import track_event
+        from tit import constants as _const
+
+        track_event(
+            _const.TELEMETRY_OP_REPORT,
+            {"status": "start", "report_type": self.report_type},
+        )
+
         # Build the report content
         self._build_report()
 

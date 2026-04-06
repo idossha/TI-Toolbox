@@ -515,6 +515,11 @@ def run_regions(config: RegionConfig) -> int:
         FileNotFoundError: If a required input file is missing.
     """
     _resolve_paths(config)
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_BLENDER_REGIONS, {"status": "start"})
+
     logger.info("Starting region export (format=%s)", config.format)
 
     mesh_path = config.mesh

@@ -77,6 +77,11 @@ def run_qsiprep(
     PreprocessError
         If QSIPrep fails or prerequisites are not met.
     """
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_PRE_QSIPREP, {"status": "start"})
+
     logger.info(f"Starting QSIPrep for subject {subject_id}")
 
     # Validate DWI data exists

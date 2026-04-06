@@ -206,10 +206,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(qr.topLeft())
 
     def get_extensions_config_path(self):
-        """Get the path to the extensions configuration file."""
-        from tit.gui.extensions_config import get_extensions_config_path
+        """Get the path to the extensions configuration file.
 
-        config_dir = Path(self.pm.ensure(self.pm.config_dir()))
+        Uses the user-level config directory so that extension
+        preferences persist across projects and container restarts.
+        """
+        from tit.gui.extensions_config import get_extensions_config_path
+        from tit.paths import PathManager
+
+        config_dir = Path(PathManager.user_config_dir())
         return get_extensions_config_path(config_dir)
 
     def ensure_extensions_config(self):

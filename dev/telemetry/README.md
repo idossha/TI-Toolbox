@@ -21,8 +21,14 @@ error rates — without collecting any personal or scientific data.
 ```
 tit/telemetry.py              ← All telemetry logic (single module)
 tit/constants.py               ← GA4 credentials + event name constants
-~/.config/ti-toolbox/
-  └── telemetry.json           ← Per-install config (enabled, client_id, consent_shown)
+tit/paths.py                   ← PathManager.user_config_dir() (static method)
+
+User config dir (host-side, mounted into Docker):
+  macOS:   ~/.config/ti-toolbox/
+  Linux:   ~/.config/ti-toolbox/           (XDG)
+  Windows: %APPDATA%/ti-toolbox/
+  Docker:  /root/.config/ti-toolbox/       (mounted from host)
+    └── telemetry.json           ← User-level config (consent, client_id)
 ```
 
 ### Data Flow
@@ -63,14 +69,18 @@ User runs operation (e.g. run_simulation)
 | Data Point | Example | GA4 Parameter |
 |---|---|---|
 | TI-Toolbox version | `2.3.0` | `tit_version` |
-| Python version | `3.11.5` | `python_version` |
-| OS name | `Linux`, `Darwin` | `os_name` |
-| OS release | `5.15.0` | `os_version` |
-| CPU architecture | `x86_64`, `arm64` | `platform` |
+| Host OS name | `darwin`, `win32`, `linux` | `os_name` |
+| Host OS version | `24.6.0`, `10.0.22631` | `os_version` |
+| Host CPU architecture | `x86_64`, `arm64` | `platform` |
 | Operation type | `sim_ti`, `flex_search` | Event name |
 | Operation status | `start`, `success`, `error` | `status` |
 | Error class (on failure) | `ValueError` | `error_type` |
 | Country (approximate) | Derived from IP by GA4 | Automatic |
+
+> **Note:** OS info comes from the **host machine** (via `TIT_HOST_*`
+> environment variables set by the Electron launcher), not the Docker
+> container's Linux kernel. Python version is not collected — it is
+> fixed by the Docker image.
 
 ### What We Do NOT Collect
 
@@ -80,10 +90,16 @@ User runs operation (e.g. run_simulation)
 - Parameter values (intensities, coordinates, thresholds)
 - Hostnames, usernames, IP addresses (GA4 anonymizes IP)
 - Tracebacks or error messages
+- Python version (fixed by Docker image)
 
 ---
 
 ## Tracked Events
+
+### Operations with start + success/error (via `track_operation`)
+
+These send exactly **2 events**: `{name}` with `status: start`,
+then `{name}` with `status: success` or `status: error`.
 
 | Event Name | Trigger | File |
 |---|---|---|
@@ -92,10 +108,27 @@ User runs operation (e.g. run_simulation)
 | `flex_search` | `run_flex_search()` | `tit/opt/flex/flex.py` |
 | `ex_search` | `run_ex_search()` | `tit/opt/ex/ex.py` |
 | `analysis` | `Analyzer.analyze_sphere()` / `.analyze_cortex()` | `tit/analyzer/analyzer.py` |
-| `gui_launch` | GUI `MainWindow.__init__` | `tit/gui/main.py` |
+| `pre_pipeline` | `run_pipeline()` (full preprocessing) | `tit/pre/structural.py` |
+| `stats_comparison` | `run_group_comparison()` | `tit/stats/permutation.py` |
 
-Each operation sends exactly **2 events**: `{name}` with `status: start`,
-then `{name}` with `status: success` or `status: error`.
+### Feature usage events (start only, via `track_event`)
+
+These fire once when the feature is invoked. Success/failure is captured
+by the parent `track_operation` wrapper (e.g. `pre_pipeline`).
+
+| Event Name | Trigger | File |
+|---|---|---|
+| `gui_launch` | GUI `MainWindow.__init__` | `tit/gui/main.py` |
+| `group_analysis` | `run_group_analysis()` | `tit/analyzer/group.py` |
+| `pre_charm` | `run_charm()` | `tit/pre/charm.py` |
+| `pre_recon_all` | `run_recon_all()` | `tit/pre/recon_all.py` |
+| `pre_dicom` | `run_dicom_to_nifti()` | `tit/pre/dicom2nifti.py` |
+| `pre_qsiprep` | `run_qsiprep()` | `tit/pre/qsi/qsiprep.py` |
+| `pre_qsirecon` | `run_qsirecon()` | `tit/pre/qsi/qsirecon.py` |
+| `report_generate` | `BaseReportGenerator.generate()` | `tit/reporting/generators/base_generator.py` |
+| `blender_montage` | `run_montage()` | `tit/blender/montage_publication.py` |
+| `blender_regions` | `run_regions()` | `tit/blender/region_exporter.py` |
+| `blender_vectors` | `run_vectors()` | `tit/blender/vector_field_exporter.py` |
 
 ---
 
@@ -125,9 +158,58 @@ The prompt never appears again unless the config file is deleted.
 | Method | How | Takes Effect |
 |---|---|---|
 | **Environment variable** | `export TIT_NO_TELEMETRY=1` | Immediately (overrides config) |
-| **Config file** | Edit `~/.config/ti-toolbox/telemetry.json` → `"enabled": false` | Next operation |
+| **Config file** | Edit `telemetry.json` in user config dir → `"enabled": false` | Next operation |
 | **GUI toggle** | Settings (gear icon) → "Usage Statistics" | Immediately |
 | **Re-prompt** | Delete `~/.config/ti-toolbox/telemetry.json` | Next interactive session |
+
+---
+
+## User-Level Config Mount (Docker Persistence)
+
+Telemetry config must persist across **projects** (one consent for all)
+and **container restarts** (Docker is ephemeral).  This is achieved by
+mounting a host directory into the container.
+
+### How It Works
+
+```
+Host (Electron launcher)                    Docker Container
+───────────────────────────────────────────────────────────
+~/Library/Application Support/ti-toolbox/   ──mount──►  /root/.config/ti-toolbox/
+  └── telemetry.json                                      └── telemetry.json
+```
+
+### docker-compose.yml Mount
+
+```yaml
+volumes:
+  - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox
+```
+
+`TIT_USER_CONFIG` is set by the Electron launcher (`env.js`) to the
+platform-appropriate directory:
+
+| Platform | Host Path | Set By |
+|---|---|---|
+| macOS | `~/.config/ti-toolbox/` | `getUserConfigDir()` in `env.js` |
+| Linux | `~/.config/ti-toolbox/` (XDG) | `getUserConfigDir()` in `env.js` |
+| Windows | `%APPDATA%\ti-toolbox\` | `getUserConfigDir()` in `env.js` |
+
+### Python Resolution
+
+`PathManager.user_config_dir()` (static method) resolves the same
+directory from the Python side:
+
+1. Checks if `/root/.config/ti-toolbox/` exists (Docker)
+2. Falls back to platform-native path (dev/testing outside Docker)
+
+### Future Use
+
+Any user-level preference that should persist across projects can use
+this directory.  Candidates:
+- GUI window position / theme preferences
+- Default electrode net selection
+- Custom keyboard shortcuts
 
 ---
 
@@ -155,7 +237,29 @@ documentation analytics. Both properties live under one account.
 - **Stream name:** `CLI/GUI Events`
 - **Enhanced Measurement:** OFF (not applicable to MP events)
 
-### 4. Measurement Protocol API Secret
+### 4. Register Custom Dimensions
+
+GA4 event parameters must be registered as **custom dimensions** before
+they appear in reports and Looker Studio.  Without this step, the data
+is collected but invisible in the UI.
+
+In GA4: **Admin → Custom definitions → Create custom dimension**
+
+| Dimension name | Event parameter | Scope |
+|---|---|---|
+| TIT Version | `tit_version` | Event |
+| Host OS | `os_name` | Event |
+| Host OS Version | `os_version` | Event |
+| Host Architecture | `platform` | Event |
+| Status | `status` | Event |
+| Error Type | `error_type` | Event |
+| Report Type | `report_type` | Event |
+| N Subjects | `n_subjects` | Event |
+
+**Important:** After creating dimensions, existing data takes ~24h to
+backfill. New events are available immediately.
+
+### 5. Measurement Protocol API Secret
 
 - **Nickname:** `tit-usage`
 - **Value:** Embedded in `tit/constants.py`
@@ -217,6 +321,155 @@ TELEMETRY_OP_MY_EVENT = "my_event"
 
 ---
 
+## BigQuery Export (Long-Term Retention)
+
+GA4 retains processed data for a maximum of 14 months. For indefinite
+retention, all events are exported to BigQuery via the built-in GA4
+BigQuery Link.
+
+### Architecture
+
+```
+tit/telemetry.py  ──POST──►  GA4 Measurement Protocol
+                                │
+                                ├──► GA4 Realtime (seconds)
+                                ├──► GA4 Reports (24h processing, 14-month window)
+                                └──► BigQuery Export (daily batch, unlimited retention)
+                                       │
+                                       ▼
+                              Looker Studio
+                                ├── GA4 connector (last 14 months, fast)
+                                └── BigQuery connector (full history, SQL)
+```
+
+### Setup
+
+1. **GA4 Admin → BigQuery Links → Link**
+2. Select or create a GCP project (free tier is sufficient)
+3. Choose **Daily export** (batched — sufficient for our volume)
+4. Pick dataset location (US)
+5. Events start flowing automatically — no code changes required
+
+### Cost
+
+BigQuery free tier: 10 GB storage + 1 TB queries/month. At our volume
+(academic tool, dozens to low hundreds of users), this costs nothing
+and will not be exceeded for years.
+
+### Usage
+
+- **Day-to-day monitoring**: Looker Studio → GA4 data source (fast, pre-aggregated)
+- **Historical analysis / annual reports**: Looker Studio → BigQuery data source
+- **Custom queries**: BigQuery console with SQL (e.g., error rate trends over
+  multiple years, version adoption curves)
+
+---
+
+## Looker Studio Dashboard
+
+A free Looker Studio dashboard provides near-real-time visualization
+of telemetry data. Two data sources are used: the **GA4 connector** for
+recent data (fast, pre-aggregated) and the **BigQuery connector** for
+full historical queries.
+
+### Setup
+
+1. Go to [lookerstudio.google.com](https://lookerstudio.google.com)
+2. **Create → Report → Blank Report**
+3. Add data source: **Google Analytics** → select `tit-telemetry` property
+4. (Optional) Add second data source: **BigQuery** → select the exported dataset
+
+### Dashboard Layout
+
+```
+Row 1 — Scorecards
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Active Users │ │  Total Ops   │ │ Success Rate │ │  Error Rate  │
+│    (7d)      │ │   (30d)      │ │              │ │              │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+
+Row 2 — Trends + Distribution
+┌──────────────────────────────┐ ┌───────────────────┐
+│  Events Over Time (line)     │ │ Operations (donut) │
+└──────────────────────────────┘ └───────────────────┘
+
+Row 3 — Reliability + Platform
+┌──────────────────────────────┐ ┌───────────────────┐
+│  Success vs Error (stacked)  │ │ Platform Mix (pie) │
+└──────────────────────────────┘ └───────────────────┘
+
+Row 4 — Adoption + Errors
+┌──────────────────────────────┐ ┌───────────────────┐
+│  Version Adoption (bar)      │ │ Error Types (table)│
+└──────────────────────────────┘ └───────────────────┘
+
+Row 5 — Geography (full width)
+┌────────────────────────────────────────────────────┐
+│  Country Map (geo)                                  │
+└────────────────────────────────────────────────────┘
+
+Row 6 — Feature Drill-Down (full width)
+┌────────────────────────────────────────────────────┐
+│  Preprocessing & Feature Usage (horizontal bar)     │
+└────────────────────────────────────────────────────┘
+```
+
+### Panel Specifications
+
+| Panel | Chart Type | Dimension | Metric |
+|---|---|---|---|
+| Active Users (7d) | Scorecard | — | Active users |
+| Total Ops (30d) | Scorecard | — | Event count (filtered to operations) |
+| Success Rate | Scorecard | — | Calculated field (see below) |
+| Error Rate | Scorecard | — | Calculated field (see below) |
+| Events Over Time | Time series | Date | Event count |
+| Operations Breakdown | Donut chart | Event name | Event count |
+| Success vs Error | Stacked bar | Event name + Status | Event count |
+| Platform Mix | Pie chart | OS Name | Event count |
+| Version Adoption | Bar chart | TIT Version | Event count |
+| Error Types | Table | Error Type (filter: status=error) | Event count |
+| Country Map | Geo map | Country | Active users |
+| Feature Usage | Horizontal bar | Event name (filter: pre_*, blender_*, gui_*) | Event count |
+
+### Calculated Fields
+
+Success and error rate scorecards require calculated fields in Looker
+Studio (Resource → Manage added data sources → Edit → Add a field):
+
+```
+Name:    Success Rate
+Formula: SUM(CASE WHEN Status = "success" THEN 1 ELSE 0 END)
+         / SUM(CASE WHEN Status = "success" OR Status = "error" THEN 1 ELSE 0 END)
+Type:    Percent
+```
+
+```
+Name:    Error Rate
+Formula: SUM(CASE WHEN Status = "error" THEN 1 ELSE 0 END)
+         / SUM(CASE WHEN Status = "success" OR Status = "error" THEN 1 ELSE 0 END)
+Type:    Percent
+```
+
+> **Note:** The `Status` dimension comes from the custom dimension registered
+> in GA4 (parameter: `status`). It takes 24–48 hours after registration
+> before it appears in Looker Studio's field list.
+
+### Filters
+
+Useful filters for the dashboard:
+- **Exclude test events**: Event name ≠ `container_test_ping`, `test_ping`
+- **Operations only**: Event name matches `sim_|flex_|ex_|analysis|pre_|stats_|blender_|gui_`
+- **Errors only**: Status = `error`
+- **Date range**: Last 30 days (default)
+
+### Auto-Refresh
+
+**View → Auto-refresh → 15 minutes** (minimum interval).
+GA4 data has ~5-minute latency for realtime, ~24h for full processing.
+BigQuery daily export processes once per day.
+
+---
+
 ## Testing
 
 ```bash
@@ -252,4 +505,4 @@ time.sleep(3)
 | `tit/gui/main.py` | GUI consent dialog + `gui_launch` event |
 | `tit/gui/settings_menu.py` | Privacy toggle in gear menu |
 | `tests/test_telemetry.py` | 24 unit tests |
-| `~/.config/ti-toolbox/telemetry.json` | Per-install config (not in repo) |
+| User config dir `/telemetry.json` | User-level config (persists across projects + containers) |

@@ -154,8 +154,59 @@ class PathManager:
         return os.path.join(self.config_dir(), "project_status.json")
 
     def extensions_config(self) -> str:
-        """Path to the ``extensions.json`` configuration file."""
-        return os.path.join(self.config_dir(), "extensions.json")
+        """Path to the ``extensions.json`` configuration file.
+
+        Uses the user-level config directory so that extension
+        preferences persist across projects and container restarts.
+        """
+        return os.path.join(self.user_config_dir(), "extensions.json")
+
+    @staticmethod
+    def user_config_dir() -> str:
+        """Path to the user-level config directory.
+
+        Returns the directory that persists across projects and container
+        restarts.  Inside Docker this is ``/root/.config/ti-toolbox``
+        (mounted from the host by the Electron launcher).  Outside Docker
+        the platform-native config directory is used:
+
+        - **macOS**: ``~/.config/ti-toolbox``
+        - **Linux**: ``$XDG_CONFIG_HOME/ti-toolbox`` (default ``~/.config``)
+        - **Windows**: ``%APPDATA%/ti-toolbox``
+
+        The directory is created if it does not exist.
+
+        Returns
+        -------
+        str
+            Absolute path to the user config directory.
+        """
+        import platform as _platform
+        import sys as _sys
+
+        # Inside Docker the Electron launcher mounts the host config here.
+        docker_path = os.path.join("/root", ".config", "ti-toolbox")
+        if os.path.isdir(docker_path):
+            return docker_path
+
+        # Outside Docker: platform-native paths
+        system = _platform.system()
+        if system == "Darwin":
+            # Use ~/.config (NOT ~/Library/Application Support which is
+            # Electron's userData dir).  Matches env.js getUserConfigDir().
+            base = os.path.join(os.path.expanduser("~"), ".config")
+        elif system == "Windows":
+            base = os.environ.get(
+                "APPDATA", os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+            )
+        else:  # Linux / other
+            base = os.environ.get(
+                "XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")
+            )
+
+        config_dir = os.path.join(base, "ti-toolbox")
+        os.makedirs(config_dir, exist_ok=True)
+        return config_dir
 
     def reports(self) -> str:
         """Path to ``<project>/derivatives/ti-toolbox/reports/``."""

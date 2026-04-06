@@ -593,9 +593,13 @@ DEFAULT_STATISTICS = {
 # Environment variable to disable telemetry (any truthy value)
 ENV_NO_TELEMETRY = "TIT_NO_TELEMETRY"
 
-# Config directory and file (under ~/.config)
+# Config directory and file
 TELEMETRY_CONFIG_DIR = "ti-toolbox"
 TELEMETRY_CONFIG_FILE = "telemetry.json"
+
+# User-level config directory inside Docker container
+# The Electron launcher mounts the host config dir here.
+USER_CONFIG_CONTAINER_PATH = "/root/.config/ti-toolbox"
 
 # Google Analytics 4 Measurement Protocol
 # Replace these placeholders after creating your GA4 property.
@@ -608,9 +612,29 @@ GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 TELEMETRY_TIMEOUT_S = 5
 
 # Operation event names (used as GA4 event names)
+# -- Simulation --
 TELEMETRY_OP_SIM_TI = "sim_ti"
 TELEMETRY_OP_SIM_MTI = "sim_mti"
+# -- Optimization --
 TELEMETRY_OP_FLEX_SEARCH = "flex_search"
 TELEMETRY_OP_EX_SEARCH = "ex_search"
+# -- Analysis --
 TELEMETRY_OP_ANALYSIS = "analysis"
+TELEMETRY_OP_GROUP_ANALYSIS = "group_analysis"
+# -- Preprocessing --
+TELEMETRY_OP_PRE_PIPELINE = "pre_pipeline"
+TELEMETRY_OP_PRE_CHARM = "pre_charm"
+TELEMETRY_OP_PRE_RECON_ALL = "pre_recon_all"
+TELEMETRY_OP_PRE_DICOM = "pre_dicom"
+TELEMETRY_OP_PRE_QSIPREP = "pre_qsiprep"
+TELEMETRY_OP_PRE_QSIRECON = "pre_qsirecon"
+# -- Statistics --
+TELEMETRY_OP_STATS = "stats_comparison"
+# -- Reporting --
+TELEMETRY_OP_REPORT = "report_generate"
+# -- Blender / visualization --
+TELEMETRY_OP_BLENDER_MONTAGE = "blender_montage"
+TELEMETRY_OP_BLENDER_REGIONS = "blender_regions"
+TELEMETRY_OP_BLENDER_VECTORS = "blender_vectors"
+# -- GUI --
 TELEMETRY_OP_GUI_LAUNCH = "gui_launch"

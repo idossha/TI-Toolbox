@@ -77,6 +77,11 @@ def run_charm(
     run_subject_atlas : Create atlas ``.annot`` files after CHARM.
     run_recon_all : FreeSurfer cortical reconstruction.
     """
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_PRE_CHARM, {"status": "start"})
+
     pm = get_path_manager(project_dir)
 
     simnibs_subject_dir = Path(pm.sub(subject_id))

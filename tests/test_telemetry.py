@@ -70,7 +70,9 @@ class TestConfig:
         assert loaded.consent_shown is True
 
     def test_corrupt_config_returns_defaults(self):
-        path = _config_path()
+        import tit.telemetry
+
+        path = tit.telemetry._config_path()
         path.write_text("{invalid json!!")
         cfg = load_config()
         assert cfg.enabled is False
@@ -153,19 +155,26 @@ class TestSystemParams:
 
     def test_keys_present(self):
         params = _system_params()
-        expected = {
-            "tit_version",
-            "python_version",
-            "os_name",
-            "os_version",
-            "platform",
-        }
+        expected = {"tit_version", "os_name", "os_version", "platform"}
         assert set(params.keys()) == expected
+
+    def test_no_python_version(self):
+        params = _system_params()
+        assert "python_version" not in params
 
     def test_version_matches(self):
         import tit
 
         assert _system_params()["tit_version"] == tit.__version__
+
+    def test_uses_host_env_vars(self, monkeypatch):
+        monkeypatch.setenv("TIT_HOST_OS", "darwin")
+        monkeypatch.setenv("TIT_HOST_OS_VERSION", "24.6.0")
+        monkeypatch.setenv("TIT_HOST_ARCH", "arm64")
+        params = _system_params()
+        assert params["os_name"] == "darwin"
+        assert params["os_version"] == "24.6.0"
+        assert params["platform"] == "arm64"
 
 
 # ---------------------------------------------------------------------------

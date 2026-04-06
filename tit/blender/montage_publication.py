@@ -263,6 +263,10 @@ def run_montage(
     This is the shared entrypoint for CLI and GUI callers.
     """
     from tit.blender.config import MontageConfig  # noqa: F811 (deferred)
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_BLENDER_MONTAGE, {"status": "start"})
 
     subject_id = cfg.subject_id.strip()
     simulation_name = cfg.simulation_name.strip()

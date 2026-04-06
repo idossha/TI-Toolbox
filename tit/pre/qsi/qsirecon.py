@@ -86,6 +86,11 @@ def run_qsirecon(
     # Atlases are optional — not needed for DTI extraction
     # Pass through None/empty to skip connectivity workflows
 
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_PRE_QSIRECON, {"status": "start"})
+
     logger.info(
         f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
     )

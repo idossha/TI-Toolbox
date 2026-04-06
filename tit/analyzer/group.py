@@ -139,6 +139,14 @@ def run_group_analysis(
     Analyzer : Single-subject analyzer used internally per subject.
     GroupResult : Container for the returned outcomes.
     """
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(
+        _const.TELEMETRY_OP_GROUP_ANALYSIS,
+        {"status": "start", "n_subjects": str(len(subject_ids))},
+    )
+
     out = _resolve_output_dir(output_dir)
 
     # File handler so group analysis logs are persisted

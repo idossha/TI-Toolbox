@@ -138,6 +138,11 @@ def run_recon_all(
     run_charm : SimNIBS CHARM head-mesh generation.
     """
 
+    from tit.telemetry import track_event
+    from tit import constants as _const
+
+    track_event(_const.TELEMETRY_OP_PRE_RECON_ALL, {"status": "start"})
+
     pm = get_path_manager(project_dir)
 
     fs_subject_dir = Path(pm.freesurfer_subject(subject_id))

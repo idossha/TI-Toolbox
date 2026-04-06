@@ -312,6 +312,52 @@ def run_pipeline(
     run_qsirecon : QSIRecon reconstruction step.
     extract_dti_tensor : DTI tensor extraction step.
     """
+    from tit.telemetry import track_operation
+    from tit import constants as _const
+
+    with track_operation(_const.TELEMETRY_OP_PRE_PIPELINE):
+        return _run_pipeline_inner(
+            subject_ids,
+            convert_dicom=convert_dicom,
+            run_recon=run_recon,
+            parallel_recon=parallel_recon,
+            parallel_cores=parallel_cores,
+            create_m2m=create_m2m,
+            run_tissue_analysis=run_tissue_analysis,
+            run_qsiprep=run_qsiprep,
+            run_qsirecon=run_qsirecon,
+            qsiprep_config=qsiprep_config,
+            qsi_recon_config=qsi_recon_config,
+            extract_dti=extract_dti,
+            run_subcortical_segmentations=run_subcortical_segmentations,
+            debug=debug,
+            stop_event=stop_event,
+            logger_callback=logger_callback,
+            runner=runner,
+        )
+
+
+def _run_pipeline_inner(
+    subject_ids,
+    *,
+    convert_dicom=False,
+    run_recon=False,
+    parallel_recon=False,
+    parallel_cores=None,
+    create_m2m=False,
+    run_tissue_analysis=False,
+    run_qsiprep=False,
+    run_qsirecon=False,
+    qsiprep_config=None,
+    qsi_recon_config=None,
+    extract_dti=False,
+    run_subcortical_segmentations=False,
+    debug=False,
+    stop_event=None,
+    logger_callback=None,
+    runner=None,
+) -> int:
+    """Inner implementation of :func:`run_pipeline`."""
     subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
     if not subject_list:
         raise PreprocessError("No subjects provided.")

@@ -1,7 +1,9 @@
 """Extensions configuration persistence for TI-Toolbox GUI.
 
 Handles reading and writing the extensions.json file that tracks
-which GUI extensions are enabled/disabled across sessions.
+which GUI extensions are enabled/disabled across sessions.  The file
+lives in the user-level config directory (``PathManager.user_config_dir()``)
+so that preferences persist across projects and container restarts.
 """
 
 import json
@@ -15,7 +17,7 @@ def get_extensions_config_path(config_dir: Path) -> Path:
     """Return the path to the extensions configuration file.
 
     Args:
-        config_dir: The project config directory (from PathManager.config_dir()).
+        config_dir: The user-level config directory (from PathManager.user_config_dir()).
     """
     return Path(config_dir) / "extensions.json"
 

@@ -18,6 +18,7 @@ services:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox    # User-level config (telemetry, prefs)
       - ${DEV_CODEBASE_DIR}:/ti-toolbox
       - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
     environment:
@@ -33,6 +34,9 @@ services:
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
       TZ: ${TZ}
+      TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
+      TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
+      TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "dev"
     ports:

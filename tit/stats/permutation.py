@@ -103,6 +103,15 @@ def run_group_comparison(
         KeyboardInterrupt: If ``stop_callback`` returns ``True`` during
             execution.
     """
+    from tit.telemetry import track_operation
+    from tit import constants as _const
+
+    with track_operation(_const.TELEMETRY_OP_STATS):
+        return _run_group_comparison_inner(config, callback_handler, stop_callback)
+
+
+def _run_group_comparison_inner(config, callback_handler=None, stop_callback=None):
+    """Inner implementation of :func:`run_group_comparison`."""
     t0 = time.time()
     output_dir = _resolve_output_dir(
         "group_comparison",
