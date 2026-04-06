@@ -18,7 +18,15 @@ from .results import process_and_save
 
 def run_ex_search(config: ExConfig) -> ExResult:
     """Run exhaustive search from a typed config object."""
+    from tit.telemetry import track_operation
+    from tit import constants as const
 
+    with track_operation(const.TELEMETRY_OP_EX_SEARCH):
+        return _run_ex_search_inner(config)
+
+
+def _run_ex_search_inner(config: ExConfig) -> ExResult:
+    """Inner implementation of :func:`run_ex_search` (unwrapped)."""
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)

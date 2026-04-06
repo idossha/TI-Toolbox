@@ -83,7 +83,29 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         acknowledgments_action = self.menu.addAction("Acknowledgments")
         acknowledgments_action.triggered.connect(self.open_acknowledgments)
 
+        self.menu.addSeparator()
+
+        self.privacy_action = self.menu.addAction(self._privacy_label())
+        self.privacy_action.triggered.connect(self.toggle_privacy)
+
         self.setMenu(self.menu)
+
+    # ── Privacy / telemetry toggle ──────────────────────────────────
+
+    @staticmethod
+    def _privacy_label() -> str:
+        """Return the menu label reflecting the current telemetry state."""
+        from tit.telemetry import is_enabled
+
+        state = "✓ Enabled" if is_enabled() else "✗ Disabled"
+        return f"Usage Statistics: {state}"
+
+    def toggle_privacy(self):
+        """Flip telemetry on/off and update the menu label."""
+        from tit.telemetry import is_enabled, set_enabled
+
+        set_enabled(not is_enabled())
+        self.privacy_action.setText(self._privacy_label())
 
     def open_help(self):
         from tit.gui.help_tab import HelpTab

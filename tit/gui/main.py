@@ -119,6 +119,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.load_saved_extensions()
         self.center_on_screen()
 
+        # First-run telemetry consent (non-blocking dialog),
+        # then record a gui_launch event.
+        from tit.telemetry import consent_prompt_gui, track_event
+        from tit import constants as const
+
+        consent_prompt_gui(self)
+        track_event(const.TELEMETRY_OP_GUI_LAUNCH)
+
     def setup_ui(self):
         """Set up the user interface."""
         self.central_widget = QtWidgets.QWidget()

@@ -725,6 +725,22 @@ def run_simulation(
     TISimulation : Concrete class for 2-pair simulations.
     mTISimulation : Concrete class for N-pair simulations.
     """
+    # Determine dominant simulation type for telemetry
+    from tit.telemetry import track_operation
+
+    has_mti = any(m.simulation_mode == SimulationMode.MTI for m in config.montages)
+    _tel_op = const.TELEMETRY_OP_SIM_MTI if has_mti else const.TELEMETRY_OP_SIM_TI
+
+    with track_operation(_tel_op):
+        return _run_simulation_inner(config, logger, progress_callback)
+
+
+def _run_simulation_inner(
+    config: SimulationConfig,
+    logger,
+    progress_callback: Callable[[int, int, str], None] | None,
+) -> list[dict]:
+    """Inner implementation of :func:`run_simulation` (unwrapped)."""
     if logger is None:
         pm = get_path_manager()
         log_dir = pm.logs(config.subject_id)

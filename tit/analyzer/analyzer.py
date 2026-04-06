@@ -280,8 +280,12 @@ class Analyzer:
         --------
         analyze_cortex : Atlas-based cortical ROI analysis.
         """
-        dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-        return dispatch[self.space](center, radius, coordinate_space, visualize)
+        from tit.telemetry import track_operation
+        from tit import constants as const
+
+        with track_operation(const.TELEMETRY_OP_ANALYSIS):
+            dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
+            return dispatch[self.space](center, radius, coordinate_space, visualize)
 
     def analyze_cortex(
         self,
@@ -321,8 +325,12 @@ class Analyzer:
         --------
         analyze_sphere : Spherical ROI analysis.
         """
-        dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
-        return dispatch[self.space](atlas, region, visualize)
+        from tit.telemetry import track_operation
+        from tit import constants as const
+
+        with track_operation(const.TELEMETRY_OP_ANALYSIS):
+            dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
+            return dispatch[self.space](atlas, region, visualize)
 
     # ------------------------------------------------------------------
     # Mesh: spherical

@@ -57,7 +57,15 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     FlexResult : Result container with per-restart function values.
     tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.
     """
+    from tit.telemetry import track_operation
+    from tit import constants as const
 
+    with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
+        return _run_flex_search_inner(config)
+
+
+def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
+    """Inner implementation of :func:`run_flex_search` (unwrapped)."""
     from .manifest import write_manifest
     from .utils import generate_label, generate_run_dirname
 

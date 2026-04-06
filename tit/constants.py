@@ -45,6 +45,8 @@ Validation Bounds
 Default Parameters
     ``DEFAULT_ELECTRODE``, ``DEFAULT_OPTIMIZATION``,
     ``DEFAULT_STATISTICS`` dictionaries.
+Telemetry Constants
+    GA4 Measurement Protocol settings and operation event names.
 
 See Also
 --------
@@ -583,3 +585,32 @@ DEFAULT_STATISTICS = {
     "alpha": 0.05,
     "cluster_threshold": 0.05,
 }
+
+# ============================================================================
+# TELEMETRY CONSTANTS
+# ============================================================================
+
+# Environment variable to disable telemetry (any truthy value)
+ENV_NO_TELEMETRY = "TIT_NO_TELEMETRY"
+
+# Config directory and file (under ~/.config)
+TELEMETRY_CONFIG_DIR = "ti-toolbox"
+TELEMETRY_CONFIG_FILE = "telemetry.json"
+
+# Google Analytics 4 Measurement Protocol
+# Replace these placeholders after creating your GA4 property.
+# See: https://developers.google.com/analytics/devguides/collection/protocol/ga4
+GA4_MEASUREMENT_ID = "G-2GGJF2D8C7"
+GA4_API_SECRET = "6ZFk0B3STC-t3ZJsZmTPbg"
+GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+
+# Telemetry HTTP timeout (seconds) — keep short so it never blocks
+TELEMETRY_TIMEOUT_S = 5
+
+# Operation event names (used as GA4 event names)
+TELEMETRY_OP_SIM_TI = "sim_ti"
+TELEMETRY_OP_SIM_MTI = "sim_mti"
+TELEMETRY_OP_FLEX_SEARCH = "flex_search"
+TELEMETRY_OP_EX_SEARCH = "ex_search"
+TELEMETRY_OP_ANALYSIS = "analysis"
+TELEMETRY_OP_GUI_LAUNCH = "gui_launch"
