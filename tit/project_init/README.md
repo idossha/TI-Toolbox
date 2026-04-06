@@ -1,99 +1,135 @@
-# Project Initialization
+# Project Initialization (`tit/project_init/`)
 
-This directory contains files and configurations that are used when initializing a new TI-Toolbox project. It serves as a template and initialization system for new projects.
+This package handles new-project scaffolding, the first-time user experience,
+and example-data setup for TI-Toolbox.
 
-## Contents
+## Modules
 
-### First Time User Experience
-`first_time_user.py`:
-- Manages the first-time user experience in the TI-Toolbox GUI
-- Shows a welcome message to new users
-- Tracks whether the user has seen the welcome message
-- Integrates with example data setup for new projects
-- Uses the project status system to maintain user preferences
+| Module | Responsibility |
+|--------|----------------|
+| `initializer.py` | BIDS directory scaffolding, metadata files, and **single source of truth** for `project_status.json` |
+| `first_time_user.py` | Thin GUI layer — reads status and shows the welcome dialog (never writes the status file) |
+| `example_data_manager.py` | Copies bundled example subjects (ernie, MNI152) into a new project |
 
-### Example Data Manager
-`example_data_manager.py`:
-- Automatically copies example data (ernie and MNI152 subjects) to new projects
-- Only runs for brand new projects (no existing subject directories)
-- Creates BIDS-compliant directory structure
-- Tracks example data status in project metadata
-- Can be run standalone or integrated with the GUI startup
+## Ownership of `project_status.json`
 
-## How It Works
+All reads and writes to `project_status.json` go through two functions in
+`initializer.py`:
 
-1. When a new project is created:
-   - The loader (`loader.py`) checks if the project is new
-   - Creates a project status file (`code/ti-toolbox/config/project_status.json`) with initial flags
-   - Initializes BIDS directory structure
-   - Creates dataset_description.json and README files
-   - Calls `example_data_manager.py` to copy example data if applicable
+```
+load_project_status(project_dir)   → dict  (returns {} if file missing; never writes)
+update_project_status(project_dir, updates) → bool  (read → deep-merge → write)
+```
 
-2. When the GUI starts:
-   - Checks the project status file for the `show_welcome` flag
-   - If true, shows the welcome message to new users
-   - Checks if example data needs to be copied (for projects created outside the loader)
-   - Allows users to opt out of seeing the message again
-   - Updates the project status file accordingly
+The file is **created once** by `initialize_project_status()`, which is called
+inside `initialize_project_structure()`. It is idempotent — if the file
+already exists it is left untouched.
 
-## Project Status File
+No other module creates or overwrites this file.
 
-The project status file (`code/ti-toolbox/config/project_status.json`) contains:
+## Lifecycle
+
+### 1. Project creation (host → container)
+
+The host-side `loader.py` starts the Docker container and runs an inline
+Python snippet:
+
+```
+loader.py
+  └─ run_project_init_in_container()
+       ├─ is_new_project(project_dir)          # checks for markers / data
+       │    └─ True → initialize_project_structure(project_dir)
+       │         ├─ creates BIDS directories
+       │         ├─ writes README, dataset_description.json (per derivative)
+       │         ├─ initialize_project_status()   ← CREATES project_status.json
+       │         └─ touches .initialized marker
+       └─ setup_example_data(toolbox_root, project_dir)
+            └─ ExampleDataManager.copy_example_data()
+                 ├─ checks is_new_project() (subjects exist? status flag?)
+                 ├─ copies NIfTI files into sub-ernie/, sub-MNI152/
+                 └─ update_project_status(…, {example_data_copied: True})
+```
+
+### 2. GUI startup (inside container)
+
+```
+gui/main.py
+  └─ QTimer(500ms) → assess_user_status(window)      # first_time_user.py
+       ├─ load_project_status(project_dir)            # read-only
+       ├─ check show_welcome flag
+       │    └─ True  → show_welcome_message()
+       │    └─ False → return (no-op)
+       └─ if user checks "Don't show again":
+            └─ update_project_status(…, {user_preferences: {show_welcome: False}})
+```
+
+Key invariant: the GUI **never creates** `project_status.json`. If the file
+is missing (e.g. manual deletion), the user is treated as new and the
+welcome dialog is shown, but nothing is written to disk.
+
+## `project_status.json` Schema
+
 ```json
 {
-  "project_created": "2024-01-01T12:00:00.000000",
-  "last_updated": "2024-01-01T12:00:00.000000",
+  "project_created": "2025-01-15T10:30:00",
+  "last_updated": "2025-01-15T10:31:00",
   "config_created": true,
-  "example_data_copied": false,
+  "example_data_copied": true,
+  "example_data_timestamp": "2025-01-15T10:30:05+00:00",
+  "example_subjects": ["sub-ernie", "sub-MNI152"],
   "user_preferences": {
-    "show_welcome": true
+    "show_welcome": false
   },
   "project_metadata": {
     "name": "my_project",
-    "path": "/path/to/my_project",
-    "version": "2.1.3"
-  },
-  "example_subjects": ["sub-ernie", "sub-MNI152"],
-  "example_data_timestamp": "2024-01-01T12:00:00.000000"
+    "path": "/mnt/my_project",
+    "version": "unknown"
+  }
 }
 ```
 
 ## BIDS Directory Structure
 
-The initialization creates the following BIDS-compliant structure:
+`initialize_project_structure()` creates:
+
 ```
 project/
-├── sourcedata/                          # Raw DICOM files (user-provided)
-├── sub-{subject}/                       # Subject-level data (BIDS format)
-│   └── anat/                           # Anatomical images
-├── derivatives/                         # Processed data
-│   ├── ti-toolbox/                     # TI-Toolbox outputs
-│   ├── SimNIBS/                        # SimNIBS outputs
-│   └── freesurfer/                     # FreeSurfer outputs
-├── code/                                # Code and configurations
-│   └── ti-toolbox/
-│       └── config/
-│           └── project_status.json     # Project status tracking
-├── dataset_description.json             # BIDS dataset description
-└── README                               # BIDS README file
+├── README
+├── dataset_description.json
+├── sourcedata/
+├── derivatives/
+│   ├── ti-toolbox/
+│   │   └── dataset_description.json
+│   ├── SimNIBS/
+│   │   └── dataset_description.json
+│   └── freesurfer/
+│       └── dataset_description.json
+└── code/ti-toolbox/config/
+    ├── .initialized
+    └── project_status.json
 ```
 
 ## Example Data
 
-For new projects, the following example data is automatically copied:
-- **sub-ernie**: SimNIBS example subject with T1w and T2w anatomical scans
-- **sub-MNI152**: Standard MNI152 template for reference
+For new projects, these subjects are copied automatically:
 
-Example data is only copied if:
-- No subject directories exist in the project
-- The project status doesn't indicate example data was already copied
-- No user data is present in sourcedata/
+| Subject | Files |
+|---------|-------|
+| `sub-ernie` | `sub-ernie_T1w.nii.gz`, `sub-ernie_T2w.nii.gz` |
+| `sub-MNI152` | `sub-MNI152_T1w.nii.gz` |
 
-## Adding New Features
+Example data is only copied when:
+- No `sub-*` directories exist
+- `example_data_copied` is not `true` in the status file
+- No user NIfTI files or DICOM data are present
 
-To add new features to the project initialization:
-1. Add new configuration files to `configs/`
-2. Update the loader to handle new files
-3. Add new flags to the project status file if needed
-4. Update the `example_data_manager.py` if new example data is added
-5. Update this documentation
+## Design Principles
+
+1. **Create once** — `project_status.json` is written by one function,
+   one time, during scaffolding.
+2. **Read-or-default** — `load_project_status()` returns `{}` when the file
+   is missing; callers handle the empty case gracefully.
+3. **Merge-on-write** — `update_project_status()` deep-merges updates so
+   nested keys (e.g. `user_preferences.show_welcome`) don't clobber siblings.
+4. **GUI is read-only** — `first_time_user.py` reads status and updates
+   preferences but never creates the file from scratch.

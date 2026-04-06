@@ -1,160 +1,66 @@
 """First-time user experience for the TI-Toolbox GUI.
 
-Manages project status persistence (``project_status.json``), welcome
-messages, and example-data setup for new projects.
+Thin GUI layer that reads project status and shows the welcome dialog.
+All status persistence is delegated to :mod:`tit.project_init.initializer`.
+This module **never** creates or recreates ``project_status.json``.
 """
+
+import logging
+from pathlib import Path
 
 from PyQt5 import QtWidgets, QtCore
 
-import json
-import logging
-import os
-import os.path
-from datetime import datetime
-
-from tit import __version__
 from tit.paths import get_path_manager
+from .initializer import load_project_status, update_project_status
 
-# Set up logging
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-logger.setLevel(logging.INFO)
-logger.propagate = False  # Prevent propagation to root logger
 
 
-def get_status_file_path():
+def _resolve_project_dir() -> Path | None:
+    """Return the project root from the active :class:`PathManager`.
+
+    Returns ``None`` when the PathManager is not initialised.
     """
-    Get the path to the status file in the project directory.
-    The file will be stored in /mnt/PROJECT_DIR_NAME/code/ti-toolbox/config/project_status.json
-    """
-    pm = get_path_manager()
-    return pm.project_status()
-
-
-def initialize_project_status(project_dir):
-    """
-    Initialize the project status file with default values.
-    This is called when a new project is created or when the status file is missing.
-    Creates the BIDS-compliant directory structure and initializes project tracking.
-    """
-    pm = get_path_manager(project_dir)
-
-    status_file = pm.project_status()
-    info_dir = pm.config_dir()
-
-    # Create info directory if it doesn't exist
-    pm.ensure(pm.config_dir())
-
-    # Ensure core BIDS directories exist
-    core_dirs = [
-        pm.ensure(pm.sourcedata()),
-        pm.ensure(pm.ti_toolbox()),
-        pm.ensure(pm.simnibs()),
-        pm.ensure(pm.freesurfer()),
-        pm.ensure(pm.config_dir()),
-    ]
-
-    # Default status data
-    status_data = {
-        "project_created": datetime.now().isoformat(),
-        "last_updated": datetime.now().isoformat(),
-        "config_created": False,
-        "example_data_copied": False,
-        "user_preferences": {"show_welcome": True},
-        "project_metadata": {
-            "name": os.path.basename(project_dir),
-            "path": project_dir,
-            "version": __version__,
-        },
-    }
-
-    # Write initial status file
     try:
-        with open(status_file, "w") as f:
-            json.dump(status_data, f, indent=2)
-        logger.info(f"Initialized project status file at {status_file}")
-        return status_data
-    except Exception as e:
-        logger.error(f"Failed to initialize project status file: {e}")
+        pm = get_path_manager()
+        return Path(pm._root())
+    except Exception:
+        logger.warning("PathManager not initialised — cannot resolve project dir")
         return None
 
 
-def get_project_status():
+def check_first_time_user() -> bool:
+    """Return ``True`` when the welcome dialog should be shown.
+
+    Reads ``show_welcome`` from the persisted status.  If the status file
+    is missing the user is treated as *new* (returns ``True``) but no file
+    is created on disk.
     """
-    Get the current project status, initializing if necessary.
-    Returns the status data dictionary or None if initialization fails.
-    """
-    pm = get_path_manager()
-    status_file = pm.project_status()
-
-    if not status_file or not os.path.exists(status_file):
-        project_dir = os.environ.get("PROJECT_DIR", "")
-        return initialize_project_status(project_dir)
-
-    try:
-        with open(status_file, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Failed to read project status file: {e}")
-        return initialize_project_status(project_dir)
-
-
-def update_project_status(updates):
-    """
-    Update specific fields in the project status file.
-    Args:
-        updates (dict): Dictionary containing the fields to update
-    Returns:
-        bool: True if update was successful, False otherwise
-    """
-    pm = get_path_manager()
-    status_file = pm.project_status()
-    current_status = get_project_status()
-
-    if not current_status:
-        logger.error("Failed to get current project status")
-        return False
-
-    # Update the status data
-    current_status.update(updates)
-    current_status["last_updated"] = datetime.now().isoformat()
-
-    try:
-        with open(status_file, "w") as f:
-            json.dump(current_status, f, indent=2)
-        logger.info(f"Updated project status file at {status_file}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to update project status file: {e}")
-        return False
-
-
-def check_first_time_user(project_dir):
-    """
-    Check if this is the first time the user is running the GUI.
-    Returns True if it's the first time, False otherwise.
-    """
-    status_data = get_project_status()
-    if not status_data:
+    project_dir = _resolve_project_dir()
+    if project_dir is None:
         return True
 
-    return status_data.get("user_preferences", {}).get("show_welcome", True)
+    status = load_project_status(project_dir)
+    if not status:
+        # File missing — treat as first-time but don't create anything.
+        return True
+
+    return status.get("user_preferences", {}).get("show_welcome", True)
 
 
-def mark_user_as_experienced(project_dir):
-    """
-    Mark the user as experienced by updating the show_welcome preference.
-    This is called when the user checks "Don't show this message again".
-    """
-    updates = {"user_preferences": {"show_welcome": False}}
-    return update_project_status(updates)
+def mark_user_as_experienced() -> bool:
+    """Persist ``show_welcome = False`` so the dialog is not shown again."""
+    project_dir = _resolve_project_dir()
+    if project_dir is None:
+        return False
+
+    return update_project_status(
+        project_dir, {"user_preferences": {"show_welcome": False}}
+    )
 
 
-def show_welcome_message(parent=None):
-    """
-    Show a welcome message to first-time users using PyQt5.
-    The message includes a checkbox to prevent showing it again.
-    """
+def show_welcome_message(parent: QtWidgets.QWidget | None = None) -> None:
+    """Show a welcome dialog with a *Don't show again* checkbox."""
     try:
         msg_box = QtWidgets.QMessageBox(parent)
         msg_box.setWindowTitle("Welcome to TI-Toolbox")
@@ -183,11 +89,9 @@ Feel free to explore the interface and check the documentation for more details.
         msg_box.setText(message)
         msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok)
 
-        # Create and set the checkbox
         checkbox = QtWidgets.QCheckBox("Don't show this message again")
         msg_box.setCheckBox(checkbox)
 
-        # Center the dialog relative to the parent window
         if parent and parent.isVisible():
             main_rect = parent.geometry()
             dialog_size = msg_box.sizeHint()
@@ -195,98 +99,38 @@ Feel free to explore the interface and check the documentation for more details.
             y = main_rect.y() + (main_rect.height() - dialog_size.height()) // 2
             msg_box.move(x, y)
 
-        # Show the message box
         msg_box.exec_()
 
-        # If checkbox is checked, mark user as experienced
         if checkbox.isChecked():
-            project_dir = os.environ.get("PROJECT_DIR", "")
-            if project_dir:
-                mark_user_as_experienced(project_dir)
+            mark_user_as_experienced()
 
-    except Exception as e:
-        logger.error(f"Error showing welcome message: {e}")
+    except Exception as exc:
+        logger.error("Error showing welcome message: %s", exc)
 
 
-def setup_project_example_data():
-    """
-    Set up example data for a new project if applicable.
-    This function integrates with the example_data_manager module.
-    """
-    try:
-        project_dir = os.environ.get("PROJECT_DIR", "")
-        if not project_dir:
-            logger.warning(
-                "PROJECT_DIR environment variable not set, skipping example data setup"
-            )
-            return False
+def assess_user_status(parent: QtWidgets.QWidget | None = None) -> None:
+    """Entry point called on GUI startup (after a short delay).
 
-        # Get the toolbox root directory
-        toolbox_root = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-
-        # Import and use the example data manager
-        try:
-            from . import example_data_manager
-
-            success, subjects = example_data_manager.setup_example_data(
-                toolbox_root, project_dir
-            )
-
-            if success and subjects:
-                logger.info(
-                    f"Successfully set up example data with subjects: {', '.join(subjects)}"
-                )
-                return True
-            else:
-                logger.info("Example data setup skipped or failed")
-                return False
-
-        except ImportError as e:
-            logger.warning(f"Could not import example_data_manager: {e}")
-            return False
-
-    except Exception as e:
-        logger.error(f"Error setting up example data: {e}")
-        return False
-
-
-def assess_user_status(parent=None):
-    """
-    Main function to assess user status and show welcome message if needed.
-    This is called when the GUI starts up.
-    Also handles example data setup for new projects.
+    Shows the welcome dialog when ``show_welcome`` is ``True`` (or the
+    status file is absent).  Never creates or recreates the status file.
     """
     try:
-        project_dir = os.environ.get("PROJECT_DIR", "")
-        if not project_dir:
-            logger.warning("PROJECT_DIR environment variable not set")
+        if not check_first_time_user():
             return
 
-        # Get or initialize project status
-        status = get_project_status()
+        # Ensure we run in the main (GUI) thread.
+        app = QtWidgets.QApplication.instance()
+        if app is None:
+            return
 
-        # Check if this is a completely new project (no example data copied yet)
-        if status and not status.get("example_data_copied", False):
-            logger.info("New project detected, attempting to set up example data...")
-            setup_project_example_data()
-
-        # Show welcome message if this is the first time
-        if check_first_time_user(project_dir):
-            # Ensure we're in the main thread
-            if (
-                QtCore.QThread.currentThread()
-                == QtWidgets.QApplication.instance().thread()
-            ):
-                show_welcome_message(parent)
-            else:
-                # If we're not in the main thread, use invokeMethod to show the message
-                QtCore.QMetaObject.invokeMethod(
-                    QtWidgets.QApplication.instance(),
-                    "show_welcome_message",
-                    QtCore.Qt.QueuedConnection,
-                    QtCore.Q_ARG(QtWidgets.QWidget, parent),
-                )
-    except Exception as e:
-        logger.error(f"Error in assess_user_status: {e}")
+        if QtCore.QThread.currentThread() == app.thread():
+            show_welcome_message(parent)
+        else:
+            QtCore.QMetaObject.invokeMethod(
+                app,
+                "show_welcome_message",
+                QtCore.Qt.QueuedConnection,
+                QtCore.Q_ARG(QtWidgets.QWidget, parent),
+            )
+    except Exception as exc:
+        logger.error("Error in assess_user_status: %s", exc)

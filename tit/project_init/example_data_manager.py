@@ -83,8 +83,7 @@ class ExampleDataManager:
         return True
 
     def is_new_project(self) -> bool:
-        """
-        Determine if this is a new project that should receive example data.
+        """Determine if this is a new project that should receive example data.
 
         A project is considered new if:
         1. No subject directories exist yet
@@ -94,6 +93,8 @@ class ExampleDataManager:
         Returns:
             True if this is a new project, False otherwise
         """
+        from .initializer import load_project_status
+
         # Check for existing subject directories
         subject_dirs = list(self.project_dir.glob("sub-*"))
         if subject_dirs:
@@ -102,25 +103,11 @@ class ExampleDataManager:
             )
             return False
 
-        # Check project status file if it exists to see if example data was already copied
-        pm = get_path_manager(str(self.project_dir))
-        status_file = Path(pm.project_status())
-        if status_file.exists():
-            try:
-                import json
-
-                with open(status_file, "r") as f:
-                    status_data = json.load(f)
-
-                # Check if example data was already copied
-                if status_data.get("example_data_copied", False):
-                    logger.info(
-                        "Example data already copied according to project status"
-                    )
-                    return False
-
-            except Exception as e:
-                logger.warning(f"Could not read project status file: {e}")
+        # Check project status to see if example data was already copied
+        status = load_project_status(self.project_dir)
+        if status.get("example_data_copied", False):
+            logger.info("Example data already copied according to project status")
+            return False
 
         # Check for any user-created NIfTI files in the project root
         user_nifti_files = list(self.project_dir.glob("*.nii.gz"))
@@ -263,54 +250,28 @@ class ExampleDataManager:
         return success, copied_subjects
 
     def _update_project_status(self, copied_subjects: list[str]) -> None:
-        """
-        Update the project status file to indicate example data was copied.
+        """Update the project status to record that example data was copied.
 
         Args:
-            copied_subjects: List of subject IDs that were copied
+            copied_subjects: List of subject IDs that were copied.
         """
-        try:
-            import json
-            from datetime import datetime
+        from datetime import datetime, timezone
+        from .initializer import update_project_status
 
-            # Create the status directory if it doesn't exist
-            pm = get_path_manager(str(self.project_dir))
-            status_dir = Path(pm.ensure(pm.config_dir()))
-            status_dir.mkdir(parents=True, exist_ok=True)
-
-            status_file = status_dir / "project_status.json"
-
-            # Load existing status or create new one
-            if status_file.exists():
-                with open(status_file, "r") as f:
-                    status_data = json.load(f)
-            else:
-                status_data = {
-                    "project_created": datetime.now().isoformat(),
-                    "last_updated": datetime.now().isoformat(),
-                    "config_created": False,
-                    "user_preferences": {"show_welcome": True},
-                    "project_metadata": {
-                        "name": self.project_dir.name,
-                        "path": str(self.project_dir),
-                        "version": "unknown",
-                    },
-                }
-
-            # Update with example data information
-            status_data["example_data_copied"] = True
-            status_data["example_data_timestamp"] = datetime.now().isoformat()
-            status_data["example_subjects"] = copied_subjects
-            status_data["last_updated"] = datetime.now().isoformat()
-
-            # Write updated status
-            with open(status_file, "w") as f:
-                json.dump(status_data, f, indent=2)
-
-            logger.info(f"Updated project status with example data information")
-
-        except Exception as e:
-            logger.error(f"Failed to update project status: {e}")
+        success = update_project_status(
+            self.project_dir,
+            {
+                "example_data_copied": True,
+                "example_data_timestamp": datetime.now(timezone.utc).isoformat(),
+                "example_subjects": copied_subjects,
+            },
+        )
+        if success:
+            logger.info("Updated project status with example data information")
+        else:
+            logger.warning(
+                "Could not update project_status.json — file may not exist yet"
+            )
 
     def create_bids_dataset_description(self) -> None:
         """

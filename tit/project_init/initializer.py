@@ -2,14 +2,21 @@
 
 Creates directory scaffolding, dataset description files, README, and
 project status metadata for a new TI-Toolbox project.
+
+This module is the **single source of truth** for ``project_status.json``.
+All other modules must use :func:`load_project_status` and
+:func:`update_project_status` rather than reading/writing the file directly.
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from . import example_data_manager
+
+logger = logging.getLogger(__name__)
 
 MARKER_FILES = (
     "code/ti-toolbox/config/.initialized",
@@ -172,10 +179,96 @@ def initialize_derivative_dataset_description(
     dataset_file.write_text(json.dumps(payload, indent=2))
 
 
+def _status_file_path(project_dir: Path) -> Path:
+    """Return the canonical path to ``project_status.json``."""
+    return project_dir / "code" / "ti-toolbox" / "config" / "project_status.json"
+
+
+def _deep_merge(base: dict, updates: dict) -> dict:
+    """Recursively merge *updates* into *base* (mutates *base*)."""
+    for key, value in updates.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def load_project_status(project_dir: Path) -> dict[str, Any]:
+    """Read ``project_status.json`` and return its contents.
+
+    Returns an **empty dict** when the file is missing or unreadable.
+    This function never writes to disk.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+    """
+    status_file = _status_file_path(project_dir)
+    if not status_file.exists():
+        return {}
+    try:
+        return json.loads(status_file.read_text())
+    except Exception as exc:
+        logger.warning("Could not read %s: %s", status_file, exc)
+        return {}
+
+
+def update_project_status(project_dir: Path, updates: dict[str, Any]) -> bool:
+    """Merge *updates* into ``project_status.json`` and write back.
+
+    Performs a recursive (deep) merge so that nested keys such as
+    ``user_preferences.show_welcome`` can be updated without clobbering
+    sibling keys.  Automatically sets ``last_updated``.
+
+    If the file does not yet exist a warning is logged and the function
+    returns ``False`` — the file should have been created by
+    :func:`initialize_project_status`.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+    updates : dict
+        Fields to merge into the existing status.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
+    status_file = _status_file_path(project_dir)
+    current = load_project_status(project_dir)
+    if not current:
+        logger.warning(
+            "project_status.json does not exist at %s — skipping update",
+            status_file,
+        )
+        return False
+
+    _deep_merge(current, updates)
+    current["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    try:
+        status_file.write_text(json.dumps(current, indent=2))
+        return True
+    except Exception as exc:
+        logger.error("Failed to write %s: %s", status_file, exc)
+        return False
+
+
 def initialize_project_status(project_dir: Path) -> None:
-    """Create the ``project_status.json`` tracking file."""
+    """Create ``project_status.json`` **only if it does not already exist**.
+
+    This is the sole place in the codebase that creates the file.
+    Subsequent mutations must go through :func:`update_project_status`.
+    """
     config_dir = project_dir / "code" / "ti-toolbox" / "config"
-    status_file = config_dir / "project_status.json"
+    status_file = _status_file_path(project_dir)
+    if status_file.exists():
+        logger.debug("project_status.json already exists — skipping creation")
+        return
     config_dir.mkdir(parents=True, exist_ok=True)
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     payload = {
