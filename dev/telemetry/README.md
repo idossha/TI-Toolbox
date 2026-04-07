@@ -51,6 +51,21 @@ User runs operation (e.g. run_simulation)
      └─ Failure: silently dropped (timeout, DNS, firewall)
 ```
 
+### End-to-End Pipeline
+
+```
+tit/telemetry.py  ──POST──►  GA4 Measurement Protocol
+                                │
+                                ├──► GA4 Realtime (seconds)
+                                ├──► GA4 Reports (24h processing, 14-month window)
+                                └──► BigQuery Export (daily batch, unlimited retention)
+                                       │
+                                       ▼
+                              Looker Studio
+                                ├── GA4 connector (last 14 months, fast)
+                                └── BigQuery connector (full history, SQL)
+```
+
 ### Key Design Decisions
 
 | Decision | Rationale |
@@ -61,6 +76,7 @@ User runs operation (e.g. run_simulation)
 | **Silent failure** | Telemetry must never crash or delay operations |
 | **Per-install UUID** (not per-user) | Counts installs, not people |
 | **No tracebacks** | Only exception class name on error |
+| **GA4 → BigQuery → Looker Studio** | All-Google stack: one auth, zero glue, zero cost at our scale |
 
 ---
 
@@ -132,6 +148,34 @@ by the parent `track_operation` wrapper (e.g. `pre_pipeline`).
 
 ---
 
+## Adding a New Tracked Event
+
+To instrument a new operation:
+
+```python
+# In your module:
+from tit.telemetry import track_operation
+
+def my_new_function(config):
+    with track_operation("my_event_name"):
+        # ... existing logic ...
+```
+
+Or for a one-shot event (no start/success/error):
+
+```python
+from tit.telemetry import track_event
+track_event("my_event", {"custom_param": "value"})
+```
+
+Then add the event name constant to `tit/constants.py`:
+
+```python
+TELEMETRY_OP_MY_EVENT = "my_event"
+```
+
+---
+
 ## Consent Flow
 
 ### First Run — CLI
@@ -167,7 +211,7 @@ The prompt never appears again unless the config file is deleted.
 ## User-Level Config Mount (Docker Persistence)
 
 Telemetry config must persist across **projects** (one consent for all)
-and **container restarts** (Docker is ephemeral).  This is achieved by
+and **container restarts** (Docker is ephemeral). This is achieved by
 mounting a host directory into the container.
 
 ### How It Works
@@ -175,7 +219,7 @@ mounting a host directory into the container.
 ```
 Host (Electron launcher)                    Docker Container
 ───────────────────────────────────────────────────────────
-~/Library/Application Support/ti-toolbox/   ──mount──►  /root/.config/ti-toolbox/
+~/.config/ti-toolbox/                       ──mount──►  /root/.config/ti-toolbox/
   └── telemetry.json                                      └── telemetry.json
 ```
 
@@ -206,111 +250,16 @@ directory from the Python side:
 ### Future Use
 
 Any user-level preference that should persist across projects can use
-this directory.  Candidates:
+this directory. Candidates:
 - GUI window position / theme preferences
 - Default electrode net selection
 - Custom keyboard shortcuts
 
 ---
 
-## GA4 Property Setup
+## Viewing Data
 
-This section documents how the GA4 property was created (for future
-reference or if the property needs to be recreated).
-
-### 1. Account
-
-Used the existing Google Analytics account that hosts the TI-Toolbox
-documentation analytics. Both properties live under one account.
-
-### 2. Property
-
-- **Property name:** `tit-telemetry`
-- **Timezone/currency:** default
-- **Separate from docs property** — CLI/GUI events don't mix with
-  web page views.
-
-### 3. Data Stream
-
-- **Type:** Web (required by GA4, even for non-web use)
-- **Website URL:** `https://github.com/idossha/TI-toolbox` (label only)
-- **Stream name:** `CLI/GUI Events`
-- **Enhanced Measurement:** OFF (not applicable to MP events)
-
-### 4. Register Custom Dimensions
-
-GA4 event parameters must be registered as **custom dimensions** before
-they appear in reports and Looker Studio.  Without this step, the data
-is collected but invisible in the UI.
-
-In GA4: **Admin → Custom definitions → Create custom dimension**
-
-| Dimension name | Event parameter | Scope |
-|---|---|---|
-| TIT Version | `tit_version` | Event |
-| Host OS | `os_name` | Event |
-| Host OS Version | `os_version` | Event |
-| Host Architecture | `platform` | Event |
-| Status | `status` | Event |
-| Error Type | `error_type` | Event |
-| Report Type | `report_type` | Event |
-| N Subjects | `n_subjects` | Event |
-
-**Important:** After creating dimensions, existing data takes ~24h to
-backfill. New events are available immediately.
-
-### 5. Measurement Protocol API Secret
-
-- **Nickname:** `tit-usage`
-- **Value:** Embedded in `tit/constants.py`
-- Created via: Admin → Data Streams → stream → Measurement Protocol API secrets
-
-### 5. Why the API Secret Is Safe to Embed
-
-The GA4 MP "API secret" is **not a sensitive credential**. It is
-functionally identical to the classic `UA-XXXXX` tracking IDs that have
-always been public in website HTML source:
-
-- **EEGLAB** embeds their GA tracking ID in shipped MATLAB source (`eeg_update.m`)
-- **Nipype/migas** embeds credentials in open-source Python packages
-- Google's own docs describe MP secrets as client-side identifiers, not auth tokens
-- The secret only permits **sending** events — it grants **zero** read access
-  to analytics data (reading requires authenticated Google account access)
-- Worst case scenario: someone sends fake events, which can be filtered in GA4
-
-This is standard practice across neuroscience open-source tools.
-
----
-
-## Adding a New Tracked Event
-
-To instrument a new operation:
-
-```python
-# In your module:
-from tit.telemetry import track_operation
-
-def my_new_function(config):
-    with track_operation("my_event_name"):
-        # ... existing logic ...
-```
-
-Or for a one-shot event (no start/success/error):
-
-```python
-from tit.telemetry import track_event
-track_event("my_event", {"custom_param": "value"})
-```
-
-Then add the event name constant to `tit/constants.py`:
-
-```python
-TELEMETRY_OP_MY_EVENT = "my_event"
-```
-
----
-
-## Viewing Data in GA4
+### GA4 (Real-Time + Last 14 Months)
 
 1. **Realtime** → live event stream (events appear within seconds)
 2. **Reports → Events** → `sim_ti`, `flex_search`, etc. with counts
@@ -319,49 +268,80 @@ TELEMETRY_OP_MY_EVENT = "my_event"
 5. **Explore** → custom funnels (e.g., start → success rate per operation)
 6. **Admin → DebugView** → debug individual events during development
 
+### BigQuery (Full History, SQL)
+
+Query the exported dataset directly in the BigQuery console:
+
+```sql
+SELECT
+  event_name,
+  COUNT(*) AS event_count
+FROM
+  `ti-toolbox-analytics.analytics_XXXXXXXXX.events_*`
+WHERE
+  _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY))
+GROUP BY
+  event_name
+ORDER BY
+  event_count DESC;
+```
+
+Replace `XXXXXXXXX` with the GA4 property ID (visible in Admin → Property Settings).
+
+### Looker Studio (Dashboards)
+
+See [Looker Studio Dashboard](#looker-studio-dashboard) below.
+
 ---
 
 ## BigQuery Export (Long-Term Retention)
 
-GA4 retains processed data for a maximum of 14 months. For indefinite
+GA4 retains processed data for a maximum of **14 months**. For indefinite
 retention, all events are exported to BigQuery via the built-in GA4
-BigQuery Link.
+BigQuery Link. This was set up on **2026-04-07**.
 
-### Architecture
+### What Was Done
 
-```
-tit/telemetry.py  ──POST──►  GA4 Measurement Protocol
-                                │
-                                ├──► GA4 Realtime (seconds)
-                                ├──► GA4 Reports (24h processing, 14-month window)
-                                └──► BigQuery Export (daily batch, unlimited retention)
-                                       │
-                                       ▼
-                              Looker Studio
-                                ├── GA4 connector (last 14 months, fast)
-                                └── BigQuery connector (full history, SQL)
-```
+| Step | Detail |
+|---|---|
+| **GCP Project** | `ti-toolbox-analytics` (same Google account as GA4) |
+| **BigQuery API** | Enabled in GCP console (APIs & Services → Library) |
+| **GA4 → BigQuery Link** | Admin → BigQuery Links → Link → selected project |
+| **Export type** | **Daily** (batched — sufficient for our volume) |
+| **Dataset location** | US (cannot be changed after creation) |
+| **Dataset name** | `analytics_<PROPERTY_ID>` (auto-created by GA4) |
+| **Table format** | `events_YYYYMMDD` (one table per day, auto-populated) |
 
-### Setup
+> **First data**: Tables appear ~24 hours after linking. No backfill of
+> historical data — only events from the link date (2026-04-07) forward
+> are exported.
 
-1. **GA4 Admin → BigQuery Links → Link**
-2. Select or create a GCP project (free tier is sufficient)
-3. Choose **Daily export** (batched — sufficient for our volume)
-4. Pick dataset location (US)
-5. Events start flowing automatically — no code changes required
+### If You Need to Recreate the Link
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Sign in with the same Google account that owns the GA4 property
+3. Select or create a GCP project
+4. Enable BigQuery API (APIs & Services → Library → BigQuery API)
+5. Go to [analytics.google.com](https://analytics.google.com) → `tit-telemetry` property
+6. Admin → Product links → BigQuery Links → **Link**
+7. Choose the GCP project → Data location: US → Export: Daily
+8. Leave "Include advertising identifiers" unchecked
+9. Submit — events flow automatically, no code changes required
 
 ### Cost
 
-BigQuery free tier: 10 GB storage + 1 TB queries/month. At our volume
+BigQuery free tier: **10 GB storage + 1 TB queries/month**. At our volume
 (academic tool, dozens to low hundreds of users), this costs nothing
 and will not be exceeded for years.
 
-### Usage
+### Why BigQuery (Not Snowflake, Redshift, etc.)
 
-- **Day-to-day monitoring**: Looker Studio → GA4 data source (fast, pre-aggregated)
-- **Historical analysis / annual reports**: Looker Studio → BigQuery data source
-- **Custom queries**: BigQuery console with SQL (e.g., error rate trends over
-  multiple years, version adoption curves)
+- **Native GA4 integration** — zero-code, automatic daily export (one click to link)
+- **Zero cost** at our scale (free tier covers us for years)
+- **Looker Studio pairing** — native BigQuery connector, also free
+- **Single auth domain** — GA4 + BigQuery + Looker Studio = one Google account
+- Alternatives (Snowflake, Redshift, ClickHouse) would require building and
+  maintaining a custom ETL pipeline — unnecessary for our volume
 
 ---
 
@@ -377,7 +357,8 @@ full historical queries.
 1. Go to [lookerstudio.google.com](https://lookerstudio.google.com)
 2. **Create → Report → Blank Report**
 3. Add data source: **Google Analytics** → select `tit-telemetry` property
-4. (Optional) Add second data source: **BigQuery** → select the exported dataset
+4. Add second data source: **BigQuery** → select `ti-toolbox-analytics` →
+   `analytics_<PROPERTY_ID>` → `events_*` (wildcard table) → Connect
 
 ### Dashboard Layout
 
@@ -506,3 +487,75 @@ time.sleep(3)
 | `tit/gui/settings_menu.py` | Privacy toggle in gear menu |
 | `tests/test_telemetry.py` | 24 unit tests |
 | User config dir `/telemetry.json` | User-level config (persists across projects + containers) |
+
+---
+
+## Appendix: GA4 Property Setup Log
+
+This section documents how the GA4 property and infrastructure were
+originally created, for reference if anything needs to be recreated.
+
+### Account & Property
+
+- Used the existing Google Analytics account (same as docs analytics)
+- **Property name:** `tit-telemetry`
+- **Timezone/currency:** default
+- Separate from docs property — CLI/GUI events don't mix with web page views
+
+### Data Stream
+
+- **Type:** Web (required by GA4, even for non-web use)
+- **Website URL:** `https://github.com/idossha/TI-toolbox` (label only)
+- **Stream name:** `CLI/GUI Events`
+- **Enhanced Measurement:** OFF (not applicable to MP events)
+
+### Custom Dimensions
+
+GA4 event parameters must be registered as **custom dimensions** before
+they appear in reports and Looker Studio. Without this step, the data
+is collected but invisible in the UI.
+
+Path: **Admin → Custom definitions → Create custom dimension**
+
+| Dimension name | Event parameter | Scope |
+|---|---|---|
+| TIT Version | `tit_version` | Event |
+| Host OS | `os_name` | Event |
+| Host OS Version | `os_version` | Event |
+| Host Architecture | `platform` | Event |
+| Status | `status` | Event |
+| Error Type | `error_type` | Event |
+| Report Type | `report_type` | Event |
+| N Subjects | `n_subjects` | Event |
+
+After creating dimensions, existing data takes ~24h to backfill.
+
+### Measurement Protocol API Secret
+
+- **Nickname:** `tit-usage`
+- **Value:** Embedded in `tit/constants.py`
+- Created via: Admin → Data Streams → stream → Measurement Protocol API secrets
+
+### Why the API Secret Is Safe to Embed
+
+The GA4 MP "API secret" is **not a sensitive credential**. It is
+functionally identical to the classic `UA-XXXXX` tracking IDs that have
+always been public in website HTML source:
+
+- **EEGLAB** embeds their GA tracking ID in shipped MATLAB source (`eeg_update.m`)
+- **Nipype/migas** embeds credentials in open-source Python packages
+- Google's own docs describe MP secrets as client-side identifiers, not auth tokens
+- The secret only permits **sending** events — it grants **zero** read access
+  to analytics data (reading requires authenticated Google account access)
+- Worst case scenario: someone sends fake events, which can be filtered in GA4
+
+This is standard practice across neuroscience open-source tools.
+
+### BigQuery Link
+
+- **GCP Project:** `ti-toolbox-analytics`
+- **Linked:** 2026-04-07
+- **Export:** Daily batch
+- **Location:** US
+- **Dataset:** `analytics_<PROPERTY_ID>` (auto-created)
+- See [BigQuery Export](#bigquery-export-long-term-retention) for full details
