@@ -8,8 +8,10 @@ crash the user's workflow.
 Collected Data
 --------------
 - TI-Toolbox version, Python version, OS / platform
+- Interface (``cli`` or ``gui``)
 - Operation type (``sim_ti``, ``sim_mti``, ``flex_search``, etc.)
 - Operation status (``start``, ``success``, ``error``)
+- Operation wall-clock duration (seconds, on completion events)
 - Error class name on failure (e.g. ``ValueError`` — **no** tracebacks)
 - Anonymous client ID (random UUID, stored locally)
 - Approximate country via GA4 IP-based geolocation (IP is anonymised by Google)
@@ -52,6 +54,7 @@ import platform
 import ssl
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -227,16 +230,23 @@ def set_enabled(enabled: bool) -> None:
     Writes the change to disk immediately and invalidates the in-process
     cache so subsequent ``is_enabled()`` calls reflect the new state.
 
+    When the user opts in for the first time (``enabled=True`` and consent
+    was not previously shown), a one-time ``first_open`` event is sent to
+    distinguish new installations from returning users.
+
     Parameters
     ----------
     enabled : bool
         ``True`` to enable, ``False`` to disable.
     """
     cfg = _get_config()
+    is_first_consent = enabled and not cfg.consent_shown
     cfg.enabled = enabled
     cfg.consent_shown = True
     save_config(cfg)
     _invalidate_cache()
+    if is_first_consent:
+        track_event(const.TELEMETRY_OP_FIRST_OPEN)
 
 
 # ---------------------------------------------------------------------------
@@ -254,13 +264,15 @@ def _system_params() -> dict[str, str]:
     Returns
     -------
     dict[str, str]
-        Keys: ``tit_version``, ``os_name``, ``os_version``, ``platform``.
+        Keys: ``tit_version``, ``os_name``, ``os_version``, ``platform``,
+        ``interface``.
     """
     return {
         "tit_version": tit.__version__,
         "os_name": os.environ.get("TIT_HOST_OS", platform.system()),
         "os_version": os.environ.get("TIT_HOST_OS_VERSION", platform.release()),
         "platform": os.environ.get("TIT_HOST_ARCH", platform.machine()),
+        "interface": os.environ.get("TIT_INTERFACE", "cli"),
     }
 
 
@@ -423,13 +435,19 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
     ...     run_simulation(config)
     """
     track_event(op_name, {"status": "start"})
+    t0 = time.monotonic()
     try:
         yield
     except Exception as exc:
-        track_event(op_name, {"status": "error", "error_type": type(exc).__name__})
+        duration_s = str(round(time.monotonic() - t0))
+        track_event(
+            op_name,
+            {"status": "error", "error_type": type(exc).__name__, "duration_s": duration_s},
+        )
         raise
     else:
-        track_event(op_name, {"status": "success"})
+        duration_s = str(round(time.monotonic() - t0))
+        track_event(op_name, {"status": "success", "duration_s": duration_s})
 
 
 # ---------------------------------------------------------------------------

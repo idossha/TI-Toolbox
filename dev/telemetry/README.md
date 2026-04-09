@@ -88,8 +88,10 @@ tit/telemetry.py  ──POST──►  GA4 Measurement Protocol
 | Host OS name | `darwin`, `win32`, `linux` | `os_name` |
 | Host OS version | `24.6.0`, `10.0.22631` | `os_version` |
 | Host CPU architecture | `x86_64`, `arm64` | `platform` |
+| Interface | `cli`, `gui` | `interface` |
 | Operation type | `sim_ti`, `flex_search` | Event name |
 | Operation status | `start`, `success`, `error` | `status` |
+| Duration (seconds) | `42` (on success/error only) | `duration_s` |
 | Error class (on failure) | `ValueError` | `error_type` |
 | Country (approximate) | Derived from IP by GA4 | Automatic |
 
@@ -126,6 +128,12 @@ then `{name}` with `status: success` or `status: error`.
 | `analysis` | `Analyzer.analyze_sphere()` / `.analyze_cortex()` | `tit/analyzer/analyzer.py` |
 | `pre_pipeline` | `run_pipeline()` (full preprocessing) | `tit/pre/structural.py` |
 | `stats_comparison` | `run_group_comparison()` | `tit/stats/permutation.py` |
+
+### Lifecycle events (one-time, via `track_event`)
+
+| Event Name | Trigger | File |
+|---|---|---|
+| `first_open` | First-time consent (user opts in) | `tit/telemetry.py` |
 
 ### Feature usage events (start only, via `track_event`)
 
@@ -523,7 +531,9 @@ Path: **Admin → Custom definitions → Create custom dimension**
 | Host OS | `os_name` | Event |
 | Host OS Version | `os_version` | Event |
 | Host Architecture | `platform` | Event |
+| Interface | `interface` | Event |
 | Status | `status` | Event |
+| Duration (seconds) | `duration_s` | Event |
 | Error Type | `error_type` | Event |
 | Report Type | `report_type` | Event |
 | N Subjects | `n_subjects` | Event |

@@ -119,6 +119,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.load_saved_extensions()
         self.center_on_screen()
 
+        # Tag this process (and child subprocesses) as GUI-launched
+        # so telemetry events carry interface=gui.
+        os.environ["TIT_INTERFACE"] = "gui"
+
         # First-run telemetry consent (non-blocking dialog),
         # then record a gui_launch event.
         from tit.telemetry import consent_prompt_gui, track_event

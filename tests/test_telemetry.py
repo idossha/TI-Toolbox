@@ -144,6 +144,47 @@ class TestSetEnabled:
         cfg = load_config()
         assert cfg.enabled is False
 
+    def test_first_open_sent_on_first_consent(self, monkeypatch):
+        monkeypatch.setattr("tit.constants.GA4_MEASUREMENT_ID", "G-REALVALUE")
+        events = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: events.append(p)):
+            set_enabled(True)
+
+        import threading
+
+        for t in threading.enumerate():
+            if t.daemon and t.is_alive():
+                t.join(timeout=2)
+
+        names = [e["events"][0]["name"] for e in events]
+        assert "first_open" in names
+
+    def test_first_open_not_sent_on_re_enable(self, monkeypatch):
+        monkeypatch.setattr("tit.constants.GA4_MEASUREMENT_ID", "G-REALVALUE")
+        # First consent
+        set_enabled(True)
+        _invalidate_cache()
+
+        import threading
+
+        for t in threading.enumerate():
+            if t.daemon and t.is_alive():
+                t.join(timeout=2)
+
+        # Disable then re-enable (consent_shown already True)
+        set_enabled(False)
+        _invalidate_cache()
+        events = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: events.append(p)):
+            set_enabled(True)
+
+        for t in threading.enumerate():
+            if t.daemon and t.is_alive():
+                t.join(timeout=2)
+
+        names = [e["events"][0]["name"] for e in events]
+        assert "first_open" not in names
+
 
 # ---------------------------------------------------------------------------
 # System params
@@ -155,8 +196,16 @@ class TestSystemParams:
 
     def test_keys_present(self):
         params = _system_params()
-        expected = {"tit_version", "os_name", "os_version", "platform"}
+        expected = {"tit_version", "os_name", "os_version", "platform", "interface"}
         assert set(params.keys()) == expected
+
+    def test_interface_default_cli(self, monkeypatch):
+        monkeypatch.delenv("TIT_INTERFACE", raising=False)
+        assert _system_params()["interface"] == "cli"
+
+    def test_interface_from_env(self, monkeypatch):
+        monkeypatch.setenv("TIT_INTERFACE", "gui")
+        assert _system_params()["interface"] == "gui"
 
     def test_no_python_version(self):
         params = _system_params()
@@ -266,6 +315,23 @@ class TestTrackOperation:
         assert payloads[0]["events"][0]["params"]["status"] == "start"
         assert payloads[1]["events"][0]["params"]["status"] == "success"
 
+    def test_success_includes_duration(self, monkeypatch):
+        self._force_enabled(monkeypatch)
+        payloads = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
+            with track_operation("flex_search"):
+                pass
+
+        import threading
+
+        for t in threading.enumerate():
+            if t.daemon and t.is_alive():
+                t.join(timeout=2)
+
+        success_params = payloads[1]["events"][0]["params"]
+        assert "duration_s" in success_params
+        assert int(success_params["duration_s"]) >= 0
+
     def test_error_sends_error_event(self, monkeypatch):
         self._force_enabled(monkeypatch)
         payloads = []
@@ -284,6 +350,7 @@ class TestTrackOperation:
         error_event = payloads[1]["events"][0]
         assert error_event["params"]["status"] == "error"
         assert error_event["params"]["error_type"] == "ValueError"
+        assert "duration_s" in error_event["params"]
 
     def test_exception_is_reraised(self, monkeypatch):
         self._force_enabled(monkeypatch)
