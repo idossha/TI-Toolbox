@@ -44,7 +44,7 @@ class FloatingContentWindow(QtWidgets.QDialog):
         layout.addLayout(btn_layout)
 
 
-class SettingsMenuButton(QtWidgets.QPushButton):
+class SettingsMenuButton(QtWidgets.QToolButton):
     """Gear icon button with a dropdown menu for Help, Contact, and Acknowledgments."""
 
     def __init__(self, parent=None):
@@ -54,18 +54,19 @@ class SettingsMenuButton(QtWidgets.QPushButton):
 
     def setup_ui(self):
         self.setText("\u2699")
+        self.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         self.setStyleSheet(f"""
-            QPushButton {{
+            QToolButton {{
                 font-size: {ICON_SIZE_GEAR}px;
                 border: none;
                 background: transparent;
                 padding: 5px;
             }}
-            QPushButton:hover {{
+            QToolButton:hover {{
                 background: rgba(0, 0, 0, 0.1);
                 border-radius: 3px;
             }}
-            QPushButton::menu-indicator {{
+            QToolButton::menu-indicator {{
                 width: 0px;
             }}
         """)
@@ -107,37 +108,59 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         set_enabled(not is_enabled())
         self.privacy_action.setText(self._privacy_label())
 
+    def _show_single(self, attr, factory):
+        """Show a single-instance window. Reuse if already open, else create."""
+        window = getattr(self, attr, None)
+        if window is not None and window.isVisible():
+            window.raise_()
+            window.activateWindow()
+            return
+        window = factory()
+        setattr(self, attr, window)
+        window.show()
+
     def open_help(self):
         from tit.gui.help_tab import HelpTab
 
-        help_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Help", (800, 600), HelpTab
+        self._show_single(
+            "_help_window",
+            lambda: FloatingContentWindow(
+                self.parent, "TI-Toolbox - Help", (800, 600), HelpTab
+            ),
         )
-        help_window.show()
 
     def open_extensions(self):
         from tit.gui.extensions import FloatingExtensionsWindow
 
-        extensions_window = FloatingExtensionsWindow(
-            self.parent, main_window=self.parent
+        self._show_single(
+            "_extensions_window",
+            lambda: FloatingExtensionsWindow(
+                self.parent, main_window=self.parent
+            ),
         )
-        extensions_window.show()
 
     def open_contact(self):
         from tit.gui.contact_tab import ContactTab
 
-        contact_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Contact", (700, 500), ContactTab
+        self._show_single(
+            "_contact_window",
+            lambda: FloatingContentWindow(
+                self.parent, "TI-Toolbox - Contact", (700, 500), ContactTab
+            ),
         )
-        contact_window.show()
 
     def open_acknowledgments(self):
         from tit.gui.acknowledgments_tab import AcknowledgmentsTab
 
-        acknowledgments_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Acknowledgments", (700, 500), AcknowledgmentsTab
+        self._show_single(
+            "_acknowledgments_window",
+            lambda: FloatingContentWindow(
+                self.parent,
+                "TI-Toolbox - Acknowledgments",
+                (700, 500),
+                AcknowledgmentsTab,
+            ),
         )
-        acknowledgments_window.show()
 
 
 class ExtensionsButton(QtWidgets.QPushButton):
@@ -170,7 +193,12 @@ class ExtensionsButton(QtWidgets.QPushButton):
     def open_extensions(self):
         from tit.gui.extensions import FloatingExtensionsWindow
 
-        extensions_window = FloatingExtensionsWindow(
+        window = getattr(self, "_extensions_window", None)
+        if window is not None and window.isVisible():
+            window.raise_()
+            window.activateWindow()
+            return
+        self._extensions_window = FloatingExtensionsWindow(
             self.parent, main_window=self.parent
         )
-        extensions_window.show()
+        self._extensions_window.show()
