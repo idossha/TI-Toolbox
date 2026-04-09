@@ -173,18 +173,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             self.space_subject_radio = None
             self.space_mni_radio = None
 
-        # MNI info label (initially hidden)
-        self.mni_info_label = QtWidgets.QLabel(
-            "Coordinates will be treated as MNI space and transformed "
-            "to each subject's native space."
-        )
-        self.mni_info_label.setStyleSheet(
-            f"background-color: #E3F2FD; color: #1976D2; padding: 8px; "
-            f"border-radius: 4px; font-size: {FONT_HELP};"
-        )
-        self.mni_info_label.setWordWrap(True)
-        self.mni_info_label.setVisible(False)
-        layout.addRow(self.mni_info_label)
+        self.mni_info_label = None
 
         # Coordinate inputs + Freeview button
         self.coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
@@ -423,7 +412,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _update_coordinate_space_labels(self):
         """Update coordinate labels and tooltips based on space selection."""
         if self.get_roi_type() != "spherical":
-            self.mni_info_label.setVisible(False)
+            pass  # mni_info_label removed
             return
 
         if self.is_mni_space():
@@ -433,7 +422,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 "for each subject)"
             )
             self.coords_label.setStyleSheet("color: #007ACC; font-weight: bold;")
-            self.mni_info_label.setVisible(True)
+            pass  # mni_info_label removed
             self.x_input.setToolTip("X coordinate in MNI space")
             self.y_input.setToolTip("Y coordinate in MNI space")
             self.z_input.setToolTip("Z coordinate in MNI space")
@@ -446,7 +435,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             self.coords_label.setText("ROI Center RAS Coordinates (mm):")
             self.coords_label.setToolTip("Subject-specific RAS coordinates")
             self.coords_label.setStyleSheet("")
-            self.mni_info_label.setVisible(False)
+            pass  # mni_info_label removed
             self.x_input.setToolTip("X coordinate in subject RAS space")
             self.y_input.setToolTip("Y coordinate in subject RAS space")
             self.z_input.setToolTip("Z coordinate in subject RAS space")

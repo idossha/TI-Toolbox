@@ -176,6 +176,8 @@ class LeadfieldGenerator:
 
         out: list[tuple[str, str, float]] = []
         for item in leadfields_dir.iterdir():
+            if item.suffix != ".hdf5":
+                continue
 
             stem = item.stem
             if "_leadfield_" in stem:

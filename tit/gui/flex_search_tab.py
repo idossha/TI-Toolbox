@@ -110,7 +110,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subject_list.setSelectionMode(
             QtWidgets.QAbstractItemView.ExtendedSelection
         )
-        self.subject_list.setMinimumHeight(80)
+        self.subject_list.setFixedHeight(80)
         self.eeg_net_combo = QtWidgets.QComboBox()
 
         # Initialize goal and postproc combo boxes
@@ -292,11 +292,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Left column: Basic Parameters
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
         basic_params_group.setSizePolicy(
-            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Preferred
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
         )
         basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
+        basic_params_layout.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.ExpandingFieldsGrow
+        )
 
         subject_controls_widget = QtWidgets.QWidget()
+        subject_controls_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         subject_controls_inner_layout = QtWidgets.QHBoxLayout(subject_controls_widget)
         subject_controls_inner_layout.addWidget(self.subject_list)
 
@@ -313,22 +319,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
 
-        self.goal_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.goal_label, self.goal_combo)
+        for combo, label in (
+            (self.goal_combo, self.goal_label),
+            (self.postproc_combo, self.postproc_label),
+            (self.anisotropy_combo, self.anisotropy_label),
+        ):
+            combo.setSizeAdjustPolicy(
+                QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon
+            )
+            combo.setMinimumContentsLength(24)
+            combo.setSizePolicy(
+                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+            )
+            basic_params_layout.addRow(label, combo)
 
-        self.postproc_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
-
-        self.anisotropy_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.anisotropy_label, self.anisotropy_combo)
-
-        top_row_layout.addWidget(basic_params_group, 9)
+        top_row_layout.addWidget(basic_params_group, 11, QtCore.Qt.AlignTop)
 
         # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
         right_column_widget = QtWidgets.QWidget()
@@ -371,7 +376,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         right_column_layout.addWidget(self.electrode_widget)
 
-        top_row_layout.addWidget(right_column_widget, 11)
+        top_row_layout.addWidget(right_column_widget, 9)
 
         scroll_layout.addLayout(top_row_layout)
 
@@ -460,6 +465,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Solver hyper-parameters — use component widget
         scroll_layout.addWidget(self.solver_widget)
+
+        # Absorb extra vertical space so groups keep their natural height
+        scroll_layout.addStretch(1)
 
         scroll_area.setWidget(scroll_content)
 
