@@ -88,6 +88,25 @@ def get_host_timezone() -> str:
     return capture(["date", "+%Z"])
 
 
+def get_user_config_dir() -> str:
+    """Return the host-side user config directory for TI-Toolbox.
+
+    Creates the directory if it does not exist.  Mounted into Docker at
+    ``/root/.config/ti-toolbox`` so telemetry consent and preferences
+    persist across container restarts.
+    """
+    system = platform.system()
+    if system == "Darwin":
+        base = Path.home() / ".config"
+    elif system == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    config_dir = base / "ti-toolbox"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return str(config_dir)
+
+
 def check_docker_available() -> None:
     if not shutil.which("docker"):
         print("Error: Docker is not installed or not in PATH.")
@@ -288,6 +307,10 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     env["PROJECT_DIR_NAME"] = project_dir_name
     env["TZ"] = get_host_timezone()
     env["HOME"] = env.get("HOME") or env.get("USERPROFILE", "")
+    env["TIT_USER_CONFIG"] = get_user_config_dir()
+    env["TIT_HOST_OS"] = platform.system().lower()
+    env["TIT_HOST_OS_VERSION"] = platform.release()
+    env["TIT_HOST_ARCH"] = platform.machine()
     ensure_images_pulled(env)
 
     print("Starting services...")
