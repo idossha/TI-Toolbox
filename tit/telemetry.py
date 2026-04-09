@@ -114,14 +114,11 @@ def _config_path() -> Path | None:
     pathlib.Path or None
         Absolute path to the JSON config file, or ``None``.
     """
-    try:
-        from tit.paths import PathManager
+    from tit.paths import PathManager
 
-        config_dir = Path(PathManager.user_config_dir())
-        config_dir.mkdir(parents=True, exist_ok=True)
-        return config_dir / const.TELEMETRY_CONFIG_FILE
-    except Exception:
-        return None
+    config_dir = Path(PathManager.user_config_dir())
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir / const.TELEMETRY_CONFIG_FILE
 
 
 def load_config() -> TelemetryConfig:
