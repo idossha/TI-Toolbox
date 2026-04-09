@@ -431,21 +431,21 @@ class TestGenerateReport:
 @pytest.mark.unit
 class TestAtlasNameFromPath:
     def test_standard_annot_path(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.aparc.annot", "lh") == "aparc"
 
     def test_with_subject_prefix(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.001_aparc.annot", "lh") == "aparc"
 
     def test_no_underscore(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.myatlas.annot", "lh") == "myatlas"
 
     def test_rh_hemisphere(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/rh.Destrieux.annot", "rh") == "Destrieux"
