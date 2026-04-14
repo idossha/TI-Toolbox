@@ -356,7 +356,9 @@ def _send_ga4(payload: dict[str, Any]) -> None:
 
 def track_event(
     event_name: str,
-    params: dict[str, str] | None = None,
+    params: dict[str, str | int] | None = None,
+    *,
+    _blocking: bool = False,
 ) -> None:
     """Send a single GA4 event in a background daemon thread.
 
@@ -367,9 +369,14 @@ def track_event(
     event_name : str
         GA4 event name (e.g. ``"sim_ti"``, ``"gui_launch"``).
         Must be ≤40 chars, alphanumeric + underscores.
-    params : dict[str, str], optional
+    params : dict[str, str | int], optional
         Extra event parameters.  System params (OS, version, etc.) are
         merged in automatically.
+    _blocking : bool, optional
+        If ``True``, wait up to ``TELEMETRY_TIMEOUT_S + 1`` seconds for
+        the HTTP request to complete.  Used for completion events
+        (``success`` / ``error``) so they are not lost when the process
+        exits shortly after.
 
     Examples
     --------
@@ -397,6 +404,8 @@ def track_event(
 
     thread = threading.Thread(target=_send_ga4, args=(payload,), daemon=True)
     thread.start()
+    if _blocking:
+        thread.join(timeout=const.TELEMETRY_TIMEOUT_S + 1)
 
 
 # ---------------------------------------------------------------------------
@@ -439,15 +448,18 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
     try:
         yield
     except Exception as exc:
-        duration_s = str(round(time.monotonic() - t0))
+        duration_s = int(round(time.monotonic() - t0))
         track_event(
             op_name,
             {"status": "error", "error_type": type(exc).__name__, "duration_s": duration_s},
+            _blocking=True,
         )
         raise
     else:
-        duration_s = str(round(time.monotonic() - t0))
-        track_event(op_name, {"status": "success", "duration_s": duration_s})
+        duration_s = int(round(time.monotonic() - t0))
+        track_event(
+            op_name, {"status": "success", "duration_s": duration_s}, _blocking=True
+        )
 
 
 # ---------------------------------------------------------------------------

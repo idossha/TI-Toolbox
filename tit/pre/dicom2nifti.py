@@ -102,23 +102,22 @@ def run_dicom_to_nifti(
     --------
     run_pipeline : Full preprocessing pipeline.
     """
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_PRE_DICOM, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_PRE_DICOM):
+        pm = get_path_manager(project_dir)
+        sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
+        bids_anat_dir = Path(pm.bids_anat(subject_id))
+        bids_anat_dir.mkdir(parents=True, exist_ok=True)
 
-    pm = get_path_manager(project_dir)
-    sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
-    bids_anat_dir = Path(pm.bids_anat(subject_id))
-    bids_anat_dir.mkdir(parents=True, exist_ok=True)
+        converted = False
+        for modality in ("T1w", "T2w"):
+            dicom_dir = sourcedata_dir / modality / "dicom"
+            if _convert_modality(
+                dicom_dir, bids_anat_dir, subject_id, modality, logger, runner
+            ):
+                converted = True
 
-    converted = False
-    for modality in ("T1w", "T2w"):
-        dicom_dir = sourcedata_dir / modality / "dicom"
-        if _convert_modality(
-            dicom_dir, bids_anat_dir, subject_id, modality, logger, runner
-        ):
-            converted = True
-
-    if not converted:
-        logger.warning("No DICOM files found or converted")
+        if not converted:
+            logger.warning("No DICOM files found or converted")

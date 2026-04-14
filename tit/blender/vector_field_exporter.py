@@ -794,55 +794,54 @@ def run_vectors(config: VectorConfig) -> None:
         ValueError: If E fields are missing or no vectors remain after filtering.
     """
     _resolve_paths(config)
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_BLENDER_VECTORS, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_BLENDER_VECTORS):
+        logger.info("Starting vector field export")
 
-    logger.info("Starting vector field export")
+        # 1 -- Load meshes
+        m1, m2, m3, m4, central = _load_meshes(config)
 
-    # 1 -- Load meshes
-    m1, m2, m3, m4, central = _load_meshes(config)
+        if config.anchor != VectorConfig.Anchor.HEAD:
+            logger.info(
+                "Using anchor='%s' -- for surface vectors, anchor='head' is recommended",
+                config.anchor,
+            )
 
-    if config.anchor != VectorConfig.Anchor.HEAD:
+        # 2 -- Compute positions and fields
+        positions = _get_surface_face_barycenters(central)
         logger.info(
-            "Using anchor='%s' -- for surface vectors, anchor='head' is recommended",
-            config.anchor,
+            "Using central surface face barycenters for vector positions (%d faces)",
+            len(positions),
         )
+        fields = _compute_fields(config, m1, m2, m3, m4, positions)
 
-    # 2 -- Compute positions and fields
-    positions = _get_surface_face_barycenters(central)
-    logger.info(
-        "Using central surface face barycenters for vector positions (%d faces)",
-        len(positions),
-    )
-    fields = _compute_fields(config, m1, m2, m3, m4, positions)
+        # 3 -- TI_normal (optional)
+        TI_normal = _compute_ti_normal(config, central, m1, fields["TI"])
+        fields["TI_normal"] = TI_normal
 
-    # 3 -- TI_normal (optional)
-    TI_normal = _compute_ti_normal(config, central, m1, fields["TI"])
-    fields["TI_normal"] = TI_normal
+        # Pre-filter full magnitudes for color normalization (magscale mode)
+        full_mag_stacks = [
+            np.linalg.norm(fields["E1"], axis=1),
+            np.linalg.norm(fields["E2"], axis=1),
+            np.linalg.norm(fields["TI"], axis=1),
+        ]
+        if fields["E_sum"] is not None:
+            full_mag_stacks.append(np.linalg.norm(fields["E_sum"], axis=1))
+        if TI_normal is not None:
+            full_mag_stacks.append(np.linalg.norm(TI_normal, axis=1))
 
-    # Pre-filter full magnitudes for color normalization (magscale mode)
-    full_mag_stacks = [
-        np.linalg.norm(fields["E1"], axis=1),
-        np.linalg.norm(fields["E2"], axis=1),
-        np.linalg.norm(fields["TI"], axis=1),
-    ]
-    if fields["E_sum"] is not None:
-        full_mag_stacks.append(np.linalg.norm(fields["E_sum"], axis=1))
-    if TI_normal is not None:
-        full_mag_stacks.append(np.linalg.norm(TI_normal, axis=1))
+        # 4 -- Filter and sample
+        sampled = _filter_and_sample(config, fields)
 
-    # 4 -- Filter and sample
-    sampled = _filter_and_sample(config, fields)
+        # 5 -- Colorize
+        colors = _compute_colors(config, sampled, full_mag_stacks)
 
-    # 5 -- Colorize
-    colors = _compute_colors(config, sampled, full_mag_stacks)
+        # 6 -- Write outputs
+        logger.info("Writing PLY files...")
+        exported = _write_outputs(config, sampled, colors)
 
-    # 6 -- Write outputs
-    logger.info("Writing PLY files...")
-    exported = _write_outputs(config, sampled, colors)
-
-    logger.info("Converted %d vector PLY files", exported)
-    logger.info("Output: %s", config.output_dir)
-    logger.info("Done")
+        logger.info("Converted %d vector PLY files", exported)
+        logger.info("Output: %s", config.output_dir)
+        logger.info("Done")

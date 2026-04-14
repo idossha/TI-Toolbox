@@ -638,5 +638,8 @@ TELEMETRY_OP_BLENDER_REGIONS = "blender_regions"
 TELEMETRY_OP_BLENDER_VECTORS = "blender_vectors"
 # -- GUI --
 TELEMETRY_OP_GUI_LAUNCH = "gui_launch"
+TELEMETRY_OP_GUI_CLOSE = "gui_close"
+# -- CLI --
+TELEMETRY_OP_CLI_SESSION = "cli_session"
 # -- Lifecycle --
 TELEMETRY_OP_FIRST_OPEN = "first_open"

@@ -77,42 +77,41 @@ def run_charm(
     run_subject_atlas : Create atlas ``.annot`` files after CHARM.
     run_recon_all : FreeSurfer cortical reconstruction.
     """
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_PRE_CHARM, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_PRE_CHARM):
+        pm = get_path_manager(project_dir)
 
-    pm = get_path_manager(project_dir)
+        simnibs_subject_dir = Path(pm.sub(subject_id))
+        simnibs_subject_dir.mkdir(parents=True, exist_ok=True)
+        m2m_dir = Path(pm.m2m(subject_id))
 
-    simnibs_subject_dir = Path(pm.sub(subject_id))
-    simnibs_subject_dir.mkdir(parents=True, exist_ok=True)
-    m2m_dir = Path(pm.m2m(subject_id))
+        t1_file, t2_file = _find_anat_files(subject_id)
+        if not t1_file:
+            bids_anat_dir = Path(pm.bids_anat(subject_id))
+            raise PreprocessError(f"No T1 image found in {bids_anat_dir}")
 
-    t1_file, t2_file = _find_anat_files(subject_id)
-    if not t1_file:
-        bids_anat_dir = Path(pm.bids_anat(subject_id))
-        raise PreprocessError(f"No T1 image found in {bids_anat_dir}")
+        if m2m_dir.exists():
+            raise PreprocessError(
+                f"m2m output already exists at {m2m_dir}. "
+                "Remove the directory manually before rerunning."
+            )
 
-    if m2m_dir.exists():
-        raise PreprocessError(
-            f"m2m output already exists at {m2m_dir}. "
-            "Remove the directory manually before rerunning."
-        )
+        form_flag = _get_form_flag(t1_file)
+        cmd = ["charm", form_flag, subject_id, str(t1_file)]
+        if t2_file:
+            cmd.append(str(t2_file))
 
-    form_flag = _get_form_flag(t1_file)
-    cmd = ["charm", form_flag, subject_id, str(t1_file)]
-    if t2_file:
-        cmd.append(str(t2_file))
+        logger.info(f"Running SimNIBS charm for subject {subject_id}")
+        if runner is None:
+            runner = CommandRunner()
+        exit_code = runner.run(cmd, logger=logger, cwd=str(simnibs_subject_dir))
 
-    logger.info(f"Running SimNIBS charm for subject {subject_id}")
-    if runner is None:
-        runner = CommandRunner()
-    exit_code = runner.run(cmd, logger=logger, cwd=str(simnibs_subject_dir))
-
-    if exit_code != 0:
-        raise PreprocessError(
-            f"charm failed for subject {subject_id} (exit {exit_code})."
-        )
+        if exit_code != 0:
+            raise PreprocessError(
+                f"charm failed for subject {subject_id} (exit {exit_code})."
+            )
 
 
 def run_subject_atlas(

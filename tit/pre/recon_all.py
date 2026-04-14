@@ -138,49 +138,48 @@ def run_recon_all(
     run_charm : SimNIBS CHARM head-mesh generation.
     """
 
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_PRE_RECON_ALL, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_PRE_RECON_ALL):
+        pm = get_path_manager(project_dir)
 
-    pm = get_path_manager(project_dir)
+        fs_subject_dir = Path(pm.freesurfer_subject(subject_id))
+        fs_subjects_root = fs_subject_dir.parent
 
-    fs_subject_dir = Path(pm.freesurfer_subject(subject_id))
-    fs_subjects_root = fs_subject_dir.parent
+        t1_file, t2_file = _find_anat_files(subject_id)
+        if not t1_file:
+            bids_anat_dir = Path(pm.bids_anat(subject_id))
+            raise PreprocessError(f"No T1 file found in {bids_anat_dir}")
 
-    t1_file, t2_file = _find_anat_files(subject_id)
-    if not t1_file:
-        bids_anat_dir = Path(pm.bids_anat(subject_id))
-        raise PreprocessError(f"No T1 file found in {bids_anat_dir}")
+        if fs_subject_dir.exists():
+            if any(fs_subject_dir.iterdir()):
+                raise PreprocessError(
+                    f"FreeSurfer output already exists at {fs_subject_dir}. "
+                    "Remove the directory manually before rerunning."
+                )
+            else:
+                shutil.rmtree(fs_subject_dir, ignore_errors=True)
 
-    if fs_subject_dir.exists():
-        if any(fs_subject_dir.iterdir()):
-            raise PreprocessError(
-                f"FreeSurfer output already exists at {fs_subject_dir}. "
-                "Remove the directory manually before rerunning."
-            )
+        cmd = ["recon-all", "-subject", f"sub-{subject_id}", "-i", str(t1_file)]
+        if t2_file:
+            cmd += ["-T2", str(t2_file), "-T2pial"]
+        cmd += ["-all", "-sd", str(fs_subjects_root)]
+
+        if parallel:
+            cmd.append("-parallel")
+
+        logger.info(f"Running recon-all for subject {subject_id}")
+        if runner:
+            exit_code = runner.run(cmd, logger=logger)
         else:
-            shutil.rmtree(fs_subject_dir, ignore_errors=True)
+            exit_code = subprocess.call(cmd)
 
-    cmd = ["recon-all", "-subject", f"sub-{subject_id}", "-i", str(t1_file)]
-    if t2_file:
-        cmd += ["-T2", str(t2_file), "-T2pial"]
-    cmd += ["-all", "-sd", str(fs_subjects_root)]
+        if exit_code != 0:
+            raise PreprocessError(
+                f"recon-all failed for subject {subject_id} (exit {exit_code})."
+            )
 
-    if parallel:
-        cmd.append("-parallel")
-
-    logger.info(f"Running recon-all for subject {subject_id}")
-    if runner:
-        exit_code = runner.run(cmd, logger=logger)
-    else:
-        exit_code = subprocess.call(cmd)
-
-    if exit_code != 0:
-        raise PreprocessError(
-            f"recon-all failed for subject {subject_id} (exit {exit_code})."
+        _run_subcortical_segmentations(
+            subject_id, fs_subjects_root, logger=logger, runner=runner
         )
-
-    _run_subcortical_segmentations(
-        subject_id, fs_subjects_root, logger=logger, runner=runner
-    )

@@ -139,61 +139,57 @@ def run_group_analysis(
     Analyzer : Single-subject analyzer used internally per subject.
     GroupResult : Container for the returned outcomes.
     """
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(
-        _const.TELEMETRY_OP_GROUP_ANALYSIS,
-        {"status": "start", "n_subjects": str(len(subject_ids))},
-    )
+    with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
+        out = _resolve_output_dir(output_dir)
 
-    out = _resolve_output_dir(output_dir)
+        # File handler so group analysis logs are persisted
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        log_file = out / f"group_analysis_{timestamp}.log"
+        add_file_handler(log_file)
 
-    # File handler so group analysis logs are persisted
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    log_file = out / f"group_analysis_{timestamp}.log"
-    add_file_handler(log_file)
+        logger.info(
+            "Group analysis started: %d subjects, space=%s, type=%s",
+            len(subject_ids),
+            space,
+            analysis_type,
+        )
 
-    logger.info(
-        "Group analysis started: %d subjects, space=%s, type=%s",
-        len(subject_ids),
-        space,
-        analysis_type,
-    )
+        dispatch: dict[str, callable] = {
+            "spherical": lambda a: a.analyze_sphere(
+                center=center,
+                radius=radius,
+                coordinate_space=coordinate_space,
+                visualize=visualize,
+            ),
+            "cortical": lambda a: a.analyze_cortex(
+                atlas=atlas,
+                region=region,
+                visualize=visualize,
+            ),
+        }
+        analyze_fn = dispatch[analysis_type]
 
-    dispatch: dict[str, callable] = {
-        "spherical": lambda a: a.analyze_sphere(
-            center=center,
-            radius=radius,
-            coordinate_space=coordinate_space,
-            visualize=visualize,
-        ),
-        "cortical": lambda a: a.analyze_cortex(
-            atlas=atlas,
-            region=region,
-            visualize=visualize,
-        ),
-    }
-    analyze_fn = dispatch[analysis_type]
+        results: dict[str, AnalysisResult] = {}
+        for sid in subject_ids:
+            logger.info("Analyzing subject %s", sid)
+            results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
 
-    results: dict[str, AnalysisResult] = {}
-    for sid in subject_ids:
-        logger.info("Analyzing subject %s", sid)
-        results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
+        df = _build_summary_df(results)
+        csv_path = out / "group_summary.csv"
+        df.to_csv(csv_path, index=False, float_format="%.3f")
+        logger.info("Summary CSV written to %s", csv_path)
 
-    df = _build_summary_df(results)
-    csv_path = out / "group_summary.csv"
-    df.to_csv(csv_path, index=False, float_format="%.3f")
-    logger.info("Summary CSV written to %s", csv_path)
+        plot_path = _generate_comparison_plot(df, out)
+        logger.info("Comparison plot written to %s", plot_path)
 
-    plot_path = _generate_comparison_plot(df, out)
-    logger.info("Comparison plot written to %s", plot_path)
-
-    return GroupResult(
-        subject_results=results,
-        summary_csv_path=csv_path,
-        comparison_plot_path=plot_path,
-    )
+        return GroupResult(
+            subject_results=results,
+            summary_csv_path=csv_path,
+            comparison_plot_path=plot_path,
+        )
 
 
 # ---------------------------------------------------------------------------

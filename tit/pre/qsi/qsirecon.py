@@ -86,89 +86,88 @@ def run_qsirecon(
     # Atlases are optional — not needed for DTI extraction
     # Pass through None/empty to skip connectivity workflows
 
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_PRE_QSIRECON, {"status": "start"})
-
-    logger.info(
-        f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
-    )
-
-    # Validate QSIPrep output exists
-    is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
-    if not is_valid:
-        raise PreprocessError(
-            f"QSIPrep output validation failed: {error_msg}. "
-            "Run QSIPrep first before running QSIRecon."
+    with track_operation(_const.TELEMETRY_OP_PRE_QSIRECON):
+        logger.info(
+            f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
         )
 
-    # No mkdir here — Docker's `-v` creates host directories automatically.
-    # Creating them from SimNIBS fails on Docker Desktop due to phantom
-    # bind-mount entries left by previous sibling containers.
-    output_base = Path(project_dir) / "derivatives" / "qsirecon"
+        # Validate QSIPrep output exists
+        is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
+        if not is_valid:
+            raise PreprocessError(
+                f"QSIPrep output validation failed: {error_msg}. "
+                "Run QSIPrep first before running QSIRecon."
+            )
 
-    # Build configuration
-    config = QSIReconConfig(
-        subject_id=subject_id,
-        recon_specs=recon_specs,
-        atlases=atlases,
-        use_gpu=use_gpu,
-        resources=ResourceConfig(
-            cpus=cpus,
-            memory_gb=memory_gb,
-            omp_threads=omp_threads,
-        ),
-        image_tag=image_tag,
-        skip_odf_reports=skip_odf_reports,
-    )
+        # No mkdir here — Docker's `-v` creates host directories automatically.
+        # Creating them from SimNIBS fails on Docker Desktop due to phantom
+        # bind-mount entries left by previous sibling containers.
+        output_base = Path(project_dir) / "derivatives" / "qsirecon"
 
-    try:
-        # Build Docker command builder
-        builder = DockerCommandBuilder(project_dir)
-    except DockerBuildError as e:
-        raise PreprocessError(f"Failed to initialize Docker: {e}")
-
-    # Ensure image is available
-    if not pull_image_if_needed(const.QSI_QSIRECON_IMAGE, image_tag, logger):
-        raise PreprocessError(
-            f"Failed to pull QSIRecon image: {const.QSI_QSIRECON_IMAGE}:{image_tag}"
+        # Build configuration
+        config = QSIReconConfig(
+            subject_id=subject_id,
+            recon_specs=recon_specs,
+            atlases=atlases,
+            use_gpu=use_gpu,
+            resources=ResourceConfig(
+                cpus=cpus,
+                memory_gb=memory_gb,
+                omp_threads=omp_threads,
+            ),
+            image_tag=image_tag,
+            skip_odf_reports=skip_odf_reports,
         )
-
-    # Create runner if not provided
-    if runner is None:
-        runner = CommandRunner()
-
-    # Check for existing output before starting any specs
-    subject_output_dir = output_base / f"sub-{subject_id}"
-    if subject_output_dir.exists():
-        raise PreprocessError(
-            f"QSIRecon output already exists at {subject_output_dir}. "
-            "Remove the directory manually before rerunning."
-        )
-
-    # Run each recon spec
-    for spec in recon_specs:
-        logger.info(f"Running QSIRecon spec: {spec}")
 
         try:
-            cmd = builder.build_qsirecon_cmd(config, spec)
+            # Build Docker command builder
+            builder = DockerCommandBuilder(project_dir)
         except DockerBuildError as e:
-            raise PreprocessError(f"Failed to build QSIRecon command: {e}")
+            raise PreprocessError(f"Failed to initialize Docker: {e}")
 
-        # Log the command for debugging
-        logger.debug(f"QSIRecon command: {' '.join(cmd)}")
+        # Ensure image is available
+        if not pull_image_if_needed(const.QSI_QSIRECON_IMAGE, image_tag, logger):
+            raise PreprocessError(
+                f"Failed to pull QSIRecon image: {const.QSI_QSIRECON_IMAGE}:{image_tag}"
+            )
 
-        # Run the container
-        logger.info(f"Running QSIRecon {spec} for subject {subject_id}...")
-        returncode = runner.run(cmd, logger=logger)
+        # Create runner if not provided
+        if runner is None:
+            runner = CommandRunner()
 
-        if returncode != 0:
-            raise PreprocessError(f"QSIRecon {spec} failed with exit code {returncode}")
+        # Check for existing output before starting any specs
+        subject_output_dir = output_base / f"sub-{subject_id}"
+        if subject_output_dir.exists():
+            raise PreprocessError(
+                f"QSIRecon output already exists at {subject_output_dir}. "
+                "Remove the directory manually before rerunning."
+            )
 
-        logger.info(f"QSIRecon {spec} completed for subject {subject_id}")
+        # Run each recon spec
+        for spec in recon_specs:
+            logger.info(f"Running QSIRecon spec: {spec}")
 
-    logger.info(f"QSIRecon completed successfully for subject {subject_id}")
+            try:
+                cmd = builder.build_qsirecon_cmd(config, spec)
+            except DockerBuildError as e:
+                raise PreprocessError(f"Failed to build QSIRecon command: {e}")
+
+            # Log the command for debugging
+            logger.debug(f"QSIRecon command: {' '.join(cmd)}")
+
+            # Run the container
+            logger.info(f"Running QSIRecon {spec} for subject {subject_id}...")
+            returncode = runner.run(cmd, logger=logger)
+
+            if returncode != 0:
+                raise PreprocessError(f"QSIRecon {spec} failed with exit code {returncode}")
+
+            logger.info(f"QSIRecon {spec} completed for subject {subject_id}")
+
+        logger.info(f"QSIRecon completed successfully for subject {subject_id}")
 
 
 def list_available_recon_specs() -> list[str]:

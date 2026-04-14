@@ -263,25 +263,24 @@ def run_montage(
     This is the shared entrypoint for CLI and GUI callers.
     """
     from tit.blender.config import MontageConfig  # noqa: F811 (deferred)
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_BLENDER_MONTAGE, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_BLENDER_MONTAGE):
+        subject_id = cfg.subject_id.strip()
+        simulation_name = cfg.simulation_name.strip()
 
-    subject_id = cfg.subject_id.strip()
-    simulation_name = cfg.simulation_name.strip()
+        if logger_override is not None:
+            configure_montage_loggers(logger_override)
 
-    if logger_override is not None:
-        configure_montage_loggers(logger_override)
-
-    return build_montage_publication_blend(
-        subject_id=subject_id,
-        simulation_name=simulation_name,
-        output_dir=cfg.output_dir,
-        show_full_net=bool(cfg.show_full_net),
-        electrode_diameter_mm=float(cfg.electrode_diameter_mm),
-        electrode_height_mm=float(cfg.electrode_height_mm),
-    )
+        return build_montage_publication_blend(
+            subject_id=subject_id,
+            simulation_name=simulation_name,
+            output_dir=cfg.output_dir,
+            show_full_net=bool(cfg.show_full_net),
+            electrode_diameter_mm=float(cfg.electrode_diameter_mm),
+            electrode_height_mm=float(cfg.electrode_height_mm),
+        )
 
 
 def build_montage_publication_blend(

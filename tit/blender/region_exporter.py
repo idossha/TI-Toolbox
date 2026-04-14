@@ -515,24 +515,23 @@ def run_regions(config: RegionConfig) -> int:
         FileNotFoundError: If a required input file is missing.
     """
     _resolve_paths(config)
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_BLENDER_REGIONS, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_BLENDER_REGIONS):
+        logger.info("Starting region export (format=%s)", config.format)
 
-    logger.info("Starting region export (format=%s)", config.format)
+        mesh_path = config.mesh
 
-    mesh_path = config.mesh
+        os.makedirs(config.output_dir, exist_ok=True)
 
-    os.makedirs(config.output_dir, exist_ok=True)
+        if config.format == RegionConfig.Format.STL:
+            converted = _run_stl_export(config, mesh_path)
+            out_subdir = os.path.join(config.output_dir, "cortical_stls")
+        else:
+            converted = _run_ply_export(config, mesh_path)
+            out_subdir = os.path.join(config.output_dir, "cortical_plys")
 
-    if config.format == RegionConfig.Format.STL:
-        converted = _run_stl_export(config, mesh_path)
-        out_subdir = os.path.join(config.output_dir, "cortical_stls")
-    else:
-        converted = _run_ply_export(config, mesh_path)
-        out_subdir = os.path.join(config.output_dir, "cortical_plys")
-
-    logger.info("Output: %s", out_subdir)
-    logger.info("Done")
-    return converted
+        logger.info("Output: %s", out_subdir)
+        logger.info("Done")
+        return converted

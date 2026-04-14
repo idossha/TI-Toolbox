@@ -77,78 +77,77 @@ def run_qsiprep(
     PreprocessError
         If QSIPrep fails or prerequisites are not met.
     """
-    from tit.telemetry import track_event
+    from tit.telemetry import track_operation
     from tit import constants as _const
 
-    track_event(_const.TELEMETRY_OP_PRE_QSIPREP, {"status": "start"})
+    with track_operation(_const.TELEMETRY_OP_PRE_QSIPREP):
+        logger.info(f"Starting QSIPrep for subject {subject_id}")
 
-    logger.info(f"Starting QSIPrep for subject {subject_id}")
+        # Validate DWI data exists
+        is_valid, error_msg = validate_bids_dwi(project_dir, subject_id, logger)
+        if not is_valid:
+            raise PreprocessError(f"DWI validation failed: {error_msg}")
 
-    # Validate DWI data exists
-    is_valid, error_msg = validate_bids_dwi(project_dir, subject_id, logger)
-    if not is_valid:
-        raise PreprocessError(f"DWI validation failed: {error_msg}")
+        # Check for existing output
+        output_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
 
-    # Check for existing output
-    output_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
+        if output_dir.exists():
+            existing_valid, _ = validate_qsiprep_output(project_dir, subject_id)
+            if existing_valid:
+                raise PreprocessError(
+                    f"QSIPrep output already exists at {output_dir}. "
+                    "Remove the directory manually before rerunning."
+                )
 
-    if output_dir.exists():
-        existing_valid, _ = validate_qsiprep_output(project_dir, subject_id)
-        if existing_valid:
-            raise PreprocessError(
-                f"QSIPrep output already exists at {output_dir}. "
-                "Remove the directory manually before rerunning."
-            )
+        # Create output directories
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        work_dir = Path(project_dir) / "derivatives" / ".qsiprep_work"
+        work_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create output directories
-    output_dir.parent.mkdir(parents=True, exist_ok=True)
-    work_dir = Path(project_dir) / "derivatives" / ".qsiprep_work"
-    work_dir.mkdir(parents=True, exist_ok=True)
-
-    # Build configuration
-    config = QSIPrepConfig(
-        subject_id=subject_id,
-        output_resolution=output_resolution,
-        resources=ResourceConfig(
-            cpus=cpus,
-            memory_gb=memory_gb,
-            omp_threads=omp_threads,
-        ),
-        image_tag=image_tag,
-        skip_bids_validation=skip_bids_validation,
-        denoise_method=denoise_method,
-        unringing_method=unringing_method,
-    )
-
-    try:
-        # Build Docker command
-        builder = DockerCommandBuilder(project_dir)
-        cmd = builder.build_qsiprep_cmd(config)
-    except DockerBuildError as e:
-        raise PreprocessError(f"Failed to build QSIPrep command: {e}")
-
-    # Ensure image is available
-    if not pull_image_if_needed(const.QSI_QSIPREP_IMAGE, image_tag, logger):
-        raise PreprocessError(
-            f"Failed to pull QSIPrep image: {const.QSI_QSIPREP_IMAGE}:{image_tag}"
+        # Build configuration
+        config = QSIPrepConfig(
+            subject_id=subject_id,
+            output_resolution=output_resolution,
+            resources=ResourceConfig(
+                cpus=cpus,
+                memory_gb=memory_gb,
+                omp_threads=omp_threads,
+            ),
+            image_tag=image_tag,
+            skip_bids_validation=skip_bids_validation,
+            denoise_method=denoise_method,
+            unringing_method=unringing_method,
         )
 
-    # Log the command for debugging
-    logger.debug(f"QSIPrep command: {' '.join(cmd)}")
+        try:
+            # Build Docker command
+            builder = DockerCommandBuilder(project_dir)
+            cmd = builder.build_qsiprep_cmd(config)
+        except DockerBuildError as e:
+            raise PreprocessError(f"Failed to build QSIPrep command: {e}")
 
-    # Run the container
-    if runner is None:
-        runner = CommandRunner()
+        # Ensure image is available
+        if not pull_image_if_needed(const.QSI_QSIPREP_IMAGE, image_tag, logger):
+            raise PreprocessError(
+                f"Failed to pull QSIPrep image: {const.QSI_QSIPREP_IMAGE}:{image_tag}"
+            )
 
-    logger.info(f"Running QSIPrep for subject {subject_id}...")
-    returncode = runner.run(cmd, logger=logger)
+        # Log the command for debugging
+        logger.debug(f"QSIPrep command: {' '.join(cmd)}")
 
-    if returncode != 0:
-        raise PreprocessError(f"QSIPrep failed with exit code {returncode}")
+        # Run the container
+        if runner is None:
+            runner = CommandRunner()
 
-    # Validate output
-    is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
-    if not is_valid:
-        raise PreprocessError(f"QSIPrep output validation failed: {error_msg}")
+        logger.info(f"Running QSIPrep for subject {subject_id}...")
+        returncode = runner.run(cmd, logger=logger)
+
+        if returncode != 0:
+            raise PreprocessError(f"QSIPrep failed with exit code {returncode}")
+
+        # Validate output
+        is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
+        if not is_valid:
+            raise PreprocessError(f"QSIPrep output validation failed: {error_msg}")
 
     logger.info(f"QSIPrep completed successfully for subject {subject_id}")

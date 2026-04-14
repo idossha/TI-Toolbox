@@ -125,11 +125,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # First-run telemetry consent (non-blocking dialog),
         # then record a gui_launch event.
+        import time as _time
+
         from tit.telemetry import consent_prompt_gui, track_event
         from tit import constants as const
 
         consent_prompt_gui(self)
         track_event(const.TELEMETRY_OP_GUI_LAUNCH)
+        self._session_start = _time.monotonic()
 
     def setup_ui(self):
         """Set up the user interface."""
@@ -298,6 +301,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Handle window close event."""
         # Allow programmatic forced shutdown without prompting
         if getattr(self, "_force_exit", False):
+            self._send_close_event()
             self.system_monitor_tab.stop_monitoring()
             event.accept()
             return
@@ -310,11 +314,27 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
+            self._send_close_event()
             # Clean up system monitor thread before closing
             self.system_monitor_tab.stop_monitoring()
             event.accept()
         else:
             event.ignore()
+
+    def _send_close_event(self) -> None:
+        """Send a gui_close telemetry event with session duration."""
+        import time as _time
+
+        from tit.telemetry import track_event
+        from tit import constants as const
+
+        t0 = getattr(self, "_session_start", None)
+        duration_s = int(round(_time.monotonic() - t0)) if t0 is not None else 0
+        track_event(
+            const.TELEMETRY_OP_GUI_CLOSE,
+            {"duration_s": duration_s},
+            _blocking=True,
+        )
 
     def set_tab_busy(
         self,
