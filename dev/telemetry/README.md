@@ -4,6 +4,7 @@
 **GA4 Property:** `tit-telemetry` (separate from docs analytics)
 **Measurement ID:** `G-2GGJF2D8C7`
 **Stream:** `CLI/GUI Events`
+**Dashboard:** https://github.com/idossha/TI-toolbox-stats (unified Streamlit + Plotly, deployed on Cloud Run)
 
 ---
 
@@ -285,7 +286,7 @@ SELECT
   event_name,
   COUNT(*) AS event_count
 FROM
-  `ti-toolbox-analytics.analytics_XXXXXXXXX.events_*`
+  `tit-telemetry.analytics_XXXXXXXXX.events_*`
 WHERE
   _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY))
 GROUP BY
@@ -296,9 +297,21 @@ ORDER BY
 
 Replace `XXXXXXXXX` with the GA4 property ID (visible in Admin → Property Settings).
 
-### Looker Studio (Dashboards)
+### Streamlit Dashboard (recommended)
 
-See [Looker Studio Dashboard](#looker-studio-dashboard) below.
+A self-hosted Streamlit dashboard lives under `dev/telemetry/dashboard/`.
+It reads from the BigQuery export, is deployed to Cloud Run (public URL),
+and auto-redeploys on push to `main` via GitHub Actions. A daily BQ
+scheduled query rolls events into a `daily_metrics` aggregation table.
+
+- Code + architecture: [`dashboard/README.md`](dashboard/README.md)
+- One-time GCP setup: [`dashboard/MANUAL_SETUP.md`](dashboard/MANUAL_SETUP.md)
+
+### Looker Studio (legacy — superseded by dashboard/)
+
+See [Looker Studio Dashboard](#looker-studio-dashboard) below. Kept as
+reference for anyone who prefers the click-ops path; the Streamlit
+dashboard above is version-controlled and the recommended approach.
 
 ---
 
@@ -312,29 +325,56 @@ BigQuery Link. This was set up on **2026-04-07**.
 
 | Step | Detail |
 |---|---|
-| **GCP Project** | `ti-toolbox-analytics` (same Google account as GA4) |
+| **GCP Project** | `tit-telemetry` (same Google account as GA4) |
 | **BigQuery API** | Enabled in GCP console (APIs & Services → Library) |
-| **GA4 → BigQuery Link** | Admin → BigQuery Links → Link → selected project |
+| **Billing account** | Linked on 2026-04-10 — **required** even for free-tier usage (see gotcha below) |
+| **GA4 → BigQuery Link** | Admin → Product links → BigQuery Links → Link → selected project |
 | **Export type** | **Daily** (batched — sufficient for our volume) |
 | **Dataset location** | US (cannot be changed after creation) |
 | **Dataset name** | `analytics_<PROPERTY_ID>` (auto-created by GA4) |
 | **Table format** | `events_YYYYMMDD` (one table per day, auto-populated) |
 
-> **First data**: Tables appear ~24 hours after linking. No backfill of
-> historical data — only events from the link date (2026-04-07) forward
+> **First data**: Tables appear ~24 hours after linking, provided billing
+> is attached to the GCP project *before* the link is created. No backfill
+> of historical data — only events from the link date (2026-04-07) forward
 > are exported.
+
+### Gotcha: Billing Must Be Attached Before Linking
+
+GA4 will silently accept a BigQuery Link on a GCP project that has no
+billing account attached, but it **will not export any data** — the
+dataset never gets created and the link appears to work with no errors.
+BigQuery's free tier (10 GB storage + 1 TB queries/month) only applies
+*after* a billing account is linked; without one, the project cannot
+receive writes at all.
+
+On initial setup (2026-04-07) the link was created but no data appeared
+for three days because billing had not yet been attached. Billing was
+added on 2026-04-10; the first daily export is expected within 24 hours
+of that fix. If a link was created before billing was attached and data
+still doesn't flow after the next daily cycle, unlink and re-link from
+GA4 to force re-provisioning.
+
+Verify billing at:
+`https://console.cloud.google.com/billing/linkedaccount?project=tit-telemetry`
 
 ### If You Need to Recreate the Link
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
 2. Sign in with the same Google account that owns the GA4 property
-3. Select or create a GCP project
+3. Select or create a GCP project (current: `tit-telemetry`)
 4. Enable BigQuery API (APIs & Services → Library → BigQuery API)
-5. Go to [analytics.google.com](https://analytics.google.com) → `tit-telemetry` property
-6. Admin → Product links → BigQuery Links → **Link**
-7. Choose the GCP project → Data location: US → Export: Daily
-8. Leave "Include advertising identifiers" unchecked
-9. Submit — events flow automatically, no code changes required
+5. **Attach a billing account** (Billing → Link a billing account) — required
+   before linking, even though free-tier covers all usage
+6. Go to [analytics.google.com](https://analytics.google.com) → `tit-telemetry` property
+7. Admin → Product links → BigQuery Links → **Link**
+8. Choose the GCP project → Data location: US → Export: Daily
+9. Leave "Include advertising identifiers" unchecked
+10. Submit — events flow automatically, no code changes required
+
+After linking, GA4 auto-provisions the `firebase-measurement@system.gserviceaccount.com`
+service account with `BigQuery User` + `Logs Writer` roles on the project.
+No additional IAM configuration is needed.
 
 ### Cost
 
@@ -365,7 +405,7 @@ full historical queries.
 1. Go to [lookerstudio.google.com](https://lookerstudio.google.com)
 2. **Create → Report → Blank Report**
 3. Add data source: **Google Analytics** → select `tit-telemetry` property
-4. Add second data source: **BigQuery** → select `ti-toolbox-analytics` →
+4. Add second data source: **BigQuery** → select `tit-telemetry` project →
    `analytics_<PROPERTY_ID>` → `events_*` (wildcard table) → Connect
 
 ### Dashboard Layout
@@ -563,9 +603,10 @@ This is standard practice across neuroscience open-source tools.
 
 ### BigQuery Link
 
-- **GCP Project:** `ti-toolbox-analytics`
+- **GCP Project:** `tit-telemetry`
 - **Linked:** 2026-04-07
+- **Billing attached:** 2026-04-10 (initial link was inert until billing was added — see gotcha in BigQuery Export section)
 - **Export:** Daily batch
 - **Location:** US
-- **Dataset:** `analytics_<PROPERTY_ID>` (auto-created)
+- **Dataset:** `analytics_<PROPERTY_ID>` (auto-created after first daily export)
 - See [BigQuery Export](#bigquery-export-long-term-retention) for full details
