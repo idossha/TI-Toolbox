@@ -416,6 +416,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
     def refresh_subjects(self):
         """Scan for available subjects and update the dropdown."""
+        current_subject = self.subject_combo.currentText()
+        current_simulation = self.sim_combo.currentText()
+
+        self.subject_combo.blockSignals(True)
         self.subject_combo.clear()
 
         # Look for subject directories in the derivatives/SimNIBS directory
@@ -423,6 +427,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             simnibs_dir = self.pm.simnibs()
             if not simnibs_dir or not os.path.isdir(simnibs_dir):
                 self.status_label.setText("No subjects found")
+                self.subject_combo.blockSignals(False)
                 return
 
             # Look for sub-* directories
@@ -438,14 +443,22 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 self.subject_combo.addItems(sorted(subject_ids))
                 self.status_label.setText(f"Found {len(subject_dirs)} subjects")
 
-                # If subjects were found, select the first one and check for atlases
                 if self.subject_combo.count() > 0:
-                    self.subject_combo.setCurrentIndex(0)
-                    self.check_freesurfer_atlases()
+                    subject_index = self.subject_combo.findText(current_subject)
+                    if subject_index >= 0:
+                        self.subject_combo.setCurrentIndex(subject_index)
+                    else:
+                        self.subject_combo.setCurrentIndex(0)
             else:
                 self.status_label.setText("No subjects found")
         except OSError as e:
             self.status_label.setText("Error scanning for subjects")
+        finally:
+            self.subject_combo.blockSignals(False)
+
+        if self.subject_combo.count() > 0:
+            self.check_freesurfer_atlases()
+            self.refresh_simulations(preserve_simulation=current_simulation)
 
     def check_freesurfer_atlases(self):
         """Check for available Freesurfer atlases for the current subject."""
@@ -472,10 +485,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.atlas_visibility_chk.setEnabled(False)
             self.atlas_opacity_slider.setEnabled(False)
 
-    def refresh_simulations(self):
+    def refresh_simulations(self, preserve_simulation=None):
         """Populate the simulation combo box for the selected subject."""
+        if preserve_simulation is None:
+            preserve_simulation = self.sim_combo.currentText()
+
+        self.sim_combo.blockSignals(True)
         self.sim_combo.clear()
         if self.subject_combo.count() == 0:
+            self.sim_combo.blockSignals(False)
             return
 
         subject_id = self.subject_combo.currentText()
@@ -491,15 +509,22 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.console_widget.update_console(
                 f"No Simulations directory found at {sim_base}", "warning"
             )
+            self.sim_combo.blockSignals(False)
             return
 
         # Add simulations to combo box
         for sim_name in simulations:
             self.sim_combo.addItem(sim_name)
 
-        # If simulations were found, select the first one and update analyses
         if self.sim_combo.count() > 0:
-            self.sim_combo.setCurrentIndex(0)
+            sim_index = self.sim_combo.findText(preserve_simulation)
+            if sim_index >= 0:
+                self.sim_combo.setCurrentIndex(sim_index)
+            else:
+                self.sim_combo.setCurrentIndex(0)
+
+        self.sim_combo.blockSignals(False)
+        if self.sim_combo.count() > 0:
             self.update_available_analyses()
 
     def update_available_analyses(self):

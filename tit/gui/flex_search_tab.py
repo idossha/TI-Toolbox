@@ -464,7 +464,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Initialize focality visibility
         self._update_focality_visibility()
         self._update_nonroi_stacked()
-        self._update_search_mode_visibility()
 
     # ------------------------------------------------------------------ #
     #  Subject / EEG net discovery                                        #

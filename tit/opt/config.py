@@ -230,3 +230,48 @@ class ExResult:
     n_combinations: int
     results_csv: Optional[str] = None
     results_json: Optional[str] = None
+
+
+@dataclass
+class SecondaryExConfig:
+    """Configuration for secondary exhaustive search.
+
+    Starts from a fixed base TI simulation with exactly two HF pair fields and
+    searches over one added carrier block (two additional pairs) from a
+    leadfield-derived electrode pool.
+    """
+
+    subject_id: str
+    project_dir: str
+    base_montage: str
+    base_eeg_net: str
+    leadfield_hdf: str
+    roi_name: str
+    metric: str
+    electrodes: ElectrodeSpec
+    current_mA: float = 1.0
+    roi_radius: float = 3.0
+    eeg_net: Optional[str] = None
+
+    def __post_init__(self):
+        if isinstance(self.electrodes, dict):
+            if "electrodes" in self.electrodes:
+                self.electrodes = PoolElectrodes(**self.electrodes)
+            else:
+                self.electrodes = BucketElectrodes(**self.electrodes)
+        if not self.roi_name.endswith(".csv"):
+            self.roi_name += ".csv"
+
+
+@dataclass
+class SecondaryExResult:
+    """Result from a secondary exhaustive search run."""
+
+    success: bool
+    output_dir: str
+    n_combinations: int
+    results_csv: Optional[str] = None
+    results_json: Optional[str] = None
+    best_composite_csv: Optional[str] = None
+    scatter_png: Optional[str] = None
+    montage_distribution_png: Optional[str] = None
