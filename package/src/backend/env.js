@@ -228,7 +228,8 @@ function buildRuntimeEnv(projectDir) {
     TIT_HOST_OS_VERSION: os.release(), // e.g. 24.6.0 (macOS), 10.0.22631 (Win)
     TIT_HOST_ARCH: toCanonicalArch(os.arch()),  // x86_64, arm64 (Python convention)
     DISPLAY: getDisplayEnv(),
-    TZ: getTimezone()
+    TZ: getTimezone(),
+    COMPOSE_PROJECT_NAME: 'ti-toolbox'
   };
 
   const env = ensurePathEnv(baseEnv);
