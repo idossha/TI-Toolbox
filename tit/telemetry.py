@@ -51,6 +51,7 @@ import json
 import logging
 import os
 import platform
+import re
 import ssl
 import sys
 import threading
@@ -520,11 +521,13 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
         yield
     except Exception as exc:
         duration_s = int(round(time.monotonic() - t0))
+        detail = re.sub(r"/\S+", "<path>", str(exc))[:80]
         track_event(
             op_name,
             {
                 "status": "error",
                 "error_type": type(exc).__name__,
+                "error_detail": detail,
                 "duration_s": duration_s,
             },
             _blocking=True,

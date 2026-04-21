@@ -414,7 +414,26 @@ class TestTrackOperation:
         error_event = payloads[1]["events"][0]
         assert error_event["params"]["status"] == "error"
         assert error_event["params"]["error_type"] == "ValueError"
+        assert error_event["params"]["error_detail"] == "boom"
         assert "duration_s" in error_event["params"]
+
+    def test_error_detail_strips_paths(self, monkeypatch):
+        self._force_enabled(monkeypatch)
+        payloads = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
+            with pytest.raises(RuntimeError):
+                with track_operation("charm"):
+                    raise RuntimeError("No T1 found in /home/user/sub-01/anat")
+
+        import threading
+
+        for t in threading.enumerate():
+            if t.daemon and t.is_alive():
+                t.join(timeout=2)
+
+        detail = payloads[1]["events"][0]["params"]["error_detail"]
+        assert "/home" not in detail
+        assert "<path>" in detail
 
     def test_exception_is_reraised(self, monkeypatch):
         self._force_enabled(monkeypatch)
