@@ -292,6 +292,35 @@ def _canonical_os_name() -> str:
     return _OS_NAME_CANONICAL.get(raw.strip().lower(), "unknown")
 
 
+# Map of raw arch strings (from Node's os.arch(), Python's platform.machine(),
+# or any other source) to canonical values for GA4 telemetry. Ensures Electron's
+# 'x64' and Python's 'x86_64' both report as 'x86_64'.
+_OS_ARCH_CANONICAL = {
+    "x86_64": "x86_64",
+    "amd64": "x86_64",
+    "x64": "x86_64",
+    "i386": "x86",
+    "i686": "x86",
+    "x86": "x86",
+    "arm64": "arm64",
+    "aarch64": "arm64",
+    "armv7l": "armv7",
+    "armv6l": "armv6",
+}
+
+
+def _canonical_arch() -> str:
+    """Return a canonical arch: 'x86_64', 'arm64', 'x86', or 'unknown'.
+
+    Resolves from ``TIT_HOST_ARCH`` (set by the Electron launcher or
+    ``loader.py``) when present, otherwise from ``platform.machine()``.
+    Normalises so Electron's ``'x64'`` and Python's ``'x86_64'`` both
+    bucket as ``'x86_64'`` in telemetry.
+    """
+    raw = os.environ.get("TIT_HOST_ARCH") or platform.machine() or ""
+    return _OS_ARCH_CANONICAL.get(raw.strip().lower(), "unknown")
+
+
 def _system_params() -> dict[str, str]:
     """Return a dict of non-identifying system metadata.
 
@@ -313,7 +342,7 @@ def _system_params() -> dict[str, str]:
         "tit_version": tit.__version__,
         "os_name": _canonical_os_name(),
         "os_version": os.environ.get("TIT_HOST_OS_VERSION", platform.release()),
-        "platform": os.environ.get("TIT_HOST_ARCH", platform.machine()),
+        "platform": _canonical_arch(),
         "interface": os.environ.get("TIT_INTERFACE", "cli"),
     }
 

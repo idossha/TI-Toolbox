@@ -228,6 +228,37 @@ class TestSystemParams:
     @pytest.mark.parametrize(
         "raw,canonical",
         [
+            # Electron writes os.arch() = 'x64', Python = 'x86_64'
+            ("x64", "x86_64"),
+            ("x86_64", "x86_64"),
+            ("amd64", "x86_64"),
+            ("AMD64", "x86_64"),
+            # ARM
+            ("arm64", "arm64"),
+            ("aarch64", "arm64"),
+            ("ARM64", "arm64"),
+            # 32-bit
+            ("i386", "x86"),
+            ("i686", "x86"),
+            # Legacy ARM
+            ("armv7l", "armv7"),
+            # Unknown arch falls through
+            ("riscv64", "unknown"),
+        ],
+    )
+    def test_arch_canonicalised(self, monkeypatch, raw, canonical):
+        """All launcher-specific arch strings collapse to canonical names.
+
+        Regression test for the dashboard bug where Electron-on-Intel
+        events were sent as ``'x64'`` while loader.py sent ``'x86_64'``,
+        splitting the same hardware into two slices.
+        """
+        monkeypatch.setenv("TIT_HOST_ARCH", raw)
+        assert _system_params()["platform"] == canonical
+
+    @pytest.mark.parametrize(
+        "raw,canonical",
+        [
             # Electron launcher writes Node's os.platform() value
             ("win32", "windows"),
             # Python loader.py writes platform.system().lower()
