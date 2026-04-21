@@ -254,12 +254,54 @@ def set_enabled(enabled: bool) -> None:
 # ---------------------------------------------------------------------------
 
 
+# Map of raw OS strings (from any source: Node's os.platform(), Python's
+# platform.system(), os.name, or unset) to the canonical lower-case names
+# we send to GA4. Keeps dashboards simple — they only need to know about
+# 'darwin', 'linux', 'windows' (and 'unknown').
+_OS_NAME_CANONICAL = {
+    # macOS
+    "darwin": "darwin",
+    "mac": "darwin",
+    "macos": "darwin",
+    "osx": "darwin",
+    # Linux
+    "linux": "linux",
+    "linux2": "linux",
+    # Windows — Node returns 'win32', Python's os.name returns 'nt',
+    # platform.system() returns 'Windows'. All of them mean the same OS.
+    "windows": "windows",
+    "win32": "windows",
+    "win64": "windows",
+    "nt": "windows",
+    "cygwin": "windows",
+    "msys": "windows",
+}
+
+
+def _canonical_os_name() -> str:
+    """Return a canonical OS name: 'darwin', 'linux', 'windows', or 'unknown'.
+
+    Resolves from ``TIT_HOST_OS`` (set by the Electron launcher or
+    ``loader.py``) when present, otherwise from ``platform.system()``.
+    Normalises so dashboards don't need to handle launcher-specific
+    aliases (Node's ``os.platform()`` returns ``'win32'`` while Python's
+    ``platform.system().lower()`` returns ``'windows'`` — both should
+    bucket as ``'windows'``).
+    """
+    raw = os.environ.get("TIT_HOST_OS") or platform.system() or ""
+    return _OS_NAME_CANONICAL.get(raw.strip().lower(), "unknown")
+
+
 def _system_params() -> dict[str, str]:
     """Return a dict of non-identifying system metadata.
 
     Uses ``TIT_HOST_*`` environment variables (set by the Electron
     launcher or dev loader) to report the **host** OS, not the Docker
     container's Linux.  Falls back to ``platform`` for non-Docker use.
+
+    ``os_name`` is normalised to one of ``'darwin'``, ``'linux'``,
+    ``'windows'``, or ``'unknown'`` regardless of which launcher set
+    ``TIT_HOST_OS``.  See :func:`_canonical_os_name`.
 
     Returns
     -------
@@ -269,7 +311,7 @@ def _system_params() -> dict[str, str]:
     """
     return {
         "tit_version": tit.__version__,
-        "os_name": os.environ.get("TIT_HOST_OS", platform.system()),
+        "os_name": _canonical_os_name(),
         "os_version": os.environ.get("TIT_HOST_OS_VERSION", platform.release()),
         "platform": os.environ.get("TIT_HOST_ARCH", platform.machine()),
         "interface": os.environ.get("TIT_INTERFACE", "cli"),

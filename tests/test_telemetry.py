@@ -225,6 +225,39 @@ class TestSystemParams:
         assert params["os_version"] == "24.6.0"
         assert params["platform"] == "arm64"
 
+    @pytest.mark.parametrize(
+        "raw,canonical",
+        [
+            # Electron launcher writes Node's os.platform() value
+            ("win32", "windows"),
+            # Python loader.py writes platform.system().lower()
+            ("windows", "windows"),
+            # Edge cases that have shown up in the wild
+            ("Windows", "windows"),
+            ("nt", "windows"),
+            ("cygwin", "windows"),
+            # macOS variants
+            ("darwin", "darwin"),
+            ("Darwin", "darwin"),
+            # Linux variants
+            ("linux", "linux"),
+            ("Linux", "linux"),
+            ("linux2", "linux"),
+            # Unknown / exotic platforms
+            ("freebsd", "unknown"),
+            ("aix", "unknown"),
+        ],
+    )
+    def test_os_name_canonicalised(self, monkeypatch, raw, canonical):
+        """All launcher-specific OS strings collapse to canonical names.
+
+        Regression test for the dashboard bug where Electron-on-Windows
+        events were sent as ``'win32'`` and slid past the dashboard's
+        ``CASE WHEN 'windows' THEN 'Windows'`` bucketing.
+        """
+        monkeypatch.setenv("TIT_HOST_OS", raw)
+        assert _system_params()["os_name"] == canonical
+
 
 # ---------------------------------------------------------------------------
 # track_event()
