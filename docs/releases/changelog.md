@@ -8,6 +8,15 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
 
+### Unreleased
+
+#### Telemetry & Launcher Parity
+
+- **Arch telemetry normalized** — both launchers now emit `x86_64` (Intel) or `arm64` (Apple Silicon) as the `platform` telemetry parameter. Previously the Electron launcher sent `x64` while `loader.py` sent `x86_64`, splitting the same hardware into two dashboard slices.
+- **OS telemetry normalized** — Node's `win32` and Python's `windows` now both emit as `windows`. Canonical mapping covers all known platform strings from either launcher.
+
+---
+
 ### v2.3.0 (Latest Release)
 
 **Release Date**: March 17, 2026
