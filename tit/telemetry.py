@@ -522,7 +522,11 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
         duration_s = int(round(time.monotonic() - t0))
         track_event(
             op_name,
-            {"status": "error", "error_type": type(exc).__name__, "duration_s": duration_s},
+            {
+                "status": "error",
+                "error_type": type(exc).__name__,
+                "duration_s": duration_s,
+            },
             _blocking=True,
         )
         raise

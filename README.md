@@ -16,6 +16,13 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 [Brain Stimulation Journal Publication](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext#supplementary-material)
 
+## Supported Entrypoints
+
+| Entrypoint | Platform | Notes |
+|---|---|---|
+| **Desktop app** (Electron) | macOS, Windows, Linux | Recommended for all users. Handles Docker, X11, and environment setup automatically. |
+| `python loader.py` | macOS, Linux | CLI fallback for developers and scripted workflows. Windows users should prefer the desktop app. |
+
 ## Contact
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.  
