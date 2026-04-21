@@ -67,3 +67,9 @@ benchmark_results/
 
 # ideas to be implemented
 future/
+
+# Telemetry dashboard secrets
+dev/telemetry/dashboard/*.json
+dev/telemetry/dashboard/.env
+!dev/telemetry/dashboard/.env.example
+

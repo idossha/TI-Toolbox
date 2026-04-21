@@ -137,7 +137,7 @@ function convertWindowsPathToDockerFormat(winPath) {
  * and container restarts.
  *
  * Platform resolution:
- *   - macOS  : ``~/Library/Application Support/ti-toolbox``
+ *   - macOS  : ``~/.config/ti-toolbox``  (NOT ~/Library/Application Support)
  *   - Linux  : ``~/.config/ti-toolbox``  (XDG)
  *   - Windows: ``%APPDATA%\ti-toolbox``
  *
@@ -164,6 +164,15 @@ function getUserConfigDir() {
   fs.ensureDirSync(configDir);
   logger.info(`User config directory: ${configDir}`);
   return configDir;
+}
+
+// Map Node's os.arch() values to the Python convention used by
+// tit/telemetry.py's _canonical_arch(). Keeps the raw env var
+// consistent across both launchers so in-container code doesn't have
+// to know which launcher invoked it.
+function toCanonicalArch(nodeArch) {
+  const map = { x64: 'x86_64', x32: 'x86', ia32: 'x86', arm64: 'arm64' };
+  return map[nodeArch] || nodeArch;
 }
 
 function getTimezone() {
@@ -217,10 +226,9 @@ function buildRuntimeEnv(projectDir) {
     TIT_USER_CONFIG: dockerUserConfigDir,
     TIT_HOST_OS: os.platform(),       // darwin, win32, linux
     TIT_HOST_OS_VERSION: os.release(), // e.g. 24.6.0 (macOS), 10.0.22631 (Win)
-    TIT_HOST_ARCH: os.arch(),          // x64, arm64
+    TIT_HOST_ARCH: toCanonicalArch(os.arch()),  // x86_64, arm64 (Python convention)
     DISPLAY: getDisplayEnv(),
-    TZ: getTimezone(),
-    COMPOSE_PROJECT_NAME: 'ti-toolbox'
+    TZ: getTimezone()
   };
 
   const env = ensurePathEnv(baseEnv);

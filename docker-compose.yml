@@ -1,3 +1,5 @@
+name: ti-toolbox
+
 services:
 
   freesurfer:
