@@ -1,4 +1,3 @@
-
 # Temporal Interference Toolbox
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/idossha/simnibs?cacheSeconds=86400)](https://hub.docker.com/r/idossha/simnibs)
@@ -14,19 +13,10 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 > **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
 
-[Brain Stimulation Journal Publication](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext#supplementary-material)
-
-## Supported Entrypoints
-
-| Entrypoint | Platform | Notes |
-|---|---|---|
-| **Desktop app** (Electron) | macOS, Windows, Linux | Recommended for all users. Handles Docker, X11, and environment setup automatically. |
-| `python loader.py` | macOS, Linux | CLI fallback for developers and scripted workflows. Windows users should prefer the desktop app. |
+[Brain Stimulation Journal Publication](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext#supplementary-material>)
 
 ## Contact
 
-The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.  
+The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
 Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), or [email](mailto:ihaber@wisc.edu).
-
-
