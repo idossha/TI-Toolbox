@@ -341,6 +341,17 @@ class PreProcessTab(QtWidgets.QWidget):
     def update_available_subjects(self):
         """Update the list of available subjects."""
         self.subject_list.clear()
+        if self.project_dir is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Project Directory Not Found",
+                "Could not detect a project directory.\n\n"
+                "Make sure you launched the container with loader.py and that\n"
+                "the PROJECT_DIR_NAME environment variable is set.\n\n"
+                "Run:  echo $PROJECT_DIR_NAME\n"
+                "      ls /mnt/",
+            )
+            return
         subjects = discover_subjects(self.project_dir)
         for subject_id in subjects:
             self.subject_list.addItem(subject_id)

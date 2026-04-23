@@ -56,8 +56,11 @@ class PreprocessCancelled(RuntimeError):
     """
 
 
-def discover_subjects(project_dir: str) -> list[str]:
+def discover_subjects(project_dir: str | None) -> list[str]:
     """Return sorted, deduplicated subject IDs found in a BIDS project tree.
+
+    Returns an empty list when *project_dir* is ``None`` (project not
+    configured).
 
     Discovery order:
 
@@ -80,6 +83,9 @@ def discover_subjects(project_dir: str) -> list[str]:
     --------
     check_m2m_exists : Check whether a subject's m2m directory exists.
     """
+    if project_dir is None:
+        return []
+
     found: list[str] = []
 
     sourcedata_dir = os.path.join(project_dir, "sourcedata")
