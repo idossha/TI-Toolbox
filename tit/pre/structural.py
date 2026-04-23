@@ -19,6 +19,7 @@ tit.pre : Package-level overview and convenience re-exports.
 """
 
 import os
+import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -40,11 +41,20 @@ from .utils import (
 )
 
 
-def _run_step(label: str, func, logger) -> None:
-    """Execute a single pipeline step with logging."""
+def _run_step(label: str, func, logger) -> float:
+    """Execute a single pipeline step with logging.
+
+    Returns
+    -------
+    float
+        Wall-clock duration of the step in seconds.
+    """
     logger.info(f"{label}: Started")
+    t0 = time.time()
     func()
-    logger.info(f"{label}: ✓ Complete")
+    duration = time.time() - t0
+    logger.info(f"{label}: ✓ Complete ({duration:.1f}s)")
+    return duration
 
 
 def _run_subject_pipeline(
@@ -65,8 +75,14 @@ def _run_subject_pipeline(
     debug: bool,
     runner: CommandRunner,
     callback: Callable | None,
-) -> None:
-    """Run the full preprocessing sequence for a single subject."""
+) -> dict[str, float]:
+    """Run the full preprocessing sequence for a single subject.
+
+    Returns
+    -------
+    dict[str, float]
+        Mapping of step name to wall-clock duration in seconds.
+    """
     logger = build_logger(
         "preprocess",
         subject_id,
@@ -76,8 +92,10 @@ def _run_subject_pipeline(
 
     logger.info(f"Beginning pre-processing for subject: {subject_id}")
 
+    durations: dict[str, float] = {}
+
     if run_recon and not convert_dicom and not create_m2m:
-        _run_step(
+        durations["FreeSurfer recon-all"] = _run_step(
             "FreeSurfer recon-all",
             lambda: run_recon_all(
                 project_dir,
@@ -90,7 +108,7 @@ def _run_subject_pipeline(
         )
     else:
         if convert_dicom:
-            _run_step(
+            durations["DICOM Conversion"] = _run_step(
                 "DICOM conversion",
                 lambda: run_dicom_to_nifti(
                     project_dir,
@@ -102,7 +120,7 @@ def _run_subject_pipeline(
             )
 
         if create_m2m:
-            _run_step(
+            durations["SimNIBS charm"] = _run_step(
                 "SimNIBS charm",
                 lambda: run_charm(
                     project_dir,
@@ -112,8 +130,7 @@ def _run_subject_pipeline(
                 ),
                 logger,
             )
-            # Run subject_atlas after charm completes to create .annot files
-            _run_step(
+            durations["Subject Atlas Segmentation"] = _run_step(
                 "Subject atlas segmentation",
                 lambda: run_subject_atlas(
                     project_dir,
@@ -125,7 +142,7 @@ def _run_subject_pipeline(
             )
 
         if run_recon:
-            _run_step(
+            durations["FreeSurfer recon-all"] = _run_step(
                 "FreeSurfer recon-all",
                 lambda: run_recon_all(
                     project_dir,
@@ -138,7 +155,7 @@ def _run_subject_pipeline(
             )
 
     if run_tissue:
-        _run_step(
+        durations["Tissue Analysis"] = _run_step(
             "Tissue analysis",
             lambda: run_tissue_analysis(
                 project_dir,
@@ -152,7 +169,7 @@ def _run_subject_pipeline(
     # QSI pipeline steps (DWI preprocessing)
     if run_qsiprep_step:
         qsiprep_cfg = qsiprep_config or {}
-        _run_step(
+        durations["QSIPrep"] = _run_step(
             "QSIPrep DWI preprocessing",
             lambda: run_qsiprep(
                 project_dir,
@@ -176,11 +193,10 @@ def _run_subject_pipeline(
         )
 
     if run_qsirecon_step:
-        # Extract recon specs and atlases from config
         recon_cfg = qsi_recon_config or {}
         recon_specs = recon_cfg.get("recon_specs") if recon_cfg else None
         atlases = recon_cfg.get("atlases") if recon_cfg else None
-        _run_step(
+        durations["QSIRecon"] = _run_step(
             "QSIRecon reconstruction",
             lambda: run_qsirecon(
                 project_dir,
@@ -200,7 +216,7 @@ def _run_subject_pipeline(
         )
 
     if extract_dti_step:
-        _run_step(
+        durations["DTI Tensor Extraction"] = _run_step(
             "DTI tensor extraction",
             lambda: extract_dti_tensor(
                 project_dir,
@@ -211,7 +227,7 @@ def _run_subject_pipeline(
         )
 
     if run_subcortical:
-        _run_step(
+        durations["Subcortical Segmentations"] = _run_step(
             "Subcortical segmentations",
             lambda: run_subcortical_segmentations(
                 project_dir,
@@ -223,6 +239,7 @@ def _run_subject_pipeline(
         )
 
     logger.info(f"Pre-processing completed successfully for subject: {subject_id}")
+    return durations
 
 
 def run_pipeline(
@@ -380,9 +397,12 @@ def _run_pipeline_inner(
     elif stop_event is not None and runner.stop_event is not stop_event:
         runner.stop_event = stop_event
 
+    # Collect step durations per subject for reporting
+    all_durations: dict[str, dict[str, float]] = {sid: {} for sid in subject_list}
+
     if parallel_recon and run_recon and len(subject_list) > 1:
         for sid in subject_list:
-            _run_subject_pipeline(
+            d = _run_subject_pipeline(
                 project_dir,
                 sid,
                 convert_dicom=convert_dicom,
@@ -400,13 +420,14 @@ def _run_pipeline_inner(
                 runner=runner,
                 callback=logger_callback,
             )
+            all_durations[sid].update(d)
 
         max_workers = parallel_cores or os.cpu_count() or 1
         max_workers = min(max_workers, len(subject_list))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
+            futures = {}
             for sid in subject_list:
-                futures.append(
+                futures[
                     executor.submit(
                         _run_subject_pipeline,
                         project_dir,
@@ -426,14 +447,15 @@ def _run_pipeline_inner(
                         runner=runner,
                         callback=logger_callback,
                     )
-                )
+                ] = sid
 
             for future in as_completed(futures):
-                future.result()
+                sid = futures[future]
+                all_durations[sid].update(future.result())
 
         if run_tissue_analysis:
             for sid in subject_list:
-                _run_subject_pipeline(
+                d = _run_subject_pipeline(
                     project_dir,
                     sid,
                     convert_dicom=False,
@@ -451,10 +473,11 @@ def _run_pipeline_inner(
                     runner=runner,
                     callback=logger_callback,
                 )
+                all_durations[sid].update(d)
         # Run QSI steps after tissue analysis (if enabled)
         if run_qsiprep or run_qsirecon or extract_dti:
             for sid in subject_list:
-                _run_subject_pipeline(
+                d = _run_subject_pipeline(
                     project_dir,
                     sid,
                     convert_dicom=False,
@@ -472,9 +495,10 @@ def _run_pipeline_inner(
                     runner=runner,
                     callback=logger_callback,
                 )
+                all_durations[sid].update(d)
         if run_subcortical_segmentations:
             for sid in subject_list:
-                _run_subject_pipeline(
+                d = _run_subject_pipeline(
                     project_dir,
                     sid,
                     convert_dicom=False,
@@ -492,9 +516,10 @@ def _run_pipeline_inner(
                     runner=runner,
                     callback=logger_callback,
                 )
+                all_durations[sid].update(d)
     else:
         for sid in subject_list:
-            _run_subject_pipeline(
+            d = _run_subject_pipeline(
                 project_dir,
                 sid,
                 convert_dicom=convert_dicom,
@@ -512,6 +537,7 @@ def _run_pipeline_inner(
                 runner=runner,
                 callback=logger_callback,
             )
+            all_durations[sid].update(d)
 
     # Generate HTML reports for each subject
     from tit.reporting import PreprocessingReportGenerator
@@ -521,13 +547,14 @@ def _run_pipeline_inner(
             project_dir=project_dir,
             subject_id=sid,
         )
+        durations = all_durations[sid]
 
-        # Add processing steps based on what was run
         if convert_dicom:
             report_gen.add_processing_step(
                 step_name="DICOM Conversion",
                 description="Convert DICOM files to NIfTI format",
                 status="completed",
+                duration=durations.get("DICOM Conversion"),
             )
 
         if create_m2m:
@@ -535,11 +562,13 @@ def _run_pipeline_inner(
                 step_name="SimNIBS charm",
                 description="Create head mesh model for simulations",
                 status="completed",
+                duration=durations.get("SimNIBS charm"),
             )
             report_gen.add_processing_step(
                 step_name="Subject Atlas Segmentation",
                 description="Generate atlas-based parcellation",
                 status="completed",
+                duration=durations.get("Subject Atlas Segmentation"),
             )
 
         if run_recon:
@@ -547,6 +576,7 @@ def _run_pipeline_inner(
                 step_name="FreeSurfer recon-all",
                 description="Cortical surface reconstruction",
                 status="completed",
+                duration=durations.get("FreeSurfer recon-all"),
             )
 
         if run_tissue_analysis:
@@ -554,6 +584,7 @@ def _run_pipeline_inner(
                 step_name="Tissue Analysis",
                 description="Tissue segmentation and analysis",
                 status="completed",
+                duration=durations.get("Tissue Analysis"),
             )
 
         if run_qsiprep:
@@ -561,6 +592,7 @@ def _run_pipeline_inner(
                 step_name="QSIPrep",
                 description="Diffusion MRI preprocessing",
                 status="completed",
+                duration=durations.get("QSIPrep"),
             )
 
         if run_qsirecon:
@@ -568,6 +600,7 @@ def _run_pipeline_inner(
                 step_name="QSIRecon",
                 description="Diffusion MRI reconstruction",
                 status="completed",
+                duration=durations.get("QSIRecon"),
             )
 
         if extract_dti:
@@ -575,6 +608,7 @@ def _run_pipeline_inner(
                 step_name="DTI Tensor Extraction",
                 description="Extract DTI tensors for anisotropic conductivity",
                 status="completed",
+                duration=durations.get("DTI Tensor Extraction"),
             )
 
         if run_subcortical_segmentations:
@@ -582,6 +616,7 @@ def _run_pipeline_inner(
                 step_name="Subcortical Segmentations",
                 description="Thalamic nuclei and hippocampal subfield segmentations",
                 status="completed",
+                duration=durations.get("Subcortical Segmentations"),
             )
 
         report_gen.scan_for_data()

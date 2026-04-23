@@ -12,6 +12,8 @@ Features:
 Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
 """
 
+import base64
+import io
 import os
 import sys
 import argparse
@@ -19,7 +21,7 @@ import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
 from nilearn import datasets, plotting, image
-from nilearn.plotting import plot_img_on_surf, view_img_on_surf
+from nilearn.plotting import plot_img_on_surf, view_img, view_img_on_surf
 from nilearn.image import threshold_img
 from pathlib import Path
 import warnings
@@ -618,3 +620,295 @@ class NilearnVisualizer:
         print(f"✓ Saved glass brain visualization: {png_filepath}")
 
         return png_filepath
+
+    # ------------------------------------------------------------------
+    # Base64 helpers for embedding in HTML reports
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def glass_brain_to_base64(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render a glass-brain PNG and return it as a base64 string.
+
+        Intended for embedding in HTML reports via
+        ``ImageReportlet.set_base64_data()``.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file (e.g. TI_max volume).
+        title : str, optional
+            Title text rendered on the figure.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            Base64-encoded PNG string, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        img = nib.load(nifti_path)
+        data = img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            return None
+
+        if max_cutoff is None:
+            max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+        fig = plt.figure(figsize=(10, 4), facecolor="white")
+        display = plotting.plot_glass_brain(
+            stat_map_img=img,
+            threshold=min_cutoff,
+            vmax=max_cutoff,
+            cmap=cmap,
+            colorbar=True,
+            plot_abs=False,
+            symmetric_cbar=False,
+            title=f"{title}\n{min_cutoff:.2f}\u2013{max_cutoff:.2f} V/m",
+            figure=fig,
+        )
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("ascii")
+
+    @staticmethod
+    def multi_slice_to_base64(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+    ) -> str | None:
+        """Render a multi-slice overview and return it as a base64 string.
+
+        Creates a compact 3-row (sagittal / coronal / axial) x 5-column
+        slice grid suitable for embedding in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text rendered on the figure.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+
+        Returns
+        -------
+        str or None
+            Base64-encoded PNG string, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        img = nib.load(nifti_path)
+        data = img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            return None
+
+        if max_cutoff is None:
+            max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+        field_thresholded = threshold_img(img, threshold=min_cutoff)
+
+        fig, axes = plt.subplots(3, 5, figsize=(20, 10), facecolor="white")
+        fig.patch.set_facecolor("white")
+
+        sagittal_coords = [-40, -20, 0, 20, 40]
+        coronal_coords = [-55, -20, 5, 30, 55]
+        axial_coords = [-10, 10, 30, 50, 70]
+
+        all_coords = [sagittal_coords, coronal_coords, axial_coords]
+        view_names = ["Sagittal", "Coronal", "Axial"]
+        coord_labels = ["x", "y", "z"]
+
+        for row, (coords, view_name, coord_label) in enumerate(
+            zip(all_coords, view_names, coord_labels)
+        ):
+            for col, cut_coord in enumerate(coords):
+                ax = axes[row, col]
+                plotting.plot_stat_map(
+                    field_thresholded,
+                    cut_coords=[cut_coord],
+                    display_mode=coord_label.lower(),
+                    axes=ax,
+                    annotate=True,
+                    black_bg=False,
+                    cmap="hot",
+                    vmin=min_cutoff,
+                    vmax=max_cutoff,
+                    colorbar=False,
+                )
+                if col == 0:
+                    ax.set_ylabel(
+                        view_name,
+                        fontsize=9,
+                        fontweight="bold",
+                        rotation=90,
+                        labelpad=8,
+                    )
+
+        import matplotlib.cm as cm
+        import matplotlib.colors as mcolors
+
+        norm = mcolors.Normalize(vmin=min_cutoff, vmax=max_cutoff)
+        sm = cm.ScalarMappable(cmap="hot", norm=norm)
+        sm.set_array([])
+
+        cbar_ax = fig.add_axes([0.15, 0.03, 0.7, 0.02])
+        cbar = fig.colorbar(
+            sm,
+            cax=cbar_ax,
+            orientation="horizontal",
+            label="Electric Field (V/m)",
+        )
+        cbar.set_ticks([min_cutoff, max_cutoff])
+        cbar.set_ticklabels([f"{min_cutoff:.2f}", f"{max_cutoff:.2f}"])
+
+        fig.suptitle(
+            f"{title}  ({min_cutoff:.2f}\u2013{max_cutoff:.2f} V/m)",
+            fontsize=12,
+            fontweight="bold",
+        )
+        plt.tight_layout(rect=[0, 0.08, 1, 0.93])
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("ascii")
+
+    # ------------------------------------------------------------------
+    # Interactive HTML viewers for embedding in reports
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def interactive_volume_to_html(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render an interactive volumetric stat-map viewer as HTML.
+
+        Uses ``nilearn.plotting.view_img`` to create an interactive
+        slice-based viewer suitable for embedding in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text for the viewer.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            HTML string for embedding, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        try:
+            img = nib.load(nifti_path)
+            data = img.get_fdata()
+            data_nonzero = data[data > 0]
+            if len(data_nonzero) == 0:
+                return None
+
+            if max_cutoff is None:
+                max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+            v = view_img(
+                stat_map_img=img,
+                threshold=min_cutoff,
+                vmax=max_cutoff,
+                cmap=cmap,
+                symmetric_cmap=False,
+                title=title,
+            )
+            return v._repr_html_()
+        except Exception:
+            return None
+
+    @staticmethod
+    def interactive_surface_to_html(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render an interactive 3-D surface projection as HTML.
+
+        Uses ``nilearn.plotting.view_img_on_surf`` to project the
+        stat-map onto a cortical surface mesh suitable for embedding
+        in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text for the viewer.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            HTML string for embedding, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        try:
+            img = nib.load(nifti_path)
+            data = img.get_fdata()
+            data_nonzero = data[data > 0]
+            if len(data_nonzero) == 0:
+                return None
+
+            if max_cutoff is None:
+                max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+            v = view_img_on_surf(
+                stat_map=img,
+                threshold=min_cutoff,
+                vmax=max_cutoff,
+                cmap=cmap,
+                symmetric_cmap=False,
+                title=title,
+            )
+            return v._repr_html_()
+        except Exception:
+            return None

@@ -228,7 +228,7 @@ class TestRunPipelineParallelRecon:
         mock_executor_cls.return_value.__enter__ = MagicMock(return_value=mock_ctx)
         mock_executor_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_future = MagicMock()
-        mock_future.result.return_value = None
+        mock_future.result.return_value = {}
         mock_ctx.submit.return_value = mock_future
         mock_as_completed.return_value = [mock_future] * n_subjects
         return mock_ctx

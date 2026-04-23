@@ -200,10 +200,15 @@ class PreprocessingReportGenerator(BaseReportGenerator):
         # Determine which steps were run based on added processing steps
         step_names = {s["name"].lower() for s in self.processing_steps}
 
-        # Input data - look for raw data
-        rawdata_dir = self.project_dir / "rawdata" / f"sub-{self.subject_id}"
-        if rawdata_dir.exists():
-            # Look for anatomical data
+        # Input data - look for raw data in BIDS locations
+        candidate_dirs = [
+            self.project_dir / "rawdata" / f"sub-{self.subject_id}",
+            self.project_dir / f"sub-{self.subject_id}",
+        ]
+        for rawdata_dir in candidate_dirs:
+            if not rawdata_dir.exists():
+                continue
+
             anat_dir = rawdata_dir / "anat"
             if anat_dir.exists():
                 t1_files = list(anat_dir.glob("*T1w*.nii*"))
@@ -214,13 +219,14 @@ class PreprocessingReportGenerator(BaseReportGenerator):
                 if t2_files:
                     self.add_input_data("T2w", [str(f) for f in t2_files])
 
-            # Look for diffusion data (only if QSI steps were run)
             if any("qsi" in s or "dti" in s or "diffusion" in s for s in step_names):
                 dwi_dir = rawdata_dir / "dwi"
                 if dwi_dir.exists():
                     dwi_files = list(dwi_dir.glob("*.nii*"))
                     if dwi_files:
                         self.add_input_data("DWI", [str(f) for f in dwi_files])
+
+            break  # Use the first matching directory
 
         # Output data - look for derivatives based on steps that were run
         derivatives_dir = self.project_dir / "derivatives"

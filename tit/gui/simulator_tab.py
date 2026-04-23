@@ -1360,12 +1360,12 @@ class SimulatorTab(QtWidgets.QWidget):
             last_jobs = getattr(self, "_last_jobs", [])
             subject_montage_map = (
                 {}
-            )  # subject_id -> [(montage_name, current_str, eeg_net)]
+            )  # subject_id -> [(montage_name, current_str, eeg_net, electrode_pairs)]
             for subject_id, mc, current_str in last_jobs:
                 if subject_id not in subject_montage_map:
                     subject_montage_map[subject_id] = []
                 subject_montage_map[subject_id].append(
-                    (mc.name, current_str, mc.eeg_net)
+                    (mc.name, current_str, mc.eeg_net, mc.electrode_pairs)
                 )
 
             if not subject_montage_map:
@@ -1376,9 +1376,10 @@ class SimulatorTab(QtWidgets.QWidget):
             successful_reports = 0
 
             for subject_id, montage_list in subject_montage_map.items():
-                montages_to_process = [name for name, _, _ in montage_list]
-                currents_map = {name: cur for name, cur, _ in montage_list}
-                eeg_net_map = {name: net for name, _, net in montage_list}
+                montages_to_process = [name for name, _, _, _ in montage_list]
+                currents_map = {name: cur for name, cur, _, _ in montage_list}
+                eeg_net_map = {name: net for name, _, net, _ in montage_list}
+                pairs_map = {name: pairs for name, _, _, pairs in montage_list}
 
                 # Generate individual report for each montage for this subject
                 for montage_name in montages_to_process:
@@ -1428,11 +1429,13 @@ class SimulatorTab(QtWidgets.QWidget):
                         m2m_path = self.pm.m2m(subject_id)
                         report_generator.add_subject(subject_id, m2m_path, "completed")
 
-                        # Add this specific montage
+                        # Add this specific montage with actual electrode pairs
+                        actual_pairs = pairs_map.get(montage_name, [])
+                        montage_type = "mTI" if len(actual_pairs) >= 4 else "TI"
                         report_generator.add_montage(
                             montage_name=montage_name,
-                            electrode_pairs=[["E1", "E2"]],  # Default pairs
-                            montage_type="unipolar",
+                            electrode_pairs=actual_pairs,
+                            montage_type=montage_type,
                         )
 
                         # Get expected output files for this specific combination

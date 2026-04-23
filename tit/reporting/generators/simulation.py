@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
+from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet, TextReportlet
 from ..core.protocols import StatusType
 from ..reportlets.images import SliceSeriesReportlet, MontageImageReportlet
 from ..reportlets.metadata import (
@@ -626,6 +626,179 @@ class SimulationReportGenerator(BaseReportGenerator):
         )
         return params
 
+    def _find_tissue_niftis(
+        self, nifti_dirs: list[Path]
+    ) -> dict[str, str]:
+        """Find grey- and white-matter TI_max MNI-space NIfTIs in *nifti_dirs*.
+
+        Returns a dict mapping tissue label to file path.
+        """
+        found: dict[str, str] = {}
+        for ndir in nifti_dirs:
+            if not ndir.exists():
+                continue
+            for f in sorted(ndir.iterdir()):
+                if f.suffix != ".gz" or "MNI" not in f.name:
+                    continue
+                fl = f.name.lower()
+                if "ti_max" not in fl:
+                    continue
+                if fl.startswith("grey_") and "Grey Matter" not in found:
+                    found["Grey Matter"] = str(f)
+                elif fl.startswith("white_") and "White Matter" not in found:
+                    found["White Matter"] = str(f)
+            if found:
+                break
+        return found
+
+    @staticmethod
+    def _compute_field_thresholds(nifti_path: str) -> tuple[float, float] | None:
+        """Return (min_cutoff, max_cutoff) at the 95th and 99.9th percentiles.
+
+        Shows only the top 5 % of the field distribution while excluding
+        the top 0.1 % outliers.
+        """
+        import nibabel as nib
+        import numpy as np
+
+        img = nib.load(nifti_path)
+        data = img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            return None
+        min_cutoff = float(np.percentile(data_nonzero, 95.0))
+        max_cutoff = float(np.percentile(data_nonzero, 99.9))
+        if min_cutoff >= max_cutoff:
+            return None
+        return min_cutoff, max_cutoff
+
+    def _build_nilearn_section(self) -> None:
+        """Build nilearn field visualizations from simulation NIfTI outputs.
+
+        Uses the per-tissue (grey/white matter) NIfTI files that the
+        simulation pipeline produces and adds both static images and
+        interactive HTML viewers.  Display range is the 95th–99.9th
+        percentile of non-zero voxels.
+        """
+        try:
+            from tit.plotting.nilearn.visualizer import NilearnVisualizer
+        except ImportError:
+            return
+
+        subject_id = self._get_montage_subject_id()
+        if not subject_id:
+            return
+
+        pm = get_path_manager(str(self.project_dir))
+        section = None
+
+        for montage in self.montages:
+            name = montage["name"]
+            montage_type = montage.get("type")
+            sim_dir = Path(pm.simulation(subject_id, name))
+
+            preferred = "mTI" if self._is_multipolar(montage_type) else "TI"
+            nifti_dirs = [
+                sim_dir / preferred / "niftis",
+                sim_dir / "TI" / "niftis",
+                sim_dir / "mTI" / "niftis",
+            ]
+
+            tissue_paths = self._find_tissue_niftis(nifti_dirs)
+            if not tissue_paths:
+                continue
+
+            if section is None:
+                section = self.assembler.add_section(
+                    section_id="nilearn_visualizations",
+                    title="Field Visualizations (Nilearn)",
+                    description=(
+                        "Electric field distributions in grey and white matter "
+                        "(95th\u201399.9th percentile)."
+                    ),
+                    order=45,
+                )
+
+            # --- Static images for each tissue ---
+            for tissue_label, nifti_path in tissue_paths.items():
+                thresholds = self._compute_field_thresholds(nifti_path)
+                if thresholds is None:
+                    continue
+                lo, hi = thresholds
+
+                glass = NilearnVisualizer.glass_brain_to_base64(
+                    nifti_path,
+                    title=f"{name} — {tissue_label} Glass Brain",
+                    min_cutoff=0,
+                    max_cutoff=hi,
+                )
+                if glass:
+                    img = ImageReportlet(
+                        title=f"{name} — {tissue_label} Glass Brain",
+                        caption=(
+                            "Maximum-intensity projection of TI field envelope "
+                            f"({tissue_label.lower()}, "
+                            f"0\u2013{hi:.3f} V/m)"
+                        ),
+                    )
+                    img.set_base64_data(glass)
+                    section.add_reportlet(img)
+
+                slices = NilearnVisualizer.multi_slice_to_base64(
+                    nifti_path,
+                    title=f"{name} — {tissue_label} Multi-Slice",
+                    min_cutoff=lo,
+                    max_cutoff=hi,
+                )
+                if slices:
+                    img = ImageReportlet(
+                        title=f"{name} — {tissue_label} Multi-Slice Overview",
+                        caption=(
+                            "Sagittal / Coronal / Axial slice views "
+                            f"({tissue_label.lower()}, "
+                            f"{lo:.3f}\u2013{hi:.3f} V/m)"
+                        ),
+                    )
+                    img.set_base64_data(slices)
+                    section.add_reportlet(img)
+
+            # --- Interactive viewers for each tissue ---
+            for tissue_label, nifti_path in tissue_paths.items():
+                thresholds = self._compute_field_thresholds(nifti_path)
+                if thresholds is None:
+                    continue
+                lo, hi = thresholds
+
+                vol_html = NilearnVisualizer.interactive_volume_to_html(
+                    nifti_path,
+                    title=f"{name} — {tissue_label}",
+                    min_cutoff=lo,
+                    max_cutoff=hi,
+                )
+                if vol_html:
+                    section.add_reportlet(
+                        TextReportlet(
+                            content=vol_html,
+                            title=f"{name} — {tissue_label} Interactive Volume",
+                            content_type="html",
+                        )
+                    )
+
+                surf_html = NilearnVisualizer.interactive_surface_to_html(
+                    nifti_path,
+                    title=f"{name} — {tissue_label}",
+                    min_cutoff=lo,
+                    max_cutoff=hi,
+                )
+                if surf_html:
+                    section.add_reportlet(
+                        TextReportlet(
+                            content=surf_html,
+                            title=f"{name} — {tissue_label} Interactive Surface",
+                            content_type="html",
+                        )
+                    )
+
     def _build_report(self) -> None:
         """Build the complete simulation report."""
         self._build_summary_section()
@@ -635,3 +808,4 @@ class SimulationReportGenerator(BaseReportGenerator):
         self._build_montages_section()
         self._build_results_section()
         self._build_visualizations_section()
+        self._build_nilearn_section()

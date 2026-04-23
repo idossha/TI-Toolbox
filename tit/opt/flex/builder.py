@@ -19,6 +19,7 @@ tit.opt.flex.flex.run_flex_search : Calls these functions internally.
 tit.opt.config.FlexConfig : Configuration dataclass consumed here.
 """
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -266,10 +267,14 @@ def generate_report(
         n_candidates=n_multistart,
         n_starts=n_multistart,
         selection_method="best" if n_multistart > 1 else "single",
+        intensity_ch1=config.current_mA,
+        intensity_ch2=config.current_mA,
         electrode_shape=config.electrode.shape,
         electrode_dimensions_mm=dims_str,
         electrode_thickness_mm=config.electrode.gel_thickness,
         electrode_current_mA=config.current_mA,
+        min_electrode_distance_mm=config.min_electrode_distance,
+        anisotropy_type=config.anisotropy_type,
         mapping_enabled=config.enable_mapping,
         disable_mapping_simulation=config.disable_mapping_simulation,
         run_final_electrode_simulation=config.run_final_electrode_simulation,
@@ -376,35 +381,111 @@ def generate_report(
                 score=float(score),
             )
 
-    # Set best solution if available
-    electrode_positions_path = Path(base_output_folder) / "electrode_positions.json"
+    # Load electrode positions and optional mapping data
+    output_path = Path(base_output_folder)
     electrode_positions = None
     channel_array_indices = None
-    if electrode_positions_path.exists():
-        with open(electrode_positions_path) as f:
+    mapped_labels = None
+    mapped_positions = None
+
+    positions_file = output_path / "electrode_positions.json"
+    if positions_file.exists():
+        with open(positions_file) as f:
             pos_data = json.load(f)
         electrode_positions = pos_data.get("optimized_positions")
         channel_array_indices = pos_data.get("channel_array_indices")
 
-    if n_multistart > 1 and best_opt_idx != -1:
-        report_gen.set_best_solution(
-            electrode_pairs=[],
-            score=float(optim_funvalue_list[best_opt_idx]),
-            metrics={"run": best_opt_idx + 1},
-            electrode_coordinates=electrode_positions,
-            channel_array_indices=channel_array_indices,
-        )
-    elif n_multistart == 1 and optim_funvalue_list[0] != float("inf"):
-        report_gen.set_best_solution(
-            electrode_pairs=[],
-            score=float(optim_funvalue_list[0]),
-            metrics={},
-            electrode_coordinates=electrode_positions,
-            channel_array_indices=channel_array_indices,
-        )
+    mapping_file = output_path / "electrode_mapping.json"
+    if mapping_file.exists():
+        with open(mapping_file) as f:
+            map_data = json.load(f)
+        mapped_labels = map_data.get("mapped_labels")
+        mapped_positions = map_data.get("mapped_positions")
+
+    # Build electrode pairs from mapped labels when available
+    electrode_pairs: list[dict[str, str]] = []
+    if mapped_labels and len(mapped_labels) >= 4:
+        electrode_pairs = [
+            {"electrode1": mapped_labels[0], "electrode2": mapped_labels[1]},
+            {"electrode1": mapped_labels[2], "electrode2": mapped_labels[3]},
+        ]
+
+    # Build metrics dict
+    best_score_idx = best_opt_idx if n_multistart > 1 else 0
+    if best_score_idx == -1 or optim_funvalue_list[best_score_idx] == float("inf"):
+        report_path = report_gen.generate()
+        logger.info(f"Report generated: {report_path}")
+        return
+
+    best_metrics: dict = {}
+    if n_multistart > 1:
+        best_metrics["run"] = best_opt_idx + 1
+
+    # Discover electrode placement images from output directory
+    montage_b64 = _build_electrode_montage_base64(output_path)
+
+    report_gen.set_best_solution(
+        electrode_pairs=electrode_pairs,
+        score=float(optim_funvalue_list[best_score_idx]),
+        metrics=best_metrics,
+        electrode_coordinates=electrode_positions,
+        channel_array_indices=channel_array_indices,
+        mapped_labels=mapped_labels,
+        mapped_positions=mapped_positions,
+        montage_image_base64=montage_b64,
+    )
 
     report_path = report_gen.generate()
     logger.info(f"Report generated: {report_path}")
+
+
+def _build_electrode_montage_base64(output_dir: Path) -> str | None:
+    """Combine electrode placement PNGs into a single base64-encoded montage.
+
+    SimNIBS writes one PNG per electrode (e.g.
+    ``electrode_channel_0_array_0.png``).  This helper stitches them into
+    a 2x2 grid and returns the result as a base64 string for embedding
+    in HTML reports.
+
+    Parameters
+    ----------
+    output_dir : Path
+        Flex-search output directory containing ``electrode_*.png`` files.
+
+    Returns
+    -------
+    str or None
+        Base64-encoded PNG, or *None* if no images were found.
+    """
+    import io
+
+    electrode_pngs = sorted(output_dir.glob("electrode_channel_*.png"))
+    if not electrode_pngs:
+        return None
+
+    try:
+        from PIL import Image
+    except ImportError:
+        # Fall back: embed the first image only
+        with open(electrode_pngs[0], "rb") as f:
+            return base64.b64encode(f.read()).decode("ascii")
+
+    images = [Image.open(p) for p in electrode_pngs]
+    n = len(images)
+    cols = min(n, 2)
+    rows = (n + cols - 1) // cols
+    w = max(img.width for img in images)
+    h = max(img.height for img in images)
+
+    montage = Image.new("RGBA", (cols * w, rows * h), (255, 255, 255, 255))
+    for idx, img in enumerate(images):
+        r, c = divmod(idx, cols)
+        montage.paste(img, (c * w, r * h))
+
+    buf = io.BytesIO()
+    montage.save(buf, format="PNG")
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
 
 
 def _atlas_name_from_path(path_value: str, hemisphere: str) -> str:

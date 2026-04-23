@@ -180,6 +180,8 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         field_map_base64: str | None = None,
         electrode_coordinates: list[list[float]] | None = None,
         channel_array_indices: list[list[int]] | None = None,
+        mapped_labels: list[str] | None = None,
+        mapped_positions: list[list[float]] | None = None,
     ) -> None:
         """
         Set the best (selected) solution.
@@ -190,6 +192,10 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             metrics: Solution metrics
             montage_image_base64: Base64 montage visualization
             field_map_base64: Base64 field map visualization
+            electrode_coordinates: Optimized electrode XYZ positions
+            channel_array_indices: Channel/array index per electrode
+            mapped_labels: EEG net electrode labels (e.g. E061)
+            mapped_positions: Mapped electrode XYZ positions
         """
         self.best_solution = {
             "electrode_pairs": electrode_pairs,
@@ -199,6 +205,8 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "field_map_base64": field_map_base64,
             "electrode_coordinates": electrode_coordinates,
             "channel_array_indices": channel_array_indices,
+            "mapped_labels": mapped_labels,
+            "mapped_positions": mapped_positions,
         }
 
     def populate_from_data(self, data: dict[str, Any]) -> None:
@@ -353,6 +361,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "electrode_current_mA": self.config.get("electrode_current_mA"),
             "channel_1_intensity": self.config.get("intensity_ch1"),
             "channel_2_intensity": self.config.get("intensity_ch2"),
+            "min_electrode_distance_mm": self.config.get("min_electrode_distance_mm"),
             "electrode_net": self.config.get("electrode_net"),
             "mapping_enabled": self.config.get("mapping_enabled"),
             "run_final_simulation": self.config.get("run_final_electrode_simulation"),
@@ -369,6 +378,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "recombination": self.config.get("recombination"),
             "thresholds": self.config.get("thresholds"),
             "non_roi_method": self.config.get("non_roi_method"),
+            "anisotropy_type": self.config.get("anisotropy_type"),
             "cpu_cores": self.config.get("cpu_cores"),
         }
         param_list.add_category(
@@ -500,9 +510,10 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         pair_strings = []
         for pair in pairs:
             if isinstance(pair, dict):
-                pair_strings.append(
-                    f"{pair.get('electrode1', '?')}-{pair.get('electrode2', '?')}"
-                )
+                e1 = pair.get("electrode1", "?")
+                e2 = pair.get("electrode2", "?")
+                if e1 and e2:
+                    pair_strings.append(f"{e1}-{e2}")
             else:
                 pair_strings.append(str(pair))
 
@@ -528,13 +539,16 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         )
         section.add_reportlet(solution_metadata)
 
-        # Electrode coordinates (preferred over names)
+        # Electrode coordinates
         electrode_coords = self.best_solution.get("electrode_coordinates")
         if electrode_coords:
             indices = self.best_solution.get("channel_array_indices") or []
+            mapped_labels = self.best_solution.get("mapped_labels") or []
             coord_rows = []
             for idx, coords in enumerate(electrode_coords):
-                row = {"Electrode": idx + 1}
+                row: dict[str, Any] = {"Electrode": idx + 1}
+                if idx < len(mapped_labels):
+                    row["Label"] = mapped_labels[idx]
                 if isinstance(coords, (list, tuple)) and len(coords) >= 3:
                     row["X"] = f"{coords[0]:.2f}"
                     row["Y"] = f"{coords[1]:.2f}"
@@ -548,10 +562,36 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
             coord_table = TableReportlet(
                 data=coord_rows,
-                title="Electrode Coordinates (Subject Space)",
+                title="Optimized Electrode Coordinates (Subject Space)",
                 striped=True,
             )
             section.add_reportlet(coord_table)
+
+        # Mapped electrode positions (when EEG net mapping was used)
+        mapped_positions = self.best_solution.get("mapped_positions")
+        mapped_labels = self.best_solution.get("mapped_labels")
+        if mapped_positions and mapped_labels:
+            indices = self.best_solution.get("channel_array_indices") or []
+            mapped_rows = []
+            for idx, coords in enumerate(mapped_positions):
+                row: dict[str, Any] = {"Electrode": idx + 1}
+                if idx < len(mapped_labels):
+                    row["Label"] = mapped_labels[idx]
+                if isinstance(coords, (list, tuple)) and len(coords) >= 3:
+                    row["X"] = f"{coords[0]:.2f}"
+                    row["Y"] = f"{coords[1]:.2f}"
+                    row["Z"] = f"{coords[2]:.2f}"
+                if idx < len(indices):
+                    row["Channel"] = indices[idx][0]
+                    row["Array"] = indices[idx][1]
+                mapped_rows.append(row)
+
+            mapped_table = TableReportlet(
+                data=mapped_rows,
+                title="Mapped EEG Net Electrodes",
+                striped=True,
+            )
+            section.add_reportlet(mapped_table)
 
         # Montage visualization
         if self.best_solution.get("montage_image_base64"):
