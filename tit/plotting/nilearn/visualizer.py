@@ -12,22 +12,23 @@ Features:
 Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
 """
 
+import argparse
 import base64
 import io
 import os
 import sys
-import argparse
-import numpy as np
-import nibabel as nib
-import matplotlib.pyplot as plt
-from nilearn import datasets, plotting, image
-from nilearn.plotting import plot_img_on_surf, view_img, view_img_on_surf
-from nilearn.image import threshold_img
-from pathlib import Path
 import warnings
+from pathlib import Path
 
-from tit.paths import get_path_manager
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+from nilearn import datasets, image, plotting
+from nilearn.image import threshold_img
+from nilearn.plotting import plot_img_on_surf, view_img, view_img_on_surf
+
 from tit.constants import DIR_NILEARN_VISUALS
+from tit.paths import get_path_manager
 
 warnings.filterwarnings("ignore")
 
