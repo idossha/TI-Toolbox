@@ -146,6 +146,41 @@ Same as `test.sh` above
 **Requirements:** SimNIBS, test fixture data, FreeSurfer-related files, BATS
 (All included in the `Dockerfile.test` image)
 
+### Comprehensive Release-Gate Integration
+
+The default CircleCI suite is intentionally fast and mostly validates wiring plus
+pre-baked outputs. Before tagging a release, run the heavy computational entry
+point:
+
+```bash
+tests/run_comprehensive_integration.sh \
+  --dicom-source /absolute/path/to/t1_dicom_series_or_archive \
+  --keep-work
+```
+
+This script uses the same `idossha/ti-toolbox-test:latest` image built from
+`container/blueprint/Dockerfile.test`, copies `/mnt/test_projectdir` to an
+isolated work directory, sets `TIT_RUN_COMPREHENSIVE=1`, and runs:
+
+1. real DICOM conversion through `dcm2niix`
+2. real SimNIBS CHARM on the converted anatomical image
+3. real TI simulation on the ErnieExtended fixture
+4. real flex-search with the focality objective
+5. real leadfield generation
+6. real ex-search with a pooled six-electrode candidate set
+7. real Analyzer runs in both mesh and voxel modes
+
+Useful partial commands during debugging:
+
+```bash
+# Exercise simulation/optimization/analysis without a DICOM fixture or CHARM
+tests/run_comprehensive_integration.sh --skip-dicom --skip-charm --keep-work
+
+# Exercise DICOM + CHARM only, skipping later optimization phases
+tests/run_comprehensive_integration.sh --dicom-source /path/to/dicoms \
+  --skip-flex --skip-leadfield-ex --keep-work
+```
+
 ---
 
 ## CI/CD (CircleCI)
