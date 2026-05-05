@@ -156,6 +156,8 @@ class QSIPrepConfig:
         Unringing method: 'mrdegibbs', 'rpg', or 'none'.
     distortion_group_merge : str
         Method for merging distortion groups: 'concatenate', 'average', or 'none'.
+        The legacy/internal value 'concatenate' is translated to QSIPrep's
+        current CLI value 'concat' when building the Docker command.
     """
 
     subject_id: str

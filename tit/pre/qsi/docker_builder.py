@@ -228,7 +228,12 @@ class DockerCommandBuilder:
         cmd.extend(["--unringing-method", config.unringing_method])
 
         if config.distortion_group_merge != "none":
-            cmd.extend(["--distortion-group-merge", config.distortion_group_merge])
+            merge = (
+                "concat"
+                if config.distortion_group_merge == "concatenate"
+                else config.distortion_group_merge
+            )
+            cmd.extend(["--distortion-group-merge", merge])
 
         return cmd
 
@@ -322,6 +327,7 @@ class DockerCommandBuilder:
 
         cmd.extend(["--participant-label", config.subject_id])
         cmd.extend(["--recon-spec", container_spec])
+        cmd.extend(["--input-type", "qsiprep"])
         cmd.extend(["-w", self.paths.work_dir])
         cmd.extend(["--nthreads", str(effective_cpus)])
         cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])

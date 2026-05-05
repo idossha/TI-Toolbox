@@ -70,6 +70,8 @@ QSIRecon supports [over 20 reconstruction workflows](https://qsirecon.readthedoc
 
 When `dsi_studio_gqi` is run without atlases, TI-Toolbox stages a custom pipeline YAML (`resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml`) as `/tmp/recon_spec.yaml`. This removes the upstream connectivity node, avoiding a mandatory `--atlases` requirement and a reporting bug in QSIRecon >= 1.2.0 while retaining GQI reconstruction and scalar export. Atlas-enabled runs keep the standard `dsi_studio_gqi` spec so connectivity outputs remain available.
 
+TI-Toolbox targets the PennLINC 26.0.0 QSIPrep/QSIRecon containers. The 26.0.0 line was smoke-tested for CLI compatibility, but diffusion-derived outputs may differ from older v1.x containers because upstream packaging and dependencies changed.
+
 Other recon specs may also produce usable tensors, but they are not currently validated in our extraction pipeline. See the [QSIRecon documentation](https://qsirecon.readthedocs.io/) for the full list of available reconstruction workflows.
 
 ### QSIRecon Output

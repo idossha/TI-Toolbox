@@ -141,10 +141,20 @@ class TestBuildQsiprepCmd:
         assert cmd[idx + 1] == "rpg"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
-    def test_distortion_group_merge(self, mock_resources, builder):
+    def test_distortion_group_merge_maps_concatenate_to_concat(
+        self, mock_resources, builder
+    ):
         config = QSIPrepConfig(subject_id="001", distortion_group_merge="concatenate")
         cmd = builder.build_qsiprep_cmd(config)
-        assert "--distortion-group-merge" in cmd
+        idx = cmd.index("--distortion-group-merge")
+        assert cmd[idx + 1] == "concat"
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_distortion_group_merge_average_passthrough(self, mock_resources, builder):
+        config = QSIPrepConfig(subject_id="001", distortion_group_merge="average")
+        cmd = builder.build_qsiprep_cmd(config)
+        idx = cmd.index("--distortion-group-merge")
+        assert cmd[idx + 1] == "average"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_volume_mounts(self, mock_resources, builder):
@@ -191,6 +201,8 @@ class TestBuildQsireconCmd:
         assert "--recon-spec" in cmd
         idx = cmd.index("--recon-spec")
         assert cmd[idx + 1] == "dipy_dki"
+        input_idx = cmd.index("--input-type")
+        assert cmd[input_idx + 1] == "qsiprep"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_gpu_flag(self, mock_resources, builder):

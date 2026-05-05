@@ -97,7 +97,7 @@ def check_image_exists(image: str, tag: str) -> bool:
     image : str
         Docker image name (e.g., 'pennlinc/qsiprep').
     tag : str
-        Image tag (e.g., '1.1.1').
+        Image tag (e.g., '26.0.0').
 
     Returns
     -------

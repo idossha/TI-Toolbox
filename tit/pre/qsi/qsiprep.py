@@ -62,7 +62,7 @@ def run_qsiprep(
     omp_threads : int, optional
         Number of OpenMP threads. Default: 1.
     image_tag : str, optional
-        QSIPrep Docker image tag. Default: '1.1.1'.
+        QSIPrep Docker image tag. Default from ``constants.QSI_QSIPREP_IMAGE_TAG``.
     skip_bids_validation : bool, optional
         Skip BIDS validation. Default: True.
     denoise_method : str, optional

@@ -121,7 +121,7 @@ docker run -ti --rm \
     -v /path/to/bids:/data:ro \
     -v /path/to/output:/out \
     -v /path/to/license.txt:/opt/freesurfer/license.txt:ro \
-    pennlinc/qsiprep:1.1.1 \
+    pennlinc/qsiprep:26.0.0 \
     /data /out participant \
     --fs-license-file /opt/freesurfer/license.txt \
     --output-resolution 2
@@ -131,22 +131,23 @@ docker run -ti --rm \
     -v /path/to/qsiprep-output:/data:ro \
     -v /path/to/recon-output:/out \
     -v /path/to/license.txt:/opt/freesurfer/license.txt:ro \
-    pennlinc/qsirecon:1.2.0 \
+    pennlinc/qsirecon:26.0.0 \
     /data /out participant \
     --fs-license-file /opt/freesurfer/license.txt \
-    --recon-spec mrtrix_multishell_msmt_ACT-hsvs
+    --recon-spec mrtrix_multishell_msmt_ACT-hsvs \
+    --input-type qsiprep
 ```
 
 ### Apptainer/Singularity
 
 ```bash
 # Build image
-apptainer build qsiprep-1.1.1.sif docker://pennlinc/qsiprep:1.1.1
+apptainer build qsiprep-26.0.0.sif docker://pennlinc/qsiprep:26.0.0
 
 # Run
 apptainer run --containall --writable-tmpfs \
     -B /path/to/bids,/path/to/output,/path/to/license.txt:/opt/freesurfer/license.txt \
-    qsiprep-1.1.1.sif \
+    qsiprep-26.0.0.sif \
     /path/to/bids /path/to/output participant \
     --fs-license-file /opt/freesurfer/license.txt \
     --output-resolution 2
@@ -481,10 +482,10 @@ QSIPrep generates a BIDS-compliant `dataset_description.json` in the output root
     "GeneratedBy": [
         {
             "Name": "qsiprep",
-            "Version": "1.1.1",
+            "Version": "26.0.0",
             "Container": {
                 "Type": "docker",
-                "Tag": "pennlinc/qsiprep:1.1.1"
+                "Tag": "pennlinc/qsiprep:26.0.0"
             }
         }
     ]
@@ -1147,13 +1148,16 @@ Adding `"mporder": N` to eddy config enables:
 ```python
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_QSIPREP_IMAGE_TAG = "1.1.1"    # Latest QSIPrep tag; no 1.2.0 QSIPrep release exists
-QSI_QSIRECON_IMAGE_TAG = "1.2.0"   # QSIRecon 1.2.0 released Feb 2025
+QSI_QSIPREP_IMAGE_TAG = "26.0.0"
+QSI_QSIRECON_IMAGE_TAG = "26.0.0"
 ```
 
-**Version Note:** As of March 2026, QSIPrep's latest release is **1.1.1** (Jan
-2026). There is no QSIPrep 1.2.0 release on GitHub. QSIRecon 1.2.0 exists (Feb
-2025). Keep separate constants for QSIPrep and QSIRecon image tags.
+**Version Note:** As of May 2026, TI-Toolbox targets the synchronized PennLINC
+26.0.0 container line for both QSIPrep and QSIRecon. There is no QSIPrep 1.2.0
+container tag; older v1.x-compatible defaults were QSIPrep 1.1.1 and QSIRecon
+1.2.0. The 26.0.0 upgrade was smoke-tested for CLI compatibility, but DWI/QSI
+outputs may differ from v1.x containers because upstream dependencies and
+packaging changed.
 
 ### Integration Architecture
 
