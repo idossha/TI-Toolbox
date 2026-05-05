@@ -335,6 +335,10 @@ class BaseReportGenerator(ABC):
             "software_versions": self.software_versions,
         }
 
+    def _get_reference_components(self) -> list[str]:
+        """Return pipeline components used to select default references."""
+        return [self.report_type]
+
     @abstractmethod
     def _build_report(self) -> None:
         """Build the report content. Must be implemented by subclasses."""
@@ -358,15 +362,13 @@ class BaseReportGenerator(ABC):
             self._build_report()
 
             # Add standard sections
+            reference_components = self._get_reference_components()
             self._add_errors_section()
-            self._add_methods_section(pipeline_components=[self.report_type])
-            self._add_references_section(pipeline_components=[self.report_type])
+            self._add_methods_section(pipeline_components=reference_components)
+            self._add_references_section(pipeline_components=reference_components)
 
             # Ensure output directory exists
             self._ensure_output_dir()
-
-            # Create dataset description
-            self._create_dataset_description()
 
             # Determine output path
             if output_path:
@@ -374,7 +376,7 @@ class BaseReportGenerator(ABC):
             else:
                 final_path = self.get_output_path()
 
-            # Save the report
+            # Save the self-contained HTML report.
             self.assembler.save(final_path)
 
             return final_path

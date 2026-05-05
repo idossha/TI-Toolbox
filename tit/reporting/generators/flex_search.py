@@ -613,6 +613,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             montage_img = ImageReportlet(
                 title="Electrode Montage",
                 caption="Optimal electrode placement",
+                width="520px",
             )
             montage_img.set_base64_data(self.best_solution["montage_image_base64"])
             section.add_reportlet(montage_img)
@@ -648,6 +649,45 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                 )
             )
 
+    def _build_computer_friendly_section(self) -> None:
+        """Build final machine-readable flex-search report output."""
+        section = self.assembler.add_section(
+            section_id="computer_friendly_output",
+            title="Computer-Friendly Output",
+            description="JSON payload for automated audit and downstream reuse.",
+            order=110,
+        )
+        section.add_reportlet(
+            TextReportlet(
+                title="Flex-Search Report JSON",
+                content=json.dumps(self._build_computer_friendly_payload(), indent=2),
+                content_type="code",
+                copyable=True,
+                monospace=True,
+            )
+        )
+
+    def _build_computer_friendly_payload(self) -> dict[str, Any]:
+        """Return machine-readable flex-search report metadata and results."""
+        return {
+            "generated_by": {
+                "name": "TI-Toolbox",
+                "version": self.software_versions.get("ti_toolbox", "unknown"),
+            },
+            "report_type": self.report_type,
+            "session_id": self.session_id,
+            "subject_id": self.subject_id,
+            "project_dir": str(self.project_dir),
+            "software_versions": self.software_versions,
+            "configuration": self.config,
+            "roi": self.roi_info,
+            "search_results": self.search_results,
+            "best_solution": self.best_solution,
+            "optimization_metrics": self.optimization_metrics,
+            "warnings": self.warnings,
+            "errors": self.errors,
+        }
+
     def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""
         params = super()._get_methods_parameters()
@@ -667,6 +707,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         self._build_roi_section()
         self._build_results_section()
         self._build_best_solution_section()
+        self._build_computer_friendly_section()
 
 
 def create_flex_search_report(

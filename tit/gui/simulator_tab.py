@@ -1444,30 +1444,33 @@ class SimulatorTab(QtWidgets.QWidget):
                             electrode_pairs=actual_pairs,
                             montage_type=montage_type,
                         )
+                        report_generator.rehydrate_montage_from_config(
+                            montage_name=montage_name,
+                            subject_id=subject_id,
+                        )
 
                         # Get expected output files for this specific combination
                         simulations_dir = self.pm.simulation(subject_id, montage_name)
-                        ti_dir = (
-                            os.path.join(simulations_dir, "TI")
-                            if simulations_dir
-                            else None
-                        )
-                        nifti_dir = os.path.join(ti_dir, "niftis")
-
-                        output_files = {"TI": [], "niftis": []}
-                        if os.path.exists(nifti_dir):
-                            nifti_files = [
-                                f
-                                for f in os.listdir(nifti_dir)
-                                if f.endswith(".nii.gz")
-                            ]
-                            output_files["niftis"] = [
-                                os.path.join(nifti_dir, f) for f in nifti_files
-                            ]
-                            ti_files = [f for f in nifti_files if "TI_max" in f]
-                            output_files["TI"] = [
-                                os.path.join(nifti_dir, f) for f in ti_files
-                            ]
+                        output_files = {"TI": [], "mTI": [], "niftis": []}
+                        if simulations_dir:
+                            for mode_name in ("TI", "mTI"):
+                                nifti_dir = os.path.join(
+                                    simulations_dir, mode_name, "niftis"
+                                )
+                                if not os.path.exists(nifti_dir):
+                                    continue
+                                nifti_paths = [
+                                    os.path.join(nifti_dir, f)
+                                    for f in os.listdir(nifti_dir)
+                                    if f.endswith(".nii.gz")
+                                ]
+                                output_files["niftis"].extend(nifti_paths)
+                                if mode_name == "TI":
+                                    output_files["TI"].extend(
+                                        [p for p in nifti_paths if "TI_max" in p]
+                                    )
+                                else:
+                                    output_files["mTI"].extend(nifti_paths)
 
                         # Add simulation result for this specific combination
                         report_generator.add_simulation_result(

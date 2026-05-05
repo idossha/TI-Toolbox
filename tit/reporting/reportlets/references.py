@@ -2,57 +2,72 @@
 References reportlet for TI-Toolbox reports.
 
 This module provides the default citations and references used across
-TI-Toolbox reports.
+TI-Toolbox reports.  References use stable internal IDs while rendering
+human-readable citation tags in reports and adjacent citation artifacts.
 """
 
 from typing import Any
 
 from ..core.base import ReferencesReportlet
 
-# Default TI-Toolbox references
+# Default TI-Toolbox references.  ``key`` is the stable machine ID used for
+# de-duplication and BibTeX entries; ``label`` is the visible citation tag.
 DEFAULT_REFERENCES: list[dict[str, str]] = [
     # ==========================================================================
-    # Core TI & SimNIBS references
+    # Core TI-Toolbox, TI & SimNIBS references
     # ==========================================================================
     {
-        "key": "TI Theory",
+        "key": "haber2026_titoolbox",
+        "label": "Haber2026",
         "citation": (
-            "Grossman N, et al. Noninvasive deep brain stimulation via "
-            "temporally interfering electric fields. Cell. 2017 Jun;169(6):"
-            "1029-1041.e16."
+            "Haber I, Jackson A, Thielscher A, Hai A, Tononi G. TI-Toolbox: "
+            "an open-source software for temporal interference stimulation "
+            "research. Brain Stimulation. 2026."
+        ),
+        "doi": "10.1016/j.brs.2025.103016",
+    },
+    {
+        "key": "grossman2017_ti",
+        "label": "Grossman2017",
+        "citation": (
+            "Grossman N, Bono D, Dedic N, Kodandaramaiah SB, Rudenko A, "
+            "Suk HJ, Cassara AM, Neufeld E, Kuster N, Tsai LH, Pascual-Leone A, "
+            "Boyden ES. Noninvasive deep brain stimulation via temporally "
+            "interfering electric fields. Cell. 2017;169(6):1029-1041.e16."
         ),
         "doi": "10.1016/j.cell.2017.05.024",
     },
     {
-        "key": "SimNIBS",
-        "citation": (
-            "Thielscher A, Antunes A, Saturnino GB. Field modeling for "
-            "transcranial magnetic stimulation: a useful tool to understand "
-            "the physiological effects of TMS?. In: 2015 37th Annual "
-            "International Conference of the IEEE Engineering in Medicine "
-            "and Biology Society (EMBC). Milan: IEEE; Aug. 2015. p. 222-5."
-        ),
-        "doi": "10.1109/EMBC.2015.7318340",
-    },
-    {
-        "key": "SimNIBS",
+        "key": "saturnino2019_simnibs_fem",
+        "label": "Saturnino2019",
         "citation": (
             "Saturnino GB, Puonti O, Nielsen JD, Antonenko D, Madsen KH, "
             "Thielscher A. SimNIBS 2.1: a comprehensive pipeline for "
             "individualized electric field modelling for transcranial brain "
-            "stimulation. In: Makarov S, Horner M, Noetscher G, editors. "
-            "Brain and Human Body Modeling. Cham: Springer International "
-            "Publishing; 2019. p. 3-25."
+            "stimulation. Journal of Neural Engineering. 2019;16(6):066006."
         ),
-        "doi": "10.1007/978-3-030-21293-3_1",
+        "doi": "10.1088/1741-2552/ab41ba",
     },
     {
-        "key": "CHARM Segmentation",
+        "key": "thielscher2015_simnibs_tms",
+        "label": "Thielscher2015",
+        "citation": (
+            "Thielscher A, Antunes A, Saturnino GB. Field modeling for "
+            "transcranial magnetic stimulation: a useful tool to understand "
+            "the physiological effects of TMS? In: 2015 37th Annual "
+            "International Conference of the IEEE Engineering in Medicine "
+            "and Biology Society (EMBC). Milan: IEEE; 2015. p. 222-225."
+        ),
+        "doi": "10.1109/EMBC.2015.7318340",
+    },
+    {
+        "key": "puonti2020_charm",
+        "label": "Puonti2020",
         "citation": (
             "Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, "
             "Thielscher A. Accurate and robust whole-head segmentation from "
             "magnetic resonance images for individualized head modeling. "
-            "NeuroImage. 2020 Oct;219:117044."
+            "NeuroImage. 2020;219:117044."
         ),
         "doi": "10.1016/j.neuroimage.2020.117044",
     },
@@ -60,38 +75,42 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # Simulation-specific references
     # ==========================================================================
     {
-        "key": "Multipolar TI",
+        "key": "botzanowski2025_mti",
+        "label": "Botzanowski2025",
         "citation": (
             "Botzanowski B, et al. Focal control of non-invasive deep brain "
-            "stimulation using multipolar temporal interference. Bioelectron "
-            "Med. 2025 Mar;11(1):7."
+            "stimulation using multipolar temporal interference. Bioelectronic "
+            "Medicine. 2025;11(1):7."
         ),
         "doi": "10.1186/s42234-025-00169-6",
     },
     {
-        "key": "Electrode Parameters",
+        "key": "saturnino2015_electrodes",
+        "label": "Saturnino2015",
         "citation": (
             "Saturnino GB, Antunes A, Thielscher A. On the importance of "
             "electrode parameters for shaping electric field patterns "
-            "generated by tDCS. NeuroImage. 2015 Oct;120:25-35."
+            "generated by tDCS. NeuroImage. 2015;120:25-35."
         ),
         "doi": "10.1016/j.neuroimage.2015.06.067",
     },
     {
-        "key": "Quasi-static Approximation",
+        "key": "gaugain2023_quasistatic",
+        "label": "Gaugain2023",
         "citation": (
             "Gaugain G, et al. Quasi-static approximation error of electric "
-            "field analysis for transcranial current stimulation. J Neural "
-            "Eng. 2023 Feb;20(1):016027."
+            "field analysis for transcranial current stimulation. Journal of "
+            "Neural Engineering. 2023;20(1):016027."
         ),
         "doi": "10.1088/1741-2552/acb14d",
     },
     {
-        "key": "Electric Field Determinants",
+        "key": "opitz2015_tdcs_determinants",
+        "label": "Opitz2015",
         "citation": (
             "Opitz A, Paulus W, Will S, Antunes A, Thielscher A. Determinants "
             "of the electric field during transcranial direct current "
-            "stimulation. NeuroImage. 2015 Apr;109:140-50."
+            "stimulation. NeuroImage. 2015;109:140-150."
         ),
         "doi": "10.1016/j.neuroimage.2015.01.033",
     },
@@ -99,38 +118,42 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # Atlas references
     # ==========================================================================
     {
-        "key": "International Consortium for Brain Mapping (ICBM)",
+        "key": "mazziotta2001_icbm",
+        "label": "Mazziotta2001",
         "citation": (
             "Mazziotta J, et al. A probabilistic atlas and reference system "
             "for the human brain: International Consortium for Brain Mapping "
-            "(ICBM). Philos Trans R Soc Lond B Biol Sci. 2001 Aug;356(1412):"
-            "1293-322."
+            "(ICBM). Philosophical Transactions of the Royal Society B. "
+            "2001;356(1412):1293-1322."
         ),
         "doi": "10.1098/rstb.2001.0915",
     },
     {
-        "key": "Glasser Atlas",
+        "key": "glasser2016_hcp_mmp",
+        "label": "Glasser2016",
         "citation": (
             "Glasser MF, et al. A multi-modal parcellation of human cerebral "
-            "cortex. Nature. 2016 Aug;536(7615):171-8."
+            "cortex. Nature. 2016;536(7615):171-178."
         ),
         "doi": "10.1038/nature18933",
     },
     {
-        "key": "Destrieux Atlas",
+        "key": "destrieux2010_atlas",
+        "label": "Destrieux2010",
         "citation": (
             "Destrieux C, Fischl B, Dale A, Halgren E. Automatic parcellation "
             "of human cortical gyri and sulci using standard anatomical "
-            "nomenclature. NeuroImage. 2010 Oct;53(1):1-15."
+            "nomenclature. NeuroImage. 2010;53(1):1-15."
         ),
         "doi": "10.1016/j.neuroimage.2010.06.010",
     },
     {
-        "key": "Desikan-Killiany-Tourville Atlas",
+        "key": "alexander2019_dkt",
+        "label": "Alexander2019",
         "citation": (
             "Alexander B, et al. Desikan-Killiany-Tourville atlas compatible "
             "version of M-CRIB neonatal parcellated whole brain atlas: the "
-            "M-CRIB 2.0. Front Neurosci. 2019 Feb;13:34."
+            "M-CRIB 2.0. Frontiers in Neuroscience. 2019;13:34."
         ),
         "doi": "10.3389/fnins.2019.00034",
     },
@@ -138,16 +161,18 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # EEG electrode positioning
     # ==========================================================================
     {
-        "key": "EEG Positions",
+        "key": "jurcak2007_eeg_positions",
+        "label": "Jurcak2007",
         "citation": (
             "Jurcak V, Tsuzuki D, Dan I. 10/20, 10/10, and 10/5 systems "
             "revisited: their validity as relative head-surface-based "
-            "positioning systems. NeuroImage. 2007 Feb;34(4):1600-11."
+            "positioning systems. NeuroImage. 2007;34(4):1600-1611."
         ),
         "doi": "10.1016/j.neuroimage.2006.09.024",
     },
     {
-        "key": "EGI Sensor Nets",
+        "key": "egi_sensor_nets",
+        "label": "EGI Sensor Nets",
         "citation": "Geodesic Sensor Nets. Electrical Geodesics, Inc.",
         "url": "https://www.egi.com/clinical-division/geodesic-sensor-nets",
     },
@@ -155,55 +180,84 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # Preprocessing & data format references
     # ==========================================================================
     {
-        "key": "FreeSurfer",
-        "citation": ("Fischl B. FreeSurfer. NeuroImage. 2012 Aug;62(2):774-81."),
+        "key": "fischl2012_freesurfer",
+        "label": "Fischl2012",
+        "citation": "Fischl B. FreeSurfer. NeuroImage. 2012;62(2):774-781.",
         "doi": "10.1016/j.neuroimage.2012.01.021",
     },
     {
-        "key": "Brain Imaging Data Structure (BIDS)",
+        "key": "bids2016",
+        "label": "BIDS2016",
         "citation": (
             "Gorgolewski KJ, et al. The brain imaging data structure, a "
             "format for organizing and describing outputs of neuroimaging "
-            "experiments. Sci Data. 2016 Jun;3(1):160044."
+            "experiments. Scientific Data. 2016;3:160044."
         ),
         "doi": "10.1038/sdata.2016.44",
     },
     {
-        "key": "BIDS Apps",
+        "key": "gorgolewski2017_bids_apps",
+        "label": "BIDSApps2017",
         "citation": (
             "Gorgolewski KJ, et al. BIDS apps: improving ease of use, "
             "accessibility, and reproducibility of neuroimaging data analysis "
-            "methods. PLoS Comput Biol. 2017 Mar;13(3):e1005209."
+            "methods. PLoS Computational Biology. 2017;13(3):e1005209."
         ),
         "doi": "10.1371/journal.pcbi.1005209",
     },
     {
-        "key": "QSIprep",
+        "key": "cieslak2021_qsiprep",
+        "label": "Cieslak2021",
         "citation": (
             "Cieslak M, et al. QSIPrep: an integrative platform for "
-            "preprocessing and reconstructing diffusion MRI data. "
-            "Nat Methods. 2021 Jul;18(7):775-778."
+            "preprocessing and reconstructing diffusion MRI data. Nature "
+            "Methods. 2021;18(7):775-778."
         ),
         "doi": "10.1038/s41592-021-01185-5",
     },
     {
-        "key": "DICOM to NIfTI Converter (dcm2niix)",
+        "key": "li2016_dcm2niix",
+        "label": "Li2016",
         "citation": (
             "Li X, Morgan PS, Ashburner J, Smith J, Rorden C. The first step "
             "for neuroimaging data analysis: DICOM to NIfTI conversion. "
-            "J Neurosci Methods. 2016 May;264:47-56."
+            "Journal of Neuroscience Methods. 2016;264:47-56."
         ),
         "doi": "10.1016/j.jneumeth.2016.03.001",
+    },
+    # ==========================================================================
+    # Workflow/reporting references
+    # ==========================================================================
+    {
+        "key": "abraham2014_nilearn",
+        "label": "Nilearn2014",
+        "citation": (
+            "Abraham A, et al. Machine learning for neuroimaging with scikit-learn. "
+            "Frontiers in Neuroinformatics. 2014;8:14."
+        ),
+        "doi": "10.3389/fninf.2014.00014",
+    },
+    {
+        "key": "gorgolewski2011_nipype",
+        "label": "Nipype2011",
+        "citation": (
+            "Gorgolewski K, Burns CD, Madison C, Clark D, Halchenko YO, "
+            "Waskom ML, Ghosh SS. Nipype: a flexible, lightweight and "
+            "extensible neuroimaging data processing framework in Python. "
+            "Frontiers in Neuroinformatics. 2011;5:13."
+        ),
+        "doi": "10.3389/fninf.2011.00013",
     },
     # ==========================================================================
     # Flex-search / optimization references
     # ==========================================================================
     {
-        "key": "Leadfield-free Optimization Framework",
+        "key": "weise2024_leadfield_free",
+        "label": "Weise2024",
         "citation": (
             "Weise K, Madsen KH, Worbs T, Knosche TR, Korshoj A, Thielscher A. "
-            "A leadfield-free optimization framework for transcranially "
-            "applied electric currents. bioRxiv. 2024 Dec 20."
+            "A leadfield-free optimization framework for transcranially applied "
+            "electric currents. bioRxiv. 2024."
         ),
         "doi": "10.1101/2024.12.18.629095",
     },
@@ -211,42 +265,96 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # DTI / Anisotropic conductivity references
     # ==========================================================================
     {
-        "key": "charmed",
+        "key": "assaf2005_charmed",
+        "label": "Assaf2005",
         "citation": (
             "Assaf Y, Basser PJ. Composite hindered and restricted model of "
             "diffusion (CHARMED) MR imaging of the human brain. NeuroImage. "
-            "2005 Aug;27(1):48-58."
+            "2005;27(1):48-58."
         ),
         "doi": "10.1016/j.neuroimage.2005.03.042",
     },
     {
-        "key": "dti_conductivity",
+        "key": "rullmann2009_dti_conductivity",
+        "label": "Rullmann2009",
         "citation": (
             "Rullmann M, Anwander A, Dannhauer M, Warfield SK, Duffy FH, "
             "Wolters CH. EEG source analysis of epileptiform activity using "
             "a 1 mm anisotropic hexahedra finite element head model. "
-            "NeuroImage. 2009 Feb;44(2):399-410."
+            "NeuroImage. 2009;44(2):399-410."
         ),
         "doi": "10.1016/j.neuroimage.2008.09.009",
     },
     # ==========================================================================
-    # Meshing & visualization (for future use)
+    # Meshing & visualization
     # ==========================================================================
     {
-        "key": "Gmsh",
+        "key": "geuzaine2009_gmsh",
+        "label": "Geuzaine2009",
         "citation": (
-            "Geuzaine C, Remacle J-F. Gmsh: a 3-D finite element mesh "
+            "Geuzaine C, Remacle JF. Gmsh: a 3-D finite element mesh "
             "generator with built-in pre- and post-processing facilities. "
-            "Int J Numer Methods Eng. 2009;79(11):1309-31."
+            "International Journal for Numerical Methods in Engineering. "
+            "2009;79(11):1309-1331."
         ),
         "doi": "10.1002/nme.2579",
     },
     {
-        "key": "Blender",
+        "key": "blender",
+        "label": "Blender",
         "citation": "Blender - Free and Open 3D Creation Software.",
         "url": "https://github.com/blender/blender",
     },
 ]
+
+# Backwards-compatible aliases accepted by add_default_reference/get_reference_by_key.
+REFERENCE_ALIASES: dict[str, str] = {
+    "ti": "grossman2017_ti",
+    "ti theory": "grossman2017_ti",
+    "haber2026": "haber2026_titoolbox",
+    "ti-toolbox": "haber2026_titoolbox",
+    "titoolbox": "haber2026_titoolbox",
+    "ti toolbox": "haber2026_titoolbox",
+    "simnibs": "saturnino2019_simnibs_fem",
+    "simnibs4": "saturnino2019_simnibs_fem",
+    "charm": "puonti2020_charm",
+    "charm segmentation": "puonti2020_charm",
+    "multipolar_ti": "botzanowski2025_mti",
+    "multipolar ti": "botzanowski2025_mti",
+    "electrode_params": "saturnino2015_electrodes",
+    "electrode parameters": "saturnino2015_electrodes",
+    "quasi_static": "gaugain2023_quasistatic",
+    "quasi-static approximation": "gaugain2023_quasistatic",
+    "electric field determinants": "opitz2015_tdcs_determinants",
+    "tdcs_determinants": "opitz2015_tdcs_determinants",
+    "icbm": "mazziotta2001_icbm",
+    "international consortium for brain mapping (icbm)": "mazziotta2001_icbm",
+    "glasser": "glasser2016_hcp_mmp",
+    "glasser atlas": "glasser2016_hcp_mmp",
+    "destrieux": "destrieux2010_atlas",
+    "destrieux atlas": "destrieux2010_atlas",
+    "mcrib": "alexander2019_dkt",
+    "desikan-killiany-tourville atlas": "alexander2019_dkt",
+    "eeg_positions": "jurcak2007_eeg_positions",
+    "eeg positions": "jurcak2007_eeg_positions",
+    "freesurfer": "fischl2012_freesurfer",
+    "bids": "bids2016",
+    "brain imaging data structure (bids)": "bids2016",
+    "bids_apps": "gorgolewski2017_bids_apps",
+    "bids apps": "gorgolewski2017_bids_apps",
+    "qsiprep": "cieslak2021_qsiprep",
+    "dcm2niix": "li2016_dcm2niix",
+    "dicom to nifti converter (dcm2niix)": "li2016_dcm2niix",
+    "nilearn": "abraham2014_nilearn",
+    "nilearn2014": "abraham2014_nilearn",
+    "nipype": "gorgolewski2011_nipype",
+    "nipype2011": "gorgolewski2011_nipype",
+    "leadfield_free": "weise2024_leadfield_free",
+    "leadfield-free optimization framework": "weise2024_leadfield_free",
+    "charmed": "assaf2005_charmed",
+    "dti_conductivity": "rullmann2009_dti_conductivity",
+    "gmsh": "geuzaine2009_gmsh",
+}
 
 
 class TIToolboxReferencesReportlet(ReferencesReportlet):
@@ -262,6 +370,7 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
         title: str | None = None,
         include_defaults: bool = True,
         pipeline_components: list[str] | None = None,
+        show_empty_warning: bool = False,
     ):
         """
         Initialize the TI-Toolbox references reportlet.
@@ -270,8 +379,11 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
             title: Section title
             include_defaults: Whether to include default TI-Toolbox refs
             pipeline_components: List of components used (to filter refs)
+            show_empty_warning: Render a developer-facing empty-ref warning
         """
-        super().__init__(title=title or "References")
+        super().__init__(
+            title=title or "References", show_empty_warning=show_empty_warning
+        )
 
         self.pipeline_components = pipeline_components or []
 
@@ -280,125 +392,152 @@ class TIToolboxReferencesReportlet(ReferencesReportlet):
 
     def _add_default_references(self) -> None:
         """Add default references based on pipeline components."""
-        # Report-type specific complete reference sets
-        # These define ALL references for each report type (no core refs added)
         report_type_refs = {
             "simulation": [
-                "ti",
-                "simnibs",
-                "icbm",
-                "charm",
-                "multipolar_ti",
-                "electrode_params",
-                "quasi_static",
-                "eeg_positions",
-                "egi_sensor_nets",
+                "haber2026_titoolbox",
+                "grossman2017_ti",
+                "saturnino2019_simnibs_fem",
+                "saturnino2015_electrodes",
+                "puonti2020_charm",
+                "gaugain2023_quasistatic",
+                "jurcak2007_eeg_positions",
+                "bids2016",
             ],
             "simulator": [
-                "ti",
-                "simnibs",
-                "icbm",
-                "charm",
-                "multipolar_ti",
-                "electrode_params",
-                "quasi_static",
-                "eeg_positions",
-                "egi_sensor_nets",
+                "haber2026_titoolbox",
+                "grossman2017_ti",
+                "saturnino2019_simnibs_fem",
+                "saturnino2015_electrodes",
+                "puonti2020_charm",
+                "gaugain2023_quasistatic",
+                "jurcak2007_eeg_positions",
+                "bids2016",
             ],
             "preprocessing": [
-                "simnibs",
-                "freesurfer",
-                "icbm",
-                "charm",
-                "mcrib",
-                "destrieux",
-                "glasser",
-                "bids",
-                "bids_apps",
-                "tdcs_determinants",
-                "eeg_positions",
+                "haber2026_titoolbox",
+                "saturnino2019_simnibs_fem",
+                "fischl2012_freesurfer",
+                "mazziotta2001_icbm",
+                "puonti2020_charm",
+                "alexander2019_dkt",
+                "destrieux2010_atlas",
+                "glasser2016_hcp_mmp",
+                "bids2016",
+                "gorgolewski2017_bids_apps",
+                "opitz2015_tdcs_determinants",
+                "jurcak2007_eeg_positions",
                 "egi_sensor_nets",
-                "simnibs4",
             ],
             "flex-search": [
-                "simnibs",
-                "charm",
-                "leadfield_free",
-                "mcrib",
-                "destrieux",
-                "glasser",
+                "haber2026_titoolbox",
+                "grossman2017_ti",
+                "saturnino2019_simnibs_fem",
+                "puonti2020_charm",
+                "weise2024_leadfield_free",
+                "alexander2019_dkt",
+                "destrieux2010_atlas",
+                "glasser2016_hcp_mmp",
             ],
         }
 
-        # Tool/component-specific additional references
         component_ref_map = {
-            # Tool-specific mappings
-            "freesurfer": ["freesurfer"],
-            "qsiprep": ["qsiprep"],
-            "dcm2niix": ["dcm2niix"],
-            "dti": ["charmed", "dti_conductivity", "qsiprep"],
-            "anisotropic": ["charmed", "dti_conductivity"],
-            # Atlas mappings
-            "glasser": ["glasser"],
-            "destrieux": ["destrieux"],
-            "mcrib": ["mcrib"],
-            "icbm": ["icbm"],
-            # Other mappings
-            "bids": ["bids", "bids_apps"],
-            "eeg": ["eeg_positions", "egi_sensor_nets"],
-            "electrodes": ["electrode_params", "eeg_positions", "egi_sensor_nets"],
-            "mesh": ["gmsh"],
+            "freesurfer": ["fischl2012_freesurfer"],
+            "qsiprep": ["cieslak2021_qsiprep"],
+            "dcm2niix": ["li2016_dcm2niix"],
+            "dti": [
+                "assaf2005_charmed",
+                "rullmann2009_dti_conductivity",
+                "cieslak2021_qsiprep",
+            ],
+            "anisotropic": ["assaf2005_charmed", "rullmann2009_dti_conductivity"],
+            "glasser": ["glasser2016_hcp_mmp"],
+            "destrieux": ["destrieux2010_atlas"],
+            "mcrib": ["alexander2019_dkt"],
+            "icbm": ["mazziotta2001_icbm"],
+            "bids": ["bids2016", "gorgolewski2017_bids_apps"],
+            "eeg": ["jurcak2007_eeg_positions", "egi_sensor_nets"],
+            "electrodes": ["saturnino2015_electrodes", "jurcak2007_eeg_positions"],
+            "mesh": ["geuzaine2009_gmsh"],
             "visualization": ["blender"],
+            "nilearn": ["abraham2014_nilearn"],
+            "nipype": ["gorgolewski2011_nipype"],
+            "mti": ["botzanowski2025_mti"],
+            "multipolar": ["botzanowski2025_mti"],
         }
 
-        refs_to_add: set = set()
+        refs_to_add: list[str] = []
 
-        # Check if any component is a report type with a complete ref set
         for component in self.pipeline_components:
-            component_lower = component.lower()
+            component_lower = str(component).lower()
             if component_lower in report_type_refs:
-                refs_to_add.update(report_type_refs[component_lower])
+                refs_to_add.extend(report_type_refs[component_lower])
 
-        # If no report type matched, use default core refs
         if not refs_to_add:
-            refs_to_add = {"ti", "simnibs", "simnibs4", "charm"}
+            refs_to_add.extend(
+                [
+                    "haber2026_titoolbox",
+                    "grossman2017_ti",
+                    "saturnino2019_simnibs_fem",
+                    "puonti2020_charm",
+                ]
+            )
 
-        # Add any additional component-specific references
         for component in self.pipeline_components:
-            component_lower = component.lower()
-            if component_lower in component_ref_map:
-                refs_to_add.update(component_ref_map[component_lower])
+            component_lower = str(component).lower()
+            refs_to_add.extend(component_ref_map.get(component_lower, []))
 
-        # Add references
+        self._add_references_by_ids(refs_to_add)
+
+    def _add_references_by_ids(self, reference_ids: list[str]) -> None:
+        """Add selected references in registry order, de-duplicated by key."""
+        selected = set(reference_ids)
         for ref_data in DEFAULT_REFERENCES:
-            if ref_data["key"] in refs_to_add:
+            if ref_data["key"] in selected:
                 self.add_reference(
                     key=ref_data["key"],
+                    label=ref_data.get("label"),
                     citation=ref_data["citation"],
                     doi=ref_data.get("doi"),
                     url=ref_data.get("url"),
                 )
 
+    @staticmethod
+    def _resolve_reference_key(key: str) -> str:
+        """Resolve stable IDs, visible labels, and legacy aliases."""
+        key_norm = str(key).strip()
+        lower = key_norm.lower()
+        if lower in REFERENCE_ALIASES:
+            return REFERENCE_ALIASES[lower]
+        for ref_data in DEFAULT_REFERENCES:
+            if key_norm == ref_data["key"] or key_norm == ref_data.get("label"):
+                return ref_data["key"]
+            if (
+                lower == ref_data["key"].lower()
+                or lower == ref_data.get("label", "").lower()
+            ):
+                return ref_data["key"]
+        return key_norm
+
     def add_default_reference(self, key: str) -> bool:
         """
-        Add a default reference by key.
+        Add a default reference by stable key, visible label, or legacy alias.
 
         Args:
-            key: The reference key (e.g., 'freesurfer', 'qsiprep')
+            key: The reference key (e.g., 'grossman2017_ti' or 'FreeSurfer')
 
         Returns:
             True if reference was found and added, False otherwise
         """
+        resolved_key = self._resolve_reference_key(key)
         for ref_data in DEFAULT_REFERENCES:
-            if ref_data["key"] == key:
-                # Check if already added
-                if not any(r["key"] == key for r in self.references):
-                    self.add_reference(
-                        key=ref_data["key"],
-                        citation=ref_data["citation"],
-                        doi=ref_data.get("doi"),
-                        url=ref_data.get("url"),
-                    )
+            if ref_data["key"] == resolved_key:
+                self.add_reference(
+                    key=ref_data["key"],
+                    label=ref_data.get("label"),
+                    citation=ref_data["citation"],
+                    doi=ref_data.get("doi"),
+                    url=ref_data.get("url"),
+                )
                 return True
         return False
 
@@ -410,20 +549,21 @@ def get_default_references() -> list[dict[str, str]]:
     Returns:
         List of reference dictionaries
     """
-    return DEFAULT_REFERENCES.copy()
+    return [ref.copy() for ref in DEFAULT_REFERENCES]
 
 
 def get_reference_by_key(key: str) -> dict[str, str] | None:
     """
-    Get a specific reference by its key.
+    Get a specific reference by stable key, visible label, or legacy alias.
 
     Args:
-        key: The reference key
+        key: The reference key or alias
 
     Returns:
         Reference dictionary or None if not found
     """
+    resolved_key = TIToolboxReferencesReportlet._resolve_reference_key(key)
     for ref in DEFAULT_REFERENCES:
-        if ref["key"] == key:
+        if ref["key"] == resolved_key:
             return ref.copy()
     return None

@@ -120,7 +120,7 @@ class MetadataReportlet(BaseReportlet):
         """Render as a two-column table."""
         rows = []
         for key, value in self.data.items():
-            formatted_key = key.replace("_", " ").title()
+            formatted_key = self._format_key(key)
             formatted_value = self._format_value(value)
             rows.append(
                 f"<tr><td class='key-cell'>{formatted_key}</td>"
@@ -143,7 +143,7 @@ class MetadataReportlet(BaseReportlet):
         """Render as card grid."""
         cards = []
         for key, value in self.data.items():
-            formatted_key = key.replace("_", " ").title()
+            formatted_key = self._format_key(key)
             formatted_value = self._format_value(value)
             cards.append(f"""
                 <div class="metadata-card">
@@ -161,6 +161,18 @@ class MetadataReportlet(BaseReportlet):
             </div>
         </div>
         """
+
+    def _format_key(self, key: Any) -> str:
+        """Format common metadata keys for display."""
+        key_text = str(key)
+        special_labels = {
+            "ti_toolbox": "TI-Toolbox",
+            "simnibs": "SimNIBS",
+            "dcm2niix": "dcm2niix",
+            "freesurfer": "FreeSurfer",
+            "qsiprep": "QSIPrep",
+        }
+        return special_labels.get(key_text.lower(), key_text.replace("_", " ").title())
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
@@ -635,9 +647,19 @@ class ReferencesReportlet(BaseReportlet):
         self,
         references: list[dict[str, str]] | None = None,
         title: str | None = None,
+        show_empty_warning: bool = False,
     ):
         super().__init__(title or "References")
-        self.references: list[dict[str, str]] = references or []
+        self.references: list[dict[str, str]] = []
+        self.show_empty_warning = show_empty_warning
+        for ref in references or []:
+            self.add_reference(
+                key=ref["key"],
+                citation=ref["citation"],
+                url=ref.get("url"),
+                doi=ref.get("doi"),
+                label=ref.get("label"),
+            )
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -649,11 +671,16 @@ class ReferencesReportlet(BaseReportlet):
         citation: str,
         url: str | None = None,
         doi: str | None = None,
+        label: str | None = None,
     ) -> None:
-        """Add a reference."""
+        """Add a reference, de-duplicating by stable reference key."""
+        if any(ref.get("key") == key for ref in self.references):
+            return
+
         self.references.append(
             {
                 "key": key,
+                "label": label or key,
                 "citation": citation,
                 "url": url,
                 "doi": doi,
@@ -663,12 +690,23 @@ class ReferencesReportlet(BaseReportlet):
     def render_html(self) -> str:
         """Render references as HTML."""
         if not self.references:
-            return ""
+            if not self.show_empty_warning:
+                return ""
+            return f"""
+            <div class="reportlet references-reportlet" id="{self.reportlet_id}">
+                <h3>{self._title}</h3>
+                <div class="message-item warning">
+                    <span class="severity-icon">[!]</span>
+                    <span>No references selected.</span>
+                </div>
+            </div>
+            """
 
         ref_items = []
         for ref in self.references:
             citation = ref["citation"]
             key = ref.get("key", "")
+            label = ref.get("label") or key
 
             # Add DOI link if available
             if ref.get("doi"):
@@ -682,7 +720,7 @@ class ReferencesReportlet(BaseReportlet):
 
             ref_items.append(f"""
                 <li class="reference-item" id="ref-{key}">
-                    <span class="ref-key">[{key}]</span>
+                    <span class="ref-key">[{label}]</span>
                     <span class="ref-citation">{citation}</span>
                 </li>
                 """)
@@ -704,4 +742,5 @@ class ReferencesReportlet(BaseReportlet):
             "id": self.reportlet_id,
             "title": self._title,
             "references": self.references,
+            "show_empty_warning": self.show_empty_warning,
         }

@@ -67,6 +67,7 @@ from .reportlets import (
     ParameterListReportlet,
     DEFAULT_CONDUCTIVITIES,
     # Text reportlets
+    SimulationMethodsBuilder,
     MethodsBoilerplateReportlet,
     DescriptionReportlet,
     CommandLogReportlet,
@@ -119,6 +120,7 @@ __all__ = [
     "SummaryCardsReportlet",
     "ParameterListReportlet",
     "DEFAULT_CONDUCTIVITIES",
+    "SimulationMethodsBuilder",
     "MethodsBoilerplateReportlet",
     "DescriptionReportlet",
     "CommandLogReportlet",

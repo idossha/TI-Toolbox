@@ -505,7 +505,27 @@ class TestReferencesReportlet:
         r.add_reference("key1", "Citation text", doi="10.1/a")
         assert len(r.references) == 1
         assert r.references[0]["key"] == "key1"
+        assert r.references[0]["label"] == "key1"
         assert r.references[0]["doi"] == "10.1/a"
+
+    def test_add_reference_deduplicates_by_key(self):
+        r = ReferencesReportlet()
+        r.add_reference("key1", "Citation text", doi="10.1/a")
+        r.add_reference("key1", "Duplicate citation", doi="10.1/b")
+        assert len(r.references) == 1
+        assert r.references[0]["doi"] == "10.1/a"
+
+    def test_label_rendered_when_present(self):
+        refs = [{"key": "stable_key", "label": "DisplayTag", "citation": "text"}]
+        r = ReferencesReportlet(references=refs)
+        html = r.render_html()
+        assert "[DisplayTag]" in html
+        assert "ref-stable_key" in html
+
+    def test_empty_warning_is_opt_in(self):
+        r = ReferencesReportlet(show_empty_warning=True)
+        html = r.render_html()
+        assert "No references selected" in html
 
     def test_ref_key_rendered(self):
         refs = [{"key": "mykey", "citation": "text"}]

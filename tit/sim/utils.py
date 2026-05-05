@@ -560,6 +560,10 @@ def create_simulation_config_file(
             "map_to_mni": config.map_to_mni,
             "map_to_fsavg": config.map_to_fsavg,
         },
+        "tissues_in_niftis": config.tissues_in_niftis,
+        "aniso_maxratio": config.aniso_maxratio,
+        "aniso_maxcond": config.aniso_maxcond,
+        "open_in_gmsh": config.open_in_gmsh,
         "created_at": datetime.now().isoformat(),
     }
     with open(path, "w") as f:

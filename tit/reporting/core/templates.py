@@ -277,6 +277,24 @@ body {
     color: var(--text-muted);
 }
 
+.interactive-volume-viewer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: var(--spacing-lg) auto;
+}
+
+.interactive-volume-viewer > *,
+.interactive-volume-viewer iframe,
+.interactive-volume-viewer .plotly-graph-div {
+    width: min(100%, 1200px) !important;
+    max-width: 1200px !important;
+    min-height: 720px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
 /* Table Reportlet */
 .table-wrapper {
     overflow-x: auto;
@@ -316,6 +334,53 @@ body {
     background: rgba(102, 126, 234, 0.05);
 }
 
+.file-tree-wrapper {
+    background: var(--bg-light);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.file-tree,
+.file-tree ul {
+    list-style: none;
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+    border-left: 1px solid var(--border-color);
+}
+
+.file-tree {
+    border-left: none;
+    padding-left: 0;
+}
+
+.file-tree li {
+    margin: var(--spacing-xs) 0;
+}
+
+.file-tree-label {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.file-tree-root {
+    color: var(--primary-gradient-start);
+}
+
+.file-tree-folder::before {
+    content: "▸ ";
+    color: var(--text-muted);
+}
+
+.file-tree-file {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 0.88rem;
+}
+
+.file-tree-file::before {
+    content: "• ";
+    color: var(--text-muted);
+}
+
 /* Text Reportlet */
 .text-content {
     line-height: 1.8;
@@ -332,6 +397,11 @@ body {
 
 .text-content.copyable {
     position: relative;
+}
+
+.methods-text p {
+    margin: 0 0 var(--spacing-md) 0;
+    text-indent: 0;
 }
 
 .copy-btn {

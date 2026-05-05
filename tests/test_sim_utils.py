@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tit.sim.config import SimulationMode, Montage
+from tit.sim.config import SimulationConfig, SimulationMode, Montage
 from tit.sim.utils import (
     ensure_montage_file,
     load_montage_data,
@@ -29,6 +29,7 @@ from tit.sim.utils import (
     load_montages,
     setup_montage_directories,
     run_montage_visualization,
+    create_simulation_config_file,
 )
 
 # ============================================================================
@@ -377,6 +378,39 @@ class TestSetupMontageDirectories:
         dirs1 = setup_montage_directories(montage_dir, SimulationMode.TI)
         dirs2 = setup_montage_directories(montage_dir, SimulationMode.TI)
         assert dirs1 == dirs2
+
+
+@pytest.mark.unit
+class TestCreateSimulationConfigFile:
+    """config.json snapshot includes report provenance fields."""
+
+    def test_writes_anisotropy_and_output_mapping_provenance(self, tmp_path):
+        logger = MagicMock()
+        montage = Montage(
+            name="M1",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("AF3", "AF4"), ("C5", "C6")],
+            eeg_net="EEG10-10_Cutini_2011.csv",
+        )
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[montage],
+            conductivity="vn",
+            intensities=[1.0, 1.0],
+            aniso_maxratio=12.0,
+            aniso_maxcond=1.8,
+            tissues_in_niftis="2,3",
+            open_in_gmsh=True,
+        )
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_pairs"] == [["AF3", "AF4"], ["C5", "C6"]]
+        assert data["conductivity"] == "vn"
+        assert data["aniso_maxratio"] == 12.0
+        assert data["aniso_maxcond"] == 1.8
+        assert data["tissues_in_niftis"] == "2,3"
+        assert data["open_in_gmsh"] is True
 
 
 # ============================================================================
