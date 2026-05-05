@@ -49,7 +49,7 @@ class TestDicomDiscoveryAndArchives:
         with zipfile.ZipFile(archive, "w") as zf:
             zf.writestr("nested/scan.dcm", "dicom")
 
-        destination = tmp_path / "dicom" / ".extracted_archives" / archive.name
+        destination = tmp_path / "dicom" / "extracted_archives" / archive.name
         extracted = _extract_archive(archive, destination)
 
         assert extracted == 1
@@ -63,7 +63,7 @@ class TestDicomDiscoveryAndArchives:
         with tarfile.open(archive, "w:gz") as tf:
             tf.add(source, arcname="series/scan.dicom")
 
-        destination = tmp_path / "dicom" / ".extracted_archives" / archive.name
+        destination = tmp_path / "dicom" / "extracted_archives" / archive.name
         extracted = _extract_archive(archive, destination)
 
         assert extracted == 1
@@ -202,7 +202,7 @@ class TestConvertModality:
 
         assert result is True
         assert (
-            dicom_dir / ".extracted_archives" / "dicoms.zip" / "series" / "scan.dcm"
+            dicom_dir / "extracted_archives" / "dicoms.zip" / "series" / "scan.dcm"
         ).exists()
 
 

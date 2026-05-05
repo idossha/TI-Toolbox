@@ -54,7 +54,7 @@ def test_dicom_archive_to_nifti_flow(tmp_project, monkeypatch):
     assert (
         modality_dir
         / "dicom"
-        / ".extracted_archives"
+        / "extracted_archives"
         / "series.zip"
         / "nested"
         / "image001.dicom"

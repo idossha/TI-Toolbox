@@ -62,11 +62,51 @@ def _phase(name: str):
     return Phase()
 
 
+def _clear_directory(path: Path) -> None:
+    """Remove directory contents without removing *path* itself.
+
+    The work directory is often a Docker bind-mount root, so rmtree(path) can
+    fail with EBUSY even though deleting its contents is safe.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    for item in path.iterdir():
+        if item.is_dir() and not item.is_symlink():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+
 def _copy_fixture_project(src: Path, dest: Path) -> None:
-    if dest.exists():
-        shutil.rmtree(dest)
+    _clear_directory(dest)
     ignore = shutil.ignore_patterns("Analyses", "*.html", "logs")
-    shutil.copytree(src, dest, ignore=ignore)
+    for item in src.iterdir():
+        if item.name in {"Analyses", "logs"} or item.name.endswith(".html"):
+            continue
+        target = dest / item.name
+        if item.is_dir() and not item.is_symlink():
+            shutil.copytree(item, target, ignore=ignore)
+        else:
+            shutil.copy2(item, target)
+
+
+def _default_dicom_source(fixture_project: Path) -> Path:
+    """Return a deterministic DICOM fixture available inside Dockerfile.test."""
+    project_fixture = (
+        fixture_project / "sourcedata" / "sub-dicom_fixture" / "T1w" / "dicom"
+    )
+    if project_fixture.is_dir() and any(project_fixture.iterdir()):
+        return project_fixture
+
+    # Fallback for the currently published test image: nibabel ships tiny DICOMs
+    # in SimNIBS's Python environment. Dockerfile.test/entrypoint_test.sh now
+    # also copies these into /mnt/test_projectdir for future image builds.
+    import nibabel
+
+    nibabel_fixture = Path(nibabel.__file__).resolve().parent / "tests" / "data"
+    dicoms = sorted(nibabel_fixture.glob("*.dcm"))
+    if dicoms:
+        return nibabel_fixture
+    raise FileNotFoundError("No DICOM fixture found in Dockerfile.test environment")
 
 
 def _prepare_dicom_source(project: Path, subject: str, source: Path) -> None:
@@ -81,7 +121,11 @@ def _prepare_dicom_source(project: Path, subject: str, source: Path) -> None:
         shutil.copy2(source, modality / source.name)
         return
 
-    files = [p for p in source.rglob("*") if p.is_file()]
+    files = [
+        p
+        for p in source.rglob("*")
+        if p.is_file() and p.suffix.lower() in {".dcm", ".dicom"}
+    ]
     if not files:
         raise FileNotFoundError(f"No files found under DICOM source: {source}")
 
@@ -112,9 +156,11 @@ def _run_dicom_conversion(project: Path, dicom_source: Path, subject: str) -> No
     LOG.info("Prepared DICOM archive fixture: %s", archive)
 
     run_dicom_to_nifti(str(project), subject, logger=LOG)
-    out = project / f"sub-{subject}" / "anat" / f"sub-{subject}_T1w.nii.gz"
-    if not out.exists():
-        raise AssertionError(f"DICOM conversion did not create expected NIfTI: {out}")
+    anat_dir = project / f"sub-{subject}" / "anat"
+    converted = sorted(anat_dir.glob(f"sub-{subject}_T1w*"))
+    if not converted:
+        raise AssertionError(f"DICOM conversion did not create output in {anat_dir}")
+    LOG.info("DICOM conversion outputs: %s", ", ".join(str(p) for p in converted))
 
 
 def _run_charm(project: Path, subject: str) -> None:
@@ -147,7 +193,7 @@ def _run_simulation(subject: str) -> str:
         electrode_dimensions=[8.0, 8.0],
         gel_thickness=4.0,
         rubber_thickness=2.0,
-        map_to_MNI=True,
+        map_to_mni=True,
     )
     results = run_simulation(config, logger=LOG)
     if not results or results[0]["status"] != "completed":
@@ -156,7 +202,14 @@ def _run_simulation(subject: str) -> str:
 
 
 def _run_flex_focality(project: Path, subject: str) -> None:
-    output = project / "derivatives" / "SimNIBS" / f"sub-{subject}" / "flex-search" / "comprehensive_focality"
+    output = (
+        project
+        / "derivatives"
+        / "SimNIBS"
+        / f"sub-{subject}"
+        / "flex-search"
+        / "comprehensive_focality"
+    )
     cfg = FlexConfig(
         subject_id=subject,
         goal=FlexConfig.OptGoal.FOCALITY,
@@ -205,7 +258,11 @@ def _run_leadfield_and_ex_search(project: Path, subject: str) -> None:
         run_name="comprehensive_ex_pool6",
     )
     result = run_ex_search(cfg)
-    if not result.success or not result.results_csv or not Path(result.results_csv).exists():
+    if (
+        not result.success
+        or not result.results_csv
+        or not Path(result.results_csv).exists()
+    ):
         raise AssertionError(f"Ex-search failed: {result}")
 
 
@@ -220,7 +277,12 @@ def _run_analysis(subject: str, simulation: str) -> None:
         )
         if result.n_elements <= 0:
             raise AssertionError(f"{space} analysis returned empty ROI: {result}")
-        LOG.info("%s analysis roi_mean=%.6f roi_max=%.6f", space, result.roi_mean, result.roi_max)
+        LOG.info(
+            "%s analysis roi_mean=%.6f roi_max=%.6f",
+            space,
+            result.roi_mean,
+            result.roi_max,
+        )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -232,7 +294,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--dicom-source",
         default=os.environ.get("TIT_COMPREHENSIVE_DICOM_SOURCE"),
-        help="Real DICOM directory or archive visible inside the container. Required unless --skip-dicom is set.",
+        help="DICOM directory or archive visible inside the container. Defaults to the Dockerfile.test fixture.",
     )
     parser.add_argument("--skip-dicom", action="store_true")
     parser.add_argument("--skip-charm", action="store_true")
@@ -263,23 +325,29 @@ def main(argv: list[str] | None = None) -> int:
         LOG.info("Working project: %s", project)
 
     if not args.skip_dicom:
-        if not args.dicom_source:
-            raise SystemExit(
-                "--dicom-source is required for comprehensive DICOM conversion. "
-                "Pass a host path to tests/run_comprehensive_integration.sh --dicom-source PATH."
-            )
+        dicom_source = (
+            Path(args.dicom_source)
+            if args.dicom_source
+            else _default_dicom_source(fixture)
+        )
         with _phase("DICOM conversion via dcm2niix"):
-            _run_dicom_conversion(project, Path(args.dicom_source), args.dicom_subject)
+            _run_dicom_conversion(project, dicom_source, args.dicom_subject)
 
     if not args.skip_charm:
-        charm_subject = args.dicom_subject if not args.skip_dicom else "comprehensive_charm"
-        if args.skip_dicom:
-            anat_dir = project / f"sub-{charm_subject}" / "anat"
-            anat_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(
-                project / "derivatives" / "SimNIBS" / f"sub-{args.subject}" / f"m2m_{args.subject}" / "T1.nii.gz",
-                anat_dir / f"sub-{charm_subject}_T1w.nii.gz",
-            )
+        # CHARM uses the anatomical T1 baked into the test image. The tiny DICOM
+        # fixture is for conversion coverage only and is not a valid head MRI.
+        charm_subject = "comprehensive_charm"
+        anat_dir = project / f"sub-{charm_subject}" / "anat"
+        anat_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(
+            project
+            / "derivatives"
+            / "SimNIBS"
+            / f"sub-{args.subject}"
+            / f"m2m_{args.subject}"
+            / "T1.nii.gz",
+            anat_dir / f"sub-{charm_subject}_T1w.nii.gz",
+        )
         with _phase("SimNIBS CHARM"):
             _run_charm(project, charm_subject)
 

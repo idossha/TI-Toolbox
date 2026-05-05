@@ -153,12 +153,11 @@ pre-baked outputs. Before tagging a release, run the heavy computational entry
 point:
 
 ```bash
-tests/run_comprehensive_integration.sh \
-  --dicom-source /absolute/path/to/t1_dicom_series_or_archive \
-  --keep-work
+tests/run_comprehensive_integration.sh --keep-work
 ```
 
-This script uses the same `idossha/ti-toolbox-test:latest` image built from
+This script uses only data available inside the testing environment. It uses the
+same `idossha/ti-toolbox-test:latest` image built from
 `container/blueprint/Dockerfile.test`, copies `/mnt/test_projectdir` to an
 isolated work directory, sets `TIT_RUN_COMPREHENSIVE=1`, and runs:
 
@@ -173,13 +172,15 @@ isolated work directory, sets `TIT_RUN_COMPREHENSIVE=1`, and runs:
 Useful partial commands during debugging:
 
 ```bash
-# Exercise simulation/optimization/analysis without a DICOM fixture or CHARM
+# Exercise simulation/optimization/analysis without DICOM or CHARM
 tests/run_comprehensive_integration.sh --skip-dicom --skip-charm --keep-work
 
 # Exercise DICOM + CHARM only, skipping later optimization phases
-tests/run_comprehensive_integration.sh --dicom-source /path/to/dicoms \
-  --skip-flex --skip-leadfield-ex --keep-work
+tests/run_comprehensive_integration.sh --skip-flex --skip-leadfield-ex --keep-work
 ```
+
+`--dicom-source /path/to/dicoms` exists only as a debugging override. Clean
+release-gate runs should not require host data outside the test image.
 
 ---
 

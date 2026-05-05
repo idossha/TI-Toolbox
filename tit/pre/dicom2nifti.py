@@ -26,7 +26,7 @@ from .utils import CommandRunner, PreprocessError
 
 _ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
 _DICOM_SUFFIXES = (".dcm", ".dicom")
-_EXTRACTED_ARCHIVES_DIR = ".extracted_archives"
+_EXTRACTED_ARCHIVES_DIR = "extracted_archives"
 
 
 def _is_archive(path: Path) -> bool:
@@ -215,7 +215,7 @@ def run_dicom_to_nifti(
     modality's ``dicom/`` directory and includes ``.dcm`` and ``.dicom``
     files. Supported archives (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``)
     placed directly in the modality folder or its ``dicom/`` folder are
-    safely extracted to ``dicom/.extracted_archives/`` before discovery.
+    safely extracted to ``dicom/extracted_archives/`` before discovery.
 
     Parameters
     ----------

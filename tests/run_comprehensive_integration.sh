@@ -8,12 +8,11 @@
 #   ex-search (pool of 6 electrodes) -> mesh + voxel analysis.
 #
 # Example:
-#   tests/run_comprehensive_integration.sh \
-#     --dicom-source /absolute/path/to/t1_dicom_series_or_archive \
-#     --keep-work
+#   tests/run_comprehensive_integration.sh --keep-work
 #
-# For a partial dry release check when no DICOM source is available:
-#   tests/run_comprehensive_integration.sh --skip-dicom --skip-charm
+# The default run uses only data available inside the Dockerfile.test
+# environment. You can optionally override the DICOM fixture with
+# --dicom-source for debugging, but release-gate runs should not need it.
 
 set -euo pipefail
 
@@ -31,8 +30,8 @@ usage() {
 Usage: tests/run_comprehensive_integration.sh [options]
 
 Options:
-  --dicom-source PATH       Host path to a real T1 DICOM directory or archive.
-                            Required unless --skip-dicom is passed.
+  --dicom-source PATH       Optional host path to a DICOM directory or archive.
+                            Defaults to the DICOM fixture inside Dockerfile.test.
   --work-dir PATH           Host work directory for comprehensive outputs
                             (default: /tmp/tit_comprehensive_integration).
   --keep-work               Keep the container work project after completion.
@@ -103,6 +102,7 @@ chmod 777 "$HOST_TEST_PROJECT" "$HOST_WORK_DIR" /tmp/test-results 2>/dev/null ||
 DOCKER_ARGS=(
   run --rm
   -e TIT_RUN_COMPREHENSIVE=1
+  -e PYTHONPATH=/ti-toolbox
   -v "${REPO_ROOT}:/ti-toolbox"
   -v "${HOST_TEST_PROJECT}:/mnt/test_projectdir"
   -v "${HOST_WORK_DIR}:${CONTAINER_WORK_DIR}"
