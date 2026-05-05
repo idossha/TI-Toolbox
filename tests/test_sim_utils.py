@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -28,6 +28,7 @@ from tit.sim.utils import (
     parse_flex_montage,
     load_montages,
     setup_montage_directories,
+    run_montage_visualization,
 )
 
 # ============================================================================
@@ -376,3 +377,92 @@ class TestSetupMontageDirectories:
         dirs1 = setup_montage_directories(montage_dir, SimulationMode.TI)
         dirs2 = setup_montage_directories(montage_dir, SimulationMode.TI)
         assert dirs1 == dirs2
+
+
+# ============================================================================
+# Montage visualization
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestRunMontageVisualization:
+    """run_montage_visualization is best-effort and explicit."""
+
+    def test_skipped_net_logs_warning(self, tmp_path):
+        logger = MagicMock()
+
+        run_montage_visualization(
+            montage_name="M1",
+            simulation_mode=SimulationMode.TI,
+            eeg_net="freehand",
+            output_dir=str(tmp_path),
+            logger=logger,
+            electrode_pairs=[["E1", "E2"]],
+        )
+
+        logger.warning.assert_called_once()
+        message = logger.warning.call_args.args[0]
+        assert "Montage visualization unavailable" in message
+        assert logger.warning.call_args.args[1] == "freehand"
+        assert logger.warning.call_args.args[2] == "M1_highlighted_visualization.png"
+        assert logger.warning.call_args.args[3] == str(tmp_path)
+
+    def test_unsupported_net_logs_warning(self, tmp_path):
+        logger = MagicMock()
+
+        run_montage_visualization(
+            montage_name="M1",
+            simulation_mode=SimulationMode.MTI,
+            eeg_net="unknown_net.csv",
+            output_dir=str(tmp_path),
+            logger=logger,
+            electrode_pairs=[["E1", "E2"]],
+        )
+
+        logger.warning.assert_called_once()
+        assert "unsupported EEG net" in logger.warning.call_args.args[0]
+        assert logger.warning.call_args.args[1] == "unknown_net.csv"
+        assert logger.warning.call_args.args[2] == "combined_montage_visualization.png"
+
+    def test_visualizer_errors_are_best_effort(self, tmp_path):
+        logger = MagicMock()
+
+        with patch(
+            "tit.tools.montage_visualizer.visualize_montage",
+            side_effect=OSError("missing resource"),
+        ):
+            run_montage_visualization(
+                montage_name="M1",
+                simulation_mode=SimulationMode.TI,
+                eeg_net="GSN-HydroCel-185.csv",
+                output_dir=str(tmp_path),
+                logger=logger,
+                electrode_pairs=[["E1", "E2"]],
+            )
+
+        logger.warning.assert_called_once()
+        assert "Continuing simulation" in logger.warning.call_args.args[0]
+        assert str(logger.warning.call_args.args[3]) == "missing resource"
+
+    def test_success_uses_expected_ti_filename(self, tmp_path):
+        logger = MagicMock()
+
+        with patch("tit.tools.montage_visualizer.visualize_montage") as mock_visualize:
+            run_montage_visualization(
+                montage_name="M1",
+                simulation_mode=SimulationMode.TI,
+                eeg_net="GSN-HydroCel-185.csv",
+                output_dir=str(tmp_path),
+                logger=logger,
+                electrode_pairs=[["E1", "E2"]],
+            )
+
+        mock_visualize.assert_called_once_with(
+            montage_name="M1",
+            electrode_pairs=[["E1", "E2"]],
+            eeg_net="GSN-HydroCel-185.csv",
+            output_dir=str(tmp_path),
+            sim_mode="U",
+            logger=logger,
+        )
+        logger.warning.assert_not_called()

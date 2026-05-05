@@ -191,10 +191,17 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Add small comment below
         parallel_comment = QtWidgets.QLabel(
-            f"   {available_cores} cores available on this system"
+            f"   {available_cores} cores available; parallel mode runs multiple subjects via Python threads"
         )
         parallel_comment.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
         options_group_layout.addWidget(parallel_comment)
+
+        log_hint = QtWidgets.QLabel(
+            "Troubleshooting logs: derivatives/ti-toolbox/logs/sub-{subject}/"
+        )
+        log_hint.setWordWrap(True)
+        log_hint.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
+        options_group_layout.addWidget(log_hint)
 
         # Enable spinbox based on checkbox
         self.parallel_cb.toggled.connect(
@@ -325,7 +332,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
 
-        # No longer need to manage DICOM type selection as it's auto-detected
+        # Modalities are determined by the T1w/T2w sourcedata folder layout.
 
         # Update available subjects initially
         self.update_available_subjects()
@@ -360,9 +367,10 @@ class PreProcessTab(QtWidgets.QWidget):
                 self,
                 "No Subjects Found",
                 "No subjects found in the project directory.\n\n"
-                "Please ensure your subjects follow one of these structures:\n"
-                f"  BIDS: {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', 'T1w', '{{any_subdirectory_or_files}}')}\n"
-                f"  Compressed: {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '*.tgz')}",
+                "Please ensure your subjects follow this structure:\n"
+                f"  {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '{{T1w,T2w}}', 'dicom')}\n"
+                "with recursive .dcm/.dicom files, or .zip/.tar/.tar.gz/.tgz archives\n"
+                "placed in the modality folder or its dicom/ folder.",
             )
 
     def set_processing_state(self, is_processing):
@@ -447,10 +455,10 @@ class PreProcessTab(QtWidgets.QWidget):
         # Show confirmation dialog
         details = (
             f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n"
-            + f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n"
-            + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
-            + f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n"
+            + f"- Convert DICOM: {'Yes (uses T1w/T2w folder layout)' if self.convert_dicom_cb.isChecked() else 'No'}\n"
             + f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n"
+            + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
+            + f"- Parallel processing: {'Yes (multiple subjects via ThreadPoolExecutor)' if self.parallel_cb.isChecked() else 'No'}\n"
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
@@ -474,12 +482,16 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(
             f"- Convert DICOM: {self.convert_dicom_cb.isChecked()}", "debug"
         )
+        self.update_output(
+            f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", "debug"
+        )
         self.update_output(f"- Run recon-all: {self.run_recon_cb.isChecked()}", "debug")
         self.update_output(
             f"- Parallel processing: {self.parallel_cb.isChecked()}", "debug"
         )
         self.update_output(
-            f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", "debug"
+            "Logs are saved under derivatives/ti-toolbox/logs/sub-{subject}/",
+            "info",
         )
         self.update_output(
             f"- Run tissue analyzer: {self.run_tissue_analyzer_cb.isChecked()}", "debug"

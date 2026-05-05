@@ -307,8 +307,9 @@ class MontageImageReportlet(BaseReportlet):
             """
         else:
             image_html = """
-            <div class="image-placeholder">
-                <em>No montage image available</em>
+            <div class="image-placeholder montage-unavailable">
+                <em>Montage visualization unavailable</em>
+                <p>The expected montage visualization PNG was not found or could not be generated.</p>
             </div>
             """
 

@@ -9,7 +9,7 @@ TI-Toolbox follows a structured pipeline with one-time preprocessing and an iter
 ```mermaid
 graph TD
     PRE["`**1. Preprocessing**
-    DICOM → NIfTI → recon-all → CHARM
+    DICOM → NIfTI → CHARM → optional recon-all
     *(one-time setup)*`"]
 
     OPT["`**2. Optimization**
@@ -79,7 +79,7 @@ For a full walkthrough, see the [Getting Started](getting-started.md) guide.
 
 | Step | Module | Description | Guide |
 |------|--------|-------------|-------|
-| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, FreeSurfer recon-all, CHARM head mesh | [Preprocessing](pipeline/preprocessing.md) |
+| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, CHARM head mesh, optional FreeSurfer recon-all | [Preprocessing](pipeline/preprocessing.md) |
 | 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
 | 3. Simulation | [`tit.sim`](reference/tit/sim/index.md) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
 | 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical and cortical ROIs | [Analysis](pipeline/analysis.md) |

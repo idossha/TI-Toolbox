@@ -79,12 +79,12 @@ if not check_m2m_exists("001"):
 | DICOM to NIfTI | `run_dicom_to_nifti()` | Converts DICOM files to NIfTI format using `dcm2niix` |
 | CHARM head mesh | `run_charm()` | Creates SimNIBS-compatible head mesh from T1/T2 images |
 | Subject atlas | `run_subject_atlas()` | Creates atlas-based parcellations (a2009s, DK40, HCP_MMP1); runs automatically after CHARM in the pipeline |
-| FreeSurfer recon-all | `run_recon_all()` | Full cortical reconstruction and subcortical segmentation (takes 6-12 hours per subject) |
+| FreeSurfer recon-all | `run_recon_all()` | Optional full cortical reconstruction and subcortical segmentation (takes 6-12 hours per subject) |
 | Tissue analysis | `run_tissue_analysis()` | Analyzes tissue thickness and volume (bone, CSF, skin) from the head mesh |
 | Subcortical segmentation | `run_subcortical_segmentations()` | Runs thalamic nuclei and hippocampal subfield segmentations standalone (also runs automatically at the end of `run_recon_all`) |
 
 !!! warning "Compute Time"
-    FreeSurfer `recon-all` is the most time-consuming step (6-12 hours per subject). Use `parallel_recon=True` with `parallel_cores` to process multiple subjects simultaneously.
+    FreeSurfer `recon-all` is optional and is the most time-consuming step when enabled (6-12 hours per subject). Use `parallel_recon=True` with `parallel_cores` to process multiple subjects simultaneously via Python `ThreadPoolExecutor`; sequential mode lets one subject use FreeSurfer internal parallelism.
 
 ## DTI / Diffusion Pipeline
 
@@ -125,7 +125,7 @@ project_root/
     ├── SimNIBS/sub-001/
     │   └── m2m_001/         # Head mesh (simulation-ready)
     │       └── segmentation/ # Atlas parcellations
-    ├── freesurfer/sub-001/  # recon-all outputs
+    ├── freesurfer/sub-001/  # optional recon-all outputs
     ├── qsiprep/sub-001/     # QSIPrep DWI outputs (if run)
     └── qsirecon/sub-001/    # QSIRecon tensor outputs (if run)
 ```

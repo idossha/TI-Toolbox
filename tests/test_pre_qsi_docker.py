@@ -213,6 +213,55 @@ class TestBuildQsireconCmd:
         assert cmd[idx + 2] == "4S156Parcels"
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_dsi_studio_gqi_without_atlases_stages_scalar_workaround(
+        self, mock_resources, tmp_path
+    ):
+        """dsi_studio_gqi without atlases uses the shipped scalar YAML."""
+        with (
+            patch(f"{MODULE}.get_host_project_dir", return_value=str(tmp_path)),
+            patch(
+                f"{MODULE}.const.FS_LICENSE_PATH", str(tmp_path / "missing_license.txt")
+            ),
+        ):
+            builder = DockerCommandBuilder(str(tmp_path))
+
+        config = QSIReconConfig(subject_id="001", atlases=None)
+        cmd = builder.build_qsirecon_cmd(config, "dsi_studio_gqi")
+
+        staged_yaml = tmp_path / ".qsirecon_spec.yaml"
+        source_yaml = (
+            Path(__file__).resolve().parents[1]
+            / "resources"
+            / "qsirecon_pipelines"
+            / "dsi_studio_gqi_scalar.yaml"
+        )
+        assert staged_yaml.read_text() == source_yaml.read_text()
+
+        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
+        assert f"{staged_yaml}:/tmp/recon_spec.yaml:ro" in v_args
+        idx = cmd.index("--recon-spec")
+        assert cmd[idx + 1] == "/tmp/recon_spec.yaml"
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_dsi_studio_gqi_with_atlases_does_not_use_scalar_workaround(
+        self, mock_resources, builder
+    ):
+        """Atlas-enabled dsi_studio_gqi keeps the standard recon spec."""
+        builder._stage_custom_pipeline = MagicMock()
+        config = QSIReconConfig(subject_id="001", atlases=["AAL116"])
+        cmd = builder.build_qsirecon_cmd(config, "dsi_studio_gqi")
+
+        builder._stage_custom_pipeline.assert_not_called()
+        assert "/tmp/recon_spec.yaml" not in cmd
+        idx = cmd.index("--recon-spec")
+        assert cmd[idx + 1] == "dsi_studio_gqi"
+
+        v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
+        assert not any(".qsirecon_spec.yaml" in v for v in v_args)
+        idx = cmd.index("--atlases")
+        assert cmd[idx + 1] == "AAL116"
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_atlases(self, mock_resources, builder):
         config = QSIReconConfig(subject_id="001", atlases=None)
         cmd = builder.build_qsirecon_cmd(config, "dipy_dki")

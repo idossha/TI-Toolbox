@@ -626,9 +626,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         )
         return params
 
-    def _find_tissue_niftis(
-        self, nifti_dirs: list[Path]
-    ) -> dict[str, str]:
+    def _find_tissue_niftis(self, nifti_dirs: list[Path]) -> dict[str, str]:
         """Find grey- and white-matter TI_max MNI-space NIfTIs in *nifti_dirs*.
 
         Returns a dict mapping tissue label to file path.
@@ -683,6 +681,22 @@ class SimulationReportGenerator(BaseReportGenerator):
         try:
             from tit.plotting.nilearn.visualizer import NilearnVisualizer
         except ImportError:
+            if self.montages:
+                section = self.assembler.add_section(
+                    section_id="nilearn_visualizations",
+                    title="Field Visualizations (Nilearn)",
+                    description="Optional nilearn field visualizations were not generated.",
+                    order=45,
+                )
+                section.add_reportlet(
+                    TextReportlet(
+                        title="Nilearn Visualizations Unavailable",
+                        content=(
+                            "Nilearn is not available in this environment, so optional "
+                            "field visualization images were not embedded in the report."
+                        ),
+                    )
+                )
             return
 
         subject_id = self._get_montage_subject_id()
@@ -691,6 +705,7 @@ class SimulationReportGenerator(BaseReportGenerator):
 
         pm = get_path_manager(str(self.project_dir))
         section = None
+        missing_montages: list[str] = []
 
         for montage in self.montages:
             name = montage["name"]
@@ -706,6 +721,7 @@ class SimulationReportGenerator(BaseReportGenerator):
 
             tissue_paths = self._find_tissue_niftis(nifti_dirs)
             if not tissue_paths:
+                missing_montages.append(name)
                 continue
 
             if section is None:
@@ -798,6 +814,26 @@ class SimulationReportGenerator(BaseReportGenerator):
                             content_type="html",
                         )
                     )
+
+        if missing_montages:
+            if section is None:
+                section = self.assembler.add_section(
+                    section_id="nilearn_visualizations",
+                    title="Field Visualizations (Nilearn)",
+                    description="Optional nilearn field visualizations were not generated.",
+                    order=45,
+                )
+            section.add_reportlet(
+                TextReportlet(
+                    title="Nilearn Visualizations Unavailable",
+                    content=(
+                        "No MNI-space TI_max NIfTI outputs were found for: "
+                        f"{', '.join(missing_montages)}. Optional field visualization "
+                        "images are only embedded after simulation NIfTI export produces "
+                        "grey_*MNI*TI_max*.nii.gz or white_*MNI*TI_max*.nii.gz files."
+                    ),
+                )
+            )
 
     def _build_report(self) -> None:
         """Build the complete simulation report."""

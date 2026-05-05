@@ -1,6 +1,6 @@
 ---
 layout: installation
-title: Bash Entrypoint
+title: Python Loader / CLI Entrypoint
 permalink: /installation/bash-cli/
 ---
 
@@ -41,13 +41,13 @@ The script will guide you through:
 When the loader program has completed:
 
 ```bash
-#Try ebter the core GUI tool
+# Try entering the core GUI tool
 GUI
 
-# Try enter the pre-processing tool
+# Try entering the pre-processing tool
 pre-process
 
-# Try start the flex-search tool
+# Try starting the flex-search tool
 flex-search
 ```
 

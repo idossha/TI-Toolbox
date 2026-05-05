@@ -1147,13 +1147,13 @@ Adding `"mporder": N` to eddy config enables:
 ```python
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_QSIPREP_IMAGE_TAG = "1.2.0"    # Note: no 1.2.0 release exists on GitHub
+QSI_QSIPREP_IMAGE_TAG = "1.1.1"    # Latest QSIPrep tag; no 1.2.0 QSIPrep release exists
 QSI_QSIRECON_IMAGE_TAG = "1.2.0"   # QSIRecon 1.2.0 released Feb 2025
 ```
 
 **Version Note:** As of March 2026, QSIPrep's latest release is **1.1.1** (Jan
 2026). There is no QSIPrep 1.2.0 release on GitHub. QSIRecon 1.2.0 exists (Feb
-2025). The `QSI_QSIPREP_IMAGE_TAG` in constants.py may need verification.
+2025). Keep separate constants for QSIPrep and QSIRecon image tags.
 
 ### Integration Architecture
 

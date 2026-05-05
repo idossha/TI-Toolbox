@@ -169,7 +169,12 @@ class TestProcessingStepReportlet:
         from tit.reporting.reportlets.metadata import ProcessingStepReportlet
 
         r = ProcessingStepReportlet()
-        r.add_step("FreeSurfer", description="Cortical reconstruction", status="completed", duration=3600.0)
+        r.add_step(
+            "FreeSurfer",
+            description="Cortical reconstruction",
+            status="completed",
+            duration=3600.0,
+        )
         html = r.render_html()
         assert "FreeSurfer" in html
         assert "1.0h" in html
@@ -201,7 +206,9 @@ class TestProcessingStepReportlet:
         from tit.reporting.reportlets.metadata import ProcessingStepReportlet
 
         r = ProcessingStepReportlet()
-        r.add_step("Step", parameters={"threads": 8, "mode": "fast"}, status="completed")
+        r.add_step(
+            "Step", parameters={"threads": 8, "mode": "fast"}, status="completed"
+        )
         html = r.render_html()
         assert "threads" in html
         assert "8" in html
@@ -435,7 +442,9 @@ class TestSliceSeriesReportlet:
         from tit.reporting.reportlets.images import SliceSeriesReportlet
 
         mock_image = MagicMock()
-        mock_image.save = MagicMock(side_effect=lambda buf, format: buf.write(b"image_data"))
+        mock_image.save = MagicMock(
+            side_effect=lambda buf, format: buf.write(b"image_data")
+        )
         r = SliceSeriesReportlet()
         r.add_slice(mock_image, label="PIL")
         assert len(r.slices) == 1
@@ -498,7 +507,8 @@ class TestMontageImageReportlet:
 
         r = MontageImageReportlet(montage_name="TestMontage")
         html = r.render_html()
-        assert "No montage image available" in html
+        assert "Montage visualization unavailable" in html
+        assert "expected montage visualization PNG" in html
         assert "TestMontage" in html
 
     def test_set_base64_data(self):
@@ -876,7 +886,9 @@ class TestDescriptionReportlet:
     def test_preformatted_escapes_html(self):
         from tit.reporting.reportlets.text import DescriptionReportlet
 
-        r = DescriptionReportlet("<script>alert(1)</script>", format_type="preformatted")
+        r = DescriptionReportlet(
+            "<script>alert(1)</script>", format_type="preformatted"
+        )
         html = r.render_html()
         assert "&lt;script&gt;" in html
         assert "<script>alert" not in html
@@ -1260,7 +1272,7 @@ class TestTemplates:
         from tit.reporting.core.templates import get_html_template
 
         html = get_html_template(
-            title="Test", content="body", metadata_html='<span>Subject: 001</span>'
+            title="Test", content="body", metadata_html="<span>Subject: 001</span>"
         )
         assert "Subject: 001" in html
 
@@ -1420,7 +1432,13 @@ class TestBaseReportGenerator:
     def test_create_dataset_description(self, tmp_path):
         gen = self._make_concrete_generator(tmp_path)
         gen._create_dataset_description()
-        desc_path = tmp_path / "derivatives" / "ti-toolbox" / "reports" / "dataset_description.json"
+        desc_path = (
+            tmp_path
+            / "derivatives"
+            / "ti-toolbox"
+            / "reports"
+            / "dataset_description.json"
+        )
         assert desc_path.exists()
         data = json.loads(desc_path.read_text())
         assert data["Name"] == "TI-Toolbox Reports"
@@ -1494,7 +1512,9 @@ class TestFlexSearchReportGenerator:
         gen = self._make_generator(tmp_path)
         assert gen.report_type == "flex-search"
         assert gen.subject_id == "001"
-        assert gen._get_default_title() == "Flex-Search Optimization Report - Subject 001"
+        assert (
+            gen._get_default_title() == "Flex-Search Optimization Report - Subject 001"
+        )
         assert gen._get_report_prefix() == "flex_search_report"
 
     def test_set_configuration(self, tmp_path):
@@ -1604,7 +1624,12 @@ class TestFlexSearchReportGenerator:
     def test_build_summary_section(self, tmp_path):
         gen = self._make_generator(tmp_path)
         gen.set_roi_info(roi_name="Target")
-        gen.set_configuration(optimization_goal="mean", n_candidates=50, n_starts=3, post_processing="waveform")
+        gen.set_configuration(
+            optimization_goal="mean",
+            n_candidates=50,
+            n_starts=3,
+            post_processing="waveform",
+        )
         gen.set_best_solution(
             electrode_pairs=[],
             score=0.75,
@@ -1694,6 +1719,53 @@ class TestFlexSearchReportGenerator:
         section = gen.assembler.get_section("results")
         assert section is None
 
+    def test_build_results_section_uses_mapped_labels(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_search_result(
+            rank=1,
+            electrode_1a="",
+            electrode_1b="",
+            electrode_2a="",
+            electrode_2b="",
+            score=0.9,
+            mapped_labels=["E061", "E062", "E063", "E064"],
+        )
+        gen._build_results_section()
+        section = gen.assembler.get_section("results")
+        html = section.reportlets[0].render_html()
+        assert "E061-E062" in html
+        assert "E063-E064" in html
+        assert "Mapped Labels" in html
+
+    def test_add_search_result_omits_blank_pairs(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_search_result(
+            rank=1,
+            electrode_1a="",
+            electrode_1b="",
+            electrode_2a="",
+            electrode_2b="",
+            score=0.9,
+        )
+        assert gen.search_results[0]["pair_1"] == ""
+        assert gen.search_results[0]["pair_2"] == ""
+
+    def test_build_best_solution_section_notes_missing_optional_images(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.set_best_solution(
+            electrode_pairs=[{"electrode1": "E061", "electrode2": "E062"}],
+            score=0.95,
+            metrics={},
+            mapped_labels=["E061", "E062", "E063", "E064"],
+            mapped_positions=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
+        )
+        gen._build_best_solution_section()
+        section = gen.assembler.get_section("best_solution")
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "Mapped EEG Net Electrodes" in html
+        assert "Electrode Montage Unavailable" in html
+        assert "Electric Field Visualization Unavailable" in html
+
     def test_build_best_solution_section_with_coordinates(self, tmp_path):
         gen = self._make_generator(tmp_path)
         gen.set_best_solution(
@@ -1750,8 +1822,12 @@ class TestFlexSearchReportGenerator:
         gen.set_configuration(electrode_net="GSN-128", n_candidates=10)
         gen.set_roi_info(roi_name="Hippocampus")
         gen.add_search_result(
-            rank=1, electrode_1a="E1", electrode_1b="E2",
-            electrode_2a="E3", electrode_2b="E4", score=0.9,
+            rank=1,
+            electrode_1a="E1",
+            electrode_1b="E2",
+            electrode_2a="E3",
+            electrode_2b="E4",
+            score=0.9,
         )
         gen.set_best_solution(
             electrode_pairs=[{"electrode1": "E1", "electrode2": "E2"}],
@@ -1839,7 +1915,9 @@ class TestSimulationReportGenerator:
 
     def test_add_electrode_parameters(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        gen.add_electrode_parameters(shape="rectangular", dimensions=[10, 5], gel_thickness=2.0)
+        gen.add_electrode_parameters(
+            shape="rectangular", dimensions=[10, 5], gel_thickness=2.0
+        )
         assert gen.electrode_parameters["shape"] == "rectangular"
         assert gen.electrode_parameters["dimensions"] == "10x5 mm"
 
@@ -1877,25 +1955,31 @@ class TestSimulationReportGenerator:
 
     def test_normalize_electrode_pairs_list_of_dicts(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"electrode1": "A", "electrode2": "B", "intensity": 1.0},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"electrode1": "A", "electrode2": "B", "intensity": 1.0},
+            ]
+        )
         assert pairs[0]["electrode1"] == "A"
 
     def test_normalize_electrode_pairs_dict_with_pair_key(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"pair": ["E1", "E2", 2.0]},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"pair": ["E1", "E2", 2.0]},
+            ]
+        )
         assert pairs[0]["electrode1"] == "E1"
         assert pairs[0]["electrode2"] == "E2"
         assert pairs[0]["intensity"] == 2.0
 
     def test_normalize_electrode_pairs_dict_alt_keys(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"anode": "A1", "cathode": "A2", "current": 1.0},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"anode": "A1", "cathode": "A2", "current": 1.0},
+            ]
+        )
         assert pairs[0]["electrode1"] == "A1"
         assert pairs[0]["electrode2"] == "A2"
         assert pairs[0]["intensity"] == 1.0
@@ -1960,6 +2044,66 @@ class TestSimulationReportGenerator:
 
             gen = SimulationReportGenerator(project_dir=tmp_path)
         assert gen._get_montage_subject_id() is None
+
+    def test_find_montage_image_prefers_ti_filename(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        image_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "Simulations"
+            / "M1"
+            / "TI"
+            / "montage_imgs"
+        )
+        image_dir.mkdir(parents=True)
+        image = image_dir / "M1_highlighted_visualization.png"
+        image.write_bytes(b"png")
+
+        assert gen._find_montage_image("M1", "TI") == image
+
+    def test_find_montage_image_prefers_mti_filename(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        image_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "Simulations"
+            / "M1"
+            / "mTI"
+            / "montage_imgs"
+        )
+        image_dir.mkdir(parents=True)
+        image = image_dir / "combined_montage_visualization.png"
+        image.write_bytes(b"png")
+
+        assert gen._find_montage_image("M1", "mTI") == image
+
+    def test_montage_report_note_when_image_missing(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_montage("M1", [["E1", "E2"]], montage_type="TI")
+        with patch.object(gen, "_find_montage_image", return_value=None):
+            gen._build_montages_section()
+
+        section = gen.assembler.get_section("montages")
+        html = section.reportlets[0].render_html()
+        assert "Montage visualization unavailable" in html
+
+    def test_nilearn_report_note_when_field_niftis_missing(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_montage("M1", [["E1", "E2"]], montage_type="TI")
+        gen._build_nilearn_section()
+
+        section = gen.assembler.get_section("nilearn_visualizations")
+        assert section is not None
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "Nilearn Visualizations Unavailable" in html
+        assert (
+            "No MNI-space TI_max NIfTI outputs were found" in html
+            or "Nilearn is not available" in html
+        )
 
     def test_add_simulation_result(self, tmp_path):
         gen = self._make_generator(tmp_path)
@@ -2119,7 +2263,9 @@ class TestPreprocessingReportGenerator:
 
     def _make_generator(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import PreprocessingReportGenerator
+            from tit.reporting.generators.preprocessing import (
+                PreprocessingReportGenerator,
+            )
 
             gen = PreprocessingReportGenerator(
                 project_dir=tmp_path,
@@ -2183,7 +2329,9 @@ class TestPreprocessingReportGenerator:
 
     def test_add_qc_image(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        gen.add_qc_image("QC Brain", "base64data", step_name="recon", caption="Brain overlay")
+        gen.add_qc_image(
+            "QC Brain", "base64data", step_name="recon", caption="Brain overlay"
+        )
         assert len(gen.qc_images) == 1
 
     def test_build_summary_section(self, tmp_path):
@@ -2400,7 +2548,9 @@ class TestCreatePreprocessingReport:
 
     def test_creates_report(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import create_preprocessing_report
+            from tit.reporting.generators.preprocessing import (
+                create_preprocessing_report,
+            )
 
             output = tmp_path / "pre_report.html"
             result = create_preprocessing_report(
@@ -2416,7 +2566,9 @@ class TestCreatePreprocessingReport:
 
     def test_creates_report_with_auto_scan(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import create_preprocessing_report
+            from tit.reporting.generators.preprocessing import (
+                create_preprocessing_report,
+            )
 
             output = tmp_path / "pre_report.html"
             result = create_preprocessing_report(

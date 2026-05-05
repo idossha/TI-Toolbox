@@ -64,8 +64,8 @@ def discover_subjects(project_dir: str | None) -> list[str]:
 
     Discovery order:
 
-    1. ``sourcedata/sub-*/T1w/`` or ``T2w/`` -- any subdir, NIfTI, or
-       ``.tgz`` archive.
+    1. ``sourcedata/sub-*/T1w/`` or ``T2w/`` -- any subdir, NIfTI, DICOM,
+       or supported DICOM archive (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``).
     2. ``sourcedata/sub-*/*.tgz`` (compressed bundles at top level).
     3. ``sub-*/anat/*T1w*.nii[.gz]`` or ``*T2w*.nii[.gz]`` at project root.
 
@@ -95,6 +95,17 @@ def discover_subjects(project_dir: str | None) -> list[str]:
                 t1w_dir = os.path.join(subj_dir, "T1w")
                 t2w_dir = os.path.join(subj_dir, "T2w")
 
+                supported_modality_files = (
+                    ".dcm",
+                    ".dicom",
+                    ".zip",
+                    ".tar",
+                    ".tar.gz",
+                    ".tgz",
+                    ".json",
+                    ".nii",
+                    ".nii.gz",
+                )
                 has_valid_structure = (
                     (
                         os.path.exists(t1w_dir)
@@ -104,7 +115,7 @@ def discover_subjects(project_dir: str | None) -> list[str]:
                                 for d in os.listdir(t1w_dir)
                             )
                             or any(
-                                f.endswith((".tgz", ".json", ".nii", ".nii.gz"))
+                                f.lower().endswith(supported_modality_files)
                                 for f in os.listdir(t1w_dir)
                             )
                         )
@@ -117,7 +128,7 @@ def discover_subjects(project_dir: str | None) -> list[str]:
                                 for d in os.listdir(t2w_dir)
                             )
                             or any(
-                                f.endswith((".tgz", ".json", ".nii", ".nii.gz"))
+                                f.lower().endswith(supported_modality_files)
                                 for f in os.listdir(t2w_dir)
                             )
                         )

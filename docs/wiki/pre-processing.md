@@ -4,19 +4,19 @@ title: Pre-processing Pipeline
 permalink: /wiki/pre-processing/
 ---
 
-The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format, performing FreeSurfer cortical reconstruction, and creating SimNIBS head models. This comprehensive pipeline ensures that all subsequent steps have access to high-quality, standardized neuroimaging data.
+The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format and creating SimNIBS head models. FreeSurfer `recon-all`, diffusion processing, tissue analysis, and subcortical segmentations are optional add-on stages for workflows that need those outputs.
 
 ## Overview
 
 The pre-processing pipeline consists of several stages (each individually toggleable):
 
 1. **DICOM to NIfTI Conversion** - Convert raw DICOM files to BIDS-compliant NIfTI format
-2. **FreeSurfer recon-all** - Cortical reconstruction and segmentation
-3. **SimNIBS charm** - Head model creation for electromagnetic simulations (also generates atlas `.annot` files via `subject_atlas`)
-4. **Tissue Analysis** - Tissue segmentation quality checks
-5. **QSIPrep / QSIRecon** - Diffusion-weighted imaging preprocessing and reconstruction
-6. **DTI Tensor Extraction** - Extract DTI tensors for SimNIBS anisotropic conductivity
-7. **Subcortical Segmentations** - Thalamic nuclei and hippocampal subfield segmentations via `run_subcortical_segmentations()`
+2. **SimNIBS charm** - Head model creation for electromagnetic simulations (also generates atlas `.annot` files via `subject_atlas`)
+3. **FreeSurfer recon-all** - Optional cortical reconstruction and segmentation
+4. **Tissue Analysis** - Optional tissue segmentation quality checks
+5. **QSIPrep / QSIRecon** - Optional diffusion-weighted imaging preprocessing and reconstruction
+6. **DTI Tensor Extraction** - Optional extraction of DTI tensors for SimNIBS anisotropic conductivity
+7. **Subcortical Segmentations** - Optional thalamic nuclei and hippocampal subfield segmentations via `run_subcortical_segmentations()`
 
 ## Required Input Data Structure
 
@@ -29,11 +29,11 @@ project_root/
 └── sourcedata/
     └── sub-{subject_id}/
         ├── T1w/
-        │   ├── dicom/          # Raw T1w DICOM files
-        │   └── *.tgz           # Compressed DICOM archives (optional)
+        │   ├── dicom/          # Raw T1w .dcm/.dicom files (recursive)
+        │   └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T1w DICOM archives
         └── T2w/
-            ├── dicom/          # Raw T2w DICOM files
-            └── *.tgz           # Compressed DICOM archives (optional)
+            ├── dicom/          # Raw T2w .dcm/.dicom files (recursive)
+            └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T2w DICOM archives
 ```
 
 ### Data Requirements
@@ -46,9 +46,16 @@ project_root/
 
 ### Supported Input Formats
 
-- **DICOM files** (`.dcm`, `.dicom`)
-- **Compressed DICOM archives** (`.tgz`)
+- **DICOM files** (`.dcm`, `.dicom`) under `sourcedata/sub-{subject_id}/{T1w,T2w}/dicom/`; nested folders are searched recursively
+- **Compressed DICOM archives** (`.zip`, `.tar`, `.tar.gz`, `.tgz`) placed directly in a modality folder or its `dicom/` folder
 - **NIfTI files** (`.nii`, `.nii.gz`) - if already converted
+
+## MNI/template and atlas guidance
+
+- **Template/MNI simulations** require a valid SimNIBS head model (`m2m`) and MNI transforms from CHARM/create_m2m. FreeSurfer `recon-all` is optional for basic simulations.
+- **Atlas-dependent cortical workflows** (surface labels, FreeSurfer-derived annotations, or analyses that explicitly read FreeSurfer outputs) require `recon-all` and the relevant atlas/annotation generation.
+- **Volume-atlas or MNI ROI workflows** depend on adequate anatomical field of view and registration quality. If CHARM reports cropped anatomy or poor registration, re-run preprocessing with full-head T1w/T2w coverage or adjust acquisition/FOV before relying on MNI/template ROIs.
+- When both CHARM/create_m2m and `recon-all` are enabled, check the GUI log/status output for the exact execution order used by your selected options.
 
 ## Processing Stages
 
@@ -59,8 +66,8 @@ project_root/
 
 #### Features
 
-- **Automatic T1w/T2w Detection**: Identifies scan types based on DICOM series descriptions
-- **Compressed Archive Support**: Handles `.tgz` compressed DICOM archives
+- **Folder-based T1w/T2w Layout**: Converts files from the documented `T1w/dicom/` and `T2w/dicom/` folders
+- **Compressed Archive Support**: Safely extracts `.zip`, `.tar`, `.tar.gz`, and `.tgz` DICOM archives before conversion
 - **BIDS Compliance**: Generates proper BIDS naming conventions
 - **Metadata Preservation**: Maintains scan parameters in JSON sidecars
 
@@ -70,22 +77,43 @@ project_root/
 graph LR
     A[Raw DICOM Files] --> B[Extract Archives]
     B --> C[dcm2niix Conversion]
-    C --> D[Rename Based on SeriesDescription]
+    C --> D[Write sub-ID_modality Names]
     D --> E[BIDS-compliant NIfTI + JSON]
 ```
 
-### Stage 2: FreeSurfer recon-all
+### Stage 2: SimNIBS charm (Head Model Creation)
 
-**Module:** `tit.pre.recon_all.run_recon_all`  
-**Purpose:** Cortical reconstruction, segmentation, and surface generation
+**Module:** `tit.pre.charm.run_charm`
+**Purpose:** Create head models for TI simulation
+
+#### Features
+
+- **Input**: Supports T1-only or T1+T2 processing
+- **Subject Atlas**: The pipeline runs `subject_atlas` after CHARM to generate atlas `.annot` files
+- **Sequential Processing**: Runs one subject at a time to avoid PETSC/resource conflicts
+
+#### Generated Output Structure
+
+```
+derivatives/
+└── SimNIBS/
+    └── sub-101/
+        └── m2m_101/
+
+```
+
+### Stage 3: FreeSurfer recon-all (Optional)
+
+**Module:** `tit.pre.recon_all.run_recon_all`
+**Purpose:** Cortical reconstruction, segmentation, and surface generation for workflows that need FreeSurfer outputs
 
 #### Features
 
 - **T1 + T2 Processing**: Utilizes both T1 and T2 images when available for improved pial surface reconstruction
-- **Parallel Processing**: Configurable for single-threaded or multi-threaded execution
+- **Optional**: Not required for basic CHARM head-model creation; run it for analyses or segmentations that require FreeSurfer surfaces/labels
+- **Parallel Processing**: Configurable as single-subject internal FreeSurfer parallelism or multi-subject throughput mode
 
-
-**Note:** The `parallel=True` flag enables FreeSurfer's internal parallelization (multiple cores for one subject). The pipeline-level `parallel_recon=True` enables multiple subjects simultaneously, each using a single core.
+**Note:** In sequential mode, FreeSurfer can use its internal parallelization for one subject. The pipeline-level `parallel_recon=True` uses Python `ThreadPoolExecutor` to run multiple subjects simultaneously, each with one FreeSurfer core.
 
 #### Generated Output Structure
 
@@ -99,27 +127,6 @@ derivatives/
         └── scripts/
 ```
 
-### Stage 3: SimNIBS charm (Head Model Creation)
-
-**Module:** `tit.pre.charm.run_charm`  
-**Purpose:** Create head models for TI simulation
-
-#### Features
-
-- **Input**: Supports T1-only or T1+T2 processing
-- **Sequential Processing**: Runs one subject at a time 
-
-
-#### Generated Output Structure
-
-```
-derivatives/
-└── SimNIBS/
-    └── sub-101/
-        └── m2m_101/
-
-```
-
 ## Orchestration Script
 
 ### Python Pipeline Orchestrator
@@ -131,9 +138,9 @@ derivatives/
 | Option | Description | Usage |
 |--------|-------------|-------|
 | `convert_dicom` | Include DICOM conversion stage | Optional |
-| `run_recon` | Run FreeSurfer reconstruction | Optional |
 | `create_m2m` | Include SimNIBS head model creation (also runs `subject_atlas` for `.annot` files) | Optional |
-| `parallel_recon` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
+| `run_recon` | Run FreeSurfer reconstruction | Optional |
+| `parallel_recon` | Enable ThreadPoolExecutor multi-subject recon-all mode (multiple subjects, 1 core each) | Optional |
 | `run_tissue_analysis` | Run tissue segmentation analysis | Optional |
 | `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker | Optional |
 | `run_qsirecon` | Run QSIRecon reconstruction via Docker | Optional |
@@ -145,7 +152,7 @@ derivatives/
 
 ### Two-Mode Processing Architecture
 
-The pipeline implements a simple and efficient two-mode parallelization strategy:
+The pipeline implements a simple two-mode strategy for FreeSurfer `recon-all`. It uses Python `ThreadPoolExecutor` for multi-subject mode; no external parallel launcher is required.
 
 #### Processing Modes
 
@@ -194,14 +201,16 @@ project_root/
 │       ├── anat-T1w_acq-MPRAGE.nii.gz
 │       └── anat-T2w_acq-CUBE.nii.gz
 └── derivatives/                    # Processed outputs
-    ├── freesurfer/                 # FreeSurfer outputs
+    ├── SimNIBS/                    # SimNIBS outputs
+    │   └── sub-101/
+    │       └── m2m_101/
+    ├── freesurfer/                 # Optional FreeSurfer outputs
     │   └── sub-101/
     │       ├── mri/
     │       ├── surf/
     │       └── scripts/
-    └── SimNIBS/                    # SimNIBS outputs
-        └── sub-101/
-            └── m2m_101/
+    └── ti-toolbox/
+        └── logs/sub-101/           # Preprocessing logs
 ```
 
 ## Logging and Monitoring
@@ -210,9 +219,7 @@ project_root/
 
 ```
 derivatives/ti-toolbox/logs/sub-{subject_id}/
-├── dicom2nifti_{timestamp}.log     # DICOM conversion logs
-├── recon-all_{timestamp}.log       # FreeSurfer processing logs
-└── charm_{timestamp}.log           # SimNIBS processing logs
+└── preprocess_{timestamp}.log      # Orchestration and stage logs (DICOM, CHARM, recon-all, QSI, etc.)
 ```
 
 ### Log Content Examples
@@ -240,10 +247,10 @@ Monitor processing progress in real-time:
 
 ```bash
 # Monitor all logs for a subject
-tail -f /mnt/project/derivatives/logs/sub-101/*.log
+tail -f /mnt/project/derivatives/ti-toolbox/logs/sub-101/*.log
 
 # Monitor specific stage
-tail -f /mnt/project/derivatives/logs/sub-101/recon-all_*.log
+tail -f /mnt/project/derivatives/ti-toolbox/logs/sub-101/preprocess_*.log
 
 # Check processing status across subjects
 ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
@@ -252,7 +259,7 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 
 ### Performance Optimization
 
-1. **Parallel Processing**: Use `--parallel` flag for multiple subjects
+1. **Parallel Processing**: Use `parallel_recon=True` / the GUI parallel checkbox for multi-subject recon-all throughput
 2. **Memory Management**: Ensure adequate Docker memory allocation
 3. **Disk I/O**: Use fast storage (SSD) for improved performance
 4. **CPU Utilization**: Consider leaving a couple of cores free

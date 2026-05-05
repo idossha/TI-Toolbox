@@ -456,20 +456,55 @@ def run_montage_visualization(
     tit.tools.montage_visualizer.visualize_montage :
         Underlying rendering function.
     """
-    if eeg_net in ("freehand", "flex_mode"):
-        logger.info(f"Skipping montage visualization for {eeg_net} mode")
-        return
-
-    from tit.tools.montage_visualizer import visualize_montage
+    from tit.tools.montage_visualizer import (
+        get_expected_output_filename,
+        is_skipped_net,
+        is_supported_net,
+        visualize_montage,
+    )
 
     sim_mode_str = "U" if simulation_mode == SimulationMode.TI else "M"
-    visualize_montage(
-        montage_name=montage_name,
-        electrode_pairs=electrode_pairs or [],
-        eeg_net=eeg_net,
-        output_dir=output_dir,
-        sim_mode=sim_mode_str,
-    )
+    expected = get_expected_output_filename(montage_name, sim_mode_str)
+
+    if is_skipped_net(eeg_net):
+        logger.warning(
+            "Montage visualization unavailable for EEG net '%s'; skipping render. "
+            "Expected output would be %s in %s.",
+            eeg_net,
+            expected,
+            output_dir,
+        )
+        return
+
+    if not is_supported_net(eeg_net):
+        logger.warning(
+            "Montage visualization unavailable for unsupported EEG net '%s'. "
+            "Expected output would be %s in %s.",
+            eeg_net,
+            expected,
+            output_dir,
+        )
+        return
+
+    try:
+        visualize_montage(
+            montage_name=montage_name,
+            electrode_pairs=electrode_pairs or [],
+            eeg_net=eeg_net,
+            output_dir=output_dir,
+            sim_mode=sim_mode_str,
+            logger=logger,
+        )
+    except (OSError, subprocess.CalledProcessError, ValueError, TypeError) as exc:
+        logger.warning(
+            "Montage visualization unavailable for montage '%s' using EEG net '%s': %s. "
+            "Continuing simulation without %s in %s.",
+            montage_name,
+            eeg_net,
+            exc,
+            expected,
+            output_dir,
+        )
 
 
 # ── Simulation config file ────────────────────────────────────────────────────────────────

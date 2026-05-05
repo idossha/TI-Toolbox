@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
+from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet, TextReportlet
 from ..reportlets.images import MontageImageReportlet
 from ..reportlets.metadata import SummaryCardsReportlet, ParameterListReportlet
 from .base_generator import BaseReportGenerator
@@ -161,8 +161,16 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                 "electrode_1b": electrode_1b,
                 "electrode_2a": electrode_2a,
                 "electrode_2b": electrode_2b,
-                "pair_1": f"{electrode_1a}-{electrode_1b}",
-                "pair_2": f"{electrode_2a}-{electrode_2b}",
+                "pair_1": (
+                    f"{electrode_1a}-{electrode_1b}"
+                    if electrode_1a and electrode_1b
+                    else ""
+                ),
+                "pair_2": (
+                    f"{electrode_2a}-{electrode_2b}"
+                    if electrode_2a and electrode_2b
+                    else ""
+                ),
                 "score": score,
                 "mean_field_roi": mean_field_roi,
                 "max_field_roi": max_field_roi,
@@ -477,10 +485,17 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                 "Rank": result["rank"],
                 "Score": f"{result['score']:.4f}",
             }
+            mapped_labels = result.get("mapped_labels") or []
             if result.get("pair_1"):
                 row["Pair 1"] = result.get("pair_1", "")
+            elif len(mapped_labels) >= 2:
+                row["Pair 1"] = f"{mapped_labels[0]}-{mapped_labels[1]}"
             if result.get("pair_2"):
                 row["Pair 2"] = result.get("pair_2", "")
+            elif len(mapped_labels) >= 4:
+                row["Pair 2"] = f"{mapped_labels[2]}-{mapped_labels[3]}"
+            if mapped_labels:
+                row["Mapped Labels"] = ", ".join(str(label) for label in mapped_labels)
             if result.get("mean_field_roi") is not None:
                 row["Mean Field (V/m)"] = f"{result['mean_field_roi']:.4f}"
             if result.get("focality") is not None:
@@ -601,6 +616,17 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             )
             montage_img.set_base64_data(self.best_solution["montage_image_base64"])
             section.add_reportlet(montage_img)
+        else:
+            section.add_reportlet(
+                TextReportlet(
+                    title="Electrode Montage Unavailable",
+                    content=(
+                        "No electrode montage image was found for this flex-search "
+                        "report. The optimized and mapped electrode tables above "
+                        "remain the source of truth for the selected configuration."
+                    ),
+                )
+            )
 
         # Field map visualization
         if self.best_solution.get("field_map_base64"):
@@ -610,6 +636,17 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             )
             field_img.set_base64_data(self.best_solution["field_map_base64"])
             section.add_reportlet(field_img)
+        else:
+            section.add_reportlet(
+                TextReportlet(
+                    title="Electric Field Visualization Unavailable",
+                    content=(
+                        "No optional field-map image was embedded in this report. "
+                        "Run the final mapped-electrode simulation and field "
+                        "visualization steps to generate this image."
+                    ),
+                )
+            )
 
     def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""

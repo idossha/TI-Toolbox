@@ -51,9 +51,29 @@ _RINGS = [f"pair{i}ring.png" for i in range(1, 9)]
 # ---------------------------------------------------------------------------
 
 
+def get_expected_output_filename(montage_name: str, sim_mode: str = "U") -> str:
+    """Return the expected montage visualization PNG filename."""
+    if sim_mode == "U":
+        return f"{montage_name}_highlighted_visualization.png"
+    return "combined_montage_visualization.png"
+
+
+def is_skipped_net(eeg_net: str) -> bool:
+    """Return True when montage visualization is intentionally skipped."""
+    return eeg_net in _SKIP_NETS
+
+
+def is_supported_net(eeg_net: str) -> bool:
+    """Return True when a coordinate map exists for *eeg_net*."""
+    return eeg_net in _COORD_FILES
+
+
 def _load_coordinates(eeg_net: str) -> dict[str, tuple[int, int]] | None:
-    """Return {electrode_label: (x, y)} for the given EEG net, or None if unsupported."""
+    """Return {electrode_label: (x, y)} for the given EEG net."""
     fname = _COORD_FILES.get(eeg_net)
+    if fname is None:
+        raise ValueError(f"Unsupported EEG net for montage visualization: {eeg_net}")
+
     coords: dict[str, tuple[int, int]] = {}
     with open(os.path.join(_RESOURCES_DIR, fname)) as f:
         for lineno, line in enumerate(f):
@@ -126,6 +146,7 @@ def visualize_montage(
     eeg_net: str,
     output_dir: str,
     sim_mode: str = "U",
+    logger=None,
 ) -> None:
     """Render a PNG showing electrode positions and connection arcs.
 
@@ -145,7 +166,16 @@ def visualize_montage(
         ``"U"`` produces one image per montage; ``"M"`` produces a
         single combined image.  Default ``"U"``.
     """
-    if eeg_net in _SKIP_NETS:
+    if is_skipped_net(eeg_net):
+        expected = get_expected_output_filename(montage_name, sim_mode)
+        if logger is not None:
+            logger.warning(
+                "Montage visualization unavailable for EEG net '%s'; "
+                "skipping render. Expected output would be %s in %s.",
+                eeg_net,
+                expected,
+                output_dir,
+            )
         return
 
     coords = _load_coordinates(eeg_net)
@@ -155,11 +185,13 @@ def visualize_montage(
 
     if sim_mode == "U":
         out_image = os.path.join(
-            output_dir, f"{montage_name}_highlighted_visualization.png"
+            output_dir, get_expected_output_filename(montage_name, sim_mode)
         )
         subprocess.run(["cp", template, out_image], check=True)
     else:
-        out_image = os.path.join(output_dir, "combined_montage_visualization.png")
+        out_image = os.path.join(
+            output_dir, get_expected_output_filename(montage_name, sim_mode)
+        )
         if not os.path.exists(out_image):
             subprocess.run(["cp", template, out_image], check=True)
 

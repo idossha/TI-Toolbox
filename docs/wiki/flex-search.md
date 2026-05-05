@@ -114,6 +114,12 @@ The transition from unconstrained optimization solutions to practical electrode 
 
 **Electrode mapping challenges**: Analysis of optimized electrode positions reveals depth-dependent mapping distances across anatomical targets, with subcortical structures like the hippocampus requiring significantly larger electrode separations (11.74 ± 5.33 mm) compared to cortical regions like the insula (7.30 ± 1.38 mm) or spherical ROIs (8.01 ± 1.43 mm). This pattern reflects the fundamental challenge of targeting deep brain structures with scalp electrodes, where optimal montages often requires large distances between electrodes which may be positioned on the lower scalp that does not have dense electrode coverage. *Data regarding electrode mapping distances comes from the supplementary information of the [TI-Toolbox reference](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext).*
 
+## Reports and mapped electrode labels
+
+Flex-search reports include the selected optimized configuration, subject-space optimized coordinates, and mapped EEG-net labels/positions when `electrode_mapping.json` is produced. Ranked rows show mapped labels for the selected mapped solution; rows without mapping data are intentionally left unlabeled rather than guessing electrode names. If optional montage or field-map images are unavailable, the report includes an explicit note and the tables remain the source of truth.
+
+For template/MNI workflows, confirm that the selected EEG net is available and that final mapped-electrode simulation is enabled if you need report imagery from the practical mapped montage.
+
 ## Output Manifest (`flex_meta.json`)
 
 Every flex-search run writes a `flex_meta.json` file to the output folder. This manifest is the single source of truth for run metadata -- downstream consumers (simulator tab, GUI) read this instead of parsing folder names.

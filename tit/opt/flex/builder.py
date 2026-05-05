@@ -369,18 +369,6 @@ def generate_report(
 
     report_gen.set_roi_info(**roi_data)
 
-    # Add search results
-    for i, score in enumerate(optim_funvalue_list):
-        if score != float("inf"):
-            report_gen.add_search_result(
-                rank=i + 1,
-                electrode_1a="",
-                electrode_1b="",
-                electrode_2a="",
-                electrode_2b="",
-                score=float(score),
-            )
-
     # Load electrode positions and optional mapping data
     output_path = Path(base_output_folder)
     electrode_positions = None
@@ -402,6 +390,25 @@ def generate_report(
         mapped_labels = map_data.get("mapped_labels")
         mapped_positions = map_data.get("mapped_positions")
 
+    best_score_idx = best_opt_idx if n_multistart > 1 else 0
+
+    # Add search results. Per-run rows only include mapped EEG labels for the
+    # selected solution because electrode_mapping.json records the final mapping.
+    for i, score in enumerate(optim_funvalue_list):
+        if score != float("inf"):
+            result_metrics = {}
+            if mapped_labels and best_score_idx >= 0 and i == best_score_idx:
+                result_metrics["mapped_labels"] = mapped_labels
+            report_gen.add_search_result(
+                rank=i + 1,
+                electrode_1a="",
+                electrode_1b="",
+                electrode_2a="",
+                electrode_2b="",
+                score=float(score),
+                **result_metrics,
+            )
+
     # Build electrode pairs from mapped labels when available
     electrode_pairs: list[dict[str, str]] = []
     if mapped_labels and len(mapped_labels) >= 4:
@@ -411,7 +418,6 @@ def generate_report(
         ]
 
     # Build metrics dict
-    best_score_idx = best_opt_idx if n_multistart > 1 else 0
     if best_score_idx == -1 or optim_funvalue_list[best_score_idx] == float("inf"):
         report_path = report_gen.generate()
         logger.info(f"Report generated: {report_path}")
