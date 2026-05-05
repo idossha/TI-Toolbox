@@ -287,6 +287,8 @@ class ExSearchTab(QtWidgets.QWidget):
     tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
     """
 
+    ex_search_completed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
         self.parent = parent
@@ -301,6 +303,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e2_plus = []
         self.e2_minus = []
         self.current_roi_index = 0
+        self._exsearch_had_errors = False
         # Initialize debug mode (default to False)
         self.debug_mode = False
         self.use_all_combinations = False
@@ -1687,6 +1690,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Initialize ROI processing queue and start pipeline
         self.roi_processing_queue = selected_roi_names.copy()
         self.current_roi_index = 0
+        self._exsearch_had_errors = False
         self.e1_plus = e1_plus
         self.e1_minus = e1_minus
         self.e2_plus = e2_plus
@@ -1908,17 +1912,32 @@ class ExSearchTab(QtWidgets.QWidget):
             lambda msg: self.handle_process_error(msg)
         )
 
-        # Connect the finished signal to the mesh processing step for this ROI
-        self.optimization_process.finished.connect(
-            lambda: self.ti_simulation_completed(
-                subject_id, project_dir, ex_search_dir, env
+        # Continue only when the backend process succeeds.
+        self.optimization_process.process_finished.connect(
+            lambda ok, rc: self.ti_simulation_completed(
+                subject_id, project_dir, ex_search_dir, env, ok, rc
             )
         )
 
         self.optimization_process.start()
 
-    def ti_simulation_completed(self, subject_id, project_dir, ex_search_dir, env):
+    def ti_simulation_completed(
+        self, subject_id, project_dir, ex_search_dir, env, success=True, returncode=0
+    ):
         """Handle completion of TI simulation step."""
+        if not success:
+            self._exsearch_had_errors = True
+            self.log_step_complete("TI simulation", success=False)
+            current_roi = self.roi_processing_queue[self.current_roi_index]
+            self.update_output(
+                f"Ex-search failed for ROI {current_roi} (exit code {returncode}). "
+                "Stopping pipeline. Check the console above, generated ex-search "
+                "config, selected leadfield, and ROI file.",
+                "error",
+            )
+            self.pipeline_completed()
+            return
+
         # Log step completion
         self.log_step_complete("TI simulation", success=True)
 
@@ -1986,26 +2005,44 @@ class ExSearchTab(QtWidgets.QWidget):
                 lambda msg: self.handle_process_error(msg)
             )
 
-            # Connect the finished signal to mesh processing
-            self.optimization_process.finished.connect(
-                lambda: self.roi_analysis_completed(
-                    subject_id, project_dir, ex_search_dir, env, temp_roi_list
+            # Continue only when ROI analysis succeeds.
+            self.optimization_process.process_finished.connect(
+                lambda ok, rc: self.roi_analysis_completed(
+                    subject_id, project_dir, ex_search_dir, env, temp_roi_list, ok, rc
                 )
             )
 
             self.optimization_process.start()
 
         except (OSError, ValueError) as e:
-            self.update_output(f"Error setting up ROI analysis: {str(e)}", "error")
-            # Skip to mesh processing
-            self.run_current_roi_mesh_processing(
-                subject_id, project_dir, ex_search_dir, env
+            self._exsearch_had_errors = True
+            self.update_output(
+                f"Error setting up ROI analysis: {str(e)}. ROI analysis will not continue for this ROI.",
+                "error",
             )
+            self.pipeline_completed()
 
     def roi_analysis_completed(
-        self, subject_id, project_dir, ex_search_dir, env, temp_roi_list
+        self,
+        subject_id,
+        project_dir,
+        ex_search_dir,
+        env,
+        temp_roi_list,
+        success=True,
+        returncode=0,
     ):
         """Handle completion of ROI analysis step."""
+        if not success:
+            self._exsearch_had_errors = True
+            self.log_step_complete("ROI analysis", success=False)
+            self.update_output(
+                f"ROI analysis failed with exit code {returncode}. Stopping ex-search pipeline.",
+                "error",
+            )
+            self.pipeline_completed()
+            return
+
         # Log step completion
         self.log_step_complete("ROI analysis", success=True)
 
@@ -2090,6 +2127,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
     def handle_process_error(self, error_msg):
         """Handle process errors with proper GUI state management."""
+        self._exsearch_had_errors = True
         self.update_output(error_msg, "error")
         self.enable_controls()
         self.update_status("Process failed - see console for details", error=True)
@@ -2098,6 +2136,11 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle the completion of the pipeline."""
         # Log completion summary
         self.log_pipeline_completion()
+
+        if self._exsearch_had_errors:
+            self.enable_controls()
+            self.update_status("Ex-search stopped after an error", error=True)
+            return
 
         # Log final completion with summary
         subject_id = self.subject_combo.currentText()
@@ -2114,6 +2157,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         self.enable_controls()
         self.update_status("Ex-search optimization completed successfully")
+        self.ex_search_completed.emit()
 
     def stop_optimization(self):
         """Stop the running optimization or leadfield generation process."""

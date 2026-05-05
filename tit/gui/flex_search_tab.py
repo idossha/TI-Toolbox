@@ -78,6 +78,8 @@ class FlexSearchTab(QtWidgets.QWidget):
     tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
     """
 
+    flex_search_completed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         """Initialize the flex search tab."""
         super(FlexSearchTab, self).__init__(parent)
@@ -832,6 +834,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.stop_btn.setEnabled(False)
         self.enable_controls()
 
+        if self.successful_runs > 0:
+            self.flex_search_completed.emit()
+
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
@@ -1068,6 +1073,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     stop_btn=self.stop_btn,
                 )
 
+        self.optimization_thread = None
         self.optimization_process = FlexSearchThread(cmd)
         self.optimization_process.output_signal.connect(self.update_output)
         self.optimization_process.error_signal.connect(
@@ -1094,11 +1100,15 @@ class FlexSearchTab(QtWidgets.QWidget):
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
         # Check if this was a successful completion
-        if self.optimization_process:
-            if (
-                self.optimization_process.process
-                and self.optimization_process.process.returncode == 0
-            ):
+        current_success = False
+        active_thread = self.optimization_process
+        if self.optimization_thread and self.optimization_thread.process:
+            active_thread = self.optimization_thread
+        if active_thread:
+            current_success = bool(
+                active_thread.process and active_thread.process.returncode == 0
+            )
+            if current_success:
                 self.successful_runs += 1
             else:
                 self.failed_runs += 1
@@ -1120,6 +1130,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
+            if current_success:
+                self.flex_search_completed.emit()
 
     def clear_console(self):
         """Clear the output console."""
@@ -1445,8 +1457,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         self.optimization_thread.finished.connect(self.optimization_finished)
         self.optimization_thread.start()
-
-        self.optimization_finished()
 
     # ------------------------------------------------------------------ #
     #  Pareto step 2                                                      #

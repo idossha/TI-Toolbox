@@ -385,20 +385,32 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
     def refresh_subjects(self):
         """Scan for available subjects and update the dropdown."""
+        self.refresh_available_simulations(preserve=False)
+
+    def refresh_available_simulations(self, preserve=True):
+        """Refresh subject and simulation dropdowns, preserving selection when possible."""
+        current_subject = self.subject_combo.currentText() if preserve else ""
+        current_sim = self.sim_combo.currentText() if preserve else ""
+
+        try:
+            subject_ids = self.pm.list_simnibs_subjects()
+        except OSError as exc:
+            self.status_label.setText(
+                f"Could not scan subjects in {self.pm.simnibs()}: {exc}"
+            )
+            subject_ids = []
+
+        self.subject_combo.blockSignals(True)
         self.subject_combo.clear()
-
-        simnibs_dir = self.pm.simnibs()
-
-        subject_dirs = [
-            d
-            for d in os.listdir(simnibs_dir)
-            if os.path.isdir(os.path.join(simnibs_dir, d)) and d.startswith("sub-")
-        ]
-
-        subject_ids = sorted(d[4:] for d in subject_dirs)
         self.subject_combo.addItems(subject_ids)
-        self.status_label.setText(f"Found {len(subject_dirs)} subjects")
-        self.subject_combo.setCurrentIndex(0)
+        if current_subject in subject_ids:
+            self.subject_combo.setCurrentText(current_subject)
+        elif subject_ids:
+            self.subject_combo.setCurrentIndex(0)
+        self.subject_combo.blockSignals(False)
+
+        self.status_label.setText(f"Found {len(subject_ids)} subjects")
+        self.refresh_simulations(preserve=preserve, preferred_sim=current_sim)
         self.check_freesurfer_atlases()
 
     def check_freesurfer_atlases(self):
@@ -419,21 +431,27 @@ class NiftiViewerTab(QtWidgets.QWidget):
         if labeling_idx >= 0:
             self.atlas_combo.setCurrentIndex(labeling_idx)
 
-    def refresh_simulations(self):
+    def refresh_simulations(self, preserve=True, preferred_sim=None):
         """Populate the simulation combo box for the selected subject."""
+        current_sim = (
+            preferred_sim if preferred_sim is not None else self.sim_combo.currentText()
+        )
         self.sim_combo.clear()
 
         subject_id = self.subject_combo.currentText()
-        simulations = self.pm.list_simulations(subject_id)
+        simulations = self.pm.list_simulations(subject_id) if subject_id else []
 
         # Add simulations to combo box
         for sim_name in simulations:
             self.sim_combo.addItem(sim_name)
 
-        # If simulations were found, select the first one and update analyses
+        # If simulations were found, preserve selection when possible
         if self.sim_combo.count() > 0:
-            self.sim_combo.setCurrentIndex(0)
-            self.update_available_analyses()
+            if preserve and current_sim in simulations:
+                self.sim_combo.setCurrentText(current_sim)
+            else:
+                self.sim_combo.setCurrentIndex(0)
+        self.update_available_analyses()
 
     def update_available_analyses(self):
         """Update the available analyses based on the selected simulation."""

@@ -61,6 +61,8 @@ class PreProcessTab(QtWidgets.QWidget):
         Parent widget (main window).
     """
 
+    preprocessing_completed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -474,6 +476,7 @@ class PreProcessTab(QtWidgets.QWidget):
             return
 
         # Set processing state
+        self._preproc_had_failures = False
         self.set_processing_state(True)
 
         # Debug output (only show in debug mode)
@@ -536,15 +539,29 @@ class PreProcessTab(QtWidgets.QWidget):
 
         self.processing_thread = PreProcessThread(cmd)
         self.processing_thread.output_signal.connect(self.update_output)
-        self.processing_thread.error_signal.connect(
-            lambda msg: self.update_output(msg, "error")
-        )
-        self.processing_thread.finished.connect(self.preprocessing_finished)
+        self.processing_thread.error_signal.connect(self._handle_process_error)
+        self.processing_thread.process_finished.connect(self.preprocessing_finished)
         self.processing_thread.start()
 
-    def preprocessing_finished(self):
+    def _handle_process_error(self, msg):
+        """Record subprocess errors and show an actionable message."""
+        self._preproc_had_failures = True
+        self.update_output(msg, "error")
+
+    def preprocessing_finished(self, success=False, returncode=0):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
+        if success and not self._preproc_had_failures:
+            self.update_output(
+                "Pre-processing completed. Dependent tabs will refresh their subject and atlas lists.",
+                "success",
+            )
+            self.preprocessing_completed.emit()
+        else:
+            self.update_output(
+                "Pre-processing failed or was stopped. Check the console above and logs under derivatives/ti-toolbox/logs/sub-{subject}/. Common fixes: verify sourcedata DICOM layout, FreeSurfer license, CHARM/SimNIBS inputs, and Docker/QSI access.",
+                "error",
+            )
 
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""

@@ -143,9 +143,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                         self.gmsh_sim_combo.setCurrentIndex(idx)
                         self.update_gmsh_analyses()
         except Exception as exc:  # GUI refresh must never break tab switching.
-            if hasattr(self, "console"):
+            if hasattr(self, "output_console"):
                 self.update_output(
-                    f"Could not refresh simulation list: {exc}", "warning"
+                    f"Could not refresh simulations from {self.pm.simnibs()}: {exc}. Verify the project directory and SimNIBS subject/simulation folders.",
+                    "warning",
                 )
 
     def setup_ui(self):
@@ -1612,9 +1613,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 lambda msg: self.update_output(msg, "error"),
                 QtCore.Qt.QueuedConnection,
             )
-            self.optimization_process.finished.connect(
-                lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(
-                    subject_id=sid, simulation_name=sim_name, success=True
+            self.optimization_process.process_finished.connect(
+                lambda ok, rc, sid=subject_id, sim_name=simulation_name: self.analysis_finished(
+                    subject_id=sid, simulation_name=sim_name, success=ok
                 ),
                 QtCore.Qt.QueuedConnection,
             )
@@ -1675,8 +1676,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 lambda msg: self.update_output(msg, "error"),
                 QtCore.Qt.QueuedConnection,
             )
-            self.optimization_process.finished.connect(
-                lambda: self.analysis_finished(success=True), QtCore.Qt.QueuedConnection
+            self.optimization_process.process_finished.connect(
+                lambda ok, rc: self.analysis_finished(success=ok),
+                QtCore.Qt.QueuedConnection,
             )
             self.optimization_process.start()
 
@@ -1743,6 +1745,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Build analysis-specific kwargs for the script
             if analysis_type == "spherical":
                 x, y, z, radius = self._parse_coords_radius()
+                coords = [x, y, z]
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
 
                 analysis_kwargs = (
@@ -1943,23 +1946,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                     # We just need to mark that the summary is finished to avoid duplicate processing.
                     self._summary_finished = True
                 else:
-                    last_line = (
-                        self.output_console.toPlainText().strip().split("\n")[-1]
-                        if self.output_console.toPlainText()
-                        else ""
+                    self.update_output(
+                        '<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">[SUCCESS] Analysis process completed.</span></div>'
                     )
-                    if (
-                        "WARNING: Analysis Failed" in last_line
-                        or "Error: Process returned non-zero" in last_line
-                        or "failed" in last_line.lower()
-                    ):
-                        self.update_output(
-                            '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process indicated failure.</span></div>'
-                        )
-                    else:
-                        self.update_output(
-                            '<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">[SUCCESS] Analysis process completed.</span></div>'
-                        )
 
                 # Emit analysis completed signal for single mode or group mode
                 if subject_id and simulation_name:
@@ -1983,7 +1972,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                             )
             else:
                 self.update_output(
-                    '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process failed or was cancelled by user.</span></div>'
+                    '<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis failed or was cancelled. No results were registered. Check the console above and verify the selected subject, simulation TI/mTI outputs, ROI/atlas inputs, and output permissions.</span></div>'
                 )
 
             self.analysis_running = False

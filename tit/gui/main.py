@@ -171,6 +171,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.simulator_tab.simulation_completed.connect(
             self.analyzer_tab.refresh_available_simulations
         )
+        self.simulator_tab.simulation_completed.connect(
+            self.nifti_viewer_tab.refresh_available_simulations
+        )
+        self.pre_process_tab.preprocessing_completed.connect(
+            self._refresh_project_dependent_tabs
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.simulator_tab.update_montage_list
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.nifti_viewer_tab.refresh_available_simulations
+        )
+        self.ex_search_tab.ex_search_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
         self._processing_analysis_completion = False
 
         self.tab_widget.clear()
@@ -431,6 +449,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # Optionally, keep window centered after resize (uncomment if desired):
         # self.center_on_screen()
 
+    def _refresh_project_dependent_tabs(self):
+        """Refresh tabs that depend on project-derived subjects/outputs."""
+        refreshers = [
+            self.simulator_tab._load_available_subjects,
+            self.analyzer_tab.refresh_available_simulations,
+            self.nifti_viewer_tab.refresh_available_simulations,
+            self.flex_search_tab.find_available_subjects,
+            self.ex_search_tab.initial_setup,
+        ]
+        for refresh in refreshers:
+            try:
+                refresh()
+            except Exception as exc:
+                print(f"Warning: could not refresh GUI data after preprocessing: {exc}")
+
     def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
         """Refresh dependent tabs after an analysis run completes.
 
@@ -449,16 +482,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._processing_analysis_completion = True
         try:
-            # Update NIFTI viewer's analysis regions if it's a voxel analysis
-            if analysis_type == "Voxel":
-                # Update the NIFTI viewer's subject and simulation selection
+            # Update NIFTI viewer's analysis regions if it's a voxel analysis.
+            # Group analyses are not tied to one normal simulation entry, so avoid
+            # forcing the single-subject simulation combo to "group_analysis".
+            if analysis_type == "Voxel" and simulation_name != "group_analysis":
+                self.nifti_viewer_tab.refresh_available_simulations(preserve=True)
                 self.nifti_viewer_tab.subject_combo.setCurrentText(subject_id)
-                self.nifti_viewer_tab.sim_combo.setCurrentText(simulation_name)
-                # Update available analyses for the current subject and simulation
+                self.nifti_viewer_tab.refresh_simulations(
+                    preserve=True, preferred_sim=simulation_name
+                )
                 self.nifti_viewer_tab.update_available_analyses()
 
             # Update mesh files list if it's a mesh analysis
-            if analysis_type == "Mesh":
+            if analysis_type == "Mesh" and simulation_name != "group_analysis":
                 # Update the mesh files list in the analyzer tab and refresh gmsh visualization
                 self.analyzer_tab.update_field_files(subject_id, simulation_name)
         finally:

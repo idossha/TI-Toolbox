@@ -137,6 +137,7 @@ class BaseProcessThread(QtCore.QThread):
     # Common signals for all threads
     output_signal = QtCore.pyqtSignal(str, str)  # message, type
     error_signal = QtCore.pyqtSignal(str)
+    process_finished = QtCore.pyqtSignal(bool, int)  # success, returncode
 
     def __init__(self, cmd=None, env=None, cwd=None, parent=None):
         """
@@ -154,6 +155,8 @@ class BaseProcessThread(QtCore.QThread):
         self.cwd = cwd
         self.process = None
         self.terminated = False
+        self.returncode = None
+        self.last_output_lines = []
         self.input_data = None  # Optional stdin lines (list[str])
 
     def run(self):
@@ -167,8 +170,9 @@ class BaseProcessThread(QtCore.QThread):
         if self.cmd:
             self.execute_process()
         else:
+            self.returncode = -1
             self.error_signal.emit("No command specified for execution")
-            self.finished_signal.emit(False)
+            self.process_finished.emit(False, self.returncode)
 
     def set_input_data(self, input_data):
         """Set stdin lines to send to the subprocess after launch.
@@ -190,6 +194,7 @@ class BaseProcessThread(QtCore.QThread):
         - Handles process completion and errors
         - Emits appropriate signals
         """
+        success = False
         try:
             # Ensure Python output is unbuffered for real-time display
             self.env["PYTHONUNBUFFERED"] = "1"
@@ -250,6 +255,10 @@ class BaseProcessThread(QtCore.QThread):
                         line_stripped = line_clean.strip()
 
                         if line_stripped:
+                            self.last_output_lines.append(line_stripped)
+                            if len(self.last_output_lines) > 50:
+                                self.last_output_lines.pop(0)
+
                             # Detect message type
                             line_lower = line_stripped.lower()
                             message_type = self._detect_message_type(
@@ -261,13 +270,18 @@ class BaseProcessThread(QtCore.QThread):
 
             # Wait for process completion if not terminated
             if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    self.error_signal.emit(
-                        f"Process returned non-zero exit code ({returncode})"
-                    )
+                self.returncode = self.process.wait()
+            else:
+                self.returncode = self.process.poll()
+                if self.returncode is None:
+                    self.returncode = -15
+
+            success = self.returncode == 0 and not self.terminated
+            if not success and not self.terminated:
+                self.error_signal.emit(self._format_failure_message(self.returncode))
 
         except Exception as e:
+            self.returncode = -1
             self.error_signal.emit(f"Error running process: {str(e)}")
         finally:
             # Ensure file descriptors are cleaned up
@@ -282,6 +296,30 @@ class BaseProcessThread(QtCore.QThread):
                         self.process.stdin.close()
                 except OSError:
                     pass
+
+            returncode = self.returncode if self.returncode is not None else -1
+            self.process_finished.emit(success, int(returncode))
+
+    def _format_failure_message(self, returncode):
+        """Build an actionable subprocess failure message."""
+        cmd_preview = " ".join(str(part) for part in (self.cmd or [])[:8])
+        if self.cmd and len(self.cmd) > 8:
+            cmd_preview += " ..."
+        message = (
+            f"Process returned non-zero exit code ({returncode})"
+            + (f" while running: {cmd_preview}." if cmd_preview else ".")
+            + " Check the console output above for the backend error."
+        )
+        if self.cwd:
+            message += f" Working directory: {self.cwd}."
+        message += (
+            " If this was caused by missing inputs, verify the selected project, "
+            "m2m folder, simulation TI/mTI outputs, atlas/ROI files, and Docker/X11 setup."
+        )
+        if self.last_output_lines:
+            tail = " | ".join(self.last_output_lines[-3:])
+            message += f" Last output: {tail}"
+        return message
 
     @staticmethod
     def _strip_ansi_codes(text):
