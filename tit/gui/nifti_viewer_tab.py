@@ -234,13 +234,22 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Peak HF field checkbox
         self.peak_hf_chk = QtWidgets.QCheckBox("Load Peak HF Field")
-        self.peak_hf_chk.setChecked(True)
+        self.peak_hf_chk.setChecked(False)
         sim_block_layout.addWidget(self.peak_hf_chk, 5, 0, 1, 4)
+
+        # Optional tissue/view toggles
+        self.white_fields_chk = QtWidgets.QCheckBox("Show White Matter Fields")
+        self.white_fields_chk.setChecked(False)
+        sim_block_layout.addWidget(self.white_fields_chk, 6, 0, 1, 4)
+
+        self.three_d_fields_chk = QtWidgets.QCheckBox("Show 3D Fields")
+        self.three_d_fields_chk.setChecked(False)
+        sim_block_layout.addWidget(self.three_d_fields_chk, 7, 0, 1, 4)
 
         # Refresh button
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
-        sim_block_layout.addWidget(self.refresh_btn, 6, 0, 1, 4)
+        sim_block_layout.addWidget(self.refresh_btn, 8, 0, 1, 4)
 
         config_layout.addWidget(sim_block)
         main_layout.addWidget(self.config_section)
@@ -803,6 +812,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 dirs.append(nifti_dir)
         return dirs
 
+    def _include_simulation_nifti(self, basename):
+        lower = basename.lower()
+        if lower.startswith("grey_"):
+            return True
+        if lower.startswith("white_"):
+            return self.white_fields_chk.isChecked()
+        if basename.startswith("3D") or basename.startswith("3d"):
+            return self.three_d_fields_chk.isChecked()
+        return False
+
     def load_group_data(self):
         """Load group visualization with multiple subject-simulation pairs."""
         self.console_widget.clear_console()
@@ -921,14 +940,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     if not is_ti_field and not (include_peak_hf and is_peak_hf):
                         continue
 
-                    # Only load grey matter files by default for group
-                    if "grey_" not in basename:
+                    if not self._include_simulation_nifti(basename):
                         continue
 
                     # Adjust opacity based on number of subjects to avoid oversaturation
                     adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
 
-                    is_visible = not is_peak_hf
+                    lower_basename = basename.lower()
+                    is_visible = lower_basename.startswith("grey_") and not is_peak_hf
 
                     file_specs.append(
                         {
@@ -1127,8 +1146,11 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 if not is_ti_field and not (include_peak_hf and is_peak_hf):
                     continue
 
+                if not self._include_simulation_nifti(basename):
+                    continue
+
                 # Only the grey TI/TI_Max overlay is visible by default.
-                is_visible = "grey_" in basename and not is_peak_hf
+                is_visible = basename.lower().startswith("grey_") and not is_peak_hf
 
                 # Check if file matches the selected space
                 if is_mni_space:
