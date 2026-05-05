@@ -7,7 +7,7 @@ launched through ``tests/run_comprehensive_integration.sh``.
 
 Covered phases:
 1. real DICOM conversion through dcm2niix
-2. real SimNIBS CHARM on the converted anatomical image
+2. real SimNIBS CHARM on the baked anatomical fixture
 3. real TI simulation on ErnieExtended fixture data
 4. real flex-search with the focality objective
 5. real leadfield generation
@@ -23,7 +23,6 @@ import os
 import shutil
 import sys
 import time
-import zipfile
 from pathlib import Path
 
 from tit.analyzer import Analyzer
@@ -137,23 +136,9 @@ def _prepare_dicom_source(project: Path, subject: str, source: Path) -> None:
         shutil.copy2(file, target)
 
 
-def _zip_dicom_source(project: Path, subject: str) -> Path:
-    """Zip copied DICOMs so archive extraction is tested too."""
-    modality = project / "sourcedata" / f"sub-{subject}" / "T1w"
-    dicom_dir = modality / "dicom"
-    archive = modality / "dicom_archive_for_conversion_test.zip"
-    with zipfile.ZipFile(archive, "w") as zf:
-        for file in dicom_dir.rglob("*"):
-            if file.is_file():
-                zf.write(file, file.relative_to(dicom_dir))
-    shutil.rmtree(dicom_dir)
-    return archive
-
-
 def _run_dicom_conversion(project: Path, dicom_source: Path, subject: str) -> None:
     _prepare_dicom_source(project, subject, dicom_source)
-    archive = _zip_dicom_source(project, subject)
-    LOG.info("Prepared DICOM archive fixture: %s", archive)
+    LOG.info("Prepared DICOM directory fixture: %s", dicom_source)
 
     run_dicom_to_nifti(str(project), subject, logger=LOG)
     anat_dir = project / f"sub-{subject}" / "anat"
@@ -294,7 +279,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--dicom-source",
         default=os.environ.get("TIT_COMPREHENSIVE_DICOM_SOURCE"),
-        help="DICOM directory or archive visible inside the container. Defaults to the Dockerfile.test fixture.",
+        help="DICOM directory or supported compressed file visible inside the container. Defaults to the Dockerfile.test fixture.",
     )
     parser.add_argument("--skip-dicom", action="store_true")
     parser.add_argument("--skip-charm", action="store_true")

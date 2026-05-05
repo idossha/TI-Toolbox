@@ -162,7 +162,7 @@ same `idossha/ti-toolbox-test:latest` image built from
 isolated work directory, sets `TIT_RUN_COMPREHENSIVE=1`, and runs:
 
 1. real DICOM conversion through `dcm2niix`
-2. real SimNIBS CHARM on the converted anatomical image
+2. real SimNIBS CHARM on the baked anatomical fixture
 3. real TI simulation on the ErnieExtended fixture
 4. real flex-search with the focality objective
 5. real leadfield generation
@@ -179,8 +179,10 @@ tests/run_comprehensive_integration.sh --skip-dicom --skip-charm --keep-work
 tests/run_comprehensive_integration.sh --skip-flex --skip-leadfield-ex --keep-work
 ```
 
-`--dicom-source /path/to/dicoms` exists only as a debugging override. Clean
-release-gate runs should not require host data outside the test image.
+`--dicom-source /path/to/dicoms` exists only as a debugging override and may
+point to a DICOM directory or a supported compressed file (`.zip`, `.tar`,
+`.tar.gz`, `.tgz`). Clean release-gate runs should not require host data outside
+the test image.
 
 ---
 

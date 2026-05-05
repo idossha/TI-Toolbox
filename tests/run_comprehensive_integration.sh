@@ -30,7 +30,8 @@ usage() {
 Usage: tests/run_comprehensive_integration.sh [options]
 
 Options:
-  --dicom-source PATH       Optional host path to a DICOM directory or archive.
+  --dicom-source PATH       Optional host path to a DICOM directory or supported
+                            compressed file (.zip, .tar, .tar.gz, .tgz).
                             Defaults to the DICOM fixture inside Dockerfile.test.
   --work-dir PATH           Host work directory for comprehensive outputs
                             (default: /tmp/tit_comprehensive_integration).
