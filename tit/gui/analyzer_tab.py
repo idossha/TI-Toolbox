@@ -115,6 +115,39 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.setup_ui()
 
+    def showEvent(self, event):
+        """Refresh available simulations whenever the Analyzer tab is shown."""
+        super().showEvent(event)
+        self.refresh_available_simulations()
+
+    def refresh_available_simulations(self):
+        """Refresh subject/simulation selectors while preserving selections."""
+        try:
+            current_subject = ""
+            current_sim = ""
+            if hasattr(self, "gmsh_subject_combo"):
+                current_subject = self.gmsh_subject_combo.currentText()
+                current_sim = self.gmsh_sim_combo.currentText()
+
+            self.refresh_pairs()
+            if hasattr(self, "gmsh_subject_combo"):
+                self.update_gmsh_subjects()
+                if current_subject:
+                    idx = self.gmsh_subject_combo.findText(current_subject)
+                    if idx >= 0:
+                        self.gmsh_subject_combo.setCurrentIndex(idx)
+                        self.update_gmsh_simulations()
+                if current_sim:
+                    idx = self.gmsh_sim_combo.findText(current_sim)
+                    if idx >= 0:
+                        self.gmsh_sim_combo.setCurrentIndex(idx)
+                        self.update_gmsh_analyses()
+        except Exception as exc:  # GUI refresh must never break tab switching.
+            if hasattr(self, "console"):
+                self.update_output(
+                    f"Could not refresh simulation list: {exc}", "warning"
+                )
+
     def setup_ui(self):
         """Set up the user interface for the analyzer tab."""
         main_layout = QtWidgets.QVBoxLayout(self)

@@ -182,12 +182,27 @@ class PathManager:
             Absolute path to the user config directory.
         """
         import platform as _platform
-        import sys as _sys
+
+        def _usable_dir(path: str | None) -> str | None:
+            if not path:
+                return None
+            try:
+                os.makedirs(path, exist_ok=True)
+            except OSError:
+                return None
+            return path if os.path.isdir(path) else None
 
         # Inside Docker the Electron launcher mounts the host config here.
-        docker_path = os.path.join("/root", ".config", "ti-toolbox")
-        if os.path.isdir(docker_path):
+        # Prefer the in-container mount when present; TIT_USER_CONFIG is a
+        # host-side path used by docker-compose and may not exist in-container.
+        docker_path = _usable_dir(const.USER_CONFIG_CONTAINER_PATH)
+        if docker_path:
             return docker_path
+
+        # Explicit override for non-standard/container-less launches.
+        env_path = _usable_dir(os.environ.get("TIT_USER_CONFIG"))
+        if env_path:
+            return env_path
 
         # Outside Docker: platform-native paths
         system = _platform.system()

@@ -384,6 +384,23 @@ class TestEnsure:
 # ---------------------------------------------------------------------------
 
 
+class TestUserConfigDir:
+    def test_honors_tit_user_config_when_container_mount_unusable(
+        self, tmp_path, monkeypatch
+    ):
+        blocked_container_path = tmp_path / "not_a_dir"
+        blocked_container_path.write_text("file")
+        env_config = tmp_path / "env_config"
+
+        monkeypatch.setattr(
+            const, "USER_CONFIG_CONTAINER_PATH", str(blocked_container_path)
+        )
+        monkeypatch.setenv("TIT_USER_CONFIG", str(env_config))
+
+        assert PathManager.user_config_dir() == str(env_config)
+        assert env_config.is_dir()
+
+
 class TestListSubjects:
     def test_lists_subjects_with_m2m(self, tmp_path):
         root = _make_project(tmp_path)

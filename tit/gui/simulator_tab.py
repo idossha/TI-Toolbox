@@ -94,6 +94,8 @@ class SimulatorTab(QtWidgets.QWidget):
     tit.gui.components.conductivity_dialog.ConductivityEditorDialog : Tissue editor.
     """
 
+    simulation_completed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super(SimulatorTab, self).__init__(parent)
         self.parent = parent
@@ -1344,6 +1346,11 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Re-enable all controls
         self.enable_controls()
+
+        # Notify dependent tabs (Analyzer, viewers) to refresh their subject and
+        # simulation lists. This avoids stale dropdowns after a successful run.
+        if not self._had_errors_during_run:
+            self.simulation_completed.emit()
 
     def auto_generate_simulation_report(self):
         """Auto-generate individual simulation reports for each completed job."""

@@ -166,9 +166,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flex_search_tab = self.optimizer_tab.flex_search_tab
         self.ex_search_tab = self.optimizer_tab.ex_search_tab
 
-        # Analyzer -> Main Window event bridge: when analysis completes,
-        # refresh NIfTI viewer and mesh visualization in dependent tabs.
+        # Cross-tab refresh bridges.
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
+        self.simulator_tab.simulation_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
         self._processing_analysis_completion = False
 
         self.tab_widget.clear()

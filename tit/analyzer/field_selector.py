@@ -88,7 +88,18 @@ def _select_mesh(sim_dir: Path, simulation: str, is_mti: bool) -> tuple[Path, st
         field_name = const.FIELD_TI_MAX
 
     if not mesh_path.exists():
-        raise FileNotFoundError(f"Mesh field file not found: {mesh_path}")
+        high_freq = sim_dir / "high_Frequency"
+        hint = ""
+        if high_freq.is_dir():
+            hint = (
+                " The high_Frequency folder exists, but TI/mTI post-processing "
+                "outputs are missing. Check the simulation log for post-processing "
+                "or NIfTI/mesh conversion errors."
+            )
+        raise FileNotFoundError(
+            f"Mesh field file not found: {mesh_path}.{hint} Expected TI output at "
+            f"{sim_dir / 'TI' / 'mesh'} or mTI output at {sim_dir / 'mTI' / 'mesh'}."
+        )
 
     logger.debug("Selected mesh field file: %s (field=%s)", mesh_path, field_name)
     return mesh_path, field_name
@@ -101,7 +112,15 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
     field_name = const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX
 
     if not nifti_dir.is_dir():
-        raise FileNotFoundError(f"NIfTI directory not found: {nifti_dir}")
+        high_freq = sim_dir / "high_Frequency"
+        hint = ""
+        if high_freq.is_dir():
+            hint = (
+                " The high_Frequency folder exists, but TI/mTI NIfTI outputs are "
+                "missing. Check the simulation log for post-processing or mesh-to-NIfTI "
+                "conversion errors."
+            )
+        raise FileNotFoundError(f"NIfTI directory not found: {nifti_dir}.{hint}")
 
     niftis = sorted(
         p
