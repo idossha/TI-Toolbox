@@ -47,6 +47,23 @@ def _isolate_config(tmp_path, monkeypatch):
     _invalidate_cache()
 
 
+def _wait_for_telemetry_threads() -> None:
+    """Wait for fire-and-forget telemetry sender threads in tests."""
+    import threading
+
+    for thread in threading.enumerate():
+        if thread.daemon and thread.is_alive():
+            thread.join(timeout=2)
+
+
+def _operation_params_by_status(payloads: list[dict]) -> dict[str, dict]:
+    """Index operation telemetry params by status without assuming send order."""
+    return {
+        payload["events"][0]["params"]["status"]: payload["events"][0]["params"]
+        for payload in payloads
+    }
+
+
 # ---------------------------------------------------------------------------
 # Config load / save
 # ---------------------------------------------------------------------------
@@ -369,15 +386,11 @@ class TestTrackOperation:
             with track_operation("flex_search"):
                 pass
 
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         assert len(payloads) == 2
-        assert payloads[0]["events"][0]["params"]["status"] == "start"
-        assert payloads[1]["events"][0]["params"]["status"] == "success"
+        params_by_status = _operation_params_by_status(payloads)
+        assert set(params_by_status) == {"start", "success"}
 
     def test_success_includes_duration(self, monkeypatch):
         self._force_enabled(monkeypatch)
@@ -386,13 +399,9 @@ class TestTrackOperation:
             with track_operation("flex_search"):
                 pass
 
-        import threading
+        _wait_for_telemetry_threads()
 
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
-
-        success_params = payloads[1]["events"][0]["params"]
+        success_params = _operation_params_by_status(payloads)["success"]
         assert "duration_s" in success_params
         assert int(success_params["duration_s"]) >= 0
 
@@ -404,18 +413,13 @@ class TestTrackOperation:
                 with track_operation("sim_ti"):
                     raise ValueError("boom")
 
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         assert len(payloads) == 2
-        error_event = payloads[1]["events"][0]
-        assert error_event["params"]["status"] == "error"
-        assert error_event["params"]["error_type"] == "ValueError"
-        assert error_event["params"]["error_detail"] == "boom"
-        assert "duration_s" in error_event["params"]
+        error_params = _operation_params_by_status(payloads)["error"]
+        assert error_params["error_type"] == "ValueError"
+        assert error_params["error_detail"] == "boom"
+        assert "duration_s" in error_params
 
     def test_error_detail_strips_paths(self, monkeypatch):
         self._force_enabled(monkeypatch)
@@ -425,13 +429,9 @@ class TestTrackOperation:
                 with track_operation("charm"):
                     raise RuntimeError("No T1 found in /home/user/sub-01/anat")
 
-        import threading
+        _wait_for_telemetry_threads()
 
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
-
-        detail = payloads[1]["events"][0]["params"]["error_detail"]
+        detail = _operation_params_by_status(payloads)["error"]["error_detail"]
         assert "/home" not in detail
         assert "<path>" in detail
 
