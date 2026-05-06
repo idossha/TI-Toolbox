@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'  # Only run on version tag pushes
   workflow_dispatch:  # Allow manual trigger for testing
 
+permissions:
+  contents: write
+
 jobs:
   create-release:
     name: Create GitHub Release
@@ -26,7 +29,12 @@ jobs:
           # Try to read release notes from docs/releases/v$VERSION.md
           RELEASE_NOTES_FILE="docs/releases/v$VERSION.md"
           if [ -f "$RELEASE_NOTES_FILE" ]; then
-            RELEASE_NOTES=$(cat "$RELEASE_NOTES_FILE")
+            # Strip Jekyll front matter before publishing to GitHub Releases.
+            RELEASE_NOTES=$(awk '
+              NR == 1 && $0 == "---" { in_front_matter = 1; next }
+              in_front_matter && $0 == "---" { in_front_matter = 0; next }
+              !in_front_matter { print }
+            ' "$RELEASE_NOTES_FILE")
           else
             # Fallback to latest commit message
             RELEASE_NOTES=$(git log -1 --pretty=%B)

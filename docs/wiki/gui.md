@@ -49,15 +49,15 @@ The GUI is built on PyQt5 with a modular architecture:
 
 ### Subprocess Pattern
 
-All heavyweight tabs (Flex-Search, Ex-Search, Analyzer) follow a uniform execution pattern:
+Heavyweight tabs follow a uniform execution pattern:
 
 1. The tab builds a configuration dataclass from UI inputs.
 2. The config is serialized to a temporary JSON file via `tit.config_io`.
-3. A `BaseProcessThread` (in `tit/gui/process.py`) launches the computation as a subprocess (`simnibs_python -m <module> config.json`).
+3. A `BaseProcessThread` (in `tit/gui/components/base_thread.py`) launches the computation as a subprocess (`simnibs_python -m <module> config.json`).
 4. Stdout from the subprocess is streamed into the tab's console widget.
-5. Completion is handled through Qt signals — no blocking `.wait()` calls on the main thread.
+5. Completion is handled through Qt signals with subprocess success/failure status, so dependent tabs can refresh only after valid outputs are available.
 
-The **Simulator tab** is the exception: it calls `run_simulation()` directly inside a `QThread` because SimNIBS is already available in-process.
+The Simulator tab uses the same GUI lifecycle pattern while running the simulation backend in a background thread.
 
 ### Reusable Components
 

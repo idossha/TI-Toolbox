@@ -10,14 +10,44 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ### Unreleased
 
-#### Telemetry & Launcher Parity
-
-- **Arch telemetry normalized** — both launchers now emit `x86_64` (Intel) or `arm64` (Apple Silicon) as the `platform` telemetry parameter. Previously the Electron launcher sent `x64` while `loader.py` sent `x86_64`, splitting the same hardware into two dashboard slices.
-- **OS telemetry normalized** — Node's `win32` and Python's `windows` now both emit as `windows`. Canonical mapping covers all known platform strings from either launcher.
+- N/A
 
 ---
 
-### v2.3.0 (Latest Release)
+### v2.3.1 (Latest Release)
+
+**Release Date**: May 5, 2026
+
+Focused maintenance release for preprocessing robustness, GUI reliability, QSI container compatibility, and release-gate testing.
+
+#### Fixes & Maintenance
+
+- **DICOM preprocessing hardening** — DICOM discovery now searches nested `.dcm`/`.dicom` files and supports basic compressed inputs (`.zip`, `.tar`, `.tar.gz`, `.tgz`) in the documented `sourcedata/sub-{id}/{T1w,T2w}/dicom/` layout.
+- **QSI containers updated** — QSIPrep and QSIRecon now target PennLINC `26.0.0`, with CLI compatibility handling for QSIPrep `concat` and QSIRecon `--input-type qsiprep`.
+- **Telemetry consent persistence** — GUI telemetry consent is stored in the user-level config mount and should no longer reappear every launch once answered.
+- **Launcher telemetry normalization** — host OS and architecture values are canonicalized across the Electron launcher and `loader.py`, keeping telemetry slices consistent across entrypoints.
+- **GUI lifecycle reliability** — preprocessing, simulation, flex-search, ex-search, Analyzer, and NIfTI Viewer tabs now refresh dependent outputs more consistently and avoid reporting success after failed subprocesses.
+- **Analyzer discovery improvements** — Analyzer refreshes simulation lists when shown and after simulation completion, with clearer messages when TI/mTI post-processing outputs are missing.
+- **Report and visualization follow-ups** — simulation reports use clearer missing-visualization states and simulations continue when optional montage visualization cannot be generated.
+- **Release-gate tests** — added Dockerfile.test-based integration checks plus a self-contained comprehensive release-gate entry point using only test-environment fixtures.
+
+#### Download Links
+
+**Desktop App (v2.3.1):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox.Setup.2.3.1.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/ti-toolbox_2.3.1_amd64.deb)
+
+**Other:**
+
+- Docker Image: `docker pull idossha/simnibs:v2.3.1`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
+---
+
+### v2.3.0
 
 **Release Date**: March 17, 2026
 

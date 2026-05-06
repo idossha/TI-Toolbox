@@ -520,7 +520,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
         project_metadata: {
           name: path.basename(validatedDir),
           path: validatedDir,
-          version: '2.3.0'
+          version: '2.3.1'
         }
       };
       

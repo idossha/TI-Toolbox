@@ -189,4 +189,4 @@ A simulation report can be regenerated from an existing simulation directory as 
 ---
 
 *Last Updated: May 2026*
-*Compatible with: TI-Toolbox v2.3.0, Modern Web Browsers*
+*Compatible with: TI-Toolbox v2.3.1, Modern Web Browsers*
