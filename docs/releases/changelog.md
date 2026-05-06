@@ -8,12 +8,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
 
-### Unreleased
-
-- N/A
-
----
-
 ### v2.3.1 (Latest Release)
 
 **Release Date**: May 5, 2026
