@@ -1939,6 +1939,7 @@ class TestFlexSearchReportGenerator:
         html = "\n".join(r.render_html() for r in section.reportlets)
         assert "max-width: 520px" in html
         assert "Valid Skin Region" in html
+        assert "data:image/png;base64,skin_b64" in html
 
     def test_build_best_solution_section_short_coords(self, tmp_path):
         """Test coordinate display when coordinates have < 3 elements."""

@@ -1199,8 +1199,7 @@ class TesFlexOptimization:
         logger.info(f"Extracted {len(valid_nodes)} valid skin nodes")
         logger.info(f"Extracted {len(invalid_nodes)} invalid skin nodes")
 
-        vis_base_dir = self._detailed_results_folder or self.output_folder
-        vis_dir = os.path.join(vis_base_dir, "skin_visualization")
+        vis_dir = self.output_folder
         os.makedirs(vis_dir, exist_ok=True)
 
         guard_nodes = None
@@ -1256,7 +1255,6 @@ class TesFlexOptimization:
 
                     electrodes_data = {
                         "positions": positions,
-                        "labels": labels,
                         "valid_mask": valid_mask,
                         "compromised_mask": ~valid_mask,
                     }
@@ -1301,8 +1299,8 @@ class TesFlexOptimization:
                     original_nodes[invalid_view, x_idx],
                     original_nodes[invalid_view, y_idx],
                     c="#c7c7c7",
-                    alpha=0.25,
-                    s=0.25,
+                    alpha=0.45,
+                    s=0.35,
                     label="Invalid",
                     rasterized=True,
                 )
@@ -1312,8 +1310,8 @@ class TesFlexOptimization:
                     original_nodes[valid_view, x_idx],
                     original_nodes[valid_view, y_idx],
                     c="#178c36",
-                    alpha=0.9,
-                    s=0.25,
+                    alpha=0.95,
+                    s=0.35,
                     label="Valid",
                     rasterized=True,
                 )
@@ -1325,8 +1323,8 @@ class TesFlexOptimization:
                         guard_nodes[guard_view, x_idx],
                         guard_nodes[guard_view, y_idx],
                         c="#c7c7c7",
-                        alpha=0.25,
-                        s=0.25,
+                        alpha=0.45,
+                        s=0.35,
                         rasterized=True,
                     )
 
@@ -1342,70 +1340,53 @@ class TesFlexOptimization:
                         original_nodes[boundary_view, y_idx],
                         c="#c62828",
                         alpha=0.9,
-                        s=1.0,
+                        s=1.2,
                         label="Eye/ear exclusion",
                         rasterized=True,
                     )
 
             if electrodes_data:
                 positions = electrodes_data["positions"]
-                labels = electrodes_data["labels"]
                 valid_mask = electrodes_data["valid_mask"]
                 compromised_mask = electrodes_data["compromised_mask"]
+                electrode_size = 36
 
                 if np.any(valid_mask):
                     ax.scatter(
                         positions[valid_mask, x_idx],
                         positions[valid_mask, y_idx],
                         c="#2b5db8",
-                        s=42,
+                        s=electrode_size,
                         marker="o",
                         label="Valid electrodes",
                         edgecolors="white",
                         linewidth=0.7,
                         zorder=10,
                     )
-                    for pos, label in zip(positions[valid_mask], labels[valid_mask]):
-                        ax.annotate(
-                            label,
-                            (pos[x_idx], pos[y_idx]),
-                            fontsize=6,
-                            ha="center",
-                            va="center",
-                            color="white",
-                            zorder=11,
-                        )
 
                 if np.any(compromised_mask):
                     ax.scatter(
                         positions[compromised_mask, x_idx],
                         positions[compromised_mask, y_idx],
                         c="#c62828",
-                        s=44,
-                        marker="X",
+                        s=electrode_size,
+                        marker="o",
                         label="Invalid electrodes",
                         edgecolors="white",
-                        linewidth=0.8,
+                        linewidth=0.7,
                         zorder=10,
                     )
-                    for pos, label in zip(
-                        positions[compromised_mask], labels[compromised_mask]
-                    ):
-                        ax.annotate(
-                            label,
-                            (pos[x_idx], pos[y_idx]),
-                            fontsize=6,
-                            ha="center",
-                            va="center",
-                            color="#c62828",
-                            fontweight="bold",
-                            zorder=11,
-                        )
 
             ax.set_title(title)
             ax.set_xlabel(f"{title.split()[1].split('/')[0]} (mm)")
             ax.set_ylabel(f"{title.split()[1].split('/')[1]} (mm)")
-            ax.legend(loc="upper right", fontsize=8, frameon=False)
+            ax.legend(
+                loc="upper right",
+                fontsize=10,
+                markerscale=1.5,
+                handletextpad=0.6,
+                frameon=False,
+            )
             ax.axis("equal")
             ax.set_xticks([])
             ax.set_yticks([])
@@ -1419,13 +1400,11 @@ class TesFlexOptimization:
 
         plt.tight_layout()
 
-        pdf_path = os.path.join(vis_dir, "skin_surface_2d.pdf")
-        plt.savefig(pdf_path, dpi=600, bbox_inches="tight", format="pdf")
-        png_path = os.path.join(vis_dir, "skin_surface_2d.png")
+        png_path = os.path.join(vis_dir, "valid_skin_region.png")
         plt.savefig(png_path, dpi=300, bbox_inches="tight", format="png")
         plt.close()
 
-        logger.info(f"Visualization complete. Plots saved as: {pdf_path}, {png_path}")
+        logger.info(f"Visualization complete. Plot saved as: {png_path}")
 
     def add_electrode_layout(self, electrode_type, electrode=None):
         """

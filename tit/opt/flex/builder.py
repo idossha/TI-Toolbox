@@ -447,7 +447,7 @@ def generate_report(
     logger.info(f"Report generated: {report_path}")
 
 
-def _read_png_base64(path: Path) -> str | None:
+def _read_file_base64(path: Path) -> str | None:
     if not path.exists():
         return None
     with open(path, "rb") as f:
@@ -456,6 +456,8 @@ def _read_png_base64(path: Path) -> str | None:
 
 def _find_skin_region_base64(output_dir: Path) -> str | None:
     candidates = [
+        output_dir / "valid_skin_region.png",
+        output_dir / "skin_surface_2d.png",
         output_dir / "skin_visualization" / "skin_surface_2d.png",
         output_dir / "detailed_results" / "skin_visualization" / "skin_surface_2d.png",
     ]
@@ -464,7 +466,7 @@ def _find_skin_region_base64(output_dir: Path) -> str | None:
         output_dir.glob("*/detailed_results/skin_visualization/skin_surface_2d.png")
     )
     for candidate in candidates:
-        encoded = _read_png_base64(candidate)
+        encoded = _read_file_base64(candidate)
         if encoded is not None:
             return encoded
     return None

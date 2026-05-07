@@ -23,7 +23,7 @@ def create_valid_skin_region_visualization(
     output_folder: str,
     logger,
 ) -> None:
-    """Write valid-skin-region PNG/PDF files for a flex-search run."""
+    """Write the valid-skin-region PNG for a flex-search run."""
     try:
         from simnibs.mesh_tools import mesh_io
         from simnibs.utils.file_finder import Templates
@@ -102,18 +102,18 @@ def create_valid_skin_region_visualization(
             logger,
         )
 
-        vis_dir = Path(output_folder) / "skin_visualization"
-        vis_dir.mkdir(parents=True, exist_ok=True)
+        output_path = Path(output_folder)
+        output_path.mkdir(parents=True, exist_ok=True)
+        png_path = output_path / "valid_skin_region.png"
         _plot_skin_region(
             plot_points=plot_points,
             mask=mask,
-            out_png=vis_dir / "skin_surface_2d.png",
-            out_pdf=vis_dir / "skin_surface_2d.pdf",
+            out_png=png_path,
             guard_mask=guard_mask,
             guard_boundary_mask=guard_boundary_mask,
             electrodes=electrodes,
         )
-        logger.info(f"Valid skin region visualization saved to: {vis_dir}")
+        logger.info(f"Valid skin region visualization saved to: {png_path}")
     except Exception as exc:
         logger.warning(f"Could not create valid skin region visualization: {exc}")
 
@@ -317,7 +317,6 @@ def _plot_skin_region(
     plot_points,
     mask,
     out_png,
-    out_pdf,
     guard_mask=None,
     guard_boundary_mask=None,
     electrodes=None,
@@ -338,8 +337,8 @@ def _plot_skin_region(
                 plot_points[invalid_view, x_idx],
                 plot_points[invalid_view, y_idx],
                 c="#c7c7c7",
-                alpha=0.25,
-                s=0.25,
+                alpha=0.45,
+                s=0.35,
                 label="Invalid",
                 rasterized=True,
             )
@@ -348,8 +347,8 @@ def _plot_skin_region(
                 plot_points[valid_view, x_idx],
                 plot_points[valid_view, y_idx],
                 c="#178c36",
-                alpha=0.9,
-                s=0.25,
+                alpha=0.95,
+                s=0.35,
                 label="Valid",
                 rasterized=True,
             )
@@ -359,8 +358,8 @@ def _plot_skin_region(
                 plot_points[guard_view, x_idx],
                 plot_points[guard_view, y_idx],
                 c="#c7c7c7",
-                alpha=0.25,
-                s=0.25,
+                alpha=0.45,
+                s=0.35,
                 rasterized=True,
             )
         if guard_boundary_mask is not None and guard_boundary_mask.any():
@@ -370,47 +369,37 @@ def _plot_skin_region(
                 plot_points[boundary_view, y_idx],
                 c="#c62828",
                 alpha=0.9,
-                s=1.0,
+                s=1.2,
                 label="Eye/ear exclusion",
                 rasterized=True,
             )
         if electrodes is not None:
             elec_pos = electrodes["positions"]
             elec_valid = electrodes["valid_mask"]
-            labels = electrodes["labels"]
+            electrode_size = 36
             if elec_valid.any():
                 ax.scatter(
                     elec_pos[elec_valid, x_idx],
                     elec_pos[elec_valid, y_idx],
                     c="#2b5db8",
-                    s=42,
+                    s=electrode_size,
                     marker="o",
                     label="Valid electrodes",
                     edgecolors="white",
                     linewidth=0.7,
                     zorder=10,
                 )
-                for pos, label in zip(elec_pos[elec_valid], labels[elec_valid]):
-                    ax.annotate(
-                        label,
-                        (pos[x_idx], pos[y_idx]),
-                        fontsize=6,
-                        ha="center",
-                        va="center",
-                        color="white",
-                        zorder=11,
-                    )
             invalid_elec = ~elec_valid
             if invalid_elec.any():
                 ax.scatter(
                     elec_pos[invalid_elec, x_idx],
                     elec_pos[invalid_elec, y_idx],
                     c="#c62828",
-                    s=44,
-                    marker="X",
+                    s=electrode_size,
+                    marker="o",
                     label="Invalid electrodes",
                     edgecolors="white",
-                    linewidth=0.8,
+                    linewidth=0.7,
                     zorder=10,
                 )
         ax.set_title(title)
@@ -419,10 +408,15 @@ def _plot_skin_region(
         ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.legend(loc="upper right", fontsize=8, frameon=False)
+        ax.legend(
+            loc="upper right",
+            fontsize=10,
+            markerscale=1.5,
+            handletextpad=0.6,
+            frameon=False,
+        )
         if invert_x:
             ax.invert_xaxis()
     fig.tight_layout()
     fig.savefig(out_png, dpi=300, bbox_inches="tight")
-    fig.savefig(out_pdf, dpi=600, bbox_inches="tight")
     plt.close(fig)
