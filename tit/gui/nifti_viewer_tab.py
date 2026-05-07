@@ -11,6 +11,7 @@ subject and group visualization modes.
 import os
 import sys
 import glob
+import json
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -500,17 +501,41 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def _electrode_overlay_paths(self, subject_id, simulation_name):
         """Return config, reference, and output paths for electrode overlay."""
         sim_dir = self.pm.simulation(subject_id, simulation_name)
+        config_path = os.path.join(sim_dir, "documentation", "config.json")
+        mode_dir = self._electrode_overlay_mode_dir(config_path, sim_dir)
         return {
-            "config": os.path.join(sim_dir, "documentation", "config.json"),
+            "config": config_path,
             "reference": os.path.join(self.pm.m2m(subject_id), "T1.nii.gz"),
             "eeg_positions": self.pm.eeg_positions(subject_id),
             "output": os.path.join(
                 sim_dir,
-                "TI",
+                mode_dir,
                 "montage_imgs",
                 "electrode_overlay_subject.nii.gz",
             ),
         }
+
+    def _electrode_overlay_mode_dir(self, config_path, sim_dir):
+        """Return the simulation subdirectory for electrode overlay outputs."""
+        if os.path.exists(config_path):
+            try:
+                with open(config_path) as f:
+                    simulation_mode = str(json.load(f).get("simulation_mode", ""))
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                simulation_mode = ""
+            if simulation_mode.lower() in {"m", "mti"}:
+                return "mTI"
+            if simulation_mode.upper() in {"U", "TI"}:
+                return "TI"
+
+        # Fallback keeps already-created overlays discoverable if config is absent.
+        for mode_dir in ("mTI", "TI"):
+            overlay_path = os.path.join(
+                sim_dir, mode_dir, "montage_imgs", "electrode_overlay_subject.nii.gz"
+            )
+            if os.path.exists(overlay_path):
+                return mode_dir
+        return "TI"
 
     def detect_electrode_overlay(self, subject_id, simulation_name):
         """Return the generated electrode overlay path when present."""
