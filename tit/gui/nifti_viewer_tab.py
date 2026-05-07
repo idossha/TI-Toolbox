@@ -19,6 +19,8 @@ from tit.atlas import MNI_ATLAS_DIR, MNI_TEMPLATE, DEFAULT_MNI_ATLAS, VoxelAtlas
 from tit.gui.style import NIFTI_ATLAS_OPACITY, NIFTI_FIELD_OPACITY
 from tit.gui.components.console import ConsoleWidget
 
+ELECTRODE_OVERLAY_REGION = "Electrodes"
+
 
 class NiftiViewerTab(QtWidgets.QWidget):
     """GUI tab for NIfTI visualization using Freeview.
@@ -98,6 +100,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             if os.path.isdir(voxel_dir):
                 # Look for region directories
                 for region_dir in os.listdir(voxel_dir):
+                    if region_dir == ELECTRODE_OVERLAY_REGION:
+                        continue
                     region_path = os.path.join(voxel_dir, region_dir)
                     if os.path.isdir(region_path):
                         # Look for NIfTI files directly in the region directory
@@ -502,7 +506,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             "eeg_positions": self.pm.eeg_positions(subject_id),
             "output": os.path.join(
                 self.pm.analysis_dir(subject_id, simulation_name, "voxel"),
-                "Electrodes",
+                ELECTRODE_OVERLAY_REGION,
                 "electrode_overlay_subject.nii.gz",
             ),
         }
@@ -1163,6 +1167,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         region_name = self.analysis_region_combo.currentText()
+        if region_name == ELECTRODE_OVERLAY_REGION:
+            return
+
         sim_dir = self.pm.simulation(subject_id, simulation_name)
         if not sim_dir:
             return

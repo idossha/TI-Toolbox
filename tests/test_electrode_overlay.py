@@ -11,6 +11,7 @@ from tit.tools.electrode_overlay import (
     create_electrode_overlay_nifti,
     electrode_overlay_lut_path,
     simulation_config_has_xyz_electrodes,
+    write_electrode_overlay_lut,
 )
 
 
@@ -86,8 +87,60 @@ def test_create_overlay_from_saved_simulation_config(tmp_path, monkeypatch):
     assert data[10, 10, 10] == 1
     assert data[20, 20, 10] == 2
     lut = electrode_overlay_lut_path(tmp_path / "overlay.nii.gz")
-    assert "1 Pair_1 128 0 128 0" in lut.read_text()
-    assert "2 Pair_2 0 180 80 0" in lut.read_text()
+    assert "1 Channel_1 0 0 255 0" in lut.read_text()
+    assert "2 Channel_2 255 0 0 0" in lut.read_text()
+
+
+@pytest.mark.unit
+def test_create_overlay_from_multipolar_config_uses_one_label_per_channel(
+    tmp_path, monkeypatch
+):
+    reference = _FakeImage(np.zeros((40, 40, 40)), np.eye(4))
+    saved = _install_fake_nibabel(monkeypatch, reference)
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "electrode_coordinates": [
+                    [5.0, 5.0, 5.0],
+                    [10.0, 5.0, 5.0],
+                    [5.0, 10.0, 5.0],
+                    [10.0, 10.0, 5.0],
+                    [5.0, 15.0, 5.0],
+                    [10.0, 15.0, 5.0],
+                    [5.0, 20.0, 5.0],
+                    [10.0, 20.0, 5.0],
+                ],
+                "electrode_geometry": {
+                    "shape": "ellipse",
+                    "dimensions": [2.0, 2.0],
+                    "gel_thickness": 1.0,
+                    "rubber_thickness": 1.0,
+                },
+            }
+        )
+    )
+
+    create_electrode_overlay_nifti(
+        config_path, tmp_path / "reference.nii.gz", tmp_path / "overlay.nii.gz"
+    )
+
+    assert set(np.unique(saved["img"]._data)) == {0, 1, 2, 3, 4}
+    lut = electrode_overlay_lut_path(tmp_path / "overlay.nii.gz").read_text()
+    assert "1 Channel_1 0 0 255 0" in lut
+    assert "2 Channel_2 255 0 0 0" in lut
+    assert "3 Channel_3 0 128 0 0" in lut
+    assert "4 Channel_4 128 0 128 0" in lut
+
+
+@pytest.mark.unit
+def test_write_electrode_overlay_lut_wraps_montage_colors(tmp_path):
+    lut_path = tmp_path / "overlay.lut"
+
+    write_electrode_overlay_lut(lut_path, 9)
+
+    assert "8 Channel_8 238 130 238 0" in lut_path.read_text()
+    assert "9 Channel_9 0 0 255 0" in lut_path.read_text()
 
 
 @pytest.mark.unit

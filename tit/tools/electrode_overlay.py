@@ -11,6 +11,37 @@ from typing import Any
 
 import numpy as np
 
+_MONTAGE_COLOR_RGB = {
+    "blue": (0, 0, 255),
+    "red": (255, 0, 0),
+    "green": (0, 128, 0),
+    "purple": (128, 0, 128),
+    "orange": (255, 165, 0),
+    "cyan": (0, 255, 255),
+    "chocolate": (210, 105, 30),
+    "violet": (238, 130, 238),
+}
+
+_DEFAULT_MONTAGE_COLORS = [
+    "blue",
+    "red",
+    "green",
+    "purple",
+    "orange",
+    "cyan",
+    "chocolate",
+    "violet",
+]
+
+
+def _montage_color_names() -> list[str]:
+    """Return the color order used by the simulation PNG montage overlay."""
+    try:
+        from tit.tools.montage_visualizer import _COLORS
+    except ImportError:
+        return _DEFAULT_MONTAGE_COLORS
+    return list(_COLORS)
+
 
 def _as_xyz(value: Any) -> tuple[float, float, float]:
     if not isinstance(value, (list, tuple)) or len(value) != 3:
@@ -59,12 +90,25 @@ def _resolve_position(
 def _extract_pair_positions(
     pairs: Any, eeg_positions: dict[str, tuple[float, float, float]]
 ) -> list[list[tuple[float, float, float]]]:
-    return [[_resolve_position(pos, eeg_positions) for pos in pair] for pair in pairs]
+    position_pairs = []
+    for pair in pairs:
+        if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+            raise ValueError(
+                "Electrode overlay expects each channel to contain exactly "
+                f"two electrodes; got {pair!r}"
+            )
+        position_pairs.append([_resolve_position(pos, eeg_positions) for pos in pair])
+    return position_pairs
 
 
 def _group_flat_positions(
     positions: list[tuple[float, float, float]]
 ) -> list[list[tuple[float, float, float]]]:
+    if len(positions) % 2:
+        raise ValueError(
+            "Electrode overlay expects an even number of electrode coordinates "
+            "so they can be grouped into channels."
+        )
     return [positions[idx : idx + 2] for idx in range(0, len(positions), 2)]
 
 
@@ -226,22 +270,15 @@ def electrode_overlay_lut_path(output_path: str | Path) -> Path:
 
 
 def write_electrode_overlay_lut(path: str | Path, num_pairs: int) -> str:
-    colors = [
-        (1, "Pair_1", 128, 0, 128, 0),
-        (2, "Pair_2", 0, 180, 80, 0),
-        (3, "Pair_3", 255, 170, 0, 0),
-        (4, "Pair_4", 0, 140, 255, 0),
-    ]
+    color_names = _montage_color_names()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
-        f.write("# TI-Toolbox electrode pair LUT\n")
+        f.write("# TI-Toolbox electrode channel LUT\n")
         for idx in range(1, num_pairs + 1):
-            if idx <= len(colors):
-                label, name, red, green, blue, alpha = colors[idx - 1]
-            else:
-                label, name, red, green, blue, alpha = (idx, f"Pair_{idx}", 220, 220, 220, 0)
-            f.write(f"{label} {name} {red} {green} {blue} {alpha}\n")
+            color_name = color_names[(idx - 1) % len(color_names)]
+            red, green, blue = _MONTAGE_COLOR_RGB.get(color_name, (220, 220, 220))
+            f.write(f"{idx} Channel_{idx} {red} {green} {blue} 0\n")
     return str(path)
 
 
@@ -288,7 +325,9 @@ def create_electrode_overlay_nifti(
         header.set_data_dtype(np.uint16)
     overlay_img = nib.Nifti1Image(mask, affine, header)
     nib.save(overlay_img, str(output_path))
-    write_electrode_overlay_lut(electrode_overlay_lut_path(output_path), len(position_pairs))
+    write_electrode_overlay_lut(
+        electrode_overlay_lut_path(output_path), len(position_pairs)
+    )
     return str(output_path)
 
 
