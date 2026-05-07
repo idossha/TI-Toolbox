@@ -25,8 +25,6 @@ A focused maintenance release for preprocessing robustness, GUI reliability, QSI
 - **Community link** — README and release help links now point to the active TI-Toolbox Discord server.
 - **Release-gate tests** — added Dockerfile.test-based integration checks plus a self-contained comprehensive release-gate entry point using only test-environment fixtures.
 
-[Full release notes]({{ site.baseurl }}/releases/v2.3.1/) · [API documentation]({{ site.baseurl }}/scripting/)
-
 #### Download Links
 
 **Desktop App (latest):**
