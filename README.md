@@ -4,6 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
 [![GitHub License](https://img.shields.io/github/license/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/REPLACE_WITH_INVITE)
 
 [![Windows Support](https://img.shields.io/badge/Windows-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/windows.md)
 [![macOS Support](https://img.shields.io/badge/macOS-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/macos.md)
@@ -19,4 +20,4 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
-Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), or [email](mailto:ihaber@wisc.edu).
+Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/REPLACE_WITH_INVITE), or [email](mailto:ihaber@wisc.edu).
