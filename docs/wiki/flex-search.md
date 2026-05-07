@@ -151,3 +151,11 @@ Flex-search optimization is constrained to valid skin regions where electrodes c
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" style="width: 80%; max-width: 600px;">
 
 If electrode positions fall outside the valid skin region, the valid skin region can be manipulated through preprocessing, or ex-search can be used as an alternative since it is not constrained by skin region limitations.
+
+### Valid Skin Region Margin
+
+The flex-search skin constraint can be adjusted directly from scripts or from the GUI. `skin_region_margin_mm` applies a signed millimeter margin to the default SimNIBS valid skin region: negative values constrict the region, positive values expand it. The default is `0.0`, which preserves the standard SimNIBS mask.
+
+For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear and orbital exclusion zones invalid. This guard uses scalp landmarks only (`Nz`, `LPA`, and `RPA`) and does not depend on eye tissue labels.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">

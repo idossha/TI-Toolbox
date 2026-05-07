@@ -26,6 +26,7 @@ from tit.opt.config import FlexConfig, FlexResult
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 from . import builder
+from .skin_visualization import create_valid_skin_region_visualization
 
 
 def run_flex_search(config: FlexConfig) -> FlexResult:
@@ -142,6 +143,9 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     for folder in folders:
         if os.path.isdir(folder):
             shutil.rmtree(folder)
+
+    # -- Valid skin-region visualization --
+    create_valid_skin_region_visualization(config, base_folder, logger)
 
     # -- Report --
     builder.generate_report(config, n, fvals, best_idx, base_folder, logger)

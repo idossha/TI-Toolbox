@@ -193,6 +193,8 @@ config = FlexConfig(
     ),
     n_multistart=3,               # Independent optimization runs
     min_electrode_distance=5.0,   # mm
+    skin_region_margin_mm=0.0,    # Signed valid-skin-region margin in mm
+    avoid_landmark_regions=True,  # Keep eye/ear guards when expanding
 )
 
 result = run_flex_search(config)

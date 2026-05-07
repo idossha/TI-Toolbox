@@ -648,14 +648,13 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Check if visualize skin region is enabled but no skin net is selected
         solver_params = self.solver_widget.get_params()
         if (
-            solver_params["visualize_valid_skin_region"]
+            solver_params["plot_skin_visualization_electrodes"]
             and not self.solver_widget.get_skin_net_combo().currentText()
         ):
             QtWidgets.QMessageBox.warning(
                 self,
                 "Warning",
-                "Visualizing valid skin region requires selecting an EEG net for visualization.\n\n"
-                "Please select a visualization EEG net.",
+                "Plotting EEG net electrodes requires selecting a visualization EEG net.",
             )
             return
 
@@ -902,7 +901,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Skin visualization net
         skin_net_path = None
         solver = self.solver_widget.get_params()
-        if solver["visualize_valid_skin_region"]:
+        if solver["plot_skin_visualization_electrodes"]:
             skin_net = self.solver_widget.get_skin_net_combo().currentText()
             if skin_net:
                 skin_net_path = self.eeg_nets.get(skin_net)
@@ -939,6 +938,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             detailed_results=solver["detailed_results"],
             visualize_valid_skin_region=solver["visualize_valid_skin_region"],
             skin_visualization_net=skin_net_path,
+            skin_region_margin_mm=solver["skin_region_margin_mm"],
+            avoid_landmark_regions=solver["avoid_landmark_regions"],
             min_electrode_distance=self.electrode_widget.get_min_electrode_distance(),
         )
 

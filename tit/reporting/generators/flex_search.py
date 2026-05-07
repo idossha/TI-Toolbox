@@ -186,6 +186,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         metrics: dict[str, Any],
         montage_image_base64: str | None = None,
         field_map_base64: str | None = None,
+        skin_region_image_base64: str | None = None,
         electrode_coordinates: list[list[float]] | None = None,
         channel_array_indices: list[list[int]] | None = None,
         mapped_labels: list[str] | None = None,
@@ -200,6 +201,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             metrics: Solution metrics
             montage_image_base64: Base64 montage visualization
             field_map_base64: Base64 field map visualization
+            skin_region_image_base64: Base64 valid-skin-region visualization
             electrode_coordinates: Optimized electrode XYZ positions
             channel_array_indices: Channel/array index per electrode
             mapped_labels: EEG net electrode labels (e.g. E061)
@@ -211,6 +213,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "metrics": metrics,
             "montage_image_base64": montage_image_base64,
             "field_map_base64": field_map_base64,
+            "skin_region_image_base64": skin_region_image_base64,
             "electrode_coordinates": electrode_coordinates,
             "channel_array_indices": channel_array_indices,
             "mapped_labels": mapped_labels,
@@ -628,6 +631,19 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                     ),
                 )
             )
+
+        # Valid skin region visualization
+        if self.best_solution.get("skin_region_image_base64"):
+            skin_img = ImageReportlet(
+                title="Valid Skin Region",
+                caption=(
+                    "Valid and invalid scalp regions used by flex-search for "
+                    "electrode placement"
+                ),
+                width="820px",
+            )
+            skin_img.set_base64_data(self.best_solution["skin_region_image_base64"])
+            section.add_reportlet(skin_img)
 
         # Field map visualization
         if self.best_solution.get("field_map_base64"):

@@ -104,6 +104,21 @@ class TestSerializeConfig:
         assert data["thresholds"] is None
         assert data["max_iterations"] is None
 
+    def test_skin_region_margin_serialized(self):
+        config = FlexConfig(
+            subject_id="001",
+            goal="mean",
+            postproc="max_TI",
+            current_mA=1.0,
+            electrode=FlexElectrodeConfig(),
+            roi=SphericalROI(x=0, y=0, z=0),
+            skin_region_margin_mm=20.0,
+            avoid_landmark_regions=True,
+        )
+        data = serialize_config(config)
+        assert data["skin_region_margin_mm"] == 20.0
+        assert data["avoid_landmark_regions"] is True
+
     def test_pool_electrodes_discriminator(self):
         electrodes = ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz"])
         data = serialize_config(electrodes)

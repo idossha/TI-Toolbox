@@ -1713,11 +1713,13 @@ class TestFlexSearchReportGenerator:
             metrics={"mean_field": 0.2},
             montage_image_base64="img_b64",
             field_map_base64="field_b64",
+            skin_region_image_base64="skin_b64",
             electrode_coordinates=[[1.0, 2.0, 3.0]],
             channel_array_indices=[[0, 1]],
         )
         assert gen.best_solution is not None
         assert gen.best_solution["score"] == 0.95
+        assert gen.best_solution["skin_region_image_base64"] == "skin_b64"
 
     def test_populate_from_data(self, tmp_path):
         gen = self._make_generator(tmp_path)
@@ -1922,6 +1924,7 @@ class TestFlexSearchReportGenerator:
             metrics={"mean_field": 0.2, "focality": 0.85},
             montage_image_base64="montage_b64",
             field_map_base64="field_b64",
+            skin_region_image_base64="skin_b64",
             electrode_coordinates=[
                 [1.0, 2.0, 3.0],
                 [4.0, 5.0, 6.0],
@@ -1935,6 +1938,7 @@ class TestFlexSearchReportGenerator:
         assert section is not None
         html = "\n".join(r.render_html() for r in section.reportlets)
         assert "max-width: 520px" in html
+        assert "Valid Skin Region" in html
 
     def test_build_best_solution_section_short_coords(self, tmp_path):
         """Test coordinate display when coordinates have < 3 elements."""

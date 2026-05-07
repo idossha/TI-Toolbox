@@ -100,9 +100,11 @@ def build_optimization(config: FlexConfig):
     if config.detailed_results:
         opt.detailed_results = True
 
-    # Skin visualization control
-    if config.visualize_valid_skin_region:
-        opt.visualize_valid_skin_region = True
+    # Skin visualization is always generated for flex-search reports.
+    opt.visualize_valid_skin_region = True
+    opt.skin_region_margin_mm = config.skin_region_margin_mm
+    opt.avoid_landmark_regions = config.avoid_landmark_regions
+    opt.skin_visualization_net_file = config.skin_visualization_net
 
     # Configure mapping
     if config.enable_mapping:
@@ -116,10 +118,6 @@ def build_optimization(config: FlexConfig):
             opt.run_mapped_electrodes_simulation = True
     else:
         opt.electrode_mapping = None
-
-    # Configure skin visualization net file (separate from mapping)
-    if config.skin_visualization_net:
-        opt.net_electrode_file = config.skin_visualization_net
 
     # Configure electrodes
     c_A = config.current_mA / 1000.0  # mA -> A
@@ -287,8 +285,10 @@ def generate_report(
         non_roi_method=config.non_roi_method,
         cpu_cores=config.cpus,
         detailed_results=config.detailed_results,
-        visualize_valid_skin_region=config.visualize_valid_skin_region,
+        visualize_valid_skin_region=True,
         skin_visualization_net=config.skin_visualization_net,
+        skin_region_margin_mm=config.skin_region_margin_mm,
+        avoid_landmark_regions=config.avoid_landmark_regions,
     )
 
     # Build ROI info from config
@@ -429,6 +429,7 @@ def generate_report(
 
     # Discover electrode placement images from output directory
     montage_b64 = _build_electrode_montage_base64(output_path)
+    skin_region_b64 = _find_skin_region_base64(output_path)
 
     report_gen.set_best_solution(
         electrode_pairs=electrode_pairs,
@@ -439,10 +440,34 @@ def generate_report(
         mapped_labels=mapped_labels,
         mapped_positions=mapped_positions,
         montage_image_base64=montage_b64,
+        skin_region_image_base64=skin_region_b64,
     )
 
     report_path = report_gen.generate()
     logger.info(f"Report generated: {report_path}")
+
+
+def _read_png_base64(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
+
+
+def _find_skin_region_base64(output_dir: Path) -> str | None:
+    candidates = [
+        output_dir / "skin_visualization" / "skin_surface_2d.png",
+        output_dir / "detailed_results" / "skin_visualization" / "skin_surface_2d.png",
+    ]
+    candidates.extend(output_dir.glob("*/skin_visualization/skin_surface_2d.png"))
+    candidates.extend(
+        output_dir.glob("*/detailed_results/skin_visualization/skin_surface_2d.png")
+    )
+    for candidate in candidates:
+        encoded = _read_png_base64(candidate)
+        if encoded is not None:
+            return encoded
+    return None
 
 
 def _build_electrode_montage_base64(output_dir: Path) -> str | None:

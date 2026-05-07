@@ -156,6 +156,7 @@ class TesFlexOptimization:
         self.detailed_results = False
         # [TI-TOOLBOX] visualize valid skin region (requires detailed_results=True)
         self.visualize_valid_skin_region = False
+        self.skin_visualization_net_file = None
         self._detailed_results_folder = None
         self.fn_final_sim = []
         self._prepared = False
@@ -179,6 +180,12 @@ class TesFlexOptimization:
         self._node_idx_msh = None
         self._ellipsoid = Ellipsoid()
         self._fn_electrode_mask = self._ff_templates.mni_volume_upper_head_mask
+        # [TI-TOOLBOX] Signed valid-skin-region margin in mm. Positive values
+        # expand the SimNIBS mask; negative values constrict it.
+        self.skin_region_margin_mm = 0.0
+        # [TI-TOOLBOX] Keep fiducial-derived ear/orbital regions excluded when
+        # expanding the valid-skin region.
+        self.avoid_landmark_regions = True
 
         # roi
         self.roi: list[RegionOfInterest] = []
@@ -315,11 +322,14 @@ class TesFlexOptimization:
         skin_crop = self._mesh_relabel.crop_mesh(tags=1005)
         # [TI-TOOLBOX] save original skin surface nodes before filtering for valid regions
         self._original_skin_nodes = skin_crop.nodes.node_coord.copy()
+        self._original_skin_con = skin_crop.elm.node_number_list[:, :3] - 1
         self._skin_surface = valid_skin_region(
             skin_surface=skin_crop,
             fn_electrode_mask=self._fn_electrode_mask,
             mesh=self._mesh_relabel,
             additional_distance=0,
+            margin_mm=self.skin_region_margin_mm,
+            avoid_landmark_regions=self.avoid_landmark_regions,
         )
 
         # get mapping between skin_surface node indices and global mesh nodes
@@ -1163,7 +1173,7 @@ class TesFlexOptimization:
     # [TI-TOOLBOX] Create 2D visualization of valid skin region
     def _create_valid_skin_visualizations_from_data(self, original_nodes, skin_surface):
         """
-        Create 2D visualization of valid skin region for electrode placement.
+        Create a streamlined 2D visualization of the valid skin region.
 
         Parameters
         ----------
@@ -1174,36 +1184,48 @@ class TesFlexOptimization:
         """
         logger.info("Creating valid skin region visualization...")
 
-        data = {}
-
         if hasattr(skin_surface, "mask_valid_nodes"):
             mask = skin_surface.mask_valid_nodes
-            data["valid_nodes"] = original_nodes[mask]
-            data["invalid_nodes"] = original_nodes[~mask]
-            logger.info(f"Extracted {len(data['valid_nodes'])} valid skin nodes")
-            logger.info(f"Extracted {len(data['invalid_nodes'])} invalid skin nodes")
         else:
-            data["valid_nodes"] = skin_surface.nodes.node_coord
-            logger.info(
-                f"Using all {len(data['valid_nodes'])} nodes as valid (no mask found)"
-            )
+            mask = np.ones(original_nodes.shape[0], dtype=bool)
+            logger.info("Skin surface has no valid-node mask; plotting all nodes valid")
 
-        if not data:
+        valid_nodes = original_nodes[mask]
+        invalid_nodes = original_nodes[~mask]
+        if valid_nodes.size == 0:
             logger.warning("No skin data available for visualization")
             return
 
-        vis_dir = os.path.join(self._detailed_results_folder, "skin_visualization")
+        logger.info(f"Extracted {len(valid_nodes)} valid skin nodes")
+        logger.info(f"Extracted {len(invalid_nodes)} invalid skin nodes")
+
+        vis_base_dir = self._detailed_results_folder or self.output_folder
+        vis_dir = os.path.join(vis_base_dir, "skin_visualization")
         os.makedirs(vis_dir, exist_ok=True)
+
+        guard_nodes = None
+        guard_boundary_nodes = None
+        if hasattr(skin_surface, "landmark_guard_nodes") and hasattr(
+            self, "_original_skin_con"
+        ):
+            guard_mask = skin_surface.landmark_guard_nodes.astype(bool)
+            if guard_mask.any():
+                guard_nodes = original_nodes[guard_mask]
+                guard_boundary_mask = np.zeros(original_nodes.shape[0], dtype=bool)
+                guard_boundary_mask[
+                    _boundary_nodes(self._original_skin_con, guard_mask, side=True)
+                ] = True
+                guard_boundary_nodes = original_nodes[guard_boundary_mask]
 
         electrodes_data = None
         if (
-            hasattr(self, "net_electrode_file")
-            and self.net_electrode_file
-            and os.path.exists(self.net_electrode_file)
+            hasattr(self, "skin_visualization_net_file")
+            and self.skin_visualization_net_file
+            and os.path.exists(self.skin_visualization_net_file)
         ):
             try:
                 df_test = pd.read_csv(
-                    self.net_electrode_file, header=None, sep=",", nrows=1
+                    self.skin_visualization_net_file, header=None, sep=",", nrows=1
                 )
                 has_header = False
                 try:
@@ -1215,7 +1237,10 @@ class TesFlexOptimization:
 
                 skiprows = 1 if has_header else 0
                 df = pd.read_csv(
-                    self.net_electrode_file, header=None, sep=",", skiprows=skiprows
+                    self.skin_visualization_net_file,
+                    header=None,
+                    sep=",",
+                    skiprows=skiprows,
                 )
                 df.columns = ["type", "x", "y", "z", "label"]
                 electrodes = df[df["type"] == "Electrode"]
@@ -1223,30 +1248,11 @@ class TesFlexOptimization:
                     positions = electrodes[["x", "y", "z"]].values
                     labels = electrodes["label"].values
 
-                    valid_mask = np.zeros(len(positions), dtype=bool)
-                    distance_threshold = 10.0
-
-                    for i, elec_pos in enumerate(positions):
-                        if "valid_nodes" in data and len(data["valid_nodes"]) > 0:
-                            distances_valid = np.linalg.norm(
-                                data["valid_nodes"] - elec_pos, axis=1
-                            )
-                            min_dist_valid = np.min(distances_valid)
-
-                            min_dist_invalid = np.inf
-                            if (
-                                "invalid_nodes" in data
-                                and len(data["invalid_nodes"]) > 0
-                            ):
-                                distances_invalid = np.linalg.norm(
-                                    data["invalid_nodes"] - elec_pos, axis=1
-                                )
-                                min_dist_invalid = np.min(distances_invalid)
-
-                            valid_mask[i] = (
-                                min_dist_valid < min_dist_invalid
-                                and min_dist_valid < distance_threshold
-                            )
+                    _, nearest_idx = scipy.spatial.cKDTree(original_nodes).query(
+                        positions,
+                        k=1,
+                    )
+                    valid_mask = mask[nearest_idx]
 
                     electrodes_data = {
                         "positions": positions,
@@ -1259,7 +1265,7 @@ class TesFlexOptimization:
                     n_compromised = np.sum(~valid_mask)
 
                     logger.info(
-                        f"Loaded {len(positions)} electrode positions from: {self.net_electrode_file}"
+                        f"Loaded {len(positions)} electrode positions from: {self.skin_visualization_net_file}"
                     )
                     logger.info(
                         f"Valid electrodes: {n_valid}, Compromised electrodes: {n_compromised}"
@@ -1275,40 +1281,71 @@ class TesFlexOptimization:
             except Exception as e:
                 logger.warning(f"Error loading electrode positions: {e}")
 
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-
-        projections = [
-            ("X-Y (top)", 0, 1, "Z"),
-            ("X-Z (sagittal)", 0, 2, "Y"),
-            ("Y-Z (coronal right)", 1, 2, "X"),
-            ("Y-Z (coronal left)", 1, 2, "X"),
+        view_specs = [
+            ("top x/y", 0, 1, np.ones(original_nodes.shape[0], dtype=bool), False),
+            ("front x/z", 0, 2, original_nodes[:, 1] >= 0, False),
+            ("right y/z", 1, 2, original_nodes[:, 0] >= 0, False),
+            ("left y/z", 1, 2, original_nodes[:, 0] <= 0, True),
         ]
 
-        for i, (title, x_idx, y_idx, z_label) in enumerate(projections):
-            ax = axes[i // 2, i % 2]
-            is_left_coronal = i == 3
+        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
 
-            if "invalid_nodes" in data:
+        for i, (title, x_idx, y_idx, view_mask, invert_xaxis) in enumerate(view_specs):
+            ax = axes[i // 2, i % 2]
+
+            invalid_view = (~mask) & view_mask
+            valid_view = mask & view_mask
+
+            if invalid_view.any():
                 ax.scatter(
-                    data["invalid_nodes"][:, x_idx],
-                    data["invalid_nodes"][:, y_idx],
-                    c="grey",
-                    alpha=1.0,
-                    s=1,
+                    original_nodes[invalid_view, x_idx],
+                    original_nodes[invalid_view, y_idx],
+                    c="#c7c7c7",
+                    alpha=0.25,
+                    s=0.25,
                     label="Invalid",
                     rasterized=True,
                 )
 
-            if "valid_nodes" in data:
+            if valid_view.any():
                 ax.scatter(
-                    data["valid_nodes"][:, x_idx],
-                    data["valid_nodes"][:, y_idx],
-                    c="green",
-                    alpha=1.0,
-                    s=1,
+                    original_nodes[valid_view, x_idx],
+                    original_nodes[valid_view, y_idx],
+                    c="#178c36",
+                    alpha=0.9,
+                    s=0.25,
                     label="Valid",
                     rasterized=True,
                 )
+
+            if guard_nodes is not None:
+                guard_view = view_mask[skin_surface.landmark_guard_nodes.astype(bool)]
+                if guard_view.any():
+                    ax.scatter(
+                        guard_nodes[guard_view, x_idx],
+                        guard_nodes[guard_view, y_idx],
+                        c="#c7c7c7",
+                        alpha=0.25,
+                        s=0.25,
+                        rasterized=True,
+                    )
+
+            if guard_boundary_nodes is not None:
+                boundary_mask = np.zeros(original_nodes.shape[0], dtype=bool)
+                boundary_tree = scipy.spatial.cKDTree(original_nodes)
+                _, boundary_idx = boundary_tree.query(guard_boundary_nodes, k=1)
+                boundary_mask[boundary_idx] = True
+                boundary_view = boundary_mask & view_mask
+                if boundary_view.any():
+                    ax.scatter(
+                        original_nodes[boundary_view, x_idx],
+                        original_nodes[boundary_view, y_idx],
+                        c="#c62828",
+                        alpha=0.9,
+                        s=1.0,
+                        label="Eye/ear exclusion",
+                        rasterized=True,
+                    )
 
             if electrodes_data:
                 positions = electrodes_data["positions"]
@@ -1320,12 +1357,12 @@ class TesFlexOptimization:
                     ax.scatter(
                         positions[valid_mask, x_idx],
                         positions[valid_mask, y_idx],
-                        c="blue",
-                        s=50,
+                        c="#2b5db8",
+                        s=42,
                         marker="o",
-                        label="Valid Electrodes",
-                        edgecolors="black",
-                        linewidth=1,
+                        label="Valid electrodes",
+                        edgecolors="white",
+                        linewidth=0.7,
                         zorder=10,
                     )
                     for pos, label in zip(positions[valid_mask], labels[valid_mask]):
@@ -1335,6 +1372,7 @@ class TesFlexOptimization:
                             fontsize=6,
                             ha="center",
                             va="center",
+                            color="white",
                             zorder=11,
                         )
 
@@ -1342,12 +1380,12 @@ class TesFlexOptimization:
                     ax.scatter(
                         positions[compromised_mask, x_idx],
                         positions[compromised_mask, y_idx],
-                        c="orange",
-                        s=50,
+                        c="#c62828",
+                        s=44,
                         marker="X",
-                        label="Compromised Electrodes",
-                        edgecolors="red",
-                        linewidth=1.5,
+                        label="Invalid electrodes",
+                        edgecolors="white",
+                        linewidth=0.8,
                         zorder=10,
                     )
                     for pos, label in zip(
@@ -1359,27 +1397,35 @@ class TesFlexOptimization:
                             fontsize=6,
                             ha="center",
                             va="center",
-                            color="red",
+                            color="#c62828",
                             fontweight="bold",
                             zorder=11,
                         )
 
-            ax.set_xlabel(f"{title.split()[0]} (mm)")
-            ax.set_ylabel(f"{title.split()[1]} (mm)")
             ax.set_title(title)
-            ax.legend()
+            ax.set_xlabel(f"{title.split()[1].split('/')[0]} (mm)")
+            ax.set_ylabel(f"{title.split()[1].split('/')[1]} (mm)")
+            ax.legend(loc="upper right", fontsize=8, frameon=False)
             ax.axis("equal")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.spines["left"].set_visible(False)
 
-            if is_left_coronal:
+            if invert_xaxis:
                 ax.invert_xaxis()
 
         plt.tight_layout()
 
         pdf_path = os.path.join(vis_dir, "skin_surface_2d.pdf")
         plt.savefig(pdf_path, dpi=600, bbox_inches="tight", format="pdf")
+        png_path = os.path.join(vis_dir, "skin_surface_2d.png")
+        plt.savefig(png_path, dpi=300, bbox_inches="tight", format="png")
         plt.close()
 
-        logger.info(f"Visualization complete. Plot saved as: {pdf_path}")
+        logger.info(f"Visualization complete. Plots saved as: {pdf_path}, {png_path}")
 
     def add_electrode_layout(self, electrode_type, electrode=None):
         """
@@ -1549,6 +1595,12 @@ class TesFlexOptimization:
         # write settings and preparation details (skin surface, fitted ellipsoid, electrodes)
         if self.detailed_results:
             self._write_detailed_results_preopt()
+        elif self.visualize_valid_skin_region:
+            logger.info("Creating 2D visualization of valid skin region...")
+            self._create_valid_skin_visualizations_from_data(
+                original_nodes=self._original_skin_nodes,
+                skin_surface=self._skin_surface,
+            )
            
         # run global optimization
         ######################################################################################################
@@ -2712,10 +2764,179 @@ class TesFlexOptimization:
         return e
 
 
+def _largest_component_mask(points, con, point_mask):
+    nodes_valid, con_valid = create_new_connectivity_list_point_mask(
+        points=points,
+        con=con,
+        point_mask=point_mask,
+    )
+    if con_valid.size == 0 or nodes_valid.size == 0:
+        return np.zeros(points.shape[0], dtype=bool)
+
+    tri_domain = np.ones(con_valid.shape[0], dtype=int) * -1
+    point_domain = np.ones(nodes_valid.shape[0], dtype=int) * -1
+
+    domain = 0
+    while (tri_domain == -1).any():
+        nodes_idx_of_domain = np.array([])
+        tri_idx_of_domain = np.where(tri_domain == -1)[0][0]
+
+        n_current = -1
+        n_last = 0
+        while n_last != n_current:
+            n_last = copy.deepcopy(n_current)
+            nodes_idx_of_domain = np.unique(
+                np.append(nodes_idx_of_domain, con_valid[tri_idx_of_domain, :])
+            ).astype(int)
+            tri_idx_of_domain = np.isin(con_valid, nodes_idx_of_domain).any(axis=1)
+            n_current = np.sum(tri_idx_of_domain)
+
+        tri_domain[tri_idx_of_domain] = domain
+        point_domain[nodes_idx_of_domain] = domain
+        domain += 1
+
+    domain_idx_main = np.argmax([np.sum(point_domain == d) for d in range(domain)])
+    nodes_final, _ = create_new_connectivity_list_point_mask(
+        points=nodes_valid,
+        con=con_valid,
+        point_mask=point_domain == domain_idx_main,
+    )
+
+    _, indices = scipy.spatial.cKDTree(points).query(nodes_final, k=1)
+    final_mask = np.zeros(points.shape[0], dtype=bool)
+    final_mask[indices] = True
+    return final_mask
+
+
+def _boundary_nodes(con, point_mask, side):
+    edges = np.vstack((con[:, [0, 1]], con[:, [1, 2]], con[:, [2, 0]]))
+    crosses = point_mask[edges[:, 0]] != point_mask[edges[:, 1]]
+    edge_nodes = np.unique(edges[crosses])
+    return edge_nodes[point_mask[edge_nodes] == side]
+
+
+def _apply_skin_region_margin(points, con, base_mask, margin_mm):
+    if margin_mm == 0:
+        return base_mask.copy()
+
+    margin_mask = base_mask.copy()
+    if margin_mm > 0:
+        seeds = points[_boundary_nodes(con, base_mask, side=True)]
+        candidates = np.where(~base_mask)[0]
+        if seeds.size and candidates.size:
+            dist, _ = scipy.spatial.cKDTree(seeds).query(points[candidates], k=1)
+            margin_mask[candidates[dist <= margin_mm]] = True
+    else:
+        seeds = points[_boundary_nodes(con, base_mask, side=False)]
+        candidates = np.where(base_mask)[0]
+        if seeds.size and candidates.size:
+            dist, _ = scipy.spatial.cKDTree(seeds).query(points[candidates], k=1)
+            margin_mask[candidates[dist <= abs(margin_mm)]] = False
+
+    return _largest_component_mask(points, con, margin_mask)
+
+
+def _read_fiducials_from_m2m(m2m_folder):
+    fiducials_path = os.path.join(m2m_folder, "eeg_positions", "Fiducials.csv")
+    fiducials = {}
+    with open(fiducials_path, newline="") as f:
+        for row in csv.reader(f):
+            if len(row) >= 5 and row[0] == "Fiducial":
+                fiducials[row[4]] = np.array(row[1:4], dtype=float)
+
+    missing = {"Nz", "LPA", "RPA"} - set(fiducials)
+    if missing:
+        raise ValueError(
+            f"{fiducials_path} is missing fiducials: {sorted(missing)}"
+        )
+    return fiducials
+
+
+def _fiducial_frame(fiducials):
+    origin = 0.5 * (fiducials["LPA"] + fiducials["RPA"])
+    x_axis = fiducials["RPA"] - fiducials["LPA"]
+    x_axis /= np.linalg.norm(x_axis)
+
+    y_axis = fiducials["Nz"] - origin
+    y_axis -= np.dot(y_axis, x_axis) * x_axis
+    y_axis /= np.linalg.norm(y_axis)
+
+    z_axis = np.cross(x_axis, y_axis)
+    z_axis /= np.linalg.norm(z_axis)
+    if z_axis[2] < 0:
+        z_axis *= -1
+    return origin, x_axis, y_axis, z_axis
+
+
+def _local_coords(points, origin, x_axis, y_axis, z_axis):
+    centered = points - origin
+    return np.column_stack(
+        (
+            centered @ x_axis,
+            centered @ y_axis,
+            centered @ z_axis,
+        )
+    )
+
+
+def _landmark_guard_mask(points, m2m_folder):
+    fiducials = _read_fiducials_from_m2m(m2m_folder)
+    origin, x_axis, y_axis, z_axis = _fiducial_frame(fiducials)
+    coords = _local_coords(points, origin, x_axis, y_axis, z_axis)
+    landmarks = {
+        name: _local_coords(pos[None, :], origin, x_axis, y_axis, z_axis)[0]
+        for name, pos in fiducials.items()
+    }
+    width = np.linalg.norm(fiducials["RPA"] - fiducials["LPA"])
+    nz = landmarks["Nz"]
+
+    guard = np.zeros(points.shape[0], dtype=bool)
+
+    ear_radius = 28.0
+    ear_offset = -3.0 * y_axis - 8.0 * z_axis
+    for name in ("LPA", "RPA"):
+        center = _local_coords(
+            (fiducials[name] + ear_offset)[None, :],
+            origin,
+            x_axis,
+            y_axis,
+            z_axis,
+        )[0]
+        radius_y = np.where(coords[:, 1] >= center[1], 0.8 * ear_radius, ear_radius)
+        ear_distance = (
+            ((coords[:, 0] - center[0]) / ear_radius) ** 2
+            + ((coords[:, 1] - center[1]) / radius_y) ** 2
+            + ((coords[:, 2] - center[2]) / (1.1 * ear_radius)) ** 2
+        )
+        guard |= ear_distance <= 1.0
+
+    eye_radius = 18.0
+    eye_height = 18.0
+    eye_y = nz[1] - 0.10 * width
+    eye_z = nz[2] - 0.06 * width
+    anterior_radius = 0.16 * width
+    eye_half_span = 0.23 * width
+    horizontal = (
+        np.maximum(np.abs(coords[:, 0]) - eye_half_span, 0.0) / eye_radius
+    ) ** 2
+    anterior = ((coords[:, 1] - eye_y) / anterior_radius) ** 2
+    vertical = ((coords[:, 2] - eye_z) / eye_height) ** 2
+    guard |= horizontal + anterior + vertical <= 1.0
+
+    return guard
+
+
 # [TI-TOOLBOX] Standalone valid_skin_region implementation with MNI masking
 # and spurious patch removal. Replaces the electrode_layout version to support
 # additional features like mask_valid_nodes for visualization.
-def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance=0.0):
+def valid_skin_region(
+    skin_surface,
+    mesh,
+    fn_electrode_mask,
+    additional_distance=0.0,
+    margin_mm=0.0,
+    avoid_landmark_regions=True,
+):
     """
     Determine the nodes of the scalp surface where the electrode can be applied
     (not ears and face etc.)
@@ -2730,6 +2951,12 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
         Path to MNI volume mask of valid electrode positions
     additional_distance : float, optional, default: 0
         Additional distance in anterior part to put between original MNI template registration
+    margin_mm : float, optional, default: 0
+        Signed skin-region margin in millimeters. Positive values expand the
+        valid region; negative values constrict it.
+    avoid_landmark_regions : bool, optional, default: True
+        If True, positive margins keep fiducial-derived ear and orbital
+        regions invalid.
     """
     nodes_all = skin_surface.nodes.node_coord.copy()
     con_all = skin_surface.elm.node_number_list[:, :3] - 1
@@ -2786,49 +3013,39 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
     # remove points outside of MNI space (lower neck)
     mask_valid_nodes[(skin_nodes_mni_voxel < 0).any(axis=1)] = False
 
-    # filter nodes and connectivity using mask
-    nodes_valid, con_valid = create_new_connectivity_list_point_mask(
-        points=nodes_all,
-        con=con_all,
-        point_mask=mask_valid_nodes,
-    )
+    final_mask = _largest_component_mask(nodes_all, con_all, mask_valid_nodes)
+    margin_mm = float(margin_mm)
+    if margin_mm:
+        final_mask = _apply_skin_region_margin(
+            nodes_all,
+            con_all,
+            final_mask,
+            margin_mm,
+        )
 
-    # identify spurious skin patches inside head and remove them
-    tri_domain = np.ones(con_valid.shape[0]).astype(int) * -1
-    point_domain = np.ones(nodes_valid.shape[0]).astype(int) * -1
-
-    domain = 0
-    while (tri_domain == -1).any():
-        nodes_idx_of_domain = np.array([])
-        tri_idx_of_domain = np.where(tri_domain == -1)[0][0]
-
-        n_current = -1
-        n_last = 0
-        while n_last != n_current:
-            n_last = copy.deepcopy(n_current)
-            nodes_idx_of_domain = np.unique(
-                np.append(nodes_idx_of_domain, con_valid[tri_idx_of_domain, :])
-            ).astype(int)
-            tri_idx_of_domain = np.isin(con_valid, nodes_idx_of_domain).any(axis=1)
-            n_current = np.sum(tri_idx_of_domain)
-
-        tri_domain[tri_idx_of_domain] = domain
-        point_domain[nodes_idx_of_domain] = domain
-        domain += 1
-
-    domain_idx_main = np.argmax([np.sum(point_domain == d) for d in range(domain)])
+    landmark_guard_nodes = np.zeros(nodes_all.shape[0], dtype=bool)
+    if avoid_landmark_regions and margin_mm > 0:
+        try:
+            landmark_guard_nodes = _landmark_guard_mask(
+                nodes_all,
+                os.path.split(mesh.fn)[0],
+            )
+            final_mask = _largest_component_mask(
+                nodes_all,
+                con_all,
+                final_mask & ~landmark_guard_nodes,
+            )
+        except (OSError, ValueError) as exc:
+            logger.warning(
+                "Could not apply fiducial landmark guards to valid skin region: "
+                f"{exc}"
+            )
 
     nodes_final, con_final = create_new_connectivity_list_point_mask(
-        points=nodes_valid,
-        con=con_valid,
-        point_mask=point_domain == domain_idx_main,
+        points=nodes_all,
+        con=con_all,
+        point_mask=final_mask,
     )
-
-    # update mask to reflect spurious patch removal
-    final_mask = np.zeros(nodes_all.shape[0]).astype(bool)
-    for i_p, p in enumerate(nodes_all):
-        if p in nodes_final:
-            final_mask[i_p] = True
 
     # Build a new mesh from the valid skin surface using mesh_io
     result_mesh = mesh_io.make_surface_mesh(nodes_final, con_final + 1)
@@ -2836,6 +3053,9 @@ def valid_skin_region(skin_surface, mesh, fn_electrode_mask, additional_distance
 
     # Store the valid node mask on the mesh for visualization
     result_mesh.mask_valid_nodes = final_mask
+    result_mesh.skin_region_margin_mm = margin_mm
+    result_mesh.avoid_landmark_regions = bool(avoid_landmark_regions)
+    result_mesh.landmark_guard_nodes = landmark_guard_nodes
 
     return result_mesh
 
@@ -3494,6 +3714,3 @@ def check_electrode_distance(
         )
     else:
         return True, electrode_pos_valid
-
-
-

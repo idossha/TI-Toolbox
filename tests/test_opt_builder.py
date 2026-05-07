@@ -197,7 +197,7 @@ class TestBuildOptimization:
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        result = build_optimization(_make_config(visualize_valid_skin_region=True))
+        result = build_optimization(_make_config(visualize_valid_skin_region=False))
         assert result.visualize_valid_skin_region is True
 
     @patch("tit.opt.flex.builder.os.makedirs")
@@ -211,7 +211,26 @@ class TestBuildOptimization:
         result = build_optimization(
             _make_config(skin_visualization_net="/path/to/net.csv")
         )
-        assert result.net_electrode_file == "/path/to/net.csv"
+        assert result.skin_visualization_net_file == "/path/to/net.csv"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_skin_region_margin_controls(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(
+            _make_config(
+                skin_region_margin_mm=20.0,
+                avoid_landmark_regions=True,
+            )
+        )
+        assert result.skin_region_margin_mm == 20.0
+        assert result.avoid_landmark_regions is True
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")

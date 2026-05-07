@@ -98,6 +98,13 @@ class FlexConfig:
         If True, save a mesh showing the valid electrode placement region.
     skin_visualization_net : str or None
         EEG net to overlay on the skin visualization.
+    skin_region_margin_mm : float
+        Signed margin in millimeters applied to the SimNIBS valid-skin
+        region. Positive values expand the region, negative values
+        constrict it. The default ``0.0`` preserves SimNIBS behavior.
+    avoid_landmark_regions : bool
+        If True, positive skin-region margins keep fiducial-derived
+        ear and orbital exclusion regions invalid.
 
     Raises
     ------
@@ -306,8 +313,10 @@ class FlexConfig:
 
     # ── debug ──
     detailed_results: bool = False
-    visualize_valid_skin_region: bool = False
+    visualize_valid_skin_region: bool = True
     skin_visualization_net: str | None = None
+    skin_region_margin_mm: float = 0.0
+    avoid_landmark_regions: bool = True
 
     def __post_init__(self):
         if isinstance(self.goal, str):
@@ -327,6 +336,7 @@ class FlexConfig:
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())
+        self.skin_region_margin_mm = float(self.skin_region_margin_mm)
 
 
 @dataclass

@@ -126,6 +126,15 @@ class TestFlexConfigValidation:
         cfg = _make_flex_config(min_electrode_distance=0.0)
         assert cfg.min_electrode_distance == 0.0
 
+    def test_skin_region_margin_defaults_preserve_simnibs_region(self):
+        cfg = _make_flex_config()
+        assert cfg.skin_region_margin_mm == 0.0
+        assert cfg.avoid_landmark_regions is True
+
+    def test_skin_region_margin_coerced_to_float(self):
+        cfg = _make_flex_config(skin_region_margin_mm="20")
+        assert cfg.skin_region_margin_mm == 20.0
+
 
 # ---------------------------------------------------------------------------
 # ExConfig validation
