@@ -27,6 +27,7 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 - **Real-time Logging**: Simulation progress and status updates
 - **Result Visualization**: Automatic generation of field maps and statistics
 - **Data Export**: NIfTI files, electrode positions, and analysis reports
+- **Readable Run Names**: Flex-search simulations keep stable storage IDs internally while the GUI shows compact display names and hover metadata for easier selection.
 
 ---
 
@@ -51,7 +52,7 @@ The simulator supports three primary montage source types:
 
 ### 1. Montage List
 Pre-defined electrode configurations organized by EEG net and stimulation mode:
-- **Unipolar Montages**: The traditiona two pairs electrode montage
+- **Unipolar Montages**: The traditional two-pair electrode montage
 - **Multipolar Montages**: Multiple (currently only supporting four) pairs for higher focality
 - **EEG Net Compatibility**: Automatically filtered based on selected electrode configuration
 - **Management**: Add, remove, and refresh montage collections
@@ -60,6 +61,7 @@ Pre-defined electrode configurations organized by EEG net and stimulation mode:
 Automatic integration with the flex-search optimizer.
 - **Optimize**: Start by running the optimizer based on your needs
 - **Simulate**: Move to the simulator and use the automatic montage available from the flex-search
+- **Run Identity**: Flex-search-derived simulations keep their unique run IDs on disk, while the UI shows concise names so repeated simulations are easier to distinguish without long folder labels.
 
 ### 3. Free-Hand
 Mode that allows exploration of untraditional montages
@@ -98,7 +100,7 @@ The TI-Toolbox automatically co-registers the following EEG electrode nets to he
 - **Seamless Integration**: no manual registration steps
 - **Simulation Ready**: Instant compatibility with TI field simulation workflows
 - **Optimization Support**: Direct integration with flex-search tools
-- **Leadfield Generation**: all avilable for leadfield matrix creation
+- **Leadfield Generation**: all available for leadfield matrix creation
 
 ### Net Detection and Management
 - **Automatic Scanning**: Searches `eeg_positions/` directories for available electrode configurations

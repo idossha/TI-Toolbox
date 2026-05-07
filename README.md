@@ -20,4 +20,4 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
-Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/REPLACE_WITH_INVITE), or [email](mailto:ihaber@wisc.edu).
+Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/KKdjJk8f), or [email](mailto:ihaber@wisc.edu).
