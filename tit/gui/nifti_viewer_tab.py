@@ -505,8 +505,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             "reference": os.path.join(self.pm.m2m(subject_id), "T1.nii.gz"),
             "eeg_positions": self.pm.eeg_positions(subject_id),
             "output": os.path.join(
-                self.pm.analysis_dir(subject_id, simulation_name, "voxel"),
-                ELECTRODE_OVERLAY_REGION,
+                sim_dir,
+                "TI",
+                "montage_imgs",
                 "electrode_overlay_subject.nii.gz",
             ),
         }
