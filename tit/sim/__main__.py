@@ -18,6 +18,7 @@ def _build_montage(data: dict) -> Montage:
         mode=mode,
         electrode_pairs=pairs,
         eeg_net=data.pop("eeg_net", None),
+        display_name=data.pop("display_name", None),
     )
 
 

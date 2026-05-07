@@ -90,6 +90,8 @@ class Montage:
     eeg_net : str or None
         Filename of the EEG-net CSV (e.g. ``"GSN-HydroCel-185.csv"``).
         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
+    display_name : str or None
+        Optional user-facing label.  ``name`` remains the storage and lookup key.
 
     See Also
     --------
@@ -103,6 +105,7 @@ class Montage:
     mode: MontageMode
     electrode_pairs: list[tuple]
     eeg_net: str | None = None
+    display_name: str | None = None
 
     @property
     def is_xyz(self) -> bool:

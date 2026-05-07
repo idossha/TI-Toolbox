@@ -267,6 +267,7 @@ class SimulationReportGenerator(BaseReportGenerator):
         """Apply loaded config snapshot values to report state."""
         subject_id = self._strip_sub_prefix(config.get("subject_id") or self.subject_id)
         montage_name = config.get("simulation_name") or montage_name or "Simulation"
+        montage_display_name = config.get("simulation_display_name") or montage_name
         config_pairs = self._normalize_electrode_pairs_from_config(config)
         montage_type = config.get("simulation_mode") or (
             "mTI" if len(config_pairs) >= 4 else "TI"
@@ -339,6 +340,7 @@ class SimulationReportGenerator(BaseReportGenerator):
 
         montage_payload = {
             "name": montage_name,
+            "display_name": montage_display_name,
             "electrode_pairs": config_pairs,
             "type": montage_type,
             "montage_mode": config.get("montage_mode"),
@@ -365,6 +367,7 @@ class SimulationReportGenerator(BaseReportGenerator):
             "path": str(config_path),
             "subject_id": subject_id,
             "montage_name": montage_name,
+            "montage_display_name": montage_display_name,
             "created_at": config.get("created_at"),
             "config": config,
         }

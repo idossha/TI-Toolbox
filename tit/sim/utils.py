@@ -541,6 +541,7 @@ def create_simulation_config_file(
     data = {
         "subject_id": config.subject_id,
         "simulation_name": montage.name,
+        "simulation_display_name": montage.display_name,
         "simulation_mode": montage.simulation_mode.value,
         "montage_mode": montage.mode.value,
         "eeg_net": montage.eeg_net,

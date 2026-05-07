@@ -189,3 +189,25 @@ class TestWriteReadRoundTrip:
             assert isinstance(data, dict)
         finally:
             os.unlink(path)
+
+    def test_simulation_montage_display_name_serializes(self):
+        from tit.sim.config import Montage, SimulationConfig
+
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[
+                Montage(
+                    name="flex_20260507_143012_a1b2c3d4_mapped",
+                    mode=Montage.Mode.FLEX_MAPPED,
+                    electrode_pairs=[("E1", "E2"), ("E3", "E4")],
+                    eeg_net="GSN-HydroCel-185.csv",
+                    display_name="May 7 14:30 | mean maxTI | a1b2c3d4 | mapped",
+                )
+            ],
+        )
+        data = serialize_config(config)
+        montage = data["montages"][0]
+        assert montage["name"] == "flex_20260507_143012_a1b2c3d4_mapped"
+        assert montage["display_name"] == (
+            "May 7 14:30 | mean maxTI | a1b2c3d4 | mapped"
+        )

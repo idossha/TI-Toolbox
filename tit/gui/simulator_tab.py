@@ -18,6 +18,7 @@ tit.gui.components.add_montage_dialog.AddMontageDialog : Montage creation dialog
 import logging
 import os
 import json
+import hashlib
 import re
 import subprocess
 import time
@@ -112,7 +113,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self._run_start_time = None
         self._project_dir_path_current = None
         # Per-job selection state
-        self._job_selections = {}  # row_index -> list[str] of selected item texts
+        self._job_selections = {}  # row_index -> selected item identities
         self._job_cards: list = []
         self._selected_card_idx: int = -1
         # Initialize path manager
@@ -644,7 +645,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self.selection_label.setText(f"Selecting for: {subject} / {source}")
         self._update_selection_panel_buttons(source=source)
 
-        saved = set(self._job_selections.get(idx, []))
+        saved = {
+            self._selection_identity_key(item)
+            for item in self._job_selections.get(idx, [])
+        }
 
         self.selection_list.blockSignals(True)
         self.selection_list.clear()
@@ -663,6 +667,15 @@ class SimulatorTab(QtWidgets.QWidget):
         else:
             if source == "Flex-Search":
                 items = self._get_flex_outputs_for_subject(subject)
+                for item_info in items:
+                    list_item = QtWidgets.QListWidgetItem(item_info["display"])
+                    list_item.setData(QtCore.Qt.UserRole, item_info["selection"])
+                    list_item.setToolTip(item_info["tooltip"])
+                    self.selection_list.addItem(list_item)
+                    if self._selection_identity_key(item_info["selection"]) in saved:
+                        list_item.setSelected(True)
+                self.selection_list.blockSignals(False)
+                return
             elif source == "Freehand":
                 items = self._get_freehand_configs_for_subject(subject)
             else:
@@ -686,6 +699,13 @@ class SimulatorTab(QtWidgets.QWidget):
         ]
         self._job_selections[idx] = selected_texts
         self._update_count_cell(idx)
+
+    @staticmethod
+    def _selection_identity_key(value):
+        """Normalize saved GUI selection identities for comparison."""
+        if isinstance(value, list):
+            return tuple(value)
+        return value
 
     def _clear_selection(self):
         """Clear the selection in the selection list."""
@@ -744,7 +764,7 @@ class SimulatorTab(QtWidgets.QWidget):
         return f"{name}: {', '.join(ch_parts)}"
 
     def _get_flex_outputs_for_subject(self, subject_id):
-        """Return list of flex-search item strings for a subject (mapped + optimized).
+        """Return flex-search selection entries for a subject.
 
         Reads flex_meta.json from each run folder for display labels.
         Falls back to folder name if manifest is missing.
@@ -757,11 +777,14 @@ class SimulatorTab(QtWidgets.QWidget):
             for run_name in run_names:
                 run_dir = self.pm.flex_search_run(subject_id, run_name)
                 meta = read_manifest(run_dir)
-                label = meta.get("label", run_name) if meta else run_name
-                display = f"{run_name} | {label}"
+                run_id = self._short_flex_run_id(subject_id, run_name)
 
                 # [mapped] is always available
-                items.append(f"{display} [mapped]")
+                items.append(
+                    self._make_flex_selection_entry(
+                        subject_id, run_name, run_id, "mapped", meta
+                    )
+                )
 
                 # [optimized] only if optimized_positions key is present
                 positions_file = self.pm.flex_electrode_positions(subject_id, run_name)
@@ -770,12 +793,131 @@ class SimulatorTab(QtWidgets.QWidget):
                         with open(positions_file, "r") as f:
                             pos_data = json.load(f)
                         if pos_data.get("optimized_positions"):
-                            items.append(f"{display} [optimized]")
+                            items.append(
+                                self._make_flex_selection_entry(
+                                    subject_id,
+                                    run_name,
+                                    run_id,
+                                    "optimized",
+                                    meta,
+                                )
+                            )
                     except (OSError, json.JSONDecodeError):
                         pass
         except OSError as e:
             logger.error(f"Error getting flex outputs for {subject_id}: {e}")
         return items
+
+    @staticmethod
+    def _short_flex_run_id(subject_id, run_name):
+        """Build a stable short id from the subject and flex-search run folder."""
+        raw = f"{subject_id}/{run_name}".encode("utf-8")
+        return hashlib.sha1(raw).hexdigest()[:8]
+
+    def _make_flex_selection_entry(
+        self, subject_id, run_name, run_id, electrode_type, meta
+    ):
+        """Build one structured GUI selection entry for a flex-search output."""
+        display = self._format_flex_display(run_name, run_id, electrode_type, meta)
+        tooltip = self._format_flex_tooltip(subject_id, run_name, run_id, meta)
+        return {
+            "display": display,
+            "selection": (run_name, electrode_type, run_id, display),
+            "tooltip": tooltip,
+        }
+
+    @staticmethod
+    def _format_flex_display(run_name, run_id, electrode_type, meta):
+        """Format the short list-row label for a flex-search output."""
+        created = meta.get("created") if meta else None
+        timestamp = (
+            SimulatorTab._format_flex_created_short(created) if created else run_name
+        )
+        goal = meta.get("goal") if meta else None
+        postproc = (
+            SimulatorTab._format_flex_postproc(meta.get("postproc")) if meta else None
+        )
+        summary_parts = [part for part in (goal, postproc) if part]
+        summary = " | ".join(summary_parts) if summary_parts else (run_name or "run")
+        return f"{timestamp} | {summary} | {run_id} | {electrode_type}"
+
+    @staticmethod
+    def _format_flex_tooltip(subject_id, run_name, run_id, meta):
+        """Format hover details for a flex-search output."""
+        if not meta:
+            return f"Subject: {subject_id}\nRun: {run_name}\nRun ID: {run_id}"
+
+        result = meta.get("result") or {}
+        electrode = meta.get("electrode") or {}
+        roi = SimulatorTab._format_flex_roi(meta.get("roi"))
+        non_roi = SimulatorTab._format_flex_roi(meta.get("non_roi"))
+
+        lines = [
+            f"Subject: {subject_id}",
+            f"Run: {run_name}",
+            f"Run ID: {run_id}",
+            f"Created: {meta.get('created', 'unknown')}",
+            f"Goal: {meta.get('goal', 'unknown')}",
+            f"Postproc: {meta.get('postproc', 'unknown')}",
+            f"ROI: {roi or 'unknown'}",
+            f"Current: {meta.get('current_mA', 'unknown')} mA",
+            f"Best value: {result.get('best_value', 'unknown')}",
+            f"Best run: {result.get('best_run_index', 'unknown')}",
+            f"Multistart: {meta.get('n_multistart', 'unknown')}",
+            f"Electrode: {electrode.get('shape', 'unknown')} {electrode.get('dimensions', '')}",
+        ]
+        if non_roi:
+            lines.append(f"Non-ROI: {non_roi}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_flex_created(created):
+        """Convert ISO manifest timestamps into compact GUI text."""
+        try:
+            dt = datetime.datetime.fromisoformat(created)
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except (TypeError, ValueError):
+            return str(created)
+
+    @staticmethod
+    def _format_flex_created_short(created):
+        """Convert ISO manifest timestamps into concise list text."""
+        try:
+            dt = datetime.datetime.fromisoformat(created)
+            return f"{dt.strftime('%b')} {dt.day} {dt.strftime('%H:%M')}"
+        except (TypeError, ValueError):
+            return str(created)
+
+    @staticmethod
+    def _format_flex_postproc(postproc):
+        """Format flex postprocessing values for compact display."""
+        if not postproc:
+            return None
+        return str(postproc).replace("_TI", "TI").replace("_", " ")
+
+    @staticmethod
+    def _format_flex_roi(roi):
+        """Format a manifest ROI dict for compact display."""
+        if not roi:
+            return None
+
+        roi_type = roi.get("type")
+        if roi_type == "spherical":
+            x = roi.get("x", "?")
+            y = roi.get("y", "?")
+            z = roi.get("z", "?")
+            radius = roi.get("radius", "?")
+            return f"sphere({x},{y},{z}) r{radius}"
+        if roi_type == "atlas":
+            hemi = roi.get("hemisphere") or "hemi"
+            label = roi.get("label") or "label"
+            atlas = os.path.basename(roi.get("atlas_path") or "atlas")
+            return f"{hemi} {atlas} {label}"
+        if roi_type == "subcortical":
+            label = roi.get("label") or "label"
+            atlas = os.path.basename(roi.get("atlas_path") or "volume")
+            return f"subcortical {atlas} {label}"
+        return str(roi_type or "roi")
 
     def _get_freehand_configs_for_subject(self, subject_id):
         """Return list of freehand config names for a subject."""
@@ -831,31 +973,15 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _build_montage_configs_from_flex(self, subject_id, selected_items, eeg_net):
         """Build Montage list from flex-search selection items."""
-        from tit.opt.flex.manifest import read_manifest
-
         configs = []
-        for item_text in selected_items:
+        for selected_item in selected_items:
             try:
-                # Extract run_name from "run_name | label [type]" format
-                item_stripped = item_text.strip()
-                if " [mapped]" in item_stripped:
-                    electrode_type = "mapped"
-                    name_part = item_stripped.replace(" [mapped]", "")
-                elif " [optimized]" in item_stripped:
-                    electrode_type = "optimized"
-                    name_part = item_stripped.replace(" [optimized]", "")
-                else:
-                    electrode_type = "mapped"
-                    name_part = item_stripped
-
-                # Extract the run_name (before the " | " separator)
-                if " | " in name_part:
-                    search_name = name_part.split(" | ", 1)[0].strip()
-                else:
-                    search_name = name_part.strip()
+                search_name, electrode_type, run_id, display_name = (
+                    self._parse_flex_selection(subject_id, selected_item)
+                )
 
                 flex_search_dir = self.pm.flex_search_run(subject_id, search_name)
-                if not flex_search_dir:
+                if not flex_search_dir or not os.path.isdir(flex_search_dir):
                     self.update_output(
                         f"Flex-search folder not found for {subject_id} | {search_name}",
                         "error",
@@ -866,15 +992,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     flex_search_dir, "electrode_positions.json"
                 )
 
-                # Build montage name from manifest
-                run_dir = self.pm.flex_search_run(subject_id, search_name)
-                meta = read_manifest(run_dir)
-                if meta:
-                    goal = meta.get("goal", "opt")
-                    postproc = meta.get("postproc", "maxTI")
-                    montage_name = f"flex_{goal}_{postproc}_{electrode_type}"
-                else:
-                    montage_name = f"flex_{search_name}_{electrode_type}"
+                montage_name = self._build_flex_montage_name(
+                    search_name, run_id, electrode_type
+                )
 
                 if electrode_type == "mapped":
                     # Need to map to EEG cap
@@ -939,17 +1059,17 @@ class SimulatorTab(QtWidgets.QWidget):
                         continue
 
                     electrodes = mapped_labels[:4]
-                    configs.append(
-                        Montage(
-                            name=montage_name,
-                            mode=Montage.Mode.FLEX_MAPPED,
-                            electrode_pairs=[
-                                (electrodes[0], electrodes[1]),
-                                (electrodes[2], electrodes[3]),
-                            ],
-                            eeg_net=eeg_net,
-                        )
+                    montage = Montage(
+                        name=montage_name,
+                        mode=Montage.Mode.FLEX_MAPPED,
+                        electrode_pairs=[
+                            (electrodes[0], electrodes[1]),
+                            (electrodes[2], electrodes[3]),
+                        ],
+                        eeg_net=eeg_net,
+                        display_name=display_name,
                     )
+                    configs.append(montage)
 
                 else:  # optimized
                     with open(positions_file, "r") as f:
@@ -962,21 +1082,71 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
                         continue
                     positions = optimized_positions[:4]
-                    configs.append(
-                        Montage(
-                            name=montage_name,
-                            mode=Montage.Mode.FLEX_FREE,
-                            electrode_pairs=[
-                                (positions[0], positions[1]),
-                                (positions[2], positions[3]),
-                            ],
-                        )
+                    montage = Montage(
+                        name=montage_name,
+                        mode=Montage.Mode.FLEX_FREE,
+                        electrode_pairs=[
+                            (positions[0], positions[1]),
+                            (positions[2], positions[3]),
+                        ],
+                        display_name=display_name,
                     )
+                    configs.append(montage)
             except (ValueError, IndexError, KeyError) as e:
                 self.update_output(
-                    f"Error processing flex item '{item_text}': {e}", "error"
+                    f"Error processing flex item '{selected_item}': {e}", "error"
                 )
         return configs
+
+    def _parse_flex_selection(self, subject_id, selected_item):
+        """Return run name, electrode type, run id, and display text."""
+        if isinstance(selected_item, (tuple, list)) and len(selected_item) >= 2:
+            search_name = str(selected_item[0]).strip()
+            electrode_type = str(selected_item[1]).strip()
+            run_id = (
+                str(selected_item[2]).strip()
+                if len(selected_item) >= 3 and selected_item[2]
+                else self._short_flex_run_id(subject_id, search_name)
+            )
+            display_name = (
+                str(selected_item[3]).strip()
+                if len(selected_item) >= 4 and selected_item[3]
+                else f"{search_name} | {run_id} | {electrode_type}"
+            )
+            return search_name, electrode_type, run_id, display_name
+
+        item_stripped = str(selected_item).strip()
+        if " [mapped]" in item_stripped:
+            electrode_type = "mapped"
+            name_part = item_stripped.replace(" [mapped]", "")
+        elif " [optimized]" in item_stripped:
+            electrode_type = "optimized"
+            name_part = item_stripped.replace(" [optimized]", "")
+        else:
+            electrode_type = "mapped"
+            name_part = item_stripped
+
+        if " | " in name_part:
+            search_name = name_part.split(" | ", 1)[0].strip()
+        else:
+            search_name = name_part.strip()
+        run_id = self._short_flex_run_id(subject_id, search_name)
+        display_name = f"{search_name} | {run_id} | {electrode_type}"
+        return search_name, electrode_type, run_id, display_name
+
+    @staticmethod
+    def _build_flex_montage_name(run_name, run_id, electrode_type):
+        """Build a filesystem-safe unique simulation name for a flex-search run."""
+        safe_run_name = re.sub(r"[^A-Za-z0-9_]+", "_", str(run_name)).strip("_")
+        safe_run_name = safe_run_name[:32] or "run"
+        safe_type = re.sub(r"[^A-Za-z0-9_]+", "_", str(electrode_type)).strip("_")
+        safe_type = safe_type or "mapped"
+        return f"flex_{safe_run_name}_{run_id}_{safe_type}"
+
+    @staticmethod
+    def _montage_display_name(montage):
+        """Return a user-facing montage label without changing its storage key."""
+        return getattr(montage, "display_name", montage.name)
 
     def _build_montage_configs_from_freehand(self, subject_id, selected_names):
         """Build Montage list from freehand config names."""
@@ -1127,8 +1297,9 @@ class SimulatorTab(QtWidgets.QWidget):
             # ── Confirmation dialog ────────────────────────────────────────
             job_lines = []
             for subject, mc, current_str in jobs:
+                display_name = self._montage_display_name(mc)
                 job_lines.append(
-                    f"  * {subject} | {mc.name} | {mc.eeg_net} | {current_str} mA"
+                    f"  * {subject} | {display_name} | {mc.eeg_net} | {current_str} mA"
                 )
             details = (
                 f"This will run {len(jobs)} simulation(s):\n\n"
@@ -1152,7 +1323,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 simulations_dir = self.pm.simulations(subject_id)
                 montage_dir = os.path.join(simulations_dir or "", mc.name)
                 if simulations_dir and os.path.exists(montage_dir):
-                    existing_dirs.append(f"{subject_id}/{mc.name}")
+                    display_name = self._montage_display_name(mc)
+                    existing_dirs.append(
+                        f"{subject_id}/{display_name} (folder: {mc.name})"
+                    )
 
             if existing_dirs:
                 existing_list = "\n".join([f"  * {d}" for d in existing_dirs[:10]])
@@ -1367,12 +1541,18 @@ class SimulatorTab(QtWidgets.QWidget):
             last_jobs = getattr(self, "_last_jobs", [])
             subject_montage_map = (
                 {}
-            )  # subject_id -> [(montage_name, current_str, eeg_net, electrode_pairs)]
+            )  # subject_id -> [(montage_name, current_str, eeg_net, pairs, display)]
             for subject_id, mc, current_str in last_jobs:
                 if subject_id not in subject_montage_map:
                     subject_montage_map[subject_id] = []
                 subject_montage_map[subject_id].append(
-                    (mc.name, current_str, mc.eeg_net, mc.electrode_pairs)
+                    (
+                        mc.name,
+                        current_str,
+                        mc.eeg_net,
+                        mc.electrode_pairs,
+                        self._montage_display_name(mc),
+                    )
                 )
 
             if not subject_montage_map:
@@ -1383,14 +1563,18 @@ class SimulatorTab(QtWidgets.QWidget):
             successful_reports = 0
 
             for subject_id, montage_list in subject_montage_map.items():
-                montages_to_process = [name for name, _, _, _ in montage_list]
-                currents_map = {name: cur for name, cur, _, _ in montage_list}
-                eeg_net_map = {name: net for name, _, net, _ in montage_list}
-                pairs_map = {name: pairs for name, _, _, pairs in montage_list}
+                montages_to_process = [name for name, _, _, _, _ in montage_list]
+                currents_map = {name: cur for name, cur, _, _, _ in montage_list}
+                eeg_net_map = {name: net for name, _, net, _, _ in montage_list}
+                pairs_map = {name: pairs for name, _, _, pairs, _ in montage_list}
+                display_map = {
+                    name: display for name, _, _, _, display in montage_list
+                }
 
                 # Generate individual report for each montage for this subject
                 for montage_name in montages_to_process:
                     total_reports += 1
+                    display_name = display_map.get(montage_name, montage_name)
 
                     try:
                         # Create unique session ID for each report
@@ -1485,12 +1669,12 @@ class SimulatorTab(QtWidgets.QWidget):
                         report_path = report_generator.generate()
                         successful_reports += 1
                         self.update_output(
-                            f"[SUCCESS] Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}"
+                            f"[SUCCESS] Individual report generated for {subject_id}-{display_name}: {os.path.basename(report_path)}"
                         )
 
                     except (OSError, ValueError, RuntimeError) as e:
                         self.update_output(
-                            f"[ERROR] Error generating report for {subject_id}-{montage_name}: {str(e)}",
+                            f"[ERROR] Error generating report for {subject_id}-{display_name}: {str(e)}",
                             "error",
                         )
 
