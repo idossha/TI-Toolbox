@@ -43,6 +43,7 @@ import os
 import shutil
 import subprocess
 import time
+import csv
 from datetime import datetime
 from typing import Callable
 
@@ -510,6 +511,52 @@ def run_montage_visualization(
 # ── Simulation config file ────────────────────────────────────────────────────────────────
 
 
+def _as_xyz(value) -> list[float]:
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        raise ValueError(f"Expected XYZ coordinate, got {value!r}")
+    return [float(value[0]), float(value[1]), float(value[2])]
+
+
+def _load_eeg_position_csv(path: str) -> dict[str, list[float]]:
+    positions: dict[str, list[float]] = {}
+    with open(path, newline="") as f:
+        for row in csv.reader(f):
+            if len(row) < 5 or row[0].strip().lower() != "electrode":
+                continue
+            positions[row[4].strip()] = [float(row[1]), float(row[2]), float(row[3])]
+    return positions
+
+
+def resolve_montage_electrode_coordinates(
+    config: SimulationConfig, montage: Montage, logger=None
+) -> tuple[list[list[float]] | None, str | None]:
+    """Resolve every electrode in *montage* to XYZ coordinates when possible."""
+    if montage.is_xyz:
+        return (
+            [_as_xyz(pos) for pair in montage.electrode_pairs for pos in pair],
+            "config_xyz",
+        )
+
+    if not montage.eeg_net:
+        if logger:
+            logger.warning("No EEG net set; electrode coordinates not written")
+        return None, None
+
+    try:
+        pm = get_path_manager()
+        eeg_path = os.path.join(pm.eeg_positions(config.subject_id), montage.eeg_net)
+        eeg_positions = _load_eeg_position_csv(eeg_path)
+        coordinates = [
+            eeg_positions[pos] for pair in montage.electrode_pairs for pos in pair
+        ]
+    except (OSError, RuntimeError, KeyError, ValueError) as exc:
+        if logger:
+            logger.warning("Could not resolve electrode coordinates: %s", exc)
+        return None, None
+
+    return coordinates, os.path.join("eeg_positions", montage.eeg_net)
+
+
 def create_simulation_config_file(
     config: SimulationConfig,
     montage: Montage,
@@ -538,6 +585,9 @@ def create_simulation_config_file(
     SimulationConfig : The serialised configuration type.
     """
     path = os.path.join(documentation_dir, "config.json")
+    electrode_coordinates, electrode_coordinate_source = (
+        resolve_montage_electrode_coordinates(config, montage, logger)
+    )
     data = {
         "subject_id": config.subject_id,
         "simulation_name": montage.name,
@@ -548,6 +598,8 @@ def create_simulation_config_file(
         "conductivity": config.conductivity,
         "electrode_pairs": montage.electrode_pairs,
         "is_xyz_montage": montage.is_xyz,
+        "electrode_coordinates": electrode_coordinates,
+        "electrode_coordinate_source": electrode_coordinate_source,
         "intensities": config.intensities,
         "electrode_geometry": {
             "shape": config.electrode_shape,

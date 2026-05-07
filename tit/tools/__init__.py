@@ -19,6 +19,8 @@ map_electrodes
     Map optimised electrode positions to the nearest EEG net electrodes.
 mesh2nii
     Convert SimNIBS meshes to subject- and MNI-space NIfTI volumes.
+electrode_overlay
+    Create NIfTI label overlays for XYZ electrode placements.
 montage_visualizer
     Render PNG images of electrode montages on an EEG cap template.
 nifti_to_mesh

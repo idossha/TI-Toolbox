@@ -159,13 +159,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_combo.setEnabled(False)
         subject_block_layout.addWidget(self.atlas_combo, 1, 1, 1, 2)
 
-        # Atlas controls
-        atlas_controls = QtWidgets.QHBoxLayout()
-        self.atlas_visibility_chk = QtWidgets.QCheckBox("Visible")
-        self.atlas_visibility_chk.setChecked(True)
-        self.atlas_visibility_chk.setEnabled(False)
-        atlas_controls.addWidget(self.atlas_visibility_chk)
-        subject_block_layout.addLayout(atlas_controls, 2, 0, 1, 3)
+        electrode_controls = QtWidgets.QHBoxLayout()
+        self.electrode_overlay_visibility_chk = QtWidgets.QCheckBox(
+            "Show Electrode Overlay"
+        )
+        self.electrode_overlay_visibility_chk.setChecked(False)
+        self.electrode_overlay_visibility_chk.setEnabled(False)
+        electrode_controls.addWidget(self.electrode_overlay_visibility_chk)
+
+        self.create_electrode_overlay_btn = QtWidgets.QPushButton(
+            "Create Electrode Overlay"
+        )
+        self.create_electrode_overlay_btn.clicked.connect(
+            self.create_electrode_overlay
+        )
+        electrode_controls.addWidget(self.create_electrode_overlay_btn)
+
+        self.electrode_overlay_status = QtWidgets.QLabel("Not checked")
+        electrode_controls.addWidget(self.electrode_overlay_status)
+        electrode_controls.addStretch()
+        subject_block_layout.addLayout(electrode_controls, 2, 0, 1, 3)
 
         config_layout.addWidget(subject_block)
 
@@ -217,11 +230,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.high_freq_chk = QtWidgets.QCheckBox("Load High Frequency Fields")
         self.high_freq_chk.setChecked(False)
         sim_block_layout.addWidget(self.high_freq_chk, 4, 0, 1, 4)
-
-        # Refresh button
-        self.refresh_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_btn.clicked.connect(self.refresh_subjects)
-        sim_block_layout.addWidget(self.refresh_btn, 5, 0, 1, 4)
 
         config_layout.addWidget(sim_block)
         main_layout.addWidget(self.config_section)
@@ -281,10 +289,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         group_atlas_layout.addWidget(QtWidgets.QLabel("MNI Atlas:"))
         self.group_atlas_combo = QtWidgets.QComboBox()
         group_atlas_layout.addWidget(self.group_atlas_combo)
-
-        self.group_atlas_visibility_chk = QtWidgets.QCheckBox("Visible")
-        self.group_atlas_visibility_chk.setChecked(True)
-        group_atlas_layout.addWidget(self.group_atlas_visibility_chk)
 
         group_layout.addLayout(group_atlas_layout)
 
@@ -355,9 +359,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         load_additional_btn.clicked.connect(self.load_custom_nifti)
         button_layout.addWidget(load_additional_btn)
 
-        reload_btn = QtWidgets.QPushButton("Reload Current View")
-        reload_btn.clicked.connect(self.reload_current_view)
-        button_layout.addWidget(reload_btn)
+        self.refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_btn.clicked.connect(self.refresh_subjects)
+        button_layout.addWidget(self.refresh_btn)
 
         button_layout.addStretch()
         main_layout.addLayout(button_layout)
@@ -372,7 +376,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Connect signals
         self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
-        self.sim_combo.currentIndexChanged.connect(self.update_available_analyses)
+        self.sim_combo.currentIndexChanged.connect(self.on_simulation_changed)
         self.space_combo.currentIndexChanged.connect(
             self.update_space_dependent_controls
         )
@@ -422,7 +426,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_combo.clear()
         has_atlases = bool(available_atlases)
         self.atlas_combo.setEnabled(has_atlases)
-        self.atlas_visibility_chk.setEnabled(has_atlases)
 
         for display_name, full_path in available_atlases:
             self.atlas_combo.addItem(display_name, full_path)
@@ -452,6 +455,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             else:
                 self.sim_combo.setCurrentIndex(0)
         self.update_available_analyses()
+        self.update_electrode_overlay_controls()
 
     def update_available_analyses(self):
         """Update the available analyses based on the selected simulation."""
@@ -483,6 +487,140 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.analysis_visibility_chk.setEnabled(True)
         self.analysis_opacity_slider.setEnabled(True)
         self.analysis_region_combo.addItems(regions)
+
+    def on_simulation_changed(self):
+        """Handle selected simulation changes."""
+        self.update_available_analyses()
+        self.update_electrode_overlay_controls()
+
+    def _electrode_overlay_paths(self, subject_id, simulation_name):
+        """Return config, reference, and output paths for electrode overlay."""
+        sim_dir = self.pm.simulation(subject_id, simulation_name)
+        return {
+            "config": os.path.join(sim_dir, "documentation", "config.json"),
+            "reference": os.path.join(self.pm.m2m(subject_id), "T1.nii.gz"),
+            "eeg_positions": self.pm.eeg_positions(subject_id),
+            "output": os.path.join(
+                self.pm.analysis_dir(subject_id, simulation_name, "voxel"),
+                "Electrodes",
+                "electrode_overlay_subject.nii.gz",
+            ),
+        }
+
+    def detect_electrode_overlay(self, subject_id, simulation_name):
+        """Return the generated electrode overlay path when present."""
+        if not subject_id or not simulation_name:
+            return None
+        path = self._electrode_overlay_paths(subject_id, simulation_name)["output"]
+        return path if os.path.exists(path) else None
+
+    def update_electrode_overlay_controls(self):
+        """Enable electrode overlay controls for the selected simulation."""
+        subject_id = self.subject_combo.currentText()
+        simulation_name = self.sim_combo.currentText()
+
+        has_selection = bool(subject_id and simulation_name)
+        paths = (
+            self._electrode_overlay_paths(subject_id, simulation_name)
+            if has_selection
+            else {}
+        )
+        has_overlay = bool(paths and os.path.exists(paths["output"]))
+        has_inputs = bool(
+            paths
+            and os.path.exists(paths["config"])
+            and os.path.exists(paths["reference"])
+        )
+        has_coordinates = False
+        if has_inputs:
+            try:
+                from tit.tools.electrode_overlay import (
+                    simulation_config_has_xyz_electrodes,
+                )
+
+                has_coordinates = simulation_config_has_xyz_electrodes(
+                    paths["config"], eeg_positions_dir=paths["eeg_positions"]
+                )
+            except ImportError:
+                has_coordinates = False
+
+        self.create_electrode_overlay_btn.setEnabled(
+            has_selection and has_inputs and has_coordinates
+        )
+        self.electrode_overlay_visibility_chk.setEnabled(has_overlay)
+        if has_overlay and not self.electrode_overlay_visibility_chk.isChecked():
+            self.electrode_overlay_visibility_chk.setChecked(True)
+        elif not has_overlay:
+            self.electrode_overlay_visibility_chk.setChecked(False)
+        self.create_electrode_overlay_btn.setText(
+            "Refresh Electrode Overlay" if has_overlay else "Create Electrode Overlay"
+        )
+
+        if has_overlay:
+            self.electrode_overlay_status.setText("Available")
+        elif has_inputs and has_coordinates:
+            self.electrode_overlay_status.setText("Ready to create")
+        elif has_inputs:
+            self.electrode_overlay_status.setText("Coordinates unavailable")
+        elif has_selection:
+            self.electrode_overlay_status.setText("Missing config or T1")
+        else:
+            self.electrode_overlay_status.setText("No simulation selected")
+
+    def create_electrode_overlay(self):
+        """Create the selected simulation's electrode placement overlay."""
+        subject_id = self.subject_combo.currentText()
+        simulation_name = self.sim_combo.currentText()
+        if not subject_id or not simulation_name:
+            QtWidgets.QMessageBox.warning(
+                self, "Warning", "Please select a subject and simulation"
+            )
+            return
+
+        paths = self._electrode_overlay_paths(subject_id, simulation_name)
+        missing = [
+            label
+            for label, path in (
+                ("simulation config", paths["config"]),
+                ("subject T1", paths["reference"]),
+            )
+            if not os.path.exists(path)
+        ]
+        if missing:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Warning",
+                "Cannot create electrode overlay; missing "
+                + ", ".join(missing)
+                + ".",
+            )
+            self.update_electrode_overlay_controls()
+            return
+
+        try:
+            from tit.tools.electrode_overlay import create_electrode_overlay_nifti
+
+            output_path = create_electrode_overlay_nifti(
+                paths["config"],
+                paths["reference"],
+                paths["output"],
+                eeg_positions_dir=paths["eeg_positions"],
+            )
+        except (OSError, ValueError, ImportError) as exc:
+            QtWidgets.QMessageBox.warning(
+                self, "Warning", f"Could not create electrode overlay: {exc}"
+            )
+            self.console_widget.update_console(
+                f"Could not create electrode overlay: {exc}", "warning"
+            )
+            self.update_electrode_overlay_controls()
+            return
+
+        self.electrode_overlay_visibility_chk.setChecked(True)
+        self.update_electrode_overlay_controls()
+        self.console_widget.update_console(
+            f"Created electrode overlay: {output_path}", "success"
+        )
 
     def on_mode_changed(self):
         """Handle mode change between Single Subject and Group."""
@@ -709,7 +847,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             atlas_spec = {
                 "path": atlas_path,
                 "type": "volume",
-                "visible": int(self.group_atlas_visibility_chk.isChecked()),
+                "visible": 1,
                 "colormap": "lut",
                 "opacity": NIFTI_ATLAS_OPACITY / 100.0,
             }
@@ -846,7 +984,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 {
                     "path": atlas_file,
                     "type": "volume",
-                    "visible": int(self.atlas_visibility_chk.isChecked()),
+                    "visible": 1,
                     "colormap": "lut",
                     "opacity": NIFTI_ATLAS_OPACITY / 100.0,
                 }
@@ -857,6 +995,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Add voxel analysis if selected and available
         self._load_analysis_overlay(file_specs, subject_id, simulation_name)
+        self._load_electrode_overlay(file_specs, subject_id, simulation_name)
 
         # Add simulation results — prefer mTI over TI
         sim_dir = os.path.join(simulations_dir, simulation_name)
@@ -1063,12 +1202,28 @@ class NiftiViewerTab(QtWidgets.QWidget):
             f"Loading voxel analysis: {os.path.basename(roi_file)}", "info"
         )
 
-    def reload_current_view(self):
-        """Reload the current view in Freeview."""
-        if self.current_files:
-            self.launch_freeview_with_files(self.current_files, self.current_paths)
-        else:
-            QtWidgets.QMessageBox.warning(self, "Warning", "No files currently loaded")
+    def _load_electrode_overlay(self, file_specs, subject_id, simulation_name):
+        """Add electrode placement overlay to file_specs if available."""
+        overlay_file = self.detect_electrode_overlay(subject_id, simulation_name)
+        if not overlay_file:
+            return
+        from tit.tools.electrode_overlay import electrode_overlay_lut_path
+
+        lut_file = str(electrode_overlay_lut_path(overlay_file))
+
+        overlay_spec = {
+            "path": overlay_file,
+            "type": "volume",
+            "visible": int(self.electrode_overlay_visibility_chk.isChecked()),
+            "colormap": "lut",
+            "opacity": 0.85,
+        }
+        if os.path.exists(lut_file):
+            overlay_spec["lut_file"] = lut_file
+        file_specs.append(overlay_spec)
+        self.console_widget.update_console(
+            f"Loading electrode overlay: {os.path.basename(overlay_file)}", "info"
+        )
 
     def terminate_freeview(self):
         """Terminate the Freeview process."""
@@ -1118,11 +1273,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.analysis_visibility_chk,
             self.analysis_opacity_slider,
             self.atlas_combo,
-            self.atlas_visibility_chk,
+            self.create_electrode_overlay_btn,
+            self.electrode_overlay_visibility_chk,
         ):
             widget.setEnabled(is_subject_space)
 
         if not is_subject_space:
             self.console_widget.update_console(
-                "Note: analysis option is only available in Subject space", "info"
+                "Note: analysis and electrode overlays are only available in Subject space",
+                "info",
             )
+        else:
+            self.update_electrode_overlay_controls()

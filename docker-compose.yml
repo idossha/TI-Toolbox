@@ -1,5 +1,4 @@
 services:
-
   freesurfer:
     image: idossha/ti-toolbox_freesurfer:v7.4.1
     platform: linux/amd64
@@ -16,11 +15,11 @@ services:
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw              # X11 socket mount for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw # X11 socket mount for GUI
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox    # User-level config (telemetry, prefs)
-      - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw      # X11 auth for remote displays
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # User-level config (telemetry, prefs)
+      - /var/run/docker.sock:/var/run/docker.sock # Docker socket for DooD (QSIPrep/QSIRecon)
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw # X11 auth for remote displays
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
@@ -55,4 +54,3 @@ volumes:
   ti-toolbox_freesurfer_data:
     external: true
     name: ti-toolbox_freesurfer_data
-

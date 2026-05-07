@@ -411,6 +411,75 @@ class TestCreateSimulationConfigFile:
         assert data["aniso_maxcond"] == 1.8
         assert data["tissues_in_niftis"] == "2,3"
         assert data["open_in_gmsh"] is True
+        assert data["electrode_coordinates"] is None
+        assert data["electrode_coordinate_source"] is None
+
+    def test_writes_xyz_coordinates_for_freehand_montage(self, tmp_path):
+        logger = MagicMock()
+        montage = Montage(
+            name="freehand",
+            mode=Montage.Mode.FREEHAND,
+            electrode_pairs=[
+                ([1, 2, 3], [4, 5, 6]),
+                ([7, 8, 9], [10, 11, 12]),
+            ],
+        )
+        config = SimulationConfig(subject_id="001", montages=[montage])
+
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_coordinates"] == [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0],
+        ]
+        assert data["electrode_coordinate_source"] == "config_xyz"
+
+    def test_writes_xyz_coordinates_for_label_montage(
+        self, tmp_project, init_pm, tmp_path
+    ):
+        logger = MagicMock()
+        eeg_dir = (
+            tmp_project
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "m2m_001"
+            / "eeg_positions"
+        )
+        eeg_dir.mkdir(parents=True, exist_ok=True)
+        (eeg_dir / "cap.csv").write_text(
+            "\n".join(
+                [
+                    "Electrode,1.0,2.0,3.0,E001",
+                    "Electrode,4.0,5.0,6.0,E002",
+                    "Electrode,7.0,8.0,9.0,E003",
+                    "Electrode,10.0,11.0,12.0,E004",
+                ]
+            )
+        )
+        montage = Montage(
+            name="net",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("E001", "E002"), ("E003", "E004")],
+            eeg_net="cap.csv",
+        )
+        config = SimulationConfig(subject_id="001", montages=[montage])
+
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_coordinates"] == [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0],
+        ]
+        assert data["electrode_coordinate_source"] == os.path.join(
+            "eeg_positions", "cap.csv"
+        )
 
 
 # ============================================================================
