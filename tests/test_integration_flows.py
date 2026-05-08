@@ -73,6 +73,27 @@ def test_simulation_orchestration_creates_expected_outputs(init_pm, tmp_project)
         electrode_pairs=[("C3", "C4"), ("F3", "F4")],
         eeg_net="freehand",  # visualization is explicitly skipped
     )
+    eeg_positions_dir = (
+        tmp_project
+        / "derivatives"
+        / "SimNIBS"
+        / "sub-001"
+        / "m2m_001"
+        / "eeg_positions"
+    )
+    eeg_positions_dir.mkdir(parents=True)
+    (eeg_positions_dir / "freehand").write_text(
+        "\n".join(
+            [
+                "Electrode,0,0,0, C3",
+                "Electrode,1,0,0, C4",
+                "Electrode,0,1,0, F3",
+                "Electrode,1,1,0, F4",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     config = SimulationConfig(
         subject_id="001",
         conductivity="scalar",
