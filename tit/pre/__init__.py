@@ -48,6 +48,11 @@ from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 from .utils import discover_subjects, check_m2m_exists
+from .preflight import (
+    PreprocessingOutput,
+    find_existing_preprocessing_outputs,
+    selected_preprocessing_steps,
+)
 
 __all__ = [
     "run_pipeline",
@@ -61,4 +66,7 @@ __all__ = [
     "extract_dti_tensor",
     "discover_subjects",
     "check_m2m_exists",
+    "PreprocessingOutput",
+    "find_existing_preprocessing_outputs",
+    "selected_preprocessing_steps",
 ]

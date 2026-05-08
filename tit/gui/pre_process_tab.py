@@ -25,8 +25,11 @@ from tit.gui.components.console import (
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
-from tit import constants as const
-from tit.pre import discover_subjects, check_m2m_exists
+from tit.pre import (
+    check_m2m_exists,
+    discover_subjects,
+    find_existing_preprocessing_outputs,
+)
 from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
     QSIPrepConfigDialog,
@@ -404,6 +407,70 @@ class PreProcessTab(QtWidgets.QWidget):
         else:
             self.status_label.hide()
 
+    def _format_existing_outputs(self, outputs):
+        """Return a concise grouped summary for existing preprocessing outputs."""
+        grouped = {}
+        for output in outputs:
+            grouped.setdefault(output.subject_id, []).append(output)
+
+        lines = []
+        for subject_id in sorted(grouped):
+            lines.append(f"sub-{subject_id}:")
+            for output in grouped[subject_id]:
+                lines.append(f"  - {output.label}: {output.path}")
+        return "\n".join(lines)
+
+    def _choose_existing_output_policy(self, selected_subjects):
+        """Ask how to handle selected preprocessing outputs that already exist."""
+        outputs = find_existing_preprocessing_outputs(
+            self.project_dir,
+            selected_subjects,
+            convert_dicom=self.convert_dicom_cb.isChecked(),
+            create_m2m=self.create_m2m_cb.isChecked(),
+            run_recon=self.run_recon_cb.isChecked(),
+            run_qsiprep=self.run_qsiprep_cb.isChecked(),
+            run_qsirecon=self.run_qsirecon_cb.isChecked(),
+            extract_dti=self.extract_dti_cb.isChecked(),
+        )
+        if not outputs:
+            return False, False
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Warning)
+        dialog.setWindowTitle("Existing Pre-processing Outputs")
+        dialog.setText("Some selected pre-processing outputs already exist.")
+        dialog.setInformativeText(
+            "Choose how to continue:\n\n"
+            "Skip Existing Outputs: leave existing outputs in place and skip those steps.\n"
+            "Replace and Rerun: delete existing outputs for the selected steps, then rerun."
+        )
+        dialog.setDetailedText(self._format_existing_outputs(outputs))
+
+        cancel_button = dialog.addButton(
+            "Cancel / Adjust Options", QtWidgets.QMessageBox.RejectRole
+        )
+        skip_button = dialog.addButton(
+            "Skip Existing Outputs", QtWidgets.QMessageBox.AcceptRole
+        )
+        replace_button = dialog.addButton(
+            "Replace and Rerun", QtWidgets.QMessageBox.DestructiveRole
+        )
+        dialog.setDefaultButton(cancel_button)
+        dialog.exec_()
+
+        clicked = dialog.clickedButton()
+        if clicked == skip_button:
+            return True, False
+        if clicked == replace_button:
+            if ConfirmationDialog.confirm(
+                self,
+                title="Replace Existing Outputs",
+                message="Delete existing outputs for the selected steps and rerun?",
+                details=self._format_existing_outputs(outputs),
+            ):
+                return False, True
+        return None
+
     def run_preprocessing(self):
         """Run the preprocessing pipeline."""
         if self.processing_running:
@@ -454,17 +521,39 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
+        existing_policy = self._choose_existing_output_policy(selected_subjects)
+        if existing_policy is None:
+            return
+        skip_existing_outputs, replace_existing_outputs = existing_policy
+
         # Show confirmation dialog
+        convert_dicom_text = (
+            "Yes (uses T1w/T2w folder layout)"
+            if self.convert_dicom_cb.isChecked()
+            else "No"
+        )
+        parallel_text = (
+            "Yes (multiple subjects via ThreadPoolExecutor)"
+            if self.parallel_cb.isChecked()
+            else "No"
+        )
+        existing_outputs_text = "Block"
+        if replace_existing_outputs:
+            existing_outputs_text = "Replace and rerun"
+        elif skip_existing_outputs:
+            existing_outputs_text = "Skip"
+
         details = (
             f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n"
-            + f"- Convert DICOM: {'Yes (uses T1w/T2w folder layout)' if self.convert_dicom_cb.isChecked() else 'No'}\n"
+            + f"- Convert DICOM: {convert_dicom_text}\n"
             + f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n"
             + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
-            + f"- Parallel processing: {'Yes (multiple subjects via ThreadPoolExecutor)' if self.parallel_cb.isChecked() else 'No'}\n"
+            + f"- Parallel processing: {parallel_text}\n"
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
-            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}"
+            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}\n"
+            + f"- Existing outputs: {existing_outputs_text}"
         )
 
         if not ConfirmationDialog.confirm(
@@ -530,6 +619,8 @@ class PreProcessTab(QtWidgets.QWidget):
             "qsiprep_config": qsiprep_config,
             "qsi_recon_config": qsi_recon_config,
             "extract_dti": self.extract_dti_cb.isChecked(),
+            "skip_existing_outputs": skip_existing_outputs,
+            "replace_existing_outputs": replace_existing_outputs,
         }
         fd, config_path = tempfile.mkstemp(prefix="pre_", suffix=".json")
         with os.fdopen(fd, "w") as f:

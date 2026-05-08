@@ -31,6 +31,16 @@ from .dicom2nifti import run_dicom_to_nifti
 from .qsi import extract_dti_tensor, run_qsiprep, run_qsirecon
 from .recon_all import run_recon_all, run_subcortical_segmentations
 from .tissue_analyzer import run_tissue_analysis
+from .preflight import (
+    STEP_CHARM,
+    STEP_DICOM,
+    STEP_DTI,
+    STEP_QSIPREP,
+    STEP_QSIRECON,
+    STEP_RECON_ALL,
+    existing_outputs_for_step,
+    remove_preprocessing_output,
+)
 from .utils import (
     CommandRunner,
     PreprocessCancelled,
@@ -57,6 +67,44 @@ def _run_step(label: str, func, logger) -> float:
     return duration
 
 
+def _should_run_output_step(
+    project_dir: str,
+    subject_id: str,
+    step: str,
+    *,
+    logger,
+    skip_existing_outputs: bool,
+    replace_existing_outputs: bool,
+) -> bool:
+    """Apply the selected existing-output policy for one pipeline step."""
+    existing_outputs = existing_outputs_for_step(project_dir, subject_id, step)
+    if not existing_outputs:
+        return True
+
+    paths = ", ".join(str(output.path) for output in existing_outputs)
+    label = existing_outputs[0].label
+
+    if replace_existing_outputs:
+        logger.warning(f"{label}: replacing existing output(s): {paths}")
+        for output in existing_outputs:
+            remove_preprocessing_output(output)
+        return True
+
+    if skip_existing_outputs:
+        logger.warning(f"{label}: skipping because output already exists: {paths}")
+        return False
+
+    raise PreprocessError(
+        f"{label} output already exists for subject {subject_id}: {paths}. "
+        "Choose skip existing outputs, replace existing outputs, or disable this step."
+    )
+
+
+def _report_status(durations: dict[str, float | None], step_name: str) -> str:
+    """Return the report status for a selected step."""
+    return "skipped" if step_name in durations and durations[step_name] is None else "completed"
+
+
 def _run_subject_pipeline(
     project_dir: str,
     subject_id: str,
@@ -75,13 +123,15 @@ def _run_subject_pipeline(
     debug: bool,
     runner: CommandRunner,
     callback: Callable | None,
-) -> dict[str, float]:
+    skip_existing_outputs: bool,
+    replace_existing_outputs: bool,
+) -> dict[str, float | None]:
     """Run the full preprocessing sequence for a single subject.
 
     Returns
     -------
-    dict[str, float]
-        Mapping of step name to wall-clock duration in seconds.
+    dict[str, float | None]
+        Mapping of step name to duration in seconds, or ``None`` when skipped.
     """
     logger = build_logger(
         "preprocess",
@@ -92,56 +142,18 @@ def _run_subject_pipeline(
 
     logger.info(f"Beginning pre-processing for subject: {subject_id}")
 
-    durations: dict[str, float] = {}
+    durations: dict[str, float | None] = {}
 
     if run_recon and not convert_dicom and not create_m2m:
-        durations["FreeSurfer recon-all"] = _run_step(
-            "FreeSurfer recon-all",
-            lambda: run_recon_all(
-                project_dir,
-                subject_id,
-                logger=logger,
-                parallel=not parallel_recon,
-                runner=runner,
-            ),
-            logger,
+        should_run_recon = _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_RECON_ALL,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
         )
-    else:
-        if convert_dicom:
-            durations["DICOM Conversion"] = _run_step(
-                "DICOM conversion",
-                lambda: run_dicom_to_nifti(
-                    project_dir,
-                    subject_id,
-                    logger=logger,
-                    runner=runner,
-                ),
-                logger,
-            )
-
-        if create_m2m:
-            durations["SimNIBS charm"] = _run_step(
-                "SimNIBS charm",
-                lambda: run_charm(
-                    project_dir,
-                    subject_id,
-                    logger=logger,
-                    runner=runner,
-                ),
-                logger,
-            )
-            durations["Subject Atlas Segmentation"] = _run_step(
-                "Subject atlas segmentation",
-                lambda: run_subject_atlas(
-                    project_dir,
-                    subject_id,
-                    logger=logger,
-                    runner=runner,
-                ),
-                logger,
-            )
-
-        if run_recon:
+        if should_run_recon:
             durations["FreeSurfer recon-all"] = _run_step(
                 "FreeSurfer recon-all",
                 lambda: run_recon_all(
@@ -153,6 +165,86 @@ def _run_subject_pipeline(
                 ),
                 logger,
             )
+        else:
+            durations["FreeSurfer recon-all"] = None
+    else:
+        if convert_dicom:
+            if _should_run_output_step(
+                project_dir,
+                subject_id,
+                STEP_DICOM,
+                logger=logger,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
+            ):
+                durations["DICOM Conversion"] = _run_step(
+                    "DICOM conversion",
+                    lambda: run_dicom_to_nifti(
+                        project_dir,
+                        subject_id,
+                        logger=logger,
+                        runner=runner,
+                    ),
+                    logger,
+                )
+            else:
+                durations["DICOM Conversion"] = None
+
+        if create_m2m:
+            if _should_run_output_step(
+                project_dir,
+                subject_id,
+                STEP_CHARM,
+                logger=logger,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
+            ):
+                durations["SimNIBS charm"] = _run_step(
+                    "SimNIBS charm",
+                    lambda: run_charm(
+                        project_dir,
+                        subject_id,
+                        logger=logger,
+                        runner=runner,
+                    ),
+                    logger,
+                )
+                durations["Subject Atlas Segmentation"] = _run_step(
+                    "Subject atlas segmentation",
+                    lambda: run_subject_atlas(
+                        project_dir,
+                        subject_id,
+                        logger=logger,
+                        runner=runner,
+                    ),
+                    logger,
+                )
+            else:
+                durations["SimNIBS charm"] = None
+                durations["Subject Atlas Segmentation"] = None
+
+        if run_recon:
+            if _should_run_output_step(
+                project_dir,
+                subject_id,
+                STEP_RECON_ALL,
+                logger=logger,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
+            ):
+                durations["FreeSurfer recon-all"] = _run_step(
+                    "FreeSurfer recon-all",
+                    lambda: run_recon_all(
+                        project_dir,
+                        subject_id,
+                        logger=logger,
+                        parallel=not parallel_recon,
+                        runner=runner,
+                    ),
+                    logger,
+                )
+            else:
+                durations["FreeSurfer recon-all"] = None
 
     if run_tissue:
         durations["Tissue Analysis"] = _run_step(
@@ -169,62 +261,94 @@ def _run_subject_pipeline(
     # QSI pipeline steps (DWI preprocessing)
     if run_qsiprep_step:
         qsiprep_cfg = qsiprep_config or {}
-        durations["QSIPrep"] = _run_step(
-            "QSIPrep DWI preprocessing",
-            lambda: run_qsiprep(
-                project_dir,
-                subject_id,
-                logger=logger,
-                output_resolution=qsiprep_cfg.get(
-                    "output_resolution", const.QSI_DEFAULT_OUTPUT_RESOLUTION
+        if _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_QSIPREP,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        ):
+            durations["QSIPrep"] = _run_step(
+                "QSIPrep DWI preprocessing",
+                lambda: run_qsiprep(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                    output_resolution=qsiprep_cfg.get(
+                        "output_resolution", const.QSI_DEFAULT_OUTPUT_RESOLUTION
+                    ),
+                    cpus=qsiprep_cfg.get("cpus"),
+                    memory_gb=qsiprep_cfg.get("memory_gb"),
+                    omp_threads=qsiprep_cfg.get(
+                        "omp_threads", const.QSI_DEFAULT_OMP_THREADS
+                    ),
+                    image_tag=qsiprep_cfg.get("image_tag", const.QSI_QSIPREP_IMAGE_TAG),
+                    skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
+                    denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
+                    unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
+                    runner=runner,
                 ),
-                cpus=qsiprep_cfg.get("cpus"),
-                memory_gb=qsiprep_cfg.get("memory_gb"),
-                omp_threads=qsiprep_cfg.get(
-                    "omp_threads", const.QSI_DEFAULT_OMP_THREADS
-                ),
-                image_tag=qsiprep_cfg.get("image_tag", const.QSI_QSIPREP_IMAGE_TAG),
-                skip_bids_validation=qsiprep_cfg.get("skip_bids_validation", True),
-                denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
-                unringing_method=qsiprep_cfg.get("unringing_method", "mrdegibbs"),
-                runner=runner,
-            ),
-            logger,
-        )
+                logger,
+            )
+        else:
+            durations["QSIPrep"] = None
 
     if run_qsirecon_step:
         recon_cfg = qsi_recon_config or {}
         recon_specs = recon_cfg.get("recon_specs") if recon_cfg else None
         atlases = recon_cfg.get("atlases") if recon_cfg else None
-        durations["QSIRecon"] = _run_step(
-            "QSIRecon reconstruction",
-            lambda: run_qsirecon(
-                project_dir,
-                subject_id,
-                logger=logger,
-                recon_specs=recon_specs,
-                atlases=atlases,
-                use_gpu=recon_cfg.get("use_gpu", False),
-                cpus=recon_cfg.get("cpus"),
-                memory_gb=recon_cfg.get("memory_gb"),
-                omp_threads=recon_cfg.get("omp_threads", const.QSI_DEFAULT_OMP_THREADS),
-                image_tag=recon_cfg.get("image_tag", const.QSI_QSIRECON_IMAGE_TAG),
-                skip_odf_reports=recon_cfg.get("skip_odf_reports", True),
-                runner=runner,
-            ),
-            logger,
-        )
+        if _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_QSIRECON,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        ):
+            durations["QSIRecon"] = _run_step(
+                "QSIRecon reconstruction",
+                lambda: run_qsirecon(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                    recon_specs=recon_specs,
+                    atlases=atlases,
+                    use_gpu=recon_cfg.get("use_gpu", False),
+                    cpus=recon_cfg.get("cpus"),
+                    memory_gb=recon_cfg.get("memory_gb"),
+                    omp_threads=recon_cfg.get(
+                        "omp_threads", const.QSI_DEFAULT_OMP_THREADS
+                    ),
+                    image_tag=recon_cfg.get("image_tag", const.QSI_QSIRECON_IMAGE_TAG),
+                    skip_odf_reports=recon_cfg.get("skip_odf_reports", True),
+                    runner=runner,
+                ),
+                logger,
+            )
+        else:
+            durations["QSIRecon"] = None
 
     if extract_dti_step:
-        durations["DTI Tensor Extraction"] = _run_step(
-            "DTI tensor extraction",
-            lambda: extract_dti_tensor(
-                project_dir,
-                subject_id,
-                logger=logger,
-            ),
-            logger,
-        )
+        if _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_DTI,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        ):
+            durations["DTI Tensor Extraction"] = _run_step(
+                "DTI tensor extraction",
+                lambda: extract_dti_tensor(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                ),
+                logger,
+            )
+        else:
+            durations["DTI Tensor Extraction"] = None
 
     if run_subcortical:
         durations["Subcortical Segmentations"] = _run_step(
@@ -257,6 +381,8 @@ def run_pipeline(
     qsi_recon_config: dict | None = None,
     extract_dti: bool = False,
     run_subcortical_segmentations: bool = False,
+    skip_existing_outputs: bool = False,
+    replace_existing_outputs: bool = False,
     debug: bool = False,
     stop_event: object | None = None,
     logger_callback: Callable | None = None,
@@ -298,6 +424,10 @@ def run_pipeline(
         Extract DTI tensor for SimNIBS anisotropic conductivity.
     run_subcortical_segmentations : bool, optional
         Run thalamic-nuclei and hippocampal-subfield segmentations.
+    skip_existing_outputs : bool, optional
+        Skip selected preprocessing steps when their output already exists.
+    replace_existing_outputs : bool, optional
+        Remove selected existing outputs before rerunning their steps.
     debug : bool, optional
         Enable verbose logging.
     stop_event : object or None, optional
@@ -335,6 +465,10 @@ def run_pipeline(
     subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
     if not subject_list:
         raise PreprocessError("No subjects provided.")
+    if skip_existing_outputs and replace_existing_outputs:
+        raise PreprocessError(
+            "skip_existing_outputs and replace_existing_outputs cannot both be true."
+        )
 
     with track_operation(_const.TELEMETRY_OP_PRE_PIPELINE):
         return _run_pipeline_inner(
@@ -351,6 +485,8 @@ def run_pipeline(
             qsi_recon_config=qsi_recon_config,
             extract_dti=extract_dti,
             run_subcortical_segmentations=run_subcortical_segmentations,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
             debug=debug,
             stop_event=stop_event,
             logger_callback=logger_callback,
@@ -373,6 +509,8 @@ def _run_pipeline_inner(
     qsi_recon_config=None,
     extract_dti=False,
     run_subcortical_segmentations=False,
+    skip_existing_outputs=False,
+    replace_existing_outputs=False,
     debug=False,
     stop_event=None,
     logger_callback=None,
@@ -400,7 +538,9 @@ def _run_pipeline_inner(
         runner.stop_event = stop_event
 
     # Collect step durations per subject for reporting
-    all_durations: dict[str, dict[str, float]] = {sid: {} for sid in subject_list}
+    all_durations: dict[str, dict[str, float | None]] = {
+        sid: {} for sid in subject_list
+    }
 
     if parallel_recon and run_recon and len(subject_list) > 1:
         for sid in subject_list:
@@ -421,6 +561,8 @@ def _run_pipeline_inner(
                 debug=debug,
                 runner=runner,
                 callback=logger_callback,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
             )
             all_durations[sid].update(d)
 
@@ -448,6 +590,8 @@ def _run_pipeline_inner(
                         debug=debug,
                         runner=runner,
                         callback=logger_callback,
+                        skip_existing_outputs=skip_existing_outputs,
+                        replace_existing_outputs=replace_existing_outputs,
                     )
                 ] = sid
 
@@ -474,6 +618,8 @@ def _run_pipeline_inner(
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
+                    skip_existing_outputs=skip_existing_outputs,
+                    replace_existing_outputs=replace_existing_outputs,
                 )
                 all_durations[sid].update(d)
         # Run QSI steps after tissue analysis (if enabled)
@@ -496,6 +642,8 @@ def _run_pipeline_inner(
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
+                    skip_existing_outputs=skip_existing_outputs,
+                    replace_existing_outputs=replace_existing_outputs,
                 )
                 all_durations[sid].update(d)
         if run_subcortical_segmentations:
@@ -517,6 +665,8 @@ def _run_pipeline_inner(
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
+                    skip_existing_outputs=skip_existing_outputs,
+                    replace_existing_outputs=replace_existing_outputs,
                 )
                 all_durations[sid].update(d)
     else:
@@ -538,6 +688,8 @@ def _run_pipeline_inner(
                 debug=debug,
                 runner=runner,
                 callback=logger_callback,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
             )
             all_durations[sid].update(d)
 
@@ -555,7 +707,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="DICOM Conversion",
                 description="Convert DICOM files to NIfTI format",
-                status="completed",
+                status=_report_status(durations, "DICOM Conversion"),
                 duration=durations.get("DICOM Conversion"),
             )
 
@@ -563,13 +715,13 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="SimNIBS charm",
                 description="Create head mesh model for simulations",
-                status="completed",
+                status=_report_status(durations, "SimNIBS charm"),
                 duration=durations.get("SimNIBS charm"),
             )
             report_gen.add_processing_step(
                 step_name="Subject Atlas Segmentation",
                 description="Generate atlas-based parcellation",
-                status="completed",
+                status=_report_status(durations, "Subject Atlas Segmentation"),
                 duration=durations.get("Subject Atlas Segmentation"),
             )
 
@@ -577,7 +729,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="FreeSurfer recon-all",
                 description="Cortical surface reconstruction",
-                status="completed",
+                status=_report_status(durations, "FreeSurfer recon-all"),
                 duration=durations.get("FreeSurfer recon-all"),
             )
 
@@ -585,7 +737,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="Tissue Analysis",
                 description="Tissue segmentation and analysis",
-                status="completed",
+                status=_report_status(durations, "Tissue Analysis"),
                 duration=durations.get("Tissue Analysis"),
             )
 
@@ -593,7 +745,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="QSIPrep",
                 description="Diffusion MRI preprocessing",
-                status="completed",
+                status=_report_status(durations, "QSIPrep"),
                 duration=durations.get("QSIPrep"),
             )
 
@@ -601,7 +753,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="QSIRecon",
                 description="Diffusion MRI reconstruction",
-                status="completed",
+                status=_report_status(durations, "QSIRecon"),
                 duration=durations.get("QSIRecon"),
             )
 
@@ -609,7 +761,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="DTI Tensor Extraction",
                 description="Extract DTI tensors for anisotropic conductivity",
-                status="completed",
+                status=_report_status(durations, "DTI Tensor Extraction"),
                 duration=durations.get("DTI Tensor Extraction"),
             )
 
@@ -617,7 +769,7 @@ def _run_pipeline_inner(
             report_gen.add_processing_step(
                 step_name="Subcortical Segmentations",
                 description="Thalamic nuclei and hippocampal subfield segmentations",
-                status="completed",
+                status=_report_status(durations, "Subcortical Segmentations"),
                 duration=durations.get("Subcortical Segmentations"),
             )
 
