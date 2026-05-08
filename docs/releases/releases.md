@@ -6,7 +6,7 @@ permalink: /releases/
 
 ### v2.3.1 (Latest Release)
 
-**Release Date**: May 7, 2026
+**Release Date**: May 8, 2026
 
 A focused maintenance release for preprocessing robustness, GUI reliability, QSI container compatibility, flex-search validation tools, and NIfTI viewer usability.
 
@@ -33,7 +33,8 @@ A focused maintenance release for preprocessing robustness, GUI reliability, QSI
 ##### Preprocessing and QSI
 
 - **DICOM preprocessing hardening** — DICOM discovery now searches nested `.dcm`/`.dicom` files and supports basic compressed inputs (`.zip`, `.tar`, `.tar.gz`, `.tgz`) in the documented `sourcedata/sub-{id}/{T1w,T2w}/dicom/` layout.
-- **QSI existing-output notices and Docker preflight** — QSIPrep and QSIRecon now validate Docker/DooD setup early. If output already exists, the run logs a clear notice and skips that subject; remove the existing output directory first when an intentional rerun is needed.
+- **Preprocessing existing-output handling** — the GUI now detects existing outputs before rerunning DICOM conversion, CHARM, FreeSurfer `recon-all`, QSIPrep, QSIRecon, or DTI extraction. Users can cancel, skip existing outputs, or explicitly replace them and rerun. The same policy is available to scripts through `skip_existing_outputs` and `replace_existing_outputs`.
+- **QSI Docker preflight** — QSIPrep and QSIRecon now validate Docker/DooD setup early, before starting long-running container work.
 - **QSI containers updated** — QSIPrep and QSIRecon now target PennLINC `26.0.0`, with CLI compatibility handling for QSIPrep `concat` and QSIRecon `--input-type qsiprep`.
 
 ##### Telemetry and Release Operations

@@ -146,7 +146,16 @@ derivatives/
 | `run_qsirecon` | Run QSIRecon reconstruction via Docker | Optional |
 | `extract_dti` | Extract DTI tensors for SimNIBS anisotropic conductivity | Optional |
 | `run_subcortical_segmentations` | Run thalamic nuclei and hippocampal subfield segmentations | Optional |
+| `skip_existing_outputs` | Skip selected steps when their expected output already exists | Optional |
+| `replace_existing_outputs` | Delete selected existing outputs and rerun those steps | Optional |
 
+When launching from the GUI, TI-Toolbox checks for existing outputs before
+starting the selected preprocessing steps. If DICOM, CHARM, FreeSurfer,
+QSIPrep, QSIRecon, or DTI tensor outputs already exist, the GUI asks whether
+to cancel, skip the existing outputs, or replace them and rerun. In scripts,
+leave both existing-output options disabled to fail fast, set
+`skip_existing_outputs=True` to preserve existing results, or set
+`replace_existing_outputs=True` for an intentional rerun.
 
 ## Parallelization Strategy
 
