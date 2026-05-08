@@ -15,7 +15,6 @@ A focused maintenance release for preprocessing robustness, GUI reliability, QSI
 - **Telemetry error grouping** — operation telemetry now emits a per-run `run_id` plus a stable, path-sanitized `error_fingerprint`, making recurring failures easier to group without sending tracebacks or local paths.
 - **Telemetry-driven preflight checks** — common user/environment problems are validated before telemetry-tracked work starts for simulation, flex-search, and empty preprocessing subject selections, reducing noisy error reports while preserving real exceptions.
 - **QSI existing-output notices and Docker preflight** — QSIPrep and QSIRecon now validate Docker/DooD setup early. If output already exists, the run logs a clear notice and skips that subject; remove the existing output directory first when an intentional rerun is needed.
-- **Operational review artifact** — added a local HTML review page documenting the telemetry-hardening changes, examples, and companion dashboard automation.
 - **DICOM preprocessing hardening** — DICOM discovery now searches nested `.dcm`/`.dicom` files and supports basic compressed inputs (`.zip`, `.tar`, `.tar.gz`, `.tgz`) in the documented `sourcedata/sub-{id}/{T1w,T2w}/dicom/` layout.
 - **QSI containers updated** — QSIPrep and QSIRecon now target PennLINC `26.0.0`, with CLI compatibility handling for QSIPrep `concat` and QSIRecon `--input-type qsiprep`.
 - **Telemetry consent persistence** — GUI telemetry consent is stored in the user-level config mount and should no longer reappear every launch once answered.
