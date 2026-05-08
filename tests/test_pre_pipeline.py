@@ -465,9 +465,13 @@ class TestRunPipelineValidation:
     """Validation edge cases."""
 
     def test_empty_subject_list_raises(self):
-        with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline([])
+        with patch("tit.telemetry.track_event") as mock_track_event:
+            with pytest.raises(PreprocessError, match="No subjects"):
+                run_pipeline([])
+        mock_track_event.assert_not_called()
 
     def test_whitespace_only_subjects_raises(self):
-        with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline(["", "  ", "\t"])
+        with patch("tit.telemetry.track_event") as mock_track_event:
+            with pytest.raises(PreprocessError, match="No subjects"):
+                run_pipeline(["", "  ", "\t"])
+        mock_track_event.assert_not_called()

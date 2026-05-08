@@ -820,11 +820,55 @@ def run_simulation(
     # Determine dominant simulation type for telemetry
     from tit.telemetry import track_operation
 
+    _validate_simulation_inputs(config)
     has_mti = any(m.simulation_mode == SimulationMode.MTI for m in config.montages)
     _tel_op = const.TELEMETRY_OP_SIM_MTI if has_mti else const.TELEMETRY_OP_SIM_TI
 
     with track_operation(_tel_op):
         return _run_simulation_inner(config, logger, progress_callback)
+
+
+def _validate_simulation_inputs(config: SimulationConfig) -> None:
+    """Validate user-controlled simulation inputs before telemetry starts."""
+    if not config.montages:
+        raise ValueError("At least one montage is required for simulation.")
+
+    pm = get_path_manager()
+    m2m_dir = pm.m2m(config.subject_id)
+    if not os.path.isdir(m2m_dir):
+        raise ValueError(
+            f"SimNIBS m2m directory not found for subject {config.subject_id}: {m2m_dir}. "
+            "Run preprocessing/CHARM before simulation."
+        )
+
+    for montage in config.montages:
+        for pair in montage.electrode_pairs:
+            if len(pair) != 2:
+                raise ValueError(
+                    f"Montage {montage.name!r} has an invalid electrode pair {pair!r}; "
+                    "each pair must contain exactly two electrodes."
+                )
+
+        mode = montage.simulation_mode
+        required_currents = 2 if mode == SimulationMode.TI else montage.num_pairs
+        if len(config.intensities) < required_currents:
+            raise ValueError(
+                f"Montage {montage.name!r} requires {required_currents} current "
+                f"intensities; got {len(config.intensities)}."
+            )
+
+        if montage.is_xyz:
+            for pair in montage.electrode_pairs:
+                for pos in pair:
+                    _as_xyz(pos)
+        else:
+            if not montage.eeg_net:
+                raise ValueError(f"Montage {montage.name!r} requires an EEG net file.")
+            eeg_path = os.path.join(pm.eeg_positions(config.subject_id), montage.eeg_net)
+            if not os.path.isfile(eeg_path):
+                raise ValueError(
+                    f"EEG net file not found for montage {montage.name!r}: {eeg_path}"
+                )
 
 
 def _run_simulation_inner(

@@ -298,10 +298,18 @@ class TestRunSimulation:
         def _ctx():
             with (
                 patch.object(_utils_mod, "get_path_manager") as mock_pm,
+                patch.object(_utils_mod.os.path, "isdir", return_value=True),
+                patch.object(_utils_mod.os.path, "isfile", return_value=True),
+                patch(
+                    "tit.telemetry.track_operation",
+                    side_effect=lambda _op: contextlib.nullcontext(),
+                ),
                 patch.object(_ti_mod, "TISimulation") as mock_ti_cls,
                 patch.object(_mti_mod, "mTISimulation") as mock_mti_cls,
             ):
                 mock_pm.return_value.simulations.return_value = "/fake/sims"
+                mock_pm.return_value.m2m.return_value = "/fake/m2m"
+                mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
                 # Also need to patch the local imports in run_simulation.
                 # run_simulation does `from tit.sim.TI import TISimulation`
                 # which resolves to the already-imported module attribute.
@@ -424,8 +432,8 @@ class TestRunSimulation:
             config = _make_sim_config(montages=[])
             logger = MagicMock()
 
-            results = _utils_mod.run_simulation(config, logger=logger)
-            assert results == []
+            with pytest.raises(ValueError, match="At least one montage"):
+                _utils_mod.run_simulation(config, logger=logger)
             mock_ti_cls.assert_not_called()
             mock_mti_cls.assert_not_called()
 

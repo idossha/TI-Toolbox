@@ -18,6 +18,11 @@ MODULE = "tit.pre.qsi.qsirecon"
 class TestRunQsirecon:
     """Tests for run_qsirecon."""
 
+    @pytest.fixture(autouse=True)
+    def _docker_preflight_ok(self):
+        with patch(f"{MODULE}.validate_dood_environment", return_value=(True, None)):
+            yield
+
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
@@ -42,18 +47,20 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_existing_output_raises(
+    def test_existing_output_logs_and_returns(
         self, mock_validate, mock_builder, mock_pull, tmp_path
     ):
-        """Raises PreprocessError when output already exists."""
+        """Skips with a clear notice when output already exists."""
         out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
         out.mkdir(parents=True)
 
         runner = MagicMock()
         logger = MagicMock()
 
-        with pytest.raises(PreprocessError, match="already exists"):
-            run_qsirecon(str(tmp_path), "001", logger=logger, runner=runner)
+        run_qsirecon(str(tmp_path), "001", logger=logger, runner=runner)
+
+        logger.warning.assert_called_once()
+        runner.run.assert_not_called()
 
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))

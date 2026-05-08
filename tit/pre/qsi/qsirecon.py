@@ -16,7 +16,11 @@ from tit.pre.utils import CommandRunner, PreprocessError
 
 from .config import QSIReconConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
-from .utils import pull_image_if_needed, validate_qsiprep_output
+from .utils import (
+    pull_image_if_needed,
+    validate_dood_environment,
+    validate_qsiprep_output,
+)
 
 
 def run_qsirecon(
@@ -93,6 +97,11 @@ def run_qsirecon(
         logger.info(
             f"Starting QSIRecon for subject {subject_id} with specs: {recon_specs}, atlases: {atlases}"
         )
+        ok, preflight_error = validate_dood_environment(
+            project_dir, require_gpu=use_gpu
+        )
+        if not ok:
+            raise PreprocessError(f"QSI Docker preflight failed: {preflight_error}")
 
         # Validate QSIPrep output exists
         is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
@@ -141,10 +150,12 @@ def run_qsirecon(
         # Check for existing output before starting any specs
         subject_output_dir = output_base / f"sub-{subject_id}"
         if subject_output_dir.exists():
-            raise PreprocessError(
-                f"QSIRecon output already exists at {subject_output_dir}. "
-                "Remove the directory manually before rerunning."
+            logger.warning(
+                "QSIRecon output already exists at %s. Skipping this subject. "
+                "To rerun QSIRecon, remove the existing output directory first.",
+                subject_output_dir,
             )
+            return
 
         # Run each recon spec
         for spec in recon_specs:

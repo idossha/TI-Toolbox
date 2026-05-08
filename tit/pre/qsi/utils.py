@@ -11,6 +11,7 @@ for the QSI Docker-out-of-Docker integration.
 import logging
 import math
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -160,6 +161,53 @@ def pull_image_if_needed(image: str, tag: str, logger: logging.Logger) -> bool:
     except (FileNotFoundError, OSError) as e:
         logger.error(f"Error pulling {full_image}: {e}")
         return False
+
+
+def validate_dood_environment(
+    project_dir: str,
+    *,
+    require_gpu: bool = False,
+) -> tuple[bool, str | None]:
+    """Validate Docker-outside-of-Docker prerequisites before QSI runs."""
+    if shutil.which("docker") is None:
+        return False, "Docker CLI not found in PATH."
+
+    local_project_dir = os.environ.get(const.ENV_LOCAL_PROJECT_DIR)
+    if not local_project_dir:
+        return (
+            False,
+            f"{const.ENV_LOCAL_PROJECT_DIR} is not set; sibling Docker containers "
+            "cannot mount the host project directory.",
+        )
+
+    if not Path(project_dir).exists():
+        return False, f"Project directory does not exist: {project_dir}"
+
+    if not Path(local_project_dir).exists():
+        return False, f"Host project directory does not exist: {local_project_dir}"
+
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "Docker did not respond to `docker info` within 15 seconds."
+    except OSError as exc:
+        return False, f"Docker is not accessible: {exc}"
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "docker info failed").strip()
+        return False, f"Docker daemon is not accessible: {detail}"
+
+    if require_gpu:
+        docker_info = f"{result.stdout}\n{result.stderr}".lower()
+        if "nvidia" not in docker_info:
+            return False, "Docker GPU runtime is not available."
+
+    return True, None
 
 
 def validate_bids_dwi(

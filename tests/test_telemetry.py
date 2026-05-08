@@ -391,6 +391,7 @@ class TestTrackOperation:
         assert len(payloads) == 2
         params_by_status = _operation_params_by_status(payloads)
         assert set(params_by_status) == {"start", "success"}
+        assert params_by_status["start"]["run_id"] == params_by_status["success"]["run_id"]
 
     def test_success_includes_duration(self, monkeypatch):
         self._force_enabled(monkeypatch)
@@ -419,7 +420,21 @@ class TestTrackOperation:
         error_params = _operation_params_by_status(payloads)["error"]
         assert error_params["error_type"] == "ValueError"
         assert error_params["error_detail"] == "boom"
+        assert len(error_params["error_fingerprint"]) == 16
         assert "duration_s" in error_params
+
+    def test_error_run_id_links_start_and_error(self, monkeypatch):
+        self._force_enabled(monkeypatch)
+        payloads = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
+            with pytest.raises(ValueError):
+                with track_operation("sim_ti"):
+                    raise ValueError("boom")
+
+        _wait_for_telemetry_threads()
+
+        params_by_status = _operation_params_by_status(payloads)
+        assert params_by_status["start"]["run_id"] == params_by_status["error"]["run_id"]
 
     def test_error_detail_strips_paths(self, monkeypatch):
         self._force_enabled(monkeypatch)
@@ -434,6 +449,19 @@ class TestTrackOperation:
         detail = _operation_params_by_status(payloads)["error"]["error_detail"]
         assert "/home" not in detail
         assert "<path>" in detail
+
+    def test_error_detail_falls_back_for_empty_exception_message(self, monkeypatch):
+        self._force_enabled(monkeypatch)
+        payloads = []
+        with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
+            with pytest.raises(TypeError):
+                with track_operation("sim_ti"):
+                    raise TypeError()
+
+        _wait_for_telemetry_threads()
+
+        detail = _operation_params_by_status(payloads)["error"]["error_detail"]
+        assert detail.startswith("TypeError in ")
 
     def test_exception_is_reraised(self, monkeypatch):
         self._force_enabled(monkeypatch)

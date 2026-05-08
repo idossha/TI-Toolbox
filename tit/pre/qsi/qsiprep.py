@@ -19,6 +19,7 @@ from .config import QSIPrepConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
 from .utils import (
     pull_image_if_needed,
+    validate_dood_environment,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
@@ -82,6 +83,9 @@ def run_qsiprep(
 
     with track_operation(_const.TELEMETRY_OP_PRE_QSIPREP):
         logger.info(f"Starting QSIPrep for subject {subject_id}")
+        ok, preflight_error = validate_dood_environment(project_dir)
+        if not ok:
+            raise PreprocessError(f"QSI Docker preflight failed: {preflight_error}")
 
         # Validate DWI data exists
         is_valid, error_msg = validate_bids_dwi(project_dir, subject_id, logger)
@@ -92,12 +96,18 @@ def run_qsiprep(
         output_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
 
         if output_dir.exists():
-            existing_valid, _ = validate_qsiprep_output(project_dir, subject_id)
-            if existing_valid:
-                raise PreprocessError(
-                    f"QSIPrep output already exists at {output_dir}. "
-                    "Remove the directory manually before rerunning."
-                )
+            existing_valid, existing_error = validate_qsiprep_output(
+                project_dir, subject_id
+            )
+            reason = "complete" if existing_valid else f"incomplete ({existing_error})"
+            logger.warning(
+                "QSIPrep output already exists at %s and is %s. "
+                "Skipping this subject. To rerun QSIPrep, remove the existing "
+                "output directory first.",
+                output_dir,
+                reason,
+            )
+            return
 
         # Create output directories
         output_dir.parent.mkdir(parents=True, exist_ok=True)

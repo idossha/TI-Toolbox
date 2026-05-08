@@ -47,6 +47,7 @@ tit.constants : ``GA4_MEASUREMENT_ID``, ``GA4_API_SECRET``, and event names.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -56,6 +57,7 @@ import ssl
 import sys
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.request
 import uuid
@@ -426,6 +428,30 @@ def _send_ga4(payload: dict[str, Any]) -> None:
         pass  # Network issues, firewall, DNS — silently drop
 
 
+def _error_fingerprint(exc: BaseException) -> str:
+    """Return a stable, non-reversible fingerprint for an exception."""
+    frames = traceback.extract_tb(exc.__traceback__)
+    frame = frames[-1] if frames else None
+    location = "<unknown>"
+    if frame is not None:
+        location = f"{Path(frame.filename).name}:{frame.name}:{frame.lineno}"
+    detail = re.sub(r"/\S+", "<path>", str(exc))[:80]
+    signature = f"{type(exc).__name__}|{location}|{detail}"
+    return hashlib.sha256(signature.encode("utf-8")).hexdigest()[:16]
+
+
+def _error_detail(exc: BaseException) -> str:
+    """Return a short, path-sanitized exception detail for telemetry."""
+    detail = re.sub(r"/\S+", "<path>", str(exc)).strip()[:80]
+    if detail:
+        return detail
+    frames = traceback.extract_tb(exc.__traceback__)
+    frame = frames[-1] if frames else None
+    if frame is None:
+        return f"{type(exc).__name__} with no message"
+    return f"{type(exc).__name__} in {Path(frame.filename).name}:{frame.name}"
+
+
 def track_event(
     event_name: str,
     params: dict[str, str | int] | None = None,
@@ -515,19 +541,21 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
     >>> with track_operation("sim_ti"):
     ...     run_simulation(config)
     """
-    track_event(op_name, {"status": "start"})
+    run_id = uuid.uuid4().hex
+    track_event(op_name, {"status": "start", "run_id": run_id})
     t0 = time.monotonic()
     try:
         yield
     except Exception as exc:
         duration_s = int(round(time.monotonic() - t0))
-        detail = re.sub(r"/\S+", "<path>", str(exc))[:80]
         track_event(
             op_name,
             {
                 "status": "error",
+                "run_id": run_id,
                 "error_type": type(exc).__name__,
-                "error_detail": detail,
+                "error_detail": _error_detail(exc),
+                "error_fingerprint": _error_fingerprint(exc),
                 "duration_s": duration_s,
             },
             _blocking=True,
@@ -536,7 +564,9 @@ def track_operation(op_name: str) -> Generator[None, None, None]:
     else:
         duration_s = int(round(time.monotonic() - t0))
         track_event(
-            op_name, {"status": "success", "duration_s": duration_s}, _blocking=True
+            op_name,
+            {"status": "success", "run_id": run_id, "duration_s": duration_s},
+            _blocking=True,
         )
 
 

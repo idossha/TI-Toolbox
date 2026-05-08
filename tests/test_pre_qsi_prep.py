@@ -14,6 +14,11 @@ MODULE = "tit.pre.qsi.qsiprep"
 class TestRunQsiprep:
     """Tests for run_qsiprep."""
 
+    @pytest.fixture(autouse=True)
+    def _docker_preflight_ok(self):
+        with patch(f"{MODULE}.validate_dood_environment", return_value=(True, None)):
+            yield
+
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
@@ -45,13 +50,17 @@ class TestRunQsiprep:
 
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_existing_output_raises(self, mock_dwi, mock_output, tmp_path):
-        """Raises PreprocessError when valid output already exists."""
+    def test_existing_output_logs_and_returns(self, mock_dwi, mock_output, tmp_path):
+        """Skips with a clear notice when output already exists."""
         out = tmp_path / "derivatives" / "qsiprep" / "sub-001"
         out.mkdir(parents=True)
+        logger = MagicMock()
 
-        with pytest.raises(PreprocessError, match="already exists"):
-            run_qsiprep(str(tmp_path), "001", logger=MagicMock())
+        with patch(f"{MODULE}.DockerCommandBuilder") as mock_builder:
+            run_qsiprep(str(tmp_path), "001", logger=logger)
+
+        logger.warning.assert_called_once()
+        mock_builder.assert_not_called()
 
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
@@ -126,20 +135,18 @@ class TestRunQsiprep:
 
     @patch(f"{MODULE}.validate_qsiprep_output")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_existing_invalid_output_continues(self, mock_dwi, mock_output, tmp_path):
-        """Continues when existing output is invalid (incomplete previous run)."""
+    def test_existing_invalid_output_logs_and_returns(
+        self, mock_dwi, mock_output, tmp_path
+    ):
+        """Skips incomplete existing output with a clear notice."""
         out = tmp_path / "derivatives" / "qsiprep" / "sub-001"
         out.mkdir(parents=True)
+        logger = MagicMock()
+        mock_output.return_value = (False, "incomplete")
 
-        # First call for existing check returns invalid, second for final validation
-        mock_output.side_effect = [(False, "incomplete"), (True, None)]
+        with patch(f"{MODULE}.DockerCommandBuilder") as mock_builder:
+            run_qsiprep(str(tmp_path), "001", logger=logger, runner=MagicMock())
 
-        with (
-            patch(f"{MODULE}.DockerCommandBuilder") as mock_builder,
-            patch(f"{MODULE}.pull_image_if_needed", return_value=True),
-        ):
-            mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
-            runner = MagicMock()
-            runner.run.return_value = 0
-
-            run_qsiprep(str(tmp_path), "001", logger=MagicMock(), runner=runner)
+        logger.warning.assert_called_once()
+        assert logger.warning.call_args.args[2] == "incomplete (incomplete)"
+        mock_builder.assert_not_called()

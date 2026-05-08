@@ -61,8 +61,33 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     from tit.telemetry import track_operation
     from tit import constants as const
 
+    _validate_flex_inputs(config)
     with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
         return _run_flex_search_inner(config)
+
+
+def _validate_flex_inputs(config: FlexConfig) -> None:
+    """Validate user-controlled flex-search inputs before telemetry starts."""
+    pm = get_path_manager()
+    m2m_dir = pm.m2m(config.subject_id)
+    if not os.path.isdir(m2m_dir):
+        raise ValueError(
+            f"SimNIBS m2m directory not found for subject {config.subject_id}: {m2m_dir}. "
+            "Run preprocessing/CHARM before flex-search."
+        )
+    if config.cpus is not None and config.cpus < 1:
+        raise ValueError("Flex-search cpus must be >= 1.")
+    if config.n_multistart < 1:
+        raise ValueError("Flex-search n_multistart must be >= 1.")
+    if config.min_electrode_distance <= 0:
+        raise ValueError("min_electrode_distance must be positive.")
+
+    for label, roi in (("ROI", config.roi), ("non-ROI", config.non_roi)):
+        if roi is None:
+            continue
+        atlas_path = getattr(roi, "atlas_path", None)
+        if atlas_path and not os.path.isfile(atlas_path):
+            raise ValueError(f"{label} atlas file not found: {atlas_path}")
 
 
 def _run_flex_search_inner(config: FlexConfig) -> FlexResult:

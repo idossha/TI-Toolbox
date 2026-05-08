@@ -5,6 +5,12 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
+# Some legacy tests install MagicMock placeholders for heavy scientific modules.
+# Flex-search exercises NumPy array comparisons, so make sure this module imports
+# the real NumPy package even when run after those tests in the same process.
+if isinstance(sys.modules.get("numpy"), MagicMock):
+    del sys.modules["numpy"]
+
 import numpy as np
 import pytest
 
@@ -54,6 +60,8 @@ class TestRunFlexSearch:
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()
@@ -81,6 +89,8 @@ class TestRunFlexSearch:
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
         mock_gpm.return_value = pm
 
         values = [-0.020, -0.035, -0.015]
@@ -117,6 +127,8 @@ class TestRunFlexSearch:
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()
@@ -142,6 +154,8 @@ class TestRunFlexSearch:
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()

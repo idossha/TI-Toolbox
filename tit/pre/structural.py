@@ -332,9 +332,13 @@ def run_pipeline(
     from tit.telemetry import track_operation
     from tit import constants as _const
 
+    subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
+    if not subject_list:
+        raise PreprocessError("No subjects provided.")
+
     with track_operation(_const.TELEMETRY_OP_PRE_PIPELINE):
         return _run_pipeline_inner(
-            subject_ids,
+            subject_list,
             convert_dicom=convert_dicom,
             run_recon=run_recon,
             parallel_recon=parallel_recon,
@@ -375,9 +379,7 @@ def _run_pipeline_inner(
     runner=None,
 ) -> int:
     """Inner implementation of :func:`run_pipeline`."""
-    subject_list = [str(s).strip() for s in subject_ids if str(s).strip()]
-    if not subject_list:
-        raise PreprocessError("No subjects provided.")
+    subject_list = list(subject_ids)
 
     pm = get_path_manager()
     project_dir = pm._root()
