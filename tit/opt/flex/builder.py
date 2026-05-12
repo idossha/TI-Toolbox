@@ -347,6 +347,7 @@ def generate_report(
             "volume_atlas": (
                 os.path.basename(roi.atlas_path) if roi.atlas_path else None
             ),
+            "volume_atlas_space": roi.atlas_space,
             "volume_label": roi.label,
         }
         if (
@@ -360,6 +361,7 @@ def generate_report(
                     "non_roi_atlas": (
                         os.path.basename(nr.atlas_path) if nr.atlas_path else None
                     ),
+                    "non_roi_atlas_space": nr.atlas_space,
                     "non_roi_label": nr.label,
                 }
             )

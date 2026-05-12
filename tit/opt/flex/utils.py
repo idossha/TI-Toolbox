@@ -27,6 +27,8 @@ log = logging.getLogger(__name__)
 
 from tit.opt.config import FlexConfig
 
+_VOLUME_MASK_SPACES = {"subject", "mni"}
+
 # ---------------------------------------------------------------------------
 # Output directory naming
 # ---------------------------------------------------------------------------
@@ -218,31 +220,36 @@ def _resolve_tissues(tissues_str: str) -> list:
     return [ElementTags.GM]
 
 
-def _resolve_sphere_center(roi_spec, opt):
-    """Return ``[x, y, z]`` in subject space, transforming from MNI if needed."""
-    from simnibs import mni2subject_coords
+def _sphere_center(roi_spec: FlexConfig.SphericalROI) -> list[float]:
+    return [roi_spec.x, roi_spec.y, roi_spec.z]
 
-    x, y, z = roi_spec.x, roi_spec.y, roi_spec.z
-    if roi_spec.use_mni:
-        log.info(f"Transforming MNI coordinates [{x}, {y}, {z}] to subject space")
-        coords = mni2subject_coords([x, y, z], opt.subpath)
-        log.info(f"Transformed coordinates: {coords}")
-        return coords
-    return [x, y, z]
+
+def _sphere_center_space(roi_spec: FlexConfig.SphericalROI) -> str:
+    return "mni" if roi_spec.use_mni else "subject"
+
+
+def _volume_mask_space(roi_spec: FlexConfig.SubcorticalROI) -> str:
+    if roi_spec.atlas_space not in _VOLUME_MASK_SPACES:
+        raise ValueError(
+            f"atlas_space must be one of {sorted(_VOLUME_MASK_SPACES)} "
+            f"(was {roi_spec.atlas_space!r})"
+        )
+    return roi_spec.atlas_space
 
 
 def _configure_spherical_roi(opt, config: FlexConfig) -> None:
-    """Set up a spherical ROI (surface or volumetric) with optional MNI transform."""
+    """Set up a spherical ROI (surface or volumetric)."""
     roi_spec: FlexConfig.SphericalROI = config.roi  # type: ignore[assignment]
 
-    center = _resolve_sphere_center(roi_spec, opt)
+    center = _sphere_center(roi_spec)
+    center_space = _sphere_center_space(roi_spec)
     radius = roi_spec.radius
 
     roi = opt.add_roi()
     if roi_spec.volumetric:
         log.info(
             f"Using volumetric sphere (tissues={roi_spec.tissues}) "
-            f"at {center} r={radius}"
+            f"at {center} ({center_space}) r={radius}"
         )
         roi.method = "volume"
         roi.tissues = _resolve_tissues(roi_spec.tissues)
@@ -250,7 +257,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
         roi.method = "surface"
         roi.surface_type = "central"
 
-    roi.roi_sphere_center_space = "subject"
+    roi.roi_sphere_center_space = center_space
     roi.roi_sphere_center = center
     roi.roi_sphere_radius = radius
 
@@ -265,7 +272,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
             non_roi.surface_type = "central"
 
         if config.non_roi_method == "everything_else":
-            non_roi.roi_sphere_center_space = "subject"
+            non_roi.roi_sphere_center_space = center_space
             non_roi.roi_sphere_center = center
             non_roi.roi_sphere_radius = radius
             non_roi.roi_sphere_operator = ["difference"]
@@ -273,8 +280,8 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
         else:
             # Specific non-ROI from config.non_roi (unified ROISpec type)
             non_roi_spec: FlexConfig.SphericalROI = config.non_roi  # type: ignore[assignment]
-            non_roi.roi_sphere_center = _resolve_sphere_center(non_roi_spec, opt)
-            non_roi.roi_sphere_center_space = "subject"
+            non_roi.roi_sphere_center = _sphere_center(non_roi_spec)
+            non_roi.roi_sphere_center_space = _sphere_center_space(non_roi_spec)
             non_roi.roi_sphere_radius = non_roi_spec.radius
             non_roi.weight = -1
 
@@ -322,6 +329,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
 
     volume_atlas_path = roi_spec.atlas_path
     label_val = roi_spec.label
+    mask_space = _volume_mask_space(roi_spec)
 
     if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
         raise FileNotFoundError(f"Volume atlas file not found: {volume_atlas_path}")
@@ -330,7 +338,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
 
     roi = opt.add_roi()
     roi.method = "volume"
-    roi.mask_space = ["subject"]
+    roi.mask_space = [mask_space]
     roi.mask_path = [volume_atlas_path]
     roi.mask_value = [label_val]
     roi.tissues = tissues
@@ -354,7 +362,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
                 raise FileNotFoundError(
                     f"Non-ROI volume atlas not found: {non_roi_spec.atlas_path}"
                 )
-            non_roi.mask_space = ["subject"]
+            non_roi.mask_space = [_volume_mask_space(non_roi_spec)]
             non_roi.mask_path = [non_roi_spec.atlas_path]
             non_roi.mask_value = [non_roi_spec.label]
             non_roi.weight = -1

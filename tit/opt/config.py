@@ -22,6 +22,7 @@ tit.opt.ex.ex.run_ex_search : Consumes :class:`ExConfig`.
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
 
 # ── Flex-search config ───────────────────────────────────────────────────────
 
@@ -196,8 +197,8 @@ class FlexConfig:
         radius : float
             Sphere radius in mm.
         use_mni : bool
-            If True, coordinates are in MNI space and will be transformed
-            to subject space automatically.
+            If True, coordinates are in MNI space and SimNIBS will transform
+            them to subject space during ROI setup.
         volumetric : bool
             If True, evaluate on volume tetrahedra instead of the cortical
             surface.
@@ -245,11 +246,15 @@ class FlexConfig:
         tissues : str
             Tissue compartments to include.  One of ``"GM"``, ``"WM"``,
             or ``"both"``.
+        atlas_space : str
+            Space of the atlas NIfTI.  One of ``"subject"`` or ``"mni"``.
+            MNI-space masks are transformed by SimNIBS during ROI setup.
         """
 
         atlas_path: str
         label: int
         tissues: str = "GM"  # "GM", "WM", or "both"
+        atlas_space: Literal["subject", "mni"] = "subject"
 
     # ── Nested electrode config ───────────────────────────────────────
 

@@ -67,9 +67,6 @@ class TestConfigureSphericalROI:
 
     def test_spherical_with_mni(self):
         from tit.opt.flex.utils import configure_roi
-        import simnibs
-
-        simnibs.mni2subject_coords = MagicMock(return_value=[11, 21, 31])
 
         opt = MagicMock()
         roi_mock = MagicMock()
@@ -80,14 +77,11 @@ class TestConfigureSphericalROI:
         )
         configure_roi(opt, config)
 
-        simnibs.mni2subject_coords.assert_called_once()
-        assert roi_mock.roi_sphere_center == [11, 21, 31]
+        assert roi_mock.roi_sphere_center_space == "mni"
+        assert roi_mock.roi_sphere_center == [-42, -20, 55]
 
     def test_spherical_focality_everything_else(self):
         from tit.opt.flex.utils import configure_roi
-        import simnibs
-
-        simnibs.mni2subject_coords = MagicMock(return_value=[10, 20, 30])
 
         opt = MagicMock()
         roi_mock = MagicMock()
@@ -107,9 +101,6 @@ class TestConfigureSphericalROI:
 
     def test_spherical_focality_specific(self):
         from tit.opt.flex.utils import configure_roi
-        import simnibs
-
-        simnibs.mni2subject_coords = MagicMock(return_value=[10, 20, 30])
 
         opt = MagicMock()
         roi_mock = MagicMock()
@@ -130,15 +121,6 @@ class TestConfigureSphericalROI:
 
     def test_spherical_focality_specific_mni_non_roi(self):
         from tit.opt.flex.utils import configure_roi
-        import simnibs
-
-        call_count = [0]
-
-        def mock_mni2subject(coords, subpath):
-            call_count[0] += 1
-            return [c + 1 for c in coords]
-
-        simnibs.mni2subject_coords = mock_mni2subject
 
         opt = MagicMock()
         roi_mock = MagicMock()
@@ -153,7 +135,10 @@ class TestConfigureSphericalROI:
         )
         configure_roi(opt, config)
 
-        assert call_count[0] == 2  # Both ROI and non-ROI transformed
+        assert roi_mock.roi_sphere_center_space == "mni"
+        assert roi_mock.roi_sphere_center == [10, 20, 30]
+        assert non_roi_mock.roi_sphere_center_space == "mni"
+        assert non_roi_mock.roi_sphere_center == [-10, -20, -30]
 
     def test_zero_coords_no_warning(self):
         """(0,0,0) in subject space is valid — no warning should be emitted."""
@@ -252,9 +237,6 @@ class TestConfigureSphericalROI:
 
     def test_volumetric_sphere_with_mni(self):
         from tit.opt.flex.utils import configure_roi
-        import simnibs
-
-        simnibs.mni2subject_coords = MagicMock(return_value=[-25, -5, -21])
 
         opt = MagicMock()
         roi_mock = MagicMock()
@@ -268,9 +250,9 @@ class TestConfigureSphericalROI:
         )
         configure_roi(opt, config)
 
-        simnibs.mni2subject_coords.assert_called_once()
         assert roi_mock.method == "volume"
-        assert roi_mock.roi_sphere_center == [-25, -5, -21]
+        assert roi_mock.roi_sphere_center_space == "mni"
+        assert roi_mock.roi_sphere_center == [-24, -4, -20]
         assert len(roi_mock.tissues) == 1
 
 
@@ -372,6 +354,49 @@ class TestConfigureSubcorticalROI:
         assert roi_mock.mask_path == [str(atlas_file)]
         assert roi_mock.mask_value == [11]
 
+    def test_mni_subcortical(self, tmp_path):
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "mni_atlas.nii.gz"
+        atlas_file.write_text("fake")
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SubcorticalROI(
+                atlas_path=str(atlas_file),
+                label=11,
+                atlas_space="mni",
+                tissues="GM",
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.method == "volume"
+        assert roi_mock.mask_space == ["mni"]
+        assert roi_mock.mask_path == [str(atlas_file)]
+        assert roi_mock.mask_value == [11]
+
+    def test_subcortical_rejects_unknown_atlas_space(self, tmp_path):
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "atlas.nii.gz"
+        atlas_file.write_text("fake")
+
+        opt = MagicMock()
+        config = _make_config(
+            roi=SubcorticalROI(
+                atlas_path=str(atlas_file),
+                label=11,
+                atlas_space="native",  # type: ignore[arg-type]
+            ),
+        )
+
+        with pytest.raises(ValueError, match="atlas_space"):
+            configure_roi(opt, config)
+
     def test_subcortical_missing_atlas(self):
         from tit.opt.flex.utils import configure_roi
 
@@ -428,6 +453,36 @@ class TestConfigureSubcorticalROI:
         assert non_roi_mock.mask_path == [str(non_roi_file)]
         assert non_roi_mock.mask_value == [22]
         assert non_roi_mock.weight == -1
+
+    def test_subcortical_focality_specific_preserves_non_roi_atlas_space(
+        self, tmp_path
+    ):
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "aseg.nii.gz"
+        atlas_file.write_text("fake")
+        non_roi_file = tmp_path / "mni_atlas.nii.gz"
+        non_roi_file.write_text("fake")
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="specific",
+            roi=SubcorticalROI(atlas_path=str(atlas_file), label=11),
+            non_roi=SubcorticalROI(
+                atlas_path=str(non_roi_file),
+                label=22,
+                atlas_space="mni",
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.mask_space == ["subject"]
+        assert non_roi_mock.mask_space == ["mni"]
 
     def test_subcortical_focality_specific_missing_non_roi(self, tmp_path):
         from tit.opt.flex.utils import configure_roi

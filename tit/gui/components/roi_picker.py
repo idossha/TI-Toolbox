@@ -13,7 +13,7 @@ from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.paths import get_path_manager
-from tit.atlas import MeshAtlasManager, VoxelAtlasManager
+from tit.atlas import MNI_ATLAS_DIR, MeshAtlasManager, VoxelAtlasManager
 from tit.gui.style import FONT_HELP, FONT_SIZE_MONOSPACE
 from tit.opt.config import FlexConfig
 
@@ -309,6 +309,25 @@ class ROIPickerWidget(QtWidgets.QWidget):
         layout.setContentsMargins(0, 5, 0, 5)
 
         # Volume atlas combo + refresh + list regions
+        source_widget = QtWidgets.QWidget()
+        source_layout = QtWidgets.QHBoxLayout(source_widget)
+        source_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.volume_subject_radio = QtWidgets.QRadioButton("Subject Space")
+        self.volume_mni_radio = QtWidgets.QRadioButton("MNI Space")
+        self.volume_subject_radio.setChecked(True)
+        self._volume_space_group = QtWidgets.QButtonGroup(self)
+        self._volume_space_group.addButton(self.volume_subject_radio)
+        self._volume_space_group.addButton(self.volume_mni_radio)
+        self.volume_mni_radio.setToolTip(
+            "Use an atlas from resources/atlas in MNI space. SimNIBS transforms "
+            "the selected label to subject space during flex optimization."
+        )
+        source_layout.addWidget(self.volume_subject_radio)
+        source_layout.addWidget(self.volume_mni_radio)
+        source_layout.addStretch()
+        layout.addRow(QtWidgets.QLabel("Atlas Space:"), source_widget)
+
         volume_widget = QtWidgets.QWidget()
         volume_layout = QtWidgets.QHBoxLayout(volume_widget)
         volume_layout.setContentsMargins(0, 0, 0, 0)
@@ -378,6 +397,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.list_regions_btn.clicked.connect(self._on_list_atlas_regions)
         self.refresh_volume_btn.clicked.connect(self._refresh_volume_atlases)
         self.list_volume_regions_btn.clicked.connect(self._on_list_volume_regions)
+        self.volume_subject_radio.toggled.connect(self._refresh_volume_atlases)
+        self.volume_mni_radio.toggled.connect(self._refresh_volume_atlases)
 
         # Emit roi_changed on any value change
         self.x_input.valueChanged.connect(self.roi_changed)
@@ -390,6 +411,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.hemi_combo.currentIndexChanged.connect(self.roi_changed)
         self.label_value_input.valueChanged.connect(self.roi_changed)
         self.volume_atlas_combo.currentIndexChanged.connect(self.roi_changed)
+        self.volume_subject_radio.toggled.connect(self.roi_changed)
+        self.volume_mni_radio.toggled.connect(self.roi_changed)
         self.volume_label_input.valueChanged.connect(self.roi_changed)
         self.tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self._mode_group.buttonClicked.connect(lambda: self.roi_changed.emit())
@@ -511,6 +534,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return {
                 "method": "subcortical",
                 "volume_atlas": self.volume_atlas_combo.currentText(),
+                "volume_atlas_space": self._selected_volume_atlas_space(),
                 "volume_region": str(self.volume_label_input.value()),
                 "tissues": self.tissue_combo.currentData(),
             }
@@ -558,18 +582,12 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 hemisphere=hemi,
             )
         else:  # subcortical
-            atlas_filename = self.volume_atlas_combo.currentText()
-            if atlas_filename == "labeling.nii.gz":
-                volume_atlas_path = os.path.join(seg_dir, atlas_filename)
-            else:
-                pm = get_path_manager()
-                volume_atlas_path = os.path.join(
-                    pm.freesurfer_mri(subject_id), atlas_filename
-                )
+            volume_atlas_path = self._selected_volume_atlas_path(subject_id, seg_dir)
             return FlexConfig.SubcorticalROI(
                 atlas_path=volume_atlas_path,
                 label=int(self.volume_label_input.value()),
                 tissues=self.tissue_combo.currentData(),
+                atlas_space=self._selected_volume_atlas_space(),
             )
 
     def is_mni_space(self) -> bool:
@@ -647,7 +665,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 self.atlases[("rh", atlas_name)] = rh_atlases[atlas_name]
 
     def _refresh_volume_atlases(self):
-        """Discover volumetric atlas files for the current subject."""
+        """Discover volumetric atlas files for the selected atlas space."""
         if self._subject_id is None or self._project_dir is None:
             return
 
@@ -655,22 +673,52 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volume_atlas_combo.clear()
 
         try:
-            pm = get_path_manager()
-            m2m_dir = pm.m2m(self._subject_id)
-            if not m2m_dir:
-                return
-            seg_dir = str(Path(m2m_dir) / "segmentation")
-            voxel_mgr = VoxelAtlasManager(
-                freesurfer_mri_dir=pm.freesurfer_mri(self._subject_id),
-                seg_dir=seg_dir,
-            )
-            atlases = voxel_mgr.list_atlases()
+            if self._selected_volume_atlas_space() == "mni":
+                atlases = [
+                    (os.path.basename(path), path)
+                    for path in VoxelAtlasManager.detect_mni_atlases(
+                        self._mni_atlas_dir()
+                    )
+                ]
+            else:
+                pm = get_path_manager()
+                m2m_dir = pm.m2m(self._subject_id)
+                if not m2m_dir:
+                    return
+                seg_dir = str(Path(m2m_dir) / "segmentation")
+                voxel_mgr = VoxelAtlasManager(
+                    freesurfer_mri_dir=pm.freesurfer_mri(self._subject_id),
+                    seg_dir=seg_dir,
+                )
+                atlases = voxel_mgr.list_atlases()
         except Exception:
             return
 
         self.volume_atlases = {name: path for name, path in atlases}
-        for name in self.volume_atlases:
-            self.volume_atlas_combo.addItem(name)
+        for name, path in self.volume_atlases.items():
+            self.volume_atlas_combo.addItem(name, path)
+
+    def _selected_volume_atlas_space(self) -> str:
+        return "mni" if self.volume_mni_radio.isChecked() else "subject"
+
+    def _selected_volume_atlas_path(self, subject_id: str, seg_dir: str) -> str:
+        atlas_path = self.volume_atlas_combo.currentData()
+        if atlas_path:
+            return str(atlas_path)
+
+        atlas_filename = self.volume_atlas_combo.currentText()
+        if self._selected_volume_atlas_space() == "mni":
+            return os.path.join(self._mni_atlas_dir(), atlas_filename)
+        if atlas_filename == "labeling.nii.gz":
+            return os.path.join(seg_dir, atlas_filename)
+
+        pm = get_path_manager()
+        return os.path.join(pm.freesurfer_mri(subject_id), atlas_filename)
+
+    def _mni_atlas_dir(self) -> str:
+        if os.path.isdir(MNI_ATLAS_DIR):
+            return MNI_ATLAS_DIR
+        return str(Path(__file__).resolve().parents[3] / "resources" / "atlas")
 
     def _resolve_atlas_name_for_subject(
         self, display_name: str, subject_id: str
@@ -761,8 +809,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _show_volume_regions_dialog(self, volume_atlas: str):
         """Show a dialog listing regions in the selected volume atlas.
 
-        Reads ``labeling_LUT.txt`` from the subject's segmentation directory.
-
         Args:
             volume_atlas: Volume atlas display name from the combo box.
         """
@@ -772,58 +818,37 @@ class ROIPickerWidget(QtWidgets.QWidget):
             )
             return
 
-        pm = get_path_manager()
-        m2m_dir = pm.m2m(self._subject_id)
-        if not m2m_dir:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "m2m Folder Missing",
-                f"m2m directory not found for subject {self._subject_id}.",
-            )
-            return
-
-        seg_dir = Path(m2m_dir) / "segmentation"
-        labeling_lut_file = seg_dir / "labeling_LUT.txt"
-
-        if not labeling_lut_file.is_file():
+        atlas_path = self.volume_atlas_combo.currentData()
+        lut_file = self._find_volume_lut(str(atlas_path)) if atlas_path else None
+        if lut_file is None:
             QtWidgets.QMessageBox.warning(
                 self,
                 "LUT File Not Found",
-                f"Could not find labeling_LUT.txt file at: {labeling_lut_file}",
+                f"Could not find a label table for {volume_atlas}.",
             )
             return
 
         try:
-            output = "Subcortical Regions (labeling.nii.gz):\n"
+            output = f"Subcortical Regions ({volume_atlas}):\n"
             output += "=" * 50 + "\n"
             output += f"{'ID':<4} {'Structure Name':<35} {'RGB'}\n"
             output += "-" * 50 + "\n"
 
-            with open(labeling_lut_file, "r") as f:
+            with open(lut_file, "r") as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#"):
-                        parts = line.split("\t")
-                        if len(parts) >= 2:
-                            try:
-                                label_id = parts[0].strip()
-                                label_name = parts[1].strip()
-                                remaining = (
-                                    "\t".join(parts[2:]) if len(parts) > 2 else ""
-                                )
-                                rgb_parts = remaining.split()
-                                if len(rgb_parts) >= 3:
-                                    r, g, b = rgb_parts[0], rgb_parts[1], rgb_parts[2]
-                                    output += (
-                                        f"{label_id:<4} {label_name:<35} "
-                                        f"({r},{g},{b})\n"
-                                    )
-                                else:
-                                    output += (
-                                        f"{label_id:<4} {label_name:<35} (no color)\n"
-                                    )
-                            except (ValueError, IndexError):
-                                continue
+                        label = self._parse_lut_line(line)
+                        if label is None:
+                            continue
+                        label_id, label_name, rgb = label
+                        if rgb is None:
+                            output += f"{label_id:<4} {label_name:<35} (no color)\n"
+                        else:
+                            r, g, b = rgb
+                            output += (
+                                f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
+                            )
         except OSError as e:
             QtWidgets.QMessageBox.warning(
                 self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
@@ -861,6 +886,60 @@ class ROIPickerWidget(QtWidgets.QWidget):
         btn.clicked.connect(dlg.accept)
         layout.addWidget(btn)
         dlg.exec_()
+
+    def _find_volume_lut(self, atlas_path: str) -> Path | None:
+        atlas = Path(atlas_path)
+        if self._selected_volume_atlas_space() == "subject":
+            if atlas.name == "labeling.nii.gz":
+                lut_path = atlas.with_name("labeling_LUT.txt")
+                return lut_path if lut_path.is_file() else None
+            labels_file = atlas.with_name(
+                f"{self._strip_nifti_suffix(atlas.name)}_labels.txt"
+            )
+            return labels_file if labels_file.is_file() else None
+
+        stem = self._strip_nifti_suffix(atlas.name)
+        candidates = [
+            atlas.with_name(f"{stem}_LUT.txt"),
+            atlas.with_name(f"{stem}_labels.txt"),
+            atlas.with_name(f"{stem}.txt"),
+        ]
+        if stem.lower().startswith("massp"):
+            candidates.append(atlas.with_name("massp2021_labels.txt"))
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+        return None
+
+    @staticmethod
+    def _strip_nifti_suffix(filename: str) -> str:
+        if filename.endswith(".nii.gz"):
+            return filename[:-7]
+        return os.path.splitext(filename)[0]
+
+    @staticmethod
+    def _parse_lut_line(line: str) -> tuple[str, str, tuple[str, str, str] | None] | None:
+        parts = line.split()
+        if len(parts) < 2:
+            return None
+
+        label_id = parts[0]
+        if not label_id.lstrip("-").isdigit():
+            return None
+
+        color_start = None
+        for i in range(2, len(parts) - 2):
+            if all(part.lstrip("-").isdigit() for part in parts[i : i + 3]):
+                color_start = i
+                break
+
+        if color_start is None:
+            return label_id, " ".join(parts[1:]), None
+
+        label_name = " ".join(parts[1:color_start])
+        rgb = tuple(parts[color_start : color_start + 3])
+        return label_id, label_name, rgb
 
     # ------------------------------------------------------------------
     # Freeview integration

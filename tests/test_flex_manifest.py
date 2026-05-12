@@ -98,6 +98,7 @@ class TestSerializeROI:
         assert d["type"] == "subcortical"
         assert d["atlas_path"] == "/path/to/aseg.nii.gz"
         assert d["label"] == 11
+        assert d["atlas_space"] == "subject"
         assert d["tissues"] == "GM"
 
 

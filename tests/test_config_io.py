@@ -73,6 +73,7 @@ class TestSerializeConfig:
         )
         data = serialize_config(config)
         assert data["roi"]["_type"] == "SubcorticalROI"
+        assert data["roi"]["atlas_space"] == "subject"
         assert data["roi"]["tissues"] == "WM"
 
     def test_nested_electrode_config(self):

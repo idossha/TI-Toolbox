@@ -161,6 +161,7 @@ def _serialize_roi(roi) -> dict:
             "type": "subcortical",
             "atlas_path": roi.atlas_path,
             "label": roi.label,
+            "atlas_space": roi.atlas_space,
             "tissues": roi.tissues,
         }
     raise ValueError(f"Unknown ROI type: {type(roi)}")

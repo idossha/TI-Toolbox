@@ -251,6 +251,7 @@ class TestROIDefaults:
 
     def test_subcortical_roi_defaults(self):
         roi = SubcorticalROI(atlas_path="/atlas.nii.gz", label=17)
+        assert roi.atlas_space == "subject"
         assert roi.tissues == "GM"
 
     def test_flex_electrode_config_defaults(self):
