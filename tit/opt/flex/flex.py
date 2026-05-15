@@ -16,6 +16,7 @@ tit.opt.flex.builder : SimNIBS object construction used internally.
 """
 
 import logging
+import json
 import os
 import shutil
 import time
@@ -187,4 +188,30 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     label = generate_label(config)
     write_manifest(base_folder, config, result, label)
 
+    # -- Export standard simulation outputs --
+    _export_to_simulations(config, base_folder, logger)
+
     return result
+
+
+def _export_to_simulations(config: FlexConfig, base_folder: str, logger) -> None:
+    """Best-effort export of flex results into ``Simulations/`` layout."""
+    if (
+        not config.enable_mapping
+        or config.disable_mapping_simulation
+        or not config.run_final_electrode_simulation
+    ):
+        return
+
+    try:
+        from .simulation_export import export_flex_run_to_simulations
+
+        exports = export_flex_run_to_simulations(config, base_folder, logger)
+        if not exports:
+            return
+        manifest_path = os.path.join(base_folder, "simulation_exports.json")
+        with open(manifest_path, "w") as f:
+            json.dump(exports, f, indent=2)
+        logger.info("Simulator-style flex exports written: %s", manifest_path)
+    except Exception as exc:  # pragma: no cover - flex result should survive export issues
+        logger.exception("Could not export flex run to Simulations folder: %s", exc)
