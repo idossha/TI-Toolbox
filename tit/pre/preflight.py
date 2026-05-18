@@ -42,6 +42,111 @@ class PreprocessingOutput:
         return self.cleanup_paths or (self.path,)
 
 
+@dataclass(frozen=True)
+class PreprocessingInputProblem:
+    """Missing or invalid input for one selected preprocessing step."""
+
+    subject_id: str
+    step: str
+    label: str
+    message: str
+    path: Path
+
+
+def _find_nifti(directory: Path, stem: str) -> Path | None:
+    for ext in (".nii.gz", ".nii"):
+        path = directory / f"{stem}{ext}"
+        if path.exists():
+            return path
+    return None
+
+
+def _has_bids_t1(project_dir: str, subject_id: str) -> bool:
+    pm = get_path_manager(project_dir)
+    bids_anat_dir = Path(pm.bids_anat(subject_id))
+    return _find_nifti(bids_anat_dir, f"sub-{subject_id}_T1w") is not None
+
+
+def missing_inputs_for_step(
+    project_dir: str, subject_id: str, step: str
+) -> list[PreprocessingInputProblem]:
+    """Return missing required inputs for one subject and preprocessing step."""
+    pm = get_path_manager(project_dir)
+    if step in (STEP_CHARM, STEP_RECON_ALL) and not _has_bids_t1(
+        project_dir, subject_id
+    ):
+        return [
+            PreprocessingInputProblem(
+                subject_id=subject_id,
+                step=step,
+                label=STEP_LABELS[step],
+                message=(
+                    f"{STEP_LABELS[step]} requires a BIDS T1w image for "
+                    f"sub-{subject_id}. Run DICOM conversion first or place "
+                    f"sub-{subject_id}_T1w.nii[.gz] in the subject anat folder."
+                ),
+                path=Path(pm.bids_anat(subject_id)),
+            )
+        ]
+    return []
+
+
+def _conversion_will_provide_anat(
+    project_dir: str,
+    subject_id: str,
+    *,
+    convert_dicom: bool,
+    skip_existing_outputs: bool,
+) -> bool:
+    if not convert_dicom:
+        return False
+    if not skip_existing_outputs:
+        return True
+    return not existing_outputs_for_step(project_dir, subject_id, STEP_DICOM)
+
+
+def find_missing_preprocessing_inputs(
+    project_dir: str,
+    subject_ids: Iterable[str],
+    *,
+    steps: Sequence[str] | None = None,
+    convert_dicom: bool = False,
+    create_m2m: bool = False,
+    run_recon: bool = False,
+    run_qsiprep: bool = False,
+    run_qsirecon: bool = False,
+    extract_dti: bool = False,
+    skip_existing_outputs: bool = False,
+) -> list[PreprocessingInputProblem]:
+    """Return missing inputs that can be detected before running subprocesses."""
+    selected_steps = list(steps) if steps is not None else selected_preprocessing_steps(
+        convert_dicom=convert_dicom,
+        create_m2m=create_m2m,
+        run_recon=run_recon,
+        run_qsiprep=run_qsiprep,
+        run_qsirecon=run_qsirecon,
+        extract_dti=extract_dti,
+    )
+
+    problems: list[PreprocessingInputProblem] = []
+    for subject_id in subject_ids:
+        subject_steps = selected_steps
+        if _conversion_will_provide_anat(
+            project_dir,
+            subject_id,
+            convert_dicom=convert_dicom,
+            skip_existing_outputs=skip_existing_outputs,
+        ):
+            subject_steps = [
+                step
+                for step in selected_steps
+                if step not in (STEP_CHARM, STEP_RECON_ALL)
+            ]
+        for step in subject_steps:
+            problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
+    return problems
+
+
 def _existing_bids_sidecars(output_dir: Path, bids_name: str) -> tuple[Path, ...]:
     paths = (
         output_dir / f"{bids_name}.nii.gz",

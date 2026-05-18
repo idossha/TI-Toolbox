@@ -49,8 +49,10 @@ from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
 from .utils import discover_subjects, check_m2m_exists
 from .preflight import (
+    PreprocessingInputProblem,
     PreprocessingOutput,
     find_existing_preprocessing_outputs,
+    find_missing_preprocessing_inputs,
     selected_preprocessing_steps,
 )
 
@@ -66,7 +68,9 @@ __all__ = [
     "extract_dti_tensor",
     "discover_subjects",
     "check_m2m_exists",
+    "PreprocessingInputProblem",
     "PreprocessingOutput",
     "find_existing_preprocessing_outputs",
+    "find_missing_preprocessing_inputs",
     "selected_preprocessing_steps",
 ]

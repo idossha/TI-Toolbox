@@ -29,6 +29,7 @@ from tit.pre import (
     check_m2m_exists,
     discover_subjects,
     find_existing_preprocessing_outputs,
+    find_missing_preprocessing_inputs,
 )
 from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
@@ -420,6 +421,48 @@ class PreProcessTab(QtWidgets.QWidget):
                 lines.append(f"  - {output.label}: {output.path}")
         return "\n".join(lines)
 
+    def _format_input_problems(self, problems):
+        """Return a concise grouped summary for missing preprocessing inputs."""
+        grouped = {}
+        for problem in problems:
+            grouped.setdefault(problem.subject_id, []).append(problem)
+
+        lines = []
+        for subject_id in sorted(grouped):
+            lines.append(f"sub-{subject_id}:")
+            for problem in grouped[subject_id]:
+                lines.append(f"  - {problem.label}: {problem.message}")
+                lines.append(f"    Checked: {problem.path}")
+        return "\n".join(lines)
+
+    def _validate_selected_inputs(self, selected_subjects, *, skip_existing_outputs):
+        """Warn and block when selected steps are missing required inputs."""
+        problems = find_missing_preprocessing_inputs(
+            self.project_dir,
+            selected_subjects,
+            convert_dicom=self.convert_dicom_cb.isChecked(),
+            create_m2m=self.create_m2m_cb.isChecked(),
+            run_recon=self.run_recon_cb.isChecked(),
+            run_qsiprep=self.run_qsiprep_cb.isChecked(),
+            run_qsirecon=self.run_qsirecon_cb.isChecked(),
+            extract_dti=self.extract_dti_cb.isChecked(),
+            skip_existing_outputs=skip_existing_outputs,
+        )
+        if not problems:
+            return True
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Warning)
+        dialog.setWindowTitle("Missing Pre-processing Inputs")
+        dialog.setText("Some selected pre-processing steps are missing required inputs.")
+        dialog.setInformativeText(
+            "Adjust the selected subjects, enable DICOM conversion, replace existing "
+            "converted outputs, or add the expected T1w file before starting."
+        )
+        dialog.setDetailedText(self._format_input_problems(problems))
+        dialog.exec_()
+        return False
+
     def _choose_existing_output_policy(self, selected_subjects):
         """Ask how to handle selected preprocessing outputs that already exist."""
         outputs = find_existing_preprocessing_outputs(
@@ -525,6 +568,12 @@ class PreProcessTab(QtWidgets.QWidget):
         if existing_policy is None:
             return
         skip_existing_outputs, replace_existing_outputs = existing_policy
+
+        if not self._validate_selected_inputs(
+            selected_subjects,
+            skip_existing_outputs=skip_existing_outputs,
+        ):
+            return
 
         # Show confirmation dialog
         convert_dicom_text = (

@@ -25,6 +25,17 @@ from .utils import (
 )
 
 
+def _format_qsiprep_failure(returncode: int, runner: CommandRunner) -> str:
+    lines = getattr(runner, "last_output_lines", []) or []
+    if not lines:
+        return (
+            f"QSIPrep failed with exit code {returncode}. "
+            "No container output was captured; check the preprocessing log for details."
+        )
+    tail = " | ".join(lines[-5:])
+    return f"QSIPrep failed with exit code {returncode}. Last output: {tail}"
+
+
 def run_qsiprep(
     project_dir: str,
     subject_id: str,
@@ -153,7 +164,7 @@ def run_qsiprep(
         returncode = runner.run(cmd, logger=logger)
 
         if returncode != 0:
-            raise PreprocessError(f"QSIPrep failed with exit code {returncode}")
+            raise PreprocessError(_format_qsiprep_failure(returncode, runner))
 
         # Validate output
         is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)

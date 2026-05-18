@@ -112,6 +112,13 @@ def pipeline_mocks():
         }
 
 
+@pytest.fixture(autouse=True)
+def no_missing_preprocessing_inputs():
+    """Most pipeline tests focus on orchestration, not input preflight."""
+    with patch(f"{STRUCTURAL}.find_missing_preprocessing_inputs", return_value=[]):
+        yield
+
+
 def _make_runner():
     """Create a mock CommandRunner."""
     runner = MagicMock(spec=CommandRunner)
@@ -560,3 +567,21 @@ class TestRunPipelineValidation:
                 skip_existing_outputs=True,
                 replace_existing_outputs=True,
             )
+
+    def test_missing_inputs_raise_before_telemetry(self):
+        problem = MagicMock()
+        problem.subject_id = "001"
+        problem.label = "SimNIBS charm"
+        problem.message = "SimNIBS charm requires a BIDS T1w image"
+        problem.path = "/proj/sub-001/anat"
+
+        with (
+            patch(f"{STRUCTURAL}.get_path_manager") as mock_pm,
+            patch(f"{STRUCTURAL}.find_missing_preprocessing_inputs", return_value=[problem]),
+            patch("tit.telemetry.track_event") as mock_track_event,
+        ):
+            mock_pm.return_value._root.return_value = "/proj"
+            with pytest.raises(PreprocessError, match="Missing required preprocessing inputs"):
+                run_pipeline(["001"], create_m2m=True)
+
+        mock_track_event.assert_not_called()

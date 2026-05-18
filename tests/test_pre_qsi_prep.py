@@ -97,8 +97,12 @@ class TestRunQsiprep:
 
         runner = MagicMock()
         runner.run.return_value = 1
+        runner.last_output_lines = [
+            "Preparing workflow",
+            "RuntimeError: missing phase encoding metadata",
+        ]
 
-        with pytest.raises(PreprocessError, match="failed with exit code"):
+        with pytest.raises(PreprocessError, match="missing phase encoding metadata"):
             run_qsiprep(str(tmp_path), "001", logger=MagicMock(), runner=runner)
 
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(False, "incomplete"))

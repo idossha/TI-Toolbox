@@ -11,6 +11,7 @@ from tit.pre.preflight import (
     STEP_RECON_ALL,
     existing_outputs_for_step,
     find_existing_preprocessing_outputs,
+    find_missing_preprocessing_inputs,
     remove_preprocessing_output,
     selected_preprocessing_steps,
 )
@@ -102,3 +103,71 @@ def test_missing_outputs_are_ignored(tmp_path):
     )
 
     assert outputs == []
+
+
+def test_missing_t1_input_detected_for_charm(tmp_path):
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        create_m2m=True,
+    )
+
+    assert len(problems) == 1
+    assert problems[0].step == STEP_CHARM
+    assert "requires a BIDS T1w image" in problems[0].message
+
+
+def test_missing_t1_input_ignored_when_dicom_conversion_selected(tmp_path):
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        convert_dicom=True,
+        create_m2m=True,
+    )
+
+    assert problems == []
+
+
+def test_missing_t1_input_detected_when_dicom_conversion_would_be_skipped(tmp_path):
+    anat_dir = tmp_path / "sub-001" / "anat"
+    anat_dir.mkdir(parents=True)
+    (anat_dir / "sub-001_T2w.nii.gz").touch()
+
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        convert_dicom=True,
+        create_m2m=True,
+        skip_existing_outputs=True,
+    )
+
+    assert len(problems) == 1
+    assert problems[0].step == STEP_CHARM
+
+
+def test_missing_t1_input_ignored_when_dicom_conversion_will_run_with_skip_policy(
+    tmp_path,
+):
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        convert_dicom=True,
+        create_m2m=True,
+        skip_existing_outputs=True,
+    )
+
+    assert problems == []
+
+
+def test_present_t1_input_allows_charm(tmp_path):
+    anat_dir = tmp_path / "sub-001" / "anat"
+    anat_dir.mkdir(parents=True)
+    (anat_dir / "sub-001_T1w.nii.gz").touch()
+
+    problems = find_missing_preprocessing_inputs(
+        str(tmp_path),
+        ["001"],
+        create_m2m=True,
+    )
+
+    assert problems == []

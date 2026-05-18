@@ -39,6 +39,7 @@ from .preflight import (
     STEP_QSIRECON,
     STEP_RECON_ALL,
     existing_outputs_for_step,
+    find_missing_preprocessing_inputs,
     remove_preprocessing_output,
 )
 from .utils import (
@@ -103,6 +104,16 @@ def _should_run_output_step(
 def _report_status(durations: dict[str, float | None], step_name: str) -> str:
     """Return the report status for a selected step."""
     return "skipped" if step_name in durations and durations[step_name] is None else "completed"
+
+
+def _format_input_problems(problems) -> str:
+    lines = ["Missing required preprocessing inputs:"]
+    for problem in problems:
+        lines.append(
+            f"- sub-{problem.subject_id} {problem.label}: {problem.message} "
+            f"Checked: {problem.path}"
+        )
+    return "\n".join(lines)
 
 
 def _run_subject_pipeline(
@@ -469,6 +480,22 @@ def run_pipeline(
         raise PreprocessError(
             "skip_existing_outputs and replace_existing_outputs cannot both be true."
         )
+
+    pm = get_path_manager()
+    project_dir = pm._root()
+    input_problems = find_missing_preprocessing_inputs(
+        project_dir,
+        subject_list,
+        convert_dicom=convert_dicom,
+        create_m2m=create_m2m,
+        run_recon=run_recon,
+        run_qsiprep=run_qsiprep,
+        run_qsirecon=run_qsirecon,
+        extract_dti=extract_dti,
+        skip_existing_outputs=skip_existing_outputs,
+    )
+    if input_problems:
+        raise PreprocessError(_format_input_problems(input_problems))
 
     with track_operation(_const.TELEMETRY_OP_PRE_PIPELINE):
         return _run_pipeline_inner(

@@ -25,6 +25,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections import deque
 from datetime import date
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -360,6 +361,7 @@ class CommandRunner:
         self.stop_event = stop_event or threading.Event()
         self._lock = threading.Lock()
         self._processes: set[subprocess.Popen] = set()
+        self.last_output_lines: list[str] = []
 
     def request_stop(self) -> None:
         """Signal cancellation and terminate all running processes."""
@@ -413,6 +415,8 @@ class CommandRunner:
             raise ValueError("Command is empty.")
 
         logger.debug(f"Command: {' '.join(cmd)}")
+        output_tail: deque[str] = deque(maxlen=20)
+        self.last_output_lines = []
 
         preexec_fn = os.setsid if os.name != "nt" else None
         proc = subprocess.Popen(
@@ -437,9 +441,11 @@ class CommandRunner:
                         raise PreprocessCancelled("Pre-processing cancelled.")
                     line = line.strip()
                     if line:
+                        output_tail.append(line)
                         logger.info(line)
             returncode = proc.wait()
         finally:
+            self.last_output_lines = list(output_tail)
             with self._lock:
                 self._processes.discard(proc)
 

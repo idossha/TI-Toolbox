@@ -311,6 +311,21 @@ class TestCommandRunner:
         assert result == 0
 
     @patch(f"{MODULE}.subprocess.Popen")
+    def test_run_captures_last_output_lines(self, mock_popen):
+        proc = MagicMock()
+        proc.stdout.readline = MagicMock(
+            side_effect=[f"line{i}\n" for i in range(25)] + [""]
+        )
+        proc.wait.return_value = 1
+        mock_popen.return_value = proc
+
+        runner = CommandRunner()
+        result = runner.run(["false"], logger=MagicMock())
+
+        assert result == 1
+        assert runner.last_output_lines == [f"line{i}" for i in range(5, 25)]
+
+    @patch(f"{MODULE}.subprocess.Popen")
     def test_run_failure(self, mock_popen):
         proc = MagicMock()
         proc.stdout.readline = MagicMock(side_effect=[""])
