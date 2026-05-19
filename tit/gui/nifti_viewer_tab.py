@@ -311,7 +311,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.colormap_combo.addItems(
             ["grayscale", "heat", "jet", "gecolor", "nih", "surface"]
         )
-        self.colormap_combo.setCurrentText("heat")
+        self.colormap_combo.setCurrentText("jet")
         vis_layout.addWidget(self.colormap_combo)
 
         # Opacity
@@ -392,9 +392,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Load MNI atlases for group mode
         self.load_mni_atlases()
 
-    def refresh_subjects(self):
+    def refresh_subjects(self, preserve=True):
         """Scan for available subjects and update the dropdown."""
-        self.refresh_available_simulations(preserve=False)
+        self.refresh_available_simulations(preserve=preserve)
 
     def refresh_available_simulations(self, preserve=True):
         """Refresh subject and simulation dropdowns, preserving selection when possible."""
@@ -444,6 +444,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         current_sim = (
             preferred_sim if preferred_sim is not None else self.sim_combo.currentText()
         )
+        self.sim_combo.blockSignals(True)
         self.sim_combo.clear()
 
         subject_id = self.subject_combo.currentText()
@@ -459,6 +460,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 self.sim_combo.setCurrentText(current_sim)
             else:
                 self.sim_combo.setCurrentIndex(0)
+        self.sim_combo.blockSignals(False)
         self.update_available_analyses()
         self.update_electrode_overlay_controls()
 
@@ -1114,10 +1116,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         try:
-            # Close any existing Freeview process
-            if self.freeview_process is not None:
-                self.terminate_freeview()
-
             # Store the current files for potential reload
             self.current_files = file_specs
             self.current_paths = (
@@ -1142,14 +1140,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 if spec.get("percentile"):
                     arg += ":percentile=1"
                     if "threshold_min" in spec and "threshold_max" in spec:
-                        arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
+                        min_val = spec["threshold_min"]
+                        max_val = spec["threshold_max"]
+                        arg += f":heatscale={min_val},{min_val},{max_val}"
 
                 freeview_args.append(arg)
 
             # Construct the command
             base_command = ["freeview"] + freeview_args
 
-            # Launch Freeview
+            # Launch a new Freeview instance without closing existing windows.
             self.freeview_process = subprocess.Popen(
                 base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
