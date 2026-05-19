@@ -1561,6 +1561,11 @@ class SimulatorTab(QtWidgets.QWidget):
 
             total_reports = 0
             successful_reports = 0
+            run_duration = (
+                max(time.time() - self._run_start_time, 0.0)
+                if self._run_start_time is not None
+                else None
+            )
 
             for subject_id, montage_list in subject_montage_map.items():
                 montages_to_process = [name for name, _, _, _, _ in montage_list]
@@ -1661,7 +1666,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             subject_id=subject_id,
                             montage_name=montage_name,
                             output_files=output_files,
-                            duration=None,
+                            duration=run_duration,
                             status="completed",
                         )
 

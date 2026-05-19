@@ -328,7 +328,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Percentile Mode
         self.percentile_chk = QtWidgets.QCheckBox("Percentile Mode")
-        self.percentile_chk.setChecked(True)
+        self.percentile_chk.setChecked(False)
         vis_layout.addWidget(self.percentile_chk)
 
         # Thresholds
