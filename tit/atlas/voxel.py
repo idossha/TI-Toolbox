@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from glob import glob
 
 from tit.atlas.constants import VOXEL_ATLAS_FILES, MNI_ATLAS_FILES
 
@@ -15,11 +16,18 @@ class VoxelAtlasManager:
     Args:
         freesurfer_mri_dir: Path to FreeSurfer mri/ directory.
         seg_dir: Path to m2m_{subject}/segmentation/ directory.
+        roi_dir: Path to m2m_{subject}/ROIs/ directory containing user masks.
     """
 
-    def __init__(self, freesurfer_mri_dir: str = "", seg_dir: str = "") -> None:
+    def __init__(
+        self,
+        freesurfer_mri_dir: str = "",
+        seg_dir: str = "",
+        roi_dir: str = "",
+    ) -> None:
         self.freesurfer_mri_dir = freesurfer_mri_dir
         self.seg_dir = seg_dir
+        self.roi_dir = roi_dir
 
     def list_atlases(self) -> list[tuple[str, str]]:
         """Discover available voxel atlas files for a subject.
@@ -43,6 +51,14 @@ class VoxelAtlasManager:
             labeling = os.path.join(self.seg_dir, "labeling.nii.gz")
             if os.path.isfile(labeling):
                 results.append(("labeling.nii.gz", labeling))
+
+        if self.roi_dir and os.path.isdir(self.roi_dir):
+            for path in sorted(
+                glob(os.path.join(self.roi_dir, "**", "*.nii"), recursive=True)
+                + glob(os.path.join(self.roi_dir, "**", "*.nii.gz"), recursive=True)
+            ):
+                rel = os.path.relpath(path, self.roi_dir)
+                results.append((f"ROIs/{rel}", path))
 
         return results
 

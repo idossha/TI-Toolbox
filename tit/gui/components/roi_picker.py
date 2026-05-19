@@ -689,6 +689,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 voxel_mgr = VoxelAtlasManager(
                     freesurfer_mri_dir=pm.freesurfer_mri(self._subject_id),
                     seg_dir=seg_dir,
+                    roi_dir=pm.rois(self._subject_id),
                 )
                 atlases = voxel_mgr.list_atlases()
         except Exception:

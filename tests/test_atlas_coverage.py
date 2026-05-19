@@ -495,9 +495,11 @@ class TestVoxelAtlasManagerInit:
         mgr = VoxelAtlasManager(
             freesurfer_mri_dir=str(tmp_path / "mri"),
             seg_dir=str(tmp_path / "seg"),
+            roi_dir=str(tmp_path / "ROIs"),
         )
         assert mgr.freesurfer_mri_dir == str(tmp_path / "mri")
         assert mgr.seg_dir == str(tmp_path / "seg")
+        assert mgr.roi_dir == str(tmp_path / "ROIs")
 
 
 @pytest.mark.unit
@@ -601,6 +603,30 @@ class TestVoxelAtlasManagerListAtlases:
         names = [n for n, _ in results]
         assert VOXEL_ATLAS_FILES[0] in names
         assert "labeling.nii.gz" in names
+
+    def test_discovers_user_roi_masks(self, tmp_path):
+        """Discovers user NIfTI masks from nested m2m ROIs directory."""
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        roi_dir = tmp_path / "ROIs"
+        nested = roi_dir / "thalamus_functional"
+        nested.mkdir(parents=True)
+        anterior = nested / "thalamus_anterior_bilateral_sub-001.nii.gz"
+        posterior = nested / "thalamus_posterior_left_sub-001.nii"
+        anterior.touch()
+        posterior.touch()
+
+        mgr = VoxelAtlasManager(roi_dir=str(roi_dir))
+        results = mgr.list_atlases()
+
+        assert (
+            "ROIs/thalamus_functional/thalamus_anterior_bilateral_sub-001.nii.gz",
+            str(anterior),
+        ) in results
+        assert (
+            "ROIs/thalamus_functional/thalamus_posterior_left_sub-001.nii",
+            str(posterior),
+        ) in results
 
     def test_no_atlas_files_present(self, tmp_path):
         """Empty mri dir returns no FreeSurfer atlases."""
