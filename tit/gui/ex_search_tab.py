@@ -1249,7 +1249,9 @@ class ExSearchTab(QtWidgets.QWidget):
                 self.leadfield_list.addItem(item)
 
             if not leadfields:
-                no_leadfields_item = QtWidgets.QListWidgetItem("No leadfields found")
+                no_leadfields_item = QtWidgets.QListWidgetItem(
+                    "No leadfields found - click Create New to generate one"
+                )
                 no_leadfields_item.setFlags(
                     QtCore.Qt.NoItemFlags
                 )  # Make it non-selectable

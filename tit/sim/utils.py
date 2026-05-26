@@ -470,6 +470,7 @@ def run_montage_visualization(
     if is_skipped_net(eeg_net):
         logger.warning(
             "Montage visualization unavailable for EEG net '%s'; skipping render. "
+            "This net does not currently have a supported 2-D montage template. "
             "Expected output would be %s in %s.",
             eeg_net,
             expected,

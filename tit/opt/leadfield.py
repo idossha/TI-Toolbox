@@ -175,6 +175,9 @@ class LeadfieldGenerator:
         leadfields_dir = Path(self.pm.leadfields(sid))
 
         out: list[tuple[str, str, float]] = []
+        if not leadfields_dir.is_dir():
+            return out
+
         for item in leadfields_dir.iterdir():
             if item.suffix != ".hdf5":
                 continue

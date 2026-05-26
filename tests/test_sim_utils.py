@@ -506,6 +506,7 @@ class TestRunMontageVisualization:
         logger.warning.assert_called_once()
         message = logger.warning.call_args.args[0]
         assert "Montage visualization unavailable" in message
+        assert "supported 2-D montage template" in message
         assert logger.warning.call_args.args[1] == "freehand"
         assert logger.warning.call_args.args[2] == "M1_highlighted_visualization.png"
         assert logger.warning.call_args.args[3] == str(tmp_path)
