@@ -138,9 +138,10 @@ def ensure_eeg_net_entry(eeg_net: str) -> None:
     upsert_montage : Add a specific montage under an EEG net.
     """
     data = load_montage_data()
-    data["nets"].setdefault(
-        eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
-    )
+    data.setdefault("nets", {})
+    net = data["nets"].setdefault(eeg_net, {})
+    net.setdefault("uni_polar_montages", {})
+    net.setdefault("multi_polar_montages", {})
     save_montage_data(data)
 
 
@@ -174,9 +175,10 @@ def upsert_montage(
     load_montages : Load upserted montages as ``Montage`` objects.
     """
     data = load_montage_data()
-    net = data["nets"].setdefault(
-        eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
-    )
+    data.setdefault("nets", {})
+    net = data["nets"].setdefault(eeg_net, {})
+    net.setdefault("uni_polar_montages", {})
+    net.setdefault("multi_polar_montages", {})
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
     net[key][montage_name] = electrode_pairs
     save_montage_data(data)

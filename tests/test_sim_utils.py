@@ -109,6 +109,19 @@ class TestEnsureEegNetEntry:
         data = load_montage_data()
         assert "m1" in data["nets"]["GSN-256"]["uni_polar_montages"]
 
+    def test_repairs_existing_net_missing_multipolar_key(self, tmp_project, init_pm):
+        save_montage_data(
+            {"nets": {"GSN-256": {"uni_polar_montages": {"m1": [["E1", "E2"]]}}}}
+        )
+
+        ensure_eeg_net_entry("GSN-256")
+
+        data = load_montage_data()
+        assert data["nets"]["GSN-256"]["uni_polar_montages"]["m1"] == [
+            ["E1", "E2"]
+        ]
+        assert data["nets"]["GSN-256"]["multi_polar_montages"] == {}
+
 
 @pytest.mark.unit
 class TestUpsertMontage:
@@ -132,6 +145,22 @@ class TestUpsertMontage:
             mode="M",
         )
         data = load_montage_data()
+        assert "beta" in data["nets"]["GSN-256"]["multi_polar_montages"]
+
+    def test_multi_polar_repairs_legacy_net_missing_key(self, tmp_project, init_pm):
+        save_montage_data(
+            {"nets": {"GSN-256": {"uni_polar_montages": {"alpha": [["E1", "E2"]]}}}}
+        )
+
+        upsert_montage(
+            eeg_net="GSN-256",
+            montage_name="beta",
+            electrode_pairs=[["E1", "E2"], ["E3", "E4"], ["E5", "E6"], ["E7", "E8"]],
+            mode="M",
+        )
+
+        data = load_montage_data()
+        assert "alpha" in data["nets"]["GSN-256"]["uni_polar_montages"]
         assert "beta" in data["nets"]["GSN-256"]["multi_polar_montages"]
 
     def test_overwrites_existing(self, tmp_project, init_pm):

@@ -27,6 +27,9 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_TI_CURRENTS = "5.0,5.0"
+DEFAULT_MTI_CURRENTS = "5.0,5.0,5.0,5.0"
+
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.components.console import (
@@ -418,7 +421,12 @@ class SimulatorTab(QtWidgets.QWidget):
     # ── Job table management ────────────────────────────────────────────────
 
     def _add_job_row(
-        self, subject=None, source="Montage", mode="U", currents="1.0,1.0", eeg_net=None
+        self,
+        subject=None,
+        source="Montage",
+        mode="U",
+        currents=DEFAULT_TI_CURRENTS,
+        eeg_net=None,
     ):
         """Append a new simulation job card to the list."""
         idx = len(self._job_cards)
@@ -476,7 +484,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
         row2.addWidget(QtWidgets.QLabel("mA:"))
 
-        ph = "1.0,1.0,1.0,1.0" if mode == "M" else "1.0,1.0"
+        ph = DEFAULT_MTI_CURRENTS if mode == "M" else DEFAULT_TI_CURRENTS
         card.current_edit = QtWidgets.QLineEdit(currents)
         card.current_edit.setPlaceholderText(ph)
         card.current_edit.setMinimumWidth(80)
@@ -608,8 +616,17 @@ class SimulatorTab(QtWidgets.QWidget):
         combo = self.sender()
         for i, card in enumerate(self._job_cards):
             if card.mode_combo is combo:
-                ph = "1.0,1.0,1.0,1.0" if text == "M" else "1.0,1.0"
+                ph = DEFAULT_MTI_CURRENTS if text == "M" else DEFAULT_TI_CURRENTS
+                current_text = card.current_edit.text().strip()
+                old_defaults = {
+                    "1.0,1.0",
+                    "1.0,1.0,1.0,1.0",
+                    DEFAULT_TI_CURRENTS,
+                    DEFAULT_MTI_CURRENTS,
+                }
                 card.current_edit.setPlaceholderText(ph)
+                if current_text in old_defaults:
+                    card.current_edit.setText(ph)
                 self._job_selections[i] = []
                 self._update_count_cell(i)
                 if i == self._selected_card_idx:
@@ -1230,7 +1247,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 if not selected:
                     continue
                 raw = card.current_edit.text().strip() or (
-                    "1.0,1.0,1.0,1.0" if sim_mode == "M" else "1.0,1.0"
+                    DEFAULT_MTI_CURRENTS if sim_mode == "M" else DEFAULT_TI_CURRENTS
                 )
                 current_str = raw
                 raw_jobs.append(
@@ -1375,7 +1392,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 simulation_session_id=self.simulation_session_id,
             )
             if self.report_generator:
-                first_current = jobs[0][2] if jobs else "1.0,1.0"
+                first_current = jobs[0][2] if jobs else DEFAULT_TI_CURRENTS
                 first_eeg_net = jobs[0][1].eeg_net if jobs else "GSN-HydroCel-185.csv"
                 current_parts = first_current.split(",")
                 self.report_generator.add_simulation_parameters(
@@ -1593,7 +1610,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
 
                         # Add simulation parameters
-                        cur = currents_map.get(montage_name, "1.0,1.0")
+                        cur = currents_map.get(montage_name, DEFAULT_TI_CURRENTS)
                         cur_parts = cur.split(",")
                         intensity_ch1 = float(cur_parts[0]) if cur_parts else 1.0
                         intensity_ch2 = (
