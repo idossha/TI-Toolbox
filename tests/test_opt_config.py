@@ -295,11 +295,13 @@ class TestExResult:
             output_dir="/out/ex",
             n_combinations=500,
             results_csv="/out/results.csv",
+            best_composite_csv="/out/best_composite.csv",
             config_json="/out/results.json",
         )
         assert result.success is True
         assert result.n_combinations == 500
         assert result.results_csv == "/out/results.csv"
+        assert result.best_composite_csv == "/out/best_composite.csv"
         assert result.config_json == "/out/results.json"
 
     def test_construction_with_optional_none(self):
@@ -309,4 +311,5 @@ class TestExResult:
             n_combinations=0,
         )
         assert result.results_csv is None
+        assert result.best_composite_csv is None
         assert result.config_json is None

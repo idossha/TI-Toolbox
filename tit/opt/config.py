@@ -394,7 +394,8 @@ class ExConfig:
         Path to the precomputed leadfield HDF5 file.
     roi_name : str
         ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-        is appended automatically if missing.
+        is appended automatically when no supported ROI extension is present.
+        NIfTI mask ROIs (``.nii``/``.nii.gz``) are also supported.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -481,7 +482,7 @@ class ExConfig:
                 self.electrodes = ExConfig.PoolElectrodes(**self.electrodes)
             else:
                 self.electrodes = ExConfig.BucketElectrodes(**self.electrodes)
-        if not self.roi_name.endswith(".csv"):
+        if not self.roi_name.endswith((".csv", ".nii.gz", ".nii")):
             self.roi_name += ".csv"
 
         # Validation
@@ -508,6 +509,8 @@ class ExResult:
     results_csv : str or None
         Path to the CSV file containing ranked results.  ``None`` if the
         run failed before writing results.
+    best_composite_csv : str or None
+        Path to a two-row CSV containing the highest composite-index montage.
     config_json : str or None
         Path to the saved configuration JSON.  ``None`` if the run failed
         before writing config.
@@ -522,4 +525,5 @@ class ExResult:
     output_dir: str
     n_combinations: int
     results_csv: str | None = None
+    best_composite_csv: str | None = None
     config_json: str | None = None

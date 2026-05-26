@@ -38,6 +38,12 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit import logger as logging_util
+from tit.opt.ex.buckets import (
+    build_quadrant_buckets,
+    load_bucket_file,
+    save_bucket_file,
+    QUADRANT_BUCKET_LABELS,
+)
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.config import ExConfig
 from tit.gui.style import (
@@ -302,6 +308,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus = []
         self.e2_plus = []
         self.e2_minus = []
+        self.bucket_preset_label = ""
         self.current_roi_index = 0
         self._exsearch_had_errors = False
         # Initialize debug mode (default to False)
@@ -546,6 +553,8 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
             else:
                 config_logger.info(f"  Mode: Bucketed (Group-Constrained Search)")
+                if self.bucket_preset_label:
+                    config_logger.info(f"  Preset: {self.bucket_preset_label}")
                 config_logger.info(
                     f"  E1+ electrodes ({len(self.e1_plus)}): {', '.join(self.e1_plus)}"
                 )
@@ -705,7 +714,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     if self.roi_processing_queue:
                         completion_logger.info("Processed ROIs:")
                         for i, roi_file in enumerate(self.roi_processing_queue):
-                            roi_name = roi_file.replace(".csv", "")
+                            roi_name = ExSearchEngine.display_roi_name(roi_file)
                             # Try to get EEG net name (might be stored in environment or reconstruct)
                             try:
                                 selected_items = self.leadfield_list.selectedItems()
@@ -715,7 +724,9 @@ class ExSearchTab(QtWidgets.QWidget):
                                     eeg_net = selected_items[0].data(
                                         QtCore.Qt.UserRole
                                     )["net_name"]
-                                    output_dir = f"{roi_name}_{eeg_net}"
+                                    output_dir = ExSearchEngine.safe_run_name(
+                                        roi_file, eeg_net
+                                    )
                                     completion_logger.info(
                                         f"  {i + 1}. {roi_file} → derivatives/{output_dir}/"
                                     )
@@ -727,11 +738,17 @@ class ExSearchTab(QtWidgets.QWidget):
                     # Log electrode configuration summary
                     if self.e1_plus and self.e1_minus:
                         completion_logger.info("Electrode Configuration:")
-                        completion_logger.info(
-                            f"  Total electrode combinations per ROI: {len(self.e1_plus)}"
+                        total_combinations = (
+                            len(self.e1_plus)
+                            * len(self.e1_minus)
+                            * len(self.e2_plus)
+                            * len(self.e2_minus)
                         )
                         completion_logger.info(
-                            f"  Total simulations completed: {len(self.roi_processing_queue) * len(self.e1_plus)}"
+                            f"  Total electrode combinations per ROI: {total_combinations}"
+                        )
+                        completion_logger.info(
+                            f"  Total simulations completed: {len(self.roi_processing_queue) * total_combinations}"
                         )
 
                     # Note where results can be found
@@ -743,7 +760,7 @@ class ExSearchTab(QtWidgets.QWidget):
                         "  Each ROI has its own directory with analysis results"
                     )
                     completion_logger.info(
-                        "  Look for final_output.csv in each ROI's analysis/ subdirectory"
+                        "  Look for final_output.csv and best_composite.csv in each ROI output directory"
                     )
 
                     completion_logger.info("=" * 80)
@@ -828,7 +845,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 0, COLUMN 1: Electrode Selection
         # ============================================================
         electrode_container = QtWidgets.QGroupBox("Electrode Selection")
-        electrode_container.setFixedHeight(180)  # Fixed height for balance
+        electrode_container.setFixedHeight(240)  # Fixed height for balance
         electrode_main_layout = QtWidgets.QVBoxLayout(electrode_container)
         electrode_main_layout.setContentsMargins(10, 10, 10, 10)
         electrode_main_layout.setSpacing(8)
@@ -938,7 +955,7 @@ class ExSearchTab(QtWidgets.QWidget):
         total_current_label.setFixedWidth(120)
         self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
         self.total_current_spinbox.setRange(0.1, 10.0)
-        self.total_current_spinbox.setValue(2.0)  # Default 2mA (per user example)
+        self.total_current_spinbox.setValue(10.0)
         self.total_current_spinbox.setSingleStep(0.1)
         self.total_current_spinbox.setDecimals(1)
         self.total_current_spinbox.setToolTip(
@@ -970,7 +987,7 @@ class ExSearchTab(QtWidgets.QWidget):
         channel_limit_label.setFixedWidth(120)
         self.channel_limit_spinbox = QtWidgets.QDoubleSpinBox()
         self.channel_limit_spinbox.setRange(0.1, 10.0)
-        self.channel_limit_spinbox.setValue(1.6)  # Default 1.6mA (per user example)
+        self.channel_limit_spinbox.setValue(5.0)
         self.channel_limit_spinbox.setSingleStep(0.1)
         self.channel_limit_spinbox.setDecimals(1)
         self.channel_limit_spinbox.setToolTip(
@@ -1128,6 +1145,24 @@ class ExSearchTab(QtWidgets.QWidget):
         layout.addRow("E2+ electrodes:", self.e2_plus_input)
         layout.addRow("E2- electrodes:", self.e2_minus_input)
 
+        preset_layout = QtWidgets.QHBoxLayout()
+        self.quadrant_buckets_btn = QtWidgets.QPushButton("Use Quadrants")
+        self.quadrant_buckets_btn.setToolTip(
+            "Fill E1+/E1-/E2+/E2- from the selected leadfield EEG net quadrants"
+        )
+        self.quadrant_buckets_btn.clicked.connect(self.fill_quadrant_buckets)
+        self.load_buckets_btn = QtWidgets.QPushButton("Load Buckets")
+        self.load_buckets_btn.setToolTip("Load bucket electrodes from JSON, CSV, or TSV")
+        self.load_buckets_btn.clicked.connect(self.load_buckets_from_file)
+        self.save_buckets_btn = QtWidgets.QPushButton("Save Buckets")
+        self.save_buckets_btn.setToolTip("Save the current bucket electrodes as JSON")
+        self.save_buckets_btn.clicked.connect(self.save_buckets_to_file)
+
+        preset_layout.addWidget(self.quadrant_buckets_btn)
+        preset_layout.addWidget(self.load_buckets_btn)
+        preset_layout.addWidget(self.save_buckets_btn)
+        layout.addRow("Presets:", preset_layout)
+
         self.electrode_stack.addWidget(panel)
 
     def _build_all_combinations_panel(self):
@@ -1150,6 +1185,153 @@ class ExSearchTab(QtWidgets.QWidget):
             self.electrode_stack.setCurrentIndex(0)  # Bucketed panel
         elif self.rb_all_combinations.isChecked():
             self.electrode_stack.setCurrentIndex(1)  # All combinations panel
+
+    def _current_leadfield_net_name(self):
+        """Return the selected leadfield EEG-net name, if available."""
+        selected_items = self.leadfield_list.selectedItems()
+        if not selected_items or not selected_items[0].data(QtCore.Qt.UserRole):
+            return None
+        return selected_items[0].data(QtCore.Qt.UserRole).get("net_name")
+
+    def _set_bucket_inputs(self, buckets, preset_label=""):
+        """Populate bucket line edits from a canonical bucket mapping."""
+        self.e1_plus_input.setText(", ".join(buckets.get("e1_plus", [])))
+        self.e1_minus_input.setText(", ".join(buckets.get("e1_minus", [])))
+        self.e2_plus_input.setText(", ".join(buckets.get("e2_plus", [])))
+        self.e2_minus_input.setText(", ".join(buckets.get("e2_minus", [])))
+        self.bucket_preset_label = preset_label
+        self.rb_bucketed.setChecked(True)
+        self._on_electrode_mode_changed()
+
+    def _current_bucket_inputs(self):
+        """Return the currently entered bucket electrodes."""
+        return {
+            "e1_plus": self.parse_electrode_input(self.e1_plus_input.text()) or [],
+            "e1_minus": self.parse_electrode_input(self.e1_minus_input.text()) or [],
+            "e2_plus": self.parse_electrode_input(self.e2_plus_input.text()) or [],
+            "e2_minus": self.parse_electrode_input(self.e2_minus_input.text()) or [],
+        }
+
+    def fill_quadrant_buckets(self):
+        """Fill bucket fields from the selected leadfield EEG net quadrants."""
+        subject_id = self.subject_combo.currentText()
+        net_name = self._current_leadfield_net_name()
+        if not subject_id or not net_name:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Leadfield Selected",
+                "Please select a subject and leadfield before using quadrant buckets.",
+            )
+            return
+
+        eeg_csv = os.path.join(self.pm.eeg_positions(subject_id), f"{net_name}.csv")
+        if not os.path.isfile(eeg_csv):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "EEG Net Not Found",
+                f"Could not find EEG position file:\n{eeg_csv}",
+            )
+            return
+
+        try:
+            buckets = build_quadrant_buckets(eeg_csv)
+        except (OSError, ValueError) as e:
+            QtWidgets.QMessageBox.critical(
+                self, "Quadrant Buckets Failed", f"Could not build buckets: {e}"
+            )
+            return
+
+        missing = [name for name, electrodes in buckets.items() if not electrodes]
+        if missing:
+            labels = ", ".join(missing)
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Empty Quadrant",
+                f"The selected EEG net produced empty bucket(s): {labels}",
+            )
+            return
+
+        self._set_bucket_inputs(buckets, preset_label=f"Quadrants: {net_name}")
+        bucket_names = {
+            "e1_plus": "E1+",
+            "e1_minus": "E1-",
+            "e2_plus": "E2+",
+            "e2_minus": "E2-",
+        }
+        details = "\n".join(
+            f"{bucket_names[key]} ({QUADRANT_BUCKET_LABELS[key]}): "
+            f"{len(buckets[key])} electrodes"
+            for key in ("e1_plus", "e1_minus", "e2_plus", "e2_minus")
+        )
+        self.update_status(f"Loaded quadrant buckets from {net_name}")
+        if self.debug_mode:
+            self.update_output(f"Quadrant buckets loaded:\n{details}", "info")
+
+    def load_buckets_from_file(self):
+        """Load bucket fields from a JSON/CSV/TSV file."""
+        start_dir = self.pm.config_dir() if self.pm.project_dir else os.getcwd()
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Load Ex-Search Buckets",
+            start_dir,
+            "Bucket files (*.json *.csv *.tsv);;All files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            buckets = load_bucket_file(path)
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            QtWidgets.QMessageBox.critical(
+                self, "Load Buckets Failed", f"Could not load bucket file:\n{e}"
+            )
+            return
+
+        if not all(buckets.values()):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Incomplete Buckets",
+                "The file must define non-empty E1+, E1-, E2+, and E2- buckets.",
+            )
+            return
+
+        self._set_bucket_inputs(buckets, preset_label=f"File: {os.path.basename(path)}")
+        self.update_status(f"Loaded bucket file: {os.path.basename(path)}")
+
+    def save_buckets_to_file(self):
+        """Save current bucket fields to a reusable JSON file."""
+        buckets = self._current_bucket_inputs()
+        if not all(buckets.values()):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Incomplete Buckets",
+                "Enter valid electrodes in all four bucket fields before saving.",
+            )
+            return
+
+        start_dir = self.pm.config_dir() if self.pm.project_dir else os.getcwd()
+        default_path = os.path.join(start_dir, "ex_search_buckets.json")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Ex-Search Buckets",
+            default_path,
+            "JSON files (*.json);;All files (*)",
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            save_bucket_file(path, buckets)
+        except OSError as e:
+            QtWidgets.QMessageBox.critical(
+                self, "Save Buckets Failed", f"Could not save bucket file:\n{e}"
+            )
+            return
+
+        self.update_status(f"Saved bucket file: {os.path.basename(path)}")
 
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
@@ -1452,20 +1634,31 @@ class ExSearchTab(QtWidgets.QWidget):
 
             # Display ROIs with coordinates
             for roi_name in sorted(available_rois):
-                display_name = roi_name.replace(".csv", "")
+                display_name = ExSearchEngine.display_roi_name(roi_name)
 
                 # Get coordinates using the shared utility
                 coords = ExSearchEngine.get_roi_coordinates(subject_id, roi_name)
                 if coords:
                     coord_str = ", ".join([f"{c:.2f}" for c in coords])
-                    self.roi_list.addItem(f"{display_name}: {coord_str}")
+                    item = QtWidgets.QListWidgetItem(f"{display_name}: {coord_str}")
                 else:
-                    self.roi_list.addItem(display_name)
+                    suffix = " (mask)" if roi_name.endswith((".nii", ".nii.gz")) else ""
+                    item = QtWidgets.QListWidgetItem(f"{display_name}{suffix}")
+                item.setData(QtCore.Qt.UserRole, roi_name)
+                self.roi_list.addItem(item)
 
             if self.debug_mode:
                 self.update_output(f"Found {len(available_rois)} ROI file(s)")
         except OSError as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
+
+    @staticmethod
+    def _roi_name_from_item(item):
+        """Return the stored ROI filename/path for a list item."""
+        value = item.data(QtCore.Qt.UserRole)
+        if value:
+            return value
+        return item.text().split(":")[0].strip()
 
     def show_add_roi_dialog(self):
         """Show dialog for adding a new ROI."""
@@ -1493,9 +1686,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
                 # Remove selected ROIs using the shared utility
                 for item in selected_items:
-                    # Handle display format 'name: x, y, z' or just 'name'
-                    roi_display = item.text()
-                    roi_name = roi_display.split(":")[0].strip()
+                    roi_name = self._roi_name_from_item(item)
 
                     success, message = ExSearchEngine.delete_roi(
                         selected_subject, roi_name
@@ -1575,13 +1766,6 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
                 return False
 
-            if not (len(e1_plus) == len(e1_minus) == len(e2_plus) == len(e2_minus)):
-                self.update_status(
-                    "All electrode categories must have the same number of electrodes",
-                    error=True,
-                )
-                return False
-
         return True
 
     def run_optimization(self):
@@ -1624,7 +1808,10 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Show confirmation dialog with mode and electrode information
         selected_rois = self.roi_list.selectedItems()
-        roi_names = [item.text().split(":")[0].strip() for item in selected_rois]
+        roi_names = [
+            ExSearchEngine.display_roi_name(self._roi_name_from_item(item))
+            for item in selected_rois
+        ]
 
         # Build configuration details
         if self.use_all_combinations:
@@ -1641,6 +1828,8 @@ class ExSearchTab(QtWidgets.QWidget):
             )
         else:
             mode_str = "Bucketed Mode"
+            if self.bucket_preset_label:
+                mode_str += f" ({self.bucket_preset_label})"
             electrode_info = f"E1+: {len(e1_plus)} electrodes, E1-: {len(e1_minus)}\n"
             electrode_info += f"E2+: {len(e2_plus)} electrodes, E2-: {len(e2_minus)}\n"
             n_combos = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus)
@@ -1669,12 +1858,7 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_rois = self.roi_list.selectedItems()
         selected_roi_names = []
         for roi_item in selected_rois:
-            # Extract ROI name from display format "name: x, y, z" or just "name"
-            roi_display = roi_item.text()
-            roi_name = roi_display.split(":")[0].strip()
-            if not roi_name.endswith(".csv"):
-                roi_name += ".csv"
-            selected_roi_names.append(roi_name)
+            selected_roi_names.append(self._roi_name_from_item(roi_item))
 
         if self.debug_mode:
             self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
@@ -1733,7 +1917,7 @@ class ExSearchTab(QtWidgets.QWidget):
             current_step=self.current_step_spinbox.value(),
             channel_limit=self.channel_limit_spinbox.value(),
             roi_radius=self.roi_radius_spinbox.value(),
-            run_name=eeg_net,
+            run_name=ExSearchEngine.safe_run_name(roi_name, eeg_net),
         )
 
     @staticmethod
@@ -1746,21 +1930,9 @@ class ExSearchTab(QtWidgets.QWidget):
         Returns:
             Path to the written JSON config file.
         """
-        import dataclasses
-        import tempfile
+        from tit.config_io import write_config_json
 
-        data = dataclasses.asdict(config)
-
-        # Add _type discriminator for electrode spec so __main__.py can reconstruct
-        if isinstance(config.electrodes, ExConfig.PoolElectrodes):
-            data["electrodes"]["_type"] = "PoolElectrodes"
-        else:
-            data["electrodes"]["_type"] = "BucketElectrodes"
-
-        fd, path = tempfile.mkstemp(suffix=".json", prefix="ex_config_")
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-        return path
+        return write_config_json(config, prefix="ex_config")
 
     def run_roi_pipeline(self, subject_id, project_dir, ex_search_dir, env):
         """Run the ex-search pipeline for the current ROI in the queue."""
@@ -1771,7 +1943,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Get current ROI
         current_roi = self.roi_processing_queue[self.current_roi_index]
-        roi_name = current_roi.replace(".csv", "")  # Remove .csv extension
+        roi_name = ExSearchEngine.display_roi_name(current_roi)
 
         # Log ROI start
         self.log_roi_start(
@@ -1799,32 +1971,28 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_net_name = leadfield_data["net_name"]
         selected_hdf5_path = leadfield_data["hdf5_path"]
 
-        # Get ROI coordinates
+        # Get ROI location info for logging. CSV ROIs are spherical coordinate
+        # targets; NIfTI ROIs are binary masks evaluated directly on the mesh.
         pm = self.pm
         roi_dir = pm.rois(subject_id)
         roi_file = os.path.join(roi_dir, current_roi)
-
-        try:
-            with open(roi_file, "r") as f:
-                coordinates = f.readline().strip()
-            x, y, z = [float(coord.strip()) for coord in coordinates.split(",")]
-            roi_name = current_roi.replace(".csv", "")  # Remove .csv extension
-            if self.debug_mode:
-                self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
-                self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug")
-        except (OSError, ValueError) as e:
-            self.update_output(
-                f"Error reading ROI file {current_roi}: {str(e)}", "error"
-            )
-            # Move to next ROI
+        coords = ExSearchEngine.get_roi_coordinates(subject_id, current_roi)
+        if not os.path.isfile(roi_file):
+            self.update_output(f"Error: ROI file not found: {current_roi}", "error")
             self.current_roi_index += 1
             self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
             return
+        if self.debug_mode:
+            self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
+            if coords:
+                self.update_output(f"[DEBUG] Parsed ROI coords: {coords}", "debug")
+            else:
+                self.update_output("[DEBUG] Using NIfTI ROI mask", "debug")
 
         # Build ExConfig dataclass from UI state
         ex_config = self._build_ex_config(
             subject_id,
-            roi_name,
+            current_roi,
             selected_hdf5_path,
             selected_net_name,
         )
@@ -1858,7 +2026,10 @@ class ExSearchTab(QtWidgets.QWidget):
                 env["TI_LOG_FILE"] = self._shared_log_file
 
         if self.debug_mode:
-            self.update_output(f"ROI coordinates: {x}, {y}, {z}")
+            if coords:
+                self.update_output(f"ROI coordinates: {coords[0]}, {coords[1]}, {coords[2]}")
+            else:
+                self.update_output(f"ROI mask: {current_roi}")
             self.update_output(
                 f"[DEBUG] ExConfig: subject={ex_config.subject_id}, roi={ex_config.roi_name}, "
                 f"run_name={ex_config.run_name}, leadfield={ex_config.leadfield_hdf}",
@@ -1866,10 +2037,13 @@ class ExSearchTab(QtWidgets.QWidget):
             )
 
         # Log ROI-specific configuration
-        self.log_roi_configuration(current_roi, roi_name, x, y, z, env)
+        if coords:
+            self.log_roi_configuration(
+                current_roi, roi_name, coords[0], coords[1], coords[2], env
+            )
 
         # Check for existing ROI-specific output directory and confirm overwrite
-        output_dir_name = f"{roi_name}_{selected_net_name}"
+        output_dir_name = ExSearchEngine.safe_run_name(current_roi, selected_net_name)
         roi_output_dir = os.path.join(ex_search_dir, output_dir_name)
 
         if os.path.exists(roi_output_dir) and os.listdir(roi_output_dir):
@@ -1947,7 +2121,6 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_current_roi_analysis(self, subject_id, project_dir, ex_search_dir, env):
         """Run ROI analysis for the current ROI."""
         current_roi = self.roi_processing_queue[self.current_roi_index]
-        roi_name = current_roi.replace(".csv", "")
         eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
 
         # Log ROI analysis step start
@@ -1960,7 +2133,7 @@ class ExSearchTab(QtWidgets.QWidget):
             )
 
         # Create directory name: roi_leadfield format
-        output_dir_name = f"{roi_name}_{eeg_net_name}"
+        output_dir_name = ExSearchEngine.safe_run_name(current_roi, eeg_net_name)
         pm = self.pm
         ex_search_dir = pm.ex_search(subject_id)
         mesh_dir = os.path.join(ex_search_dir, output_dir_name)
@@ -2083,7 +2256,6 @@ class ExSearchTab(QtWidgets.QWidget):
         This method now just logs completion and moves to the next ROI.
         """
         current_roi = self.roi_processing_queue[self.current_roi_index]
-        roi_name = current_roi.replace(".csv", "")
         eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
 
         # Log mesh processing step completion (already done in ROI analysis)
@@ -2092,7 +2264,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output(
                 "\nStep 3: Mesh processing integrated into ROI analysis", "info"
             )
-            output_dir_name = f"{roi_name}_{eeg_net_name}"
+            output_dir_name = ExSearchEngine.safe_run_name(current_roi, eeg_net_name)
             self.update_output(
                 f"Output directory: derivatives/{output_dir_name}/", "info"
             )
@@ -2114,7 +2286,7 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle completion of current ROI and move to the next."""
         # Log ROI completion
         current_roi = self.roi_processing_queue[self.current_roi_index]
-        roi_name = current_roi.replace(".csv", "")
+        roi_name = ExSearchEngine.display_roi_name(current_roi)
         self.log_roi_complete(
             self.current_roi_index, len(self.roi_processing_queue), roi_name
         )
@@ -2250,6 +2422,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(False)
         self.e2_plus_input.setEnabled(False)
         self.e2_minus_input.setEnabled(False)
+        self.quadrant_buckets_btn.setEnabled(False)
+        self.load_buckets_btn.setEnabled(False)
+        self.save_buckets_btn.setEnabled(False)
         self.all_electrodes_input.setEnabled(False)
         self.rb_bucketed.setEnabled(False)
         self.rb_all_combinations.setEnabled(False)
@@ -2288,6 +2463,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(True)
         self.e2_plus_input.setEnabled(True)
         self.e2_minus_input.setEnabled(True)
+        self.quadrant_buckets_btn.setEnabled(True)
+        self.load_buckets_btn.setEnabled(True)
+        self.save_buckets_btn.setEnabled(True)
         self.all_electrodes_input.setEnabled(True)
         self.rb_bucketed.setEnabled(True)
         self.rb_all_combinations.setEnabled(True)

@@ -190,6 +190,41 @@ class TestExMainFunction:
         assert call_args.total_current == 2.0
         assert call_args.current_step == 0.5
 
+    @patch("tit.paths.get_path_manager")
+    @patch("tit.opt.ex.__main__.run_ex_search")
+    @patch("tit.opt.ex.__main__._make_stdout_logger")
+    def test_main_allows_missing_project_dir(
+        self, mock_logger, mock_run, mock_gpm, tmp_path
+    ):
+        from tit.opt.config import ExResult
+
+        mock_run.return_value = ExResult(
+            success=True,
+            output_dir="/out",
+            n_combinations=5,
+        )
+
+        config_data = {
+            "subject_id": "001",
+            "leadfield_hdf": "/lf.hdf5",
+            "roi_name": "motor.csv",
+            "electrodes": {
+                "_type": "PoolElectrodes",
+                "electrodes": ["E1", "E2", "E3", "E4"],
+            },
+        }
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        from tit.opt.ex.__main__ import main
+
+        with patch.object(sys, "argv", ["prog", str(config_path)]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        mock_gpm.assert_called_once_with(None)
+
 
 # ---------------------------------------------------------------------------
 # Flex __main__ helpers

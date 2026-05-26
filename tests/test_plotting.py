@@ -7,7 +7,9 @@ Covers:
 - tit/plotting/focality.py: plot_whole_head_roi_histogram, _stem_no_nii_gz
 - tit/plotting/static_overlay.py: generate_static_overlay_images
 - tit/plotting/stats.py: plot_permutation_null_distribution, plot_cluster_size_mass_correlation
-- tit/plotting/ti_metrics.py: plot_montage_distributions, plot_intensity_vs_focality
+- tit/plotting/ti_metrics.py: plot_montage_distributions,
+  plot_intensity_vs_focality, plot_montage_score_map,
+  plot_electrode_score_heatmap
 """
 
 import os
@@ -1156,6 +1158,122 @@ class TestPlotIntensityVsFocality:
         mock_fig.colorbar.assert_not_called()
 
 
+@pytest.mark.unit
+class TestPlotMontageScoreMap:
+    """Tests for plot_montage_score_map."""
+
+    def test_returns_none_for_empty_montages(self, tmp_path):
+        from tit.plotting.ti_metrics import plot_montage_score_map
+
+        eeg_csv = tmp_path / "cap.csv"
+        eeg_csv.write_text("Electrode,0,0,0,E1\n")
+
+        result = plot_montage_score_map(
+            eeg_positions_csv=str(eeg_csv),
+            montage_scores=[],
+            output_file=str(tmp_path / "map.png"),
+        )
+
+        assert result is None
+
+    def test_basic_score_map(self, tmp_path):
+        import matplotlib.pyplot as plt
+
+        from tit.plotting.ti_metrics import plot_montage_score_map
+
+        eeg_csv = tmp_path / "cap.csv"
+        eeg_csv.write_text(
+            "\n".join(
+                [
+                    "Electrode,-1,1,0,E1",
+                    "Electrode,1,1,0,E2",
+                    "Electrode,-1,-1,0,E3",
+                    "Electrode,1,-1,0,E4",
+                ]
+            )
+        )
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        plt.subplots.return_value = (mock_fig, mock_ax)
+        mock_ax.transAxes = MagicMock()
+
+        result = plot_montage_score_map(
+            eeg_positions_csv=str(eeg_csv),
+            montage_scores=[
+                {
+                    "e1_plus": "E1",
+                    "e1_minus": "E2",
+                    "e2_plus": "E3",
+                    "e2_minus": "E4",
+                    "composite": 0.5,
+                }
+            ],
+            output_file=str(tmp_path / "map.png"),
+        )
+
+        assert result == str(tmp_path / "map.png")
+        assert mock_ax.plot.call_count == 2
+        mock_fig.colorbar.assert_called_once()
+
+
+@pytest.mark.unit
+class TestPlotElectrodeScoreHeatmap:
+    """Tests for plot_electrode_score_heatmap."""
+
+    def test_returns_none_for_empty_montages(self, tmp_path):
+        from tit.plotting.ti_metrics import plot_electrode_score_heatmap
+
+        eeg_csv = tmp_path / "cap.csv"
+        eeg_csv.write_text("Electrode,0,0,0,E1\n")
+
+        result = plot_electrode_score_heatmap(
+            eeg_positions_csv=str(eeg_csv),
+            montage_scores=[],
+            output_file=str(tmp_path / "heat.png"),
+        )
+
+        assert result is None
+
+    def test_basic_heatmap(self, tmp_path):
+        import matplotlib.pyplot as plt
+
+        from tit.plotting.ti_metrics import plot_electrode_score_heatmap
+
+        eeg_csv = tmp_path / "cap.csv"
+        eeg_csv.write_text(
+            "\n".join(
+                [
+                    "Electrode,-1,1,0,E1",
+                    "Electrode,1,1,0,E2",
+                    "Electrode,-1,-1,0,E3",
+                    "Electrode,1,-1,0,E4",
+                ]
+            )
+        )
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        plt.subplots.return_value = (mock_fig, mock_ax)
+        mock_ax.transAxes = MagicMock()
+
+        result = plot_electrode_score_heatmap(
+            eeg_positions_csv=str(eeg_csv),
+            montage_scores=[
+                {
+                    "e1_plus": "E1",
+                    "e1_minus": "E2",
+                    "e2_plus": "E3",
+                    "e2_minus": "E4",
+                    "composite": 0.5,
+                }
+            ],
+            output_file=str(tmp_path / "heat.png"),
+        )
+
+        assert result == str(tmp_path / "heat.png")
+        assert mock_ax.scatter.call_count >= 2
+        mock_fig.colorbar.assert_called_once()
+
+
 # ============================================================================
 # __init__.py tests
 # ============================================================================
@@ -1187,6 +1305,8 @@ class TestPlottingPackageExports:
             plot_cluster_size_mass_correlation,
             plot_montage_distributions,
             plot_intensity_vs_focality,
+            plot_montage_score_map,
+            plot_electrode_score_heatmap,
         )
 
         assert callable(ensure_headless_matplotlib_backend)
@@ -1197,3 +1317,5 @@ class TestPlottingPackageExports:
         assert callable(plot_cluster_size_mass_correlation)
         assert callable(plot_montage_distributions)
         assert callable(plot_intensity_vs_focality)
+        assert callable(plot_montage_score_map)
+        assert callable(plot_electrode_score_heatmap)

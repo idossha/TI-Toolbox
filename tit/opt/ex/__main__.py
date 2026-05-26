@@ -40,7 +40,9 @@ def main() -> None:
 
     from tit.paths import get_path_manager
 
-    get_path_manager(data.pop("project_dir"))
+    # Older hand-written config files may not contain project_dir.  In that
+    # case PathManager can still resolve from PROJECT_DIR / PROJECT_DIR_NAME.
+    get_path_manager(data.pop("project_dir", None))
 
     electrodes = _build_electrodes(data.pop("electrodes"))
     config = ExConfig(electrodes=electrodes, **data)

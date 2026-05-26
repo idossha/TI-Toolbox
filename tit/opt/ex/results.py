@@ -12,6 +12,8 @@ build_csv_rows
     Convert the results dict into CSV-ready rows and metric arrays.
 save_csv
     Write ``final_output.csv``.
+save_best_composite_csv
+    Write ``best_composite.csv`` with the top composite-index montage.
 generate_plots
     Create histogram and scatter-plot PNGs.
 process_and_save
@@ -26,7 +28,11 @@ import csv
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
+
+
+MONTAGE_MAP_TOP_N = 150
 
 
 def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -> str:
@@ -175,6 +181,30 @@ def save_csv(results: dict, roi_name: str, output_dir: str, logger: Any) -> str:
     return path
 
 
+def save_best_composite_csv(
+    results: dict, roi_name: str, output_dir: str, logger: Any
+) -> str | None:
+    """Write ``best_composite.csv`` with the highest composite-index montage.
+
+    The composite index is the same value used in ``final_output.csv``:
+    ``TImean_ROI * Focality``.
+    """
+    rows, *_ = build_csv_rows(results, roi_name)
+    if len(rows) <= 1:
+        logger.info("No montage rows available for best-composite summary")
+        return None
+
+    header = rows[0]
+    composite_index = header.index("Composite_Index")
+    best_row = max(rows[1:], key=lambda row: float(row[composite_index]))
+
+    path = os.path.join(output_dir, "best_composite.csv")
+    with open(path, "w", newline="") as f:
+        csv.writer(f).writerows([header, best_row])
+    logger.info(f"Best composite output: {path}")
+    return path
+
+
 def generate_plots(
     results: dict,
     roi_name: str,
@@ -183,6 +213,7 @@ def generate_plots(
     timax_vals: list[float],
     timean_vals: list[float],
     foc_vals: list[float],
+    eeg_positions_csv: str | None = None,
 ) -> list[str]:
     """Generate histogram and scatter-plot PNGs for search results.
 
@@ -209,7 +240,9 @@ def generate_plots(
         Paths to the saved plot files.
     """
     from tit.plotting.ti_metrics import (
+        plot_electrode_score_heatmap,
         plot_intensity_vs_focality,
+        plot_montage_score_map,
         plot_montage_distributions,
     )
 
@@ -250,7 +283,140 @@ def generate_plots(
         )
     )
 
+    if eeg_positions_csv:
+        montage_score_records = _build_montage_score_records(results, roi_name)
+        score_map_path = os.path.join(output_dir, "montage_score_map.png")
+        score_map = plot_montage_score_map(
+            eeg_positions_csv=eeg_positions_csv,
+            montage_scores=montage_score_records,
+            output_file=score_map_path,
+            top_n=MONTAGE_MAP_TOP_N,
+            dpi=300,
+        )
+        if score_map:
+            saved.append(score_map)
+            logger.info(f"Montage score map: {score_map}")
+        else:
+            logger.info("Montage score map skipped: no plottable montage records")
+
+        strength_map_path = os.path.join(output_dir, "montage_strength_map.png")
+        strength_map = plot_montage_score_map(
+            eeg_positions_csv=eeg_positions_csv,
+            montage_scores=montage_score_records,
+            output_file=strength_map_path,
+            top_n=MONTAGE_MAP_TOP_N,
+            dpi=300,
+            metric_key="timean",
+            metric_label="TImean_ROI (V/m)",
+            title_metric="ROI Strength",
+            cmap_name=("#003b70", "#d7191c"),
+        )
+        if strength_map:
+            saved.append(strength_map)
+            logger.info(f"Montage strength map: {strength_map}")
+        else:
+            logger.info("Montage strength map skipped: no plottable montage records")
+
+        focality_map_path = os.path.join(output_dir, "montage_focality_map.png")
+        focality_map = plot_montage_score_map(
+            eeg_positions_csv=eeg_positions_csv,
+            montage_scores=montage_score_records,
+            output_file=focality_map_path,
+            top_n=MONTAGE_MAP_TOP_N,
+            dpi=300,
+            metric_key="focality",
+            metric_label="Focality",
+            title_metric="Focality",
+            cmap_name=("#003b70", "#f28e2b"),
+        )
+        if focality_map:
+            saved.append(focality_map)
+            logger.info(f"Montage focality map: {focality_map}")
+        else:
+            logger.info("Montage focality map skipped: no plottable montage records")
+
+        heatmap_path = os.path.join(output_dir, "electrode_score_heatmap.png")
+        heatmap = plot_electrode_score_heatmap(
+            eeg_positions_csv=eeg_positions_csv,
+            montage_scores=montage_score_records,
+            output_file=heatmap_path,
+            top_n=50,
+            dpi=300,
+        )
+        if heatmap:
+            saved.append(heatmap)
+            logger.info(f"Electrode score heatmap: {heatmap}")
+        else:
+            logger.info("Electrode score heatmap skipped: no plottable records")
+
     return saved
+
+
+def _build_montage_score_records(results: dict, roi_name: str) -> list[dict]:
+    records = []
+    pattern = re.compile(
+        r"^TI_field_(?P<e1_plus>[^_]+)_(?P<e1_minus>[^_]+)_and_"
+        r"(?P<e2_plus>[^_]+)_(?P<e2_minus>[^_]+)"
+    )
+    for mesh_name, data in results.items():
+        match = pattern.match(mesh_name)
+        if not match:
+            continue
+        ti_mean = data.get(f"{roi_name}_TImean_ROI")
+        focality = data.get(f"{roi_name}_Focality")
+        if ti_mean is None or focality is None:
+            continue
+        record = match.groupdict()
+        record.update(
+            {
+                "montage": re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name),
+                "composite": float(ti_mean) * float(focality),
+                "timean": float(ti_mean),
+                "focality": float(focality),
+            }
+        )
+        records.append(record)
+    return records
+
+
+def _find_eeg_positions_csv(config) -> str | None:
+    try:
+        from tit.paths import get_path_manager
+
+        pm = get_path_manager()
+        eeg_dir = Path(pm.eeg_positions(config.subject_id))
+    except (RuntimeError, ValueError, OSError, AttributeError):
+        return None
+
+    if not eeg_dir.is_dir():
+        return None
+
+    stem = Path(str(config.leadfield_hdf)).stem
+    if "_leadfield_" in stem:
+        net_name = stem.split("_leadfield_", 1)[1]
+    elif stem.endswith("_leadfield"):
+        net_name = stem[: -len("_leadfield")]
+    else:
+        net_name = stem
+
+    for prefix in (f"{config.subject_id}_", config.subject_id):
+        if net_name.startswith(prefix):
+            net_name = net_name[len(prefix) :]
+            break
+    net_name = net_name.strip("_")
+
+    candidates = [net_name]
+    if net_name.endswith(".csv"):
+        candidates.append(net_name[:-4])
+    else:
+        candidates.append(f"{net_name}.csv")
+
+    for candidate in candidates:
+        path = eeg_dir / candidate
+        if path.is_file():
+            return str(path)
+
+    return None
 
 
 def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dict:
@@ -279,8 +445,19 @@ def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dic
         results, roi_name
     )
     csv_path = save_csv(results, roi_name, output_dir, logger)
+    best_composite_csv = save_best_composite_csv(
+        results, roi_name, output_dir, logger
+    )
+    eeg_positions_csv = _find_eeg_positions_csv(config)
     viz_paths = generate_plots(
-        results, roi_name, output_dir, logger, timax_vals, timean_vals, foc_vals
+        results,
+        roi_name,
+        output_dir,
+        logger,
+        timax_vals,
+        timean_vals,
+        foc_vals,
+        eeg_positions_csv=eeg_positions_csv,
     )
 
     def _range(vals):
@@ -289,6 +466,7 @@ def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dic
     return {
         "config_json_path": config_json_path,
         "csv_path": csv_path,
+        "best_composite_csv": best_composite_csv,
         "visualization_paths": viz_paths,
         "summary_stats": {
             "total_montages": len(results),

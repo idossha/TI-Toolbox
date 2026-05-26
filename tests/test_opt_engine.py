@@ -180,6 +180,43 @@ class TestFindRoiElements:
         assert 1 in engine.roi_indices
         np.testing.assert_array_equal(engine.roi_volumes, [1.0, 2.0])
 
+
+@pytest.mark.unit
+class TestFindRoiMaskElements:
+    @patch("nibabel.affines.apply_affine", side_effect=lambda affine, coords: coords)
+    @patch("nibabel.load")
+    def test_finds_elements_inside_nifti_mask(
+        self, mock_load, mock_apply_affine, tmp_path
+    ):
+        mask = np.zeros((4, 4, 4), dtype=np.uint8)
+        mask[1, 1, 1] = 1
+        roi_file = tmp_path / "target.nii.gz"
+        mock_img = MagicMock()
+        mock_img.get_fdata.return_value = mask
+        mock_img.affine = np.eye(4)
+        mock_load.return_value = mock_img
+
+        engine = _make_engine()
+        engine.roi_file = str(roi_file)
+        centers = np.array(
+            [
+                [1.0, 1.0, 1.0],
+                [2.0, 2.0, 2.0],
+                [20.0, 20.0, 20.0],
+            ]
+        )
+        volumes = np.array([1.0, 2.0, 3.0])
+
+        mesh = MagicMock()
+        mesh.elements_baricenters.return_value = MagicMock(value=centers)
+        mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
+        engine.mesh = mesh
+
+        engine._find_roi_mask_elements()
+
+        np.testing.assert_array_equal(engine.roi_indices, [0])
+        np.testing.assert_array_equal(engine.roi_volumes, [1.0])
+
     def test_handles_2d_volumes(self):
         engine = _make_engine()
         engine.roi_coords = [0.0, 0.0, 0.0]
@@ -320,6 +357,23 @@ class TestInitialize:
         engine._find_roi_elements.assert_called_once_with(5.0)
         engine._find_gm_elements.assert_called_once()
 
+    def test_nifti_roi_ignores_radius_and_uses_mask(self):
+        engine = _make_engine()
+        engine.roi_file = "/fake/thalamus_anterior.nii.gz"
+        engine._load_leadfield = MagicMock()
+        engine._load_roi_coordinates = MagicMock()
+        engine._find_roi_elements = MagicMock()
+        engine._find_roi_mask_elements = MagicMock()
+        engine._find_gm_elements = MagicMock()
+
+        engine.initialize(roi_radius=999.0)
+
+        engine._load_leadfield.assert_called_once()
+        engine._find_roi_mask_elements.assert_called_once_with()
+        engine._load_roi_coordinates.assert_not_called()
+        engine._find_roi_elements.assert_not_called()
+        engine._find_gm_elements.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # ExSearchEngine.run
@@ -438,6 +492,38 @@ class TestROICrud:
 
         rois = ExSearchEngine.get_available_rois("001")
         assert rois == ["motor.csv", "visual.csv"]
+
+    @patch("tit.paths.get_path_manager")
+    def test_get_available_rois_includes_nested_nifti_masks(self, mock_gpm, tmp_path):
+        roi_dir = tmp_path / "rois"
+        nested = roi_dir / "thalamus_functional"
+        nested.mkdir(parents=True)
+        (roi_dir / "motor.csv").write_text("1,2,3")
+        (nested / "thalamus_anterior_bilateral_sub-001.nii.gz").touch()
+
+        mock_gpm.return_value = MagicMock()
+        mock_gpm.return_value.rois.return_value = str(roi_dir)
+
+        from tit.opt.ex.engine import ExSearchEngine
+
+        rois = ExSearchEngine.get_available_rois("001")
+        assert "motor.csv" in rois
+        assert (
+            "thalamus_functional/thalamus_anterior_bilateral_sub-001.nii.gz" in rois
+        )
+
+    def test_roi_display_and_safe_run_names(self):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        roi = "thalamus_functional/thalamus_anterior_bilateral_sub-001.nii.gz"
+        assert (
+            ExSearchEngine.display_roi_name(roi)
+            == "thalamus_anterior_bilateral_sub-001"
+        )
+        assert (
+            ExSearchEngine.safe_run_name(roi, "GSN-HydroCel-185.csv")
+            == "thalamus_anterior_bilateral_sub-001_GSN-HydroCel-185"
+        )
 
     @patch("tit.paths.get_path_manager")
     def test_create_roi(self, mock_gpm, tmp_path):

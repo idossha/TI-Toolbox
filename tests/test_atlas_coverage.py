@@ -797,6 +797,21 @@ class TestVoxelAtlasManagerListRegions:
         regions = mgr.list_regions(atlas_path)
         assert "Left Superior Temporal Gyrus (ID: 99)" in regions
 
+    def test_json_sidecar_names_binary_roi_mask(self, tmp_path):
+        """ROI masks with JSON sidecars expose a friendly label-1 region."""
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        atlas_path = tmp_path / "thalamus_anterior_bilateral_sub-001.nii.gz"
+        atlas_path.touch()
+        (tmp_path / "thalamus_anterior_bilateral_sub-001.json").write_text(
+            '{"name": "thalamus_anterior_bilateral"}'
+        )
+
+        mgr = VoxelAtlasManager()
+        regions = mgr.list_regions(str(atlas_path))
+
+        assert regions == ["thalamus_anterior_bilateral (ID: 1)"]
+
 
 @pytest.mark.unit
 class TestVoxelAtlasManagerDetectMniAtlases:

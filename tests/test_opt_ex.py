@@ -82,6 +82,37 @@ class TestRunExSearch:
     @patch("tit.opt.ex.ex.ExSearchEngine")
     @patch("tit.opt.ex.ex.add_file_handler")
     @patch("tit.opt.ex.ex.get_path_manager")
+    def test_nifti_roi_uses_subject_roi_path(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        pm.leadfields.return_value = str(tmp_path / "leadfields")
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {
+            "config_json_path": str(tmp_path / "results.json"),
+            "csv_path": str(tmp_path / "results.csv"),
+        }
+
+        from tit.opt.ex.ex import run_ex_search
+
+        roi_name = "thalamus_functional/thalamus_anterior_bilateral.nii.gz"
+        config = _make_ex_config(roi_name=roi_name)
+        run_ex_search(config)
+
+        assert mock_engine_cls.call_args[0][1] == str(tmp_path / "rois" / roi_name)
+        assert mock_engine_cls.call_args[0][2] == roi_name
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
     def test_bucket_mode(
         self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
     ):
@@ -196,6 +227,7 @@ class TestRunExSearch:
         mock_save.return_value = {
             "config_json_path": "/results.json",
             "csv_path": "/results.csv",
+            "best_composite_csv": "/best_composite.csv",
         }
 
         from tit.opt.ex.ex import run_ex_search
@@ -208,3 +240,4 @@ class TestRunExSearch:
         assert result.n_combinations == 3
         assert result.config_json == "/results.json"
         assert result.results_csv == "/results.csv"
+        assert result.best_composite_csv == "/best_composite.csv"

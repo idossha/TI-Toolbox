@@ -1,5 +1,6 @@
 """Voxel (volumetric) atlas discovery and region listing."""
 
+import json
 import os
 import subprocess
 from glob import glob
@@ -70,6 +71,10 @@ class VoxelAtlasManager:
         Returns:
             Sorted list of "RegionName (ID: N)" strings.
         """
+        roi_region = self._roi_mask_region(atlas_path)
+        if roi_region:
+            return [roi_region]
+
         atlas_bname = os.path.splitext(os.path.basename(atlas_path))[0]
         if atlas_bname.endswith(".nii"):
             atlas_bname = os.path.splitext(atlas_bname)[0]
@@ -106,6 +111,23 @@ class VoxelAtlasManager:
         return sorted(set(regions))
 
     @staticmethod
+    def _roi_mask_region(atlas_path: str) -> str | None:
+        """Return a friendly single-label region name for binary ROI masks."""
+        json_path = _sidecar_json_path(atlas_path)
+        if not os.path.isfile(json_path):
+            return None
+        try:
+            with open(json_path) as fh:
+                metadata = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return None
+
+        name = str(metadata.get("name") or "").strip()
+        if not name:
+            name = _atlas_stem(atlas_path)
+        return f"{name} (ID: 1)"
+
+    @staticmethod
     def detect_mni_atlases(atlas_dir: str) -> list[str]:
         """Detect available MNI atlases in an assets directory.
 
@@ -131,3 +153,17 @@ class VoxelAtlasManager:
         """
         lut_path = os.path.join(self.seg_dir, "labeling_LUT.txt")
         return lut_path if os.path.isfile(lut_path) else None
+
+
+def _atlas_stem(atlas_path: str) -> str:
+    """Return a display stem for .nii, .nii.gz, and .mgz atlas files."""
+    name = os.path.basename(atlas_path)
+    for suffix in (".nii.gz", ".nii", ".mgz"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return os.path.splitext(name)[0]
+
+
+def _sidecar_json_path(atlas_path: str) -> str:
+    """Return the BIDS-style JSON sidecar path for a NIfTI/MGZ atlas."""
+    return os.path.join(os.path.dirname(atlas_path), f"{_atlas_stem(atlas_path)}.json")

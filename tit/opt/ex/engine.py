@@ -7,6 +7,7 @@ Direct SimNIBS usage — ROI metrics are computed inline.
 import csv
 import logging
 import os
+import re
 import signal
 import time
 from pathlib import Path
@@ -48,10 +49,13 @@ class ExSearchEngine:
     # ── Initialization ────────────────────────────────────────────────────
 
     def initialize(self, roi_radius: float = 3.0) -> None:
-        """Load leadfield, parse ROI CSV, find ROI + GM elements."""
+        """Load leadfield, resolve ROI elements, and find GM elements."""
         self._load_leadfield()
-        self._load_roi_coordinates()
-        self._find_roi_elements(roi_radius)
+        if self._is_nifti_roi(self.roi_file):
+            self._find_roi_mask_elements()
+        else:
+            self._load_roi_coordinates()
+            self._find_roi_elements(roi_radius)
         self._find_gm_elements()
 
     def _load_leadfield(self) -> None:
@@ -72,6 +76,47 @@ class ExSearchEngine:
                     self.logger.info(f"ROI coords: {self.roi_coords}")
                     return
         raise ValueError(f"No valid coordinates in {self.roi_file}")
+
+    @staticmethod
+    def _is_nifti_roi(path: str) -> bool:
+        name = str(path).lower()
+        return name.endswith(".nii") or name.endswith(".nii.gz")
+
+    def _find_roi_mask_elements(self) -> None:
+        """Find mesh elements whose barycenters fall inside a NIfTI ROI mask."""
+        import nibabel as nib
+
+        self.logger.info(f"Finding ROI elements from mask: {self.roi_file}")
+        img = nib.load(self.roi_file)
+        data = np.asanyarray(img.get_fdata())
+        if data.ndim == 4:
+            data = np.squeeze(data)
+        if data.ndim != 3:
+            raise ValueError(f"Expected a 3D ROI mask, got shape {data.shape}")
+        mask_data = data > 0
+
+        centers = self.mesh.elements_baricenters().value
+        vox = nib.affines.apply_affine(np.linalg.inv(img.affine), centers)
+        vox = np.rint(vox).astype(int)
+
+        shape = np.asarray(mask_data.shape[:3])
+        in_bounds = np.all((vox >= 0) & (vox < shape), axis=1)
+        mask = np.zeros(len(centers), dtype=bool)
+        valid_vox = vox[in_bounds]
+        if len(valid_vox):
+            mask[in_bounds] = mask_data[
+                valid_vox[:, 0],
+                valid_vox[:, 1],
+                valid_vox[:, 2],
+            ]
+
+        volumes = self.mesh.elements_volumes_and_areas().value
+        if volumes.ndim > 1:
+            volumes = volumes[:, 0]
+
+        self.roi_indices = np.flatnonzero(mask)
+        self.roi_volumes = volumes[mask]
+        self.logger.info(f"Found {len(self.roi_indices)} ROI elements")
 
     def _find_roi_elements(self, roi_radius: float) -> None:
         """Find mesh elements whose barycenters fall within a sphere."""
@@ -253,11 +298,35 @@ class ExSearchEngine:
 
     @staticmethod
     def get_available_rois(subject_id: str) -> list[str]:
-        """List ROI CSV files for a subject."""
+        """List coordinate CSV and NIfTI mask ROI files for a subject."""
         from tit.paths import get_path_manager
 
         roi_dir = Path(get_path_manager().rois(subject_id))
-        return sorted(p.name for p in roi_dir.glob("*.csv"))
+        if not roi_dir.exists():
+            return []
+
+        csv_rois = [p.name for p in roi_dir.glob("*.csv")]
+        nifti_paths = list(roi_dir.rglob("*.nii")) + list(roi_dir.rglob("*.nii.gz"))
+        mask_rois = [p.relative_to(roi_dir).as_posix() for p in sorted(nifti_paths)]
+        return sorted(csv_rois + mask_rois)
+
+    @staticmethod
+    def display_roi_name(roi_name: str) -> str:
+        """Return a readable ROI name for CSV files and nested NIfTI masks."""
+        name = Path(roi_name).name
+        for suffix in (".nii.gz", ".nii", ".csv"):
+            if name.endswith(suffix):
+                return name[: -len(suffix)]
+        return Path(name).stem
+
+    @staticmethod
+    def safe_run_name(roi_name: str, eeg_net: str) -> str:
+        """Return a filesystem-safe ex-search run folder name."""
+        roi_label = ExSearchEngine.display_roi_name(roi_name)
+        net_label = Path(eeg_net).stem
+        raw = f"{roi_label}_{net_label}"
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "_", raw).strip("._-")
+        return safe or "ex_search"
 
     @staticmethod
     def create_roi(
@@ -299,7 +368,7 @@ class ExSearchEngine:
 
         roi_dir = Path(get_path_manager().rois(subject_id))
 
-        if not roi_name.endswith(".csv"):
+        if not ExSearchEngine._is_nifti_roi(roi_name) and not roi_name.endswith(".csv"):
             roi_name += ".csv"
 
         roi_file = roi_dir / roi_name
@@ -327,6 +396,8 @@ class ExSearchEngine:
 
         roi_dir = Path(get_path_manager().rois(subject_id))
 
+        if ExSearchEngine._is_nifti_roi(roi_name):
+            return None
         if not roi_name.endswith(".csv"):
             roi_name += ".csv"
 

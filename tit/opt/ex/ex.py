@@ -6,6 +6,7 @@ Public API: ``run_ex_search(config) -> ExResult``
 import logging
 import os
 import time
+from pathlib import Path
 
 from tit.opt.config import ExConfig, ExResult
 from tit.paths import get_path_manager
@@ -46,7 +47,12 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
-    roi_file = os.path.join(pm.rois(config.subject_id), config.roi_name)
+    roi_path = Path(config.roi_name)
+    roi_file = str(
+        roi_path
+        if roi_path.is_file()
+        else Path(pm.rois(config.subject_id)) / config.roi_name
+    )
 
     if isinstance(config.electrodes, ExConfig.PoolElectrodes):
         pool = config.electrodes.electrodes
@@ -81,11 +87,14 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     output_info = process_and_save(results, config, output_dir, logger)
     logger.info(f"Config: {output_info['config_json_path']}")
     logger.info(f"CSV: {output_info['csv_path']}")
+    if output_info.get("best_composite_csv"):
+        logger.info(f"Best composite: {output_info['best_composite_csv']}")
 
     return ExResult(
         success=True,
         output_dir=output_dir,
         n_combinations=len(results),
         results_csv=output_info.get("csv_path"),
+        best_composite_csv=output_info.get("best_composite_csv"),
         config_json=output_info.get("config_json_path"),
     )

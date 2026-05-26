@@ -189,6 +189,19 @@ class TestWriteReadRoundTrip:
         finally:
             os.unlink(path)
 
+    def test_ex_config_preserves_nifti_roi_name(self):
+        config = ExConfig(
+            subject_id="001",
+            leadfield_hdf="test.hdf5",
+            roi_name="thalamus_functional/thalamus_anterior_bilateral.nii.gz",
+            electrodes=ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz", "Pz"]),
+        )
+
+        assert (
+            config.roi_name
+            == "thalamus_functional/thalamus_anterior_bilateral.nii.gz"
+        )
+
     def test_json_is_valid(self):
         config = FlexConfig(
             subject_id="001",

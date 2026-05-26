@@ -49,8 +49,12 @@ def _make_config(roi="region"):
 @pytest.mark.unit
 class TestGeneratePlots:
     @patch("tit.plotting.ti_metrics.plot_intensity_vs_focality")
+    @patch("tit.plotting.ti_metrics.plot_electrode_score_heatmap")
+    @patch("tit.plotting.ti_metrics.plot_montage_score_map")
     @patch("tit.plotting.ti_metrics.plot_montage_distributions")
-    def test_generates_two_plots(self, mock_hist, mock_scatter, tmp_path):
+    def test_generates_two_plots(
+        self, mock_hist, mock_score_map, mock_heatmap, mock_scatter, tmp_path
+    ):
         mock_hist.return_value = str(tmp_path / "hist.png")
         mock_scatter.return_value = str(tmp_path / "scatter.png")
 
@@ -66,6 +70,52 @@ class TestGeneratePlots:
         assert len(paths) == 2
         mock_hist.assert_called_once()
         mock_scatter.assert_called_once()
+        mock_score_map.assert_not_called()
+        mock_heatmap.assert_not_called()
+
+    @patch("tit.plotting.ti_metrics.plot_intensity_vs_focality")
+    @patch("tit.plotting.ti_metrics.plot_electrode_score_heatmap")
+    @patch("tit.plotting.ti_metrics.plot_montage_score_map")
+    @patch("tit.plotting.ti_metrics.plot_montage_distributions")
+    def test_generates_montage_score_plots(
+        self, mock_hist, mock_score_map, mock_heatmap, mock_scatter, tmp_path
+    ):
+        mock_hist.return_value = str(tmp_path / "hist.png")
+        mock_scatter.return_value = str(tmp_path / "scatter.png")
+        mock_score_map.side_effect = [
+            str(tmp_path / "map.png"),
+            str(tmp_path / "strength.png"),
+            str(tmp_path / "focality.png"),
+        ]
+        mock_heatmap.return_value = str(tmp_path / "heat.png")
+
+        paths = generate_plots(
+            _make_results(),
+            "region",
+            str(tmp_path),
+            MagicMock(),
+            [0.5],
+            [0.3],
+            [0.8],
+            eeg_positions_csv=str(tmp_path / "cap.csv"),
+        )
+
+        assert str(tmp_path / "map.png") in paths
+        assert str(tmp_path / "strength.png") in paths
+        assert str(tmp_path / "focality.png") in paths
+        assert str(tmp_path / "heat.png") in paths
+        assert mock_score_map.call_count == 3
+        metric_keys = [
+            call.kwargs.get("metric_key", "composite")
+            for call in mock_score_map.call_args_list
+        ]
+        assert metric_keys == ["composite", "timean", "focality"]
+        assert [call.kwargs["top_n"] for call in mock_score_map.call_args_list] == [
+            150,
+            150,
+            150,
+        ]
+        mock_heatmap.assert_called_once()
 
     def test_empty_values_returns_empty(self, tmp_path):
         logger = MagicMock()
@@ -88,8 +138,10 @@ class TestProcessAndSave:
 
         assert "config_json_path" in output
         assert "csv_path" in output
+        assert "best_composite_csv" in output
         assert "visualization_paths" in output
         assert "summary_stats" in output
+        assert os.path.exists(output["best_composite_csv"])
         assert output["summary_stats"]["total_montages"] == 2
         assert output["summary_stats"]["timax_range"] is not None
         assert output["summary_stats"]["timean_range"] is not None
@@ -105,3 +157,4 @@ class TestProcessAndSave:
 
         assert output["summary_stats"]["total_montages"] == 0
         assert output["summary_stats"]["timax_range"] is None
+        assert output["best_composite_csv"] is None

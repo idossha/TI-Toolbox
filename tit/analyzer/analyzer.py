@@ -17,7 +17,9 @@ tit.analyzer.group : Multi-subject group analysis.
 tit.analyzer.field_selector : Automatic field file resolution.
 """
 
+import json
 import logging
+import re
 import subprocess
 import tempfile
 import time
@@ -1210,6 +1212,13 @@ class Analyzer:
         region_stripped = region.strip()
         if region_stripped.isdigit():
             return int(region_stripped)
+        id_match = re.search(r"\(ID:\s*(\d+)\)", region_stripped, flags=re.IGNORECASE)
+        if id_match:
+            return int(id_match.group(1))
+
+        roi_id = Analyzer._find_roi_mask_region_id(atlas_path, region_stripped)
+        if roi_id is not None:
+            return roi_id
 
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as tf:
             stats_path = tf.name
@@ -1241,3 +1250,27 @@ class Analyzer:
 
         Path(stats_path).unlink()
         raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")
+
+    @staticmethod
+    def _find_roi_mask_region_id(atlas_path: Path, region: str) -> int | None:
+        """Return label 1 when *region* names a JSON-described binary ROI mask."""
+        json_path = atlas_path.with_suffix("")
+        if atlas_path.name.endswith(".nii.gz"):
+            json_path = atlas_path.with_name(
+                atlas_path.name[: -len(".nii.gz")] + ".json"
+            )
+        else:
+            json_path = atlas_path.with_suffix(".json")
+
+        if not json_path.is_file():
+            return None
+        try:
+            with open(json_path) as fh:
+                metadata = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return None
+
+        roi_name = str(metadata.get("name") or "").strip()
+        if roi_name and roi_name.lower() == region.lower():
+            return 1
+        return None

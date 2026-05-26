@@ -20,6 +20,12 @@ tit.opt.ex.ex_search : Orchestrator that consumes these generators.
 from itertools import product
 
 
+def _valid_channel_pairs(combo):
+    """Return True when each stimulation channel has two distinct electrodes."""
+    e1_plus, e1_minus, e2_plus, e2_minus = combo
+    return e1_plus != e1_minus and e2_plus != e2_minus
+
+
 def generate_current_ratios(total_current, current_step, channel_limit):
     """Generate valid two-channel current splits for TI stimulation.
 
@@ -71,7 +77,9 @@ def _electrode_combinations(e1_plus, e1_minus, e2_plus, e2_minus, all_combinatio
             if len(set(combo)) == 4:
                 yield combo
     else:
-        yield from product(e1_plus, e1_minus, e2_plus, e2_minus)
+        for combo in product(e1_plus, e1_minus, e2_plus, e2_minus):
+            if _valid_channel_pairs(combo):
+                yield combo
 
 
 def generate_montage_combinations(

@@ -625,6 +625,31 @@ class TestResolveVoxelAtlas:
             a._resolve_voxel_atlas("nonexistent")
 
 
+class TestFindVoxelRegionID:
+    """Tests for resolving voxel atlas region labels."""
+
+    def test_parses_region_id_suffix(self):
+        atlas = Path("/fake/atlas.nii.gz")
+        assert (
+            Analyzer._find_voxel_region_id(np.zeros((1, 1, 1)), atlas, "ROI (ID: 7)")
+            == 7
+        )
+
+    def test_json_sidecar_roi_name_maps_to_label_one(self, tmp_path):
+        atlas = tmp_path / "thalamus_anterior_bilateral_sub-001.nii.gz"
+        atlas.touch()
+        (tmp_path / "thalamus_anterior_bilateral_sub-001.json").write_text(
+            '{"name": "thalamus_anterior_bilateral"}'
+        )
+
+        assert (
+            Analyzer._find_voxel_region_id(
+                np.zeros((1, 1, 1)), atlas, "thalamus_anterior_bilateral"
+            )
+            == 1
+        )
+
+
 class TestCombinedCortexMesh:
     """Combined ROI: _cortex_mesh unions multiple atlas regions."""
 

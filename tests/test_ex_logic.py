@@ -25,6 +25,7 @@ from tit.opt.ex.logic import (
 )
 from tit.opt.ex.results import (
     build_csv_rows,
+    save_best_composite_csv,
     save_csv,
 )
 
@@ -136,6 +137,22 @@ class TestElectrodeCombinations:
         )
         assert len(combos) == 2 * 2 * 2 * 2
 
+    def test_bucket_mode_skips_same_electrode_channel_pairs(self):
+        """Overlapping buckets should not create E1+==E1- or E2+==E2- pairs."""
+        combos = list(
+            _electrode_combinations(
+                ["A", "B"],
+                ["A", "C"],
+                ["D", "E"],
+                ["D", "F"],
+                all_combinations=False,
+            )
+        )
+
+        assert ("A", "A", "D", "D") not in combos
+        assert all(e1p != e1m and e2p != e2m for e1p, e1m, e2p, e2m in combos)
+        assert len(combos) == 9
+
     def test_all_combinations_mode(self):
         """all_combinations=True: permutations of 4 from e1_plus pool, all unique."""
         pool = ["E1", "E2", "E3", "E4"]
@@ -218,6 +235,22 @@ class TestGenerateMontagesCombinations:
         # 24 electrode combos * 2 ratios = 48
         assert len(combos) == 48
 
+    def test_bucket_mode_with_overlaps_does_not_yield_invalid_pairs(self):
+        ratios = [(1.0, 1.0)]
+        combos = list(
+            generate_montage_combinations(
+                ["A", "B"],
+                ["A", "C"],
+                ["D", "E"],
+                ["D", "F"],
+                ratios,
+                all_combinations=False,
+            )
+        )
+
+        assert all(combo[0] != combo[1] and combo[2] != combo[3] for combo in combos)
+        assert len(combos) == 9
+
 
 # ===========================================================================
 # count_combinations
@@ -247,6 +280,19 @@ class TestCountCombinations:
         """No current ratios means zero combinations."""
         count = count_combinations(["A"], ["B"], ["C"], ["D"], [], False)
         assert count == 0
+
+    def test_bucket_mode_with_overlaps_counts_only_valid_channel_pairs(self):
+        ratios = [(1.0, 1.0), (0.5, 1.5)]
+        count = count_combinations(
+            ["A", "B"],
+            ["A", "C"],
+            ["D", "E"],
+            ["D", "F"],
+            ratios,
+            all_combinations=False,
+        )
+
+        assert count == 18
 
 
 # ===========================================================================
@@ -374,3 +420,43 @@ class TestSaveCsv:
         logger = MagicMock()
         save_csv(_make_results(1), "region", str(tmp_path), logger)
         logger.info.assert_called_once()
+
+
+@pytest.mark.unit
+class TestSaveBestCompositeCsv:
+    """Tests for save_best_composite_csv()."""
+
+    def test_writes_best_composite_file(self, tmp_path):
+        results = {
+            "TI_field_A_and_B.msh": {
+                "roi_TImax_ROI": 1.0,
+                "roi_TImean_ROI": 0.4,
+                "roi_TImean_GM": 0.2,
+                "roi_Focality": 0.5,
+                "current_ch1_mA": 1.0,
+                "current_ch2_mA": 1.0,
+            },
+            "TI_field_C_and_D.msh": {
+                "roi_TImax_ROI": 1.0,
+                "roi_TImean_ROI": 0.3,
+                "roi_TImean_GM": 0.2,
+                "roi_Focality": 1.0,
+                "current_ch1_mA": 1.5,
+                "current_ch2_mA": 0.5,
+            },
+        }
+
+        path = save_best_composite_csv(results, "roi", str(tmp_path), MagicMock())
+
+        assert path.endswith("best_composite.csv")
+        with open(path) as f:
+            lines = f.readlines()
+        assert len(lines) == 2
+        assert "C <> D" in lines[1]
+        assert "0.3000" in lines[1]
+
+    def test_empty_results_returns_none(self, tmp_path):
+        path = save_best_composite_csv({}, "roi", str(tmp_path), MagicMock())
+
+        assert path is None
+        assert not (tmp_path / "best_composite.csv").exists()
