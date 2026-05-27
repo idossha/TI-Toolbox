@@ -82,9 +82,9 @@ class TestExSearchEngineInit:
 @pytest.mark.unit
 class TestLoadLeadfield:
     def test_loads_via_simnibs(self):
-        from simnibs.utils import TI_utils as TI
+        import tit.opt.ex.engine as engine_mod
 
-        TI.load_leadfield = MagicMock(return_value=("lf", "mesh", "idx"))
+        engine_mod.TI.load_leadfield = MagicMock(return_value=("lf", "mesh", "idx"))
 
         engine = _make_engine()
         engine._load_leadfield()
@@ -92,7 +92,7 @@ class TestLoadLeadfield:
         assert engine.leadfield == "lf"
         assert engine.mesh == "mesh"
         assert engine.idx_lf == "idx"
-        TI.load_leadfield.assert_called_once_with("/fake/leadfield.hdf5")
+        engine_mod.TI.load_leadfield.assert_called_once_with("/fake/leadfield.hdf5")
 
 
 # ---------------------------------------------------------------------------
