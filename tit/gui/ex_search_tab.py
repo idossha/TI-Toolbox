@@ -1739,11 +1739,12 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
     @staticmethod
-    def _write_ex_config(config):
+    def _write_ex_config(config, project_dir):
         """Serialize an ExConfig to a temporary JSON file.
 
         Args:
             config: ExConfig dataclass instance.
+            project_dir: Project root path required by the CLI entry point.
 
         Returns:
             Path to the written JSON config file.
@@ -1752,6 +1753,7 @@ class ExSearchTab(QtWidgets.QWidget):
         import tempfile
 
         data = dataclasses.asdict(config)
+        data["project_dir"] = project_dir
 
         # Add _type discriminator for electrode spec so __main__.py can reconstruct
         if isinstance(config.electrodes, ExConfig.PoolElectrodes):
@@ -1900,7 +1902,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("Step 1: Running exhaustive search...")
 
         # Serialize config to JSON and build command
-        config_path = self._write_ex_config(ex_config)
+        config_path = self._write_ex_config(ex_config, project_dir)
         cmd = ["simnibs_python", "-m", "tit.opt.ex", config_path]
 
         if self.debug_mode:
