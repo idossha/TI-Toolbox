@@ -64,8 +64,9 @@ class FlexConfig:
     thresholds : str or None
         Comma-separated focality threshold values (e.g. ``"0.1,0.2"``).
     eeg_net : str or None
-        EEG net filename (e.g. ``"GSN-HydroCel-185.csv"``) for
-        electrode-name mapping.  ``None`` to use raw electrode indices.
+        EEG net name or filename (e.g. ``"GSN-HydroCel-185"`` or
+        ``"GSN-HydroCel-185.csv"``) for electrode-name mapping.
+        ``None`` to use raw electrode indices.
     enable_mapping : bool
         If True, map optimal indices to named EEG positions.
     disable_mapping_simulation : bool

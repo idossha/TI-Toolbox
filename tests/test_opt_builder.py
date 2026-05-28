@@ -177,6 +177,23 @@ class TestBuildOptimization:
         config = _make_config(enable_mapping=True, eeg_net="EEG10-10")
         result = build_optimization(config)
         assert result.map_to_net_electrodes is True
+        assert result.net_electrode_file == "/eeg/EEG10-10.csv"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_mapping_accepts_eeg_net_csv_suffix(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        opt_mock, pm, _ = builder_env
+        opt_mock.run_mapped_electrodes_simulation = False
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(
+            _make_config(enable_mapping=True, eeg_net="EEG10-10.csv")
+        )
+        assert result.net_electrode_file == "/eeg/EEG10-10.csv"
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")

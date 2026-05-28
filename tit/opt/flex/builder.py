@@ -108,9 +108,11 @@ def build_optimization(config: FlexConfig):
 
     # Configure mapping
     if config.enable_mapping:
+        if not config.eeg_net:
+            raise ValueError("enable_mapping requires an EEG net name.")
         opt.map_to_net_electrodes = True
         eeg_dir = pm.eeg_positions(config.subject_id)
-        opt.net_electrode_file = os.path.join(eeg_dir, f"{config.eeg_net}.csv")
+        opt.net_electrode_file = str(utils.eeg_net_csv_path(eeg_dir, config.eeg_net))
         if (
             hasattr(opt, "run_mapped_electrodes_simulation")
             and not config.disable_mapping_simulation

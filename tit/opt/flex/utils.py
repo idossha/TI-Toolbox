@@ -22,12 +22,23 @@ tit.opt.flex.flex : Main flex-search orchestrator.
 
 import logging
 import os
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 from tit.opt.config import FlexConfig
 
 _VOLUME_MASK_SPACES = {"subject", "mni"}
+
+
+def eeg_net_csv_path(eeg_positions_dir: str, eeg_net: str) -> Path:
+    """Resolve an EEG net name or filename inside a subject EEG directory."""
+    filename = Path(eeg_net).name
+    if not filename:
+        raise ValueError("enable_mapping requires an EEG net name.")
+    if Path(filename).suffix.lower() != ".csv":
+        filename = f"{filename}.csv"
+    return Path(eeg_positions_dir) / filename
 
 # ---------------------------------------------------------------------------
 # Output directory naming

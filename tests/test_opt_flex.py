@@ -3,22 +3,21 @@
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # Some legacy tests install MagicMock placeholders for heavy scientific modules.
-# Flex-search exercises NumPy array comparisons, so make sure this module imports
+# Flex-search exercises NumPy array comparisons, so make sure flex.py imports
 # the real NumPy package even when run after those tests in the same process.
 if isinstance(sys.modules.get("numpy"), MagicMock):
     del sys.modules["numpy"]
 
-import numpy as np
 import pytest
 
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from tit.opt.config import FlexConfig, FlexResult
+from tit.opt.config import FlexConfig
 
 # Convenience aliases for nested types
 SphericalROI = FlexConfig.SphericalROI
@@ -62,6 +61,7 @@ class TestRunFlexSearch:
         pm.flex_search.return_value = str(tmp_path / "flex")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()
@@ -91,6 +91,7 @@ class TestRunFlexSearch:
         pm.flex_search.return_value = str(tmp_path / "flex")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
         values = [-0.020, -0.035, -0.015]
@@ -129,6 +130,7 @@ class TestRunFlexSearch:
         pm.flex_search.return_value = str(tmp_path / "flex")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()
@@ -156,6 +158,7 @@ class TestRunFlexSearch:
         pm.flex_search.return_value = str(tmp_path / "flex")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
         opt_mock = MagicMock()
@@ -168,3 +171,85 @@ class TestRunFlexSearch:
         result = run_flex_search(config)
         assert result.success is True
         assert "20260309_120000" in result.output_folder
+
+
+@pytest.mark.unit
+class TestValidateFlexInputs:
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_requires_subject_mesh(self, mock_gpm, tmp_path):
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        with pytest.raises(ValueError, match="SimNIBS head mesh file not found"):
+            _validate_flex_inputs(_make_config())
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_requires_mapping_eeg_net_file(self, mock_gpm, tmp_path):
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        pm.eeg_positions.return_value = str(tmp_path / "m2m" / "eeg_positions")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        config = _make_config(enable_mapping=True, eeg_net="GSN-HydroCel-185")
+        with pytest.raises(ValueError, match="mapped EEG net file not found"):
+            _validate_flex_inputs(config)
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_accepts_mapping_eeg_net_with_or_without_csv_suffix(
+        self, mock_gpm, tmp_path
+    ):
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        pm.eeg_positions.return_value = str(tmp_path / "m2m" / "eeg_positions")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        (tmp_path / "m2m" / "eeg_positions").mkdir()
+        (tmp_path / "m2m" / "eeg_positions" / "GSN-HydroCel-185.csv").touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        _validate_flex_inputs(
+            _make_config(enable_mapping=True, eeg_net="GSN-HydroCel-185")
+        )
+        _validate_flex_inputs(
+            _make_config(enable_mapping=True, eeg_net="GSN-HydroCel-185.csv")
+        )
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_requires_mapping_eeg_net_name(self, mock_gpm, tmp_path):
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        with pytest.raises(ValueError, match="requires an EEG net name"):
+            _validate_flex_inputs(_make_config(enable_mapping=True, eeg_net=None))
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_requires_roi_atlas_file_without_reading_contents(self, mock_gpm, tmp_path):
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        atlas = tmp_path / "atlas.nii.gz"
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        config = _make_config(
+            roi=FlexConfig.SubcorticalROI(atlas_path=str(atlas), label=10)
+        )
+        with pytest.raises(ValueError, match="ROI atlas file not found"):
+            _validate_flex_inputs(config)

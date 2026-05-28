@@ -19,13 +19,14 @@ import logging
 import os
 import shutil
 import time
+from pathlib import Path
 
 import numpy as np
 
 from tit.opt.config import FlexConfig, FlexResult
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
-from . import builder
+from . import builder, utils
 from .skin_visualization import create_valid_skin_region_visualization
 
 
@@ -69,25 +70,54 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
 def _validate_flex_inputs(config: FlexConfig) -> None:
     """Validate user-controlled flex-search inputs before telemetry starts."""
     pm = get_path_manager()
-    m2m_dir = pm.m2m(config.subject_id)
-    if not os.path.isdir(m2m_dir):
+    m2m_dir = Path(pm.m2m(config.subject_id))
+    if not m2m_dir.is_dir():
         raise ValueError(
             f"SimNIBS m2m directory not found for subject {config.subject_id}: {m2m_dir}. "
             "Run preprocessing/CHARM before flex-search."
         )
+    _require_file(
+        m2m_dir / f"{config.subject_id}.msh",
+        "SimNIBS head mesh",
+    )
     if config.cpus is not None and config.cpus < 1:
         raise ValueError("Flex-search cpus must be >= 1.")
     if config.n_multistart < 1:
         raise ValueError("Flex-search n_multistart must be >= 1.")
     if config.min_electrode_distance <= 0:
         raise ValueError("min_electrode_distance must be positive.")
+    if config.enable_mapping and not config.eeg_net:
+        raise ValueError("enable_mapping requires an EEG net name.")
+    if config.enable_mapping:
+        _require_file(
+            utils.eeg_net_csv_path(pm.eeg_positions(config.subject_id), config.eeg_net),
+            "mapped EEG net",
+        )
+    if config.skin_visualization_net:
+        _require_file(Path(config.skin_visualization_net), "skin visualization EEG net")
+    if config.avoid_landmark_regions and config.skin_region_margin_mm > 0:
+        _require_file(
+            Path(pm.eeg_positions(config.subject_id)) / "Fiducials.csv",
+            "SimNIBS fiducials",
+        )
 
     for label, roi in (("ROI", config.roi), ("non-ROI", config.non_roi)):
         if roi is None:
             continue
-        atlas_path = getattr(roi, "atlas_path", None)
-        if atlas_path and not os.path.isfile(atlas_path):
-            raise ValueError(f"{label} atlas file not found: {atlas_path}")
+        _validate_roi_input(label, roi)
+
+
+def _require_file(path: Path, description: str) -> None:
+    if not path.is_file():
+        raise ValueError(f"{description} file not found: {path}")
+
+
+def _validate_roi_input(label: str, roi) -> None:
+    atlas_path = getattr(roi, "atlas_path", None)
+    if not atlas_path:
+        return
+
+    _require_file(Path(atlas_path), f"{label} atlas")
 
 
 def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
