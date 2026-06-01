@@ -177,8 +177,6 @@ def _convert_modality(
         "y",
         "-b",
         "y",
-        "-r",
-        "y",
         "-f",
         bids_name,
         "-o",

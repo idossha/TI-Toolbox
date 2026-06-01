@@ -163,7 +163,8 @@ class TestConvertModality:
         assert result is True
         runner.run.assert_called_once()
         cmd = runner.run.call_args.args[0]
-        assert cmd[cmd.index("-r") + 1] == "y"
+        assert "-r" not in cmd
+        assert cmd[cmd.index("-f") + 1] == "sub-001_T1w"
 
     def test_with_runner_failure(self, tmp_path):
         """Returns False on runner failure."""
