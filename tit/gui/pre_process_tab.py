@@ -229,6 +229,16 @@ class PreProcessTab(QtWidgets.QWidget):
         )
         options_group_layout.addWidget(self.run_tissue_analyzer_cb)
 
+        # Subject-space thalamus ROI masks for optimizer/analyzer workflows.
+        self.create_thalamus_rois_cb = QtWidgets.QCheckBox(
+            "Create functional thalamus ROIs"
+        )
+        self.create_thalamus_rois_cb.setChecked(False)
+        self.create_thalamus_rois_cb.setToolTip(
+            "Warp shared MNI anterior/central/posterior thalamus masks into each subject's m2m space"
+        )
+        options_group_layout.addWidget(self.create_thalamus_rois_cb)
+
         # Separator for DWI section
         dwi_separator = QtWidgets.QFrame()
         dwi_separator.setFrameShape(QtWidgets.QFrame.HLine)
@@ -392,6 +402,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
         self.run_tissue_analyzer_cb.setEnabled(not is_processing)
+        self.create_thalamus_rois_cb.setEnabled(not is_processing)
 
         # QSI options
         self.run_qsiprep_cb.setEnabled(not is_processing)
@@ -431,6 +442,7 @@ class PreProcessTab(QtWidgets.QWidget):
             run_qsiprep=self.run_qsiprep_cb.isChecked(),
             run_qsirecon=self.run_qsirecon_cb.isChecked(),
             extract_dti=self.extract_dti_cb.isChecked(),
+            run_thalamus_rois=self.create_thalamus_rois_cb.isChecked(),
         )
         if not outputs:
             return False, False
@@ -521,6 +533,30 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
+        # Functional thalamus ROIs need an existing or newly-created m2m folder.
+        if (
+            self.create_thalamus_rois_cb.isChecked()
+            and not self.create_m2m_cb.isChecked()
+        ):
+            missing_m2m_subjects = [
+                sid
+                for sid in selected_subjects
+                if not check_m2m_exists(self.project_dir, sid)
+            ]
+
+            if missing_m2m_subjects:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Missing m2m Folders",
+                    f"Functional thalamus ROIs require m2m folders, but the following subjects don't have them:\n"
+                    f"{', '.join(missing_m2m_subjects)}\n\n"
+                    f"Please either:\n"
+                    f"1. Enable 'Create SimNIBS m2m folder' option, or\n"
+                    f"2. Run m2m creation for these subjects first, or\n"
+                    f"3. Disable 'Create functional thalamus ROIs'",
+                )
+                return
+
         existing_policy = self._choose_existing_output_policy(selected_subjects)
         if existing_policy is None:
             return
@@ -550,6 +586,7 @@ class PreProcessTab(QtWidgets.QWidget):
             + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
             + f"- Parallel processing: {parallel_text}\n"
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
+            + f"- Create functional thalamus ROIs: {'Yes' if self.create_thalamus_rois_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
             + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}\n"
@@ -588,6 +625,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(
             f"- Run tissue analyzer: {self.run_tissue_analyzer_cb.isChecked()}", "debug"
         )
+        self.update_output(
+            f"- Create thalamus ROIs: {self.create_thalamus_rois_cb.isChecked()}",
+            "debug",
+        )
         self.update_output(f"- Run QSIPrep: {self.run_qsiprep_cb.isChecked()}", "debug")
         self.update_output(
             f"- Run QSIRecon: {self.run_qsirecon_cb.isChecked()}", "debug"
@@ -614,6 +655,7 @@ class PreProcessTab(QtWidgets.QWidget):
             "parallel_cores": self.cores_spin.value(),
             "create_m2m": self.create_m2m_cb.isChecked(),
             "run_tissue_analysis": self.run_tissue_analyzer_cb.isChecked(),
+            "run_thalamus_rois": self.create_thalamus_rois_cb.isChecked(),
             "run_qsiprep": self.run_qsiprep_cb.isChecked(),
             "run_qsirecon": self.run_qsirecon_cb.isChecked(),
             "qsiprep_config": qsiprep_config,

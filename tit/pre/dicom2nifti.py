@@ -177,8 +177,6 @@ def _convert_modality(
         "y",
         "-b",
         "y",
-        "-r",
-        "y",
         "-f",
         bids_name,
         "-o",
@@ -195,6 +193,12 @@ def _convert_modality(
     if exit_code != 0:
         logger.warning(f"dcm2niix failed for {modality}")
         return False
+
+    expected_nifti = output_dir / f"{bids_name}.nii.gz"
+    if not expected_nifti.exists():
+        raise PreprocessError(
+            f"dcm2niix completed but did not create expected output: {expected_nifti}"
+        )
 
     logger.info(f"Created {bids_name}.nii.gz")
     return True

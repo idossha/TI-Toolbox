@@ -16,6 +16,7 @@ STEP_RECON_ALL = "recon_all"
 STEP_QSIPREP = "qsiprep"
 STEP_QSIRECON = "qsirecon"
 STEP_DTI = "dti"
+STEP_THALAMUS_ROIS = "thalamus_rois"
 
 STEP_LABELS = {
     STEP_DICOM: "DICOM conversion",
@@ -24,6 +25,7 @@ STEP_LABELS = {
     STEP_QSIPREP: "QSIPrep",
     STEP_QSIRECON: "QSIRecon",
     STEP_DTI: "DTI tensor extraction",
+    STEP_THALAMUS_ROIS: "Functional thalamus ROIs",
 }
 
 
@@ -119,6 +121,13 @@ def existing_outputs_for_step(
             step,
             Path(pm.m2m(subject_id)) / const.FILE_DTI_TENSOR,
         )
+    if step == STEP_THALAMUS_ROIS:
+        return _single_path_output(
+            project_dir,
+            subject_id,
+            step,
+            Path(pm.rois(subject_id)) / "thalamus_functional",
+        )
     raise ValueError(f"Unknown preprocessing step: {step}")
 
 
@@ -130,6 +139,7 @@ def selected_preprocessing_steps(
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
+    run_thalamus_rois: bool = False,
 ) -> list[str]:
     """Return output-producing steps enabled by the current run options."""
     steps: list[str] = []
@@ -145,6 +155,8 @@ def selected_preprocessing_steps(
         steps.append(STEP_QSIRECON)
     if extract_dti:
         steps.append(STEP_DTI)
+    if run_thalamus_rois:
+        steps.append(STEP_THALAMUS_ROIS)
     return steps
 
 
@@ -159,6 +171,7 @@ def find_existing_preprocessing_outputs(
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
+    run_thalamus_rois: bool = False,
 ) -> list[PreprocessingOutput]:
     """Return outputs that already exist for selected subjects and steps."""
     selected_steps = list(steps) if steps is not None else selected_preprocessing_steps(
@@ -168,6 +181,7 @@ def find_existing_preprocessing_outputs(
         run_qsiprep=run_qsiprep,
         run_qsirecon=run_qsirecon,
         extract_dti=extract_dti,
+        run_thalamus_rois=run_thalamus_rois,
     )
     outputs: list[PreprocessingOutput] = []
     for subject_id in subject_ids:

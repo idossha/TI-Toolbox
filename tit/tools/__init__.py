@@ -27,4 +27,7 @@ nifti_to_mesh
     Convert a NIfTI segmentation/mask to an STL or Gmsh surface mesh.
 read_annot
     Read and display FreeSurfer ``.annot`` annotation files.
+thalamus_rois
+    Create subject-space anterior/central/posterior thalamus ROI masks from
+    shared MNI templates.
 """

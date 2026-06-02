@@ -120,7 +120,11 @@ class TestConvertModality:
         out_dir = tmp_path / "out"
         out_dir.mkdir()
 
-        mock_run.return_value = MagicMock(returncode=0)
+        def _create_output(*args, **kwargs):
+            (out_dir / "sub-001_T1w.nii.gz").touch()
+            return MagicMock(returncode=0)
+
+        mock_run.side_effect = _create_output
         logger = MagicMock()
 
         result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, None)
@@ -145,6 +149,21 @@ class TestConvertModality:
 
         assert result is False
 
+    @patch(f"{MODULE}.subprocess.run")
+    def test_subprocess_success_without_nifti_raises(self, mock_run, tmp_path):
+        """Raises when dcm2niix exits cleanly but does not create a NIfTI."""
+        dicom_dir = tmp_path / "T1w" / "dicom"
+        dicom_dir.mkdir(parents=True)
+        (dicom_dir / "scan.dcm").touch()
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with pytest.raises(PreprocessError, match="did not create expected output"):
+            _convert_modality(dicom_dir, out_dir, "001", "T1w", MagicMock(), None)
+
     def test_with_runner_success(self, tmp_path):
         """Uses runner when provided."""
         dicom_dir = tmp_path / "T1w" / "dicom"
@@ -155,7 +174,11 @@ class TestConvertModality:
         out_dir.mkdir()
 
         runner = MagicMock()
-        runner.run.return_value = 0
+        def _create_output(*args, **kwargs):
+            (out_dir / "sub-001_T1w.nii.gz").touch()
+            return 0
+
+        runner.run.side_effect = _create_output
         logger = MagicMock()
 
         result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, runner)
@@ -163,7 +186,7 @@ class TestConvertModality:
         assert result is True
         runner.run.assert_called_once()
         cmd = runner.run.call_args.args[0]
-        assert cmd[cmd.index("-r") + 1] == "y"
+        assert "-r" not in cmd
 
     def test_with_runner_failure(self, tmp_path):
         """Returns False on runner failure."""
@@ -194,7 +217,11 @@ class TestConvertModality:
         out_dir = tmp_path / "out"
         out_dir.mkdir()
         runner = MagicMock()
-        runner.run.return_value = 0
+        def _create_output(*args, **kwargs):
+            (out_dir / "sub-001_T1w.nii.gz").touch()
+            return 0
+
+        runner.run.side_effect = _create_output
 
         result = _convert_modality(
             dicom_dir, out_dir, "001", "T1w", MagicMock(), runner

@@ -91,6 +91,7 @@ def pipeline_mocks():
         patch(f"{STRUCTURAL}.run_qsirecon") as mock_qsirecon,
         patch(f"{STRUCTURAL}.extract_dti_tensor") as mock_dti,
         patch(f"{STRUCTURAL}.run_subcortical_segmentations") as mock_subcort,
+        patch(f"{STRUCTURAL}.create_thalamus_functional_rois") as mock_thalamus_rois,
         patch(f"{STRUCTURAL}.existing_outputs_for_step", return_value=[]) as mock_existing,
     ):
         mock_logger.return_value = MagicMock()
@@ -108,6 +109,7 @@ def pipeline_mocks():
             "qsirecon": mock_qsirecon,
             "dti": mock_dti,
             "subcort": mock_subcort,
+            "thalamus_rois": mock_thalamus_rois,
             "existing": mock_existing,
         }
 
@@ -168,6 +170,7 @@ class TestRunSubjectPipeline:
             qsi_recon_config=None,
             extract_dti_step=False,
             run_subcortical=False,
+            run_thalamus_rois=False,
             debug=False,
             runner=MagicMock(),
             callback=None,
@@ -192,6 +195,14 @@ class TestRunSubjectPipeline:
     def test_subcortical_step(self, pipeline_mocks):
         self._call(pipeline_mocks, run_subcortical=True)
         pipeline_mocks["subcort"].assert_called_once()
+
+    def test_thalamus_rois_step(self, pipeline_mocks):
+        self._call(pipeline_mocks, run_thalamus_rois=True)
+        pipeline_mocks["thalamus_rois"].assert_called_once_with(
+            "/proj",
+            "001",
+            overwrite=True,
+        )
 
     def test_recon_only_path(self, pipeline_mocks):
         """run_recon=True without convert_dicom or create_m2m takes the recon-only branch."""

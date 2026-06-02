@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tit import constants as const
 from tit.paths import get_path_manager
+from tit.tools.thalamus_rois import create_thalamus_functional_rois
 
 from .charm import run_charm, run_subject_atlas
 from .dicom2nifti import run_dicom_to_nifti
@@ -38,6 +39,7 @@ from .preflight import (
     STEP_QSIPREP,
     STEP_QSIRECON,
     STEP_RECON_ALL,
+    STEP_THALAMUS_ROIS,
     existing_outputs_for_step,
     remove_preprocessing_output,
 )
@@ -120,6 +122,7 @@ def _run_subject_pipeline(
     qsi_recon_config: dict | None,
     extract_dti_step: bool,
     run_subcortical: bool,
+    run_thalamus_rois: bool = False,
     debug: bool,
     runner: CommandRunner,
     callback: Callable | None,
@@ -362,6 +365,27 @@ def _run_subject_pipeline(
             logger,
         )
 
+    if run_thalamus_rois:
+        if _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_THALAMUS_ROIS,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        ):
+            durations["Functional Thalamus ROIs"] = _run_step(
+                "Functional thalamus ROI generation",
+                lambda: create_thalamus_functional_rois(
+                    project_dir,
+                    subject_id,
+                    overwrite=True,
+                ),
+                logger,
+            )
+        else:
+            durations["Functional Thalamus ROIs"] = None
+
     logger.info(f"Pre-processing completed successfully for subject: {subject_id}")
     return durations
 
@@ -381,6 +405,7 @@ def run_pipeline(
     qsi_recon_config: dict | None = None,
     extract_dti: bool = False,
     run_subcortical_segmentations: bool = False,
+    run_thalamus_rois: bool = False,
     skip_existing_outputs: bool = False,
     replace_existing_outputs: bool = False,
     debug: bool = False,
@@ -424,6 +449,9 @@ def run_pipeline(
         Extract DTI tensor for SimNIBS anisotropic conductivity.
     run_subcortical_segmentations : bool, optional
         Run thalamic-nuclei and hippocampal-subfield segmentations.
+    run_thalamus_rois : bool, optional
+        Create anterior/central/posterior functional thalamus ROI masks in
+        subject space from shared MNI templates.
     skip_existing_outputs : bool, optional
         Skip selected preprocessing steps when their output already exists.
     replace_existing_outputs : bool, optional
@@ -485,6 +513,7 @@ def run_pipeline(
             qsi_recon_config=qsi_recon_config,
             extract_dti=extract_dti,
             run_subcortical_segmentations=run_subcortical_segmentations,
+            run_thalamus_rois=run_thalamus_rois,
             skip_existing_outputs=skip_existing_outputs,
             replace_existing_outputs=replace_existing_outputs,
             debug=debug,
@@ -509,6 +538,7 @@ def _run_pipeline_inner(
     qsi_recon_config=None,
     extract_dti=False,
     run_subcortical_segmentations=False,
+    run_thalamus_rois=False,
     skip_existing_outputs=False,
     replace_existing_outputs=False,
     debug=False,
@@ -558,6 +588,7 @@ def _run_pipeline_inner(
                 qsi_recon_config=qsi_recon_config,
                 extract_dti_step=False,
                 run_subcortical=False,
+                run_thalamus_rois=False,
                 debug=debug,
                 runner=runner,
                 callback=logger_callback,
@@ -587,6 +618,7 @@ def _run_pipeline_inner(
                         qsi_recon_config=qsi_recon_config,
                         extract_dti_step=False,
                         run_subcortical=False,
+                        run_thalamus_rois=False,
                         debug=debug,
                         runner=runner,
                         callback=logger_callback,
@@ -615,6 +647,7 @@ def _run_pipeline_inner(
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=False,
                     run_subcortical=False,
+                    run_thalamus_rois=False,
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
@@ -639,6 +672,7 @@ def _run_pipeline_inner(
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=extract_dti,
                     run_subcortical=False,
+                    run_thalamus_rois=False,
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
@@ -662,6 +696,31 @@ def _run_pipeline_inner(
                     qsi_recon_config=qsi_recon_config,
                     extract_dti_step=False,
                     run_subcortical=True,
+                    run_thalamus_rois=False,
+                    debug=debug,
+                    runner=runner,
+                    callback=logger_callback,
+                    skip_existing_outputs=skip_existing_outputs,
+                    replace_existing_outputs=replace_existing_outputs,
+                )
+                all_durations[sid].update(d)
+        if run_thalamus_rois:
+            for sid in subject_list:
+                d = _run_subject_pipeline(
+                    project_dir,
+                    sid,
+                    convert_dicom=False,
+                    run_recon=False,
+                    parallel_recon=parallel_recon,
+                    create_m2m=False,
+                    run_tissue=False,
+                    run_qsiprep_step=False,
+                    run_qsirecon_step=False,
+                    qsiprep_config=qsiprep_config,
+                    qsi_recon_config=qsi_recon_config,
+                    extract_dti_step=False,
+                    run_subcortical=False,
+                    run_thalamus_rois=True,
                     debug=debug,
                     runner=runner,
                     callback=logger_callback,
@@ -685,6 +744,7 @@ def _run_pipeline_inner(
                 qsi_recon_config=qsi_recon_config,
                 extract_dti_step=extract_dti,
                 run_subcortical=run_subcortical_segmentations,
+                run_thalamus_rois=run_thalamus_rois,
                 debug=debug,
                 runner=runner,
                 callback=logger_callback,
@@ -771,6 +831,14 @@ def _run_pipeline_inner(
                 description="Thalamic nuclei and hippocampal subfield segmentations",
                 status=_report_status(durations, "Subcortical Segmentations"),
                 duration=durations.get("Subcortical Segmentations"),
+            )
+
+        if run_thalamus_rois:
+            report_gen.add_processing_step(
+                step_name="Functional Thalamus ROIs",
+                description="Create subject-space anterior/central/posterior thalamus ROI masks",
+                status=_report_status(durations, "Functional Thalamus ROIs"),
+                duration=durations.get("Functional Thalamus ROIs"),
             )
 
         report_gen.scan_for_data()

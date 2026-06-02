@@ -46,6 +46,7 @@ def main() -> None:
         qsi_recon_config=data.get("qsi_recon_config"),
         extract_dti=data.get("extract_dti", False),
         run_subcortical_segmentations=data.get("run_subcortical_segmentations", False),
+        run_thalamus_rois=data.get("run_thalamus_rois", False),
         skip_existing_outputs=data.get("skip_existing_outputs", False),
         replace_existing_outputs=data.get("replace_existing_outputs", False),
     )
