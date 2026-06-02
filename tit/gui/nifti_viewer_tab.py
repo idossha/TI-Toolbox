@@ -21,6 +21,7 @@ from tit.gui.style import NIFTI_ATLAS_OPACITY, NIFTI_FIELD_OPACITY
 from tit.gui.components.console import ConsoleWidget
 
 ELECTRODE_OVERLAY_REGION = "Electrodes"
+ROI_OVERLAY_NONE = "None"
 
 
 class NiftiViewerTab(QtWidgets.QWidget):
@@ -80,6 +81,19 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def detect_mni_atlases(self):
         """Detect available MNI atlases in resources/atlas/."""
         return VoxelAtlasManager.detect_mni_atlases(MNI_ATLAS_DIR)
+
+    def detect_subject_rois(self, subject_id):
+        """Detect subject-space NIfTI ROI masks for the selected subject."""
+        if not subject_id:
+            return []
+
+        mgr = VoxelAtlasManager(roi_dir=self.pm.rois(subject_id))
+        rois = []
+        for display_name, full_path in mgr.list_atlases():
+            if not display_name.startswith("ROIs/"):
+                continue
+            rois.append((display_name.removeprefix("ROIs/"), full_path))
+        return rois
 
     def detect_voxel_analyses(self, subject_id, simulation_name):
         """Detect available voxel analyses for a subject and simulation.
@@ -164,6 +178,13 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_combo.setEnabled(False)
         subject_block_layout.addWidget(self.atlas_combo, 1, 1, 1, 2)
 
+        # Optional subject-space ROI mask overlay.
+        subject_block_layout.addWidget(QtWidgets.QLabel("ROI Overlay:"), 2, 0)
+        self.roi_overlay_combo = QtWidgets.QComboBox()
+        self.roi_overlay_combo.setEnabled(False)
+        self.roi_overlay_combo.addItem(ROI_OVERLAY_NONE, None)
+        subject_block_layout.addWidget(self.roi_overlay_combo, 2, 1, 1, 2)
+
         electrode_controls = QtWidgets.QHBoxLayout()
         self.electrode_overlay_visibility_chk = QtWidgets.QCheckBox(
             "Show Electrode Overlay"
@@ -183,7 +204,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.electrode_overlay_status = QtWidgets.QLabel("Not checked")
         electrode_controls.addWidget(self.electrode_overlay_status)
         electrode_controls.addStretch()
-        subject_block_layout.addLayout(electrode_controls, 2, 0, 1, 3)
+        subject_block_layout.addLayout(electrode_controls, 3, 0, 1, 3)
 
         config_layout.addWidget(subject_block)
 
@@ -421,6 +442,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.status_label.setText(f"Found {len(subject_ids)} subjects")
         self.refresh_simulations(preserve=preserve, preferred_sim=current_sim)
         self.check_freesurfer_atlases()
+        self.update_subject_roi_overlays(preserve=preserve)
 
     def check_freesurfer_atlases(self):
         """Check for available Freesurfer atlases for the current subject."""
@@ -438,6 +460,28 @@ class NiftiViewerTab(QtWidgets.QWidget):
         labeling_idx = self.atlas_combo.findText("labeling.nii.gz")
         if labeling_idx >= 0:
             self.atlas_combo.setCurrentIndex(labeling_idx)
+
+    def update_subject_roi_overlays(self, preserve=True):
+        """Populate the optional ROI overlay selector for the current subject."""
+        current_roi = self.roi_overlay_combo.currentData() if preserve else None
+        subject_id = self.subject_combo.currentText()
+        available_rois = self.detect_subject_rois(subject_id)
+
+        self.roi_overlay_combo.blockSignals(True)
+        self.roi_overlay_combo.clear()
+        self.roi_overlay_combo.addItem(ROI_OVERLAY_NONE, None)
+
+        selected_index = 0
+        for display_name, full_path in available_rois:
+            self.roi_overlay_combo.addItem(display_name, full_path)
+            if preserve and full_path == current_roi:
+                selected_index = self.roi_overlay_combo.count() - 1
+
+        self.roi_overlay_combo.setCurrentIndex(selected_index)
+        self.roi_overlay_combo.blockSignals(False)
+        self.roi_overlay_combo.setEnabled(
+            self.space_combo.currentText() == "Subject" and bool(available_rois)
+        )
 
     def refresh_simulations(self, preserve=True, preferred_sim=None):
         """Populate the simulation combo box for the selected subject."""
@@ -1080,6 +1124,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
                             "info",
                         )
 
+        self._load_roi_overlay(file_specs)
+
         if not any(
             spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))
         ):
@@ -1258,6 +1304,37 @@ class NiftiViewerTab(QtWidgets.QWidget):
             f"Loading electrode overlay: {os.path.basename(overlay_file)}", "info"
         )
 
+    def _load_roi_overlay(self, file_specs):
+        """Add the selected subject-space ROI mask overlay to file_specs."""
+        if (
+            self.space_combo.currentText() != "Subject"
+            or not self.roi_overlay_combo.isEnabled()
+        ):
+            return
+
+        roi_file = self.roi_overlay_combo.currentData()
+        if not roi_file:
+            return
+        if not os.path.exists(roi_file):
+            self.console_widget.update_console(
+                f"Warning: selected ROI overlay was not found at {roi_file}",
+                "warning",
+            )
+            return
+
+        file_specs.append(
+            {
+                "path": roi_file,
+                "type": "volume",
+                "visible": 1,
+                "colormap": "jet",
+                "opacity": 0.45,
+            }
+        )
+        self.console_widget.update_console(
+            f"Loading ROI overlay: {self.roi_overlay_combo.currentText()}", "info"
+        )
+
     def terminate_freeview(self):
         """Terminate the Freeview process."""
         if self.freeview_process is not None and self.freeview_process.poll() is None:
@@ -1276,6 +1353,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def on_subject_changed(self):
         """Handle subject selection changes."""
         self.check_freesurfer_atlases()
+        self.update_subject_roi_overlays()
         self.refresh_simulations()
 
     def _vis_options(self, path, **overrides):
@@ -1306,6 +1384,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.analysis_visibility_chk,
             self.analysis_opacity_slider,
             self.atlas_combo,
+            self.roi_overlay_combo,
             self.create_electrode_overlay_btn,
             self.electrode_overlay_visibility_chk,
         ):
@@ -1317,4 +1396,5 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 "info",
             )
         else:
+            self.update_subject_roi_overlays()
             self.update_electrode_overlay_controls()
