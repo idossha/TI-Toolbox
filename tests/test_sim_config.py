@@ -26,6 +26,7 @@ from tit.sim.config import (
     SimulationConfig,
     parse_intensities,
 )
+from tit.sim.utils import build_simulation_config_for_job
 from tit.calc import get_TI_vectors, get_mTI_vectors, get_nTI_vectors
 
 
@@ -214,6 +215,34 @@ class TestSimulationConfig:
         assert config.subject_id == "001"
         assert config.conductivity == "dir"
         assert config.intensities == [1.0, 1.0]
+
+    def test_job_config_uses_each_job_subject(self):
+        """Each queued simulation job gets its own subject-specific config."""
+        montage_a = Montage(
+            name="L_Insula",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("E034", "E020"), ("E095", "E070")],
+            eeg_net="GSN-HydroCel-185.csv",
+        )
+        montage_b = Montage(
+            name="L_Insula",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("E034", "E020"), ("E095", "E070")],
+            eeg_net="GSN-HydroCel-185.csv",
+        )
+
+        config_a = build_simulation_config_for_job(
+            "118", montage_a, "5.16,5.11", "scalar", "ellipse", [8.0, 8.0], 4.0
+        )
+        config_b = build_simulation_config_for_job(
+            "123", montage_b, "5.16,5.11", "scalar", "ellipse", [8.0, 8.0], 4.0
+        )
+
+        assert config_a.subject_id == "118"
+        assert config_b.subject_id == "123"
+        assert [m.name for m in config_a.montages] == ["L_Insula"]
+        assert [m.name for m in config_b.montages] == ["L_Insula"]
+        assert config_a.intensities == [5.16, 5.11]
 
     def test_default_values(self):
         config = SimulationConfig(

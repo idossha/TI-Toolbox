@@ -51,6 +51,7 @@ from tit.paths import get_path_manager
 from tit import constants as const
 from tit.sim.config import (
     Montage,
+    parse_intensities,
     SimulationConfig,
     SimulationMode,
 )
@@ -769,6 +770,27 @@ def safe_move(src: str, dest: str) -> None:
 
 
 # ── Simulation Orchestration ────────────────────────────────────────────────────────────────
+
+
+def build_simulation_config_for_job(
+    subject_id: str,
+    montage: Montage,
+    current_str: str,
+    conductivity: str,
+    electrode_shape: str,
+    electrode_dimensions: list[float],
+    gel_thickness: float,
+) -> SimulationConfig:
+    """Build the backend config for one subject/montage job."""
+    return SimulationConfig(
+        subject_id=subject_id,
+        montages=[montage],
+        conductivity=conductivity,
+        intensities=parse_intensities(current_str),
+        electrode_shape=electrode_shape,
+        electrode_dimensions=electrode_dimensions,
+        gel_thickness=gel_thickness,
+    )
 
 
 def run_simulation(

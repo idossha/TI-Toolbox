@@ -44,11 +44,10 @@ from tit.config_io import serialize_config
 from tit.reporting import SimulationReportGenerator
 
 from tit.sim import (
-    SimulationConfig,
     Montage,
-    parse_intensities,
 )
 from tit.sim.utils import (
+    build_simulation_config_for_job,
     list_montage_names,
     load_montages,
     load_montage_data,
@@ -69,11 +68,31 @@ class SimulationThread(BaseProcessThread):
     BaseProcessThread : Provides ``execute_process`` and ``terminate_process``.
     """
 
-    def __init__(self, cmd, env=None):
+    def __init__(self, cmd, env=None, job_labels=None):
         super().__init__(cmd=cmd, env=env)
+        self.commands = cmd if cmd and isinstance(cmd[0], list) else [cmd]
+        self.job_labels = job_labels or []
 
     def run(self):
-        self.execute_process()
+        total = len(self.commands)
+        for idx, cmd in enumerate(self.commands, start=1):
+            if self.terminated:
+                break
+            self.cmd = cmd
+            self.returncode = None
+            self.process = None
+            label = (
+                self.job_labels[idx - 1]
+                if idx - 1 < len(self.job_labels)
+                else "simulation"
+            )
+            if total > 1:
+                self.output_signal.emit(
+                    f"--- Job {idx}/{total}: {label} ---", "command"
+                )
+            self.execute_process()
+            if self.terminated or self.returncode != 0:
+                break
 
     def terminate_simulation(self):
         self.terminate_process()
@@ -1422,42 +1441,35 @@ class SimulatorTab(QtWidgets.QWidget):
             self._had_errors_during_run = False
             self._simulation_finished_called = False
 
-            # ── Build SimulationConfig and Montage list ──────────────
+            # ── Build one SimulationConfig per queued job ────────────
             dim_parts2 = dimensions.split(",")
             electrode_dims = [float(dim_parts2[0]), float(dim_parts2[1])]
 
-            # All jobs share the same config (intensities differ per job but run_simulation
-            # accepts per-montage overrides; here we handle each unique subject+current
-            # combination by grouping and launching one thread per unique (subject, current).
-            # For simplicity (matching old one-job-at-a-time semantic), we run all jobs
-
-            # Use the first job's subject_id/current for the top-level config;
-            # each Montage carries its own eeg_net. run_simulation() accepts a
-            # list of montages and iterates over them using config for shared params.
-            first_subject, first_mc, first_current = jobs[0]
-            montage_list = [mc for _, mc, _ in jobs]
-            sim_config = SimulationConfig(
-                subject_id=first_subject,
-                montages=montage_list,
-                conductivity=conductivity,
-                intensities=parse_intensities(first_current),
-                electrode_shape=electrode_shape,
-                electrode_dimensions=electrode_dims,
-                gel_thickness=float(thickness),
-            )
-
-            # ── Serialize config to JSON ──────────────────────────────────
             import tempfile
 
-            config_data = serialize_config(sim_config)
-            fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
-            with os.fdopen(fd, "w") as f:
-                json.dump(config_data, f, indent=2)
-
-            cmd = ["simnibs_python", "-m", "tit.sim", config_path]
+            commands = []
+            job_labels = []
+            for subject_id, montage_config, current_str in jobs:
+                sim_config = build_simulation_config_for_job(
+                    subject_id,
+                    montage_config,
+                    current_str,
+                    conductivity,
+                    electrode_shape,
+                    electrode_dims,
+                    float(thickness),
+                )
+                config_data = serialize_config(sim_config)
+                fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
+                with os.fdopen(fd, "w") as f:
+                    json.dump(config_data, f, indent=2)
+                commands.append(["simnibs_python", "-m", "tit.sim", config_path])
+                job_labels.append(
+                    f"{subject_id} | {self._montage_display_name(montage_config)}"
+                )
 
             # ── Launch SimulationThread ─────────────────────────────────────
-            self.sim_thread = SimulationThread(cmd)
+            self.sim_thread = SimulationThread(commands, job_labels=job_labels)
             self.sim_thread.output_signal.connect(self._handle_thread_output)
             self.sim_thread.error_signal.connect(self._handle_process_error)
             self.sim_thread.finished.connect(self._on_simulation_done)
