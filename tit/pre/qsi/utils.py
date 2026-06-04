@@ -183,9 +183,6 @@ def validate_dood_environment(
     if not Path(project_dir).exists():
         return False, f"Project directory does not exist: {project_dir}"
 
-    if not Path(local_project_dir).exists():
-        return False, f"Host project directory does not exist: {local_project_dir}"
-
     try:
         result = subprocess.run(
             ["docker", "info"],
