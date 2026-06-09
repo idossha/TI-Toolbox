@@ -182,6 +182,34 @@ class TestExConfigValidation:
         assert isinstance(cfg.electrodes, ExConfig.BucketElectrodes)
         assert cfg.electrodes.e1_plus == ["A1"]
 
+    def test_symmetric_bucket_rejects_pool_mode(self):
+        with pytest.raises(ValueError, match="symmetric_bucket"):
+            ExConfig(
+                subject_id="001",
+                leadfield_hdf="/lf.hdf5",
+                roi_name="region",
+                electrodes=ExConfig.PoolElectrodes(
+                    electrodes=["E1", "E2", "E3", "E4"]
+                ),
+                symmetric_bucket=True,
+            )
+
+    def test_symmetric_bucket_rejects_unknown_layout(self):
+        with pytest.raises(ValueError, match="symmetry_layout"):
+            ExConfig(
+                subject_id="001",
+                leadfield_hdf="/lf.hdf5",
+                roi_name="region",
+                electrodes=ExConfig.BucketElectrodes(
+                    e1_plus=["A1"],
+                    e1_minus=["A2"],
+                    e2_plus=["B1"],
+                    e2_minus=["B2"],
+                ),
+                symmetric_bucket=True,
+                symmetry_layout="diagonal_moon_magic",
+            )
+
     def test_roi_name_gets_csv_suffix(self):
         cfg = ExConfig(
             subject_id="001",

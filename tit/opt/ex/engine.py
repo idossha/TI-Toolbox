@@ -206,6 +206,8 @@ class ExSearchEngine:
         current_ratios: list[tuple[float, float]],
         all_combinations: bool,
         output_dir: str,
+        symmetry_mirror_map: dict[str, str] | None = None,
+        symmetry_layout: str = "auto",
     ) -> dict[str, dict[str, float]]:
         """Run the full simulation loop. Returns {mesh_key: metrics}."""
         stop = False
@@ -218,7 +220,14 @@ class ExSearchEngine:
         signal.signal(signal.SIGTERM, _on_signal)
 
         total = count_combinations(
-            e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+            e1_plus,
+            e1_minus,
+            e2_plus,
+            e2_minus,
+            current_ratios,
+            all_combinations,
+            symmetry_mirror_map,
+            symmetry_layout,
         )
         self._log_config_summary(
             e1_plus,
@@ -228,6 +237,8 @@ class ExSearchEngine:
             current_ratios,
             all_combinations,
             total,
+            symmetry_mirror_map,
+            symmetry_layout,
         )
 
         results: dict[str, dict[str, float]] = {}
@@ -235,7 +246,14 @@ class ExSearchEngine:
 
         for i, (ep1, em1, ep2, em2, (ch1, ch2)) in enumerate(
             generate_montage_combinations(
-                e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+                e1_plus,
+                e1_minus,
+                e2_plus,
+                e2_minus,
+                current_ratios,
+                all_combinations,
+                symmetry_mirror_map,
+                symmetry_layout,
             ),
             1,
         ):
@@ -286,9 +304,16 @@ class ExSearchEngine:
         current_ratios,
         all_combinations,
         total,
+        symmetry_mirror_map=None,
+        symmetry_layout="auto",
     ) -> None:
         self.logger.info(f"\n{'=' * 60}")
-        mode = "All Combinations" if all_combinations else "Bucketed"
+        if all_combinations:
+            mode = "All Combinations"
+        elif symmetry_mirror_map is not None:
+            mode = f"Bucketed, left/right symmetric ({symmetry_layout})"
+        else:
+            mode = "Bucketed"
         self.logger.info(f"TI Exhaustive Search ({mode})")
         self.logger.info(f"Total combinations: {total}")
         self.logger.info(f"Current ratios: {len(current_ratios)}")

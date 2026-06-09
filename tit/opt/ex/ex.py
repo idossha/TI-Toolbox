@@ -13,6 +13,7 @@ from tit.paths import get_path_manager
 from tit.logger import add_file_handler
 
 from .engine import ExSearchEngine
+from .buckets import build_electrode_mirror_map, canonical_template_coord_path
 from .logic import generate_current_ratios
 from .results import process_and_save
 
@@ -58,12 +59,14 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         pool = config.electrodes.electrodes
         e1_plus = e1_minus = e2_plus = e2_minus = pool
         all_combinations = True
+        symmetry_mirror_map = None
     else:
         e1_plus = config.electrodes.e1_plus
         e1_minus = config.electrodes.e1_minus
         e2_plus = config.electrodes.e2_plus
         e2_minus = config.electrodes.e2_minus
         all_combinations = False
+        symmetry_mirror_map = _build_symmetry_mirror_map(config, pm, logger)
 
     leadfield_path = os.path.join(
         pm.leadfields(config.subject_id), config.leadfield_hdf
@@ -81,7 +84,15 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     logger.info(f"Generated {len(ratios)} current ratio combinations")
 
     results = engine.run(
-        e1_plus, e1_minus, e2_plus, e2_minus, ratios, all_combinations, output_dir
+        e1_plus,
+        e1_minus,
+        e2_plus,
+        e2_minus,
+        ratios,
+        all_combinations,
+        output_dir,
+        symmetry_mirror_map=symmetry_mirror_map,
+        symmetry_layout=config.symmetry_layout,
     )
 
     output_info = process_and_save(results, config, output_dir, logger)
@@ -98,3 +109,35 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         best_composite_csv=output_info.get("best_composite_csv"),
         config_json=output_info.get("config_json_path"),
     )
+
+
+def _infer_symmetry_eeg_csv(config: ExConfig, pm) -> Path | None:
+    """Infer the EEG-position CSV from the leadfield name when possible."""
+    leadfield_name = Path(config.leadfield_hdf).name
+    net_name = leadfield_name.removesuffix(".hdf5").removesuffix("_leadfield")
+    if not net_name:
+        return None
+    canonical = canonical_template_coord_path(net_name)
+    if canonical is not None:
+        return canonical
+    candidate = Path(pm.eeg_positions(config.subject_id)) / f"{net_name}.csv"
+    return candidate if candidate.is_file() else None
+
+
+def _build_symmetry_mirror_map(config: ExConfig, pm, logger) -> dict[str, str] | None:
+    """Return an electrode mirror map for symmetric bucket mode, if enabled."""
+    if not config.symmetric_bucket:
+        return None
+
+    eeg_csv = Path(config.symmetry_eeg_csv) if config.symmetry_eeg_csv else None
+    if eeg_csv is None or not eeg_csv.is_file():
+        eeg_csv = _infer_symmetry_eeg_csv(config, pm)
+    if eeg_csv is None or not eeg_csv.is_file():
+        raise ValueError(
+            "symmetric_bucket requires a valid symmetry_eeg_csv or an inferable "
+            "EEG-position CSV from the selected leadfield."
+        )
+
+    mirror_map = build_electrode_mirror_map(eeg_csv)
+    logger.info(f"Symmetric bucket mode: using EEG mirror map from {eeg_csv}")
+    return mirror_map

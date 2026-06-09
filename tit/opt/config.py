@@ -412,6 +412,14 @@ class ExConfig:
         Spherical ROI radius in mm for the target region.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    symmetric_bucket : bool
+        When True in bucket mode, evaluate only left/right mirrored E1+/E1-
+        and E2+/E2- electrode pairs.
+    symmetry_eeg_csv : str or None
+        EEG-position CSV used to derive mirrored electrode pairs.
+    symmetry_layout : str
+        Symmetry interpretation for bucket mode: ``"auto"``,
+        ``"paired_buckets"``, or ``"cross_channels"``.
 
     Raises
     ------
@@ -476,6 +484,11 @@ class ExConfig:
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
 
+    # ── Bucket constraints ─────────────────────────────────────────────
+    symmetric_bucket: bool = False
+    symmetry_eeg_csv: str | None = None
+    symmetry_layout: str = "auto"
+
     def __post_init__(self):
         if isinstance(self.electrodes, dict):
             if "electrodes" in self.electrodes:
@@ -492,6 +505,14 @@ class ExConfig:
             raise ValueError("total_current must be positive")
         if self.channel_limit is not None and self.channel_limit <= 0:
             raise ValueError("channel_limit must be positive")
+        if self.symmetric_bucket and isinstance(
+            self.electrodes, ExConfig.PoolElectrodes
+        ):
+            raise ValueError("symmetric_bucket is only supported for bucket electrodes")
+        if self.symmetry_layout not in {"auto", "paired_buckets", "cross_channels"}:
+            raise ValueError(
+                "symmetry_layout must be auto, paired_buckets, or cross_channels"
+            )
 
 
 @dataclass

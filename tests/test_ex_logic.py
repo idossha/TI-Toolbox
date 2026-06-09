@@ -153,6 +153,49 @@ class TestElectrodeCombinations:
         assert all(e1p != e1m and e2p != e2m for e1p, e1m, e2p, e2m in combos)
         assert len(combos) == 9
 
+    def test_bucket_mode_can_force_left_right_symmetry(self):
+        """Symmetric bucket mode keeps only mirrored E1 and E2 pairs."""
+        mirror_map = {
+            "LA1": "RA1",
+            "LA2": "RA2",
+            "LP1": "RP1",
+            "LP2": "RP2",
+        }
+        combos = list(
+            _electrode_combinations(
+                ["LA1", "LA2"],
+                ["RA1", "RA3"],
+                ["LP1", "LP2"],
+                ["RP2", "RP3"],
+                all_combinations=False,
+                symmetry_mirror_map=mirror_map,
+            )
+        )
+
+        assert combos == [("LA1", "RA1", "LP2", "RP2")]
+
+    def test_bucket_mode_can_force_cross_channel_symmetry(self):
+        """Symmetric bucket mode supports left-channel/right-channel buckets."""
+        mirror_map = {
+            "LA1": "RA1",
+            "LA2": "RA2",
+            "LP1": "RP1",
+            "LP2": "RP2",
+        }
+        combos = list(
+            _electrode_combinations(
+                ["LA1", "LA2"],
+                ["LP1", "LP2"],
+                ["RA1", "RA3"],
+                ["RP2", "RP3"],
+                all_combinations=False,
+                symmetry_mirror_map=mirror_map,
+                symmetry_layout="auto",
+            )
+        )
+
+        assert combos == [("LA1", "LP2", "RA1", "RP2")]
+
     def test_all_combinations_mode(self):
         """all_combinations=True: permutations of 4 from e1_plus pool, all unique."""
         pool = ["E1", "E2", "E3", "E4"]
@@ -251,6 +294,26 @@ class TestGenerateMontagesCombinations:
         assert all(combo[0] != combo[1] and combo[2] != combo[3] for combo in combos)
         assert len(combos) == 9
 
+    def test_symmetric_bucket_mode_with_ratios(self):
+        ratios = [(1.0, 1.0), (1.5, 0.5)]
+        mirror_map = {"LA": "RA", "LP": "RP"}
+        combos = list(
+            generate_montage_combinations(
+                ["LA"],
+                ["RA"],
+                ["LP"],
+                ["RP"],
+                ratios,
+                all_combinations=False,
+                symmetry_mirror_map=mirror_map,
+            )
+        )
+
+        assert combos == [
+            ("LA", "RA", "LP", "RP", (1.0, 1.0)),
+            ("LA", "RA", "LP", "RP", (1.5, 0.5)),
+        ]
+
 
 # ===========================================================================
 # count_combinations
@@ -293,6 +356,45 @@ class TestCountCombinations:
         )
 
         assert count == 18
+
+    def test_symmetric_bucket_count(self):
+        ratios = [(1.0, 1.0), (0.5, 1.5)]
+        count = count_combinations(
+            ["LA1", "LA2"],
+            ["RA1", "RA2"],
+            ["LP1", "LP2"],
+            ["RP2"],
+            ratios,
+            all_combinations=False,
+            symmetry_mirror_map={
+                "LA1": "RA1",
+                "LA2": "RA2",
+                "LP1": "RP1",
+                "LP2": "RP2",
+            },
+        )
+
+        assert count == 4
+
+    def test_cross_channel_symmetric_bucket_count(self):
+        ratios = [(1.0, 1.0), (0.5, 1.5)]
+        count = count_combinations(
+            ["LA1", "LA2"],
+            ["LP1", "LP2"],
+            ["RA1", "RA2"],
+            ["RP2"],
+            ratios,
+            all_combinations=False,
+            symmetry_mirror_map={
+                "LA1": "RA1",
+                "LA2": "RA2",
+                "LP1": "RP1",
+                "LP2": "RP2",
+            },
+            symmetry_layout="auto",
+        )
+
+        assert count == 4
 
 
 # ===========================================================================

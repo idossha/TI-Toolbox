@@ -39,12 +39,15 @@ from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.buckets import (
+    build_electrode_mirror_map,
     build_quadrant_buckets,
+    canonical_template_coord_path,
     load_bucket_file,
     save_bucket_file,
     QUADRANT_BUCKET_LABELS,
 )
 from tit.opt.ex.engine import ExSearchEngine
+from tit.opt.ex.logic import count_combinations
 from tit.opt.config import ExConfig
 from tit.gui.style import (
     FONT_HELP,
@@ -309,6 +312,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e2_plus = []
         self.e2_minus = []
         self.bucket_preset_label = ""
+        self.use_symmetric_bucket = False
         self.current_roi_index = 0
         self._exsearch_had_errors = False
         # Initialize debug mode (default to False)
@@ -568,17 +572,37 @@ class ExSearchTab(QtWidgets.QWidget):
                     f"  E2- electrodes ({len(self.e2_minus)}): {', '.join(self.e2_minus)}"
                 )
 
-                total_combos = (
-                    len(self.e1_plus)
-                    * len(self.e1_minus)
-                    * len(self.e2_plus)
-                    * len(self.e2_minus)
-                )
-                config_logger.info(f"  Search Strategy: Cartesian product of groups")
-                config_logger.info(f"  Total Combinations: {total_combos:,}")
-                config_logger.info(
-                    f"  Formula: {len(self.e1_plus)} × {len(self.e1_minus)} × {len(self.e2_plus)} × {len(self.e2_minus)}"
-                )
+                if self.use_symmetric_bucket:
+                    try:
+                        mirror_map = self._build_current_symmetry_mirror_map()
+                        total_combos = self._count_symmetric_bucket_electrode_combos(
+                            self.e1_plus,
+                            self.e1_minus,
+                            self.e2_plus,
+                            self.e2_minus,
+                            mirror_map,
+                        )
+                    except (OSError, ValueError):
+                        total_combos = 0
+                    config_logger.info(
+                        "  Search Strategy: mirrored E1+/E1- and E2+/E2- pairs"
+                    )
+                    config_logger.info("  Constraint: left/right symmetry enabled")
+                    config_logger.info(f"  Total Combinations: {total_combos:,}")
+                else:
+                    total_combos = (
+                        len(self.e1_plus)
+                        * len(self.e1_minus)
+                        * len(self.e2_plus)
+                        * len(self.e2_minus)
+                    )
+                    config_logger.info(
+                        f"  Search Strategy: Cartesian product of groups"
+                    )
+                    config_logger.info(f"  Total Combinations: {total_combos:,}")
+                    config_logger.info(
+                        f"  Formula: {len(self.e1_plus)} × {len(self.e1_minus)} × {len(self.e2_plus)} × {len(self.e2_minus)}"
+                    )
 
             # Environment variables (important ones)
             config_logger.info("Key Environment Variables:")
@@ -1145,6 +1169,15 @@ class ExSearchTab(QtWidgets.QWidget):
         layout.addRow("E2+ electrodes:", self.e2_plus_input)
         layout.addRow("E2- electrodes:", self.e2_minus_input)
 
+        self.symmetric_bucket_checkbox = QtWidgets.QCheckBox(
+            "Force left/right symmetry"
+        )
+        self.symmetric_bucket_checkbox.setToolTip(
+            "Only evaluate bucket montages where E1+ mirrors E1- and E2+ mirrors E2- "
+            "according to the selected EEG net."
+        )
+        layout.addRow("", self.symmetric_bucket_checkbox)
+
         preset_layout = QtWidgets.QHBoxLayout()
         self.quadrant_buckets_btn = QtWidgets.QPushButton("Use Quadrants")
         self.quadrant_buckets_btn.setToolTip(
@@ -1183,8 +1216,10 @@ class ExSearchTab(QtWidgets.QWidget):
         """Switch between bucketed and all-combinations electrode input panels."""
         if self.rb_bucketed.isChecked():
             self.electrode_stack.setCurrentIndex(0)  # Bucketed panel
+            self.symmetric_bucket_checkbox.setEnabled(True)
         elif self.rb_all_combinations.isChecked():
             self.electrode_stack.setCurrentIndex(1)  # All combinations panel
+            self.symmetric_bucket_checkbox.setEnabled(False)
 
     def _current_leadfield_net_name(self):
         """Return the selected leadfield EEG-net name, if available."""
@@ -1211,6 +1246,45 @@ class ExSearchTab(QtWidgets.QWidget):
             "e2_plus": self.parse_electrode_input(self.e2_plus_input.text()) or [],
             "e2_minus": self.parse_electrode_input(self.e2_minus_input.text()) or [],
         }
+
+    def _current_symmetry_eeg_csv(self):
+        """Return the EEG-position CSV for the selected leadfield, if available."""
+        subject_id = self.subject_combo.currentText()
+        net_name = self._current_leadfield_net_name()
+        if not subject_id or not net_name:
+            return None
+        canonical = canonical_template_coord_path(net_name)
+        if canonical is not None:
+            return str(canonical)
+        return os.path.join(self.pm.eeg_positions(subject_id), f"{net_name}.csv")
+
+    def _build_current_symmetry_mirror_map(self):
+        """Build a mirror map from the selected leadfield EEG net."""
+        eeg_csv = self._current_symmetry_eeg_csv()
+        if not eeg_csv or not os.path.isfile(eeg_csv):
+            raise FileNotFoundError(
+                f"Could not find EEG position file for symmetry:\n{eeg_csv or 'None'}"
+            )
+        return build_electrode_mirror_map(eeg_csv)
+
+    @staticmethod
+    def _count_symmetric_bucket_electrode_combos(
+        e1_plus,
+        e1_minus,
+        e2_plus,
+        e2_minus,
+        mirror_map,
+    ):
+        """Count bucket electrode quads that satisfy the symmetry constraint."""
+        return count_combinations(
+            e1_plus,
+            e1_minus,
+            e2_plus,
+            e2_minus,
+            [(1.0, 1.0)],
+            all_combinations=False,
+            symmetry_mirror_map=mirror_map,
+        )
 
     def fill_quadrant_buckets(self):
         """Fill bucket fields from the selected leadfield EEG net quadrants."""
@@ -1766,6 +1840,22 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
                 return False
 
+            if self.symmetric_bucket_checkbox.isChecked():
+                try:
+                    mirror_map = self._build_current_symmetry_mirror_map()
+                    n_symmetric = self._count_symmetric_bucket_electrode_combos(
+                        e1_plus, e1_minus, e2_plus, e2_minus, mirror_map
+                    )
+                except (OSError, ValueError) as e:
+                    self.update_status(str(e), error=True)
+                    return False
+                if n_symmetric == 0:
+                    self.update_status(
+                        "No left/right mirrored electrode pairs were found in the buckets.",
+                        error=True,
+                    )
+                    return False
+
         return True
 
     def run_optimization(self):
@@ -1798,6 +1888,7 @@ class ExSearchTab(QtWidgets.QWidget):
             # 4-electrode assignments from this pool
             e1_plus = e1_minus = e2_plus = e2_minus = all_electrodes
             self.use_all_combinations = True
+            self.use_symmetric_bucket = False
         else:
             # Bucketed mode: separate electrode groups for each position
             e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
@@ -1805,6 +1896,12 @@ class ExSearchTab(QtWidgets.QWidget):
             e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
             e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
             self.use_all_combinations = False
+            self.use_symmetric_bucket = self.symmetric_bucket_checkbox.isChecked()
+            symmetry_mirror_map = (
+                self._build_current_symmetry_mirror_map()
+                if self.use_symmetric_bucket
+                else None
+            )
 
         # Show confirmation dialog with mode and electrode information
         selected_rois = self.roi_list.selectedItems()
@@ -1828,11 +1925,18 @@ class ExSearchTab(QtWidgets.QWidget):
             )
         else:
             mode_str = "Bucketed Mode"
+            if self.use_symmetric_bucket:
+                mode_str += " (left/right symmetric)"
             if self.bucket_preset_label:
                 mode_str += f" ({self.bucket_preset_label})"
             electrode_info = f"E1+: {len(e1_plus)} electrodes, E1-: {len(e1_minus)}\n"
             electrode_info += f"E2+: {len(e2_plus)} electrodes, E2-: {len(e2_minus)}\n"
-            n_combos = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus)
+            if self.use_symmetric_bucket:
+                n_combos = self._count_symmetric_bucket_electrode_combos(
+                    e1_plus, e1_minus, e2_plus, e2_minus, symmetry_mirror_map
+                )
+            else:
+                n_combos = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus)
             electrode_info += f"Search Space: {n_combos:,} electrode combinations"
 
         details = (
@@ -1918,6 +2022,15 @@ class ExSearchTab(QtWidgets.QWidget):
             channel_limit=self.channel_limit_spinbox.value(),
             roi_radius=self.roi_radius_spinbox.value(),
             run_name=ExSearchEngine.safe_run_name(roi_name, eeg_net),
+            symmetric_bucket=(
+                bool(self.use_symmetric_bucket) and not self.use_all_combinations
+            ),
+            symmetry_eeg_csv=(
+                self._current_symmetry_eeg_csv()
+                if self.use_symmetric_bucket and not self.use_all_combinations
+                else None
+            ),
+            symmetry_layout="auto",
         )
 
     @staticmethod
@@ -2425,6 +2538,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.quadrant_buckets_btn.setEnabled(False)
         self.load_buckets_btn.setEnabled(False)
         self.save_buckets_btn.setEnabled(False)
+        self.symmetric_bucket_checkbox.setEnabled(False)
         self.all_electrodes_input.setEnabled(False)
         self.rb_bucketed.setEnabled(False)
         self.rb_all_combinations.setEnabled(False)
@@ -2466,6 +2580,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.quadrant_buckets_btn.setEnabled(True)
         self.load_buckets_btn.setEnabled(True)
         self.save_buckets_btn.setEnabled(True)
+        self.symmetric_bucket_checkbox.setEnabled(self.rb_bucketed.isChecked())
         self.all_electrodes_input.setEnabled(True)
         self.rb_bucketed.setEnabled(True)
         self.rb_all_combinations.setEnabled(True)

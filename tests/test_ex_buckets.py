@@ -5,7 +5,9 @@ import json
 import pytest
 
 from tit.opt.ex.buckets import (
+    build_electrode_mirror_map,
     build_quadrant_buckets,
+    canonical_template_coord_path,
     load_bucket_file,
     normalize_buckets,
     save_bucket_file,
@@ -107,3 +109,85 @@ class TestQuadrantBuckets:
             "e2_plus": ["LP"],
             "e2_minus": ["RP"],
         }
+
+
+@pytest.mark.unit
+class TestElectrodeMirrorMap:
+    def test_builds_left_right_mirrors_from_eeg_csv(self, tmp_path):
+        path = tmp_path / "cap.csv"
+        path.write_text(
+            "\n".join(
+                [
+                    "Electrode,-1,2,0,LA",
+                    "Electrode,1,2,0,RA",
+                    "Electrode,-1,-2,0,LP",
+                    "Electrode,1,-2,0,RP",
+                    "Electrode,0,0,0,Cz",
+                ]
+            )
+        )
+
+        mirror_map = build_electrode_mirror_map(path)
+
+        assert mirror_map["LA"] == "RA"
+        assert mirror_map["RA"] == "LA"
+        assert mirror_map["LP"] == "RP"
+        assert mirror_map["RP"] == "LP"
+        assert mirror_map["Cz"] == "Cz"
+
+    def test_builds_mirrors_from_template_xy_csv(self, tmp_path):
+        path = tmp_path / "template.csv"
+        path.write_text(
+            "\n".join(
+                [
+                    "electrode_name,x,y",
+                    "E1,-2,1",
+                    "E2,2,1",
+                ]
+            )
+        )
+
+        mirror_map = build_electrode_mirror_map(path)
+
+        assert mirror_map == {"E1": "E2", "E2": "E1"}
+
+    def test_builds_mirrors_from_positive_image_xy_csv(self, tmp_path):
+        path = tmp_path / "template.csv"
+        path.write_text(
+            "\n".join(
+                [
+                    "electrode_name,x,y",
+                    "L,10,5",
+                    "R,30,5",
+                    "C,20,5",
+                ]
+            )
+        )
+
+        mirror_map = build_electrode_mirror_map(path)
+
+        assert mirror_map["L"] == "R"
+        assert mirror_map["R"] == "L"
+        assert mirror_map["C"] == "C"
+
+    def test_uses_z_coordinate_for_simnibs_eeg_csv_mirrors(self, tmp_path):
+        path = tmp_path / "cap.csv"
+        path.write_text(
+            "\n".join(
+                [
+                    "Electrode,-10,5,20,L",
+                    "Electrode,10,5,80,R_wrong_z",
+                    "Electrode,11,5,21,R_good_z",
+                ]
+            )
+        )
+
+        mirror_map = build_electrode_mirror_map(path)
+
+        assert mirror_map["L"] == "R_good_z"
+
+    def test_resolves_canonical_gsn_template(self):
+        path = canonical_template_coord_path("GSN-HydroCel-256")
+
+        assert path is not None
+        assert path.name == "GSN-256.csv"
