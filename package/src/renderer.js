@@ -17,6 +17,9 @@ const logPathEl = document.getElementById('log-path');
 const openLogsBtn = document.getElementById('open-logs-btn');
 const activityList = document.getElementById('activity-list');
 const clearActivityBtn = document.getElementById('clear-activity-btn');
+const projectChip = document.getElementById('project-chip');
+const sessionChip = document.getElementById('session-chip');
+const dockerIndicator = document.getElementById('docker-indicator');
 
 let isLaunching = false;
 let sessionActive = false;
@@ -46,10 +49,24 @@ function isProjectDirValid(value) {
   return Boolean(value && value.trim().length > 0);
 }
 
+function setChip(chip, text, state = 'neutral') {
+  chip.textContent = text;
+  chip.className = `status-chip ${state}`;
+}
+
+function refreshProjectStatus() {
+  if (isProjectDirValid(projectPathInput.value)) {
+    setChip(projectChip, 'Project selected', 'ready');
+  } else {
+    setChip(projectChip, 'No project selected', 'neutral');
+  }
+}
+
 function refreshLaunchButton() {
   const validPath = isProjectDirValid(projectPathInput.value);
   const disabled = !validPath || isLaunching || sessionActive;
   launchBtn.disabled = disabled;
+  refreshProjectStatus();
 }
 
 function setLaunchingState(launching) {
@@ -57,9 +74,11 @@ function setLaunchingState(launching) {
   if (launching) {
     launchText.textContent = 'Launching...';
     launchSpinner.classList.remove('hidden');
+    setChip(sessionChip, 'Launching', 'running');
   } else {
     launchText.textContent = 'Launch TI-Toolbox';
     launchSpinner.classList.add('hidden');
+    setChip(sessionChip, sessionActive ? 'Running' : 'Idle', sessionActive ? 'running' : 'neutral');
   }
   refreshLaunchButton();
 }
@@ -89,35 +108,34 @@ async function checkXServer() {
 async function checkDocker() {
   dockerStatus.classList.remove('hidden');
   dockerStatusText.textContent = 'Checking...';
+  dockerIndicator.className = 'readiness-indicator checking';
 
   const result = await ipcRenderer.invoke('check-docker');
 
   if (result.available) {
-    let statusText = '✓ Docker is running';
+    let statusText = 'Docker is running';
+    dockerIndicator.className = 'readiness-indicator ready';
 
     if (result.existingContainers?.length) {
       const runningContainers = result.existingContainers.filter(c => c.running);
       if (runningContainers.length > 0) {
         statusText += ` (${runningContainers.length} container(s) running)`;
-        dockerStatusText.style.color = '#ffc107';
+        dockerIndicator.className = 'readiness-indicator warning';
         showStatus('TI-Toolbox containers are already running. They will be restarted.', 'info');
         // Show stop button if containers are running
         stopBtn.classList.remove('hidden');
         stopBtn.disabled = false;
       } else {
         statusText += ` (${result.existingContainers.length} container(s) stopped)`;
-        dockerStatusText.style.color = '#28a745';
       }
-    } else {
-      dockerStatusText.style.color = '#28a745';
     }
 
     dockerStatusText.textContent = statusText;
     return true;
   }
 
-  dockerStatusText.textContent = `✗ ${result.error}`;
-  dockerStatusText.style.color = '#dc3545';
+  dockerStatusText.textContent = result.error;
+  dockerIndicator.className = 'readiness-indicator error';
   showStatus(result.error, 'error');
   return false;
 }
@@ -312,39 +330,22 @@ function showExampleDataDialog() {
   return new Promise((resolve) => {
     // Create modal overlay
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    `;
+    overlay.className = 'dialog-overlay';
     
     // Create dialog box
     const dialogBox = document.createElement('div');
-    dialogBox.style.cssText = `
-      background: white;
-      border-radius: 12px;
-      padding: 30px;
-      max-width: 500px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    `;
+    dialogBox.className = 'dialog-box';
     
     dialogBox.innerHTML = `
-      <h2 style="margin: 0 0 15px 0; color: #333; font-size: 22px;">Include Example Data?</h2>
-      <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">
+      <h2>Include Example Data?</h2>
+      <p>
         Would you like to include example data (sub-ernie and sub-MNI152) in your new project?
         <br><br>
         This is recommended for first-time users to explore the toolbox functionality.
       </p>
-      <div style="display: flex; gap: 10px; justify-content: flex-end;">
-        <button id="dialog-no" class="btn btn-secondary" style="min-width: 100px;">No, Skip</button>
-        <button id="dialog-yes" class="btn btn-primary" style="min-width: 100px;">Yes, Include</button>
+      <div class="dialog-actions">
+        <button id="dialog-no" class="btn btn-secondary">No, Skip</button>
+        <button id="dialog-yes" class="btn btn-primary">Yes, Include</button>
       </div>
     `;
     
@@ -417,6 +418,7 @@ launchBtn.addEventListener('click', async () => {
   } catch (error) {
     showStatus(`Failed to launch: ${error.message}`, 'error');
     hideProgress();
+    setChip(sessionChip, 'Idle', 'neutral');
   } finally {
     setLaunchingState(false);
   }
@@ -430,6 +432,7 @@ stopBtn.addEventListener('click', async () => {
     showStatus('Successfully stopped all TI-Toolbox containers.', 'success');
     stopBtn.classList.add('hidden');
     sessionActive = false;
+    setChip(sessionChip, 'Idle', 'neutral');
     refreshLaunchButton();
     // Check Docker status again to update the display
     setTimeout(() => checkDocker(), 1000);
@@ -457,6 +460,7 @@ ipcRenderer.on('launcher-progress', (_event, payload) => {
     sessionActive = true;
     stopBtn.classList.remove('hidden');
     stopBtn.disabled = false;
+    setChip(sessionChip, 'Running', 'running');
     showStatus('TI-Toolbox GUI is running. You can minimize this window.', 'success');
     // Clear Docker layer tracking since pull/build is complete
     dockerLayerItems.clear();
@@ -466,6 +470,7 @@ ipcRenderer.on('launcher-progress', (_event, payload) => {
     sessionActive = false;
     stopBtn.classList.add('hidden');
     stopBtn.disabled = true;
+    setChip(sessionChip, 'Idle', 'neutral');
     hideProgress();
     showStatus('TI-Toolbox session finished. You can start another session.', 'info');
   }

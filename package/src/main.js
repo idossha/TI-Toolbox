@@ -132,10 +132,12 @@ function createWindow() {
   logger.info(`Using icon: ${iconPath}`);
   
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 700,
-    resizable: false,
-    maximizable: false,
+    width: 1040,
+    height: 740,
+    minWidth: 900,
+    minHeight: 640,
+    resizable: true,
+    maximizable: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -546,4 +548,3 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
     return { success: false, error: error.message };
   }
 });
-

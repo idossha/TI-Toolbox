@@ -7,87 +7,162 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <img src="../assets/icon.png" alt="TI-Toolbox Logo" class="logo">
-      <h1>TI-Toolbox</h1>
-    </div>
-
-    <!-- Main Content -->
-    <div class="content">
-      <!-- Status Messages -->
-      <div id="status-message" class="status-message hidden"></div>
-
-      <!-- Project Directory Selection -->
-      <div class="section">
-        <label for="project-path">Project Directory:</label>
-        <div class="input-group">
-          <input
-            type="text"
-            id="project-path"
-            placeholder="Type or select your project directory..."
-          >
-          <button id="browse-btn" class="btn btn-secondary">Browse</button>
-          <button id="new-project-btn" class="btn btn-secondary">New Project</button>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="../assets/icon.png" alt="" class="brand-logo">
+        <div>
+          <h1>TI-Toolbox</h1>
+          <p>Desktop launcher</p>
         </div>
-        <p class="hint">
-          Select an existing project directory or create a new one.
-          <br>The toolbox will initialize the required BIDS structure automatically.
-        </p>
       </div>
 
+      <nav class="nav-list" aria-label="Launcher sections">
+        <a class="nav-item active" href="#project-panel">
+          <span class="nav-icon">P</span>
+          <span>Project</span>
+        </a>
+        <a class="nav-item" href="#environment-panel">
+          <span class="nav-icon">E</span>
+          <span>Environment</span>
+        </a>
+        <a class="nav-item" href="#activity-panel">
+          <span class="nav-icon">A</span>
+          <span>Activity</span>
+        </a>
+      </nav>
 
-      <!-- X Server Status (Windows only) -->
-      <div id="xserver-status" class="status-message warning hidden">
-        <strong>⚠️ X Server Required:</strong> Please ensure VcXsrv or another X server is running on Windows.
+      <div class="sidebar-footer">
+        <span class="organization">UW Madison CSC</span>
+        <span class="version">Version 2.3.1</span>
       </div>
+    </aside>
 
-      <!-- Docker Status -->
-      <div id="docker-status" class="info hidden">
-        <strong>Docker Status:</strong> <span id="docker-status-text">Checking...</span>
-      </div>
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Control Center</p>
+          <h2>Launch and monitor the existing toolbox UI</h2>
+        </div>
+        <div class="topbar-status">
+          <span id="project-chip" class="status-chip neutral">No project selected</span>
+          <span id="session-chip" class="status-chip neutral">Idle</span>
+        </div>
+      </header>
 
-      <!-- Launch Button -->
-      <button id="launch-btn" class="btn btn-primary" disabled>
-        <span id="launch-text">Launch TI-Toolbox</span>
-        <span id="launch-spinner" class="spinner hidden"></span>
-      </button>
+      <section class="content-grid">
+        <div class="primary-column">
+          <section id="project-panel" class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Project</p>
+                <h3>Workspace directory</h3>
+              </div>
+              <span class="panel-badge">BIDS project</span>
+            </div>
 
-      <!-- Progress Information -->
-      <div id="progress-info" class="progress-info hidden">
-        <p id="progress-text">Initializing...</p>
-      </div>
+            <label for="project-path">Project Directory</label>
+            <div class="input-group">
+              <input
+                type="text"
+                id="project-path"
+                placeholder="Select or type a TI-Toolbox project directory"
+                autocomplete="off"
+              >
+              <button id="browse-btn" class="btn btn-secondary">Browse</button>
+              <button id="new-project-btn" class="btn btn-secondary">New Project</button>
+            </div>
+            <p class="hint">
+              Existing folders are reused. New projects are initialized with the expected BIDS structure.
+            </p>
 
-      <!-- Stop Button -->
-      <button id="stop-btn" class="btn btn-secondary hidden">Stop TI-Toolbox & Docker</button>
+            <div id="status-message" class="status-message hidden"></div>
 
-      <!-- Diagnostics -->
-      <div class="diagnostics">
-        <div class="diagnostics-row">
-          <div>
-            <strong>Log File</strong>
-            <p id="log-path" class="mono">Loading…</p>
-          </div>
-          <button id="open-logs-btn" class="btn btn-link" disabled>Show in Finder</button>
+            <div class="action-row">
+              <button id="launch-btn" class="btn btn-primary" disabled>
+                <span id="launch-text">Launch TI-Toolbox</span>
+                <span id="launch-spinner" class="spinner hidden"></span>
+              </button>
+              <button id="stop-btn" class="btn btn-danger hidden">Stop Services</button>
+            </div>
+
+            <div id="progress-info" class="progress-info hidden">
+              <span class="progress-dot"></span>
+              <p id="progress-text">Initializing...</p>
+            </div>
+          </section>
+
+          <section id="activity-panel" class="panel terminal-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Activity</p>
+                <h3>Launcher events</h3>
+              </div>
+              <button id="clear-activity-btn" class="btn btn-link">Clear</button>
+            </div>
+            <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
+          </section>
         </div>
 
-        <div class="activity-header">
-          <div>
-            <strong>Activity</strong>
-            <p class="activity-hint">Latest launcher events</p>
-          </div>
-          <button id="clear-activity-btn" class="btn btn-link">Clear</button>
-        </div>
-        <ul id="activity-list" class="activity-list"></ul>
-      </div>
-    </div>
+        <aside class="secondary-column">
+          <section id="environment-panel" class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Environment</p>
+                <h3>Readiness</h3>
+              </div>
+            </div>
 
-    <!-- Footer -->
-    <div class="footer">
-      <p>UW Madison Center for Sleep and Consciousness</p>
-      <p class="version">TI-Toolbox V2.3.1</p>
-    </div>
+            <div id="docker-status" class="readiness-row hidden">
+              <span id="docker-indicator" class="readiness-indicator checking"></span>
+              <div>
+                <strong>Docker</strong>
+                <p id="docker-status-text">Checking...</p>
+              </div>
+            </div>
+
+            <div id="xserver-status" class="readiness-row warning hidden">
+              <span class="readiness-indicator warning"></span>
+              <div>
+                <strong>X Server</strong>
+                <p>VcXsrv or another X server is required on Windows.</p>
+              </div>
+            </div>
+
+            <div class="readiness-row">
+              <span class="readiness-indicator ready"></span>
+              <div>
+                <strong>Toolbox UI</strong>
+                <p>Launched separately through the existing Docker workflow.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel compact-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Diagnostics</p>
+                <h3>Logs</h3>
+              </div>
+            </div>
+            <p id="log-path" class="mono">Loading...</p>
+            <button id="open-logs-btn" class="btn btn-secondary full-width" disabled>Show in Finder</button>
+          </section>
+
+          <section class="panel compact-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Scope</p>
+                <h3>Separate app layers</h3>
+              </div>
+            </div>
+            <p class="quiet-copy">
+              This launcher prepares projects, checks the runtime, starts containers, and surfaces logs. The toolbox interface remains a separate application window.
+            </p>
+          </section>
+        </aside>
+      </section>
+    </main>
   </div>
 
   <script src="renderer.js"></script>
