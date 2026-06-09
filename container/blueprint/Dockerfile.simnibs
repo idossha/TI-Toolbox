@@ -145,6 +145,9 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
 # Install additional Python packages to simnibs_python
 # - Scientific / visualization stack used by tit modules
+# - mne is pinned to ~=1.5 so it stays compatible with the container's
+#   numpy 1.26.x (SimNIBS stack); newer mne would pull numpy 2.x and break the
+#   nan_to_num patch. Used by tit.source EEG forward / fsaverage mapping.
 RUN simnibs_python -m pip install \
     meshio \
     nilearn \
@@ -157,7 +160,8 @@ RUN simnibs_python -m pip install \
     bpy \
     psutil \
     python-lsp-server \
-    jupyterlab-lsp
+    jupyterlab-lsp \
+    "mne~=1.5"
 
 
 # Install Neovim v0.11.0 from prebuilt binary
