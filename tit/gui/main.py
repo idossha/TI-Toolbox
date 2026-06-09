@@ -56,6 +56,7 @@ from tit.gui.pre_process_tab import PreProcessTab
 from tit.gui.system_monitor_tab import SystemMonitorTab
 from tit.gui.nifti_viewer_tab import NiftiViewerTab
 from tit.gui.analyzer_tab import AnalyzerTab
+from tit.gui.source_tab import SourceTab
 from tit.gui.optimizer_tab import OptimizerTab
 from tit.gui.settings_menu import SettingsMenuButton, ExtensionsButton
 
@@ -160,6 +161,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.optimizer_tab = OptimizerTab(self)
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
+        self.source_tab = SourceTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
         self.system_monitor_tab = SystemMonitorTab(self)
 
@@ -173,6 +175,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         self.simulator_tab.simulation_completed.connect(
             self.nifti_viewer_tab.refresh_available_simulations
+        )
+        self.simulator_tab.simulation_completed.connect(
+            lambda *_: self.source_tab._on_subjects_changed()
         )
         self.pre_process_tab.preprocessing_completed.connect(
             self._refresh_project_dependent_tabs
@@ -197,6 +202,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.optimizer_tab, "Optimizer")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
+        self.tab_widget.addTab(self.source_tab, "Source")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         self.tab_widget.addTab(self.system_monitor_tab, "System Monitor")
 
@@ -457,6 +463,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.nifti_viewer_tab.refresh_available_simulations,
             self.flex_search_tab.find_available_subjects,
             self.ex_search_tab.initial_setup,
+            self.source_tab.refresh_subjects,
         ]
         for refresh in refreshers:
             try:

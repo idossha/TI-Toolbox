@@ -307,6 +307,26 @@ class PathManager:
         """Path to the leadfields directory for *sid*."""
         return os.path.join(self.sub(sid), "leadfields")
 
+    def forward(self, sid: str) -> str:
+        """Path to the EEG source-forward directory for *sid*.
+
+        Holds the MNE forward solution, source space, head<->MRI transform,
+        fsaverage morph, and the point-electrode leadfield they derive from
+        (``derivatives/SimNIBS/sub-{sid}/forward/``).  Distinct from
+        :meth:`leadfields`, which the optimizer uses for modeled-electrode
+        stimulation leadfields.
+        """
+        return os.path.join(self.sub(sid), "forward")
+
+    def forward_fsaverage(self, sid: str) -> str:
+        """Path to the fsaverage field-map cache for *sid*.
+
+        ``derivatives/SimNIBS/sub-{sid}/forward/fsaverage/`` -- holds the
+        per-simulation ``.npz`` field projections produced by
+        :func:`tit.source.project_fields_to_fsaverage`.
+        """
+        return os.path.join(self.forward(sid), "fsaverage")
+
     def simulations(self, sid: str) -> str:
         """Path to ``Simulations/`` for *sid*."""
         return os.path.join(self.sub(sid), "Simulations")
