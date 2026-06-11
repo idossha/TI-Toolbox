@@ -25,6 +25,7 @@ import tempfile
 from PyQt5 import QtCore, QtWidgets
 
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.console import ConsoleWidget
 from tit.gui.utils import confirm_overwrite
 from tit.paths import get_path_manager
 
@@ -122,10 +123,14 @@ class SourceWidget(QtWidgets.QWidget):
 
         layout.addLayout(pipelines)
 
-        # Shared console
-        self.console = QtWidgets.QTextEdit()
-        self.console.setReadOnly(True)
-        layout.addWidget(self.console)
+        # Shared console (same component as the core tabs)
+        self.console_widget = ConsoleWidget(
+            parent=self,
+            show_clear_button=True,
+            console_label="Output:",
+            min_height=200,
+        )
+        layout.addWidget(self.console_widget)
 
     # ------------------------------------------------------------------
     # Population / refresh
@@ -187,11 +192,11 @@ class SourceWidget(QtWidgets.QWidget):
     def _run_forward(self):
         subjects = self._selected_subjects()
         if not subjects:
-            self._append("Select at least one subject.", "error")
+            self.update_output("Select at least one subject.", "error")
             return
         net = self.net_combo.currentText()
         if not net:
-            self._append("No EEG net available for the selected subject.", "error")
+            self.update_output("No EEG net available for the selected subject.", "error")
             return
         if not self._confirm_overwrite([self.pm.forward(sid) for sid in subjects]):
             return
@@ -208,15 +213,15 @@ class SourceWidget(QtWidgets.QWidget):
     def _run_fsavg(self):
         subjects = self._selected_subjects()
         if not subjects:
-            self._append("Select at least one subject.", "error")
+            self.update_output("Select at least one subject.", "error")
             return
         sim = self.sim_combo.currentText()
         if not sim:
-            self._append("No simulation available for the selected subject.", "error")
+            self.update_output("No simulation available for the selected subject.", "error")
             return
         fields = self._selected_fields()
         if not fields:
-            self._append("Select at least one field to project.", "error")
+            self.update_output("Select at least one field to project.", "error")
             return
         if not self._confirm_overwrite(
             [self.pm.forward_fsaverage(sid) for sid in subjects]
@@ -234,7 +239,7 @@ class SourceWidget(QtWidgets.QWidget):
 
     def _launch(self, config):
         if self.thread is not None and self.thread.isRunning():
-            self._append("A run is already in progress.", "warning")
+            self.update_output("A run is already in progress.", "warning")
             return
         config["project_dir"] = self.pm.project_dir
 
@@ -243,13 +248,13 @@ class SourceWidget(QtWidgets.QWidget):
             json.dump(config, f, indent=2)
 
         cmd = ["simnibs_python", "-m", "tit.source", config_path]
-        self.console.clear()
-        self._append(f"Launching: {' '.join(cmd)}", "command")
+        self.console_widget.clear_console()
+        self.update_output(f"Launching: {' '.join(cmd)}", "command")
         self._set_running(True)
 
         self.thread = SourceThread(cmd)
-        self.thread.output_signal.connect(self._append)
-        self.thread.error_signal.connect(lambda msg: self._append(msg, "error"))
+        self.thread.output_signal.connect(self.update_output)
+        self.thread.error_signal.connect(lambda msg: self.update_output(msg, "error"))
         self.thread.process_finished.connect(
             lambda success, rc, mode=config["mode"]: self._on_finished(
                 success, rc, mode
@@ -264,24 +269,14 @@ class SourceWidget(QtWidgets.QWidget):
     def _on_finished(self, success, returncode, mode):
         self._set_running(False)
         if success:
-            self._append("Done.", "success")
+            self.update_output("Done.", "success")
             self.source_completed.emit(mode)
         else:
-            self._append(f"Failed (exit code {returncode}).", "error")
+            self.update_output(f"Failed (exit code {returncode}).", "error")
 
-    def _append(self, message, msg_type="default"):
-        colors = {
-            "error": "#c0392b",
-            "warning": "#d35400",
-            "success": "#27ae60",
-            "command": "#2980b9",
-            "info": "#16a085",
-        }
-        color = colors.get(msg_type)
-        if color:
-            self.console.append(f'<span style="color:{color};">{message}</span>')
-        else:
-            self.console.append(message)
+    def update_output(self, text, message_type="default"):
+        """Append to the shared console (delegates to ConsoleWidget)."""
+        self.console_widget.update_console(text, message_type)
 
 
 class SourceWindow(QtWidgets.QDialog):
