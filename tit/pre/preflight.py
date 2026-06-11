@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,9 @@ from typing import Iterable, Sequence
 
 from tit import constants as const
 from tit.paths import get_path_manager
+
+from .qsi.utils import validate_bids_dwi
+from .utils import _find_nifti
 
 STEP_DICOM = "dicom"
 STEP_CHARM = "charm"
@@ -53,14 +57,6 @@ class PreprocessingInputProblem:
     path: Path
 
 
-def _find_nifti(directory: Path, stem: str) -> Path | None:
-    for ext in (".nii.gz", ".nii"):
-        path = directory / f"{stem}{ext}"
-        if path.exists():
-            return path
-    return None
-
-
 def _has_bids_t1(project_dir: str, subject_id: str) -> bool:
     pm = get_path_manager(project_dir)
     bids_anat_dir = Path(pm.bids_anat(subject_id))
@@ -88,10 +84,29 @@ def missing_inputs_for_step(
                 path=Path(pm.bids_anat(subject_id)),
             )
         ]
+    if step == STEP_QSIPREP:
+        dwi_ok, dwi_error = validate_bids_dwi(
+            project_dir, subject_id, logging.getLogger(__name__)
+        )
+        if not dwi_ok:
+            return [
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"QSIPrep requires BIDS DWI data for sub-{subject_id}: "
+                        f"{dwi_error} Run DICOM conversion with DWI DICOMs or "
+                        f"place sub-{subject_id}_dwi.nii[.gz] with .bval/.bvec "
+                        "in the subject dwi folder."
+                    ),
+                    path=Path(pm.bids_dwi(subject_id)),
+                )
+            ]
     return []
 
 
-def _conversion_will_provide_anat(
+def _dicom_conversion_will_run(
     project_dir: str,
     subject_id: str,
     *,
@@ -119,28 +134,34 @@ def find_missing_preprocessing_inputs(
     skip_existing_outputs: bool = False,
 ) -> list[PreprocessingInputProblem]:
     """Return missing inputs that can be detected before running subprocesses."""
-    selected_steps = list(steps) if steps is not None else selected_preprocessing_steps(
-        convert_dicom=convert_dicom,
-        create_m2m=create_m2m,
-        run_recon=run_recon,
-        run_qsiprep=run_qsiprep,
-        run_qsirecon=run_qsirecon,
-        extract_dti=extract_dti,
+    selected_steps = (
+        list(steps)
+        if steps is not None
+        else selected_preprocessing_steps(
+            convert_dicom=convert_dicom,
+            create_m2m=create_m2m,
+            run_recon=run_recon,
+            run_qsiprep=run_qsiprep,
+            run_qsirecon=run_qsirecon,
+            extract_dti=extract_dti,
+        )
     )
 
     problems: list[PreprocessingInputProblem] = []
     for subject_id in subject_ids:
         subject_steps = selected_steps
-        if _conversion_will_provide_anat(
+        if _dicom_conversion_will_run(
             project_dir,
             subject_id,
             convert_dicom=convert_dicom,
             skip_existing_outputs=skip_existing_outputs,
         ):
+            # Conversion can produce the T1w and DWI inputs these steps need,
+            # so don't flag them as missing yet.
             subject_steps = [
                 step
                 for step in selected_steps
-                if step not in (STEP_CHARM, STEP_RECON_ALL)
+                if step not in (STEP_CHARM, STEP_RECON_ALL, STEP_QSIPREP)
             ]
         for step in subject_steps:
             problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
@@ -160,9 +181,14 @@ def _existing_bids_sidecars(output_dir: Path, bids_name: str) -> tuple[Path, ...
 
 def _dicom_outputs(project_dir: str, subject_id: str) -> list[PreprocessingOutput]:
     pm = get_path_manager(project_dir)
-    output_dir = Path(pm.bids_anat(subject_id))
+    anat_dir = Path(pm.bids_anat(subject_id))
+    modality_dirs = (
+        ("T1w", anat_dir),
+        ("T2w", anat_dir),
+        ("dwi", Path(pm.bids_dwi(subject_id))),
+    )
     outputs: list[PreprocessingOutput] = []
-    for modality in ("T1w", "T2w"):
+    for modality, output_dir in modality_dirs:
         bids_name = f"sub-{subject_id}_{modality}"
         cleanup_paths = _existing_bids_sidecars(output_dir, bids_name)
         if cleanup_paths:
@@ -184,7 +210,9 @@ def _single_path_output(
     step: str,
     path: Path,
 ) -> list[PreprocessingOutput]:
-    if not path.exists():
+    # An empty directory is not a real output (older releases pre-created
+    # empty per-subject freesurfer dirs in existing projects).
+    if not path.exists() or (path.is_dir() and not any(path.iterdir())):
         return []
     return [
         PreprocessingOutput(
@@ -204,7 +232,9 @@ def existing_outputs_for_step(
     if step == STEP_DICOM:
         return _dicom_outputs(project_dir, subject_id)
     if step == STEP_CHARM:
-        return _single_path_output(project_dir, subject_id, step, Path(pm.m2m(subject_id)))
+        return _single_path_output(
+            project_dir, subject_id, step, Path(pm.m2m(subject_id))
+        )
     if step == STEP_RECON_ALL:
         return _single_path_output(
             project_dir, subject_id, step, Path(pm.freesurfer_subject(subject_id))
@@ -266,13 +296,17 @@ def find_existing_preprocessing_outputs(
     extract_dti: bool = False,
 ) -> list[PreprocessingOutput]:
     """Return outputs that already exist for selected subjects and steps."""
-    selected_steps = list(steps) if steps is not None else selected_preprocessing_steps(
-        convert_dicom=convert_dicom,
-        create_m2m=create_m2m,
-        run_recon=run_recon,
-        run_qsiprep=run_qsiprep,
-        run_qsirecon=run_qsirecon,
-        extract_dti=extract_dti,
+    selected_steps = (
+        list(steps)
+        if steps is not None
+        else selected_preprocessing_steps(
+            convert_dicom=convert_dicom,
+            create_m2m=create_m2m,
+            run_recon=run_recon,
+            run_qsiprep=run_qsiprep,
+            run_qsirecon=run_qsirecon,
+            extract_dti=extract_dti,
+        )
     )
     outputs: list[PreprocessingOutput] = []
     for subject_id in subject_ids:

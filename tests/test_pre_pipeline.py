@@ -91,7 +91,9 @@ def pipeline_mocks():
         patch(f"{STRUCTURAL}.run_qsirecon") as mock_qsirecon,
         patch(f"{STRUCTURAL}.extract_dti_tensor") as mock_dti,
         patch(f"{STRUCTURAL}.run_subcortical_segmentations") as mock_subcort,
-        patch(f"{STRUCTURAL}.existing_outputs_for_step", return_value=[]) as mock_existing,
+        patch(
+            f"{STRUCTURAL}.existing_outputs_for_step", return_value=[]
+        ) as mock_existing,
     ):
         mock_logger.return_value = MagicMock()
         yield {
@@ -175,7 +177,6 @@ class TestRunSubjectPipeline:
             qsi_recon_config=None,
             extract_dti_step=False,
             run_subcortical=False,
-            debug=False,
             runner=MagicMock(),
             callback=None,
             skip_existing_outputs=False,
@@ -201,14 +202,14 @@ class TestRunSubjectPipeline:
         pipeline_mocks["subcort"].assert_called_once()
 
     def test_recon_only_path(self, pipeline_mocks):
-        """run_recon=True without convert_dicom or create_m2m takes the recon-only branch."""
+        """run_recon=True without convert_dicom or create_m2m runs only recon."""
         self._call(pipeline_mocks, run_recon=True)
         pipeline_mocks["recon"].assert_called_once()
         pipeline_mocks["dicom"].assert_not_called()
         pipeline_mocks["charm"].assert_not_called()
 
     def test_dicom_and_recon(self, pipeline_mocks):
-        """convert_dicom=True with run_recon=True takes the else branch."""
+        """convert_dicom=True with run_recon=True runs both, conversion first."""
         self._call(pipeline_mocks, convert_dicom=True, run_recon=True)
         pipeline_mocks["dicom"].assert_called_once()
         pipeline_mocks["recon"].assert_called_once()
@@ -577,11 +578,16 @@ class TestRunPipelineValidation:
 
         with (
             patch(f"{STRUCTURAL}.get_path_manager") as mock_pm,
-            patch(f"{STRUCTURAL}.find_missing_preprocessing_inputs", return_value=[problem]),
+            patch(
+                f"{STRUCTURAL}.find_missing_preprocessing_inputs",
+                return_value=[problem],
+            ),
             patch("tit.telemetry.track_event") as mock_track_event,
         ):
             mock_pm.return_value._root.return_value = "/proj"
-            with pytest.raises(PreprocessError, match="Missing required preprocessing inputs"):
+            with pytest.raises(
+                PreprocessError, match="Missing required preprocessing inputs"
+            ):
                 run_pipeline(["001"], create_m2m=True)
 
         mock_track_event.assert_not_called()

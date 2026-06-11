@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 from tit import constants as const
+from tit.paths import get_path_manager
 
 
 def resolve_host_project_path(container_path: str) -> str:
@@ -227,7 +228,7 @@ def validate_bids_dwi(
     tuple[bool, str | None]
         (is_valid, error_message). If valid, error_message is None.
     """
-    dwi_dir = Path(project_dir) / f"sub-{subject_id}" / "dwi"
+    dwi_dir = Path(get_path_manager(project_dir).bids_dwi(subject_id))
 
     if not dwi_dir.exists():
         return False, f"DWI directory not found: {dwi_dir}"
@@ -268,7 +269,7 @@ def validate_qsiprep_output(
     tuple[bool, str | None]
         (is_valid, error_message). If valid, error_message is None.
     """
-    qsiprep_dir = Path(project_dir) / "derivatives" / "qsiprep" / f"sub-{subject_id}"
+    qsiprep_dir = Path(get_path_manager(project_dir).qsiprep_subject(subject_id))
 
     if not qsiprep_dir.exists():
         return False, f"QSIPrep output directory not found: {qsiprep_dir}"

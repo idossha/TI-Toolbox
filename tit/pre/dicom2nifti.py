@@ -149,6 +149,17 @@ def _prepare_dicom_inputs(modality_dir: Path, dicom_dir: Path, logger) -> list[P
     return dicom_files
 
 
+def _modality_dicom_dir(sourcedata_dir: Path, modality: str) -> Path:
+    """Return the DICOM dir for *modality*, matching the folder name case-insensitively."""
+    default = sourcedata_dir / modality / "dicom"
+    if default.exists() or not sourcedata_dir.exists():
+        return default
+    for child in sorted(sourcedata_dir.iterdir()):
+        if child.is_dir() and child.name.lower() == modality.lower():
+            return child / "dicom"
+    return default
+
+
 def _convert_modality(
     dicom_dir: Path,
     output_dir: Path,
@@ -170,6 +181,7 @@ def _convert_modality(
             "Remove the files manually before rerunning."
         )
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Converting {modality} DICOMs from {dicom_dir}")
     cmd = [
         "dcm2niix",
@@ -207,13 +219,16 @@ def run_dicom_to_nifti(
 ) -> None:
     """Convert DICOM files to BIDS-compliant NIfTI for a subject.
 
-    Looks for ``T1w`` and ``T2w`` DICOM directories under
-    ``sourcedata/sub-{subject_id}/`` and converts each found modality
-    using ``dcm2niix``. DICOM discovery is recursive under each
-    modality's ``dicom/`` directory and includes ``.dcm`` and ``.dicom``
-    files. Supported archives (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``)
-    placed directly in the modality folder or its ``dicom/`` folder are
-    safely extracted to ``dicom/extracted_archives/`` before discovery.
+    Looks for ``T1w``, ``T2w``, and ``dwi`` DICOM directories under
+    ``sourcedata/sub-{subject_id}/`` (modality folder names are matched
+    case-insensitively) and converts each found modality using
+    ``dcm2niix``. Anatomical images go to the subject ``anat/`` folder
+    and diffusion images to ``dwi/`` (with ``.bval``/``.bvec`` sidecars).
+    DICOM discovery is recursive under each modality's ``dicom/``
+    directory and includes ``.dcm`` and ``.dicom`` files. Supported
+    archives (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) placed directly
+    in the modality folder or its ``dicom/`` folder are safely extracted
+    to ``dicom/extracted_archives/`` before discovery.
 
     Parameters
     ----------
@@ -242,13 +257,17 @@ def run_dicom_to_nifti(
         pm = get_path_manager(project_dir)
         sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
         bids_anat_dir = Path(pm.bids_anat(subject_id))
-        bids_anat_dir.mkdir(parents=True, exist_ok=True)
+        modality_targets = (
+            ("T1w", bids_anat_dir),
+            ("T2w", bids_anat_dir),
+            ("dwi", Path(pm.bids_dwi(subject_id))),
+        )
 
         converted = False
-        for modality in ("T1w", "T2w"):
-            dicom_dir = sourcedata_dir / modality / "dicom"
+        for modality, output_dir in modality_targets:
+            dicom_dir = _modality_dicom_dir(sourcedata_dir, modality)
             if _convert_modality(
-                dicom_dir, bids_anat_dir, subject_id, modality, logger, runner
+                dicom_dir, output_dir, subject_id, modality, logger, runner
             ):
                 converted = True
 

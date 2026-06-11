@@ -21,9 +21,19 @@ from tit.pre.structural import run_pipeline
 
 def main() -> None:
     """Parse a JSON config and run the preprocessing pipeline."""
+    if len(sys.argv) < 2:
+        sys.exit("Usage: simnibs_python -m tit.pre <config.json>")
+
     config_path = sys.argv[1]
-    with open(config_path) as f:
-        data = json.load(f)
+    try:
+        with open(config_path) as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.exit(f"Could not read config file {config_path}: {exc}")
+
+    for key in ("project_dir", "subject_ids"):
+        if key not in data:
+            sys.exit(f"Config file {config_path} is missing required key: {key}")
 
     from tit.logger import setup_logging, add_stream_handler
 

@@ -161,6 +161,7 @@ def run_recon_all(
             else:
                 shutil.rmtree(fs_subject_dir, ignore_errors=True)
 
+        fs_subjects_root.mkdir(parents=True, exist_ok=True)
         cmd = ["recon-all", "-subject", f"sub-{subject_id}", "-i", str(t1_file)]
         if t2_file:
             cmd += ["-T2", str(t2_file), "-T2pial"]

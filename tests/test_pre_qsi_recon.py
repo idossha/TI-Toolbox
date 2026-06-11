@@ -44,23 +44,37 @@ class TestRunQsirecon:
         with pytest.raises(PreprocessError, match="QSIPrep output"):
             run_qsirecon("/proj", "001", logger=MagicMock())
 
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    def test_existing_output_raises(self, mock_validate, tmp_path):
+        """Raises like the other steps when real output already exists."""
+        out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
+        out.mkdir(parents=True)
+        (out / "result.txt").touch()
+
+        runner = MagicMock()
+
+        with pytest.raises(PreprocessError, match="already exists"):
+            run_qsirecon(str(tmp_path), "001", logger=MagicMock(), runner=runner)
+
+        runner.run.assert_not_called()
+
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
-    def test_existing_output_logs_and_returns(
+    def test_existing_empty_output_dir_is_ignored(
         self, mock_validate, mock_builder, mock_pull, tmp_path
     ):
-        """Skips with a clear notice when output already exists."""
+        """An empty subject dir (e.g. left by a Docker mount) is not an output."""
         out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
         out.mkdir(parents=True)
+        mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
 
         runner = MagicMock()
-        logger = MagicMock()
+        runner.run.return_value = 0
 
-        run_qsirecon(str(tmp_path), "001", logger=logger, runner=runner)
+        run_qsirecon(str(tmp_path), "001", logger=MagicMock(), runner=runner)
 
-        logger.warning.assert_called_once()
-        runner.run.assert_not_called()
+        runner.run.assert_called_once()
 
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))

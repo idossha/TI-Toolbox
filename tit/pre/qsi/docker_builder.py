@@ -227,14 +227,6 @@ class DockerCommandBuilder:
         cmd.extend(["--denoise-method", config.denoise_method])
         cmd.extend(["--unringing-method", config.unringing_method])
 
-        if config.distortion_group_merge != "none":
-            merge = (
-                "concat"
-                if config.distortion_group_merge == "concatenate"
-                else config.distortion_group_merge
-            )
-            cmd.extend(["--distortion-group-merge", merge])
-
         return cmd
 
     def build_qsirecon_cmd(self, config: QSIReconConfig, recon_spec: str) -> list[str]:

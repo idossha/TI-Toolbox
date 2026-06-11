@@ -48,19 +48,41 @@ class TestRunQsiprep:
         with pytest.raises(PreprocessError, match="DWI validation failed"):
             run_qsiprep("/proj", "001", logger=MagicMock())
 
-    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_existing_output_logs_and_returns(self, mock_dwi, mock_output, tmp_path):
-        """Skips with a clear notice when output already exists."""
+    def test_existing_output_raises(self, mock_dwi, tmp_path):
+        """Raises like the other steps when real output already exists.
+
+        The pipeline's skip/replace policy is the only layer that skips or
+        removes outputs; the step itself just refuses to overwrite.
+        """
         out = tmp_path / "derivatives" / "qsiprep" / "sub-001"
         out.mkdir(parents=True)
-        logger = MagicMock()
+        (out / "dwi").mkdir()
 
         with patch(f"{MODULE}.DockerCommandBuilder") as mock_builder:
-            run_qsiprep(str(tmp_path), "001", logger=logger)
+            with pytest.raises(PreprocessError, match="already exists"):
+                run_qsiprep(str(tmp_path), "001", logger=MagicMock())
 
-        logger.warning.assert_called_once()
         mock_builder.assert_not_called()
+
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
+    @patch(f"{MODULE}.DockerCommandBuilder")
+    @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
+    def test_existing_empty_output_dir_is_ignored(
+        self, mock_dwi, mock_builder, mock_pull, mock_output, tmp_path
+    ):
+        """An empty subject dir (e.g. left by a Docker mount) is not an output."""
+        out = tmp_path / "derivatives" / "qsiprep" / "sub-001"
+        out.mkdir(parents=True)
+        mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker", "run"]
+
+        runner = MagicMock()
+        runner.run.return_value = 0
+
+        run_qsiprep(str(tmp_path), "001", logger=MagicMock(), runner=runner)
+
+        runner.run.assert_called_once()
 
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
@@ -137,20 +159,12 @@ class TestRunQsiprep:
 
         mock_runner_cls.assert_called_once()
 
-    @patch(f"{MODULE}.validate_qsiprep_output")
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
-    def test_existing_invalid_output_logs_and_returns(
-        self, mock_dwi, mock_output, tmp_path
-    ):
-        """Skips incomplete existing output with a clear notice."""
+    def test_existing_incomplete_output_raises(self, mock_dwi, tmp_path):
+        """A non-empty (even incomplete) output dir blocks the rerun."""
         out = tmp_path / "derivatives" / "qsiprep" / "sub-001"
         out.mkdir(parents=True)
-        logger = MagicMock()
-        mock_output.return_value = (False, "incomplete")
+        (out / "partial.txt").touch()
 
-        with patch(f"{MODULE}.DockerCommandBuilder") as mock_builder:
-            run_qsiprep(str(tmp_path), "001", logger=logger, runner=MagicMock())
-
-        logger.warning.assert_called_once()
-        assert logger.warning.call_args.args[2] == "incomplete (incomplete)"
-        mock_builder.assert_not_called()
+        with pytest.raises(PreprocessError, match="Remove the directory manually"):
+            run_qsiprep(str(tmp_path), "001", logger=MagicMock(), runner=MagicMock())

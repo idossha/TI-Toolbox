@@ -217,7 +217,6 @@ def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
     for modality in ("T1w", "T2w"):
         pm.ensure(pm.sourcedata_dicom(subject_id, modality))
     pm.ensure(pm.bids_anat(subject_id))
-    pm.ensure(pm.freesurfer_subject(subject_id))
     pm.ensure(pm.sub(subject_id))
     pm.ensure(pm.ti_toolbox())
 

@@ -92,7 +92,6 @@ class TestEnsureSubjectDirs:
         pm = MagicMock()
         pm.sourcedata_dicom.return_value = "/proj/sourcedata/sub-001/T1w/dicom"
         pm.bids_anat.return_value = "/proj/sub-001/anat"
-        pm.freesurfer_subject.return_value = "/proj/derivatives/freesurfer/sub-001"
         pm.sub.return_value = "/proj/derivatives/SimNIBS/sub-001"
         pm.ti_toolbox.return_value = "/proj/derivatives/ti-toolbox"
         mock_gpm.return_value = pm
@@ -100,8 +99,18 @@ class TestEnsureSubjectDirs:
         ensure_subject_dirs("/proj", "001")
 
         assert (
-            pm.ensure.call_count == 6
-        )  # T1w dicom, T2w dicom, bids_anat, freesurfer, sub, ti-toolbox
+            pm.ensure.call_count == 5
+        )  # T1w dicom, T2w dicom, bids_anat, sub, ti-toolbox
+
+    @patch(f"{MODULE}.get_path_manager")
+    def test_does_not_precreate_freesurfer_subject_dir(self, mock_gpm):
+        """An empty freesurfer dir would read as an existing recon-all output."""
+        pm = MagicMock()
+        mock_gpm.return_value = pm
+
+        ensure_subject_dirs("/proj", "001")
+
+        pm.freesurfer_subject.assert_not_called()
 
 
 class TestDatasetDescriptionTarget:
@@ -130,12 +139,13 @@ class TestEnsureDatasetDescriptions:
 
     def test_creates_from_template(self, tmp_path):
         """Creates dataset_description.json from template when available."""
-        # Create the template
+        # The template lives in the real repo; restore it after the test.
         repo_root = Path(__file__).resolve().parents[1]
         assets = repo_root / "resources" / "dataset_descriptions"
         assets.mkdir(parents=True, exist_ok=True)
 
         template = assets / "freesurfer.dataset_description.json"
+        original = template.read_text(encoding="utf-8") if template.exists() else None
         template_content = json.dumps(
             {
                 "Name": "FreeSurfer",
@@ -159,7 +169,10 @@ class TestEnsureDatasetDescriptions:
             # URI should be filled in
             assert data["SourceDatasets"][0]["URI"] != ""
         finally:
-            template.unlink(missing_ok=True)
+            if original is None:
+                template.unlink(missing_ok=True)
+            else:
+                template.write_text(original, encoding="utf-8")
 
     def test_creates_fallback_when_no_template(self, tmp_path):
         """Creates fallback JSON when no template exists."""

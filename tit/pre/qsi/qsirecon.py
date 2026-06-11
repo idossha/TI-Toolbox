@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 
 from tit import constants as const
+from tit.paths import get_path_manager
 from tit.pre.utils import CommandRunner, PreprocessError
 
 from .config import QSIReconConfig, ResourceConfig
@@ -114,7 +115,16 @@ def run_qsirecon(
         # No mkdir here — Docker's `-v` creates host directories automatically.
         # Creating them from SimNIBS fails on Docker Desktop due to phantom
         # bind-mount entries left by previous sibling containers.
-        output_base = Path(project_dir) / "derivatives" / "qsirecon"
+        subject_output_dir = Path(
+            get_path_manager(project_dir).qsirecon_subject(subject_id)
+        )
+        # Docker `-v` can leave an empty directory behind; only a non-empty
+        # one is a real output.
+        if subject_output_dir.exists() and any(subject_output_dir.iterdir()):
+            raise PreprocessError(
+                f"QSIRecon output already exists at {subject_output_dir}. "
+                "Remove the directory manually before rerunning."
+            )
 
         # Build configuration
         config = QSIReconConfig(
@@ -147,16 +157,6 @@ def run_qsirecon(
         if runner is None:
             runner = CommandRunner()
 
-        # Check for existing output before starting any specs
-        subject_output_dir = output_base / f"sub-{subject_id}"
-        if subject_output_dir.exists():
-            logger.warning(
-                "QSIRecon output already exists at %s. Skipping this subject. "
-                "To rerun QSIRecon, remove the existing output directory first.",
-                subject_output_dir,
-            )
-            return
-
         # Run each recon spec
         for spec in recon_specs:
             logger.info(f"Running QSIRecon spec: {spec}")
@@ -174,7 +174,9 @@ def run_qsirecon(
             returncode = runner.run(cmd, logger=logger)
 
             if returncode != 0:
-                raise PreprocessError(f"QSIRecon {spec} failed with exit code {returncode}")
+                raise PreprocessError(
+                    f"QSIRecon {spec} failed with exit code {returncode}"
+                )
 
             logger.info(f"QSIRecon {spec} completed for subject {subject_id}")
 

@@ -30,7 +30,7 @@ import numpy as np
 from scipy import ndimage
 
 from tit.paths import get_path_manager
-from .utils import CommandRunner, PreprocessError
+from .utils import PreprocessError
 
 # Tissue configurations
 TISSUE_CONFIGS = {
@@ -724,7 +724,6 @@ def run_tissue_analysis(
     *,
     tissues: Iterable[str] = DEFAULT_TISSUES,
     logger: logging.Logger,
-    runner: CommandRunner | None = None,
 ) -> dict:
     """Run tissue analysis for a subject.
 
@@ -741,8 +740,6 @@ def run_tissue_analysis(
         Tissue types to analyze.  Defaults to ``('bone', 'csf', 'skin')``.
     logger : logging.Logger
         Logger for progress output.
-    runner : CommandRunner or None, optional
-        Not used; kept for API compatibility with the pipeline runner.
 
     Returns
     -------
