@@ -9,10 +9,12 @@ permalink: /releases/
 **Release Date**: June 11, 2026
 
 #### Additions
+
 - New Source tool (extension): build MNE EEG forward solutions and project TI fields onto the fsaverage template.
 - Preprocessing now automatically converts DWI DICOMs to BIDS NIfTI alongside T1w/T2w.
 
 #### Fixes
+
 - FreeSurfer recon-all no longer falsely reports its output as already existing on a fresh project.
 
 #### Download Links

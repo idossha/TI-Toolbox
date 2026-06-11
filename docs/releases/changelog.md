@@ -8,22 +8,32 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
 ### v2.3.2 (Latest Release)
+
 **Release Date**: June 11, 2026
+
 #### Additions
+
 - New Source tool (extension): build MNE EEG forward solutions and project TI fields onto the fsaverage template.
 - Preprocessing now automatically converts DWI DICOMs to BIDS NIfTI alongside T1w/T2w.
+
 #### Fixes
+
 - FreeSurfer recon-all no longer falsely reports its output as already existing on a fresh project.
+
 #### Download Links
+
 **Desktop App (v2.3.2):**
 [macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TT-Toolbox-2.3.2.deb)
+
 **Other:**
+
 - Docker Image: `docker pull idossha/simnibs:v2.3.2`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
 ---
 
 ### v2.3.1
