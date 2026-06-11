@@ -96,7 +96,10 @@ class SourceWidget(QtWidgets.QWidget):
         self.forward_run_button = QtWidgets.QPushButton("Build forward")
         self.forward_run_button.clicked.connect(self._run_forward)
         fwd_form.addRow(self.forward_run_button)
-        pipelines.addWidget(self.forward_box)
+        self.forward_box.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
+        pipelines.addWidget(self.forward_box, 1)
 
         # Map fields to fsaverage
         self.fsavg_box = QtWidgets.QGroupBox("Map fields to fsaverage")
@@ -121,7 +124,10 @@ class SourceWidget(QtWidgets.QWidget):
         self.fsavg_run_button = QtWidgets.QPushButton("Map to fsaverage")
         self.fsavg_run_button.clicked.connect(self._run_fsavg)
         fsavg_form.addRow(self.fsavg_run_button)
-        pipelines.addWidget(self.fsavg_box)
+        self.fsavg_box.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
+        pipelines.addWidget(self.fsavg_box, 1)
 
         layout.addLayout(pipelines)
 
