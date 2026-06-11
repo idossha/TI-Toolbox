@@ -14,6 +14,10 @@ from pathlib import Path
 def update_file_content(file_path, patterns):
     """Update patterns in a file"""
 
+    if not os.path.exists(file_path):
+        print(f"Skipped (not found): {file_path}")
+        return False
+
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
