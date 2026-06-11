@@ -26,6 +26,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.console import ConsoleWidget
+from tit.gui.style import COLOR_ERROR, COLOR_ERROR_DARK, COLOR_ERROR_DARKER
 from tit.gui.utils import confirm_overwrite
 from tit.paths import get_path_manager
 
@@ -56,6 +57,7 @@ class SourceWidget(QtWidgets.QWidget):
         self.parent = parent
         self.pm = get_path_manager()
         self.thread = None
+        self._stopping = False
         self._build_ui()
         self.refresh_subjects()
 
@@ -123,12 +125,31 @@ class SourceWidget(QtWidgets.QWidget):
 
         layout.addLayout(pipelines)
 
+        # Stop button -- disabled while idle, enabled during a run. Lives in the
+        # console header like the Run/Stop controls on the core tabs.
+        self.stop_button = QtWidgets.QPushButton("Stop")
+        self.stop_button.setEnabled(False)
+        self.stop_button.clicked.connect(self._stop)
+        self.stop_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_ERROR};
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+            }}
+            QPushButton:hover {{ background-color: {COLOR_ERROR_DARK}; }}
+            QPushButton:pressed {{ background-color: {COLOR_ERROR_DARKER}; }}
+            QPushButton:disabled {{ background-color: #cccccc; color: #888888; }}
+        """)
+
         # Shared console (same component as the core tabs)
         self.console_widget = ConsoleWidget(
             parent=self,
             show_clear_button=True,
             console_label="Output:",
             min_height=200,
+            custom_buttons=[self.stop_button],
         )
         layout.addWidget(self.console_widget)
 
@@ -241,6 +262,7 @@ class SourceWidget(QtWidgets.QWidget):
         if self.thread is not None and self.thread.isRunning():
             self.update_output("A run is already in progress.", "warning")
             return
+        self._stopping = False
         config["project_dir"] = self.pm.project_dir
 
         fd, config_path = tempfile.mkstemp(suffix=".json", prefix="source_config_")
@@ -265,9 +287,23 @@ class SourceWidget(QtWidgets.QWidget):
     def _set_running(self, running):
         self.forward_run_button.setEnabled(not running)
         self.fsavg_run_button.setEnabled(not running)
+        self.stop_button.setEnabled(running)
+
+    def _stop(self):
+        if self.thread is None or not self.thread.isRunning():
+            return
+        self._stopping = True
+        self.update_output("Stopping...", "warning")
+        if self.thread.terminate_process():
+            self.update_output("Stopped.", "info")
+        else:
+            self.update_output("Failed to stop.", "error")
 
     def _on_finished(self, success, returncode, mode):
         self._set_running(False)
+        if self._stopping:
+            self._stopping = False
+            return
         if success:
             self.update_output("Done.", "success")
             self.source_completed.emit(mode)
