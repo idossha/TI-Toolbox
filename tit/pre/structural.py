@@ -525,7 +525,7 @@ def _run_pipeline_inner(
     for sid in subject_list:
         ensure_subject_dirs(project_dir, sid)
 
-    datasets = {"ti-toolbox"}
+    datasets = {"root", "ti-toolbox"}
     if run_recon:
         datasets.add("freesurfer")
     if create_m2m:

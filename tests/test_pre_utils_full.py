@@ -129,6 +129,10 @@ class TestDatasetDescriptionTarget:
         path = _dataset_description_target("/proj", "ti-toolbox")
         assert "ti-toolbox" in str(path)
 
+    def test_root(self):
+        path = _dataset_description_target("/proj", "root")
+        assert path == Path("/proj") / "dataset_description.json"
+
     def test_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown dataset"):
             _dataset_description_target("/proj", "unknown")
@@ -180,6 +184,21 @@ class TestEnsureDatasetDescriptions:
 
         target = tmp_path / "derivatives" / "ti-toolbox" / "dataset_description.json"
         assert target.exists()
+
+    def test_creates_root_at_project_root(self, tmp_path):
+        """Creates a root dataset_description.json at the project root.
+
+        QSIPrep's pyBIDS validator hard-fails without this file, so the
+        preprocessing pipeline must guarantee it exists.
+        """
+        ensure_dataset_descriptions(str(tmp_path), ["root"])
+
+        target = tmp_path / "dataset_description.json"
+        assert target.exists()
+        data = json.loads(target.read_text(encoding="utf-8"))
+        # Empty "Name" in the template is backfilled with the project name.
+        assert data["Name"] == tmp_path.name
+        assert data["DatasetType"] == "raw"
 
     def test_skips_unknown_dataset(self, tmp_path):
         """Skips unknown dataset names gracefully."""

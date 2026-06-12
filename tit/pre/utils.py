@@ -33,6 +33,7 @@ from typing import Iterable, Sequence
 from tit.paths import get_path_manager
 
 DATASET_TEMPLATES = {
+    "root": "root.dataset_description.json",
     "freesurfer": "freesurfer.dataset_description.json",
     "simnibs": "simnibs.dataset_description.json",
     "ti-toolbox": "ti-toolbox.dataset_description.json",
@@ -223,6 +224,8 @@ def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
 
 def _dataset_description_target(project_dir: str, dataset: str) -> Path:
     """Return the target path for a dataset_description.json file."""
+    if dataset == "root":
+        return Path(project_dir) / "dataset_description.json"
     if dataset == "freesurfer":
         return (
             Path(project_dir)
@@ -280,6 +283,9 @@ def ensure_dataset_descriptions(project_dir: str, datasets: Iterable[str]) -> No
                 )
 
         payload = json.loads(target_path.read_text(encoding="utf-8"))
+
+        if not payload.get("Name"):
+            payload["Name"] = project_name
 
         uri_value = f"bids:{project_name}@{today}"
         source_datasets = payload.get("SourceDatasets")

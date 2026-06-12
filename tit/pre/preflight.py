@@ -85,11 +85,28 @@ def missing_inputs_for_step(
             )
         ]
     if step == STEP_QSIPREP:
+        problems: list[PreprocessingInputProblem] = []
+        # QSIPrep needs an anatomical reference (default --anat-modality T1w);
+        # without one it fails deep in the workflow ("No T1w images found").
+        if not _has_bids_t1(project_dir, subject_id):
+            problems.append(
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"QSIPrep requires a BIDS T1w image for sub-{subject_id}. "
+                        f"Run DICOM conversion first or place "
+                        f"sub-{subject_id}_T1w.nii[.gz] in the subject anat folder."
+                    ),
+                    path=Path(pm.bids_anat(subject_id)),
+                )
+            )
         dwi_ok, dwi_error = validate_bids_dwi(
             project_dir, subject_id, logging.getLogger(__name__)
         )
         if not dwi_ok:
-            return [
+            problems.append(
                 PreprocessingInputProblem(
                     subject_id=subject_id,
                     step=step,
@@ -102,7 +119,8 @@ def missing_inputs_for_step(
                     ),
                     path=Path(pm.bids_dwi(subject_id)),
                 )
-            ]
+            )
+        return problems
     return []
 
 
