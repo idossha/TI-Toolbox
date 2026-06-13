@@ -16,6 +16,7 @@ from typing import Optional
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.user"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.yml"
+FREESURFER_VOLUME_PREFIX = "ti-toolbox_freesurfer_data"
 X11_MARKER_NAME = ".ti_toolbox_x11_initialized"
 X11_MARKER_DIR = Path("code/ti-toolbox/config")
 
@@ -218,14 +219,30 @@ def maybe_init_macos_x11(
     print("XQuartz: ensure 'Allow connections from network clients' is enabled.")
 
 
-def ensure_docker_volume(volume_name: str) -> None:
-    result = subprocess.run(
-        ["docker", "volume", "inspect", volume_name],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if result.returncode != 0:
-        run(["docker", "volume", "create", volume_name], check=False)
+def get_freesurfer_volume_name() -> str:
+    """Versioned FreeSurfer volume name from the compose image tag."""
+    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
+        match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
+        if match:
+            return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
+    return FREESURFER_VOLUME_PREFIX
+
+
+def prune_old_freesurfer_volumes(current_name: str) -> None:
+    """Remove stale older-version FreeSurfer volumes (best-effort)."""
+    try:
+        names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
+    except Exception:
+        return
+    for name in names:
+        is_versioned = name.startswith(f"{FREESURFER_VOLUME_PREFIX}_")
+        is_legacy = name == FREESURFER_VOLUME_PREFIX
+        if (is_versioned or is_legacy) and name != current_name:
+            subprocess.run(
+                ["docker", "volume", "rm", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
 
 def get_compose_images() -> list[str]:
@@ -300,9 +317,11 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
 
 
 def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
-    ensure_docker_volume("ti-toolbox_freesurfer_data")
+    freesurfer_volume = get_freesurfer_volume_name()
+    prune_old_freesurfer_volumes(freesurfer_volume)
 
     env = os.environ.copy()
+    env["FREESURFER_VOLUME"] = freesurfer_volume
     env["LOCAL_PROJECT_DIR"] = str(project_dir)
     env["PROJECT_DIR_NAME"] = project_dir_name
     env["TZ"] = get_host_timezone()

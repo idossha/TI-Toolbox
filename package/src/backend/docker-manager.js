@@ -8,7 +8,7 @@ const { getExeca } = require('./execa');
 const { ensurePathEnv } = require('./env');
 
 const MANAGED_CONTAINERS = ['simnibs_container', 'freesurfer_container'];
-const FREESURFER_VOLUME = 'ti-toolbox_freesurfer_data';
+const FREESURFER_VOLUME_PREFIX = 'ti-toolbox_freesurfer_data';
 
 function toExecEnv(env = {}) {
   return Object.entries(env)
@@ -25,6 +25,7 @@ class DockerManager extends EventEmitter {
     super();
     this.toolboxRoot = toolboxRoot;
     this.originalComposeFile = path.join(toolboxRoot, 'docker-compose.yml');
+    this.freesurferVolume = this.computeFreesurferVolume();
     this.composeFile = this.getAccessibleComposeFile();
     this.docker = this.createDockerClient();
     this.globalExecEnv = ensurePathEnv(process.env);
@@ -49,6 +50,20 @@ class DockerManager extends EventEmitter {
       // Fall back to original file if copy fails
       return this.originalComposeFile;
     }
+  }
+
+  computeFreesurferVolume() {
+    // Versioned FreeSurfer volume name from the compose image tag.
+    try {
+      const content = fs.readFileSync(this.originalComposeFile, 'utf8');
+      const match = content.match(/image:\s*\S*ti-toolbox_freesurfer:(\S+)/);
+      if (match) {
+        return `${FREESURFER_VOLUME_PREFIX}_${match[1].trim()}`;
+      }
+    } catch (error) {
+      logger.warn(`Could not parse FreeSurfer image tag for volume name: ${error.message}`);
+    }
+    return FREESURFER_VOLUME_PREFIX;
   }
 
   createDockerClient() {
@@ -181,21 +196,33 @@ class DockerManager extends EventEmitter {
     );
   }
 
-  async ensureVolume() {
-    this.emitProgress('volume', 'Ensuring Freesurfer data volume exists…');
+  async pruneOldVolumes() {
+    // Remove stale older-version FreeSurfer volumes (best-effort).
     try {
-      await this.docker.createVolume({ Name: FREESURFER_VOLUME });
-    } catch (error) {
-      if (error.statusCode !== 409) {
-        throw error;
+      const { Volumes } = await this.docker.listVolumes();
+      const stale = (Volumes || [])
+        .map(volume => volume.Name)
+        .filter(name =>
+          name !== this.freesurferVolume &&
+          (name === FREESURFER_VOLUME_PREFIX || name.startsWith(`${FREESURFER_VOLUME_PREFIX}_`))
+        );
+      for (const name of stale) {
+        try {
+          await this.docker.getVolume(name).remove();
+          this.emitProgress('volume', `Removed stale FreeSurfer volume ${name}`);
+        } catch (error) {
+          logger.warn(`Could not remove old volume ${name}: ${error.message}`);
+        }
       }
+    } catch (error) {
+      logger.warn(`FreeSurfer volume prune skipped: ${error.message}`);
     }
   }
 
   async composeUp(env) {
     this.emitProgress('compose-up', 'Starting Docker Compose services…');
     const execa = await getExeca();
-    const execEnv = ensurePathEnv(env);
+    const execEnv = ensurePathEnv({ ...env, FREESURFER_VOLUME: this.freesurferVolume });
     const dockerPath = this.findDockerCommand();
 
     const subprocess = execa(
@@ -242,7 +269,7 @@ class DockerManager extends EventEmitter {
     }
 
     const execa = await getExeca();
-    const execEnv = ensurePathEnv(env);
+    const execEnv = ensurePathEnv({ ...env, FREESURFER_VOLUME: this.freesurferVolume });
     const dockerPath = this.findDockerCommand();
     await execa(dockerPath, ['compose', '-f', this.composeFile, 'down', '--remove-orphans'], {
       env: execEnv,
@@ -283,7 +310,7 @@ class DockerManager extends EventEmitter {
 
     this.emitProgress('cleanup', 'Cleaning up stale containers…');
     await this.cleanupExistingContainers();
-    await this.ensureVolume();
+    await this.pruneOldVolumes();
     await this.composeUp(env);
     await this.waitForContainer('simnibs_container');
   }

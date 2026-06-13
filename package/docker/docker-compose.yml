@@ -6,7 +6,7 @@ services:
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
-      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
     image: idossha/simnibs:v2.3.2
     container_name: simnibs_container
     volumes:
-      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox    # User-level config (telemetry, prefs)
@@ -54,7 +54,8 @@ networks:
     driver: bridge
 
 volumes:
-  ti-toolbox_freesurfer_data:
-    external: true
-    name: ti-toolbox_freesurfer_data
+  freesurfer_data:
+    # Versioned name (must match the freesurfer image tag) so a FreeSurfer bump
+    # re-seeds a fresh volume. Launchers override FREESURFER_VOLUME.
+    name: ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1}
 

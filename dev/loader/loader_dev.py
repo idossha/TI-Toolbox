@@ -16,6 +16,7 @@ from typing import Optional
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.dev"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.dev.yml"
+FREESURFER_VOLUME_PREFIX = "ti-toolbox_freesurfer_data"
 TOOLBOX_ROOT = (SCRIPT_DIR / ".." / "..").resolve()
 STATUS_RELATIVE_PATH = Path("code/ti-toolbox/config/project_status.json")
 SYSTEM_INFO_RELATIVE_DIR = Path("derivatives/ti-toolbox/.ti-toolbox-info")
@@ -166,6 +167,32 @@ def initialize_project_structure(project_dir: Path) -> None:
     initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
 
 
+def get_freesurfer_volume_name() -> str:
+    """Versioned FreeSurfer volume name from the compose image tag."""
+    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
+        match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
+        if match:
+            return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
+    return FREESURFER_VOLUME_PREFIX
+
+
+def prune_old_freesurfer_volumes(current_name: str) -> None:
+    """Remove stale older-version FreeSurfer volumes (best-effort)."""
+    try:
+        names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
+    except Exception:
+        return
+    for name in names:
+        is_versioned = name.startswith(f"{FREESURFER_VOLUME_PREFIX}_")
+        is_legacy = name == FREESURFER_VOLUME_PREFIX
+        if (is_versioned or is_legacy) and name != current_name:
+            subprocess.run(
+                ["docker", "volume", "rm", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+
 def get_compose_images() -> list[str]:
     images: list[str] = []
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
@@ -309,6 +336,11 @@ def main() -> None:
     env["TIT_HOST_OS"] = platform.system().lower()  # darwin, linux, windows
     env["TIT_HOST_OS_VERSION"] = platform.release()
     env["TIT_HOST_ARCH"] = platform.machine()  # x86_64, arm64
+
+    freesurfer_volume = get_freesurfer_volume_name()
+    env["FREESURFER_VOLUME"] = freesurfer_volume
+    prune_old_freesurfer_volumes(freesurfer_volume)
+
     ensure_images_pulled(env)
     run_docker_compose(env, dev_codebase_dir)
 
