@@ -327,6 +327,19 @@ class PathManager:
         """
         return os.path.join(self.forward(sid), "fsaverage")
 
+    def microscale(self, sid: str) -> str:
+        """Path to the microscale (field->neuron) output directory for *sid*.
+
+        ``derivatives/SimNIBS/sub-{sid}/microscale/`` -- holds per-simulation
+        neuron-response outputs produced by :mod:`tit.microscale`.  Distinct
+        from :meth:`simulations` (macroscale fields) and :meth:`leadfields`.
+        """
+        return os.path.join(self.sub(sid), "microscale")
+
+    def microscale_sim(self, sid: str, sim: str) -> str:
+        """Path to the microscale output for a given simulation of *sid*."""
+        return os.path.join(self.microscale(sid), sim)
+
     def simulations(self, sid: str) -> str:
         """Path to ``Simulations/`` for *sid*."""
         return os.path.join(self.sub(sid), "Simulations")

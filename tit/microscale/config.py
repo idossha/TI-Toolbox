@@ -104,9 +104,7 @@ class MicroscaleConfig:
     model: str = "ball_stick"
     targets: tuple[tuple[float, float, float], ...] = ()
     conductivity: str = "scalar"
-    carrier_freqs: tuple[float, float] = field(
-        default_factory=lambda: DEFAULT_CARRIERS
-    )
+    carrier_freqs: tuple[float, float] = field(default_factory=lambda: DEFAULT_CARRIERS)
     duration: float = 100.0
     dt: float = 0.005
     temperature: float = 37.0

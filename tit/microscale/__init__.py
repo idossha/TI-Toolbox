@@ -41,9 +41,26 @@ from tit.microscale.config import MicroscaleConfig, NeuronModelSpec
 from tit.microscale.field_sampler import (
     mm_to_um,
     path_quasipotential,
+    place_morphology,
+    rotation_align,
     sample_at,
     uniform_quasipotential,
     um_to_mm,
+)
+
+from tit.microscale.coupling import (
+    build_extracellular_timeseries,
+    count_spikes,
+    find_threshold,
+    per_pair_quasipotentials,
+    polarization_map,
+    simulate_response,
+)
+from tit.microscale.models import (
+    Cell,
+    build_cell,
+    list_models,
+    register_model,
 )
 
 __all__ = [
@@ -54,4 +71,16 @@ __all__ = [
     "sample_at",
     "uniform_quasipotential",
     "path_quasipotential",
+    "rotation_align",
+    "place_morphology",
+    "Cell",
+    "build_cell",
+    "list_models",
+    "register_model",
+    "build_extracellular_timeseries",
+    "count_spikes",
+    "per_pair_quasipotentials",
+    "simulate_response",
+    "polarization_map",
+    "find_threshold",
 ]

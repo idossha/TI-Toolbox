@@ -156,6 +156,93 @@ def path_quasipotential(
     return v
 
 
+def rotation_align(source_axis: np.ndarray, target_axis: np.ndarray) -> np.ndarray:
+    """Rotation matrix that rotates *source_axis* onto *target_axis*.
+
+    Used to orient a neuron model (built along a canonical local axis, e.g. the
+    apical +z) so its principal axis follows the local cortical surface normal.
+    Uses Rodrigues' formula; handles the antiparallel case.
+
+    Parameters
+    ----------
+    source_axis, target_axis : ndarray, shape (3,)
+        Direction vectors (need not be unit length; zero-length is rejected).
+
+    Returns
+    -------
+    ndarray, shape (3, 3)
+        Rotation matrix ``R`` with ``R @ source_unit ≈ target_unit``.
+    """
+    a = np.asarray(source_axis, dtype=float).reshape(3)
+    b = np.asarray(target_axis, dtype=float).reshape(3)
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    if na == 0 or nb == 0:
+        raise ValueError("axes must be non-zero")
+    a = a / na
+    b = b / nb
+    v = np.cross(a, b)
+    c = float(np.dot(a, b))
+    s = float(np.linalg.norm(v))
+    if s == 0:
+        # Parallel or antiparallel.
+        if c > 0:
+            return np.eye(3)
+        # 180 deg: rotate about any axis perpendicular to a.
+        perp = np.array([1.0, 0.0, 0.0])
+        if abs(a[0]) > 0.9:
+            perp = np.array([0.0, 1.0, 0.0])
+        axis = np.cross(a, perp)
+        axis /= np.linalg.norm(axis)
+        k = _skew(axis)
+        return np.eye(3) + 2.0 * (k @ k)
+    k = _skew(v)
+    return np.eye(3) + k + k @ k * ((1.0 - c) / (s * s))
+
+
+def _skew(v: np.ndarray) -> np.ndarray:
+    """Skew-symmetric cross-product matrix of a 3-vector."""
+    x, y, z = v
+    return np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
+
+
+def place_morphology(
+    local_coords_um: np.ndarray,
+    soma_local_um: np.ndarray,
+    target_um: np.ndarray,
+    normal: np.ndarray,
+    source_axis: np.ndarray = (0.0, 0.0, 1.0),
+) -> np.ndarray:
+    """Place a neuron morphology at a target with a given orientation.
+
+    Rotates the model's canonical axis onto *normal*, then translates so the
+    soma lands on *target_um*.
+
+    Parameters
+    ----------
+    local_coords_um : ndarray, shape (M, 3)
+        Segment coordinates in the model's local frame (um).
+    soma_local_um : ndarray, shape (3,)
+        Soma coordinate in the local frame (um).
+    target_um : ndarray, shape (3,)
+        Where to place the soma in world space (um).
+    normal : ndarray, shape (3,)
+        Desired direction of the model's principal axis (e.g. cortical normal).
+    source_axis : ndarray, shape (3,), optional
+        The model's canonical axis in local space.  Default apical ``+z``.
+
+    Returns
+    -------
+    ndarray, shape (M, 3)
+        Segment coordinates in world space (um), soma at *target_um*.
+    """
+    local = np.asarray(local_coords_um, dtype=float).reshape(-1, 3)
+    soma_local = np.asarray(soma_local_um, dtype=float).reshape(3)
+    target = np.asarray(target_um, dtype=float).reshape(3)
+    r = rotation_align(np.asarray(source_axis, dtype=float), normal)
+    rotated = (local - soma_local) @ r.T
+    return rotated + target
+
+
 def load_field(mesh_path: str, field: str = "E"):
     """Read a SimNIBS mesh and return ``(mesh, field_values)``.
 

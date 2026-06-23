@@ -13,13 +13,18 @@ from tit.microscale.config import (
     MicroscaleConfig,
     NeuronModelSpec,
 )
+from tit.microscale.coupling import (
+    build_extracellular_timeseries,
+    count_spikes,
+)
 from tit.microscale.field_sampler import (
     mm_to_um,
     path_quasipotential,
+    place_morphology,
+    rotation_align,
     uniform_quasipotential,
     um_to_mm,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit conversion
@@ -81,9 +86,7 @@ def test_uniform_quasipotential_scales_with_field():
 def test_path_quasipotential_uniform_field_matches_uniform():
     # With a spatially constant field, the path integral must equal the
     # uniform-field result.
-    coords_um = np.array(
-        [[0.0, 0.0, 0.0], [1000.0, 0.0, 0.0], [2000.0, 0.0, 0.0]]
-    )
+    coords_um = np.array([[0.0, 0.0, 0.0], [1000.0, 0.0, 0.0], [2000.0, 0.0, 0.0]])
     parent = np.array([0, 0, 1])
     e = np.tile([1.0, 0.0, 0.0], (3, 1))
     v_path = path_quasipotential(e, coords_um, parent, root=0)
@@ -150,3 +153,149 @@ def test_neuron_model_spec_defaults():
     spec = NeuronModelSpec(name="ball_stick")
     assert spec.has_active_channels is True
     assert spec.mechanisms == ()
+
+
+# ---------------------------------------------------------------------------
+# Orientation / placement geometry
+# ---------------------------------------------------------------------------
+
+
+def test_rotation_align_identity():
+    r = rotation_align([0, 0, 1], [0, 0, 1])
+    assert np.allclose(r, np.eye(3))
+
+
+def test_rotation_align_maps_axis():
+    r = rotation_align([0, 0, 1], [1, 0, 0])
+    mapped = r @ np.array([0, 0, 1.0])
+    assert np.allclose(mapped, [1, 0, 0])
+
+
+def test_rotation_align_antiparallel():
+    r = rotation_align([0, 0, 1], [0, 0, -1])
+    mapped = r @ np.array([0, 0, 1.0])
+    assert np.allclose(mapped, [0, 0, -1], atol=1e-9)
+
+
+def test_rotation_align_is_orthonormal():
+    r = rotation_align([1, 2, 3], [-2, 1, 0.5])
+    assert np.allclose(r @ r.T, np.eye(3), atol=1e-9)
+    assert np.isclose(np.linalg.det(r), 1.0)
+
+
+def test_place_morphology_soma_lands_on_target():
+    local = np.array([[0, 0, 0], [0, 0, 100.0]])
+    soma_local = np.array([0, 0, 0.0])
+    target = np.array([10.0, 20.0, 30.0])
+    world = place_morphology(local, soma_local, target, normal=[0, 0, 1])
+    assert np.allclose(world[0], target)
+
+
+def test_place_morphology_preserves_length():
+    local = np.array([[0, 0, 0], [0, 0, 100.0]])
+    soma_local = np.array([0, 0, 0.0])
+    world = place_morphology(local, soma_local, [5, 5, 5], normal=[1, 0, 0])
+    seg_len = np.linalg.norm(world[1] - world[0])
+    assert seg_len == pytest.approx(100.0)
+    # Apical (local +z) should now point along +x.
+    assert np.allclose((world[1] - world[0]) / 100.0, [1, 0, 0], atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Two-carrier extracellular drive + spike counting
+# ---------------------------------------------------------------------------
+
+
+def test_timeseries_shape_and_amplitude():
+    ve1 = np.array([1.0, -2.0, 0.5])
+    ve2 = np.array([0.0, 1.0, 1.0])
+    t = np.linspace(0, 10, 500)
+    ts = build_extracellular_timeseries(ve1, ve2, t, 2000.0, 2010.0, amplitude=3.0)
+    assert ts.shape == (3, 500)
+    # Per-segment bound: |A*(ve1*s1 + ve2*s2)| <= A*(|ve1|+|ve2|)
+    bound = 3.0 * (np.abs(ve1) + np.abs(ve2))
+    assert np.all(np.abs(ts) <= bound[:, None] + 1e-9)
+
+
+def test_timeseries_equal_carriers_no_beat():
+    # Equal frequencies -> pure sinusoid, no envelope modulation.
+    ve1 = np.array([1.0])
+    ve2 = np.array([1.0])
+    t = np.linspace(0, 5, 2000)
+    ts = build_extracellular_timeseries(ve1, ve2, t, 2000.0, 2000.0)[0]
+    # Envelope (analytic-free proxy): peak amplitude constant ~ 2.0
+    assert np.max(ts) == pytest.approx(2.0, abs=0.02)
+
+
+def test_count_spikes_counts_upward_crossings():
+    # Two bumps above 0 mV.
+    v = np.array([-65, -65, 10, 10, -65, -65, 20, 20, -65])
+    assert count_spikes(v, threshold=0.0) == 2
+
+
+def test_count_spikes_none_below_threshold():
+    v = np.full(100, -65.0)
+    assert count_spikes(v) == 0
+
+
+# ---------------------------------------------------------------------------
+# config_io round-trip + PathManager wiring + metrics IO
+# ---------------------------------------------------------------------------
+
+
+def test_config_io_roundtrip(init_pm):
+    from tit.config_io import read_config_json, serialize_config, write_config_json
+
+    cfg = MicroscaleConfig(
+        sim_name="sim1", targets=((1.0, 2.0, 3.0),), carrier_freqs=(2000.0, 2020.0)
+    )
+    data = serialize_config(cfg)
+    assert data["_type"] == "MicroscaleConfig"
+    assert data["sim_name"] == "sim1"
+    assert "project_dir" in data
+
+    path = write_config_json(cfg, prefix="microscale")
+    back = read_config_json(path)
+    assert back["sim_name"] == "sim1"
+    assert back["carrier_freqs"] == [2000.0, 2020.0]
+
+
+def test_pathmanager_microscale_helpers(init_pm):
+    pm = init_pm
+    assert pm.microscale("001").endswith("/sub-001/microscale")
+    assert pm.microscale_sim("001", "simX").endswith("/sub-001/microscale/simX")
+    # Distinct from simulations() and leadfields().
+    assert "microscale" in pm.microscale("001")
+    assert "Simulations" not in pm.microscale("001")
+
+
+def test_metrics_targets_csv(tmp_path):
+    from tit.microscale.metrics import write_targets_csv
+
+    path = str(tmp_path / "out" / "targets.csv")
+    write_targets_csv(path, [(1.0, 2.0, 3.0)], [(0.0, 0.0, 1.0)])
+    text = (tmp_path / "out" / "targets.csv").read_text()
+    assert "x_mm" in text
+    assert "1.0,2.0,3.0,0.0,0.0,1.0" in text
+
+
+def test_metrics_response_npz(tmp_path):
+    from tit.microscale.metrics import write_response_npz
+
+    path = str(tmp_path / "r.npz")
+    write_response_npz(path, [{"n_spikes": 3, "ve1_max": 0.5}, {"n_spikes": 0}])
+    loaded = np.load(path)
+    assert list(loaded["n_spikes"]) == [3.0, 0.0]
+    assert np.isnan(loaded["threshold"]).all()
+
+
+def test_metrics_polarization_npz(tmp_path):
+    from tit.microscale.metrics import write_polarization_npz
+
+    path = str(tmp_path / "p.npz")
+    write_polarization_npz(
+        path,
+        [{"delta_vm": [0.1, 0.2], "seg_coords_um": [[0, 0, 0], [0, 0, 1]]}],
+    )
+    loaded = np.load(path)
+    assert np.allclose(loaded["delta_vm_0"], [0.1, 0.2])
