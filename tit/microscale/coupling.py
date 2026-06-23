@@ -167,8 +167,21 @@ def simulate_response(
     normal: np.ndarray,
     mesh_pair1,
     mesh_pair2,
+    settle_ms: float = 5.0,
 ) -> dict:
     """Drive a cell with the TI carriers and return its response.
+
+    NEURON keeps a single global instance, so this function owns the lifecycle
+    of the sections and ``Vector.play`` handles it creates: they are removed and
+    every segment's ``e_extracellular`` is zeroed in a ``finally`` block, so a
+    run cannot perturb a subsequent one (important for :func:`find_threshold`,
+    which calls this many times).
+
+    Parameters
+    ----------
+    settle_ms : float
+        Initial window (ms) excluded from the spike count, to drop the onset
+        transient caused by initializing away from the channels' equilibrium.
 
     Returns
     -------
@@ -178,6 +191,7 @@ def simulate_response(
     from neuron import h
 
     cell = build_cell(cfg.model)
+    segs = list(cell.segments())
     ve1, ve2 = per_pair_quasipotentials(cell, target_mm, normal, mesh_pair1, mesh_pair2)
 
     n_steps = int(round(cfg.duration / cfg.dt)) + 1
@@ -190,25 +204,37 @@ def simulate_response(
     h.celsius = cfg.temperature
     h.dt = cfg.dt
     t_vec = h.Vector(t_ms)
-    for i, (_sec, seg) in enumerate(cell.segments()):
-        vec = h.Vector(ve_t[i])
-        vec.play(seg._ref_e_extracellular, t_vec, 1)
-        cell._played.append(vec)
-    cell._played.append(t_vec)
+    play_vecs = []
+    try:
+        for i, (_sec, seg) in enumerate(segs):
+            vec = h.Vector(ve_t[i])
+            vec.play(seg._ref_e_extracellular, t_vec, 1)
+            play_vecs.append(vec)
 
-    v_soma = h.Vector()
-    v_soma.record(cell.soma(0.5)._ref_v)
-    t_rec = h.Vector()
-    t_rec.record(h._ref_t)
+        v_soma = h.Vector()
+        v_soma.record(cell.soma(0.5)._ref_v)
+        t_rec = h.Vector()
+        t_rec.record(h._ref_t)
 
-    h.finitialize(-65.0)
-    h.continuerun(cfg.duration)
+        h.finitialize(-65.0)
+        h.continuerun(cfg.duration)
 
-    v = np.asarray(v_soma)
+        v = np.asarray(v_soma)
+        t = np.asarray(t_rec)
+        # Count only after the settling window so the init transient does not
+        # masquerade as an evoked spike.
+        keep = t >= settle_ms
+        n_spikes = count_spikes(v[keep]) if keep.any() else count_spikes(v)
+    finally:
+        for vec in play_vecs:
+            vec.play_remove()
+        for _sec, seg in segs:
+            seg.e_extracellular = 0.0
+
     return {
-        "n_spikes": count_spikes(v),
+        "n_spikes": n_spikes,
         "v_soma": v,
-        "t": np.asarray(t_rec),
+        "t": t,
         "ve1_max": float(np.max(np.abs(ve1))),
         "ve2_max": float(np.max(np.abs(ve2))),
     }
@@ -235,24 +261,28 @@ def polarization_map(
     from neuron import h
 
     cell = build_cell(cfg.model)
+    segs = list(cell.segments())
     ve1, ve2 = per_pair_quasipotentials(cell, target_mm, normal, mesh_pair1, mesh_pair2)
     ve_static = cfg.amplitude_scale * (ve1 + ve2)
 
     h.celsius = cfg.temperature
-    segs = list(cell.segments())
-    for i, (_sec, seg) in enumerate(segs):
-        seg.e_extracellular = float(ve_static[i])
+    try:
+        # Field OFF first, on the *same* cell, to get its true resting profile.
+        for _sec, seg in segs:
+            seg.e_extracellular = 0.0
+        h.finitialize(-65.0)
+        h.continuerun(50.0)
+        v_rest = np.array([seg.v for _sec, seg in segs])
 
-    h.finitialize(-65.0)
-    # Integrate to a quasi-steady state.
-    h.continuerun(50.0)
-    v_pol = np.array([seg.v for _sec, seg in segs])
-
-    # Baseline (field off) for the same cell.
-    cell0 = build_cell(cfg.model)
-    h.finitialize(-65.0)
-    h.continuerun(50.0)
-    v_rest = np.array([seg.v for _sec, seg in cell0.segments()])
+        # Field ON: apply the static superposed pair fields and re-settle.
+        for i, (_sec, seg) in enumerate(segs):
+            seg.e_extracellular = float(ve_static[i])
+        h.finitialize(-65.0)
+        h.continuerun(50.0)
+        v_pol = np.array([seg.v for _sec, seg in segs])
+    finally:
+        for _sec, seg in segs:
+            seg.e_extracellular = 0.0
 
     return {
         "delta_vm": v_pol - v_rest,
@@ -271,16 +301,24 @@ def find_threshold(
     tol: float = 0.05,
     max_iter: int = 20,
 ) -> float:
-    """Bisect the amplitude scale to the firing threshold.
+    """Geometrically bisect the amplitude scale to the firing threshold.
 
-    Scales ``cfg.amplitude_scale`` (geometrically searched between *lo* and *hi*)
-    until the cell just spikes.  Returns the threshold multiplier, or ``inf`` if
-    the cell does not fire at *hi*.
+    Searches ``cfg.amplitude_scale`` between *lo* and *hi* by geometric
+    bisection (uniform *relative* precision), narrowing until the bracket's
+    ratio ``hi/lo`` is within ``1 + tol``.
+
+    Parameters
+    ----------
+    lo, hi : float
+        Amplitude bracket.  ``lo <= 0`` is replaced by a small positive floor.
+    tol : float
+        Relative half-width of the final bracket (e.g. 0.05 -> ~5%).
 
     Returns
     -------
     float
-        Threshold amplitude multiplier, or ``float("inf")``.
+        Threshold amplitude multiplier.  ``inf`` if the cell does not fire at
+        *hi*; the lower bound if it already fires there.
     """
     from dataclasses import replace
 
@@ -293,15 +331,20 @@ def find_threshold(
 
     if not fires(hi):
         return float("inf")
-    if fires(lo if lo > 0 else tol):
+    # Geometric search needs a positive lower bound.
+    lo = lo if lo > 0 else max(tol, hi * 1e-3)
+    if fires(lo):
+        # Already firing at the smallest tested amplitude: threshold is at or
+        # below this floor.  Report the floor, not 0 (which would claim the
+        # cell spikes at zero field).
         return lo
 
     for _ in range(max_iter):
-        mid = 0.5 * (lo + hi)
+        if hi / lo <= 1.0 + tol:
+            break
+        mid = (lo * hi) ** 0.5
         if fires(mid):
             hi = mid
         else:
             lo = mid
-        if (hi - lo) <= tol:
-            break
     return hi

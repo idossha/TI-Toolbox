@@ -164,7 +164,7 @@ RUN simnibs_python -m pip install \
     python-lsp-server \
     jupyterlab-lsp \
     "mne~=1.5" \
-    neuron
+    "neuron>=8.2,<8.3"
 
 
 # Install Neovim v0.11.0 from prebuilt binary

@@ -9,9 +9,15 @@ description = "TI-Toolbox (Python package: tit)"
 readme = "README.md"
 requires-python = ">=3.11"
 dynamic = ["version"]
+dependencies = []
+
 # NEURON powers the optional tit.microscale (field -> neuron) coupling. It is
-# imported lazily, so the rest of the package works without it installed.
-dependencies = ["neuron"]
+# imported lazily, so the core package installs and runs without it. Kept
+# optional (not a hard dependency) because not every platform has a neuron
+# wheel, and pinned <8.3 to avoid a future release dragging numpy off the
+# container's 1.26.x (the SimNIBS/nan_to_num stack breaks on numpy 2.x).
+[project.optional-dependencies]
+microscale = ["neuron>=8.2,<8.3"]
 
 [project.urls]
 Repository = "https://github.com/idossha/TI-toolbox"

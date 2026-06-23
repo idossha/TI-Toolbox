@@ -299,3 +299,42 @@ def test_metrics_polarization_npz(tmp_path):
     )
     loaded = np.load(path)
     assert np.allclose(loaded["delta_vm_0"], [0.1, 0.2])
+
+
+# ---------------------------------------------------------------------------
+# find_threshold bisection logic (NEURON-free, via injected simulate_response)
+# ---------------------------------------------------------------------------
+
+
+def _patch_fires(monkeypatch, true_threshold):
+    """Make simulate_response report firing iff amplitude_scale >= threshold."""
+    import tit.microscale.coupling as coupling
+
+    def fake(cfg, *a, **k):
+        return {"n_spikes": 1 if cfg.amplitude_scale >= true_threshold else 0}
+
+    monkeypatch.setattr(coupling, "simulate_response", fake)
+    return coupling
+
+
+def test_find_threshold_brackets_true_value(monkeypatch):
+    coupling = _patch_fires(monkeypatch, true_threshold=12.5)
+    cfg = MicroscaleConfig(sim_name="s")
+    thr = coupling.find_threshold(cfg, None, None, None, None, lo=0.0, hi=100.0)
+    # Within the 5% relative tolerance of the true threshold.
+    assert thr == pytest.approx(12.5, rel=0.06)
+
+
+def test_find_threshold_inf_when_never_fires(monkeypatch):
+    coupling = _patch_fires(monkeypatch, true_threshold=1e9)
+    cfg = MicroscaleConfig(sim_name="s")
+    thr = coupling.find_threshold(cfg, None, None, None, None, hi=100.0)
+    assert thr == float("inf")
+
+
+def test_find_threshold_floor_not_zero_when_always_fires(monkeypatch):
+    # Fires even at the smallest probe -> must report the positive floor, not 0.
+    coupling = _patch_fires(monkeypatch, true_threshold=0.0)
+    cfg = MicroscaleConfig(sim_name="s")
+    thr = coupling.find_threshold(cfg, None, None, None, None, lo=0.0, hi=100.0)
+    assert thr > 0.0
