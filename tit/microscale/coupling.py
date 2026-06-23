@@ -145,7 +145,10 @@ def _load_pair_meshes(subject_id: str, cfg) -> tuple:
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
-    hf_dir = os.path.join(pm.simulation(subject_id, cfg.sim_name), "high_Frequency")
+    # The simulator organizes the HF pair meshes under high_Frequency/mesh/.
+    hf_dir = os.path.join(
+        pm.simulation(subject_id, cfg.sim_name), "high_Frequency", "mesh"
+    )
     cond = cfg.conductivity
     m1, _ = load_field(
         os.path.join(hf_dir, f"{subject_id}_TDCS_1_{cond}.msh"), field="E"

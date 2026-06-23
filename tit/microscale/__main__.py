@@ -124,7 +124,10 @@ def _run_subject(sid: str, cfg, mode: str, normals) -> None:
                 f"Unknown mode: {mode!r} (expected 'response' or 'threshold')"
             )
 
-    write_response_npz(os.path.join(out_dir, f"{stem}_response.npz"), results)
+    # Distinct filenames per mode so a threshold run does not clobber a prior
+    # response run's spike data (and vice versa).
+    suffix = "threshold" if mode == "threshold" else "response"
+    write_response_npz(os.path.join(out_dir, f"{stem}_{suffix}.npz"), results)
     if pol_maps:
         write_polarization_npz(
             os.path.join(out_dir, f"{stem}_polarization.npz"), pol_maps

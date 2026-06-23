@@ -159,23 +159,27 @@ def _build_ball_stick() -> Cell:
     axon = h.Section(name="axon")
 
     # Geometry (um). Soma centred at origin; apical up (+z), axon down (-z).
-    soma.L, soma.diam = 20.0, 20.0
-    apic.L, apic.diam = 600.0, 2.0
-    axon.L, axon.diam = 400.0, 1.0
-    apic.nseg, axon.nseg = 21, 21
+    # Lengths are explicit constants: the section .L is derived from the pt3d
+    # points below, so we must NOT read sec.L between pt3dclear() (which zeros
+    # it) and the second pt3dadd() — doing so collapses the section to ~0 length.
+    soma_half = 10.0
+    apic_len = 600.0
+    axon_len = 400.0
+    soma_d, apic_d, axon_d = 20.0, 2.0, 1.0
 
     soma.pt3dclear()
-    soma.pt3dadd(0.0, 0.0, -10.0, soma.diam)
-    soma.pt3dadd(0.0, 0.0, 10.0, soma.diam)
+    soma.pt3dadd(0.0, 0.0, -soma_half, soma_d)
+    soma.pt3dadd(0.0, 0.0, soma_half, soma_d)
 
     apic.pt3dclear()
-    apic.pt3dadd(0.0, 0.0, 10.0, apic.diam)
-    apic.pt3dadd(0.0, 0.0, 10.0 + apic.L, apic.diam)
+    apic.pt3dadd(0.0, 0.0, soma_half, apic_d)
+    apic.pt3dadd(0.0, 0.0, soma_half + apic_len, apic_d)
 
     axon.pt3dclear()
-    axon.pt3dadd(0.0, 0.0, -10.0, axon.diam)
-    axon.pt3dadd(0.0, 0.0, -10.0 - axon.L, axon.diam)
+    axon.pt3dadd(0.0, 0.0, -soma_half, axon_d)
+    axon.pt3dadd(0.0, 0.0, -soma_half - axon_len, axon_d)
 
+    apic.nseg, axon.nseg = 21, 21
     apic.connect(soma(1.0))
     axon.connect(soma(0.0))
 
