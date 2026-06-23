@@ -85,6 +85,14 @@ simnibs_python -m tit.microscale config.json
 - `mode: "threshold"` → bisect the field amplitude to each target's firing
   threshold.
 
+**Activation criterion.** Under a (quasi-)uniform field the lowest-threshold
+elements are **axon terminals**, not the soma (Aberra et al. 2020), so a target
+counts as activated when a spike occurs at the **spike-initiation site** (any
+compartment), while the somatic trace is still returned for inspection.
+Verified in-container on the default ball-stick cell: somatic firing requires a
+proper axon initial segment / tuned kHz channels, which is why realistic
+responses use user-registered cortical cells.
+
 Outputs land under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
 `*_targets.csv`, `*_response.npz`, `*_polarization.npz`.
 

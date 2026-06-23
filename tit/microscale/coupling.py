@@ -186,7 +186,9 @@ def simulate_response(
     Returns
     -------
     dict
-        ``{"n_spikes", "v_soma", "t", "ve1_max", "ve2_max"}``.
+        ``{"n_spikes", "v_soma", "t", "ve1_max", "ve2_max"}``.  ``n_spikes`` is
+        the activation count at the spike-initiation site (the most-active
+        compartment); ``v_soma`` is the somatic trace.
     """
     from neuron import h
 
@@ -211,20 +213,28 @@ def simulate_response(
             vec.play(seg._ref_e_extracellular, t_vec, 1)
             play_vecs.append(vec)
 
-        v_soma = h.Vector()
-        v_soma.record(cell.soma(0.5)._ref_v)
+        # Record every segment: under a (quasi-)uniform field the lowest-
+        # threshold elements are axon terminals, not the soma (Aberra et al.
+        # 2020), so activation is detected at the spike-initiation site (a spike
+        # anywhere in the cell), while the soma trace is kept for output.
+        v_recs = [h.Vector() for _ in segs]
+        for rec, (_sec, seg) in zip(v_recs, segs):
+            rec.record(seg._ref_v)
+        soma_idx = next(i for i, (sec, _seg) in enumerate(segs) if sec is cell.soma)
         t_rec = h.Vector()
         t_rec.record(h._ref_t)
 
         h.finitialize(-65.0)
         h.continuerun(cfg.duration)
 
-        v = np.asarray(v_soma)
         t = np.asarray(t_rec)
+        v_all = np.array([np.asarray(r) for r in v_recs])  # (M, T)
+        v = v_all[soma_idx]
         # Count only after the settling window so the init transient does not
         # masquerade as an evoked spike.
-        keep = t >= settle_ms
-        n_spikes = count_spikes(v[keep]) if keep.any() else count_spikes(v)
+        keep = t >= settle_ms if (t >= settle_ms).any() else np.ones_like(t, bool)
+        # Activation = spikes at the most-active compartment (initiation site).
+        n_spikes = max(count_spikes(seg_v[keep]) for seg_v in v_all)
     finally:
         for vec in play_vecs:
             vec.play_remove()

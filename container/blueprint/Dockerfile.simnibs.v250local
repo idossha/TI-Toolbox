@@ -1,0 +1,21 @@
+# Local-only v2.5.0 build: layer NEURON + the current working-tree `tit`
+# (including the new tit.microscale module) on top of the existing v2.4.0
+# image. NOT for Docker Hub — fast iteration / local testing only.
+#
+# Build from the repo root:
+#   docker build -f container/blueprint/Dockerfile.simnibs.v250local \
+#     -t idossha/simnibs:v2.5.0 .
+FROM idossha/simnibs:v2.4.0
+
+# NEURON for tit.microscale (pinned to keep numpy at 1.26.x).
+RUN simnibs_python -m pip install --no-cache-dir "neuron>=8.2,<8.3"
+
+# Reinstall tit from the local working tree so the microscale module is present.
+# Copy only what the package build needs (keeps the layer small, avoids .git).
+COPY pyproject.toml README.md /ti-toolbox-local/
+COPY tit /ti-toolbox-local/tit
+RUN cd /ti-toolbox-local && simnibs_python -m pip install --no-cache-dir .
+
+# Sanity: NEURON imports and numpy stayed on 1.26.x.
+RUN simnibs_python -c "import neuron, numpy; print('neuron', neuron.__version__, 'numpy', numpy.__version__)" \
+    && simnibs_python -c "import tit.microscale as m; print('microscale models:', m.list_models())"
