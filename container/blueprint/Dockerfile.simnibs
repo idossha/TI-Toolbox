@@ -148,6 +148,8 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 # - mne is pinned to ~=1.5 so it stays compatible with the container's
 #   numpy 1.26.x (SimNIBS stack); newer mne would pull numpy 2.x and break the
 #   nan_to_num patch. Used by tit.source EEG forward / fsaverage mapping.
+# - neuron powers the optional tit.microscale (field -> neuron) coupling; its
+#   wheel does not force numpy 2.x. Verify numpy stays 1.26.x after the build.
 RUN simnibs_python -m pip install \
     meshio \
     nilearn \
@@ -161,7 +163,8 @@ RUN simnibs_python -m pip install \
     psutil \
     python-lsp-server \
     jupyterlab-lsp \
-    "mne~=1.5"
+    "mne~=1.5" \
+    neuron
 
 
 # Install Neovim v0.11.0 from prebuilt binary

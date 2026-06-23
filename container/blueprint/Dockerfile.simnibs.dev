@@ -117,7 +117,7 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
 # Install additional Python packages to simnibs_python
 # mne pinned ~=1.5 to keep numpy at 1.26.x (used by tit.source EEG forward).
-RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn "mne~=1.5"
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn "mne~=1.5" neuron
 
 ########### TI-Toolbox ########################
 # Clone a specific branch by -b {branch name} --single-brnach {repo URL}
