@@ -154,16 +154,39 @@ independently — connectivity changes *emergent activity*, not direct polarizat
    estimate. **No synaptic connectivity.**
 
 Outputs: `*_population.npz` (analytic map over all vertices + the subsample
-distribution), `*_population_summary.csv`, and `*_population_cortex.png` — an
-**Aberra-style populated-gyrus figure**: many neurons placed along a localized
-cortical cross-section (around the field focus), each oriented to the local
-cortical normal and colored by neurite **type** (axon red / apical dendrite blue
-/ basal dendrite green — `plot_population_in_cortex`, `color_scheme="aberra"`),
-with the gyral outline and a scale bar. Reuses the exact placement of the
-literature (align the somatodendritic axis to the normal, azimuthal spin,
-translate the soma to the site; Aberra et al. 2018/2020) — the realistic
-reconstructions themselves are unlicensed and not bundled, so the procedural L5
-is the default and `load_swc_cell` plugs in user-supplied cells.
+distribution), `*_population_summary.csv`, and `*_population_cortex.png`.
+
+### Populated-region figures (`render_population_region`)
+
+Render **L5 pyramidal** populations embedded in a named GM region, via a clean
+typed `RegionSpec` (`tit.microscale.config`):
+
+```python
+from tit.microscale.config import RegionSpec
+from tit.microscale.viz import render_population_region
+render_population_region(sid, cfg, out_dir,
+    RegionSpec(kind="atlas", atlas="DK40", label="insula", hemi="lh"), "insula")
+render_population_region(sid, cfg, out_dir,
+    RegionSpec(kind="sphere", center_mni=(-38, 6, 2), radius_mm=10), "sphere")
+render_population_region(sid, cfg, out_dir,
+    RegionSpec(kind="mask", mask_path="roi.nii.gz"), "mask")
+```
+
+- **Region kinds** (all GM-restricted): `atlas` (DK40/a2009s/HCP_MMP1 label,
+  nearest-neighbour transfer to the remeshed surface), `sphere` (MNI or subject
+  center; MNI mapped via `mni2subject_coords`), `mask` (binary NIfTI in subject
+  space, sampled at each vertex).
+- **Space**: `subject` (implemented) or `fsaverage` (reserved).
+- **Render** (`plot_population_3d`): a clean **3D** lit cortical patch colored by
+  `TI_normal` (magma + colorbar), with the L5 cells embedded as neurite-typed
+  poly-lines (axon red / apical blue / basal green), oriented to each cortical
+  normal, plus a scale bar and region-context label. 3D avoids the self-overlap
+  a 2D projection of a folded gyrus suffers.
+
+Placement follows the literature exactly (align the somatodendritic axis to the
+normal, azimuthal spin, translate the soma to the site; Aberra et al. 2018/2020).
+The realistic Aberra/Blue Brain reconstructions are unlicensed and not bundled,
+so the procedural L5 is the default; `load_swc_cell` plugs in user cells.
 
 > **Scope note.** This population model supports **subthreshold polarization /
 > "priming"** claims with their cluster distribution. It does *not* model
