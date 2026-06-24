@@ -314,12 +314,19 @@ class RegionSpec:
         if self.kind == "atlas" and not self.label:
             raise ValueError("atlas region requires a non-empty label")
         if self.kind == "sphere":
-            if self.center_mni is None and self.center_subject is None:
+            center = (
+                self.center_mni if self.center_mni is not None else self.center_subject
+            )
+            if center is None:
                 raise ValueError("sphere region requires center_mni or center_subject")
+            if len(center) != 3:
+                raise ValueError(f"sphere center must be (x, y, z), got {center!r}")
             if self.radius_mm <= 0:
                 raise ValueError(f"radius_mm must be > 0, got {self.radius_mm}")
         if self.kind == "mask" and not self.mask_path:
             raise ValueError("mask region requires mask_path")
+        if self.snap_mm <= 0:
+            raise ValueError(f"snap_mm must be > 0, got {self.snap_mm}")
 
     @property
     def label_text(self) -> str:

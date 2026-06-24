@@ -741,8 +741,6 @@ def plot_population_3d(
     # View along the patch's mean normal so the sheet faces the camera.
     allpts = np.vstack([c[1] for cell in placed_cells for c in cell] + [sp])
     _equal_3d(ax, allpts, pad=0.02)
-    n = sp.shape[0]
-    _ = n
     ax.set_axis_off()
     # Scale bar.
     lo = allpts.min(0)
@@ -941,7 +939,6 @@ def render_population_region(
     spec,
     name: str,
     n_cells: int = 40,
-    thickness_mm: float = 2.0,
     span_mm: float = 14.0,
     color_scheme: str = "aberra",
     dpi: int = 220,
@@ -1024,104 +1021,29 @@ def render_population_region(
     return path
 
 
-def render_population_cortex(
-    subject_id,
-    cfg,
-    out_dir,
-    n_cells: int = 50,
-    thickness_mm: float = 2.0,
-    patch_radius_mm: float = 12.0,
-    color_scheme: str = "aberra",
-):
-    """Produce an Aberra-style populated-gyrus figure for a subject's cluster.
+def render_population_cortex(subject_id, cfg, out_dir, span_mm: float = 12.0):
+    """Auto populated-gyrus figure: a sphere region at the field focus.
 
-    Localizes to a cortical patch around the field focus (the max-``TI_normal``
-    vertex), takes a thin slab through it, **embeds** the neurons in the actual
-    cortical-surface ribbon of that slab (a translucent cross-section colored by
-    ``TI_normal``), places one neuron at each surface site (oriented to the local
-    cortical normal), and colors them by neurite type with a scale bar -- so the
-    cells sit *in* the gyrus, not floating.
+    Convenience wrapper around :func:`render_population_region` that centers a
+    sphere on the max-``TI_normal`` vertex, so ``run_population`` emits a
+    populated-cortex figure without a caller-supplied region.
 
     Returns
     -------
     str
         Path to the written ``<stem>_population_cortex.png``.
     """
-    import os
+    from tit.microscale.config import RegionSpec
+    from tit.microscale.population import load_cluster_surface
 
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    from tit.microscale.morphology import pyramidal_l5
-    from tit.microscale.population import (
-        load_cluster_surface,
-        load_cluster_triangles,
-        place_spec_world,
-        sample_cortical_strip,
+    coords, _normals, ti_normal = load_cluster_surface(subject_id, cfg)
+    focus = coords[int(np.argmax(ti_normal))]
+    spec = RegionSpec(
+        kind="sphere", center_subject=tuple(float(c) for c in focus), radius_mm=span_mm
     )
-
-    coords_mm, normals, ti_normal = load_cluster_surface(subject_id, cfg)
-    tris = load_cluster_triangles(subject_id, cfg)
-
-    # Localize to a patch around the field focus (else a slab cuts the whole
-    # cortex into a chaotic cross-section and the cells are sub-pixel). Crop
-    # inline so vertices, normals, scalar and triangles all share one indexing.
-    focus = coords_mm[int(np.argmax(ti_normal))]
-    near = np.linalg.norm(coords_mm - focus, axis=1) <= patch_radius_mm
-    keep_tri = near[tris].all(axis=1)
-    used = np.unique(tris[keep_tri])
-    remap = np.full(len(coords_mm), -1, dtype=int)
-    remap[used] = np.arange(len(used))
-    patch_coords = coords_mm[used]
-    patch_nrm = normals[used]
-    patch_scalar = ti_normal[used]
-    patch_tris = remap[tris[keep_tri]]
-
-    # Slab axis = the patch's THINNEST in-plane direction, so the slab is a clean
-    # gyral cross-section rather than an oblique cut.
-    slab_axis = int(np.argmin(np.ptp(patch_coords - patch_coords.mean(0), axis=0)))
-    project_axes = tuple(a for a in range(3) if a != slab_axis)
-
-    # Keep only the ribbon triangles whose centroid falls in the slab.
-    c0 = float(np.median(patch_coords[:, slab_axis]))
-    tri_c = patch_coords[patch_tris].mean(axis=1)
-    slab_tris = patch_tris[np.abs(tri_c[:, slab_axis] - c0) <= thickness_mm / 2.0]
-
-    rng = np.random.default_rng(cfg.seed)
-    strip_xyz, strip_nrm = sample_cortical_strip(
-        patch_coords,
-        patch_nrm,
-        n_cells,
-        axis=slab_axis,
-        thickness_mm=thickness_mm,
-        rng=rng,
+    return render_population_region(
+        subject_id, cfg, out_dir, spec, "cortex", span_mm=span_mm
     )
-
-    spec = pyramidal_l5(seed=cfg.seed)
-    placed = [
-        place_spec_world(spec, xyz, nrm) for xyz, nrm in zip(strip_xyz, strip_nrm)
-    ]
-    ax = plot_population_in_cortex(
-        placed,
-        surface_pts_mm=patch_coords,
-        surface_tris=slab_tris,
-        surface_scalar=patch_scalar,
-        project_axes=project_axes,
-        color_scheme=color_scheme,
-        scale_bar_mm=1.0,
-        region_label=f"sub-{subject_id} • subject space\n"
-        f"patch r={patch_radius_mm:g} mm around TI_normal focus\n"
-        f"ribbon colored by TI_normal",
-        title=f"Populated cortex — {len(placed)} {cfg.model} cells "
-        f"(sub-{subject_id})",
-    )
-    stem = f"sub-{subject_id}_{cfg.sim_name}"
-    path = os.path.join(out_dir, f"{stem}_population_cortex.png")
-    ax.figure.savefig(path, dpi=150)
-    plt.close(ax.figure)
-    return path
 
 
 # ---------------------------------------------------------------------------

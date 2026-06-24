@@ -399,7 +399,17 @@ def _atlas_vertex_mask(subject_id, spec, coords_mm):
             raise FileNotFoundError(f"No {spec.atlas} annot for {hemi} in {m2m}")
         lab, _ctab, names = nib.freesurfer.read_annot(ann[0])
         names = [n.decode() if isinstance(n, bytes) else n for n in names]
-        idx = [i for i, n in enumerate(names) if spec.label.lower() in n.lower()]
+        want = spec.label.lower()
+        # Exact match first; only fall back to substring if exact yields nothing
+        # (and reject ambiguous substring matches like "temporal" -> 4 labels).
+        idx = [i for i, n in enumerate(names) if n.lower() == want]
+        if not idx:
+            idx = [i for i, n in enumerate(names) if want in n.lower()]
+            if len(idx) > 1:
+                raise KeyError(
+                    f"label {spec.label!r} is ambiguous in {spec.atlas} ({hemi}); "
+                    f"matches {[names[i] for i in idx]} — use an exact label name"
+                )
         if not idx:
             raise KeyError(
                 f"label {spec.label!r} not in {spec.atlas} ({hemi}); "
@@ -412,7 +422,12 @@ def _atlas_vertex_mask(subject_id, spec, coords_mm):
 
 
 def _mask_vertex_mask(spec, coords_mm):
-    """Boolean mask of surface vertices inside a binary NIfTI mask (GM inclusion)."""
+    """Boolean mask of surface vertices inside a binary NIfTI mask (GM inclusion).
+
+    The mask NIfTI must be in the **same subject space** (scanner/world mm) as
+    the cortical surface; vertices are mapped to voxels via the mask's affine and
+    included where the mask is nonzero.
+    """
     import nibabel as nib
 
     img = nib.load(spec.mask_path)
