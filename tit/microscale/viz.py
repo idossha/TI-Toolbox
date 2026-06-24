@@ -666,6 +666,126 @@ def plot_field_hodograph(
 # ---------------------------------------------------------------------------
 
 
+def plot_population_3d(
+    placed_cells,
+    surf_coords_mm,
+    surf_tris,
+    surf_scalar=None,
+    color_scheme: str = "aberra",
+    ax=None,
+    title: str = "Populated cortex",
+    region_label: str | None = None,
+    scale_bar_mm: float = 1.0,
+    lw: float = 0.6,
+):
+    """Render a populated cortical patch in 3D (clean, anatomical, no overlap).
+
+    The cortical patch is drawn as a smooth lit surface colored by ``TI_normal``;
+    the L5 neurons are drawn as 3D poly-lines colored by neurite type and
+    embedded on the sheet, oriented to the local cortical normal.  3D avoids the
+    self-overlap a 2D projection of a folded gyrus suffers.
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection
+
+    if ax is None:
+        fig = plt.figure(figsize=(9, 7.5))
+        ax = fig.add_subplot(111, projection="3d")
+
+    sp = np.asarray(surf_coords_mm, dtype=float)
+    tris = np.asarray(surf_tris, dtype=int)
+    tri = ax.plot_trisurf(
+        sp[:, 0],
+        sp[:, 1],
+        sp[:, 2],
+        triangles=tris,
+        linewidth=0.0,
+        antialiased=True,
+        alpha=0.6,
+        shade=True,
+    )
+    if surf_scalar is not None:
+        tri.set_array(np.asarray(surf_scalar)[tris].mean(axis=1))
+        tri.set_cmap("magma")
+        cb = ax.figure.colorbar(tri, ax=ax, shrink=0.5, pad=0.02, fraction=0.035)
+        cb.set_label("TI_normal (V/m)", fontsize=8)
+        cb.ax.tick_params(labelsize=7)
+    else:
+        tri.set_color("#cfc7b8")
+
+    # Neurons: one Line3DCollection per neurite type (fast, clean).
+    by_color: dict = {}
+    soma_pts = []
+    for cell in placed_cells:
+        for kind, pts in cell:
+            pts = np.asarray(pts, dtype=float)
+            if kind == "soma":
+                soma_pts.append(pts.mean(0))
+                continue
+            segs = np.stack([pts[:-1], pts[1:]], axis=1)
+            by_color.setdefault(_kind_color(kind, color_scheme), []).append(segs)
+    for color, seglist in by_color.items():
+        lc = Line3DCollection(np.concatenate(seglist), colors=color, linewidths=lw)
+        ax.add_collection3d(lc)
+    if soma_pts:
+        soma_pts = np.array(soma_pts)
+        ax.scatter(
+            soma_pts[:, 0],
+            soma_pts[:, 1],
+            soma_pts[:, 2],
+            s=5,
+            color="#111111",
+            depthshade=False,
+        )
+
+    # View along the patch's mean normal so the sheet faces the camera.
+    allpts = np.vstack([c[1] for cell in placed_cells for c in cell] + [sp])
+    _equal_3d(ax, allpts, pad=0.02)
+    n = sp.shape[0]
+    _ = n
+    ax.set_axis_off()
+    # Scale bar.
+    lo = allpts.min(0)
+    span = (allpts.max(0) - allpts.min(0)).max()
+    ax.plot(
+        [lo[0], lo[0] + scale_bar_mm], [lo[1], lo[1]], [lo[2], lo[2]], color="k", lw=3
+    )
+    ax.text(
+        lo[0] + scale_bar_mm / 2,
+        lo[1],
+        lo[2] - 0.03 * span,
+        f"{scale_bar_mm * 1000:g} µm",
+        fontsize=8,
+        ha="center",
+    )
+    if color_scheme == "aberra":
+        from matplotlib.lines import Line2D
+
+        ax.legend(
+            handles=[
+                Line2D([0], [0], color="#c81e1e", lw=2, label="axon"),
+                Line2D([0], [0], color="#1f3fb4", lw=2, label="apical dendrite"),
+                Line2D([0], [0], color="#2ca02c", lw=2, label="basal dendrite"),
+            ],
+            fontsize=8,
+            loc="upper right",
+            frameon=False,
+        )
+    if region_label:
+        ax.text2D(
+            0.02,
+            0.98,
+            region_label,
+            transform=ax.transAxes,
+            fontsize=9,
+            va="top",
+            ha="left",
+            bbox=dict(boxstyle="round", fc="white", ec="#999999", alpha=0.85),
+        )
+    ax.set_title(title)
+    return ax
+
+
 def plot_population_in_cortex(
     placed_cells,
     surface_pts_mm=None,
@@ -677,7 +797,7 @@ def plot_population_in_cortex(
     ax=None,
     title: str = "Populated cortex",
     region_label: str | None = None,
-    lw: float = 0.35,
+    lw: float = 0.7,
 ):
     """Render many neurons along a cortical cross-section, Aberra-figure style.
 
@@ -723,14 +843,21 @@ def plot_population_in_cortex(
         if surface_tris is not None and len(surface_tris):
             tris = np.asarray(surface_tris, dtype=int)
             polys = sp[tris][:, :, [ix, iy]]  # (F, 3, 2)
-            pc = PolyCollection(polys, zorder=0, linewidths=0.0)
+            # Filled triangles with edgecolors='face' (kills the white seams
+            # between bands -> clean, print-quality ribbon; Mirzakhalili 2020).
+            pc = PolyCollection(polys, zorder=0, antialiased=True)
             if surface_scalar is not None:
                 pc.set_array(np.asarray(surface_scalar)[tris].mean(axis=1))
-                pc.set_cmap("viridis")
-                pc.set_alpha(0.35)
+                pc.set_cmap("magma")
+                pc.set_alpha(0.55)
+                pc.set_edgecolor("face")
+                cb = ax.figure.colorbar(pc, ax=ax, shrink=0.5, pad=0.01, fraction=0.04)
+                cb.set_label("TI_normal (V/m)", fontsize=8)
+                cb.ax.tick_params(labelsize=7)
             else:
-                pc.set_facecolor("#d9d2c5")
-                pc.set_alpha(0.45)
+                pc.set_facecolor("#dad3c6")
+                pc.set_alpha(0.55)
+                pc.set_edgecolor("face")
             ax.add_collection(pc)
         else:
             ax.scatter(sp[:, ix], sp[:, iy], s=6, color="#888888", alpha=0.5, zorder=1)
@@ -788,7 +915,7 @@ def plot_population_in_cortex(
                 Line2D([0], [0], color="#2ca02c", lw=2, label="basal dendrite"),
             ],
             fontsize=8,
-            loc="upper right",
+            loc="lower right",
             frameon=False,
         )
     if region_label:
@@ -811,17 +938,20 @@ def render_population_region(
     subject_id,
     cfg,
     out_dir,
-    region: dict,
+    spec,
     name: str,
-    n_cells: int = 50,
+    n_cells: int = 40,
     thickness_mm: float = 2.0,
+    span_mm: float = 14.0,
     color_scheme: str = "aberra",
+    dpi: int = 220,
 ):
-    """Populate and render an arbitrary region (atlas / MNI-sphere / subcortical).
+    """Populate a GM cortical region with L5 pyramidal neurons and render it.
 
-    See :func:`tit.microscale.population.select_region` for the *region* spec.
-    Cortical regions are drawn as an embedded gyral cross-section; subcortical
-    (volume) regions as the nucleus point-cloud with radially-oriented cells.
+    *spec* is a :class:`~tit.microscale.config.RegionSpec` (atlas / sphere /
+    mask, subject or fsaverage).  The selected region is embedded as a cortical
+    cross-section (ribbon colored by ``TI_normal``) with the neurons placed on
+    it, oriented to the local cortical normal and colored by neurite type.
 
     Returns
     -------
@@ -836,77 +966,60 @@ def render_population_region(
     import matplotlib.pyplot as plt
 
     from tit.microscale.morphology import pyramidal_l5
-    from tit.microscale.population import (
-        place_spec_world,
-        sample_cortical_strip,
-        select_region,
+    from tit.microscale.population import place_spec_world, select_region
+
+    reg = select_region(subject_id, cfg, spec)
+    coords, normals, scalar, tris = (
+        reg["coords_mm"],
+        reg["normals"],
+        reg["scalar"],
+        reg["tris"],
     )
 
-    reg = select_region(subject_id, cfg, region)
-    coords, normals, scalar = reg["coords_mm"], reg["normals"], reg["scalar"]
-    if len(coords) == 0:
-        raise ValueError(f"region {name!r} selected 0 vertices")
-
-    spec = pyramidal_l5(seed=cfg.seed)
+    morph = pyramidal_l5(seed=cfg.seed)  # L5 pyramidal only
     rng = np.random.default_rng(cfg.seed)
 
-    if reg["domain"] == "surface":
-        slab_axis = int(np.argmin(np.ptp(coords - coords.mean(0), axis=0)))
-        project_axes = tuple(a for a in range(3) if a != slab_axis)
-        c0 = float(np.median(coords[:, slab_axis]))
-        if reg["tris"] is not None and len(reg["tris"]):
-            tri_c = coords[reg["tris"]].mean(axis=1)
-            slab_tris = reg["tris"][
-                np.abs(tri_c[:, slab_axis] - c0) <= thickness_mm / 2.0
-            ]
-        else:
-            slab_tris = None
-        strip_xyz, strip_nrm = sample_cortical_strip(
-            coords,
-            normals,
-            n_cells,
-            axis=slab_axis,
-            thickness_mm=thickness_mm,
-            rng=rng,
-        )
-        placed = [
-            place_spec_world(spec, xyz, nrm) for xyz, nrm in zip(strip_xyz, strip_nrm)
-        ]
-        ax = plot_population_in_cortex(
-            placed,
-            surface_pts_mm=coords,
-            surface_tris=slab_tris,
-            surface_scalar=scalar,
-            project_axes=project_axes,
-            color_scheme=color_scheme,
-            scale_bar_mm=1.0,
-            region_label=f"sub-{subject_id} • {reg['label']}\n{len(placed)} cells",
-            title=f"Populated {name} — {len(placed)} {cfg.model} cells",
-        )
-    else:  # volume (subcortical): subsample the nucleus cloud, radial cells
-        if len(coords) > n_cells:
-            pick = rng.choice(len(coords), n_cells, replace=False)
-        else:
-            pick = np.arange(len(coords))
-        placed = [place_spec_world(spec, coords[i], normals[i]) for i in pick]
-        # project onto the two widest axes of the cloud
-        widths = np.ptp(coords, axis=0)
-        project_axes = tuple(int(a) for a in np.argsort(widths)[::-1][:2])
-        ax = plot_population_in_cortex(
-            placed,
-            surface_pts_mm=coords,
-            surface_tris=None,
-            project_axes=project_axes,
-            color_scheme=color_scheme,
-            scale_bar_mm=1.0,
-            region_label=f"sub-{subject_id} • {reg['label']}\n"
-            f"{len(placed)} cells (radial orientation)",
-            title=f"Populated {name} — {len(placed)} {cfg.model} cells",
-        )
+    # Window to a contiguous patch around the field focus so the ~1 mm cells are
+    # clearly visible and the 3D surface stays a clean single sheet.
+    focus = coords[int(np.argmax(scalar))]
+    near = np.linalg.norm(coords - focus, axis=1) <= span_mm
+    if not near.any():
+        near = np.ones(len(coords), dtype=bool)
+    used = np.where(near)[0]
+    remap = np.full(len(coords), -1, dtype=int)
+    remap[used] = np.arange(len(used))
+    patch_coords = coords[used]
+    patch_scalar = scalar[used]
+    patch_tris = (
+        remap[tris[near[tris].all(axis=1)]]
+        if tris is not None and len(tris)
+        else np.empty((0, 3), int)
+    )
 
+    # Sample sites spread across the patch surface for the population.
+    site_local = (
+        rng.choice(len(used), n_cells, replace=False)
+        if len(used) > n_cells
+        else np.arange(len(used))
+    )
+    placed = [
+        place_spec_world(morph, patch_coords[i], normals[used[i]]) for i in site_local
+    ]
+
+    ax = plot_population_3d(
+        placed,
+        surf_coords_mm=patch_coords,
+        surf_tris=patch_tris,
+        surf_scalar=patch_scalar,
+        color_scheme=color_scheme,
+        scale_bar_mm=1.0,
+        region_label=f"sub-{subject_id} • {spec.space} space\n{reg['label']}\n"
+        f"{len(placed)} L5 pyramidal cells",
+        title=f"Populated {name}",
+    )
     stem = f"sub-{subject_id}_{cfg.sim_name}"
     path = os.path.join(out_dir, f"{stem}_population_{name}.png")
-    ax.figure.savefig(path, dpi=150)
+    ax.figure.savefig(path, dpi=dpi, bbox_inches="tight")
     plt.close(ax.figure)
     return path
 

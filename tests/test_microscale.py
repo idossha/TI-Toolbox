@@ -336,6 +336,28 @@ def test_morphology_load_swc(tmp_path):
     assert sum(1 for s in m.sections if s.kind == "basal") >= 2
 
 
+def test_region_spec_validation():
+    from tit.microscale.config import RegionSpec
+
+    # valid forms
+    assert RegionSpec(kind="atlas", label="insula").label_text.startswith("DK40")
+    assert "sphere" in RegionSpec(kind="sphere", center_mni=(-38, 6, 2)).label_text
+    assert "mask" in RegionSpec(kind="mask", mask_path="/x/m.nii.gz").label_text
+    # invalid
+    with pytest.raises(ValueError, match="kind"):
+        RegionSpec(kind="blob")
+    with pytest.raises(ValueError, match="space"):
+        RegionSpec(kind="atlas", label="insula", space="mni")
+    with pytest.raises(ValueError, match="label"):
+        RegionSpec(kind="atlas")
+    with pytest.raises(ValueError, match="center"):
+        RegionSpec(kind="sphere")
+    with pytest.raises(ValueError, match="radius"):
+        RegionSpec(kind="sphere", center_mni=(0, 0, 0), radius_mm=0)
+    with pytest.raises(ValueError, match="mask_path"):
+        RegionSpec(kind="mask")
+
+
 def test_sample_cortical_strip_selects_slab():
     from tit.microscale.population import sample_cortical_strip
 

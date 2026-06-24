@@ -260,3 +260,76 @@ class PopulationConfig:
         """Beat/envelope frequency in Hz (``|f1 - f2|``)."""
         f1, f2 = self.carrier_freqs
         return abs(f1 - f2)
+
+
+#: Region kinds accepted by :class:`RegionSpec`.
+VALID_REGION_KINDS: tuple[str, ...] = ("atlas", "sphere", "mask")
+#: Anatomical spaces a region can be defined/rendered in.
+VALID_REGION_SPACES: tuple[str, ...] = ("subject", "fsaverage")
+
+
+@dataclass(frozen=True)
+class RegionSpec:
+    """A cortical region to populate with L5 pyramidal neurons.
+
+    Regions are always restricted to the **gray-matter cortical surface** and
+    defined one of three ways (``kind``):
+
+    * ``"atlas"`` -- vertices in a named atlas label (``atlas`` + ``label``,
+      optional ``hemi``).  Atlases: ``"DK40"``, ``"a2009s"``, ``"HCP_MMP1"``.
+    * ``"sphere"`` -- GM vertices within ``radius_mm`` of a center given in MNI
+      (``center_mni``) or subject (``center_subject``) coordinates.
+    * ``"mask"`` -- GM vertices inside a binary NIfTI mask (``mask_path``).
+
+    ``space`` selects ``"subject"`` or ``"fsaverage"`` for both selection and
+    rendering.
+    """
+
+    kind: str
+    space: str = "subject"
+    # atlas
+    atlas: str = "DK40"
+    label: str = ""
+    hemi: str = "both"
+    # sphere
+    center_mni: tuple | None = None
+    center_subject: tuple | None = None
+    radius_mm: float = 10.0
+    # mask
+    mask_path: str | None = None
+    # atlas->surface nearest-neighbour snap tolerance (subject space)
+    snap_mm: float = 2.0
+
+    def __post_init__(self) -> None:
+        if self.kind not in VALID_REGION_KINDS:
+            raise ValueError(
+                f"kind must be one of {VALID_REGION_KINDS}, got {self.kind!r}"
+            )
+        if self.space not in VALID_REGION_SPACES:
+            raise ValueError(
+                f"space must be one of {VALID_REGION_SPACES}, got {self.space!r}"
+            )
+        if self.hemi not in ("lh", "rh", "both"):
+            raise ValueError(f"hemi must be lh/rh/both, got {self.hemi!r}")
+        if self.kind == "atlas" and not self.label:
+            raise ValueError("atlas region requires a non-empty label")
+        if self.kind == "sphere":
+            if self.center_mni is None and self.center_subject is None:
+                raise ValueError("sphere region requires center_mni or center_subject")
+            if self.radius_mm <= 0:
+                raise ValueError(f"radius_mm must be > 0, got {self.radius_mm}")
+        if self.kind == "mask" and not self.mask_path:
+            raise ValueError("mask region requires mask_path")
+
+    @property
+    def label_text(self) -> str:
+        """Short human-readable description for figure annotation."""
+        if self.kind == "atlas":
+            return f"{self.atlas}:{self.label} ({self.hemi})"
+        if self.kind == "sphere":
+            c = self.center_mni if self.center_mni is not None else self.center_subject
+            sp = "MNI" if self.center_mni is not None else "subject"
+            return f"sphere r={self.radius_mm:g} mm @ {sp} {tuple(c)}"
+        import os
+
+        return f"mask {os.path.basename(self.mask_path)}"
