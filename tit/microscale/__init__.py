@@ -78,7 +78,9 @@ from tit.microscale.population import (
     analytic_polarization_map,
     azimuths,
     load_cluster_surface,
+    place_spec_world,
     run_population,
+    sample_cortical_strip,
     select_cluster,
 )
 from tit.microscale.viz import (
@@ -89,6 +91,8 @@ from tit.microscale.viz import (
     plot_efield_vectors,
     plot_field_hodograph,
     plot_morphology,
+    plot_population_in_cortex,
+    render_population_cortex,
     render_target,
     section_polylines,
 )
@@ -104,6 +108,10 @@ __all__ = [
     "load_cluster_surface",
     "instantaneous_field",
     "plot_field_hodograph",
+    "plot_population_in_cortex",
+    "render_population_cortex",
+    "sample_cortical_strip",
+    "place_spec_world",
     "mm_to_um",
     "um_to_mm",
     "sample_at",

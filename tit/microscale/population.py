@@ -242,6 +242,84 @@ def _summary_stats(values: np.ndarray, prefix: str) -> dict:
     }
 
 
+def sample_cortical_strip(
+    coords_mm, normals, n_cells, axis=1, thickness_mm=2.0, rng=None
+):
+    """Select cortical vertices forming a thin gyral cross-section ("slab").
+
+    Keeps vertices within ``±thickness_mm/2`` of the cluster centroid along
+    *axis* (a coronal/sagittal slab), then evenly subsamples ``n_cells`` of them
+    ordered along the in-plane sweep -- the set of placement sites for an
+    Aberra-style "populated gyrus" render.
+
+    Parameters
+    ----------
+    coords_mm : ndarray (N, 3)
+    normals : ndarray (N, 3)
+    n_cells : int
+        Number of placement sites to return.
+    axis : int
+        Slab-normal axis (0=x, 1=y, 2=z).
+    thickness_mm : float
+        Slab thickness.
+    rng : numpy Generator, optional
+
+    Returns
+    -------
+    tuple
+        ``(strip_coords (M,3), strip_normals (M,3))`` with ``M <= n_cells``.
+    """
+    coords = np.asarray(coords_mm, dtype=float).reshape(-1, 3)
+    norms = np.asarray(normals, dtype=float).reshape(-1, 3)
+    # Median (not mean) centers the slab robustly against outlier vertices.
+    c0 = float(np.median(coords[:, axis]))
+    in_slab = np.where(np.abs(coords[:, axis] - c0) <= thickness_mm / 2.0)[0]
+    if in_slab.size == 0:
+        return coords[:0], norms[:0]
+    # order along the longest in-plane spread for an anatomical left->right sweep
+    plane_axes = [a for a in range(3) if a != axis]
+    spread = np.ptp(coords[in_slab][:, plane_axes], axis=0)
+    sweep_axis = plane_axes[int(np.argmax(spread))]
+    order = in_slab[np.argsort(coords[in_slab, sweep_axis])]
+    if order.size > n_cells:
+        pick = np.linspace(0, order.size - 1, n_cells).round().astype(int)
+        order = order[pick]
+    return coords[order], norms[order]
+
+
+def place_spec_world(spec, target_mm, normal, azimuth_deg=0.0):
+    """Place a :class:`~tit.microscale.morphology.MorphologySpec` at a site.
+
+    Orients the spec's apical axis along *normal* (with optional azimuth about
+    it) and translates the soma to *target_mm*.  Pure geometry (no NEURON) --
+    used for population rendering.
+
+    Returns
+    -------
+    list of (kind, points_mm)
+        One entry per section: its region tag and placed polyline in mm.
+    """
+    from tit.microscale.field_sampler import place_morphology
+
+    target_mm = np.asarray(target_mm, dtype=float).reshape(3)
+    all_pts = []
+    slices = []
+    i = 0
+    for s in spec.sections:
+        pts = np.asarray(s.points, dtype=float)[:, :3]
+        slices.append((s.kind, i, len(pts)))
+        all_pts.append(pts)
+        i += len(pts)
+    local_um = np.vstack(all_pts)
+    soma = spec.by_name(spec.soma_name)
+    soma_local_um = np.asarray(soma.points, dtype=float)[:, :3].mean(0)
+    world_um = place_morphology(
+        local_um, soma_local_um, target_mm * 1000.0, normal, azimuth_deg=azimuth_deg
+    )
+    world_mm = world_um / 1000.0
+    return [(kind, world_mm[s : s + n]) for kind, s, n in slices]
+
+
 def run_population(subject_id: str, cfg) -> dict:
     """Run the population pipeline for one subject.
 
@@ -366,6 +444,17 @@ def run_population(subject_id: str, cfg) -> dict:
     write_population_summary_csv(csv_path, result)
     print(f"  ✓ wrote {npz_path}", flush=True)
     print(f"  ✓ wrote {csv_path}", flush=True)
+
+    # Aberra-style populated-gyrus figure (pure geometry; cheap).
+    try:
+        from tit.microscale.viz import render_population_cortex
+
+        fig_path = render_population_cortex(subject_id, cfg, out_dir)
+        print(f"  ✓ wrote {fig_path}", flush=True)
+        result["population_cortex_png"] = fig_path
+    except Exception as exc:  # noqa: BLE001 - figure is optional, don't fail the run
+        print(f"  (skipped populated-cortex figure: {exc})", flush=True)
+
     print("  ✓ population complete", flush=True)
     return result
 

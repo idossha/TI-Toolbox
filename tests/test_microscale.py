@@ -336,6 +336,43 @@ def test_morphology_load_swc(tmp_path):
     assert sum(1 for s in m.sections if s.kind == "basal") >= 2
 
 
+def test_sample_cortical_strip_selects_slab():
+    from tit.microscale.population import sample_cortical_strip
+
+    # vertices spread in x; a band in y near 0 plus outliers far in y
+    n = 50
+    coords = np.zeros((n, 3))
+    coords[:, 0] = np.linspace(-10, 10, n)  # x sweep
+    coords[:, 1] = 0.0
+    coords[5, 1] = 100.0  # far outlier in y -> excluded by slab
+    normals = np.tile([0, 0, 1.0], (n, 1))
+    rng = np.random.default_rng(0)
+    sx, sn = sample_cortical_strip(
+        coords, normals, n_cells=8, axis=1, thickness_mm=2.0, rng=rng
+    )
+    assert len(sx) == 8
+    assert sn.shape == (8, 3)
+    # the y-outlier must not appear
+    assert not np.any(np.isclose(sx[:, 1], 100.0))
+    # sites ordered along the x sweep
+    assert np.all(np.diff(sx[:, 0]) >= 0)
+
+
+def test_place_spec_world_orients_and_translates():
+    from tit.microscale.morphology import pyramidal_l5
+    from tit.microscale.population import place_spec_world
+
+    spec = pyramidal_l5(seed=0)
+    placed = place_spec_world(spec, target_mm=[5.0, 5.0, 5.0], normal=[0, 0, 1])
+    # one entry per section, each (kind, points_mm)
+    assert len(placed) == len(spec.sections)
+    kinds = {k for k, _ in placed}
+    assert {"soma", "apical", "axon"} <= kinds
+    # soma points should sit near the target (mm)
+    soma_pts = next(pts for k, pts in placed if k == "soma")
+    assert np.allclose(soma_pts.mean(0), [5.0, 5.0, 5.0], atol=0.05)
+
+
 def test_viz_crop_surface_patch():
     from tit.microscale.viz import crop_surface_patch
 

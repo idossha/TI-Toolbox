@@ -38,6 +38,30 @@ KIND_COLORS = {
 }
 
 
+# Aberra et al. 2018/2020 neurite-TYPE palette (their populated-gyrus figure):
+# axon red, apical dendrite blue, basal dendrite green, soma dark.
+NEURITE_COLORS_ABERRA = {
+    "soma": "#222222",
+    "basal": "#2ca02c",
+    "apical": "#1f3fb4",
+    "tuft": "#1f3fb4",
+    "ais": "#c81e1e",
+    "axon": "#c81e1e",
+    "node": "#c81e1e",
+    "dendrite": "#1f3fb4",
+    "other": "#999999",
+}
+
+#: Available color schemes for neuron rendering.
+COLOR_SCHEMES = {"region": KIND_COLORS, "aberra": NEURITE_COLORS_ABERRA}
+
+
+def _kind_color(kind: str, scheme: str = "region") -> str:
+    """Color for a region tag under a named color scheme."""
+    table = COLOR_SCHEMES.get(scheme, KIND_COLORS)
+    return table.get(kind, table.get("other", "#999999"))
+
+
 def _lw_for_diam(diam: float) -> float:
     """Line width for a compartment diameter (um), clipped for readability."""
     return float(min(6.0, max(0.6, diam * 1.1)))
@@ -635,6 +659,195 @@ def plot_field_hodograph(
         va="top",
     )
     return ax
+
+
+# ---------------------------------------------------------------------------
+# Populated cortex (Aberra-style "populated gyrus")
+# ---------------------------------------------------------------------------
+
+
+def plot_population_in_cortex(
+    placed_cells,
+    surface_pts_mm=None,
+    project_axes=(0, 2),
+    color_scheme: str = "aberra",
+    scale_bar_mm: float = 0.25,
+    ax=None,
+    title: str = "Populated cortex",
+    lw: float = 0.35,
+):
+    """Render many neurons along a cortical cross-section, Aberra-figure style.
+
+    A clean **2D** projection (the slab axis dropped), drawn with one
+    ``LineCollection`` per neurite type for speed and print-quality — neurites
+    colored by TYPE (axon red / apical blue / basal green under ``"aberra"``),
+    the gyral outline behind them, and a scale bar.
+
+    Parameters
+    ----------
+    placed_cells : list
+        List of cells; each cell is a list of ``(kind, points_mm (K,3))`` from
+        :func:`tit.microscale.population.place_spec_world`.
+    surface_pts_mm : ndarray (N,3), optional
+        Cortical surface vertices drawn faintly as the gyral outline.
+    project_axes : tuple of int
+        The two world axes to project onto (default (x, z); the slab axis y is
+        dropped).
+    color_scheme : str
+        ``"aberra"`` (neurite type) or ``"region"``.
+    scale_bar_mm : float
+        Scale-bar length in mm (0.25 = 250 µm).
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+
+    ix, iy = project_axes
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 7))
+
+    allpts = []
+    if surface_pts_mm is not None and len(surface_pts_mm):
+        sp = np.asarray(surface_pts_mm, dtype=float).reshape(-1, 3)
+        ax.scatter(sp[:, ix], sp[:, iy], s=6, color="#888888", alpha=0.5, zorder=1)
+        allpts.append(sp[:, [ix, iy]])
+
+    # Group segments by color -> one LineCollection per neurite type.
+    by_color: dict = {}
+    soma_pts = []
+    for cell in placed_cells:
+        for kind, pts in cell:
+            pts = np.asarray(pts, dtype=float)[:, [ix, iy]]
+            allpts.append(pts)
+            if kind == "soma":
+                soma_pts.append(pts.mean(0))
+                continue
+            segs = np.stack([pts[:-1], pts[1:]], axis=1)
+            by_color.setdefault(_kind_color(kind, color_scheme), []).append(segs)
+    for color, seglist in by_color.items():
+        lc = LineCollection(np.concatenate(seglist), colors=color, linewidths=lw)
+        lc.set_zorder(2)
+        ax.add_collection(lc)
+    if soma_pts:
+        soma_pts = np.array(soma_pts)
+        ax.scatter(
+            soma_pts[:, 0],
+            soma_pts[:, 1],
+            s=4,
+            color=_kind_color("soma", color_scheme),
+            zorder=3,
+        )
+
+    pts_all = np.vstack(allpts) if allpts else np.zeros((1, 2))
+    ax.set_aspect("equal", "box")
+    ax.autoscale_view()
+    # Scale bar (lower-left).
+    lo = pts_all.min(0)
+    span = (pts_all.max(0) - pts_all.min(0)).max()
+    x0, y0 = lo[0] + 0.02 * span, lo[1] - 0.04 * span
+    ax.plot([x0, x0 + scale_bar_mm], [y0, y0], color="k", lw=2.5)
+    ax.text(
+        x0 + scale_bar_mm / 2,
+        y0 - 0.02 * span,
+        f"{scale_bar_mm * 1000:g} µm",
+        ha="center",
+        va="top",
+        fontsize=8,
+    )
+    if color_scheme == "aberra":
+        from matplotlib.lines import Line2D
+
+        ax.legend(
+            handles=[
+                Line2D([0], [0], color="#c81e1e", lw=2, label="axon"),
+                Line2D([0], [0], color="#1f3fb4", lw=2, label="apical dendrite"),
+                Line2D([0], [0], color="#2ca02c", lw=2, label="basal dendrite"),
+            ],
+            fontsize=8,
+            loc="upper right",
+            frameon=False,
+        )
+    ax.axis("off")
+    ax.set_title(title)
+    return ax
+
+
+def render_population_cortex(
+    subject_id,
+    cfg,
+    out_dir,
+    n_cells: int = 50,
+    thickness_mm: float = 2.0,
+    patch_radius_mm: float = 12.0,
+    color_scheme: str = "aberra",
+):
+    """Produce an Aberra-style populated-gyrus figure for a subject's cluster.
+
+    Localizes to a cortical patch around the field focus (the max-``TI_normal``
+    vertex), takes a thin slab through it, places one neuron at each site
+    (oriented to the local cortical normal), and renders them colored by neurite
+    type over the gyral outline with a scale bar -- so the ~1 mm cells are
+    visible against the ~cm-scale cortex.
+
+    Returns
+    -------
+    str
+        Path to the written ``<stem>_population_cortex.png``.
+    """
+    import os
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from tit.microscale.morphology import pyramidal_l5
+    from tit.microscale.population import (
+        load_cluster_surface,
+        place_spec_world,
+        sample_cortical_strip,
+    )
+
+    coords_mm, normals, ti_normal = load_cluster_surface(subject_id, cfg)
+
+    # Localize to a patch around the field focus (else a slab cuts the whole
+    # cortex into a chaotic cross-section and the cells are sub-pixel).
+    focus = coords_mm[int(np.argmax(ti_normal))]
+    near = np.linalg.norm(coords_mm - focus, axis=1) <= patch_radius_mm
+    patch_xyz, patch_nrm = coords_mm[near], normals[near]
+
+    # Slab axis = the patch's THINNEST in-plane direction, so the slab is a clean
+    # gyral cross-section rather than an oblique cut.
+    centered = patch_xyz - patch_xyz.mean(0)
+    slab_axis = int(np.argmin(np.ptp(centered, axis=0)))
+    rng = np.random.default_rng(cfg.seed)
+    strip_xyz, strip_nrm = sample_cortical_strip(
+        patch_xyz,
+        patch_nrm,
+        n_cells,
+        axis=slab_axis,
+        thickness_mm=thickness_mm,
+        rng=rng,
+    )
+    project_axes = tuple(a for a in range(3) if a != slab_axis)
+
+    spec = pyramidal_l5(seed=cfg.seed)
+    placed = [
+        place_spec_world(spec, xyz, nrm) for xyz, nrm in zip(strip_xyz, strip_nrm)
+    ]
+    ax = plot_population_in_cortex(
+        placed,
+        surface_pts_mm=strip_xyz,
+        project_axes=project_axes,
+        color_scheme=color_scheme,
+        scale_bar_mm=1.0,
+        title=f"Populated cortex — {len(placed)} {cfg.model} cells "
+        f"(sub-{subject_id})",
+    )
+    stem = f"sub-{subject_id}_{cfg.sim_name}"
+    path = os.path.join(out_dir, f"{stem}_population_cortex.png")
+    ax.figure.savefig(path, dpi=150)
+    plt.close(ax.figure)
+    return path
 
 
 # ---------------------------------------------------------------------------
