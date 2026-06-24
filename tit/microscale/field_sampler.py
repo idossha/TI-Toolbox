@@ -205,17 +205,43 @@ def _skew(v: np.ndarray) -> np.ndarray:
     return np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
 
 
+def _rotation_about_axis(axis: np.ndarray, angle_rad: float) -> np.ndarray:
+    """Rotation matrix of *angle_rad* about *axis* (Rodrigues' formula).
+
+    Parameters
+    ----------
+    axis : ndarray, shape (3,)
+        Rotation axis (need not be unit length; zero-length is rejected).
+    angle_rad : float
+        Rotation angle in radians (right-hand rule about *axis*).
+
+    Returns
+    -------
+    ndarray, shape (3, 3)
+        Rotation matrix.
+    """
+    a = np.asarray(axis, dtype=float).reshape(3)
+    n = np.linalg.norm(a)
+    if n == 0:
+        raise ValueError("axis must be non-zero")
+    a = a / n
+    k = _skew(a)
+    return np.eye(3) + np.sin(angle_rad) * k + (1.0 - np.cos(angle_rad)) * (k @ k)
+
+
 def place_morphology(
     local_coords_um: np.ndarray,
     soma_local_um: np.ndarray,
     target_um: np.ndarray,
     normal: np.ndarray,
     source_axis: np.ndarray = (0.0, 0.0, 1.0),
+    azimuth_deg: float = 0.0,
 ) -> np.ndarray:
     """Place a neuron morphology at a target with a given orientation.
 
-    Rotates the model's canonical axis onto *normal*, then translates so the
-    soma lands on *target_um*.
+    Rotates the model's canonical axis onto *normal*, optionally spins the
+    morphology about *normal* by *azimuth_deg* (to marginalize the unconstrained
+    tangential angle), then translates so the soma lands on *target_um*.
 
     Parameters
     ----------
@@ -229,6 +255,10 @@ def place_morphology(
         Desired direction of the model's principal axis (e.g. cortical normal).
     source_axis : ndarray, shape (3,), optional
         The model's canonical axis in local space.  Default apical ``+z``.
+    azimuth_deg : float, optional
+        Additional rotation (degrees) about *normal* applied after the
+        axis alignment.  Default ``0.0`` (no extra spin), so existing callers
+        are unaffected.
 
     Returns
     -------
@@ -239,6 +269,9 @@ def place_morphology(
     soma_local = np.asarray(soma_local_um, dtype=float).reshape(3)
     target = np.asarray(target_um, dtype=float).reshape(3)
     r = rotation_align(np.asarray(source_axis, dtype=float), normal)
+    if azimuth_deg:
+        # Spin about the (post-alignment) principal axis = the world normal.
+        r = _rotation_about_axis(normal, np.radians(azimuth_deg)) @ r
     rotated = (local - soma_local) @ r.T
     return rotated + target
 

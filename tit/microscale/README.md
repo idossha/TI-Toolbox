@@ -106,6 +106,7 @@ proper axon initial segment / tuned kHz channels, which is why realistic
 responses use user-registered cortical cells.
 
 - `mode: "viz"` → publication-oriented visualizations per target.
+- `mode: "population"` → an **unconnected population** over a cortical cluster.
 
 Outputs land under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
 `*_targets.csv`, `*_response.npz`, `*_polarization.npz`, `*_threshold.npz`.
@@ -124,10 +125,41 @@ the Shirinpour et al. 2021 palette, diameter-scaled neurites and a scale bar:
 - `*_quasipotential.png` — the neuron colored by the applied quasipotential Ψ
   on a diverging colormap (Shirinpour Fig. 2F style): the field-induced dipole
   along the morphology.
+- `*_hodograph.png` — the **rotating TI modulation vector**: the instantaneous
+  field `E(t) = E1·sin(ω1 t) + E2·sin(ω2 t)` traces a time-colored Lissajous in
+  the E1–E2 plane (the two carriers beat at slightly different frequencies, so
+  the resultant *rotates* over the beat cycle — a defining feature of TI).
 - `*_clip.gif` — an animated clip: per-compartment membrane potential + the
-  oscillating E-field drive over time (the clip uses a lower-frequency, amplified
-  drive so the envelope-tracking response is visible; the real-amplitude kHz
-  drive is far sub-threshold).
+  **rotating** instantaneous E-field arrow over time (the clip uses a
+  lower-frequency, amplified drive so the envelope-tracking response is visible;
+  the real-amplitude kHz drive is far sub-threshold).
+
+## Population over a cortical cluster (`mode: "population"`)
+
+For the standard subthreshold-polarization / activation question the field-coupling
+literature uses an **unconnected population** of morphologically-realistic neurons,
+not a single cell and not a connected network (Aberra 2018/2020; Seo & Jun 2017;
+Shirinpour 2021). The quasi-uniform approximation licenses treating each neuron
+independently — connectivity changes *emergent activity*, not direct polarization.
+
+`run_population` (and `mode: "population"`) does exactly this:
+
+1. **Analytic central estimate** — first-order somatic ΔVm = `coupling × E_normal`
+   for **every** cluster vertex (cheap, vectorized). The coupling constant defaults
+   to 0.27 mV/(V/m) for L5 pyramidal somata (Radman 2009; Bikson 2004 measured 0.12).
+2. **NEURON distribution** — on a representative **subsample** of vertices, places
+   `n_clones × n_azimuth` cells (clones = morphological variants; azimuths =
+   rotations about the cortical normal to marginalize the unconstrained tangential
+   angle) and solves the cable model to characterize the spread around the central
+   estimate. **No synaptic connectivity.**
+
+Outputs: `*_population.npz` (analytic map over all vertices + the subsample
+distribution) and `*_population_summary.csv`.
+
+> **Scope note.** This population model supports **subthreshold polarization /
+> "priming"** claims with their cluster distribution. It does *not* model
+> demodulation or recruitment into slow waves — those need an active **connected**
+> network (Esmaeilpour 2021), a separate, larger project.
 
 The plotting functions (`plot_morphology`, `plot_cell_in_cortex`,
 `plot_efield_vectors`, `animate_response`) take plain NumPy arrays and are

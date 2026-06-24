@@ -197,7 +197,9 @@ def simulate_response(
         ``{"n_spikes", "v_soma", "t", "ve1_max", "ve2_max"}``.  ``n_spikes`` is
         the activation count at the spike-initiation site (the most-active
         compartment); ``v_soma`` is the somatic trace.  With ``return_traces``,
-        also ``{"v_all" (M,T), "ve_t" (M,T), "world_um" (M,3)}``.
+        also ``{"v_all" (M,T), "ve_t" (M,T), "world_um" (M,3), "e1_vec" (3,),
+        "e2_vec" (3,)}`` -- the last two are the pair-1/pair-2 E-field vectors
+        (V/m) at the target.
     """
     from neuron import h
 
@@ -266,6 +268,12 @@ def simulate_response(
             np.asarray(target_mm, dtype=float).reshape(3) * 1000.0,
             normal,
         )
+        # Pair-1 and pair-2 E-field VECTORS (V/m) at the target. Their summed
+        # instantaneous resultant rotates over the beat cycle -- the feature
+        # tit.microscale.viz animates.
+        tgt = np.asarray(target_mm, dtype=float).reshape(1, 3)
+        out["e1_vec"] = np.asarray(sample_at(mesh_pair1, tgt)).reshape(3)
+        out["e2_vec"] = np.asarray(sample_at(mesh_pair2, tgt)).reshape(3)
     return out
 
 

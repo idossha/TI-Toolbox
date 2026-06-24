@@ -37,7 +37,11 @@ tit.microscale.config : ``MicroscaleConfig`` and ``NeuronModelSpec``.
 tit.microscale.field_sampler : NEURON-free field sampling and quasipotentials.
 """
 
-from tit.microscale.config import MicroscaleConfig, NeuronModelSpec
+from tit.microscale.config import (
+    MicroscaleConfig,
+    NeuronModelSpec,
+    PopulationConfig,
+)
 from tit.microscale.field_sampler import (
     mm_to_um,
     path_quasipotential,
@@ -70,11 +74,20 @@ from tit.microscale.morphology import (
     load_swc,
     pyramidal_l5,
 )
+from tit.microscale.population import (
+    analytic_polarization_map,
+    azimuths,
+    load_cluster_surface,
+    run_population,
+    select_cluster,
+)
 from tit.microscale.viz import (
     animate_response,
     crop_surface_patch,
+    instantaneous_field,
     plot_cell_in_cortex,
     plot_efield_vectors,
+    plot_field_hodograph,
     plot_morphology,
     render_target,
     section_polylines,
@@ -83,6 +96,14 @@ from tit.microscale.viz import (
 __all__ = [
     "MicroscaleConfig",
     "NeuronModelSpec",
+    "PopulationConfig",
+    "run_population",
+    "analytic_polarization_map",
+    "select_cluster",
+    "azimuths",
+    "load_cluster_surface",
+    "instantaneous_field",
+    "plot_field_hodograph",
     "mm_to_um",
     "um_to_mm",
     "sample_at",

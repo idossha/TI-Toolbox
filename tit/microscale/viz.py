@@ -153,6 +153,51 @@ def grid_around(center_mm, radius_mm, n=4):
 
 
 # ---------------------------------------------------------------------------
+# Temporal-interference field physics (pure)
+# ---------------------------------------------------------------------------
+
+
+def instantaneous_field(
+    e1_vec: np.ndarray,
+    e2_vec: np.ndarray,
+    f1: float,
+    f2: float,
+    t_ms: np.ndarray,
+) -> np.ndarray:
+    """Instantaneous TI E-field vector over time.
+
+    The resultant of two carrier fields that point in *different* directions::
+
+        E_inst(t) = e1_vec * sin(2π f1 t) + e2_vec * sin(2π f2 t)
+
+    When ``e1_vec`` and ``e2_vec`` are non-parallel, the tip of this vector
+    sweeps a Lissajous-like locus and its *direction* rotates over the beat
+    period -- the defining "rotating modulation vector" of temporal
+    interference.  When they are parallel the resultant stays collinear.
+
+    Parameters
+    ----------
+    e1_vec, e2_vec : ndarray, shape (3,)
+        Pair-1 and pair-2 E-field vectors in V/m.
+    f1, f2 : float
+        Carrier frequencies in Hz.
+    t_ms : ndarray, shape (T,)
+        Time samples in ms.
+
+    Returns
+    -------
+    ndarray, shape (T, 3)
+        ``E_inst(t)`` in V/m.
+    """
+    e1 = np.asarray(e1_vec, dtype=float).reshape(3)
+    e2 = np.asarray(e2_vec, dtype=float).reshape(3)
+    t_s = np.asarray(t_ms, dtype=float).reshape(-1) / 1000.0
+    s1 = np.sin(2.0 * np.pi * f1 * t_s).reshape(-1, 1)
+    s2 = np.sin(2.0 * np.pi * f2 * t_s).reshape(-1, 1)
+    return s1 * e1 + s2 * e2
+
+
+# ---------------------------------------------------------------------------
 # Static renders
 # ---------------------------------------------------------------------------
 
@@ -348,14 +393,21 @@ def animate_response(
     spans: list,
     t_ms: np.ndarray,
     v_all: np.ndarray,
-    drive_dir: np.ndarray,
-    drive_scalar: np.ndarray,
+    e1_vec: np.ndarray,
+    e2_vec: np.ndarray,
+    f1: float,
+    f2: float,
     out_path: str,
     n_frames: int = 60,
     fps: int = 15,
     vlim: tuple | None = None,
 ):
-    """Write a GIF: membrane potential along the neuron + the E-field drive.
+    """Write a GIF: membrane potential along the neuron + the rotating TI field.
+
+    The green field arrow through the soma follows the *true* instantaneous TI
+    resultant ``E_inst(t) = e1*sin(2π f1 t) + e2*sin(2π f2 t)``, so it both
+    rotates in direction and changes length frame to frame as the modulation
+    vector sweeps over the beat cycle.
 
     Parameters
     ----------
@@ -367,11 +419,10 @@ def animate_response(
         Time base (ms).
     v_all : ndarray (M, T)
         Per-segment membrane potential (mV).
-    drive_dir : ndarray (3,)
-        Unit direction of the applied field (for the moving arrow).
-    drive_scalar : ndarray (T,)
-        Instantaneous field drive (e.g. the carrier waveform), for the arrow
-        length and the time-course inset.
+    e1_vec, e2_vec : ndarray (3,)
+        Pair-1 and pair-2 E-field vectors (V/m) at the target.
+    f1, f2 : float
+        Carrier frequencies (Hz) of the two pairs.
     out_path : str
         Output ``.gif`` path.
     """
@@ -381,7 +432,6 @@ def animate_response(
     world = np.asarray(world_um, dtype=float)
     v_all = np.asarray(v_all, dtype=float)
     t_ms = np.asarray(t_ms, dtype=float)
-    drive_scalar = np.asarray(drive_scalar, dtype=float)
     frames = np.linspace(0, v_all.shape[1] - 1, min(n_frames, v_all.shape[1])).astype(
         int
     )
@@ -390,7 +440,12 @@ def animate_response(
     center = world.mean(0)
     span = (world.max(0) - world.min(0)).max()
     arrow_len = 0.45 * span
-    dscale = drive_scalar / (np.abs(drive_scalar).max() + 1e-12)
+
+    # Precompute the full rotating field vector once; normalize the arrow by the
+    # max magnitude over the clip so the longest arrow fits the scene.
+    e_inst = instantaneous_field(e1_vec, e2_vec, f1, f2, t_ms)  # (T, 3)
+    e_mag = np.linalg.norm(e_inst, axis=1)
+    e_mag_max = float(e_mag.max()) + 1e-12
 
     fig = plt.figure(figsize=(9, 5.2))
     ax = fig.add_subplot(121, projection="3d")
@@ -404,6 +459,8 @@ def animate_response(
     soma_idx = next(
         (s[3] + s[4] // 2 for s in spans if s[1] == "soma"), v_all.shape[0] // 2
     )
+    comp_colors = ("#1f77b4", "#ff7f0e", "#2ca02c")  # Ex, Ey, Ez
+    comp_labels = ("Ex", "Ey", "Ez")
 
     def draw(fr):
         ax.cla()
@@ -421,22 +478,24 @@ def animate_response(
                     lw=max(1.5, diam),
                     solid_capstyle="round",
                 )
-        # field arrow through the soma, length/sign follows the drive
-        d = dscale[fr] * arrow_len
+        # Field arrow through the soma ALONG the true rotating resultant, with
+        # length proportional to |E_inst| (normalized by the clip max).
+        evec = e_inst[fr]
+        d = (evec / e_mag_max) * arrow_len
         ax.quiver(
-            center[0] - drive_dir[0] * d,
-            center[1] - drive_dir[1] * d,
-            center[2] - drive_dir[2] * d,
-            2 * drive_dir[0] * d,
-            2 * drive_dir[1] * d,
-            2 * drive_dir[2] * d,
+            center[0] - d[0],
+            center[1] - d[1],
+            center[2] - d[2],
+            2 * d[0],
+            2 * d[1],
+            2 * d[2],
             color="#33a02c",
             lw=2,
             arrow_length_ratio=0.15,
         )
         _equal_3d(ax, world, pad=0.25)
         ax.set(
-            title=f"t = {t_ms[fr]:.1f} ms",
+            title=f"t = {t_ms[fr]:.1f} ms  |E| = {e_mag[fr]:.1f} V/m",
             xticklabels=[],
             yticklabels=[],
             zticklabels=[],
@@ -448,20 +507,134 @@ def animate_response(
         axv.axvline(t_ms[fr], color="r", lw=0.8)
 
         axd.cla()
-        axd.plot(t_ms[: fr + 1], drive_scalar[: fr + 1], color="#33a02c")
+        for j in range(3):
+            axd.plot(
+                t_ms[: fr + 1],
+                e_inst[: fr + 1, j],
+                color=comp_colors[j],
+                lw=0.9,
+                label=comp_labels[j],
+            )
         axd.set(
             xlim=(t_ms[0], t_ms[-1]),
-            ylim=(drive_scalar.min(), drive_scalar.max()),
+            ylim=(float(e_inst.min()), float(e_inst.max())),
             xlabel="time (ms)",
-            ylabel="E-drive",
+            ylabel="E_inst (V/m)",
         )
         axd.axvline(t_ms[fr], color="r", lw=0.8)
+        axd.legend(fontsize=6, ncol=3, loc="upper right")
         return []
 
     anim = animation.FuncAnimation(fig, draw, frames=frames, blit=False)
     anim.save(out_path, writer=animation.PillowWriter(fps=fps))
     plt.close(fig)
     return out_path
+
+
+def plot_field_hodograph(
+    e1_vec: np.ndarray,
+    e2_vec: np.ndarray,
+    f1: float,
+    f2: float,
+    ax=None,
+    n_cycles: int = 1,
+    title: str = "TI field hodograph (rotating modulation vector)",
+):
+    """Draw the 2D hodograph of the rotating TI resultant.
+
+    Projects ``E_inst(t)`` over *n_cycles* of the beat period onto the plane
+    spanned by ``e1_vec`` and ``e2_vec`` and plots the tip trajectory, colored
+    by time.  The two pair-field axes (E1 green, E2 magenta) are drawn as
+    reference arrows.  A closed, non-degenerate locus proves the resultant
+    rotates; a line means the two fields are collinear.
+
+    Parameters
+    ----------
+    e1_vec, e2_vec : ndarray, shape (3,)
+        Pair-1 and pair-2 E-field vectors (V/m).
+    f1, f2 : float
+        Carrier frequencies (Hz).
+    n_cycles : int
+        Number of beat periods to trace.
+    """
+    import matplotlib.pyplot as plt
+
+    e1 = np.asarray(e1_vec, dtype=float).reshape(3)
+    e2 = np.asarray(e2_vec, dtype=float).reshape(3)
+
+    # Orthonormal basis (u, w) for the plane spanned by e1, e2: u along e1,
+    # w the component of e2 orthogonal to u. If e1, e2 are collinear, w is
+    # degenerate and the locus collapses to a line (still meaningful).
+    n1 = np.linalg.norm(e1)
+    u = e1 / n1 if n1 > 0 else np.array([1.0, 0.0, 0.0])
+    w_raw = e2 - (e2 @ u) * u
+    nw = np.linalg.norm(w_raw)
+    w = w_raw / nw if nw > 1e-12 else np.zeros(3)
+
+    # Beat period (s) -> sample over n_cycles. Fall back to a fixed window when
+    # the carriers are equal (no beat).
+    df = abs(f1 - f2)
+    beat_s = 1.0 / df if df > 0 else 1.0 / max(f1, f2, 1.0)
+    t_ms = np.linspace(0.0, n_cycles * beat_s * 1000.0, 2000)
+    e_inst = instantaneous_field(e1, e2, f1, f2, t_ms)  # (T, 3)
+
+    px = e_inst @ u
+    py = e_inst @ w
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5.5, 5.5))
+
+    pts = np.column_stack([px, py])
+    segs = np.stack([pts[:-1], pts[1:]], axis=1)
+    from matplotlib.collections import LineCollection
+
+    lc = LineCollection(segs, cmap="viridis", array=t_ms[:-1], lw=1.6)
+    ax.add_collection(lc)
+    ax.figure.colorbar(lc, ax=ax, shrink=0.75, label="time (ms)")
+
+    # Reference pair-field axes in the same (u, w) plane.
+    e1u, e1w = e1 @ u, e1 @ w
+    e2u, e2w = e2 @ u, e2 @ w
+    ax.annotate(
+        "",
+        xy=(e1u, e1w),
+        xytext=(0, 0),
+        arrowprops=dict(arrowstyle="->", color="#2ca02c", lw=2),
+    )
+    ax.annotate(
+        "",
+        xy=(e2u, e2w),
+        xytext=(0, 0),
+        arrowprops=dict(arrowstyle="->", color="#d62728", lw=2),
+    )
+    ax.text(e1u, e1w, " E1", color="#2ca02c", fontsize=9, va="center")
+    ax.text(e2u, e2w, " E2", color="#d62728", fontsize=9, va="center")
+
+    lim = float(np.abs(pts).max()) * 1.15 + 1e-9
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    ax.set_aspect("equal", "box")
+    ax.axhline(0, color="#cccccc", lw=0.6, zorder=0)
+    ax.axvline(0, color="#cccccc", lw=0.6, zorder=0)
+    ax.set(
+        xlabel="E along E1 (V/m)",
+        ylabel="E perpendicular (V/m)",
+        title=title,
+    )
+    angle = float(
+        np.degrees(
+            np.arccos(np.clip((e1 @ e2) / (n1 * np.linalg.norm(e2) + 1e-12), -1, 1))
+        )
+    )
+    ax.text(
+        0.02,
+        0.98,
+        f"∠(E1,E2) = {angle:.0f}°",
+        transform=ax.transAxes,
+        fontsize=8,
+        va="top",
+    )
+    return ax
 
 
 # ---------------------------------------------------------------------------
@@ -605,13 +778,18 @@ def render_target(
     r = simulate_response(c, target_mm, normal, m1, m2, return_traces=True)
     e1 = np.asarray(sample_at(m1, target_mm.reshape(1, 3))).reshape(3)
     e2 = np.asarray(sample_at(m2, target_mm.reshape(1, 3))).reshape(3)
-    ddir = (e1 + e2) / (np.linalg.norm(e1 + e2) + 1e-12)
     t = r["t"]
     f1, f2 = clip_carriers
-    drive = np.sin(2 * np.pi * f1 * t / 1000.0) + np.sin(2 * np.pi * f2 * t / 1000.0)
     p = os.path.join(out_dir, f"{stem}_clip.gif")
     animate_response(
-        r["world_um"], spans, t, r["v_all"], ddir, drive, p, n_frames=60, fps=15
+        r["world_um"], spans, t, r["v_all"], e1, e2, f1, f2, p, n_frames=60, fps=15
     )
     out["clip"] = p
+
+    # (5) hodograph -- the figure that proves the resultant rotates.
+    ax = plot_field_hodograph(e1, e2, f1, f2, n_cycles=1)
+    p = os.path.join(out_dir, f"{stem}_hodograph.png")
+    ax.figure.savefig(p, dpi=130)
+    plt.close(ax.figure)
+    out["hodograph"] = p
     return out

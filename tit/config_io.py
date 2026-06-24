@@ -33,7 +33,7 @@ from dataclasses import asdict, fields, is_dataclass
 from enum import Enum
 from typing import Any
 
-from tit.microscale.config import MicroscaleConfig
+from tit.microscale.config import MicroscaleConfig, PopulationConfig
 from tit.opt.config import ExConfig, FlexConfig
 from tit.sim.config import Montage
 
@@ -49,6 +49,7 @@ _TYPE_DISCRIMINATED: dict[type, str] = {
     ExConfig.BucketElectrodes: "BucketElectrodes",
     Montage: "Montage",
     MicroscaleConfig: "MicroscaleConfig",
+    PopulationConfig: "PopulationConfig",
 }
 
 # Blender config types are matched by class name to avoid importing

@@ -12,10 +12,16 @@ from tit.microscale.config import (
     DEFAULT_CARRIERS,
     MicroscaleConfig,
     NeuronModelSpec,
+    PopulationConfig,
 )
 from tit.microscale.coupling import (
     build_extracellular_timeseries,
     count_spikes,
+)
+from tit.microscale.population import (
+    analytic_polarization_map,
+    azimuths,
+    select_cluster,
 )
 from tit.microscale.field_sampler import (
     mm_to_um,
@@ -364,6 +370,59 @@ def test_viz_section_polylines_splits_by_span():
     assert np.allclose(lines[1]["coords"][0], world[2])
 
 
+# ---------------------------------------------------------------------------
+# Instantaneous TI field (rotating modulation vector)
+# ---------------------------------------------------------------------------
+
+
+def test_instantaneous_field_shape_and_units():
+    from tit.microscale.viz import instantaneous_field
+
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.array([0.0, 1.0, 0.0])
+    t = np.linspace(0, 10, 250)
+    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
+    assert e.shape == (250, 3)
+    # At a time where sin(2π f1 t)=1 and sin(2π f2 t)=0 the result equals e1.
+    f1, f2 = 100.0, 0.0  # f2=0 -> s2 identically 0
+    t_peak_ms = np.array([1000.0 / (4.0 * f1)])  # quarter period -> sin=1
+    e_peak = instantaneous_field(e1, e2, f1, f2, t_peak_ms)[0]
+    assert np.allclose(e_peak, e1, atol=1e-9)
+
+
+def test_instantaneous_field_rotates_when_nonparallel():
+    from tit.microscale.viz import instantaneous_field
+
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.array([0.0, 1.0, 0.0])
+    t = np.linspace(0, 50, 4000)
+    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
+    mag = np.linalg.norm(e, axis=1)
+    keep = mag > 1e-6
+    units = e[keep] / mag[keep][:, None]
+    # Direction is not constant over time.
+    assert not np.allclose(units, units[0], atol=1e-3)
+    # The resultant sweeps a plane: cross products over time are nonzero.
+    crosses = np.cross(units[:-1], units[1:])
+    assert np.linalg.norm(crosses, axis=1).max() > 1e-3
+
+
+def test_instantaneous_field_collinear_when_parallel():
+    from tit.microscale.viz import instantaneous_field
+
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.array([2.0, 0.0, 0.0])  # parallel to e1
+    t = np.linspace(0, 50, 2000)
+    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
+    # Every instantaneous vector is collinear with e1 (no y/z components).
+    assert np.allclose(e[:, 1:], 0.0, atol=1e-12)
+    mag = np.linalg.norm(e, axis=1)
+    keep = mag > 1e-6
+    units = e[keep] / mag[keep][:, None]
+    crosses = np.cross(units[:-1], units[1:])
+    assert np.linalg.norm(crosses, axis=1).max() < 1e-9
+
+
 def test_metrics_polarization_npz(tmp_path):
     from tit.microscale.metrics import write_polarization_npz
 
@@ -413,3 +472,177 @@ def test_find_threshold_floor_not_zero_when_always_fires(monkeypatch):
     cfg = MicroscaleConfig(sim_name="s")
     thr = coupling.find_threshold(cfg, None, None, None, None, lo=0.0, hi=100.0)
     assert thr > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Population: azimuth placement geometry
+# ---------------------------------------------------------------------------
+
+
+def test_place_morphology_azimuth_default_unchanged():
+    # azimuth_deg=0.0 must reproduce the un-spun placement exactly.
+    local = np.array([[0, 0, 0], [10.0, 0, 100.0]])
+    soma_local = np.array([0, 0, 0.0])
+    base = place_morphology(local, soma_local, [5, 5, 5], normal=[0, 0, 1])
+    same = place_morphology(
+        local, soma_local, [5, 5, 5], normal=[0, 0, 1], azimuth_deg=0.0
+    )
+    assert np.allclose(base, same)
+
+
+def test_place_morphology_azimuth_rotates_about_normal():
+    # Normal = +z; a 90 deg azimuth should rotate an off-axis point about z,
+    # keep the soma on target, and preserve lengths.
+    local = np.array([[0, 0, 0], [10.0, 0.0, 100.0]])
+    soma_local = np.array([0, 0, 0.0])
+    target = np.array([5.0, 5.0, 5.0])
+    world = place_morphology(
+        local, soma_local, target, normal=[0, 0, 1], azimuth_deg=90.0
+    )
+    # Soma stays on target.
+    assert np.allclose(world[0], target)
+    # The point's offset from the soma: (10, 0, 100) -> (0, 10, 100) under +90z.
+    offset = world[1] - world[0]
+    assert np.allclose(offset, [0.0, 10.0, 100.0], atol=1e-9)
+    # Length preserved.
+    assert np.linalg.norm(offset) == pytest.approx(np.hypot(10.0, 100.0))
+    # The z (normal) component is unchanged by an azimuthal spin.
+    assert offset[2] == pytest.approx(100.0)
+
+
+# ---------------------------------------------------------------------------
+# Population: pure math
+# ---------------------------------------------------------------------------
+
+
+def test_analytic_polarization_map_linear():
+    e = np.array([0.0, 1.0, -2.0, 5.0])
+    dvm = analytic_polarization_map(e, 0.27)
+    assert np.allclose(dvm, 0.27 * e)
+    # Doubling the coupling doubles the polarization.
+    assert np.allclose(analytic_polarization_map(e, 0.54), 2.0 * dvm)
+
+
+def test_select_cluster_threshold_and_all():
+    vals = np.array([0.1, 0.5, 0.9, 0.2, 0.7])
+    rng = np.random.default_rng(0)
+    # No threshold -> whole surface.
+    cluster, _ = select_cluster(vals, None, 0, rng)
+    assert cluster.tolist() == [0, 1, 2, 3, 4]
+    # Threshold keeps field >= 0.5.
+    cluster, _ = select_cluster(vals, 0.5, 0, rng)
+    assert cluster.tolist() == [1, 2, 4]
+
+
+def test_select_cluster_subsample_deterministic_and_capped():
+    vals = np.linspace(0, 1, 20)
+    a = select_cluster(vals, None, 5, np.random.default_rng(42))[1]
+    b = select_cluster(vals, None, 5, np.random.default_rng(42))[1]
+    # Deterministic given the same seeded generator.
+    assert a.tolist() == b.tolist()
+    assert a.size == 5
+    # Subsample is a subset of the cluster, sorted, unique.
+    assert np.all(np.diff(a) > 0)
+    assert set(a.tolist()) <= set(range(20))
+    # Capped at cluster size.
+    capped = select_cluster(vals, None, 1000, np.random.default_rng(0))[1]
+    assert capped.size == 20
+
+
+def test_select_cluster_zero_subsample_empty():
+    vals = np.array([1.0, 2.0, 3.0])
+    cluster, sub = select_cluster(vals, None, 0, np.random.default_rng(0))
+    assert cluster.size == 3
+    assert sub.size == 0
+
+
+def test_azimuths_evenly_spaced():
+    assert azimuths(1) == [0.0]
+    assert azimuths(4) == [0.0, 90.0, 180.0, 270.0]
+    a = azimuths(6)
+    assert len(a) == 6
+    assert a[0] == 0.0
+    assert max(a) < 360.0
+
+
+def test_azimuths_rejects_zero():
+    with pytest.raises(ValueError):
+        azimuths(0)
+
+
+# ---------------------------------------------------------------------------
+# PopulationConfig validation
+# ---------------------------------------------------------------------------
+
+
+def test_population_config_defaults_valid():
+    cfg = PopulationConfig(sim_name="sim1")
+    assert cfg.carrier_freqs == DEFAULT_CARRIERS
+    assert cfg.polarization_coupling == 0.27
+    assert cfg.n_clones == 5 and cfg.n_azimuth == 6
+    assert cfg.cluster_threshold is None
+    assert cfg.envelope_freq == pytest.approx(10.0)
+
+
+def test_population_config_requires_sim_name():
+    with pytest.raises(ValueError, match="sim_name"):
+        PopulationConfig(sim_name="")
+
+
+def test_population_config_rejects_coarse_dt():
+    with pytest.raises(ValueError, match="too coarse"):
+        PopulationConfig(sim_name="s", dt=0.5)
+
+
+def test_population_config_rejects_bad_counts():
+    with pytest.raises(ValueError, match="n_clones"):
+        PopulationConfig(sim_name="s", n_clones=0)
+    with pytest.raises(ValueError, match="n_azimuth"):
+        PopulationConfig(sim_name="s", n_azimuth=0)
+    with pytest.raises(ValueError, match="n_subsample"):
+        PopulationConfig(sim_name="s", n_subsample=-1)
+
+
+# ---------------------------------------------------------------------------
+# Population metrics IO
+# ---------------------------------------------------------------------------
+
+
+def _fake_population_result():
+    return {
+        "cluster_idx": np.array([0, 1, 2]),
+        "vertices_mm": np.zeros((3, 3)),
+        "normals": np.tile([0.0, 0.0, 1.0], (3, 1)),
+        "ti_normal": np.array([0.5, 0.7, 0.9]),
+        "analytic_delta_vm": np.array([0.135, 0.189, 0.243]),
+        "subsample_idx": np.array([0, 2]),
+        "neuron_delta_vm": np.array(
+            [[[0.10, 0.12], [0.11, 0.13]], [[0.20, 0.22], [0.21, 0.23]]]
+        ),
+        "amplification": np.array(
+            [[[1.0, 1.1], [1.0, 1.1]], [[0.9, 0.95], [0.9, 0.95]]]
+        ),
+        "summary": {"neuron_delta_vm_mean": 0.165, "amplification_mean": 1.0},
+    }
+
+
+def test_write_population_npz(tmp_path):
+    from tit.microscale.metrics import write_population_npz
+
+    path = str(tmp_path / "pop.npz")
+    write_population_npz(path, _fake_population_result())
+    loaded = np.load(path, allow_pickle=True)
+    assert loaded["neuron_delta_vm"].shape == (2, 2, 2)
+    assert np.allclose(loaded["analytic_delta_vm"], [0.135, 0.189, 0.243])
+    assert "neuron_delta_vm_mean" in loaded["summary_keys"].tolist()
+
+
+def test_write_population_summary_csv(tmp_path):
+    from tit.microscale.metrics import write_population_summary_csv
+
+    path = str(tmp_path / "pop_summary.csv")
+    write_population_summary_csv(path, _fake_population_result())
+    text = (tmp_path / "pop_summary.csv").read_text()
+    assert "neuron_delta_vm_mean_mV" in text
+    # One header + 2 subsample rows.
+    assert len(text.strip().splitlines()) == 3

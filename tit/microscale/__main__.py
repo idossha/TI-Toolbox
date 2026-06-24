@@ -13,6 +13,9 @@ The JSON config is dispatched on its ``"mode"`` field:
   threshold.
 * ``"viz"``       -> render publication figures + an animated clip per target
   (morphology, neuron-in-cortex, E-field vectors, Vm/E-field time clip).
+* ``"population"`` -> unconnected population over a cortical cluster: analytic
+  first-order ΔVm map for all cluster vertices + a NEURON clones×rotations
+  distribution on a representative subsample (see :mod:`tit.microscale.population`).
 
 The remaining keys populate :class:`~tit.microscale.config.MicroscaleConfig`,
 plus a top-level ``"subject_ids"`` list and an optional per-target ``"normals"``
@@ -43,6 +46,11 @@ def main() -> None:
     print(f"Starting microscale {mode} pipeline...", flush=True)
 
     subject_ids = data.pop("subject_ids")
+
+    if mode == "population":
+        _run_population_mode(subject_ids, data)
+        return
+
     normals = data.pop("normals", None)
     cfg = _build_config(data)
 
@@ -58,6 +66,53 @@ def main() -> None:
     if failed:
         raise SystemExit(f"microscale failed for: {', '.join(failed)}")
     print("✓ Microscale pipeline complete.", flush=True)
+
+
+def _run_population_mode(subject_ids: list, data: dict) -> None:
+    """Run the unconnected-population pipeline for each subject."""
+    from tit.microscale.config import PopulationConfig
+    from tit.microscale.population import run_population
+
+    def _f(key, default):
+        return data.get(key, default)
+
+    kwargs = dict(
+        sim_name=data["sim_name"],
+        model=_f("model", "l5_pyramidal"),
+        conductivity=_f("conductivity", "scalar"),
+        n_clones=_f("n_clones", 5),
+        n_azimuth=_f("n_azimuth", 6),
+        cluster_normal_field=_f("cluster_normal_field", "TI_normal"),
+        cluster_threshold=_f("cluster_threshold", None),
+        n_subsample=_f("n_subsample", 50),
+        polarization_coupling=_f("polarization_coupling", 0.27),
+        duration=_f("duration", 100.0),
+        dt=_f("dt", 0.005),
+        temperature=_f("temperature", 37.0),
+        cpus=_f("cpus", 1),
+        seed=_f("seed", 0),
+        overwrite=_f("overwrite", False),
+    )
+    if data.get("carrier_freqs") is not None:
+        kwargs["carrier_freqs"] = tuple(float(x) for x in data["carrier_freqs"])
+    cfg = PopulationConfig(**kwargs)
+
+    failed: list[str] = []
+    for sid in subject_ids:
+        print(
+            f"[sub-{sid}] population sim={cfg.sim_name} model={cfg.model} "
+            f"clones={cfg.n_clones} azimuth={cfg.n_azimuth} "
+            f"subsample={cfg.n_subsample}",
+            flush=True,
+        )
+        try:
+            run_population(sid, cfg)
+        except Exception as exc:  # noqa: BLE001 - report and continue
+            print(f"  ✗ FAILED: {exc}", flush=True)
+            failed.append(sid)
+    if failed:
+        raise SystemExit(f"microscale population failed for: {', '.join(failed)}")
+    print("✓ Microscale population pipeline complete.", flush=True)
 
 
 def _build_config(data: dict):
