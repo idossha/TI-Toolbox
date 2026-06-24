@@ -347,6 +347,133 @@ def place_spec_world(spec, target_mm, normal, azimuth_deg=0.0):
     return [(kind, world_mm[s : s + n]) for kind, s, n in slices]
 
 
+def select_region(subject_id: str, cfg, region: dict) -> dict:
+    """Select a cortical/subcortical region to populate, in any space.
+
+    Supports three region specs (``region["type"]``):
+
+    * ``"atlas"`` -- cortical surface vertices in a named atlas label, e.g.
+      ``{"type": "atlas", "atlas": "DK40", "label": "insula", "hemi": "lh"}``.
+      The atlas annotation lives on the m2m surface and is transferred to the TI
+      central surface by nearest neighbour (the TI surface is remeshed).
+    * ``"mni_sphere"`` / ``"subject_sphere"`` with ``"domain": "surface"`` --
+      central-surface vertices within ``radius_mm`` of a center given in MNI or
+      subject coordinates (MNI is mapped to the subject via SimNIBS).
+    * ``"mni_sphere"`` / ``"subject_sphere"`` with ``"domain": "volume"`` --
+      gray-matter **volume** nodes within the sphere (for subcortical targets
+      like the thalamus); oriented radially from the sphere center.
+
+    Returns
+    -------
+    dict
+        ``{"coords_mm", "normals", "scalar", "tris" (or None), "domain",
+        "label"}`` -- the region's vertices/normals, a per-vertex scalar
+        (``TI_normal`` on the surface; distance-to-center in the volume), the
+        triangle connectivity for surface regions (``None`` for volume), the
+        domain, and a human-readable label for annotation.
+    """
+    import glob as _glob
+    import os as _os
+
+    import numpy as _np
+    from scipy.spatial import cKDTree
+
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    m2m = pm.m2m(subject_id)
+    rtype = region["type"]
+    domain = region.get("domain", "surface")
+
+    def _center_subject():
+        if "center_subject" in region:
+            return _np.asarray(region["center_subject"], dtype=float).reshape(3)
+        from simnibs import mni2subject_coords
+
+        c = mni2subject_coords([list(region["center_mni"])], m2m)
+        return _np.asarray(c, dtype=float).reshape(3)
+
+    if domain == "volume":
+        from simnibs.mesh_tools import mesh_io
+
+        # Glob the TI volume mesh (the montage stem can differ from the sim
+        # folder, e.g. "L_Insula" vs "L_Insula_scalar").
+        vol_glob = _os.path.join(pm.ti_mesh_dir(subject_id, cfg.sim_name), "*_TI.msh")
+        vmatches = sorted(_glob.glob(vol_glob))
+        if not vmatches:
+            raise FileNotFoundError(f"No TI volume mesh matched {vol_glob!r}")
+        tv = mesh_io.read_msh(vmatches[0])
+        nodes = _np.asarray(tv.nodes.node_coord, dtype=float)
+        center = _center_subject()
+        radius = float(region.get("radius_mm", 10.0))
+        d = _np.linalg.norm(nodes - center, axis=1)
+        sel = d <= radius
+        coords = nodes[sel]
+        # Orient cells radially outward from the region center (no cortical
+        # normal exists for a subcortical nucleus).
+        rad = coords - center
+        norms = rad / (_np.linalg.norm(rad, axis=1, keepdims=True) + 1e-9)
+        label = region.get(
+            "label",
+            f"sphere r={radius:g} mm @ {region.get('center_mni', center)} (volume)",
+        )
+        return {
+            "coords_mm": coords,
+            "normals": norms,
+            "scalar": d[sel],
+            "tris": None,
+            "domain": "volume",
+            "label": label,
+        }
+
+    # --- surface domains: load the TI central surface (has TI_normal) ---
+    coords_mm, normals, ti_normal = load_cluster_surface(subject_id, cfg)
+    tris = load_cluster_triangles(subject_id, cfg)
+
+    if rtype == "atlas":
+        import nibabel as nib
+
+        hemi = region.get("hemi", "lh")
+        atlas = region["atlas"]
+        label = region["label"]
+        gii = nib.load(_os.path.join(m2m, "surfaces", f"{hemi}.central.gii"))
+        surf_xyz = _np.asarray(gii.darrays[0].data, dtype=float)
+        ann = sorted(
+            _glob.glob(_os.path.join(m2m, "segmentation", f"{hemi}.*_{atlas}.annot"))
+        )
+        lab, _ctab, names = nib.freesurfer.read_annot(ann[0])
+        names = [n.decode() if isinstance(n, bytes) else n for n in names]
+        idx = [i for i, n in enumerate(names) if label.lower() in n.lower()]
+        region_xyz = surf_xyz[_np.isin(lab, idx)]
+        # Transfer the label to the TI surface by nearest neighbour.
+        tree = cKDTree(region_xyz)
+        snap = float(region.get("snap_mm", 1.5))
+        d, _ = tree.query(coords_mm)
+        sel = d <= snap
+        label_text = f"{hemi} {atlas}:{label}"
+    else:  # mni_sphere / subject_sphere on the surface
+        center = _center_subject()
+        radius = float(region.get("radius_mm", 10.0))
+        sel = _np.linalg.norm(coords_mm - center, axis=1) <= radius
+        label_text = region.get(
+            "label", f"sphere r={radius:g} mm @ {region.get('center_mni', center)}"
+        )
+
+    # Crop the surface mesh to the selected vertices (re-index triangles).
+    used = _np.where(sel)[0]
+    remap = _np.full(len(coords_mm), -1, dtype=int)
+    remap[used] = _np.arange(len(used))
+    keep_tri = sel[tris].all(axis=1)
+    return {
+        "coords_mm": coords_mm[used],
+        "normals": normals[used],
+        "scalar": ti_normal[used],
+        "tris": remap[tris[keep_tri]],
+        "domain": "surface",
+        "label": label_text,
+    }
+
+
 def run_population(subject_id: str, cfg) -> dict:
     """Run the population pipeline for one subject.
 

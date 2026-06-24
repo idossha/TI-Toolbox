@@ -807,6 +807,110 @@ def plot_population_in_cortex(
     return ax
 
 
+def render_population_region(
+    subject_id,
+    cfg,
+    out_dir,
+    region: dict,
+    name: str,
+    n_cells: int = 50,
+    thickness_mm: float = 2.0,
+    color_scheme: str = "aberra",
+):
+    """Populate and render an arbitrary region (atlas / MNI-sphere / subcortical).
+
+    See :func:`tit.microscale.population.select_region` for the *region* spec.
+    Cortical regions are drawn as an embedded gyral cross-section; subcortical
+    (volume) regions as the nucleus point-cloud with radially-oriented cells.
+
+    Returns
+    -------
+    str
+        Path to ``<stem>_population_<name>.png``.
+    """
+    import os
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from tit.microscale.morphology import pyramidal_l5
+    from tit.microscale.population import (
+        place_spec_world,
+        sample_cortical_strip,
+        select_region,
+    )
+
+    reg = select_region(subject_id, cfg, region)
+    coords, normals, scalar = reg["coords_mm"], reg["normals"], reg["scalar"]
+    if len(coords) == 0:
+        raise ValueError(f"region {name!r} selected 0 vertices")
+
+    spec = pyramidal_l5(seed=cfg.seed)
+    rng = np.random.default_rng(cfg.seed)
+
+    if reg["domain"] == "surface":
+        slab_axis = int(np.argmin(np.ptp(coords - coords.mean(0), axis=0)))
+        project_axes = tuple(a for a in range(3) if a != slab_axis)
+        c0 = float(np.median(coords[:, slab_axis]))
+        if reg["tris"] is not None and len(reg["tris"]):
+            tri_c = coords[reg["tris"]].mean(axis=1)
+            slab_tris = reg["tris"][
+                np.abs(tri_c[:, slab_axis] - c0) <= thickness_mm / 2.0
+            ]
+        else:
+            slab_tris = None
+        strip_xyz, strip_nrm = sample_cortical_strip(
+            coords,
+            normals,
+            n_cells,
+            axis=slab_axis,
+            thickness_mm=thickness_mm,
+            rng=rng,
+        )
+        placed = [
+            place_spec_world(spec, xyz, nrm) for xyz, nrm in zip(strip_xyz, strip_nrm)
+        ]
+        ax = plot_population_in_cortex(
+            placed,
+            surface_pts_mm=coords,
+            surface_tris=slab_tris,
+            surface_scalar=scalar,
+            project_axes=project_axes,
+            color_scheme=color_scheme,
+            scale_bar_mm=1.0,
+            region_label=f"sub-{subject_id} • {reg['label']}\n{len(placed)} cells",
+            title=f"Populated {name} — {len(placed)} {cfg.model} cells",
+        )
+    else:  # volume (subcortical): subsample the nucleus cloud, radial cells
+        if len(coords) > n_cells:
+            pick = rng.choice(len(coords), n_cells, replace=False)
+        else:
+            pick = np.arange(len(coords))
+        placed = [place_spec_world(spec, coords[i], normals[i]) for i in pick]
+        # project onto the two widest axes of the cloud
+        widths = np.ptp(coords, axis=0)
+        project_axes = tuple(int(a) for a in np.argsort(widths)[::-1][:2])
+        ax = plot_population_in_cortex(
+            placed,
+            surface_pts_mm=coords,
+            surface_tris=None,
+            project_axes=project_axes,
+            color_scheme=color_scheme,
+            scale_bar_mm=1.0,
+            region_label=f"sub-{subject_id} • {reg['label']}\n"
+            f"{len(placed)} cells (radial orientation)",
+            title=f"Populated {name} — {len(placed)} {cfg.model} cells",
+        )
+
+    stem = f"sub-{subject_id}_{cfg.sim_name}"
+    path = os.path.join(out_dir, f"{stem}_population_{name}.png")
+    ax.figure.savefig(path, dpi=150)
+    plt.close(ax.figure)
+    return path
+
+
 def render_population_cortex(
     subject_id,
     cfg,

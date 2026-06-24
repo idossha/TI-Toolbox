@@ -83,6 +83,7 @@ from tit.microscale.population import (
     run_population,
     sample_cortical_strip,
     select_cluster,
+    select_region,
 )
 from tit.microscale.viz import (
     animate_response,
@@ -94,6 +95,7 @@ from tit.microscale.viz import (
     plot_morphology,
     plot_population_in_cortex,
     render_population_cortex,
+    render_population_region,
     render_target,
     section_polylines,
 )
@@ -112,6 +114,8 @@ __all__ = [
     "plot_field_hodograph",
     "plot_population_in_cortex",
     "render_population_cortex",
+    "render_population_region",
+    "select_region",
     "sample_cortical_strip",
     "place_spec_world",
     "mm_to_um",
