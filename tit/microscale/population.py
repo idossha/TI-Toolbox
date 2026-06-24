@@ -215,6 +215,33 @@ def load_cluster_surface(subject_id: str, cfg):
     return coords_mm[:n], normals[:n], ti_normal[:n]
 
 
+def load_cluster_triangles(subject_id: str, cfg):
+    """Load the triangle connectivity of the TI central surface.
+
+    Returns the ``(F, 3)`` 0-based vertex indices of the cortical surface used
+    by :func:`load_cluster_surface`, so a population render can embed the cells
+    in the actual cortical sheet (not just floating points).
+
+    Returns
+    -------
+    ndarray (F, 3)
+    """
+    from simnibs.mesh_tools import mesh_io
+
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    surf_glob = os.path.join(
+        pm.ti_mesh_dir(subject_id, cfg.sim_name), "surfaces", "*_TI_central.msh"
+    )
+    matches = sorted(glob.glob(surf_glob))
+    if not matches:
+        raise FileNotFoundError(f"No central surface matched {surf_glob!r}")
+    m = mesh_io.read_msh(matches[0])
+    tris = m.elm.node_number_list[m.elm.elm_type == 2][:, :3] - 1
+    return np.asarray(tris, dtype=int)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration (lazy NEURON / simnibs)
 # ---------------------------------------------------------------------------

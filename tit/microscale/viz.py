@@ -669,11 +669,14 @@ def plot_field_hodograph(
 def plot_population_in_cortex(
     placed_cells,
     surface_pts_mm=None,
+    surface_tris=None,
+    surface_scalar=None,
     project_axes=(0, 2),
     color_scheme: str = "aberra",
     scale_bar_mm: float = 0.25,
     ax=None,
     title: str = "Populated cortex",
+    region_label: str | None = None,
     lw: float = 0.35,
 ):
     """Render many neurons along a cortical cross-section, Aberra-figure style.
@@ -681,7 +684,8 @@ def plot_population_in_cortex(
     A clean **2D** projection (the slab axis dropped), drawn with one
     ``LineCollection`` per neurite type for speed and print-quality — neurites
     colored by TYPE (axon red / apical blue / basal green under ``"aberra"``),
-    the gyral outline behind them, and a scale bar.
+    embedded in the cortical sheet (the projected surface triangles), with a
+    scale bar.
 
     Parameters
     ----------
@@ -689,7 +693,13 @@ def plot_population_in_cortex(
         List of cells; each cell is a list of ``(kind, points_mm (K,3))`` from
         :func:`tit.microscale.population.place_spec_world`.
     surface_pts_mm : ndarray (N,3), optional
-        Cortical surface vertices drawn faintly as the gyral outline.
+        Cortical surface vertices (the gyral sheet the cells sit on).
+    surface_tris : ndarray (F,3), optional
+        Triangles of *surface_pts_mm*; if given, the cortical ribbon is drawn as
+        a translucent filled cross-section so the cells are *embedded*, not
+        floating.  If absent, the vertices are scattered faintly instead.
+    surface_scalar : ndarray (N,), optional
+        Per-vertex scalar (e.g. ``TI_normal``) to color the cortical ribbon.
     project_axes : tuple of int
         The two world axes to project onto (default (x, z); the slab axis y is
         dropped).
@@ -697,9 +707,11 @@ def plot_population_in_cortex(
         ``"aberra"`` (neurite type) or ``"region"``.
     scale_bar_mm : float
         Scale-bar length in mm (0.25 = 250 µm).
+    region_label : str, optional
+        Anatomical context annotated on the figure (atlas region / sphere / space).
     """
     import matplotlib.pyplot as plt
-    from matplotlib.collections import LineCollection
+    from matplotlib.collections import LineCollection, PolyCollection
 
     ix, iy = project_axes
     if ax is None:
@@ -708,7 +720,20 @@ def plot_population_in_cortex(
     allpts = []
     if surface_pts_mm is not None and len(surface_pts_mm):
         sp = np.asarray(surface_pts_mm, dtype=float).reshape(-1, 3)
-        ax.scatter(sp[:, ix], sp[:, iy], s=6, color="#888888", alpha=0.5, zorder=1)
+        if surface_tris is not None and len(surface_tris):
+            tris = np.asarray(surface_tris, dtype=int)
+            polys = sp[tris][:, :, [ix, iy]]  # (F, 3, 2)
+            pc = PolyCollection(polys, zorder=0, linewidths=0.0)
+            if surface_scalar is not None:
+                pc.set_array(np.asarray(surface_scalar)[tris].mean(axis=1))
+                pc.set_cmap("viridis")
+                pc.set_alpha(0.35)
+            else:
+                pc.set_facecolor("#d9d2c5")
+                pc.set_alpha(0.45)
+            ax.add_collection(pc)
+        else:
+            ax.scatter(sp[:, ix], sp[:, iy], s=6, color="#888888", alpha=0.5, zorder=1)
         allpts.append(sp[:, [ix, iy]])
 
     # Group segments by color -> one LineCollection per neurite type.
@@ -766,6 +791,17 @@ def plot_population_in_cortex(
             loc="upper right",
             frameon=False,
         )
+    if region_label:
+        ax.text(
+            0.02,
+            0.98,
+            region_label,
+            transform=ax.transAxes,
+            fontsize=9,
+            va="top",
+            ha="left",
+            bbox=dict(boxstyle="round", fc="white", ec="#999999", alpha=0.8),
+        )
     ax.axis("off")
     ax.set_title(title)
     return ax
@@ -783,10 +819,11 @@ def render_population_cortex(
     """Produce an Aberra-style populated-gyrus figure for a subject's cluster.
 
     Localizes to a cortical patch around the field focus (the max-``TI_normal``
-    vertex), takes a thin slab through it, places one neuron at each site
-    (oriented to the local cortical normal), and renders them colored by neurite
-    type over the gyral outline with a scale bar -- so the ~1 mm cells are
-    visible against the ~cm-scale cortex.
+    vertex), takes a thin slab through it, **embeds** the neurons in the actual
+    cortical-surface ribbon of that slab (a translucent cross-section colored by
+    ``TI_normal``), places one neuron at each surface site (oriented to the local
+    cortical normal), and colors them by neurite type with a scale bar -- so the
+    cells sit *in* the gyrus, not floating.
 
     Returns
     -------
@@ -803,32 +840,47 @@ def render_population_cortex(
     from tit.microscale.morphology import pyramidal_l5
     from tit.microscale.population import (
         load_cluster_surface,
+        load_cluster_triangles,
         place_spec_world,
         sample_cortical_strip,
     )
 
     coords_mm, normals, ti_normal = load_cluster_surface(subject_id, cfg)
+    tris = load_cluster_triangles(subject_id, cfg)
 
     # Localize to a patch around the field focus (else a slab cuts the whole
-    # cortex into a chaotic cross-section and the cells are sub-pixel).
+    # cortex into a chaotic cross-section and the cells are sub-pixel). Crop
+    # inline so vertices, normals, scalar and triangles all share one indexing.
     focus = coords_mm[int(np.argmax(ti_normal))]
     near = np.linalg.norm(coords_mm - focus, axis=1) <= patch_radius_mm
-    patch_xyz, patch_nrm = coords_mm[near], normals[near]
+    keep_tri = near[tris].all(axis=1)
+    used = np.unique(tris[keep_tri])
+    remap = np.full(len(coords_mm), -1, dtype=int)
+    remap[used] = np.arange(len(used))
+    patch_coords = coords_mm[used]
+    patch_nrm = normals[used]
+    patch_scalar = ti_normal[used]
+    patch_tris = remap[tris[keep_tri]]
 
     # Slab axis = the patch's THINNEST in-plane direction, so the slab is a clean
     # gyral cross-section rather than an oblique cut.
-    centered = patch_xyz - patch_xyz.mean(0)
-    slab_axis = int(np.argmin(np.ptp(centered, axis=0)))
+    slab_axis = int(np.argmin(np.ptp(patch_coords - patch_coords.mean(0), axis=0)))
+    project_axes = tuple(a for a in range(3) if a != slab_axis)
+
+    # Keep only the ribbon triangles whose centroid falls in the slab.
+    c0 = float(np.median(patch_coords[:, slab_axis]))
+    tri_c = patch_coords[patch_tris].mean(axis=1)
+    slab_tris = patch_tris[np.abs(tri_c[:, slab_axis] - c0) <= thickness_mm / 2.0]
+
     rng = np.random.default_rng(cfg.seed)
     strip_xyz, strip_nrm = sample_cortical_strip(
-        patch_xyz,
+        patch_coords,
         patch_nrm,
         n_cells,
         axis=slab_axis,
         thickness_mm=thickness_mm,
         rng=rng,
     )
-    project_axes = tuple(a for a in range(3) if a != slab_axis)
 
     spec = pyramidal_l5(seed=cfg.seed)
     placed = [
@@ -836,10 +888,15 @@ def render_population_cortex(
     ]
     ax = plot_population_in_cortex(
         placed,
-        surface_pts_mm=strip_xyz,
+        surface_pts_mm=patch_coords,
+        surface_tris=slab_tris,
+        surface_scalar=patch_scalar,
         project_axes=project_axes,
         color_scheme=color_scheme,
         scale_bar_mm=1.0,
+        region_label=f"sub-{subject_id} • subject space\n"
+        f"patch r={patch_radius_mm:g} mm around TI_normal focus\n"
+        f"ribbon colored by TI_normal",
         title=f"Populated cortex — {len(placed)} {cfg.model} cells "
         f"(sub-{subject_id})",
     )
