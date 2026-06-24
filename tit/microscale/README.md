@@ -43,21 +43,33 @@ Wang et al. 2022).
   displacement in mm gives the potential directly in **mV** — exactly NEURON's
   `e_extracellular` unit.
 
-## Neuron model & licensing
+## Neuron models & licensing
 
-The default model is an **authored ball-and-stick cortical neuron** built
-procedurally with NEURON's built-in `hh` (active) and `extracellular`
-mechanisms — no vendored assets, no `.mod` compilation, no third-party license.
+Two built-in models (both license-free, built on NEURON's `hh` + `extracellular`
+mechanisms — no vendored assets, no `.mod` compilation):
 
-The realistic Blue Brain / Aberra cortical morphologies used in the literature
-are licensed **CC-BY-NC-SA** (non-commercial, share-alike) and are therefore
-**not shipped**. A user who has obtained them under their own terms can register
-a custom cell:
+- **`l5_pyramidal`** (default) — a procedurally generated, branched layer-5
+  pyramidal cell: soma, branched basal dendrites, apical trunk + tuft, an axon
+  initial segment and a myelinated axon with nodes of Ranvier. ~50 sections;
+  renders like a real reconstruction (region-colored, Shirinpour et al. 2021
+  Fig. 2D style). Deterministic; see `tit.microscale.morphology.pyramidal_l5`.
+- **`ball_stick`** — a minimal soma + dendrite + axon (fast; for cheap
+  threshold/response sweeps).
+
+**Load real reconstructions.** Any SWC morphology (NeuroMorpho.org, or an
+Aberra/Blue Brain export) can be loaded and used identically:
 
 ```python
-from tit.microscale.models import register_model, NeuronModelSpec
-register_model(my_spec, my_builder)   # my_builder() -> tit.microscale.Cell
+from tit.microscale.models import load_swc_cell, register_model
+cell = load_swc_cell("my_neuron.swc")          # ad hoc
+# or register it as a named model:
+register_model(spec, lambda: load_swc_cell("my_neuron.swc"))
 ```
+
+The realistic Blue Brain / Aberra cortical morphologies used in the literature
+are licensed **CC-BY-NC-SA** (non-commercial) and are therefore **not shipped** —
+the procedural `l5_pyramidal` is the license-free default, and `load_swc_cell`
+is the path for users who have obtained real cells under their own terms.
 
 ## Usage
 
@@ -100,14 +112,19 @@ Outputs land under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
 
 ### Visualizations (`mode: "viz"`)
 
-Renders four artifacts per target (matplotlib, headless; no pyvista/VTK):
+Renders five artifacts per target (matplotlib, headless; no pyvista/VTK), using
+the Shirinpour et al. 2021 palette, diameter-scaled neurites and a scale bar:
 
-- `*_morphology.png` — the neuron's 3D morphology, colored by part.
+- `*_morphology.png` — the neuron's 3D morphology, colored by region (soma/
+  basal/apical/tuft/axon/AIS/nodes).
 - `*_cortex.png` — the neuron embedded in a patch of the subject's cortical
   surface at the target (colored by `TI_max`), oriented along the cortical normal.
 - `*_efield.png` — the TI E-field as 3D vectors around the target, with the
   neuron for scale (shows the field is ~uniform at the cell scale).
-- `*_clip.gif` — an animated clip: membrane potential along the neuron + the
+- `*_quasipotential.png` — the neuron colored by the applied quasipotential Ψ
+  on a diverging colormap (Shirinpour Fig. 2F style): the field-induced dipole
+  along the morphology.
+- `*_clip.gif` — an animated clip: per-compartment membrane potential + the
   oscillating E-field drive over time (the clip uses a lower-frequency, amplified
   drive so the envelope-tracking response is visible; the real-amplitude kHz
   drive is far sub-threshold).

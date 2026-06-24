@@ -59,8 +59,16 @@ from tit.microscale.coupling import (
 from tit.microscale.models import (
     Cell,
     build_cell,
+    build_from_spec,
     list_models,
+    load_swc_cell,
     register_model,
+)
+from tit.microscale.morphology import (
+    MorphologySpec,
+    SectionSpec,
+    load_swc,
+    pyramidal_l5,
 )
 from tit.microscale.viz import (
     animate_response,
@@ -84,8 +92,14 @@ __all__ = [
     "place_morphology",
     "Cell",
     "build_cell",
+    "build_from_spec",
+    "load_swc_cell",
     "list_models",
     "register_model",
+    "pyramidal_l5",
+    "load_swc",
+    "MorphologySpec",
+    "SectionSpec",
     "build_extracellular_timeseries",
     "count_spikes",
     "per_pair_quasipotentials",

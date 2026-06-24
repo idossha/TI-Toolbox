@@ -289,6 +289,47 @@ def test_metrics_response_npz(tmp_path):
     assert np.isnan(loaded["threshold"]).all()
 
 
+def test_morphology_pyramidal_l5_structure():
+    from tit.microscale.morphology import pyramidal_l5
+
+    m = pyramidal_l5(seed=0)
+    kinds = {s.kind for s in m.sections}
+    # a realistic pyramidal cell has all the major regions
+    assert {"soma", "basal", "apical", "tuft", "ais", "axon", "node"} <= kinds
+    assert m.soma_name == "soma"
+    # branched: many more sections than a ball-stick
+    assert len(m.sections) > 20
+    # every non-soma section has a parent that exists
+    names = {s.name for s in m.sections}
+    for s in m.sections:
+        if s.parent is not None:
+            assert s.parent in names
+    # deterministic given the seed
+    m2 = pyramidal_l5(seed=0)
+    assert len(m2.sections) == len(m.sections)
+    assert m2.sections[5].points == m.sections[5].points
+
+
+def test_morphology_load_swc(tmp_path):
+    from tit.microscale.morphology import load_swc
+
+    # minimal SWC: soma (1) -> dendrite (3) chain -> branch
+    swc = tmp_path / "cell.swc"
+    swc.write_text(
+        "# id type x y z r parent\n"
+        "1 1 0 0 0 5 -1\n"
+        "2 3 0 0 10 1 1\n"
+        "3 3 0 0 20 1 2\n"
+        "4 3 5 0 25 1 3\n"
+        "5 3 -5 0 25 1 3\n"
+    )
+    m = load_swc(str(swc))
+    assert len(m.sections) >= 3  # soma path + two branches
+    assert m.sections[0].kind == "soma"
+    # branch children present
+    assert sum(1 for s in m.sections if s.kind == "basal") >= 2
+
+
 def test_viz_crop_surface_patch():
     from tit.microscale.viz import crop_surface_patch
 

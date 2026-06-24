@@ -45,10 +45,11 @@ class Cell:
         Registry key the cell was built from.
     """
 
-    def __init__(self, sections: list, soma, name: str) -> None:
+    def __init__(self, sections: list, soma, name: str, kinds=None) -> None:
         self.sections = sections
         self.soma = soma
         self.name = name
+        self._kinds = kinds or {}  # section-name -> region tag (for rendering)
         self._played = []  # keep Vector/refs alive for the run's lifetime
 
     def segments(self):
@@ -86,10 +87,18 @@ class Cell:
         for sec in self.sections:
             n = sec.nseg
             name = sec.name().split(".")[-1]
-            if "soma" in name:
+            if name in self._kinds:
+                kind = self._kinds[name]
+            elif "soma" in name:
                 kind = "soma"
-            elif "apic" in name or "dend" in name:
-                kind = "dendrite"
+            elif "apic" in name or "tuft" in name:
+                kind = "apical"
+            elif "basal" in name or "dend" in name:
+                kind = "basal"
+            elif "node" in name:
+                kind = "node"
+            elif "ais" in name:
+                kind = "ais"
             elif "axon" in name:
                 kind = "axon"
             else:
@@ -220,3 +229,93 @@ def _build_ball_stick() -> Cell:
 
 
 register_model(BALL_STICK_SPEC, _build_ball_stick)
+
+
+# ---------------------------------------------------------------------------
+# Spec-based builder: procedural branched L5 pyramidal + SWC-loaded cells
+# ---------------------------------------------------------------------------
+
+
+def build_from_spec(morph, name: str) -> Cell:
+    """Build a NEURON :class:`Cell` from a :class:`MorphologySpec`.
+
+    Creates one NEURON section per :class:`~tit.microscale.morphology.SectionSpec`
+    (pt3d geometry, connected to its parent), assigns ``nseg`` by length, and
+    inserts ``hh`` + ``extracellular`` on every section.  The region tags are
+    carried through to :meth:`Cell.section_spans` for rendering.
+    """
+    from neuron import h
+
+    h.load_file("stdrun.hoc")
+    secs = {}
+    kinds = {}
+    for sp in morph.sections:
+        sec = h.Section(name=sp.name)
+        sec.pt3dclear()
+        for x, y, z, d in sp.points:
+            sec.pt3dadd(float(x), float(y), float(z), float(d))
+        # ~1 compartment per 25 um, odd, capped.
+        length = max(sec.L, 1.0)
+        sec.nseg = int(min(101, max(1, (length // 25) * 2 + 1)))
+        sec.insert("hh")
+        sec.insert("extracellular")
+        secs[sp.name] = sec
+        kinds[sp.name] = sp.kind
+    # connect children to parents (parents created first in spec order)
+    for sp in morph.sections:
+        if sp.parent is not None and sp.parent in secs:
+            secs[sp.name].connect(secs[sp.parent](sp.parent_end))
+
+    ordered = [secs[sp.name] for sp in morph.sections]
+    soma = secs.get(morph.soma_name, ordered[0])
+    return Cell(ordered, soma, name, kinds=kinds)
+
+
+L5_SPEC = NeuronModelSpec(
+    name="l5_pyramidal",
+    description=(
+        "Procedurally generated branched layer-5 pyramidal neuron: soma, "
+        "branched basal dendrites, apical trunk + tuft, axon initial segment + "
+        "myelinated axon with nodes of Ranvier. Built-in hh + extracellular; "
+        "license-free. Renders like a real reconstruction."
+    ),
+    morphology="procedural",
+    mechanisms=(),
+    has_active_channels=True,
+    license="",
+)
+
+
+def _build_l5_pyramidal() -> Cell:
+    from tit.microscale.morphology import pyramidal_l5
+
+    return build_from_spec(pyramidal_l5(seed=0), "l5_pyramidal")
+
+
+register_model(L5_SPEC, _build_l5_pyramidal)
+
+
+def load_swc_cell(path: str, name: str | None = None) -> Cell:
+    """Build a :class:`Cell` from an SWC reconstruction file.
+
+    Use for realistic morphologies (e.g. NeuroMorpho.org, or Aberra/Blue Brain
+    exports).  The returned cell renders and couples exactly like the built-in
+    models.
+
+    Parameters
+    ----------
+    path : str
+        Path to an ``.swc`` file.
+    name : str, optional
+        Cell name (defaults to the file stem).
+
+    Returns
+    -------
+    Cell
+    """
+    import os
+
+    from tit.microscale.morphology import load_swc
+
+    name = name or os.path.splitext(os.path.basename(path))[0]
+    return build_from_spec(load_swc(path), name)

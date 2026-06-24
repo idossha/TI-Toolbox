@@ -23,12 +23,44 @@ from __future__ import annotations
 
 import numpy as np
 
+# Region palette following Shirinpour et al. 2021 (Fig. 2D): red soma, orange
+# basal, green apical, blue tuft, purple axon; AIS/nodes highlighted.
 KIND_COLORS = {
-    "soma": "#222222",
-    "dendrite": "#1f78b4",
-    "axon": "#e31a1c",
+    "soma": "#d62728",
+    "basal": "#ff7f0e",
+    "apical": "#2ca02c",
+    "tuft": "#1f78b4",
+    "ais": "#9467bd",
+    "axon": "#6a3d9a",
+    "node": "#111111",
+    "dendrite": "#1f78b4",  # back-compat (ball_stick)
     "other": "#999999",
 }
+
+
+def _lw_for_diam(diam: float) -> float:
+    """Line width for a compartment diameter (um), clipped for readability."""
+    return float(min(6.0, max(0.6, diam * 1.1)))
+
+
+def _add_scale_bar(ax, coords, length, unit="µm"):
+    """Draw a 3D scale bar of *length* near the lower-front of *coords*."""
+    coords = np.asarray(coords).reshape(-1, 3)
+    lo = coords.min(0)
+    span = (coords.max(0) - coords.min(0)).max()
+    x0 = lo[0]
+    y0 = lo[1]
+    z0 = lo[2] - 0.05 * span
+    ax.plot([x0, x0 + length], [y0, y0], [z0, z0], color="k", lw=3)
+    ax.text(
+        x0 + length / 2,
+        y0,
+        z0 - 0.04 * span,
+        f"{length:g} {unit}",
+        fontsize=8,
+        ha="center",
+        va="top",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -125,32 +157,71 @@ def grid_around(center_mm, radius_mm, n=4):
 # ---------------------------------------------------------------------------
 
 
-def plot_morphology(cell, ax=None, title: str = "Neuron morphology"):
-    """Draw the cell's 3D morphology, colored by part, linewidth ∝ diameter."""
-    import matplotlib.pyplot as plt  # noqa: F401
+def plot_morphology(
+    cell,
+    ax=None,
+    title: str = "Neuron morphology",
+    values=None,
+    cmap: str = "coolwarm",
+    vlim=None,
+    scale_bar: float = 100.0,
+):
+    """Draw the cell's 3D morphology, linewidth ∝ diameter.
 
+    By default each section is colored by its region (Shirinpour-style palette).
+    If *values* (a per-segment array, e.g. Vm or quasipotential) is given, every
+    compartment is instead colored by that value on *cmap*.
+    """
+    import matplotlib.pyplot as plt
+
+    spans = cell.section_spans()
     world = cell.segment_coords_um()
-    lines = section_polylines(world, cell.section_spans())
     if ax is None:
-        fig = plt.figure(figsize=(5, 6))
+        fig = plt.figure(figsize=(5.5, 6.5))
         ax = fig.add_subplot(111, projection="3d")
-    seen = set()
-    for ln in lines:
-        c = KIND_COLORS.get(ln["kind"], KIND_COLORS["other"])
-        label = ln["kind"] if ln["kind"] not in seen else None
-        seen.add(ln["kind"])
-        ax.plot(
-            ln["coords"][:, 0],
-            ln["coords"][:, 1],
-            ln["coords"][:, 2],
-            color=c,
-            lw=max(1.0, ln["diam"]),
-            solid_capstyle="round",
-            label=label,
-        )
+
+    if values is not None:
+        values = np.asarray(values, dtype=float)
+        if vlim is None:
+            vlim = (float(np.percentile(values, 2)), float(np.percentile(values, 98)))
+        norm = plt.Normalize(*vlim)
+        cm = plt.get_cmap(cmap)
+        for _name, _kind, diam, start, count in spans:
+            seg = world[start : start + count]
+            vv = values[start : start + count]
+            for k in range(len(seg) - 1):
+                ax.plot(
+                    seg[k : k + 2, 0],
+                    seg[k : k + 2, 1],
+                    seg[k : k + 2, 2],
+                    color=cm(norm(0.5 * (vv[k] + vv[k + 1]))),
+                    lw=_lw_for_diam(diam),
+                    solid_capstyle="round",
+                )
+        sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+        ax.figure.colorbar(sm, ax=ax, shrink=0.55, pad=0.08, label="value")
+    else:
+        seen = set()
+        for ln in section_polylines(world, spans):
+            c = KIND_COLORS.get(ln["kind"], KIND_COLORS["other"])
+            label = ln["kind"] if ln["kind"] not in seen else None
+            seen.add(ln["kind"])
+            ax.plot(
+                ln["coords"][:, 0],
+                ln["coords"][:, 1],
+                ln["coords"][:, 2],
+                color=c,
+                lw=_lw_for_diam(ln["diam"]),
+                solid_capstyle="round",
+                label=label,
+            )
+        ax.legend(fontsize=8, loc="upper left", markerscale=0.5)
+
     _equal_3d(ax, world)
-    ax.set(xlabel="x (µm)", ylabel="y (µm)", zlabel="z (µm)", title=title)
-    ax.legend(fontsize=8, loc="upper left")
+    if scale_bar:
+        _add_scale_bar(ax, world, scale_bar)
+    ax.set(title=title)
+    ax.set_axis_off()
     return ax
 
 
@@ -184,12 +255,14 @@ def plot_cell_in_cortex(
         triangles=tris,
         linewidth=0,
         antialiased=True,
-        alpha=0.5,
+        alpha=0.3,
     )
     if patch_scalar is not None:
         coll.set_array(np.asarray(patch_scalar)[tris].mean(axis=1))
         coll.set_cmap("viridis")
 
+    # Neuron drawn prominently on top: thicker than its true diameter so the
+    # ~1 mm cell stays visible against a multi-mm cortical patch.
     world_mm = np.asarray(world_um, dtype=float) / 1000.0
     for ln in section_polylines(world_mm, spans):
         ax.plot(
@@ -197,9 +270,12 @@ def plot_cell_in_cortex(
             ln["coords"][:, 1],
             ln["coords"][:, 2],
             color=KIND_COLORS.get(ln["kind"], KIND_COLORS["other"]),
-            lw=max(1.2, ln["diam"]),
+            lw=max(1.6, _lw_for_diam(ln["diam"]) * 0.9),
             solid_capstyle="round",
+            zorder=5,
         )
+    soma_mm = world_mm[: spans[0][4]].mean(0) if spans else world_mm.mean(0)
+    ax.scatter(*soma_mm, color=KIND_COLORS["soma"], s=40, zorder=6)
     allpts = np.vstack([pc, world_mm])
     _equal_3d(ax, allpts, pad=0.05)
     ax.set(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)", title=title)
@@ -399,8 +475,8 @@ def render_target(
     target_mm,
     normal,
     out_dir,
-    patch_radius_mm=8.0,
-    grid_radius_mm=6.0,
+    patch_radius_mm=4.0,
+    grid_radius_mm=3.0,
     clip_carriers=(100.0, 120.0),
     clip_amplitude=400.0,
     clip_duration=60.0,
@@ -501,6 +577,22 @@ def render_target(
     q.axes.figure.savefig(p, dpi=130)
     plt.close(q.axes.figure)
     out["efield"] = p
+
+    # (3b) morphology colored by the applied quasipotential Ψ (Shirinpour Fig 2F)
+    from tit.microscale.coupling import per_pair_quasipotentials
+
+    ve1, ve2 = per_pair_quasipotentials(cell, target_mm, normal, m1, m2)
+    psi = ve1 + ve2
+    ax = plot_morphology(
+        cell,
+        values=psi,
+        cmap="coolwarm",
+        title="Quasipotential Ψ from the TI field (mV)",
+    )
+    p = os.path.join(out_dir, f"{stem}_quasipotential.png")
+    ax.figure.savefig(p, dpi=130)
+    plt.close(ax.figure)
+    out["quasipotential"] = p
 
     # (4) animated clip (lower-frequency, amplified so Vm is visible)
     c = replace(

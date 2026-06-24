@@ -101,7 +101,7 @@ class MicroscaleConfig:
     """
 
     sim_name: str
-    model: str = "ball_stick"
+    model: str = "l5_pyramidal"
     targets: tuple[tuple[float, float, float], ...] = ()
     conductivity: str = "scalar"
     carrier_freqs: tuple[float, float] = field(default_factory=lambda: DEFAULT_CARRIERS)

@@ -67,7 +67,7 @@ def _build_config(data: dict):
     carriers = data.get("carrier_freqs")
     kwargs = dict(
         sim_name=data["sim_name"],
-        model=data.get("model", "ball_stick"),
+        model=data.get("model", "l5_pyramidal"),
         targets=targets,
         conductivity=data.get("conductivity", "scalar"),
         duration=data.get("duration", 100.0),
