@@ -171,6 +171,7 @@ def simulate_response(
     mesh_pair1,
     mesh_pair2,
     settle_ms: float = 5.0,
+    return_traces: bool = False,
 ) -> dict:
     """Drive a cell with the TI carriers and return its response.
 
@@ -185,13 +186,18 @@ def simulate_response(
     settle_ms : float
         Initial window (ms) excluded from the spike count, to drop the onset
         transient caused by initializing away from the channels' equilibrium.
+    return_traces : bool
+        Also return per-segment voltage traces and the extracellular drive,
+        plus the placed world coordinates -- everything :mod:`tit.microscale.viz`
+        needs to render/animate the run.
 
     Returns
     -------
     dict
         ``{"n_spikes", "v_soma", "t", "ve1_max", "ve2_max"}``.  ``n_spikes`` is
         the activation count at the spike-initiation site (the most-active
-        compartment); ``v_soma`` is the somatic trace.
+        compartment); ``v_soma`` is the somatic trace.  With ``return_traces``,
+        also ``{"v_all" (M,T), "ve_t" (M,T), "world_um" (M,3)}``.
     """
     from neuron import h
 
@@ -244,13 +250,23 @@ def simulate_response(
         for _sec, seg in segs:
             seg.e_extracellular = 0.0
 
-    return {
+    out = {
         "n_spikes": n_spikes,
         "v_soma": v,
         "t": t,
         "ve1_max": float(np.max(np.abs(ve1))),
         "ve2_max": float(np.max(np.abs(ve2))),
     }
+    if return_traces:
+        out["v_all"] = v_all
+        out["ve_t"] = ve_t
+        out["world_um"] = place_morphology(
+            cell.segment_coords_um(),
+            cell.soma_coord_um(),
+            np.asarray(target_mm, dtype=float).reshape(3) * 1000.0,
+            normal,
+        )
+    return out
 
 
 def polarization_map(

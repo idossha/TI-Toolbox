@@ -93,8 +93,28 @@ Verified in-container on the default ball-stick cell: somatic firing requires a
 proper axon initial segment / tuned kHz channels, which is why realistic
 responses use user-registered cortical cells.
 
+- `mode: "viz"` → publication-oriented visualizations per target.
+
 Outputs land under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
-`*_targets.csv`, `*_response.npz`, `*_polarization.npz`.
+`*_targets.csv`, `*_response.npz`, `*_polarization.npz`, `*_threshold.npz`.
+
+### Visualizations (`mode: "viz"`)
+
+Renders four artifacts per target (matplotlib, headless; no pyvista/VTK):
+
+- `*_morphology.png` — the neuron's 3D morphology, colored by part.
+- `*_cortex.png` — the neuron embedded in a patch of the subject's cortical
+  surface at the target (colored by `TI_max`), oriented along the cortical normal.
+- `*_efield.png` — the TI E-field as 3D vectors around the target, with the
+  neuron for scale (shows the field is ~uniform at the cell scale).
+- `*_clip.gif` — an animated clip: membrane potential along the neuron + the
+  oscillating E-field drive over time (the clip uses a lower-frequency, amplified
+  drive so the envelope-tracking response is visible; the real-amplitude kHz
+  drive is far sub-threshold).
+
+The plotting functions (`plot_morphology`, `plot_cell_in_cortex`,
+`plot_efield_vectors`, `animate_response`) take plain NumPy arrays and are
+reusable independently of the CLI.
 
 A GUI front-end is available as the **Microscale** extension
 (`tit/gui/extensions/microscale.py`).

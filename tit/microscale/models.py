@@ -69,6 +69,35 @@ class Cell:
         centers = _section_segment_centers(self.soma)
         return np.asarray(centers[len(centers) // 2], dtype=float)
 
+    def section_spans(self) -> list:
+        """Per-section grouping for rendering.
+
+        Returns a list of ``(name, kind, diam_um, start, count)`` aligned with
+        the segment order of :meth:`segment_coords_um` / :meth:`segments`, where
+        *kind* is a coarse label (``"soma"``/``"dendrite"``/``"axon"``/
+        ``"other"``) derived from the section name.
+
+        Returns
+        -------
+        list of tuple
+        """
+        spans = []
+        start = 0
+        for sec in self.sections:
+            n = sec.nseg
+            name = sec.name().split(".")[-1]
+            if "soma" in name:
+                kind = "soma"
+            elif "apic" in name or "dend" in name:
+                kind = "dendrite"
+            elif "axon" in name:
+                kind = "axon"
+            else:
+                kind = "other"
+            spans.append((name, kind, float(sec.diam), start, n))
+            start += n
+        return spans
+
 
 def register_model(spec: NeuronModelSpec, builder: Callable[[], Cell]) -> None:
     """Register a model builder under ``spec.name``."""

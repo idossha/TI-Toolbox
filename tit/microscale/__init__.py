@@ -62,6 +62,15 @@ from tit.microscale.models import (
     list_models,
     register_model,
 )
+from tit.microscale.viz import (
+    animate_response,
+    crop_surface_patch,
+    plot_cell_in_cortex,
+    plot_efield_vectors,
+    plot_morphology,
+    render_target,
+    section_polylines,
+)
 
 __all__ = [
     "MicroscaleConfig",
@@ -83,4 +92,11 @@ __all__ = [
     "simulate_response",
     "polarization_map",
     "find_threshold",
+    "plot_morphology",
+    "plot_cell_in_cortex",
+    "plot_efield_vectors",
+    "animate_response",
+    "render_target",
+    "crop_surface_patch",
+    "section_polylines",
 ]

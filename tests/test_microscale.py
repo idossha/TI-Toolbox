@@ -289,6 +289,40 @@ def test_metrics_response_npz(tmp_path):
     assert np.isnan(loaded["threshold"]).all()
 
 
+def test_viz_crop_surface_patch():
+    from tit.microscale.viz import crop_surface_patch
+
+    # 4 nodes; node 3 is far away. Triangles (0,1,2) near, (1,2,3) spans far.
+    coords = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [50, 0, 0]], dtype=float)
+    tris = np.array([[0, 1, 2], [1, 2, 3]])
+    pc, pt, mask = crop_surface_patch(coords, tris, [0, 0, 0], radius_mm=5.0)
+    assert mask.tolist() == [True, True, True, False]
+    assert pt.shape == (1, 3)  # only the near triangle survives
+    assert pc.shape == (3, 3)
+    # remapped indices reference the cropped node set
+    assert pt.max() < pc.shape[0]
+
+
+def test_viz_grid_around_shape():
+    from tit.microscale.viz import grid_around
+
+    g = grid_around([1.0, 2.0, 3.0], radius_mm=6.0, n=4)
+    assert g.shape == (64, 3)
+    assert np.allclose(g.mean(0), [1.0, 2.0, 3.0])
+
+
+def test_viz_section_polylines_splits_by_span():
+    from tit.microscale.viz import section_polylines
+
+    world = np.arange(15, dtype=float).reshape(5, 3)
+    spans = [("soma", "soma", 20.0, 0, 2), ("apic", "dendrite", 2.0, 2, 3)]
+    lines = section_polylines(world, spans)
+    assert len(lines) == 2
+    assert lines[0]["kind"] == "soma" and lines[0]["coords"].shape == (2, 3)
+    assert lines[1]["kind"] == "dendrite" and lines[1]["coords"].shape == (3, 3)
+    assert np.allclose(lines[1]["coords"][0], world[2])
+
+
 def test_metrics_polarization_npz(tmp_path):
     from tit.microscale.metrics import write_polarization_npz
 

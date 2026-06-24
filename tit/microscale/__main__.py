@@ -11,6 +11,8 @@ The JSON config is dispatched on its ``"mode"`` field:
   and per-cell polarization maps.
 * ``"threshold"`` -> bisect the field amplitude to each target's firing
   threshold.
+* ``"viz"``       -> render publication figures + an animated clip per target
+  (morphology, neuron-in-cortex, E-field vectors, Vm/E-field time clip).
 
 The remaining keys populate :class:`~tit.microscale.config.MicroscaleConfig`,
 plus a top-level ``"subject_ids"`` list and an optional per-target ``"normals"``
@@ -105,6 +107,17 @@ def _run_subject(sid: str, cfg, mode: str, normals) -> None:
     out_dir = pm.microscale_sim(sid, cfg.sim_name)
     stem = f"sub-{sid}_sim-{cfg.sim_name}"
     write_targets_csv(os.path.join(out_dir, f"{stem}_targets.csv"), targets, norms)
+
+    if mode == "viz":
+        from tit.microscale.viz import render_target
+
+        for idx, (tgt, nrm) in enumerate(zip(targets, norms)):
+            print(f"  [{idx + 1}/{len(targets)}] rendering target {tgt}", flush=True)
+            arts = render_target(sid, cfg, np.array(tgt), np.array(nrm), out_dir)
+            for k, v in arts.items():
+                print(f"      {k}: {v}", flush=True)
+        print(f"  ✓ wrote visualizations to {out_dir}", flush=True)
+        return
 
     results: list[dict] = []
     pol_maps: list[dict] = []
