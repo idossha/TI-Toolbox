@@ -45,6 +45,7 @@ _MOCK_PACKAGES = [
     "mne.transforms",
     "mne.datasets",
     "bpy",
+    "neuron",
     "scipy",
     "scipy.optimize",
     "scipy.spatial",

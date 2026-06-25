@@ -1,0 +1,12 @@
+- generic [ref=e6]:
+  - generic [ref=e8]:
+    - generic [ref=e9]: Checking your browser before accessing pmc.ncbi.nlm.nih.gov ...
+    - generic [ref=e10]:
+      - text: Click
+      - link "here" [ref=e11] [cursor=pointer]:
+        - /url: "#"
+      - text: if you are not automatically redirected after 5 seconds.
+  - iframe [ref=e14]:
+    - generic [ref=f1e6]:
+      - text: protected by
+      - strong [ref=f1e7]: reCAPTCHA
