@@ -1,22 +1,23 @@
 #!/usr/bin/env simnibs_python
-"""Publication-oriented visualizations for microscale coupling.
+"""Figures for the microscale polarization map (matplotlib, headless).
 
-Renders, all via matplotlib (no pyvista/VTK needed) so they run headless inside
-the SimNIBS container:
+A deliberately small, literature-standard set (Aberra et al. 2020/2023; Wang et
+al. 2022; Shirinpour et al. 2021) -- not a gallery:
 
-* :func:`plot_morphology` -- the neuron's 3D morphology, colored by part.
-* :func:`plot_cell_in_cortex` -- the neuron embedded in a patch of the subject's
-  cortical surface at the target, oriented along the cortical normal.
-* :func:`plot_efield_vectors` -- the TI E-field as 3D arrows around the target,
-  with the neuron for scale.
-* :func:`animate_response` -- a GIF clip: membrane potential along the neuron
-  and the oscillating E-field drive over time.
+* :func:`render_polarization_summary` -- THE default figure: the cortical patch
+  colored by somatic ΔVm next to the population histogram of ΔVm, annotated with
+  the firing-threshold margin.  Emitted by
+  :func:`tit.microscale.population.run_population`.
+* :func:`plot_polarization_map` / :func:`plot_polarization_histogram` -- the two
+  panels, reusable on plain NumPy arrays.
+* :func:`plot_morphology` -- a single cell colored by region or by the applied
+  quasipotential Ψ (the field-induced dipole along the morphology).
+* :func:`render_population_region` / :func:`plot_population_3d` -- the optional
+  "populated gyrus" publication figure: many L5 cells embedded in a named GM
+  region, oriented to the cortical normal.
 
-The plotting functions take plain NumPy arrays (placed coordinates, per-section
-spans, traces) so they are decoupled from NEURON; only the convenience wrappers
-that build a cell touch :mod:`tit.microscale.models`.
-
-KIND_COLORS maps the coarse section label to a color.
+All figures run with the ``Agg`` backend (no pyvista/VTK); they take NumPy
+arrays so they are decoupled from NEURON.
 """
 
 from __future__ import annotations
@@ -36,7 +37,6 @@ KIND_COLORS = {
     "dendrite": "#1f78b4",  # back-compat (ball_stick)
     "other": "#999999",
 }
-
 
 # Aberra et al. 2018/2020 neurite-TYPE palette (their populated-gyrus figure):
 # axon red, apical dendrite blue, basal dendrite green, soma dark.
@@ -67,14 +67,27 @@ def _lw_for_diam(diam: float) -> float:
     return float(min(6.0, max(0.6, diam * 1.1)))
 
 
+def _equal_3d(ax, coords: np.ndarray, pad: float = 0.1) -> None:
+    """Give a 3D axis an equal aspect bounding box around *coords*."""
+    coords = np.asarray(coords).reshape(-1, 3)
+    c = coords.mean(0)
+    r = (coords.max(0) - coords.min(0)).max() * (0.5 + pad)
+    r = max(r, 1.0)
+    ax.set_xlim(c[0] - r, c[0] + r)
+    ax.set_ylim(c[1] - r, c[1] + r)
+    ax.set_zlim(c[2] - r, c[2] + r)
+    try:
+        ax.set_box_aspect((1, 1, 1))
+    except Exception:  # noqa: BLE001 - older mpl
+        pass
+
+
 def _add_scale_bar(ax, coords, length, unit="µm"):
     """Draw a 3D scale bar of *length* near the lower-front of *coords*."""
     coords = np.asarray(coords).reshape(-1, 3)
     lo = coords.min(0)
     span = (coords.max(0) - coords.min(0)).max()
-    x0 = lo[0]
-    y0 = lo[1]
-    z0 = lo[2] - 0.05 * span
+    x0, y0, z0 = lo[0], lo[1], lo[2] - 0.05 * span
     ax.plot([x0, x0 + length], [y0, y0], [z0, z0], color="k", lw=3)
     ax.text(
         x0 + length / 2,
@@ -121,96 +134,56 @@ def section_polylines(world_um: np.ndarray, spans: list) -> list:
     return out
 
 
-def _equal_3d(ax, coords: np.ndarray, pad: float = 0.1) -> None:
-    """Give a 3D axis an equal aspect bounding box around *coords*."""
-    coords = np.asarray(coords).reshape(-1, 3)
-    c = coords.mean(0)
-    r = (coords.max(0) - coords.min(0)).max() * (0.5 + pad)
-    r = max(r, 1.0)
-    ax.set_xlim(c[0] - r, c[0] + r)
-    ax.set_ylim(c[1] - r, c[1] + r)
-    ax.set_zlim(c[2] - r, c[2] + r)
-    try:
-        ax.set_box_aspect((1, 1, 1))
-    except Exception:  # noqa: BLE001 - older mpl
-        pass
+def window_patch(coords_mm, tris, scalar, focus_mm, span_mm):
+    """Crop a triangular surface to a contiguous patch around *focus_mm*.
 
-
-def crop_surface_patch(coords_mm, tris, center_mm, radius_mm):
-    """Crop a triangular surface to a disk of *radius_mm* around *center_mm*.
-
-    Keeps triangles whose vertices are all within the radius and remaps their
-    vertex indices to the cropped node set.
-
-    Parameters
-    ----------
-    coords_mm : ndarray (N, 3)
-    tris : ndarray (F, 3)
-    center_mm : ndarray (3,)
-    radius_mm : float
+    Keeps vertices within ``span_mm`` of the focus and the triangles wholly
+    inside, remapping triangle indices to the cropped vertex set.  Used to render
+    a clean, fast patch around the field hotspot instead of a whole hemisphere.
 
     Returns
     -------
     tuple
-        ``(patch_coords (K,3), patch_tris (G,3), keep_mask (N,))``.
+        ``(patch_coords (K,3), patch_tris (G,3), patch_scalar (K,))``.
     """
     coords = np.asarray(coords_mm, dtype=float).reshape(-1, 3)
-    tris = np.asarray(tris, dtype=int).reshape(-1, 3)
-    center = np.asarray(center_mm, dtype=float).reshape(3)
-    within = np.linalg.norm(coords - center, axis=1) <= radius_mm
-    keep_tri = within[tris].all(axis=1)
-    sub_tris = tris[keep_tri]
-    used = np.unique(sub_tris)
-    remap = {old: new for new, old in enumerate(used)}
-    new_tris = (
-        np.vectorize(remap.get)(sub_tris) if len(sub_tris) else sub_tris.reshape(0, 3)
-    )
-    return coords[used], np.asarray(new_tris).reshape(-1, 3), within
+    scalar = np.asarray(scalar, dtype=float).reshape(-1)
+    focus = np.asarray(focus_mm, dtype=float).reshape(3)
+    near = np.linalg.norm(coords - focus, axis=1) <= span_mm
+    if not near.any():
+        near = np.ones(len(coords), dtype=bool)
+    used = np.where(near)[0]
+    remap = np.full(len(coords), -1, dtype=int)
+    remap[used] = np.arange(len(used))
+    if tris is not None and len(tris):
+        tris = np.asarray(tris, dtype=int)
+        keep = near[tris].all(axis=1)
+        patch_tris = remap[tris[keep]]
+    else:
+        patch_tris = np.empty((0, 3), dtype=int)
+    return coords[used], patch_tris, scalar[used]
 
 
-def grid_around(center_mm, radius_mm, n=4):
-    """Regular 3D grid of points within ±radius around a center (mm)."""
-    center = np.asarray(center_mm, dtype=float).reshape(3)
-    lin = np.linspace(-radius_mm, radius_mm, n)
-    gx, gy, gz = np.meshgrid(lin, lin, lin, indexing="ij")
-    return center + np.column_stack([gx.ravel(), gy.ravel(), gz.ravel()])
+def instantaneous_field(e1_vec, e2_vec, f1, f2, t_ms):
+    """Instantaneous TI E-field resultant over time, ``E1·sin + E2·sin``.
 
-
-# ---------------------------------------------------------------------------
-# Temporal-interference field physics (pure)
-# ---------------------------------------------------------------------------
-
-
-def instantaneous_field(
-    e1_vec: np.ndarray,
-    e2_vec: np.ndarray,
-    f1: float,
-    f2: float,
-    t_ms: np.ndarray,
-) -> np.ndarray:
-    """Instantaneous TI E-field vector over time.
-
-    The resultant of two carrier fields that point in *different* directions::
-
-        E_inst(t) = e1_vec * sin(2π f1 t) + e2_vec * sin(2π f2 t)
-
-    When ``e1_vec`` and ``e2_vec`` are non-parallel, the tip of this vector
-    sweeps a Lissajous-like locus and its *direction* rotates over the beat
-    period -- the defining "rotating modulation vector" of temporal
-    interference.  When they are parallel the resultant stays collinear.
+    When the two pair fields point in different directions the tip of this
+    vector sweeps a Lissajous locus and its *direction rotates* over the beat
+    period -- the defining feature of temporal interference (and the reason the
+    time-domain view needs the two HF fields, not the scalar TI envelope).
 
     Parameters
     ----------
-    e1_vec, e2_vec : ndarray, shape (3,)
-        Pair-1 and pair-2 E-field vectors in V/m.
+    e1_vec, e2_vec : ndarray (3,)
+        Pair-1 and pair-2 E-field vectors (V/m).
     f1, f2 : float
-        Carrier frequencies in Hz.
-    t_ms : ndarray, shape (T,)
-        Time samples in ms.
+        Carrier frequencies (Hz).
+    t_ms : ndarray (T,)
+        Time samples (ms).
 
     Returns
     -------
-    ndarray, shape (T, 3)
+    ndarray (T, 3)
         ``E_inst(t)`` in V/m.
     """
     e1 = np.asarray(e1_vec, dtype=float).reshape(3)
@@ -222,7 +195,207 @@ def instantaneous_field(
 
 
 # ---------------------------------------------------------------------------
-# Static renders
+# Polarization map (the headline figure)
+# ---------------------------------------------------------------------------
+
+
+def plot_polarization_map(
+    coords_mm,
+    tris,
+    delta_vm,
+    ax=None,
+    title: str = "Somatic polarization ΔVm",
+    clabel: str = "ΔVm (mV)",
+    vlim=None,
+):
+    """Render a cortical patch colored by somatic polarization ΔVm.
+
+    ΔVm is signed (depolarizing positive, hyperpolarizing negative), so a
+    diverging colormap centered on zero is used.  The surface is the TI central
+    surface (or a windowed patch of it); pass :func:`window_patch` output for a
+    focal montage so the render stays fast and legible.
+
+    Parameters
+    ----------
+    coords_mm : ndarray (N, 3)
+    tris : ndarray (F, 3)
+    delta_vm : ndarray (N,)
+        Per-vertex somatic ΔVm in mV.
+    vlim : tuple, optional
+        Symmetric color limits; defaults to ``(-m, m)`` with
+        ``m = 98th percentile of |ΔVm|``.
+    """
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        fig = plt.figure(figsize=(6.5, 6))
+        ax = fig.add_subplot(111, projection="3d")
+
+    sp = np.asarray(coords_mm, dtype=float).reshape(-1, 3)
+    tris = np.asarray(tris, dtype=int).reshape(-1, 3)
+    dvm = np.asarray(delta_vm, dtype=float).reshape(-1)
+    if vlim is None:
+        finite = np.abs(dvm[np.isfinite(dvm)])
+        m = (float(np.percentile(finite, 98)) if finite.size else 0.0) or 1e-6
+        vlim = (-m, m)
+
+    tri = ax.plot_trisurf(
+        sp[:, 0],
+        sp[:, 1],
+        sp[:, 2],
+        triangles=tris,
+        linewidth=0.0,
+        antialiased=True,
+        shade=False,
+    )
+    tri.set_array(dvm[tris].mean(axis=1))
+    tri.set_cmap("coolwarm")
+    tri.set_clim(*vlim)
+    cb = ax.figure.colorbar(tri, ax=ax, shrink=0.55, pad=0.02, fraction=0.04)
+    cb.set_label(clabel, fontsize=9)
+    cb.ax.tick_params(labelsize=8)
+    _equal_3d(ax, sp, pad=0.02)
+    ax.set_axis_off()
+    ax.set_title(title)
+    return ax
+
+
+def plot_polarization_histogram(
+    delta_vm_cluster,
+    ax=None,
+    neuron_delta_vm=None,
+    title: str = "ΔVm distribution across the cluster",
+):
+    """Histogram of analytic somatic ΔVm over the cluster vertices.
+
+    Overlays the NEURON-subsample ΔVm (if given) so the morphology/orientation
+    spread around the analytic central estimate is visible.
+
+    Parameters
+    ----------
+    delta_vm_cluster : ndarray (N,)
+        Analytic ΔVm at every cluster vertex (mV).
+    neuron_delta_vm : ndarray, optional
+        Flattened NEURON-subsample ΔVm values (mV) to overlay.
+    """
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _fig, ax = plt.subplots(figsize=(5.5, 4.5))
+
+    dvm = np.asarray(delta_vm_cluster, dtype=float).reshape(-1)
+    dvm = dvm[np.isfinite(dvm)]
+    ax.hist(dvm, bins=40, color="#4c72b0", alpha=0.8, label="analytic (all vertices)")
+    if dvm.size:
+        ax.axvline(float(np.mean(dvm)), color="#c44e52", lw=1.5, label="mean")
+        ax.axvline(0.0, color="#555555", lw=0.8, ls="--")
+    if neuron_delta_vm is not None:
+        nv = np.asarray(neuron_delta_vm, dtype=float).reshape(-1)
+        nv = nv[np.isfinite(nv)]
+        if nv.size:
+            ax.hist(
+                nv,
+                bins=20,
+                color="#dd8452",
+                alpha=0.6,
+                density=True,
+                histtype="step",
+                lw=1.6,
+                label="NEURON subsample",
+            )
+    ax.set(xlabel="somatic ΔVm (mV)", ylabel="vertices", title=title)
+    ax.legend(fontsize=8, frameon=False)
+    return ax
+
+
+def render_polarization_summary(subject_id, cfg, result, out_dir, span_mm=18.0):
+    """Write the default two-panel polarization figure for a population run.
+
+    Left: the cortical patch around the field focus colored by somatic ΔVm.
+    Right: the ΔVm histogram across the whole cluster, annotated with the
+    subthreshold margin (peak delivered field vs the Wang et al. 2022 firing
+    threshold).
+
+    Returns
+    -------
+    str
+        Path to ``<stem>_polarization.png``.
+    """
+    import os
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from tit.microscale.config import LFS_THRESHOLD_VM
+    from tit.microscale.metrics import region_summary
+    from tit.microscale.population import load_cluster_triangles
+
+    coords = np.asarray(result["vertices_mm"], dtype=float).reshape(-1, 3)
+    analytic = np.asarray(result["analytic_delta_vm"], dtype=float).reshape(-1)
+    cluster_idx = np.asarray(result["cluster_idx"], dtype=int).reshape(-1)
+    e_normal = np.asarray(result["ti_normal"], dtype=float).reshape(-1)
+
+    try:
+        tris = load_cluster_triangles(subject_id, cfg)
+    except Exception:  # noqa: BLE001 - histogram still works without triangles
+        tris = np.empty((0, 3), dtype=int)
+
+    focus = coords[int(np.argmax(np.abs(e_normal)))]
+    patch_coords, patch_tris, patch_dvm = window_patch(
+        coords, tris, analytic, focus, span_mm
+    )
+
+    # Wide layout with a generous gap so the 3D map and the histogram do not
+    # crowd each other (the 3D axis carries a colorbar on its right).
+    fig = plt.figure(figsize=(15, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.15, 1.0], wspace=0.32)
+    axm = fig.add_subplot(gs[0, 0], projection="3d")
+    plot_polarization_map(
+        patch_coords,
+        patch_tris,
+        patch_dvm,
+        ax=axm,
+        title=f"Somatic ΔVm around the field focus\nsub-{subject_id} • {cfg.sim_name}",
+    )
+    axh = fig.add_subplot(gs[0, 1])
+    cluster_dvm = analytic[cluster_idx] if cluster_idx.size else analytic
+    plot_polarization_histogram(
+        cluster_dvm, ax=axh, neuron_delta_vm=result.get("neuron_delta_vm")
+    )
+
+    summ = region_summary(result)
+    peak_e = summ["e_normal_peak_abs_Vm"]
+    margin = summ["subthreshold_margin_x"]
+    note = (
+        f"peak |E_normal| = {peak_e:.3g} V/m\n"
+        f"firing threshold (Wang 2022) ≈ {LFS_THRESHOLD_VM[0]:g}-"
+        f"{LFS_THRESHOLD_VM[1]:g} V/m\n"
+        f"≈ {margin:.0f}× below threshold → subthreshold polarization"
+    )
+    axh.text(
+        0.02,
+        0.98,
+        note,
+        transform=axh.transAxes,
+        fontsize=8,
+        va="top",
+        ha="left",
+        bbox=dict(boxstyle="round", fc="white", ec="#999999", alpha=0.85),
+    )
+
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(
+        out_dir, f"sub-{subject_id}_sim-{cfg.sim_name}_polarization.png"
+    )
+    fig.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Single-cell morphology (quasipotential along the cell)
 # ---------------------------------------------------------------------------
 
 
@@ -238,8 +411,9 @@ def plot_morphology(
     """Draw the cell's 3D morphology, linewidth ∝ diameter.
 
     By default each section is colored by its region (Shirinpour-style palette).
-    If *values* (a per-segment array, e.g. Vm or quasipotential) is given, every
-    compartment is instead colored by that value on *cmap*.
+    If *values* (a per-segment array, e.g. the applied quasipotential Ψ) is
+    given, every compartment is instead colored by that value on *cmap* -- the
+    field-induced dipole along the morphology (Shirinpour et al. 2021, Fig. 2F).
     """
     import matplotlib.pyplot as plt
 
@@ -268,7 +442,7 @@ def plot_morphology(
                     solid_capstyle="round",
                 )
         sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
-        ax.figure.colorbar(sm, ax=ax, shrink=0.55, pad=0.08, label="value")
+        ax.figure.colorbar(sm, ax=ax, shrink=0.55, pad=0.08, label="Ψ (mV)")
     else:
         seen = set()
         for ln in section_polylines(world, spans):
@@ -294,375 +468,8 @@ def plot_morphology(
     return ax
 
 
-def plot_cell_in_cortex(
-    world_um: np.ndarray,
-    spans: list,
-    patch_coords_mm: np.ndarray,
-    patch_tris: np.ndarray,
-    patch_scalar: np.ndarray | None = None,
-    ax=None,
-    title: str = "Neuron in cortical patch",
-):
-    """Render a cortical surface patch (mm) with the embedded neuron (um).
-
-    The neuron coordinates are um in subject space; the patch is mm.  Both are
-    drawn in mm (neuron converted) so the scales match.
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib.tri import Triangulation  # noqa: F401
-
-    if ax is None:
-        fig = plt.figure(figsize=(6.5, 6))
-        ax = fig.add_subplot(111, projection="3d")
-
-    pc = np.asarray(patch_coords_mm, dtype=float)
-    tris = np.asarray(patch_tris, dtype=int)
-    coll = ax.plot_trisurf(
-        pc[:, 0],
-        pc[:, 1],
-        pc[:, 2],
-        triangles=tris,
-        linewidth=0,
-        antialiased=True,
-        alpha=0.3,
-    )
-    if patch_scalar is not None:
-        coll.set_array(np.asarray(patch_scalar)[tris].mean(axis=1))
-        coll.set_cmap("viridis")
-
-    # Neuron drawn prominently on top: thicker than its true diameter so the
-    # ~1 mm cell stays visible against a multi-mm cortical patch.
-    world_mm = np.asarray(world_um, dtype=float) / 1000.0
-    for ln in section_polylines(world_mm, spans):
-        ax.plot(
-            ln["coords"][:, 0],
-            ln["coords"][:, 1],
-            ln["coords"][:, 2],
-            color=KIND_COLORS.get(ln["kind"], KIND_COLORS["other"]),
-            lw=max(1.6, _lw_for_diam(ln["diam"]) * 0.9),
-            solid_capstyle="round",
-            zorder=5,
-        )
-    soma_mm = world_mm[: spans[0][4]].mean(0) if spans else world_mm.mean(0)
-    ax.scatter(*soma_mm, color=KIND_COLORS["soma"], s=40, zorder=6)
-    allpts = np.vstack([pc, world_mm])
-    _equal_3d(ax, allpts, pad=0.05)
-    ax.set(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)", title=title)
-    return ax
-
-
-def plot_efield_vectors(
-    grid_mm: np.ndarray,
-    e_vectors: np.ndarray,
-    world_um: np.ndarray,
-    spans: list,
-    ax=None,
-    title: str = "TI E-field around target",
-    length_mm: float = 3.0,
-):
-    """3D quiver of E-field samples (mm) with the embedded neuron for scale."""
-    import matplotlib.pyplot as plt
-
-    if ax is None:
-        fig = plt.figure(figsize=(6.5, 6))
-        ax = fig.add_subplot(111, projection="3d")
-
-    g = np.asarray(grid_mm, dtype=float).reshape(-1, 3)
-    e = np.asarray(e_vectors, dtype=float).reshape(-1, 3)
-    mag = np.linalg.norm(e, axis=1)
-    unit = e / (mag.max() + 1e-12)
-    q = ax.quiver(
-        g[:, 0],
-        g[:, 1],
-        g[:, 2],
-        unit[:, 0],
-        unit[:, 1],
-        unit[:, 2],
-        length=length_mm,
-        normalize=False,
-        color="#444444",
-        alpha=0.6,
-        lw=1,
-    )
-    world_mm = np.asarray(world_um, dtype=float) / 1000.0
-    for ln in section_polylines(world_mm, spans):
-        ax.plot(
-            ln["coords"][:, 0],
-            ln["coords"][:, 1],
-            ln["coords"][:, 2],
-            color=KIND_COLORS.get(ln["kind"], KIND_COLORS["other"]),
-            lw=max(1.2, ln["diam"]),
-            solid_capstyle="round",
-        )
-    _equal_3d(ax, np.vstack([g, world_mm]), pad=0.1)
-    ax.set(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)", title=title)
-    ax.text2D(
-        0.02,
-        0.98,
-        f"|E| max {mag.max():.2f} V/m",
-        transform=ax.transAxes,
-        fontsize=8,
-        va="top",
-    )
-    return q
-
-
 # ---------------------------------------------------------------------------
-# Animation
-# ---------------------------------------------------------------------------
-
-
-def animate_response(
-    world_um: np.ndarray,
-    spans: list,
-    t_ms: np.ndarray,
-    v_all: np.ndarray,
-    e1_vec: np.ndarray,
-    e2_vec: np.ndarray,
-    f1: float,
-    f2: float,
-    out_path: str,
-    n_frames: int = 60,
-    fps: int = 15,
-    vlim: tuple | None = None,
-):
-    """Write a GIF: membrane potential along the neuron + the rotating TI field.
-
-    The green field arrow through the soma follows the *true* instantaneous TI
-    resultant ``E_inst(t) = e1*sin(2π f1 t) + e2*sin(2π f2 t)``, so it both
-    rotates in direction and changes length frame to frame as the modulation
-    vector sweeps over the beat cycle.
-
-    Parameters
-    ----------
-    world_um : ndarray (M, 3)
-        Placed segment coordinates (um).
-    spans : list
-        ``Cell.section_spans()``.
-    t_ms : ndarray (T,)
-        Time base (ms).
-    v_all : ndarray (M, T)
-        Per-segment membrane potential (mV).
-    e1_vec, e2_vec : ndarray (3,)
-        Pair-1 and pair-2 E-field vectors (V/m) at the target.
-    f1, f2 : float
-        Carrier frequencies (Hz) of the two pairs.
-    out_path : str
-        Output ``.gif`` path.
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib import animation
-
-    world = np.asarray(world_um, dtype=float)
-    v_all = np.asarray(v_all, dtype=float)
-    t_ms = np.asarray(t_ms, dtype=float)
-    frames = np.linspace(0, v_all.shape[1] - 1, min(n_frames, v_all.shape[1])).astype(
-        int
-    )
-    if vlim is None:
-        vlim = (float(np.percentile(v_all, 1)), float(np.percentile(v_all, 99)))
-    center = world.mean(0)
-    span = (world.max(0) - world.min(0)).max()
-    arrow_len = 0.45 * span
-
-    # Precompute the full rotating field vector once; normalize the arrow by the
-    # max magnitude over the clip so the longest arrow fits the scene.
-    e_inst = instantaneous_field(e1_vec, e2_vec, f1, f2, t_ms)  # (T, 3)
-    e_mag = np.linalg.norm(e_inst, axis=1)
-    e_mag_max = float(e_mag.max()) + 1e-12
-
-    fig = plt.figure(figsize=(9, 5.2))
-    ax = fig.add_subplot(121, projection="3d")
-    axv = fig.add_subplot(222)
-    axd = fig.add_subplot(224)
-    cmap = plt.get_cmap("coolwarm")
-    norm = plt.Normalize(*vlim)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    fig.colorbar(sm, ax=ax, shrink=0.6, label="Vm (mV)")
-
-    soma_idx = next(
-        (s[3] + s[4] // 2 for s in spans if s[1] == "soma"), v_all.shape[0] // 2
-    )
-    comp_colors = ("#1f77b4", "#ff7f0e", "#2ca02c")  # Ex, Ey, Ez
-    comp_labels = ("Ex", "Ey", "Ez")
-
-    def draw(fr):
-        ax.cla()
-        v = v_all[:, fr]
-        # color each compartment by its instantaneous Vm
-        for name, kind, diam, start, count in spans:
-            seg = world[start : start + count]
-            vv = v[start : start + count]
-            for k in range(len(seg) - 1):
-                ax.plot(
-                    seg[k : k + 2, 0],
-                    seg[k : k + 2, 1],
-                    seg[k : k + 2, 2],
-                    color=cmap(norm(0.5 * (vv[k] + vv[k + 1]))),
-                    lw=max(1.5, diam),
-                    solid_capstyle="round",
-                )
-        # Field arrow through the soma ALONG the true rotating resultant, with
-        # length proportional to |E_inst| (normalized by the clip max).
-        evec = e_inst[fr]
-        d = (evec / e_mag_max) * arrow_len
-        ax.quiver(
-            center[0] - d[0],
-            center[1] - d[1],
-            center[2] - d[2],
-            2 * d[0],
-            2 * d[1],
-            2 * d[2],
-            color="#33a02c",
-            lw=2,
-            arrow_length_ratio=0.15,
-        )
-        _equal_3d(ax, world, pad=0.25)
-        ax.set(
-            title=f"t = {t_ms[fr]:.1f} ms  |E| = {e_mag[fr]:.1f} V/m",
-            xticklabels=[],
-            yticklabels=[],
-            zticklabels=[],
-        )
-
-        axv.cla()
-        axv.plot(t_ms[: fr + 1], v_all[soma_idx, : fr + 1], color="#222")
-        axv.set(xlim=(t_ms[0], t_ms[-1]), ylim=vlim, ylabel="soma Vm (mV)")
-        axv.axvline(t_ms[fr], color="r", lw=0.8)
-
-        axd.cla()
-        for j in range(3):
-            axd.plot(
-                t_ms[: fr + 1],
-                e_inst[: fr + 1, j],
-                color=comp_colors[j],
-                lw=0.9,
-                label=comp_labels[j],
-            )
-        axd.set(
-            xlim=(t_ms[0], t_ms[-1]),
-            ylim=(float(e_inst.min()), float(e_inst.max())),
-            xlabel="time (ms)",
-            ylabel="E_inst (V/m)",
-        )
-        axd.axvline(t_ms[fr], color="r", lw=0.8)
-        axd.legend(fontsize=6, ncol=3, loc="upper right")
-        return []
-
-    anim = animation.FuncAnimation(fig, draw, frames=frames, blit=False)
-    anim.save(out_path, writer=animation.PillowWriter(fps=fps))
-    plt.close(fig)
-    return out_path
-
-
-def plot_field_hodograph(
-    e1_vec: np.ndarray,
-    e2_vec: np.ndarray,
-    f1: float,
-    f2: float,
-    ax=None,
-    n_cycles: int = 1,
-    title: str = "TI field hodograph (rotating modulation vector)",
-):
-    """Draw the 2D hodograph of the rotating TI resultant.
-
-    Projects ``E_inst(t)`` over *n_cycles* of the beat period onto the plane
-    spanned by ``e1_vec`` and ``e2_vec`` and plots the tip trajectory, colored
-    by time.  The two pair-field axes (E1 green, E2 magenta) are drawn as
-    reference arrows.  A closed, non-degenerate locus proves the resultant
-    rotates; a line means the two fields are collinear.
-
-    Parameters
-    ----------
-    e1_vec, e2_vec : ndarray, shape (3,)
-        Pair-1 and pair-2 E-field vectors (V/m).
-    f1, f2 : float
-        Carrier frequencies (Hz).
-    n_cycles : int
-        Number of beat periods to trace.
-    """
-    import matplotlib.pyplot as plt
-
-    e1 = np.asarray(e1_vec, dtype=float).reshape(3)
-    e2 = np.asarray(e2_vec, dtype=float).reshape(3)
-
-    # Orthonormal basis (u, w) for the plane spanned by e1, e2: u along e1,
-    # w the component of e2 orthogonal to u. If e1, e2 are collinear, w is
-    # degenerate and the locus collapses to a line (still meaningful).
-    n1 = np.linalg.norm(e1)
-    u = e1 / n1 if n1 > 0 else np.array([1.0, 0.0, 0.0])
-    w_raw = e2 - (e2 @ u) * u
-    nw = np.linalg.norm(w_raw)
-    w = w_raw / nw if nw > 1e-12 else np.zeros(3)
-
-    # Beat period (s) -> sample over n_cycles. Fall back to a fixed window when
-    # the carriers are equal (no beat).
-    df = abs(f1 - f2)
-    beat_s = 1.0 / df if df > 0 else 1.0 / max(f1, f2, 1.0)
-    t_ms = np.linspace(0.0, n_cycles * beat_s * 1000.0, 2000)
-    e_inst = instantaneous_field(e1, e2, f1, f2, t_ms)  # (T, 3)
-
-    px = e_inst @ u
-    py = e_inst @ w
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(5.5, 5.5))
-
-    pts = np.column_stack([px, py])
-    segs = np.stack([pts[:-1], pts[1:]], axis=1)
-    from matplotlib.collections import LineCollection
-
-    lc = LineCollection(segs, cmap="viridis", array=t_ms[:-1], lw=1.6)
-    ax.add_collection(lc)
-    ax.figure.colorbar(lc, ax=ax, shrink=0.75, label="time (ms)")
-
-    # Reference pair-field axes in the same (u, w) plane.
-    e1u, e1w = e1 @ u, e1 @ w
-    e2u, e2w = e2 @ u, e2 @ w
-    ax.annotate(
-        "",
-        xy=(e1u, e1w),
-        xytext=(0, 0),
-        arrowprops=dict(arrowstyle="->", color="#2ca02c", lw=2),
-    )
-    ax.annotate(
-        "",
-        xy=(e2u, e2w),
-        xytext=(0, 0),
-        arrowprops=dict(arrowstyle="->", color="#d62728", lw=2),
-    )
-    ax.text(e1u, e1w, " E1", color="#2ca02c", fontsize=9, va="center")
-    ax.text(e2u, e2w, " E2", color="#d62728", fontsize=9, va="center")
-
-    lim = float(np.abs(pts).max()) * 1.15 + 1e-9
-    ax.set_xlim(-lim, lim)
-    ax.set_ylim(-lim, lim)
-    ax.set_aspect("equal", "box")
-    ax.axhline(0, color="#cccccc", lw=0.6, zorder=0)
-    ax.axvline(0, color="#cccccc", lw=0.6, zorder=0)
-    ax.set(
-        xlabel="E along E1 (V/m)",
-        ylabel="E perpendicular (V/m)",
-        title=title,
-    )
-    angle = float(
-        np.degrees(
-            np.arccos(np.clip((e1 @ e2) / (n1 * np.linalg.norm(e2) + 1e-12), -1, 1))
-        )
-    )
-    ax.text(
-        0.02,
-        0.98,
-        f"∠(E1,E2) = {angle:.0f}°",
-        transform=ax.transAxes,
-        fontsize=8,
-        va="top",
-    )
-    return ax
-
-
-# ---------------------------------------------------------------------------
-# Populated cortex (Aberra-style "populated gyrus")
+# Populated cortex (optional "populated gyrus" publication figure)
 # ---------------------------------------------------------------------------
 
 
@@ -738,11 +545,9 @@ def plot_population_3d(
             depthshade=False,
         )
 
-    # View along the patch's mean normal so the sheet faces the camera.
     allpts = np.vstack([c[1] for cell in placed_cells for c in cell] + [sp])
     _equal_3d(ax, allpts, pad=0.02)
     ax.set_axis_off()
-    # Scale bar.
     lo = allpts.min(0)
     span = (allpts.max(0) - allpts.min(0)).max()
     ax.plot(
@@ -784,154 +589,6 @@ def plot_population_3d(
     return ax
 
 
-def plot_population_in_cortex(
-    placed_cells,
-    surface_pts_mm=None,
-    surface_tris=None,
-    surface_scalar=None,
-    project_axes=(0, 2),
-    color_scheme: str = "aberra",
-    scale_bar_mm: float = 0.25,
-    ax=None,
-    title: str = "Populated cortex",
-    region_label: str | None = None,
-    lw: float = 0.7,
-):
-    """Render many neurons along a cortical cross-section, Aberra-figure style.
-
-    A clean **2D** projection (the slab axis dropped), drawn with one
-    ``LineCollection`` per neurite type for speed and print-quality — neurites
-    colored by TYPE (axon red / apical blue / basal green under ``"aberra"``),
-    embedded in the cortical sheet (the projected surface triangles), with a
-    scale bar.
-
-    Parameters
-    ----------
-    placed_cells : list
-        List of cells; each cell is a list of ``(kind, points_mm (K,3))`` from
-        :func:`tit.microscale.population.place_spec_world`.
-    surface_pts_mm : ndarray (N,3), optional
-        Cortical surface vertices (the gyral sheet the cells sit on).
-    surface_tris : ndarray (F,3), optional
-        Triangles of *surface_pts_mm*; if given, the cortical ribbon is drawn as
-        a translucent filled cross-section so the cells are *embedded*, not
-        floating.  If absent, the vertices are scattered faintly instead.
-    surface_scalar : ndarray (N,), optional
-        Per-vertex scalar (e.g. ``TI_normal``) to color the cortical ribbon.
-    project_axes : tuple of int
-        The two world axes to project onto (default (x, z); the slab axis y is
-        dropped).
-    color_scheme : str
-        ``"aberra"`` (neurite type) or ``"region"``.
-    scale_bar_mm : float
-        Scale-bar length in mm (0.25 = 250 µm).
-    region_label : str, optional
-        Anatomical context annotated on the figure (atlas region / sphere / space).
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib.collections import LineCollection, PolyCollection
-
-    ix, iy = project_axes
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 7))
-
-    allpts = []
-    if surface_pts_mm is not None and len(surface_pts_mm):
-        sp = np.asarray(surface_pts_mm, dtype=float).reshape(-1, 3)
-        if surface_tris is not None and len(surface_tris):
-            tris = np.asarray(surface_tris, dtype=int)
-            polys = sp[tris][:, :, [ix, iy]]  # (F, 3, 2)
-            # Filled triangles with edgecolors='face' (kills the white seams
-            # between bands -> clean, print-quality ribbon; Mirzakhalili 2020).
-            pc = PolyCollection(polys, zorder=0, antialiased=True)
-            if surface_scalar is not None:
-                pc.set_array(np.asarray(surface_scalar)[tris].mean(axis=1))
-                pc.set_cmap("magma")
-                pc.set_alpha(0.55)
-                pc.set_edgecolor("face")
-                cb = ax.figure.colorbar(pc, ax=ax, shrink=0.5, pad=0.01, fraction=0.04)
-                cb.set_label("TI_normal (V/m)", fontsize=8)
-                cb.ax.tick_params(labelsize=7)
-            else:
-                pc.set_facecolor("#dad3c6")
-                pc.set_alpha(0.55)
-                pc.set_edgecolor("face")
-            ax.add_collection(pc)
-        else:
-            ax.scatter(sp[:, ix], sp[:, iy], s=6, color="#888888", alpha=0.5, zorder=1)
-        allpts.append(sp[:, [ix, iy]])
-
-    # Group segments by color -> one LineCollection per neurite type.
-    by_color: dict = {}
-    soma_pts = []
-    for cell in placed_cells:
-        for kind, pts in cell:
-            pts = np.asarray(pts, dtype=float)[:, [ix, iy]]
-            allpts.append(pts)
-            if kind == "soma":
-                soma_pts.append(pts.mean(0))
-                continue
-            segs = np.stack([pts[:-1], pts[1:]], axis=1)
-            by_color.setdefault(_kind_color(kind, color_scheme), []).append(segs)
-    for color, seglist in by_color.items():
-        lc = LineCollection(np.concatenate(seglist), colors=color, linewidths=lw)
-        lc.set_zorder(2)
-        ax.add_collection(lc)
-    if soma_pts:
-        soma_pts = np.array(soma_pts)
-        ax.scatter(
-            soma_pts[:, 0],
-            soma_pts[:, 1],
-            s=4,
-            color=_kind_color("soma", color_scheme),
-            zorder=3,
-        )
-
-    pts_all = np.vstack(allpts) if allpts else np.zeros((1, 2))
-    ax.set_aspect("equal", "box")
-    ax.autoscale_view()
-    # Scale bar (lower-left).
-    lo = pts_all.min(0)
-    span = (pts_all.max(0) - pts_all.min(0)).max()
-    x0, y0 = lo[0] + 0.02 * span, lo[1] - 0.04 * span
-    ax.plot([x0, x0 + scale_bar_mm], [y0, y0], color="k", lw=2.5)
-    ax.text(
-        x0 + scale_bar_mm / 2,
-        y0 - 0.02 * span,
-        f"{scale_bar_mm * 1000:g} µm",
-        ha="center",
-        va="top",
-        fontsize=8,
-    )
-    if color_scheme == "aberra":
-        from matplotlib.lines import Line2D
-
-        ax.legend(
-            handles=[
-                Line2D([0], [0], color="#c81e1e", lw=2, label="axon"),
-                Line2D([0], [0], color="#1f3fb4", lw=2, label="apical dendrite"),
-                Line2D([0], [0], color="#2ca02c", lw=2, label="basal dendrite"),
-            ],
-            fontsize=8,
-            loc="lower right",
-            frameon=False,
-        )
-    if region_label:
-        ax.text(
-            0.02,
-            0.98,
-            region_label,
-            transform=ax.transAxes,
-            fontsize=9,
-            va="top",
-            ha="left",
-            bbox=dict(boxstyle="round", fc="white", ec="#999999", alpha=0.8),
-        )
-    ax.axis("off")
-    ax.set_title(title)
-    return ax
-
-
 def render_population_region(
     subject_id,
     cfg,
@@ -946,9 +603,10 @@ def render_population_region(
     """Populate a GM cortical region with L5 pyramidal neurons and render it.
 
     *spec* is a :class:`~tit.microscale.config.RegionSpec` (atlas / sphere /
-    mask, subject or fsaverage).  The selected region is embedded as a cortical
-    cross-section (ribbon colored by ``TI_normal``) with the neurons placed on
-    it, oriented to the local cortical normal and colored by neurite type.
+    mask, subject or fsaverage).  The selected region is windowed to a clean
+    patch around the field focus, drawn as a lit cortical sheet (colored by
+    ``TI_normal``) with the neurons placed on it, oriented to the local cortical
+    normal and colored by neurite type.
 
     Returns
     -------
@@ -976,31 +634,20 @@ def render_population_region(
     morph = pyramidal_l5(seed=cfg.seed)  # L5 pyramidal only
     rng = np.random.default_rng(cfg.seed)
 
-    # Window to a contiguous patch around the field focus so the ~1 mm cells are
-    # clearly visible and the 3D surface stays a clean single sheet.
     focus = coords[int(np.argmax(scalar))]
-    near = np.linalg.norm(coords - focus, axis=1) <= span_mm
-    if not near.any():
-        near = np.ones(len(coords), dtype=bool)
-    used = np.where(near)[0]
-    remap = np.full(len(coords), -1, dtype=int)
-    remap[used] = np.arange(len(used))
-    patch_coords = coords[used]
-    patch_scalar = scalar[used]
-    patch_tris = (
-        remap[tris[near[tris].all(axis=1)]]
-        if tris is not None and len(tris)
-        else np.empty((0, 3), int)
+    patch_coords, patch_tris, patch_scalar = window_patch(
+        coords, tris, scalar, focus, span_mm
     )
+    near = np.linalg.norm(coords - focus, axis=1) <= span_mm
+    used = np.where(near)[0] if near.any() else np.arange(len(coords))
 
-    # Sample sites spread across the patch surface for the population.
     site_local = (
         rng.choice(len(used), n_cells, replace=False)
         if len(used) > n_cells
         else np.arange(len(used))
     )
     placed = [
-        place_spec_world(morph, patch_coords[i], normals[used[i]]) for i in site_local
+        place_spec_world(morph, coords[used[i]], normals[used[i]]) for i in site_local
     ]
 
     ax = plot_population_3d(
@@ -1014,191 +661,285 @@ def render_population_region(
         f"{len(placed)} L5 pyramidal cells",
         title=f"Populated {name}",
     )
-    stem = f"sub-{subject_id}_{cfg.sim_name}"
+    stem = f"sub-{subject_id}_sim-{cfg.sim_name}"
     path = os.path.join(out_dir, f"{stem}_population_{name}.png")
     ax.figure.savefig(path, dpi=dpi, bbox_inches="tight")
     plt.close(ax.figure)
     return path
 
 
-def render_population_cortex(subject_id, cfg, out_dir, span_mm: float = 12.0):
-    """Auto populated-gyrus figure: a sphere region at the field focus.
+def render_population_figure(
+    subject_id,
+    cfg,
+    result,
+    out_dir,
+    per_vertex: bool = True,
+    max_cells: int = 2500,
+    span_mm: float = 10.0,
+    n_cells: int = 32,
+    dpi=220,
+):
+    """Standalone populated-cortex figure from an in-memory population result.
 
-    Convenience wrapper around :func:`render_population_region` that centers a
-    sphere on the max-``TI_normal`` vertex, so ``run_population`` emits a
-    populated-cortex figure without a caller-supplied region.
+    Places **one L5 pyramidal neuron per vertex of the analyzed ROI** (the dense,
+    Aberra-style populated cortex), oriented to the local cortical normal and
+    embedded in the cortical sheet (colored by ``TI_normal``).  The ROI is:
+
+    * the **analyzed cluster** when ``cfg.cluster_threshold`` scoped it (one cell
+      per cluster vertex), or
+    * a **window around the field focus** (``span_mm``) when the whole surface was
+      analyzed -- the full surface (hundreds of thousands of vertices) is too
+      large to fill, so the figure shows the focal region.
+
+    ``per_vertex=True`` (default) places one cell per ROI vertex, subsampled down
+    to ``max_cells`` if the ROI is larger (logged).  ``per_vertex=False`` falls
+    back to a random ``n_cells`` sample.  Emitted automatically by
+    :func:`tit.microscale.population.run_population` when ``cfg.render_population``.
 
     Returns
     -------
     str
-        Path to the written ``<stem>_population_cortex.png``.
-    """
-    from tit.microscale.config import RegionSpec
-    from tit.microscale.population import load_cluster_surface
-
-    coords, _normals, ti_normal = load_cluster_surface(subject_id, cfg)
-    focus = coords[int(np.argmax(ti_normal))]
-    spec = RegionSpec(
-        kind="sphere", center_subject=tuple(float(c) for c in focus), radius_mm=span_mm
-    )
-    return render_population_region(
-        subject_id, cfg, out_dir, spec, "cortex", span_mm=span_mm
-    )
-
-
-# ---------------------------------------------------------------------------
-# Orchestration: produce all artifacts for one target
-# ---------------------------------------------------------------------------
-
-
-def render_target(
-    subject_id,
-    cfg,
-    target_mm,
-    normal,
-    out_dir,
-    patch_radius_mm=4.0,
-    grid_radius_mm=3.0,
-    clip_carriers=(100.0, 120.0),
-    clip_amplitude=400.0,
-    clip_duration=60.0,
-    clip_dt=0.025,
-):
-    """Produce the four visualization artifacts for one target.
-
-    Writes ``<stem>_morphology.png``, ``<stem>_cortex.png``,
-    ``<stem>_efield.png`` and ``<stem>_clip.gif`` under *out_dir*, where the
-    clip uses a lower-frequency, amplified drive so the membrane response is
-    visible (the real-amplitude kHz drive is far sub-threshold).
-
-    Returns
-    -------
-    dict
-        Map of artifact name -> path.
+        Path to ``<stem>_population.png``.
     """
     import os
-    from dataclasses import replace
 
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from simnibs.mesh_tools import mesh_io
 
-    from tit.microscale.coupling import _load_pair_meshes, simulate_response
-    from tit.microscale.field_sampler import place_morphology, sample_at
-    from tit.microscale.models import build_cell
-    from tit.paths import get_path_manager
+    from tit.microscale.morphology import pyramidal_l5
+    from tit.microscale.population import load_cluster_triangles, place_spec_world
 
-    pm = get_path_manager()
-    os.makedirs(out_dir, exist_ok=True)
-    stem = f"sub-{subject_id}_{cfg.sim_name}"
-    target_mm = np.asarray(target_mm, dtype=float).reshape(3)
-    normal = np.asarray(normal, dtype=float).reshape(3)
+    coords = np.asarray(result["vertices_mm"], dtype=float).reshape(-1, 3)
+    normals = np.asarray(result["normals"], dtype=float).reshape(-1, 3)
+    scalar = np.asarray(result["ti_normal"], dtype=float).reshape(-1)
+    cluster_idx = np.asarray(result["cluster_idx"], dtype=int).reshape(-1)
+    try:
+        tris = load_cluster_triangles(subject_id, cfg)
+    except Exception:  # noqa: BLE001 - render floating cells if triangles absent
+        tris = np.empty((0, 3), dtype=int)
 
-    cell = build_cell(cfg.model)
-    spans = cell.section_spans()
-    world_um = place_morphology(
-        cell.segment_coords_um(), cell.soma_coord_um(), target_mm * 1000.0, normal
-    )
-    out = {}
-
-    # (1) morphology
-    ax = plot_morphology(cell, title=f"{cfg.model} morphology")
-    p = os.path.join(out_dir, f"{stem}_morphology.png")
-    ax.figure.savefig(p, dpi=130)
-    plt.close(ax.figure)
-    out["morphology"] = p
-
-    # (2) cell in cortex patch (from the TI central surface). Glob for the
-    # surface rather than assuming its stem matches the simulation folder name
-    # (the montage name can differ from the folder, e.g. "L_Insula" vs
-    # "L_Insula_scalar").
-    import glob
-
-    surf_dir = os.path.join(pm.ti_mesh_dir(subject_id, cfg.sim_name), "surfaces")
-    cands = sorted(glob.glob(os.path.join(surf_dir, "*_TI_central.msh")))
-    if cands:
-        surf = mesh_io.read_msh(cands[0])
-        coords = surf.nodes.node_coord
-        tris = surf.elm.node_number_list[surf.elm.elm_type == 2][:, :3] - 1
-        scal = (
-            np.asarray(surf.field["TI_max"].value).reshape(-1)
-            if "TI_max" in surf.field
-            else None
-        )
-        pc, pt, mask = crop_surface_patch(coords, tris, target_mm, patch_radius_mm)
-        ps = scal[mask] if scal is not None else None
-        if len(pt):
-            ax = plot_cell_in_cortex(
-                world_um, spans, pc, pt, ps, title="Neuron in cortical patch (TI_max)"
-            )
-            p = os.path.join(out_dir, f"{stem}_cortex.png")
-            ax.figure.savefig(p, dpi=130)
-            plt.close(ax.figure)
-            out["cortex"] = p
+    # Define the ROI to populate.  A real (thresholded) cluster IS the ROI; an
+    # unthresholded whole-surface run falls back to a focal window.
+    scoped = getattr(
+        cfg, "cluster_threshold", None
+    ) is not None and 0 < cluster_idx.size < len(coords)
+    if scoped:
+        roi = cluster_idx
+        center = coords[roi].mean(0)
+        d = np.linalg.norm(coords[roi] - center, axis=1)
+        radius = float(min(np.percentile(d, 95) + 3.0, 30.0))
+        roi_label = f"cluster (TI_normal ≥ {cfg.cluster_threshold:g})"
     else:
-        print(
-            f"      (no TI_central surface in {surf_dir}; skipping cortex panel)",
-            flush=True,
+        center = coords[int(np.argmax(np.abs(scalar)))]
+        radius = span_mm
+        roi = np.where(np.linalg.norm(coords - center, axis=1) <= radius)[0]
+        roi_label = "field focus"
+
+    patch_coords, patch_tris, patch_scalar = window_patch(
+        coords, tris, scalar, center, radius
+    )
+
+    if per_vertex:
+        site = roi
+        if site.size > max_cells:
+            pick = np.linspace(0, site.size - 1, max_cells).round().astype(int)
+            site = site[pick]
+            print(
+                f"  (population figure: {roi.size} ROI vertices capped to "
+                f"{max_cells} cells)",
+                flush=True,
+            )
+        mode = "one per vertex"
+    else:
+        rng = np.random.default_rng(cfg.seed)
+        site = roi if roi.size <= n_cells else rng.choice(roi, n_cells, replace=False)
+        mode = "sampled"
+
+    morph = pyramidal_l5(seed=cfg.seed)
+    placed = [place_spec_world(morph, coords[i], normals[i]) for i in site]
+    n = len(placed)
+    # Thin the neurites as the population gets denser so the forest stays legible.
+    lw = float(np.clip(30.0 / np.sqrt(max(n, 1)), 0.25, 1.4))
+
+    ax = plot_population_3d(
+        placed,
+        surf_coords_mm=patch_coords,
+        surf_tris=patch_tris,
+        surf_scalar=patch_scalar,
+        scale_bar_mm=1.0,
+        lw=lw,
+        region_label=f"sub-{subject_id} • {cfg.sim_name}\n{roi_label}\n"
+        f"{n} L5 pyramidal cells ({mode})",
+        title="Meso-scale population (L5 pyramidal)",
+    )
+    stem = f"sub-{subject_id}_sim-{cfg.sim_name}"
+    path = os.path.join(out_dir, f"{stem}_population.png")
+    ax.figure.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(ax.figure)
+    return path
+
+
+def animate_polarization(
+    placed_world_mm,
+    e1_vec,
+    e2_vec,
+    out_path,
+    viz_carriers=(50.0, 60.0),
+    real_carriers=(2000.0, 2010.0),
+    n_frames: int = 120,
+    fps: int = 20,
+    n_beats: float = 1.5,
+):
+    """Time-domain animation of the field-induced polarization (NEURON-free).
+
+    Shows three things over time, as the user-facing "what the TI field does to a
+    neuron" clip:
+
+    * the morphology colored by the **instantaneous applied quasipotential**
+      ``Ψ(c, t) = ve1(c)·sin(2π f1 t) + ve2(c)·sin(2π f2 t)`` with
+      ``ve = −E·(x − x_soma)`` -- the field-induced dipole that polarizes the cell
+      (depolarizing one pole, hyperpolarizing the other), flipping with the field;
+    * the **rotating instantaneous E-field vector** through the soma (the TI
+      resultant rotates over the beat -- only visible from the two HF fields);
+    * a **trace of the oscillation** at the most-polarized compartment with its
+      beat **envelope**, so the carrier oscillation *and* the slow modulation are
+      both legible.
+
+    The carrier frequency is slowed to *viz_carriers* purely for visibility (the
+    real carriers in *real_carriers* are annotated; the same |Δf| beat and the
+    real field magnitudes are kept), so the kHz cycles do not alias to nothing.
+
+    Parameters
+    ----------
+    placed_world_mm : list of (kind, points_mm)
+        Placed morphology from :func:`tit.microscale.population.place_spec_world`.
+    e1_vec, e2_vec : ndarray (3,)
+        Pair-1 and pair-2 E-field vectors (V/m) at the soma.
+    out_path : str
+        Output ``.gif``.
+
+    Returns
+    -------
+    str
+        *out_path*.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import animation
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection
+
+    sections = [
+        (kind, np.asarray(pts, dtype=float).reshape(-1, 3))
+        for kind, pts in placed_world_mm
+    ]
+    allpts = np.vstack([p for _, p in sections])
+    soma_mm = next((p.mean(0) for k, p in sections if k == "soma"), allpts.mean(0))
+    e1 = np.asarray(e1_vec, dtype=float).reshape(3)
+    e2 = np.asarray(e2_vec, dtype=float).reshape(3)
+
+    # Per-segment quasipotentials (mV): ve = -E·(x - x_soma); 1 V/m == 1 mV/mm.
+    seg_xyz, seg_ve1, seg_ve2 = [], [], []
+    for _kind, pts in sections:
+        v1 = -((pts - soma_mm) @ e1)
+        v2 = -((pts - soma_mm) @ e2)
+        for k in range(len(pts) - 1):
+            seg_xyz.append([pts[k], pts[k + 1]])
+            seg_ve1.append(0.5 * (v1[k] + v1[k + 1]))
+            seg_ve2.append(0.5 * (v2[k] + v2[k + 1]))
+    seg_xyz = np.asarray(seg_xyz)
+    seg_ve1 = np.asarray(seg_ve1)
+    seg_ve2 = np.asarray(seg_ve2)
+
+    f1v, f2v = viz_carriers
+    df = abs(f1v - f2v) or 1.0
+    # Offset the start by a quarter carrier period so frame 0 already shows the
+    # polarization dipole (at t=0 both carriers cross zero and the cell is blank).
+    t0 = 0.25 * 1000.0 / max(f1v, f2v)
+    t_ms = t0 + np.linspace(0.0, n_beats * 1000.0 / df, n_frames)
+    e_inst = instantaneous_field(e1, e2, f1v, f2v, t_ms)
+    e_mag = np.linalg.norm(e_inst, axis=1)
+    e_mag_max = float(e_mag.max()) + 1e-12
+
+    # Representative (most-polarized) compartment for the oscillation trace.
+    rep = int(np.argmax(np.abs(seg_ve1) + np.abs(seg_ve2)))
+    rv1, rv2 = float(seg_ve1[rep]), float(seg_ve2[rep])
+    s1 = np.sin(2.0 * np.pi * f1v * t_ms / 1000.0)
+    s2 = np.sin(2.0 * np.pi * f2v * t_ms / 1000.0)
+    drive = rv1 * s1 + rv2 * s2
+    env = np.sqrt(
+        rv1**2 + rv2**2 + 2.0 * rv1 * rv2 * np.cos(2.0 * np.pi * df * t_ms / 1000.0)
+    )
+
+    span = (allpts.max(0) - allpts.min(0)).max()
+    arrow_len = 0.5 * span
+    vmax = float(np.percentile(np.abs(seg_ve1 + seg_ve2), 98)) or 1e-6
+
+    fig = plt.figure(figsize=(14, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.05], wspace=0.28)
+    ax3d = fig.add_subplot(gs[0, 0], projection="3d")
+    axtr = fig.add_subplot(gs[0, 1])
+    cmap = plt.get_cmap("coolwarm")
+    norm = plt.Normalize(-vmax, vmax)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    # Colorbar on the LEFT of the 3D panel so it does not collide with the trace.
+    fig.colorbar(
+        sm, ax=ax3d, shrink=0.6, pad=0.0, location="left", label="applied Ψ (mV)"
+    )
+    rf1, rf2 = real_carriers
+    fig.suptitle(
+        f"Field-induced polarization over time  (illustrative {f1v:g}/{f2v:g} Hz; "
+        f"real carriers {rf1:g}/{rf2:g} Hz, beat {df:g} Hz)",
+        fontsize=10,
+    )
+
+    def draw(fr):
+        ax3d.cla()
+        psi = seg_ve1 * s1[fr] + seg_ve2 * s2[fr]
+        lc = Line3DCollection(seg_xyz, colors=cmap(norm(psi)), linewidths=2.2)
+        ax3d.add_collection3d(lc)
+        d = (e_inst[fr] / e_mag_max) * arrow_len
+        ax3d.quiver(
+            soma_mm[0] - d[0],
+            soma_mm[1] - d[1],
+            soma_mm[2] - d[2],
+            2 * d[0],
+            2 * d[1],
+            2 * d[2],
+            color="#33a02c",
+            lw=2.5,
+            arrow_length_ratio=0.12,
         )
+        _equal_3d(ax3d, allpts, pad=0.2)
+        ax3d.set_axis_off()
+        ax3d.set_title(f"t = {t_ms[fr]:.0f} ms   |E| = {e_mag[fr]:.3g} V/m")
 
-    # (3) E-field vectors around the target
-    m1, m2 = _load_pair_meshes(subject_id, cfg)
-    grid = grid_around(target_mm, grid_radius_mm, n=4)
-    e1g = sample_at(m1, grid)
-    e2g = sample_at(m2, grid)
-    q = plot_efield_vectors(
-        grid,
-        np.asarray(e1g) + np.asarray(e2g),
-        world_um,
-        spans,
-        title="TI E-field (pair1+pair2) around target",
-    )
-    p = os.path.join(out_dir, f"{stem}_efield.png")
-    q.axes.figure.savefig(p, dpi=130)
-    plt.close(q.axes.figure)
-    out["efield"] = p
+        axtr.cla()
+        axtr.plot(t_ms, env, color="#c44e52", lw=1.0, ls="--", label="beat envelope")
+        axtr.plot(t_ms, -env, color="#c44e52", lw=1.0, ls="--")
+        # Full oscillation faint for context; the elapsed part drawn bold.
+        axtr.plot(t_ms, drive, color="#bbbbbb", lw=0.6)
+        axtr.plot(
+            t_ms[: fr + 1],
+            drive[: fr + 1],
+            color="#222222",
+            lw=1.2,
+            label="applied Ψ (apical)",
+        )
+        axtr.axvline(t_ms[fr], color="#888888", lw=0.8)
+        axtr.set(
+            xlim=(t_ms[0], t_ms[-1]),
+            ylim=(-1.15 * env.max(), 1.15 * env.max()),
+            xlabel="time (ms)",
+            ylabel="applied Ψ at apical tuft (mV)",
+        )
+        axtr.legend(fontsize=8, loc="upper right", frameon=False)
+        return []
 
-    # (3b) morphology colored by the applied quasipotential Ψ (Shirinpour Fig 2F)
-    from tit.microscale.coupling import per_pair_quasipotentials
-
-    ve1, ve2 = per_pair_quasipotentials(cell, target_mm, normal, m1, m2)
-    psi = ve1 + ve2
-    ax = plot_morphology(
-        cell,
-        values=psi,
-        cmap="coolwarm",
-        title="Quasipotential Ψ from the TI field (mV)",
-    )
-    p = os.path.join(out_dir, f"{stem}_quasipotential.png")
-    ax.figure.savefig(p, dpi=130)
-    plt.close(ax.figure)
-    out["quasipotential"] = p
-
-    # (4) animated clip (lower-frequency, amplified so Vm is visible)
-    c = replace(
-        cfg,
-        carrier_freqs=tuple(clip_carriers),
-        amplitude_scale=clip_amplitude,
-        duration=clip_duration,
-        dt=clip_dt,
-    )
-    r = simulate_response(c, target_mm, normal, m1, m2, return_traces=True)
-    e1 = np.asarray(sample_at(m1, target_mm.reshape(1, 3))).reshape(3)
-    e2 = np.asarray(sample_at(m2, target_mm.reshape(1, 3))).reshape(3)
-    t = r["t"]
-    f1, f2 = clip_carriers
-    p = os.path.join(out_dir, f"{stem}_clip.gif")
-    animate_response(
-        r["world_um"], spans, t, r["v_all"], e1, e2, f1, f2, p, n_frames=60, fps=15
-    )
-    out["clip"] = p
-
-    # (5) hodograph -- the figure that proves the resultant rotates.
-    ax = plot_field_hodograph(e1, e2, f1, f2, n_cycles=1)
-    p = os.path.join(out_dir, f"{stem}_hodograph.png")
-    ax.figure.savefig(p, dpi=130)
-    plt.close(ax.figure)
-    out["hodograph"] = p
-    return out
+    anim = animation.FuncAnimation(fig, draw, frames=n_frames, blit=False)
+    anim.save(out_path, writer=animation.PillowWriter(fps=fps))
+    plt.close(fig)
+    return out_path

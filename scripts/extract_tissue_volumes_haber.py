@@ -48,6 +48,7 @@ from tit.pre.tissue_analyzer import DEFAULT_TISSUES, run_tissue_analysis
 SUBJECTS: list[str] | None = None
 TISSUES = tuple(DEFAULT_TISSUES)  # ("bone", "csf", "skin")
 OUTPUT_CSV: str | None = None  # default: <ti-toolbox>/tissue_analysis/tissue_volumes_haber.csv
+RESUME = True  # skip subjects already present in the output CSV (set False to force re-run)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -103,9 +104,28 @@ def main() -> int:
             f"{tissue}_voxels_filtered",
         ]
 
+    out_csv = OUTPUT_CSV or os.path.join(
+        pm.ensure(os.path.join(pm.ti_toolbox(), "tissue_analysis")),
+        "tissue_volumes_haber.csv",
+    )
+
+    # Resume: keep rows for subjects already in the output CSV; recompute the rest.
+    existing: dict[str, dict] = {}
+    if RESUME and os.path.exists(out_csv):
+        with open(out_csv, newline="") as fh:
+            for row in csv.DictReader(fh):
+                existing[row["subject_id"]] = row
+        if existing:
+            logger.info("Resume: %d subjects already in %s", len(existing), out_csv)
+
     rows: list[dict] = []
     failed: list[str] = []
+    skipped = 0
     for sid in subjects:
+        if RESUME and f"sub-{sid}" in existing:
+            rows.append(existing[f"sub-{sid}"])
+            skipped += 1
+            continue
         logger.info("=== sub-%s ===", sid)
         try:
             results = run_tissue_analysis(
@@ -123,16 +143,13 @@ def main() -> int:
         logger.error("No subjects produced results; nothing written.")
         return 1
 
-    out_csv = OUTPUT_CSV or os.path.join(
-        pm.ensure(os.path.join(pm.ti_toolbox(), "tissue_analysis")),
-        "tissue_volumes_haber.csv",
-    )
     with open(out_csv, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
-    logger.info("Wrote %d subjects to %s", len(rows), out_csv)
+    logger.info("Wrote %d subjects to %s (%d reused, %d newly computed)",
+                len(rows), out_csv, skipped, len(rows) - skipped)
     if failed:
         logger.warning("Failed subjects (%d): %s", len(failed), ", ".join(failed))
     return 0

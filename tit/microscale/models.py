@@ -1,17 +1,29 @@
 #!/usr/bin/env simnibs_python
 """Neuron-model registry for microscale coupling.
 
-The default model is an **authored, self-contained ball-and-stick cortical
-neuron** built procedurally with NEURON's built-in ``hh`` (active Hodgkin-Huxley
-channels) and ``extracellular`` mechanisms.  It needs no vendored assets and no
-``.mod`` compilation, so it carries no third-party license.
+Two built-in, license-free models, both built procedurally on NEURON's built-in
+``hh`` (active Hodgkin-Huxley channels) and ``extracellular`` mechanisms -- no
+vendored assets, no ``.mod`` compilation:
+
+* ``l5_pyramidal`` (default) -- a branched layer-5 pyramidal cell (soma, basal
+  dendrites, apical trunk + tuft, AIS + myelinated axon with nodes).  Used for
+  the population polarization map and the populated-gyrus figure.
+* ``ball_stick`` -- a minimal soma + dendrite + axon, for fast sweeps.
+
+.. note::
+
+   These cells reproduce the geometry and the (orientation-aware) **subthreshold
+   polarization** faithfully, which is what the population map uses.  Their
+   vanilla-HH channels do NOT reproduce kHz-TI activation thresholds (Wang et al.
+   2022), so they are not appropriate for *absolute* spike/threshold claims --
+   register a validated multi-channel cell for that (see :func:`register_model`).
 
 Why not ship realistic Blue Brain / Aberra morphologies?  The widely-used
 realistic cortical cells (e.g. the Goswami/Caldas-Martinez TI repo) are licensed
 **CC-BY-NC-SA** (non-commercial, share-alike) and therefore cannot be vendored
 into this toolbox.  Users who have obtained such cells under their own terms can
-register them via :func:`register_model` (see the module docstring of
-:mod:`tit.microscale.coupling`).
+register them via :func:`register_model`, or load any SWC reconstruction with
+:func:`load_swc_cell`.
 
 NEURON is imported lazily inside the builders so importing this module (e.g. to
 read the registry) does not require NEURON to be installed.

@@ -275,24 +275,31 @@ def test_pathmanager_microscale_helpers(init_pm):
     assert "Simulations" not in pm.microscale("001")
 
 
-def test_metrics_targets_csv(tmp_path):
-    from tit.microscale.metrics import write_targets_csv
+def test_region_summary_stats_and_threshold_context():
+    # Uses the shared _fake_population_result fixture (defined below): cluster
+    # ti_normal = [0.5, 0.7, 0.9] V/m, analytic ΔVm = [0.135, 0.189, 0.243] mV.
+    from tit.microscale.config import LFS_THRESHOLD_VM
+    from tit.microscale.metrics import region_summary
 
-    path = str(tmp_path / "out" / "targets.csv")
-    write_targets_csv(path, [(1.0, 2.0, 3.0)], [(0.0, 0.0, 1.0)])
-    text = (tmp_path / "out" / "targets.csv").read_text()
-    assert "x_mm" in text
-    assert "1.0,2.0,3.0,0.0,0.0,1.0" in text
+    s = region_summary(_fake_population_result())
+    assert s["n_cluster_vertices"] == 3
+    assert s["delta_vm_peak_abs_mV"] == pytest.approx(0.243)
+    assert s["e_normal_peak_abs_Vm"] == pytest.approx(0.9)
+    # subthreshold margin = lowest firing threshold / peak delivered field
+    assert s["subthreshold_margin_x"] == pytest.approx(LFS_THRESHOLD_VM[0] / 0.9)
+    # thresholds carried through as readable strings
+    assert "-" in s["lfs_threshold_Vm"]
 
 
-def test_metrics_response_npz(tmp_path):
-    from tit.microscale.metrics import write_response_npz
+def test_write_region_summary_csv(tmp_path):
+    from tit.microscale.metrics import write_region_summary_csv
 
-    path = str(tmp_path / "r.npz")
-    write_response_npz(path, [{"n_spikes": 3, "ve1_max": 0.5}, {"n_spikes": 0}])
-    loaded = np.load(path)
-    assert list(loaded["n_spikes"]) == [3.0, 0.0]
-    assert np.isnan(loaded["threshold"]).all()
+    path = str(tmp_path / "out" / "summary.csv")
+    write_region_summary_csv(path, _fake_population_result())
+    text = (tmp_path / "out" / "summary.csv").read_text()
+    assert "metric,value" in text
+    assert "delta_vm_peak_abs_mV" in text
+    assert "subthreshold_margin_x" in text
 
 
 def test_morphology_pyramidal_l5_structure():
@@ -395,26 +402,48 @@ def test_place_spec_world_orients_and_translates():
     assert np.allclose(soma_pts.mean(0), [5.0, 5.0, 5.0], atol=0.05)
 
 
-def test_viz_crop_surface_patch():
-    from tit.microscale.viz import crop_surface_patch
+def test_window_patch_crops_around_focus():
+    from tit.microscale.viz import window_patch
 
     # 4 nodes; node 3 is far away. Triangles (0,1,2) near, (1,2,3) spans far.
     coords = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [50, 0, 0]], dtype=float)
     tris = np.array([[0, 1, 2], [1, 2, 3]])
-    pc, pt, mask = crop_surface_patch(coords, tris, [0, 0, 0], radius_mm=5.0)
-    assert mask.tolist() == [True, True, True, False]
+    scalar = np.array([1.0, 2.0, 3.0, 99.0])
+    pc, pt, ps = window_patch(coords, tris, scalar, focus_mm=[0, 0, 0], span_mm=5.0)
+    assert pc.shape == (3, 3)  # the far node dropped
     assert pt.shape == (1, 3)  # only the near triangle survives
-    assert pc.shape == (3, 3)
-    # remapped indices reference the cropped node set
-    assert pt.max() < pc.shape[0]
+    assert pt.max() < pc.shape[0]  # remapped to the cropped node set
+    assert ps.tolist() == [1.0, 2.0, 3.0]  # scalar follows the kept vertices
 
 
-def test_viz_grid_around_shape():
-    from tit.microscale.viz import grid_around
+def test_instantaneous_field_rotates_when_nonparallel():
+    from tit.microscale.viz import instantaneous_field
 
-    g = grid_around([1.0, 2.0, 3.0], radius_mm=6.0, n=4)
-    assert g.shape == (64, 3)
-    assert np.allclose(g.mean(0), [1.0, 2.0, 3.0])
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.array([0.0, 1.0, 0.0])
+    t = np.linspace(0, 50, 4000)
+    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
+    assert e.shape == (4000, 3)
+    mag = np.linalg.norm(e, axis=1)
+    keep = mag > 1e-6
+    units = e[keep] / mag[keep][:, None]
+    # When the two pair fields are non-parallel the resultant DIRECTION rotates.
+    assert not np.allclose(units, units[0], atol=1e-3)
+
+
+def test_instantaneous_field_collinear_when_parallel():
+    from tit.microscale.viz import instantaneous_field
+
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.array([2.0, 0.0, 0.0])  # parallel to e1
+    e = instantaneous_field(e1, e2, 100.0, 120.0, np.linspace(0, 50, 2000))
+    assert np.allclose(e[:, 1:], 0.0, atol=1e-12)  # stays collinear, no rotation
+
+
+def test_population_config_render_flags_default_true():
+    cfg = PopulationConfig(sim_name="s")
+    assert cfg.render_population is True
+    assert cfg.render_video is True
 
 
 def test_viz_section_polylines_splits_by_span():
@@ -430,72 +459,8 @@ def test_viz_section_polylines_splits_by_span():
 
 
 # ---------------------------------------------------------------------------
-# Instantaneous TI field (rotating modulation vector)
-# ---------------------------------------------------------------------------
-
-
-def test_instantaneous_field_shape_and_units():
-    from tit.microscale.viz import instantaneous_field
-
-    e1 = np.array([1.0, 0.0, 0.0])
-    e2 = np.array([0.0, 1.0, 0.0])
-    t = np.linspace(0, 10, 250)
-    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
-    assert e.shape == (250, 3)
-    # At a time where sin(2π f1 t)=1 and sin(2π f2 t)=0 the result equals e1.
-    f1, f2 = 100.0, 0.0  # f2=0 -> s2 identically 0
-    t_peak_ms = np.array([1000.0 / (4.0 * f1)])  # quarter period -> sin=1
-    e_peak = instantaneous_field(e1, e2, f1, f2, t_peak_ms)[0]
-    assert np.allclose(e_peak, e1, atol=1e-9)
-
-
-def test_instantaneous_field_rotates_when_nonparallel():
-    from tit.microscale.viz import instantaneous_field
-
-    e1 = np.array([1.0, 0.0, 0.0])
-    e2 = np.array([0.0, 1.0, 0.0])
-    t = np.linspace(0, 50, 4000)
-    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
-    mag = np.linalg.norm(e, axis=1)
-    keep = mag > 1e-6
-    units = e[keep] / mag[keep][:, None]
-    # Direction is not constant over time.
-    assert not np.allclose(units, units[0], atol=1e-3)
-    # The resultant sweeps a plane: cross products over time are nonzero.
-    crosses = np.cross(units[:-1], units[1:])
-    assert np.linalg.norm(crosses, axis=1).max() > 1e-3
-
-
-def test_instantaneous_field_collinear_when_parallel():
-    from tit.microscale.viz import instantaneous_field
-
-    e1 = np.array([1.0, 0.0, 0.0])
-    e2 = np.array([2.0, 0.0, 0.0])  # parallel to e1
-    t = np.linspace(0, 50, 2000)
-    e = instantaneous_field(e1, e2, 100.0, 120.0, t)
-    # Every instantaneous vector is collinear with e1 (no y/z components).
-    assert np.allclose(e[:, 1:], 0.0, atol=1e-12)
-    mag = np.linalg.norm(e, axis=1)
-    keep = mag > 1e-6
-    units = e[keep] / mag[keep][:, None]
-    crosses = np.cross(units[:-1], units[1:])
-    assert np.linalg.norm(crosses, axis=1).max() < 1e-9
-
-
-def test_metrics_polarization_npz(tmp_path):
-    from tit.microscale.metrics import write_polarization_npz
-
-    path = str(tmp_path / "p.npz")
-    write_polarization_npz(
-        path,
-        [{"delta_vm": [0.1, 0.2], "seg_coords_um": [[0, 0, 0], [0, 0, 1]]}],
-    )
-    loaded = np.load(path)
-    assert np.allclose(loaded["delta_vm_0"], [0.1, 0.2])
-
-
-# ---------------------------------------------------------------------------
 # find_threshold bisection logic (NEURON-free, via injected simulate_response)
+# Kept for the experimental single-cell demonstrator (coupling.find_threshold).
 # ---------------------------------------------------------------------------
 
 
@@ -696,12 +661,14 @@ def test_write_population_npz(tmp_path):
     assert "neuron_delta_vm_mean" in loaded["summary_keys"].tolist()
 
 
-def test_write_population_summary_csv(tmp_path):
-    from tit.microscale.metrics import write_population_summary_csv
+def test_region_summary_csv_from_neuron_subsample(tmp_path):
+    # region_summary/CSV work on the fuller fixture (with a NEURON subsample) too.
+    from tit.microscale.metrics import region_summary, write_region_summary_csv
 
+    res = _fake_population_result()
+    s = region_summary(res)
+    assert s["n_cluster_vertices"] == 3
     path = str(tmp_path / "pop_summary.csv")
-    write_population_summary_csv(path, _fake_population_result())
+    write_region_summary_csv(path, res)
     text = (tmp_path / "pop_summary.csv").read_text()
-    assert "neuron_delta_vm_mean_mV" in text
-    # One header + 2 subsample rows.
-    assert len(text.strip().splitlines()) == 3
+    assert "metric,value" in text

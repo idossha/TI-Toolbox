@@ -1,48 +1,55 @@
-"""Mesoscale coupling: drive NEURON neuron models with SimNIBS TI/mTI fields.
+"""Microscale coupling: map a TI/mTI field to cortical neuron polarization.
 
-Takes the macroscale electric field that the simulator already computes
-(per-element ``E`` vectors, plus the two high-frequency pair fields) and applies
-it to multicompartment neuron models under the **quasi-static approximation**,
-so researchers can see how neurons in an ROI respond to the exposure --
-accounting for both field **intensity and orientation**, not just magnitude.
+Takes the macroscale electric field the simulator already computes (the two
+high-frequency pair fields) and, under the **quasi-static approximation**,
+estimates how strongly -- and in what sign -- it polarizes cortical neurons
+across a region, accounting for field **intensity and orientation**.
 
-This is an *optional, research-grade* module.  It adds a heavy dependency
-(NEURON) that is only imported lazily when a simulation is actually run; the
-field-sampling and quasipotential math (:mod:`tit.microscale.field_sampler`) is
-pure NumPy and usable without NEURON.
+The headline product is a **subthreshold cortical polarization map**: the
+per-vertex somatic ΔVm an unconnected population of L5 pyramidal neurons would
+experience.  This is the literature-grounded, robust quantity for realistic
+(scalp-deliverable) TI, where fields are far below the threshold for direct
+firing (Wang et al. 2022; Rampersad et al. 2019).
+
+This is an *optional, research-grade* module.  The heavy dependency (NEURON) is
+imported lazily and only needed for the population's NEURON-subsample refinement;
+the field-sampling and quasipotential math (:mod:`tit.microscale.field_sampler`)
+and the analytic polarization map are pure NumPy and run without NEURON.
 
 Pipeline::
 
-    simnibs_python -m tit.microscale config.json
+    simnibs_python -m tit.microscale config.json   # mode: "polarization"
 
 Physics
 -------
 Under the quasi-static approximation the FEM field is independent of the neuron
-dynamics, so coupling is a four-step recipe (Aberra et al. 2020; Shirinpour et
-al. 2021):
+dynamics, so coupling is (Aberra et al. 2018/2020; Wang et al. 2022):
 
-1. place a multicompartment neuron at a target location/orientation,
-2. sample the E-field vector at each compartment,
-3. integrate the field along the morphology into a quasipotential
-   ``V_e = -∫ E·dl``,
-4. inject ``V_e`` into NEURON's ``extracellular`` mechanism and run.
+1. sample the E-field vector at the soma (locally near-uniform at cell scale),
+2. integrate it over the morphology into a quasipotential ``V_e = -E·l_c``,
+3. for the central estimate, take the first-order somatic polarization
+   ``ΔVm = coupling · E_normal`` (Radman et al. 2009), linear in the field.
 
-For temporal interference the cell is driven by the two kHz **carriers** (not a
-precomputed envelope), so envelope demodulation emerges from the active
-membrane biophysics (Mirzakhalili et al. 2020; Wang et al. 2022).
+NEURON refines this on a subsample to characterize the morphology- and
+orientation-dependent spread; it does not move the analytic estimate.
 
 See Also
 --------
-tit.microscale.config : ``MicroscaleConfig`` and ``NeuronModelSpec``.
+tit.microscale.population : ``run_population`` -- the polarization-map pipeline.
 tit.microscale.field_sampler : NEURON-free field sampling and quasipotentials.
 """
 
 from tit.microscale.config import (
+    DEFAULT_COUPLING_MV_PER_VM,
+    KHZ_TIS_THRESHOLD_VM,
+    LFS_THRESHOLD_VM,
     MicroscaleConfig,
     NeuronModelSpec,
     PopulationConfig,
+    RegionSpec,
 )
 from tit.microscale.field_sampler import (
+    load_field,
     mm_to_um,
     path_quasipotential,
     place_morphology,
@@ -51,7 +58,6 @@ from tit.microscale.field_sampler import (
     uniform_quasipotential,
     um_to_mm,
 )
-
 from tit.microscale.coupling import (
     build_extracellular_timeseries,
     count_spikes,
@@ -78,76 +84,88 @@ from tit.microscale.population import (
     analytic_polarization_map,
     azimuths,
     load_cluster_surface,
-    load_cluster_triangles,
     place_spec_world,
     run_population,
-    sample_cortical_strip,
     select_cluster,
     select_region,
 )
+from tit.microscale.metrics import (
+    region_summary,
+    write_polarization_gifti,
+    write_polarization_msh,
+    write_population_npz,
+    write_region_summary_csv,
+)
 from tit.microscale.viz import (
-    animate_response,
-    crop_surface_patch,
+    animate_polarization,
     instantaneous_field,
-    plot_cell_in_cortex,
-    plot_efield_vectors,
-    plot_field_hodograph,
     plot_morphology,
-    plot_population_in_cortex,
+    plot_polarization_histogram,
+    plot_polarization_map,
     plot_population_3d,
-    render_population_cortex,
+    render_polarization_summary,
+    render_population_figure,
     render_population_region,
-    render_target,
-    section_polylines,
 )
 
 __all__ = [
-    "MicroscaleConfig",
-    "NeuronModelSpec",
+    # --- configs ---
     "PopulationConfig",
+    "RegionSpec",
+    "NeuronModelSpec",
+    "MicroscaleConfig",  # experimental single-cell demonstrator
+    "DEFAULT_COUPLING_MV_PER_VM",
+    "LFS_THRESHOLD_VM",
+    "KHZ_TIS_THRESHOLD_VM",
+    # --- the polarization-map pipeline (headline) ---
     "run_population",
     "analytic_polarization_map",
-    "select_cluster",
-    "azimuths",
-    "load_cluster_surface",
-    "load_cluster_triangles",
-    "instantaneous_field",
-    "plot_field_hodograph",
-    "plot_population_in_cortex",
-    "plot_population_3d",
-    "render_population_cortex",
-    "render_population_region",
     "select_region",
-    "sample_cortical_strip",
+    "select_cluster",
+    "load_cluster_surface",
     "place_spec_world",
+    "azimuths",
+    "region_summary",
+    # --- quasi-static coupling math (NEURON-free foundation) ---
     "mm_to_um",
     "um_to_mm",
     "sample_at",
+    "load_field",
     "uniform_quasipotential",
     "path_quasipotential",
     "rotation_align",
     "place_morphology",
+    "per_pair_quasipotentials",
+    "build_extracellular_timeseries",
+    "count_spikes",
+    "polarization_map",
+    # --- cells ---
     "Cell",
     "build_cell",
     "build_from_spec",
     "load_swc_cell",
-    "list_models",
     "register_model",
+    "list_models",
     "pyramidal_l5",
     "load_swc",
     "MorphologySpec",
     "SectionSpec",
-    "build_extracellular_timeseries",
-    "count_spikes",
-    "per_pair_quasipotentials",
-    "simulate_response",
-    "polarization_map",
-    "find_threshold",
+    # --- figures ---
+    "render_polarization_summary",
+    "plot_polarization_map",
+    "plot_polarization_histogram",
     "plot_morphology",
-    "plot_cell_in_cortex",
-    "plot_efield_vectors",
-    "animate_response",
-    "render_target",
-    "crop_surface_patch",
-    "section_polylines",
+    "render_population_figure",
+    "render_population_region",
+    "plot_population_3d",
+    "animate_polarization",
+    "instantaneous_field",
+    # --- output writers ---
+    "write_population_npz",
+    "write_region_summary_csv",
+    "write_polarization_msh",
+    "write_polarization_gifti",
+    # --- experimental single-cell demonstrator (not quantitatively faithful) ---
+    "simulate_response",
+    "find_threshold",
 ]

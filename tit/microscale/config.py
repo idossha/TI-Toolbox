@@ -1,18 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""Configuration dataclasses for microscale (field -> neuron) coupling.
+"""Configuration dataclasses and literature constants for microscale coupling.
 
 Defines the typed configs consumed by :mod:`tit.microscale`:
 
-* :class:`NeuronModelSpec` -- describes a vendored multicompartment neuron
-  model (morphology + mechanisms) registered in
+* :class:`PopulationConfig` -- parameters for the headline polarization-map
+  pipeline (:func:`tit.microscale.population.run_population`).
+* :class:`RegionSpec` -- a cortical region (atlas label / sphere / mask) to
+  populate for the optional populated-gyrus figure.
+* :class:`NeuronModelSpec` -- describes a neuron model registered in
   :mod:`tit.microscale.models`.
-* :class:`MicroscaleConfig` -- parameters for driving neuron models with a
-  simulation's TI/mTI field (targets, carrier frequencies, integration step,
-  duration).
+* :class:`MicroscaleConfig` -- the *experimental* single-cell demonstrator
+  config (kept for the fenced, library-only spike/threshold functions).
+
+Plus the literature constants the pipeline and docs report against:
+:data:`DEFAULT_COUPLING_MV_PER_VM`, :data:`LFS_THRESHOLD_VM`,
+:data:`KHZ_TIS_THRESHOLD_VM`, :data:`CONDUCTION_BLOCK_VM`.
 
 See Also
 --------
-tit.microscale.coupling : Consumes :class:`MicroscaleConfig`.
+tit.microscale.population : Consumes :class:`PopulationConfig` / :class:`RegionSpec`.
 tit.microscale.models : Registry of :class:`NeuronModelSpec`.
 """
 
@@ -28,6 +34,27 @@ DEFAULT_CARRIERS: tuple[float, float] = (2000.0, 2010.0)
 #: carriers must be sampled finely enough to integrate; ``dt`` is rejected if it
 #: exceeds ``carrier_period / MIN_STEPS_PER_PERIOD``.
 MIN_STEPS_PER_PERIOD: int = 10
+
+#: First-order somatic polarization coupling for an L5 pyramidal neuron, in mV
+#: per (V/m), under a field aligned with the somatodendritic axis.  This is the
+#: single representative regular-spiking L5 cell of Radman et al. 2009 (Brain
+#: Stimul 2:215, Fig. 1C), measured at near-optimal orientation -- it is NOT a
+#: population mean.  Across 51 cortical cells Radman et al. report a polarization
+#: length spanning roughly -0.29 to +0.49 mm (== mV/(V/m)); Bikson et al. 2004
+#: (J Physiol 557:175) measured 0.12 for hippocampal CA1.  Treat 0.27 as a
+#: central estimate within a ~0.1-0.5 range, not a hard constant.
+DEFAULT_COUPLING_MV_PER_VM: float = 0.27
+
+#: Single-cell activation / block thresholds for an L5 pyramidal neuron under a
+#: *uniform total* E-field, reported by Wang et al. 2022 (J Neural Eng 19:066047)
+#: in V/m.  Provided as honest context: scalp-realistic human TI envelope fields
+#: at depth (~0.1-0.6 V/m; Rampersad et al. 2019) are two-to-three orders of
+#: magnitude below these, so this tool reports *subthreshold polarization*, not
+#: predicted firing.  The only suprathreshold single-cell regime (block) needs
+#: fields that cannot be delivered through the scalp.
+LFS_THRESHOLD_VM: tuple[float, float] = (16.9, 47.4)  # 10 Hz low-freq sinusoid
+KHZ_TIS_THRESHOLD_VM: tuple[float, float] = (75.0, 230.0)  # kHz / TIS / AM-HFS
+CONDUCTION_BLOCK_VM: float = 1700.0  # TIS conduction block (some orientations)
 
 
 @dataclass(frozen=True)
@@ -65,7 +92,21 @@ class NeuronModelSpec:
 
 @dataclass(frozen=True)
 class MicroscaleConfig:
-    """Parameters for driving neuron models with a simulation's TI field.
+    """Parameters for the *single-cell* demonstrator (experimental).
+
+    .. warning::
+
+       This drives a single neuron at explicit target coordinates with the kHz
+       carriers and is intended for **qualitative exploration only**.  The
+       built-in cells use NEURON's vanilla Hodgkin-Huxley channels, which Wang
+       et al. 2022 show are "ill suited" to kHz transcranial stimulation, so the
+       absolute spike counts and firing thresholds it produces are *not*
+       quantitatively faithful.  For the robust, literature-grounded analysis
+       use the population polarization map (:class:`PopulationConfig` /
+       :func:`tit.microscale.population.run_population`).  For trustworthy
+       single-cell thresholds, register a validated multi-channel cortical cell
+       (e.g. a Hay et al. 2011 / Aberra et al. 2018 model) via
+       :func:`tit.microscale.models.register_model`.
 
     Attributes
     ----------
@@ -178,15 +219,22 @@ class PopulationConfig:
 
     Simulates a CLUSTER/POPULATION of independent neurons (no synaptic
     connectivity) -- the standard approach for subthreshold-polarization and
-    activation-threshold questions (Aberra et al. 2018, 2020; Seo & Jun 2017;
-    Shirinpour et al. 2021).  The population is the cross product of *clones*,
-    *azimuthal rotations*, and *cluster sites*.
+    activation-threshold questions (Aberra et al. 2018; Aberra et al. 2020;
+    Seo & Jun 2017; Shirinpour et al. 2021).  The population is the cross product
+    of *clones*, *azimuthal rotations*, and *cluster sites*.
 
     The central estimate is the cheap analytic somatic polarization
     ``ΔVm = polarization_coupling * E_normal`` (Radman et al. 2009; Bikson et al.
     2004), computed over *all* cluster vertices.  NEURON solves a modest
     *subsample* only to characterize the distribution (morphology, dendritic vs
     somatic poles, orientation spread) -- it does not move the analytic estimate.
+
+    **Scope.** An unconnected population is the accepted standard for *direct*
+    subthreshold polarization and activation thresholds, but it cannot model
+    network-level effects -- oscillation entrainment, recruitment, or the
+    TI-selectivity mechanism that depends on network time constants
+    (Esmaeilpour et al. 2021).  The map answers "how strongly, and in what sign,
+    does this montage polarize cortical neurons", not "will it evoke spikes".
 
     Attributes
     ----------
@@ -210,7 +258,9 @@ class PopulationConfig:
         Number of cluster vertices solved with NEURON (0 = analytic only).
     polarization_coupling : float
         First-order somatic coupling in mV per (V/m), used for the analytic map.
-        Default 0.27 for L5 pyramidal somata (Radman et al. 2009).
+        Defaults to :data:`DEFAULT_COUPLING_MV_PER_VM` (0.27 for an L5 pyramidal
+        soma at optimal orientation; Radman et al. 2009).  See that constant for
+        the defensible range and caveats.
     carrier_freqs : tuple of (float, float)
         The two kHz carrier frequencies in Hz.
     duration : float
@@ -223,6 +273,14 @@ class PopulationConfig:
         Number of parallel workers (1 = serial).
     seed : int
         Base seed; clone ``c`` uses ``seed + c``.
+    render_population : bool
+        Also emit the standalone populated-cortex figure (L5 cells embedded in
+        the cortical patch at the field focus).  Default ``True``.
+    render_video : bool
+        Also emit the time-domain animation at the field focus (the neuron
+        colored by the instantaneous applied quasipotential, the rotating TI
+        field vector, and the oscillation/beat trace).  Reads the two HF pair
+        meshes; best-effort.  Default ``True``.
     overwrite : bool
         Recompute even when a cached result exists.
     """
@@ -235,13 +293,15 @@ class PopulationConfig:
     cluster_normal_field: str = "TI_normal"
     cluster_threshold: float | None = None
     n_subsample: int = 50
-    polarization_coupling: float = 0.27
+    polarization_coupling: float = DEFAULT_COUPLING_MV_PER_VM
     carrier_freqs: tuple[float, float] = field(default_factory=lambda: DEFAULT_CARRIERS)
     duration: float = 100.0
     dt: float = 0.005
     temperature: float = 37.0
     cpus: int = 1
     seed: int = 0
+    render_population: bool = True
+    render_video: bool = True
     overwrite: bool = False
 
     def __post_init__(self) -> None:

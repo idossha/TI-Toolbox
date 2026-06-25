@@ -35,12 +35,13 @@ Two-tier estimate
 
 References
 ----------
-Aberra, Wang, Grill & Peterchev (2018) *J. Neural Eng.* 15:066023.
-Aberra, Peterchev & Grill (2020) *J. Neural Eng.* 17:046027.
-Seo & Jun (2017) *Front. Comput. Neurosci.* 11:91.
-Radman, Ramos, Brumberg & Bikson (2009) *Brain Stimul.* 2:215.
-Bikson et al. (2004) *J. Physiol.* 557:175.
-Shirinpour et al. (2021) *Brain Stimul.* 14:1470.
+Aberra, Peterchev & Grill (2018) *J. Neural Eng.* 15:066023.
+Aberra, Wang, Grill & Peterchev (2020) *Brain Stimul.* 13:175-189.
+Seo & Jun (2017) *Front. Hum. Neurosci.* 11:515.
+Radman, Ramos, Brumberg & Bikson (2009) *Brain Stimul.* 2:215-228.
+Bikson et al. (2004) *J. Physiol.* 557:175-190.
+Shirinpour et al. (2021) *Brain Stimul.* 14:1470-1482.
+Esmaeilpour et al. (2021) *Brain Stimul.* 14:55-65.
 """
 
 from __future__ import annotations
@@ -509,7 +510,7 @@ def run_population(subject_id: str, cfg) -> dict:
         ``summary`` holds mean/std/percentiles of the somatic ΔVm and of the
         NEURON/analytic amplification factor.
     """
-    from tit.microscale.coupling import _load_pair_meshes, per_pair_quasipotentials
+    from tit.microscale.coupling import _load_pair_meshes
     from tit.microscale.models import build_cell
     from tit.microscale.morphology import pyramidal_l5
 
@@ -594,33 +595,132 @@ def run_population(subject_id: str, cfg) -> dict:
     }
 
     from tit.microscale.metrics import (
+        region_summary,
         write_population_npz,
-        write_population_summary_csv,
+        write_polarization_gifti,
+        write_polarization_msh,
+        write_region_summary_csv,
     )
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
     out_dir = pm.microscale_sim(subject_id, cfg.sim_name)
     stem = f"sub-{subject_id}_sim-{cfg.sim_name}"
-    npz_path = os.path.join(out_dir, f"{stem}_population.npz")
-    csv_path = os.path.join(out_dir, f"{stem}_population_summary.csv")
+
+    # (1) Full arrays + the readable region-level summary table.
+    npz_path = os.path.join(out_dir, f"{stem}_polarization.npz")
+    csv_path = os.path.join(out_dir, f"{stem}_summary.csv")
     write_population_npz(npz_path, result)
-    write_population_summary_csv(csv_path, result)
+    write_region_summary_csv(csv_path, result)
     print(f"  ✓ wrote {npz_path}", flush=True)
     print(f"  ✓ wrote {csv_path}", flush=True)
+    summ = region_summary(result)
+    print(
+        f"  ΔVm: mean={summ['delta_vm_mean_mV']:.4g} mV  "
+        f"peak|={summ['delta_vm_peak_abs_mV']:.4g} mV  "
+        f"(~{summ['subthreshold_margin_x']:.0f}× below the firing threshold)",
+        flush=True,
+    )
 
-    # Aberra-style populated-gyrus figure (pure geometry; cheap).
+    # (2) Surface overlays of the ΔVm map (best-effort; never fail the run).
+    central = _central_surface_path(subject_id, cfg)
+    if central is not None:
+        try:
+            msh_path = write_polarization_msh(
+                central,
+                os.path.join(out_dir, f"{stem}_polarization.msh"),
+                result["analytic_delta_vm"],
+            )
+            print(f"  ✓ wrote {msh_path}", flush=True)
+            result["polarization_msh"] = msh_path
+        except Exception as exc:  # noqa: BLE001 - overlay is optional
+            print(f"  (skipped .msh overlay: {exc})", flush=True)
     try:
-        from tit.microscale.viz import render_population_cortex
+        gii_path = write_polarization_gifti(
+            os.path.join(out_dir, f"{stem}_polarization.gii"),
+            result["analytic_delta_vm"],
+        )
+        print(f"  ✓ wrote {gii_path}", flush=True)
+        result["polarization_gii"] = gii_path
+    except Exception as exc:  # noqa: BLE001 - overlay is optional
+        print(f"  (skipped GIFTI overlay: {exc})", flush=True)
 
-        fig_path = render_population_cortex(subject_id, cfg, out_dir)
+    # (3) The default two-panel figure (map + ΔVm histogram).
+    try:
+        from tit.microscale.viz import render_polarization_summary
+
+        fig_path = render_polarization_summary(subject_id, cfg, result, out_dir)
         print(f"  ✓ wrote {fig_path}", flush=True)
-        result["population_cortex_png"] = fig_path
+        result["polarization_png"] = fig_path
     except Exception as exc:  # noqa: BLE001 - figure is optional, don't fail the run
-        print(f"  (skipped populated-cortex figure: {exc})", flush=True)
+        print(f"  (skipped polarization figure: {exc})", flush=True)
+
+    # (4) Standalone populated-cortex figure (L5 cells embedded at the focus).
+    if getattr(cfg, "render_population", True):
+        try:
+            from tit.microscale.viz import render_population_figure
+
+            pop_path = render_population_figure(subject_id, cfg, result, out_dir)
+            print(f"  ✓ wrote {pop_path}", flush=True)
+            result["population_png"] = pop_path
+        except Exception as exc:  # noqa: BLE001 - figure is optional
+            print(f"  (skipped population figure: {exc})", flush=True)
+
+    # (5) Time-domain animation at the field focus (uses the two HF fields).
+    if getattr(cfg, "render_video", True):
+        try:
+            vid_path = _render_focus_video(subject_id, cfg, result, out_dir)
+            print(f"  ✓ wrote {vid_path}", flush=True)
+            result["polarization_gif"] = vid_path
+        except Exception as exc:  # noqa: BLE001 - video is optional/heavy
+            print(f"  (skipped polarization video: {exc})", flush=True)
 
     print("  ✓ population complete", flush=True)
     return result
+
+
+def _render_focus_video(subject_id: str, cfg, result, out_dir):
+    """Animate the field-induced polarization at the max-|TI_normal| vertex.
+
+    Places one L5 pyramidal cell at the field focus oriented to the cortical
+    normal, samples the two HF pair fields there, and renders the NEURON-free
+    time-domain clip (quasipotential + rotating field vector + beat trace).  The
+    two HF fields are required -- the scalar TI envelope has no time axis.
+    """
+    from tit.microscale.coupling import _load_pair_meshes
+    from tit.microscale.field_sampler import sample_at
+    from tit.microscale.morphology import pyramidal_l5
+    from tit.microscale.viz import animate_polarization
+
+    coords = np.asarray(result["vertices_mm"], dtype=float).reshape(-1, 3)
+    normals = np.asarray(result["normals"], dtype=float).reshape(-1, 3)
+    scalar = np.asarray(result["ti_normal"], dtype=float).reshape(-1)
+    idx = int(np.argmax(np.abs(scalar)))
+    target_mm, normal = coords[idx], normals[idx]
+
+    m1, m2 = _load_pair_meshes(subject_id, cfg)
+    e1 = np.asarray(sample_at(m1, target_mm.reshape(1, 3))).reshape(3)
+    e2 = np.asarray(sample_at(m2, target_mm.reshape(1, 3))).reshape(3)
+
+    placed = place_spec_world(pyramidal_l5(seed=cfg.seed), target_mm, normal)
+    out_path = os.path.join(
+        out_dir, f"sub-{subject_id}_sim-{cfg.sim_name}_polarization.gif"
+    )
+    return animate_polarization(
+        placed, e1, e2, out_path, real_carriers=cfg.carrier_freqs
+    )
+
+
+def _central_surface_path(subject_id: str, cfg) -> str | None:
+    """Return the TI central-surface ``.msh`` path, or ``None`` if absent."""
+    from tit.paths import get_path_manager
+
+    pm = get_path_manager()
+    surf_glob = os.path.join(
+        pm.ti_mesh_dir(subject_id, cfg.sim_name), "surfaces", "*_TI_central.msh"
+    )
+    matches = sorted(glob.glob(surf_glob))
+    return matches[0] if matches else None
 
 
 def _static_soma_polarization(

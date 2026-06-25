@@ -1,14 +1,18 @@
 #!/usr/bin/env simnibs_python
-"""Assemble and persist microscale neuron-response outputs.
+"""Persist the microscale polarization-map outputs.
 
-Pure I/O helpers (NumPy + stdlib) that write the per-simulation artifacts under
-``derivatives/SimNIBS/sub-<id>/microscale/<sim>/``:
+Pure I/O helpers (NumPy + stdlib) plus two best-effort surface writers, all
+writing under ``derivatives/SimNIBS/sub-<id>/microscale/<sim>/``:
 
-* ``sub-<id>_sim-<sim>_targets.csv``      -- placed target coordinates/normals
-* ``sub-<id>_sim-<sim>_response.npz``     -- spike counts / thresholds per target
-* ``sub-<id>_sim-<sim>_polarization.npz`` -- per-cell ΔVm maps
-* ``sub-<id>_sim-<sim>_population.npz``    -- population cluster + NEURON arrays
-* ``sub-<id>_sim-<sim>_population_summary.csv`` -- per-subsample-vertex summary
+* ``sub-<id>_sim-<sim>_polarization.npz`` -- the full population result: the
+  analytic per-vertex ΔVm map, the cluster indices, and the NEURON-subsample
+  distribution arrays.
+* ``sub-<id>_sim-<sim>_summary.csv``      -- a readable region-level table
+  (ΔVm statistics + the delivered field vs literature firing thresholds).
+* ``sub-<id>_sim-<sim>_polarization.msh`` -- the central surface carrying the
+  ΔVm node field (SimNIBS/gmsh native; best-effort, needs simnibs).
+* ``sub-<id>_sim-<sim>_polarization.gii`` -- a GIFTI overlay of the same map
+  (portable; loads in FreeView/Connectome Workbench; best-effort, needs nibabel).
 """
 
 from __future__ import annotations
@@ -18,83 +22,10 @@ import os
 
 import numpy as np
 
-
-def write_targets_csv(path: str, targets_mm, normals) -> str:
-    """Write the placed-target table.
-
-    Parameters
-    ----------
-    path : str
-        Output CSV path.
-    targets_mm : sequence of (x, y, z)
-        Target soma coordinates in mm.
-    normals : sequence of (nx, ny, nz)
-        Orientation (cortical normal) per target.
-
-    Returns
-    -------
-    str
-        *path*.
-    """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["index", "x_mm", "y_mm", "z_mm", "nx", "ny", "nz"])
-        for i, (t, n) in enumerate(zip(targets_mm, normals)):
-            w.writerow([i, *(float(v) for v in t), *(float(v) for v in n)])
-    return path
-
-
-def write_response_npz(path: str, results: list[dict]) -> str:
-    """Persist per-target response metrics to a ``.npz``.
-
-    Parameters
-    ----------
-    path : str
-        Output ``.npz`` path.
-    results : list of dict
-        One dict per target with at least ``"n_spikes"`` and optionally
-        ``"threshold"``, ``"ve1_max"``, ``"ve2_max"``.
-
-    Returns
-    -------
-    str
-        *path*.
-    """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    n_spikes = np.array([r.get("n_spikes", -1) for r in results], dtype=float)
-    threshold = np.array([r.get("threshold", np.nan) for r in results], dtype=float)
-    ve1_max = np.array([r.get("ve1_max", np.nan) for r in results], dtype=float)
-    ve2_max = np.array([r.get("ve2_max", np.nan) for r in results], dtype=float)
-    np.savez(
-        path,
-        n_spikes=n_spikes,
-        threshold=threshold,
-        ve1_max=ve1_max,
-        ve2_max=ve2_max,
-    )
-    return path
-
-
-def write_polarization_npz(path: str, maps: list[dict]) -> str:
-    """Persist per-cell polarization (ΔVm) maps to a ``.npz``.
-
-    Each entry contributes a ``delta_vm_<i>`` and ``coords_<i>`` array (segment
-    counts may differ across models, so they are stored per target rather than
-    stacked).
-
-    Returns
-    -------
-    str
-        *path*.
-    """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    arrays: dict[str, np.ndarray] = {}
-    for i, m in enumerate(maps):
-        arrays[f"delta_vm_{i}"] = np.asarray(m["delta_vm"], dtype=float)
-        arrays[f"seg_coords_um_{i}"] = np.asarray(m["seg_coords_um"], dtype=float)
-    np.savez(path, **arrays)
-    return path
+from tit.microscale.config import (
+    KHZ_TIS_THRESHOLD_VM,
+    LFS_THRESHOLD_VM,
+)
 
 
 def write_population_npz(path: str, result: dict) -> str:
@@ -128,11 +59,53 @@ def write_population_npz(path: str, result: dict) -> str:
     return path
 
 
-def write_population_summary_csv(path: str, result: dict) -> str:
-    """Write one row per NEURON subsample vertex.
+def region_summary(result: dict) -> dict:
+    """Compute the region-level polarization summary (the readable headline).
 
-    Columns: vertex index, analytic ΔVm, and the NEURON mean/std ΔVm taken
-    across the clones × azimuths solved at that vertex.
+    Aggregates the analytic ΔVm map over the *cluster* vertices and the driving
+    normal field, and frames both against the Wang et al. 2022 single-cell
+    firing thresholds so the subthreshold margin is explicit.
+
+    Returns
+    -------
+    dict
+        Ordered metric -> value (floats; thresholds as ``"lo-hi"`` strings).
+    """
+    cluster_idx = np.asarray(result["cluster_idx"], dtype=int).reshape(-1)
+    analytic = np.asarray(result["analytic_delta_vm"], dtype=float).reshape(-1)
+    e_normal = np.asarray(result["ti_normal"], dtype=float).reshape(-1)
+
+    dvm = analytic[cluster_idx] if cluster_idx.size else analytic
+    en = e_normal[cluster_idx] if cluster_idx.size else e_normal
+    dvm = dvm[np.isfinite(dvm)]
+    en = en[np.isfinite(en)]
+
+    peak_dvm = float(np.max(np.abs(dvm))) if dvm.size else float("nan")
+    peak_e = float(np.max(np.abs(en))) if en.size else float("nan")
+    # Honest margin: how far the peak delivered field is below the lowest
+    # single-cell firing threshold (Wang 2022, low-frequency 10 Hz).
+    margin = LFS_THRESHOLD_VM[0] / peak_e if peak_e > 0 else float("inf")
+
+    return {
+        "n_cluster_vertices": float(dvm.size),
+        "delta_vm_mean_mV": float(np.mean(dvm)) if dvm.size else float("nan"),
+        "delta_vm_median_mV": float(np.median(dvm)) if dvm.size else float("nan"),
+        "delta_vm_p5_mV": float(np.percentile(dvm, 5)) if dvm.size else float("nan"),
+        "delta_vm_p95_mV": float(np.percentile(dvm, 95)) if dvm.size else float("nan"),
+        "delta_vm_peak_abs_mV": peak_dvm,
+        "e_normal_peak_abs_Vm": peak_e,
+        "lfs_threshold_Vm": f"{LFS_THRESHOLD_VM[0]:g}-{LFS_THRESHOLD_VM[1]:g}",
+        "khz_tis_threshold_Vm": f"{KHZ_TIS_THRESHOLD_VM[0]:g}-{KHZ_TIS_THRESHOLD_VM[1]:g}",
+        "subthreshold_margin_x": float(margin),
+    }
+
+
+def write_region_summary_csv(path: str, result: dict) -> str:
+    """Write the region-level polarization summary as a metric/value table.
+
+    One row per metric from :func:`region_summary` -- the table a user reads to
+    see the polarization magnitude and how far below the firing threshold the
+    delivered field is.
 
     Returns
     -------
@@ -140,23 +113,62 @@ def write_population_summary_csv(path: str, result: dict) -> str:
         *path*.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    sub_idx = np.asarray(result["subsample_idx"], dtype=int).reshape(-1)
-    analytic = np.asarray(result["analytic_delta_vm"], dtype=float).reshape(-1)
-    neuron = np.asarray(result["neuron_delta_vm"], dtype=float)
+    summary = region_summary(result)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(
-            [
-                "vertex_index",
-                "analytic_delta_vm_mV",
-                "neuron_delta_vm_mean_mV",
-                "neuron_delta_vm_std_mV",
-            ]
-        )
-        for i, vidx in enumerate(sub_idx):
-            vals = neuron[i].reshape(-1)
-            finite = vals[np.isfinite(vals)]
-            mean = float(np.mean(finite)) if finite.size else float("nan")
-            std = float(np.std(finite)) if finite.size else float("nan")
-            w.writerow([int(vidx), float(analytic[vidx]), mean, std])
+        w.writerow(["metric", "value"])
+        for k, v in summary.items():
+            w.writerow([k, v])
     return path
+
+
+def write_polarization_msh(central_msh_path: str, out_path: str, delta_vm) -> str:
+    """Write the analytic ΔVm map onto the central surface as a SimNIBS ``.msh``.
+
+    Reads the simulation's TI central surface, attaches the per-vertex somatic
+    polarization ``delta_Vm_mV`` as a node field, and writes a new mesh under the
+    microscale output directory -- so the map opens in gmsh / the SimNIBS viewer
+    exactly like ``TI_normal`` and the other surface scalars.
+
+    Best-effort: needs SimNIBS.  Returns ``out_path`` on success.
+
+    Raises
+    ------
+    Exception
+        Propagated from SimNIBS I/O; callers run this inside a try/except so a
+        missing surface does not fail the pipeline.
+    """
+    from simnibs.mesh_tools import mesh_io
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    mesh = mesh_io.read_msh(central_msh_path)
+    values = np.asarray(delta_vm, dtype=float).reshape(-1)
+    n = min(len(values), mesh.nodes.nr)
+    field = np.zeros(mesh.nodes.nr, dtype=float)
+    field[:n] = values[:n]
+    mesh.add_node_field(field, "delta_Vm_mV")
+    mesh_io.write_msh(mesh, out_path)
+    return out_path
+
+
+def write_polarization_gifti(out_path: str, delta_vm) -> str:
+    """Write the ΔVm map as a GIFTI functional overlay (one value per vertex).
+
+    A ``*.func.gii``-style overlay (geometry comes from the matching surface)
+    that loads in FreeView / Connectome Workbench.  Best-effort: needs nibabel.
+
+    Returns
+    -------
+    str
+        *out_path*.
+    """
+    import nibabel as nib
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    values = np.asarray(delta_vm, dtype=np.float32).reshape(-1)
+    darr = nib.gifti.GiftiDataArray(
+        data=values, intent="NIFTI_INTENT_SHAPE", datatype="NIFTI_TYPE_FLOAT32"
+    )
+    img = nib.gifti.GiftiImage(darrays=[darr])
+    nib.save(img, out_path)
+    return out_path

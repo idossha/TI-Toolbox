@@ -31,6 +31,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Free Electrode Placement](electrode-placement)** - Interactive 3D electrode positioning on head surfaces
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
 - **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis
+- **[Microscale Coupling](microscale-coupling)** - Map the TI field to cortical neuron polarization (ΔVm)
 - **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
 - **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin

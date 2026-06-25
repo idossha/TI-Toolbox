@@ -37,6 +37,7 @@ from tit.paths import get_path_manager
 SUBJECTS: list[str] | None = None
 INCLUDE_ZERO = False
 OUTPUT_CSV: str | None = None  # default: <ti-toolbox>/tissue_analysis/label_metrics_full.csv
+RESUME = True  # skip subjects already present in the output CSV (set False to force re-run)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -93,10 +94,29 @@ def main() -> int:
         "voxel_dy_mm",
         "voxel_dz_mm",
     ]
+    out_csv = OUTPUT_CSV or os.path.join(
+        pm.ensure(os.path.join(pm.ti_toolbox(), "tissue_analysis")),
+        "label_metrics_full.csv",
+    )
+
+    # Resume: keep rows for subjects already in the output CSV; recompute the rest.
     rows: list[dict] = []
+    done: set[str] = set()
+    if RESUME and os.path.exists(out_csv):
+        with open(out_csv, newline="") as fh:
+            for row in csv.DictReader(fh):
+                rows.append(row)
+                done.add(row["subject_id"])
+        if done:
+            logger.info("Resume: %d subjects already in %s", len(done), out_csv)
+
     failed: list[str] = []
+    skipped = 0
 
     for sid in subjects:
+        if RESUME and f"sub-{sid}" in done:
+            skipped += 1
+            continue
         label_path = Path(pm.tissue_labeling(sid))
         if not label_path.exists():
             logger.warning("sub-%s: labeling.nii.gz not found (%s)", sid, label_path)
@@ -138,17 +158,13 @@ def main() -> int:
         logger.error("No label rows produced; nothing written.")
         return 1
 
-    out_csv = OUTPUT_CSV or os.path.join(
-        pm.ensure(os.path.join(pm.ti_toolbox(), "tissue_analysis")),
-        "label_metrics_full.csv",
-    )
     with open(out_csv, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
-    logger.info("Wrote %d rows (%d subjects) to %s",
-                len(rows), len({r["subject_id"] for r in rows}), out_csv)
+    logger.info("Wrote %d rows (%d subjects) to %s (%d subjects reused)",
+                len(rows), len({r["subject_id"] for r in rows}), out_csv, skipped)
     if failed:
         logger.warning("Failed subjects (%d): %s", len(failed), ", ".join(failed))
     return 0

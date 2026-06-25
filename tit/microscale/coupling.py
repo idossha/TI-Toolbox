@@ -173,7 +173,19 @@ def simulate_response(
     settle_ms: float = 5.0,
     return_traces: bool = False,
 ) -> dict:
-    """Drive a cell with the TI carriers and return its response.
+    """Drive a cell with the TI carriers and return its response (experimental).
+
+    .. warning::
+
+       Spike counts and firing thresholds from the built-in cells are a
+       **qualitative demonstrator only**.  They use NEURON's vanilla
+       Hodgkin-Huxley channels, which Wang et al. 2022 show are "ill suited" to
+       kHz transcranial stimulation, so the *absolute* numbers are not
+       quantitatively faithful.  For trustworthy thresholds, register a validated
+       multi-channel cortical cell (Hay et al. 2011 / Aberra et al. 2018) via
+       :func:`tit.microscale.models.register_model`.  For the robust analysis use
+       the subthreshold polarization map
+       (:func:`tit.microscale.population.run_population`).
 
     NEURON keeps a single global instance, so this function owns the lifecycle
     of the sections and ``Vector.play`` handles it creates: they are removed and
@@ -188,8 +200,8 @@ def simulate_response(
         transient caused by initializing away from the channels' equilibrium.
     return_traces : bool
         Also return per-segment voltage traces and the extracellular drive,
-        plus the placed world coordinates -- everything :mod:`tit.microscale.viz`
-        needs to render/animate the run.
+        plus the placed world coordinates and the pair-field vectors, for
+        inspecting a single demonstrator run.
 
     Returns
     -------
@@ -269,8 +281,8 @@ def simulate_response(
             normal,
         )
         # Pair-1 and pair-2 E-field VECTORS (V/m) at the target. Their summed
-        # instantaneous resultant rotates over the beat cycle -- the feature
-        # tit.microscale.viz animates.
+        # instantaneous resultant rotates over the beat cycle (the defining
+        # feature of temporal interference).
         tgt = np.asarray(target_mm, dtype=float).reshape(1, 3)
         out["e1_vec"] = np.asarray(sample_at(mesh_pair1, tgt)).reshape(3)
         out["e2_vec"] = np.asarray(sample_at(mesh_pair2, tgt)).reshape(3)
@@ -338,7 +350,13 @@ def find_threshold(
     tol: float = 0.05,
     max_iter: int = 20,
 ) -> float:
-    """Geometrically bisect the amplitude scale to the firing threshold.
+    """Geometrically bisect the amplitude scale to the firing threshold (experimental).
+
+    .. warning::
+
+       Like :func:`simulate_response`, the threshold this returns is only
+       qualitative with the built-in vanilla-HH cells (Wang et al. 2022).  Use a
+       validated multi-channel cell for any reported absolute threshold.
 
     Searches ``cfg.amplitude_scale`` between *lo* and *hi* by geometric
     bisection (uniform *relative* precision), narrowing until the bracket's

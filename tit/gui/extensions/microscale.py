@@ -1,22 +1,21 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""Microscale (field -> neuron) coupling extension.
+"""Microscale coupling extension: cortical polarization map.
 
-Drives NEURON multicompartment neuron models with a completed simulation's
-TI/mTI field and reports how the neurons respond -- accounting for field
-intensity *and* orientation.  Dispatches to ``simnibs_python -m tit.microscale``
-in a background thread.
+Computes the **subthreshold cortical polarization map** a completed simulation's
+TI/mTI field induces -- the per-vertex somatic ΔVm (intensity *and* orientation
+aware) -- over the TI central surface, plus a NEURON-refined distribution on a
+subsample.  Dispatches to ``simnibs_python -m tit.microscale`` (mode
+``polarization``) in a background thread.
 
-Two modes:
-
-* **Response** -- drive each target with the kHz carriers; report somatic spike
-  counts and per-cell polarization maps.
-* **Threshold** -- bisect the field amplitude to each target's firing threshold.
+Outputs land under ``derivatives/SimNIBS/sub-<id>/microscale/<sim>/``:
+the ΔVm map as a ``.msh``/GIFTI surface overlay, a ``_summary.csv`` table, the
+full ``_polarization.npz``, and a two-panel ``_polarization.png`` figure.
 
 See Also
 --------
-tit.microscale.coupling : Coupling/run backend.
+tit.microscale.population : ``run_population`` -- the pipeline backend.
 tit.gui.components.base_thread.BaseProcessThread : Subprocess thread base.
 """
 
@@ -34,8 +33,8 @@ from tit.paths import get_path_manager
 # Extension metadata (required)
 EXTENSION_NAME = "Microscale"
 EXTENSION_DESCRIPTION = (
-    "Drive NEURON neuron models with a simulation's TI field (intensity + "
-    "orientation)."
+    "Map a simulation's TI field to cortical neuron polarization (ΔVm; "
+    "intensity + orientation)."
 )
 
 
@@ -50,7 +49,7 @@ class MicroscaleThread(BaseProcessThread):
 
 
 class MicroscaleWidget(QtWidgets.QWidget):
-    """Configure and launch the microscale response / threshold pipeline."""
+    """Configure and launch the polarization-map pipeline."""
 
     microscale_completed = QtCore.pyqtSignal(str)  # mode
 
@@ -84,8 +83,8 @@ class MicroscaleWidget(QtWidgets.QWidget):
         subj_layout.addWidget(self.refresh_button)
         layout.addWidget(subj_box)
 
-        # Parameters
-        param_box = QtWidgets.QGroupBox("Neuron coupling")
+        # Polarization-map parameters
+        param_box = QtWidgets.QGroupBox("Polarization map")
         form = QtWidgets.QFormLayout(param_box)
 
         self.sim_combo = QtWidgets.QComboBox()
@@ -95,39 +94,51 @@ class MicroscaleWidget(QtWidgets.QWidget):
         self.model_combo.addItems(self._available_models())
         form.addRow("Neuron model:", self.model_combo)
 
-        self.mode_combo = QtWidgets.QComboBox()
-        self.mode_combo.addItems(["response", "threshold"])
-        form.addRow("Mode:", self.mode_combo)
-
-        carriers = QtWidgets.QWidget()
-        carriers_layout = QtWidgets.QHBoxLayout(carriers)
-        carriers_layout.setContentsMargins(0, 0, 0, 0)
-        self.f1_spin = QtWidgets.QDoubleSpinBox()
-        self.f1_spin.setRange(1.0, 100000.0)
-        self.f1_spin.setValue(2000.0)
-        self.f1_spin.setSuffix(" Hz")
-        self.f2_spin = QtWidgets.QDoubleSpinBox()
-        self.f2_spin.setRange(1.0, 100000.0)
-        self.f2_spin.setValue(2010.0)
-        self.f2_spin.setSuffix(" Hz")
-        carriers_layout.addWidget(self.f1_spin)
-        carriers_layout.addWidget(self.f2_spin)
-        form.addRow("Carriers (f1, f2):", carriers)
-
-        self.duration_spin = QtWidgets.QDoubleSpinBox()
-        self.duration_spin.setRange(1.0, 10000.0)
-        self.duration_spin.setValue(100.0)
-        self.duration_spin.setSuffix(" ms")
-        form.addRow("Duration:", self.duration_spin)
-
-        self.targets_edit = QtWidgets.QPlainTextEdit()
-        self.targets_edit.setPlaceholderText(
-            "One target per line: x,y,z  (mm, SimNIBS subject space)"
+        self.coupling_spin = QtWidgets.QDoubleSpinBox()
+        self.coupling_spin.setDecimals(3)
+        self.coupling_spin.setRange(0.0, 5.0)
+        self.coupling_spin.setSingleStep(0.01)
+        self.coupling_spin.setValue(0.27)
+        self.coupling_spin.setSuffix(" mV/(V/m)")
+        self.coupling_spin.setToolTip(
+            "First-order somatic coupling (Radman et al. 2009: 0.27 for L5 PC)."
         )
-        self.targets_edit.setMaximumHeight(100)
-        form.addRow("Targets:", self.targets_edit)
+        form.addRow("Coupling:", self.coupling_spin)
 
-        self.run_button = QtWidgets.QPushButton("Run")
+        # Cluster threshold on TI_normal (optional; 0 = whole surface).
+        self.threshold_spin = QtWidgets.QDoubleSpinBox()
+        self.threshold_spin.setDecimals(3)
+        self.threshold_spin.setRange(0.0, 100.0)
+        self.threshold_spin.setSingleStep(0.05)
+        self.threshold_spin.setValue(0.0)
+        self.threshold_spin.setSuffix(" V/m")
+        self.threshold_spin.setToolTip(
+            "Keep cluster vertices with TI_normal ≥ this. 0 = whole surface."
+        )
+        form.addRow("Cluster threshold:", self.threshold_spin)
+
+        # NEURON refinement (subsample / clones / azimuths). 0 subsample = analytic only.
+        refine = QtWidgets.QWidget()
+        refine_layout = QtWidgets.QHBoxLayout(refine)
+        refine_layout.setContentsMargins(0, 0, 0, 0)
+        self.subsample_spin = QtWidgets.QSpinBox()
+        self.subsample_spin.setRange(0, 1000)
+        self.subsample_spin.setValue(50)
+        self.subsample_spin.setPrefix("subsample ")
+        self.clones_spin = QtWidgets.QSpinBox()
+        self.clones_spin.setRange(1, 50)
+        self.clones_spin.setValue(5)
+        self.clones_spin.setPrefix("clones ")
+        self.azimuth_spin = QtWidgets.QSpinBox()
+        self.azimuth_spin.setRange(1, 36)
+        self.azimuth_spin.setValue(6)
+        self.azimuth_spin.setPrefix("azimuths ")
+        refine_layout.addWidget(self.subsample_spin)
+        refine_layout.addWidget(self.clones_spin)
+        refine_layout.addWidget(self.azimuth_spin)
+        form.addRow("NEURON refine:", refine)
+
+        self.run_button = QtWidgets.QPushButton("Run polarization map")
         self.run_button.clicked.connect(self._run)
         form.addRow(self.run_button)
         layout.addWidget(param_box)
@@ -192,19 +203,6 @@ class MicroscaleWidget(QtWidgets.QWidget):
     # Run
     # ------------------------------------------------------------------
 
-    def _parse_targets(self):
-        """Parse the targets text box into a list of (x, y, z) tuples."""
-        targets = []
-        for line in self.targets_edit.toPlainText().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = [p for p in line.replace(",", " ").split() if p]
-            if len(parts) != 3:
-                raise ValueError(f"target must be 'x,y,z': {line!r}")
-            targets.append([float(p) for p in parts])
-        return targets
-
     def _run(self):
         subjects = self._selected_subjects()
         if not subjects:
@@ -214,23 +212,18 @@ class MicroscaleWidget(QtWidgets.QWidget):
         if not sim:
             self.update_output("No simulation available for the subject.", "error")
             return
-        try:
-            targets = self._parse_targets()
-        except ValueError as exc:
-            self.update_output(str(exc), "error")
-            return
-        if not targets:
-            self.update_output("Enter at least one target coordinate.", "error")
-            return
 
+        threshold = self.threshold_spin.value()
         config = {
-            "mode": self.mode_combo.currentText(),
+            "mode": "polarization",
             "subject_ids": subjects,
             "sim_name": sim,
             "model": self.model_combo.currentText(),
-            "targets": targets,
-            "carrier_freqs": [self.f1_spin.value(), self.f2_spin.value()],
-            "duration": self.duration_spin.value(),
+            "polarization_coupling": self.coupling_spin.value(),
+            "cluster_threshold": threshold if threshold > 0 else None,
+            "n_subsample": self.subsample_spin.value(),
+            "n_clones": self.clones_spin.value(),
+            "n_azimuth": self.azimuth_spin.value(),
             "overwrite": True,
         }
         self._launch(config)

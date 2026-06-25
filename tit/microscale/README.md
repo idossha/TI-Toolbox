@@ -1,75 +1,71 @@
-# `tit.microscale` — field → neuron coupling
+# `tit.microscale` — cortical polarization map
 
-Optional, research-grade module that drives **NEURON multicompartment neuron
-models** with the macroscale TI/mTI electric field the simulator already
-computes, so you can see how neurons in an ROI respond to the exposure —
-accounting for both field **intensity and orientation**, not just magnitude.
+Optional, research-grade module that maps a completed TI/mTI simulation's
+electric field to the **subthreshold polarization of cortical neurons** —
+the per-vertex somatic ΔVm the field induces across a region, accounting for both
+field **intensity and orientation**, not just magnitude.
 
-> **Status:** experimental. The single-neuron NEURON coupling path. Whole-brain
-> neural-mass / TVB coupling is intentionally out of scope (it discards the
-> orientation information this module is built to preserve).
+> **Status:** experimental, single-neuron scale. Whole-brain neural-mass / TVB
+> coupling is intentionally out of scope (it discards the orientation
+> information this module preserves), and so are network-level effects
+> (entrainment, recruitment, TI selectivity — Esmaeilpour et al. 2021).
+
+## What it computes (and why this and not spike counts)
+
+The headline product is a **cortical polarization map**: for every vertex of the
+TI central surface, the first-order somatic membrane polarization
+
+```
+ΔVm = coupling · E_normal        coupling ≈ 0.27 mV/(V/m)  (L5 PC, Radman 2009)
+```
+
+This is the *robust, literature-grounded* quantity for realistic TI. Scalp-
+deliverable human TI envelope fields at depth are ~0.1–0.6 V/m (Rampersad et al.
+2019) — two-to-three orders of magnitude **below** the ~17–230 V/m needed to make
+an L5 pyramidal cell fire (Wang et al. 2022). So the honest readout is *how
+strongly, and in what sign, the montage polarizes neurons* — not predicted
+spikes. Absolute spike-count / firing-threshold modeling is deliberately **not**
+the headline: the built-in cells use NEURON's vanilla Hodgkin-Huxley channels,
+which Wang et al. 2022 call "ill suited" to kHz stimulation, so those numbers are
+only a qualitative demonstrator (kept as fenced library functions —
+`simulate_response` / `find_threshold` — not a CLI mode).
 
 ## Physics
 
-Under the **quasi-static approximation** (valid for TI at ≤10 kHz; tissue
-resistive, the FEM field independent of neuron dynamics), coupling is a
-four-step recipe (Aberra et al. 2020; Shirinpour et al. 2021):
+Under the **quasi-static approximation** (valid for tES/TI to ≥10 kHz; tissue
+resistive, the FEM field independent of neuron dynamics; Bossetti et al. 2008;
+Wang et al. 2024), coupling is (Aberra et al. 2018/2020; Wang et al. 2022):
 
-1. **place** a neuron at a target, soma on the cortical surface, apical axis
-   along the surface normal;
-2. **sample** the E-field vector at the soma (quasi-uniform approximation);
-3. **integrate** it over the morphology to a quasipotential
-   `Ve(c) = −E·l_c`, where `l_c` is the compartment's displacement from the
-   soma (Wang et al. 2022, eq. used verbatim here);
-4. **inject** `Ve` into NEURON's built-in `extracellular` mechanism and run.
+1. **sample** the E-field vector at the soma (locally near-uniform at cell scale);
+2. **integrate** it over the morphology to a quasipotential `Ve(c) = −E·l_c`
+   (`l_c` = compartment displacement from the soma);
+3. for the central estimate, take the **first-order somatic polarization**
+   `ΔVm = coupling · E_normal`, linear in the field (Radman et al. 2009).
 
-For temporal interference the cell is driven by the **two kHz carriers** (not a
-precomputed envelope), superposed per compartment:
+A **NEURON subsample** then refines this: it places `n_clones × n_azimuth` L5
+cells at a representative subset of vertices and solves the cable model, to
+characterize how morphology and orientation spread the polarization around the
+analytic estimate. **It does not move the central estimate**, and there is no
+synaptic connectivity (the accepted standard for direct polarization; Aberra et
+al. 2018/2020; Seo & Jun 2017; Shirinpour et al. 2021).
 
-```
-Ve(c, t) = A · [ (E1·l_c)·sin(2π f1 t) + (E2·l_c)·sin(2π f2 t) ]
-```
-
-The envelope demodulation then **emerges** from the active membrane, because
-passive low-pass filtering alone cannot produce it (Mirzakhalili et al. 2020;
-Wang et al. 2022).
-
-### Units & coordinates (read this before trusting a result)
+### Units (read this before trusting a result)
 
 - SimNIBS meshes are in **mm**; NEURON morphology is in **µm**. The sampler owns
-  the conversion (`mm_to_um`/`um_to_mm`). A 1000× slip silently misplaces the
-  neuron.
+  the conversion (`mm_to_um`/`um_to_mm`). A 1000× slip silently misplaces the cell.
 - SimNIBS `E` is in **V/m**, and `1 V/m == 1 mV/mm`, so dotting the field with a
-  displacement in mm gives the potential directly in **mV** — exactly NEURON's
+  displacement in mm gives the potential directly in **mV** — NEURON's
   `e_extracellular` unit.
 
-## Neuron models & licensing
+### The coupling constant (caveats)
 
-Two built-in models (both license-free, built on NEURON's `hh` + `extracellular`
-mechanisms — no vendored assets, no `.mod` compilation):
-
-- **`l5_pyramidal`** (default) — a procedurally generated, branched layer-5
-  pyramidal cell: soma, branched basal dendrites, apical trunk + tuft, an axon
-  initial segment and a myelinated axon with nodes of Ranvier. ~50 sections;
-  renders like a real reconstruction (region-colored, Shirinpour et al. 2021
-  Fig. 2D style). Deterministic; see `tit.microscale.morphology.pyramidal_l5`.
-- **`ball_stick`** — a minimal soma + dendrite + axon (fast; for cheap
-  threshold/response sweeps).
-
-**Load real reconstructions.** Any SWC morphology (NeuroMorpho.org, or an
-Aberra/Blue Brain export) can be loaded and used identically:
-
-```python
-from tit.microscale.models import load_swc_cell, register_model
-cell = load_swc_cell("my_neuron.swc")          # ad hoc
-# or register it as a named model:
-register_model(spec, lambda: load_swc_cell("my_neuron.swc"))
-```
-
-The realistic Blue Brain / Aberra cortical morphologies used in the literature
-are licensed **CC-BY-NC-SA** (non-commercial) and are therefore **not shipped** —
-the procedural `l5_pyramidal` is the license-free default, and `load_swc_cell`
-is the path for users who have obtained real cells under their own terms.
+`0.27 mV/(V/m)` is the **single representative** L5 pyramidal soma of Radman et
+al. 2009 at **near-optimal orientation** — not a population mean (their 51 cells
+span ≈ −0.29…+0.49). Bikson et al. 2004 measured `0.12` for hippocampal CA1.
+Treat it as a central value in a ~0.1–0.5 range. Using `E_normal` assumes the
+somatodendritic axis ≈ the cortical surface normal (good at gyral crowns; an
+approximation on walls/sulci), and tangential components (~15 %; Weise et al.
+2023) are neglected.
 
 ## Usage
 
@@ -81,149 +77,90 @@ simnibs_python -m tit.microscale config.json
 
 ```json
 {
-  "mode": "response",
+  "mode": "polarization",
   "project_dir": "/path/to/project",
   "subject_ids": ["001"],
   "sim_name": "my_sim",
-  "model": "ball_stick",
-  "targets": [[-40.0, -20.0, 60.0]],
-  "carrier_freqs": [2000.0, 2010.0],
-  "duration": 100.0,
-  "dt": 0.005
+  "model": "l5_pyramidal",
+  "cluster_normal_field": "TI_normal",
+  "cluster_threshold": null,
+  "n_subsample": 50,
+  "n_clones": 5,
+  "n_azimuth": 6,
+  "polarization_coupling": 0.27
 }
 ```
 
-- `mode: "response"` → spike counts + per-cell polarization maps.
-- `mode: "threshold"` → bisect the field amplitude to each target's firing
-  threshold.
+`cluster_threshold: null` maps the whole surface; set e.g. `0.15` (V/m on
+`TI_normal`) to focus the cluster. `n_subsample: 0` is analytic-only (no NEURON).
 
-**Activation criterion.** Under a (quasi-)uniform field the lowest-threshold
-elements are **axon terminals**, not the soma (Aberra et al. 2020), so a target
-counts as activated when a spike occurs at the **spike-initiation site** (any
-compartment), while the somatic trace is still returned for inspection.
-Verified in-container on the default ball-stick cell: somatic firing requires a
-proper axon initial segment / tuned kHz channels, which is why realistic
-responses use user-registered cortical cells.
-
-- `mode: "viz"` → publication-oriented visualizations per target.
-- `mode: "population"` → an **unconnected population** over a cortical cluster.
-
-Outputs land under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
-`*_targets.csv`, `*_response.npz`, `*_polarization.npz`, `*_threshold.npz`.
-
-### Visualizations (`mode: "viz"`)
-
-Renders five artifacts per target (matplotlib, headless; no pyvista/VTK), using
-the Shirinpour et al. 2021 palette, diameter-scaled neurites and a scale bar:
-
-- `*_morphology.png` — the neuron's 3D morphology, colored by region (soma/
-  basal/apical/tuft/axon/AIS/nodes).
-- `*_cortex.png` — the neuron embedded in a patch of the subject's cortical
-  surface at the target (colored by `TI_max`), oriented along the cortical normal.
-- `*_efield.png` — the TI E-field as 3D vectors around the target, with the
-  neuron for scale (shows the field is ~uniform at the cell scale).
-- `*_quasipotential.png` — the neuron colored by the applied quasipotential Ψ
-  on a diverging colormap (Shirinpour Fig. 2F style): the field-induced dipole
-  along the morphology.
-- `*_hodograph.png` — the **rotating TI modulation vector**: the instantaneous
-  field `E(t) = E1·sin(ω1 t) + E2·sin(ω2 t)` traces a time-colored Lissajous in
-  the E1–E2 plane (the two carriers beat at slightly different frequencies, so
-  the resultant *rotates* over the beat cycle — a defining feature of TI).
-- `*_clip.gif` — an animated clip: per-compartment membrane potential + the
-  **rotating** instantaneous E-field arrow over time (the clip uses a
-  lower-frequency, amplified drive so the envelope-tracking response is visible;
-  the real-amplitude kHz drive is far sub-threshold).
-
-## Population over a cortical cluster (`mode: "population"`)
-
-For the standard subthreshold-polarization / activation question the field-coupling
-literature uses an **unconnected population** of morphologically-realistic neurons,
-not a single cell and not a connected network (Aberra 2018/2020; Seo & Jun 2017;
-Shirinpour 2021). The quasi-uniform approximation licenses treating each neuron
-independently — connectivity changes *emergent activity*, not direct polarization.
-
-`run_population` (and `mode: "population"`) does exactly this:
-
-1. **Analytic central estimate** — first-order somatic ΔVm = `coupling × E_normal`
-   for **every** cluster vertex (cheap, vectorized). The coupling constant defaults
-   to 0.27 mV/(V/m) for L5 pyramidal somata (Radman 2009; Bikson 2004 measured 0.12).
-2. **NEURON distribution** — on a representative **subsample** of vertices, places
-   `n_clones × n_azimuth` cells (clones = morphological variants; azimuths =
-   rotations about the cortical normal to marginalize the unconstrained tangential
-   angle) and solves the cable model to characterize the spread around the central
-   estimate. **No synaptic connectivity.**
-
-Outputs: `*_population.npz` (analytic map over all vertices + the subsample
-distribution), `*_population_summary.csv`, and `*_population_cortex.png`.
-
-### Populated-region figures (`render_population_region`)
-
-Render **L5 pyramidal** populations embedded in a named GM region, via a clean
-typed `RegionSpec` (`tit.microscale.config`):
-
-```python
-from tit.microscale.config import RegionSpec
-from tit.microscale.viz import render_population_region
-render_population_region(sid, cfg, out_dir,
-    RegionSpec(kind="atlas", atlas="DK40", label="insula", hemi="lh"), "insula")
-render_population_region(sid, cfg, out_dir,
-    RegionSpec(kind="sphere", center_mni=(-38, 6, 2), radius_mm=10), "sphere")
-render_population_region(sid, cfg, out_dir,
-    RegionSpec(kind="mask", mask_path="roi.nii.gz"), "mask")
-```
-
-- **Region kinds** (all GM-restricted): `atlas` (DK40/a2009s/HCP_MMP1 label,
-  nearest-neighbour transfer to the remeshed surface), `sphere` (MNI or subject
-  center; MNI mapped via `mni2subject_coords`), `mask` (binary NIfTI in subject
-  space, sampled at each vertex).
-- **Space**: `subject` (implemented) or `fsaverage` (reserved).
-- **Render** (`plot_population_3d`): a clean **3D** lit cortical patch colored by
-  `TI_normal` (magma + colorbar), with the L5 cells embedded as neurite-typed
-  poly-lines (axon red / apical blue / basal green), oriented to each cortical
-  normal, plus a scale bar and region-context label. 3D avoids the self-overlap
-  a 2D projection of a folded gyrus suffers.
-
-Placement follows the literature exactly (align the somatodendritic axis to the
-normal, azimuthal spin, translate the soma to the site; Aberra et al. 2018/2020).
-The realistic Aberra/Blue Brain reconstructions are unlicensed and not bundled,
-so the procedural L5 is the default; `load_swc_cell` plugs in user cells.
-
-> **Scope note.** This population model supports **subthreshold polarization /
-> "priming"** claims with their cluster distribution. It does *not* model
-> demodulation or recruitment into slow waves — those need an active **connected**
-> network (Esmaeilpour 2021), a separate, larger project.
-
-The plotting functions (`plot_morphology`, `plot_cell_in_cortex`,
-`plot_efield_vectors`, `animate_response`) take plain NumPy arrays and are
-reusable independently of the CLI.
-
-A GUI front-end is available as the **Microscale** extension
+A GUI front-end is the **Microscale** extension
 (`tit/gui/extensions/microscale.py`).
 
-## Validation targets (from the literature)
+### Outputs
 
-The implementation reproduces the Wang et al. (2022) coupling. Their reported
-single-cell activation thresholds (L5 pyramidal, total E-field) are useful
-sanity checks:
+Under `derivatives/SimNIBS/sub-<id>/microscale/<sim>/`:
 
-| Modality | Threshold (V/m) |
+| File | Contents |
 |---|---|
-| Low-freq (10 Hz) | 16.9 – 47.4 |
-| kHz (HFS / TIS / AM-HFS) | 75 – 230 |
-| Conduction block (TIS) | ≳ 1700 |
+| `…_polarization.msh` | ΔVm as a node field on the TI central surface (loads in gmsh / SimNIBS) |
+| `…_polarization.gii` | ΔVm as a GIFTI overlay (loads in FreeView / Connectome Workbench) |
+| `…_summary.csv` | region table: ΔVm mean/median/percentiles/peak, peak \|E_normal\|, and the subthreshold margin vs the firing threshold |
+| `…_polarization.npz` | full arrays: analytic map (all vertices), cluster indices, NEURON-subsample ΔVm + amplification |
+| `…_polarization.png` | the default figure: cortical patch colored by ΔVm + the ΔVm histogram |
+| `…_population.png` | standalone meso-scale figure: **one L5 cell per vertex** of the analyzed ROI (the thresholded cluster, or a focus window when the whole surface is analyzed), capped at `max_cells`; `render_population=True` |
+| `…_polarization.gif` | time-domain animation at the focus: the cell colored by the applied quasipotential Ψ, the rotating TI field vector, and the carrier/beat trace (`render_video=True`) |
 
-The takeaway from that work — suprathreshold TIS needs scalp-infeasible fields
-and tends to *block* rather than drive — is itself a result this pipeline lets
-you explore on subject-specific fields.
+The `.msh`/`.gii` overlays and the `.png`/`.gif` figures are best-effort (skip
+gracefully if the surface/dep is absent). Disable the extra figures with
+`render_population=False` / `render_video=False`. An optional *populated gyrus*
+over a named region is available via `render_population_region` with a
+`RegionSpec` (atlas label / MNI sphere / binary mask).
+
+### TI envelope vs the two HF fields
+
+The static **map** uses the simulator's `TI_normal` — the normal component of the
+TI *envelope* (modulation depth), the standard subthreshold quantity. The
+time-domain **video** must instead use the two **HF pair fields** (`TDCS_1`/
+`TDCS_2`, each a carrier): the rotation of the resultant and the beat *only exist*
+in the superposition of the two carriers — the envelope is a derived static
+amplitude with no time axis. So both are used, each for what it is correct for.
+
+## Plugging in realistic cells
+
+The built-in `l5_pyramidal` is procedural and license-free. Realistic Blue Brain
+/ Aberra cortical reconstructions are CC-BY-NC-SA (non-commercial) and are **not
+shipped**; load any SWC reconstruction, or register a validated multi-channel
+cell for trustworthy thresholds:
+
+```python
+from tit.microscale.models import load_swc_cell, register_model
+cell = load_swc_cell("my_neuron.swc")
+register_model(spec, lambda: load_swc_cell("my_neuron.swc"))
+```
+
+## What to expect
+
+- ΔVm of **fractions of a mV** at scalp-realistic fields — the correct, physical
+  regime. **Do not expect predicted firing**; if you see it, you are using
+  unrealistically high fields or the fenced demonstrator.
+- The map shows **where** the field couples most strongly (gyral crowns,
+  orientation-dependent) — useful for *relative targeting / focality*, not for
+  predicting evoked spikes.
+- Suprathreshold TI is a **blocking** regime (>1700 V/m) undeliverable through
+  the scalp (Wang et al. 2022).
 
 ## References
 
-- Aberra, Wang, Grill, Peterchev (2020). *Brain Stimulation* 13(1):175–189.
-  doi:10.1016/j.brs.2019.10.002
-- Wang, Aberra, Grill, Peterchev (2022). *J. Neural Eng.* 19:066047.
-  doi:10.1088/1741-2552/acab30
-- Mirzakhalili et al. (2020). *Cell Systems* 11:557–572.
-  doi:10.1016/j.cels.2020.10.004
-- Shirinpour et al. (2021). *Brain Stimulation* 14(6):1470–1482.
-  doi:10.1016/j.brs.2021.09.004
+- Bossetti, Birdno & Grill (2008). *J. Neural Eng.* 5:44–53. doi:10.1088/1741-2560/5/1/005
+- Radman, Ramos, Brumberg & Bikson (2009). *Brain Stimul.* 2:215–228. doi:10.1016/j.brs.2009.03.007
+- Bikson et al. (2004). *J. Physiol.* 557:175–190. doi:10.1113/jphysiol.2003.055772
+- Aberra, Peterchev & Grill (2018). *J. Neural Eng.* 15:066023. doi:10.1088/1741-2552/aadbb1
+- Aberra, Wang, Grill & Peterchev (2020). *Brain Stimul.* 13:175–189. doi:10.1016/j.brs.2019.10.002
+- Wang, Aberra, Grill & Peterchev (2022). *J. Neural Eng.* 19:066047. doi:10.1088/1741-2552/acab30
+- Mirzakhalili et al. (2020). *Cell Systems* 11:557–572. doi:10.1016/j.cels.2020.10.004
+- Shirinpour et al. (2021). *Brain Stimul.* 14:1470–1482. doi:10.1016/j.brs.2021.09.004
+- Seo & Jun (2017). *Front. Hum. Neurosci.* 11:515. doi:10.3389/fnhum.2017.00515
+- Esmaeilpour et al. (2021). *Brain Stimul.* 14:55–65. doi:10.1016/j.brs.2020.11.007
+- Rampersad et al. (2019). *NeuroImage* 202:116124. doi:10.1016/j.neuroimage.2019.116124
 - Grossman et al. (2017). *Cell* 169:1029–1041. doi:10.1016/j.cell.2017.05.024
