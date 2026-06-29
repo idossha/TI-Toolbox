@@ -37,13 +37,11 @@ from pathlib import Path
 
 import numpy as np
 
+from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import FsavgMapConfig
 
 logger = logging.getLogger(__name__)
-
-# fsaverage total node counts (both hemispheres) per subdivision factor.
-_FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 
 
 def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
@@ -145,35 +143,63 @@ def _compute_fields(
     n_lh, n_rh = _hemisphere_node_counts(subject_files)
     hemispheres = subject_files.hemispheres
 
+    # Each field is projected independently so one bad input (e.g. a missing
+    # carrier overlay) drops only that field, not the others.
     out: dict[str, np.ndarray] = {}
-    if "TI_max" in cfg.fields:
-        values = _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max")
-        out["TI_max"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "TI_normal" in cfg.fields:
-        values = _read_surface_scalar(
-            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
-        )
-        out["TI_normal"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
-        pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
-        e1 = _read_surface_vector(pair1)
-        e2 = _read_surface_vector(pair2)
-        if "magnitude" in cfg.fields:
-            values = np.linalg.norm(e1 + e2, axis=1)  # |E1 + E2| coherent sum
-            out["magnitude"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-        if "hf_max" in cfg.fields:
-            # |E1| + |E2|: peak instantaneous carrier exposure (both carriers at
-            # crest), the upper bound -- not the cancellation-prone vector sum.
-            values = np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1)
-            out["hf_max"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-
+    errors: list[str] = []
     expected = _FSAVG_NODES[cfg.fsaverage_spacing]
-    for name, arr in out.items():
-        if arr.shape[0] != expected:
-            raise ValueError(
-                f"{name}: expected {expected} fsaverage{cfg.fsaverage_spacing} "
-                f"nodes, got {arr.shape[0]}"
+
+    def _project(name: str, compute) -> None:
+        if name not in cfg.fields:
+            return
+        try:
+            arr = _morph_split(compute(), n_lh, n_rh, morph, hemispheres)
+            if arr.shape[0] != expected:
+                raise ValueError(
+                    f"expected {expected} fsaverage{cfg.fsaverage_spacing} nodes, "
+                    f"got {arr.shape[0]}"
+                )
+            out[name] = arr
+        except Exception as exc:  # noqa: BLE001 - per-field, keep the rest
+            errors.append(f"{name}: {exc!r}")
+
+    _project(
+        "TI_max",
+        lambda: _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max"),
+    )
+    _project(
+        "TI_normal",
+        lambda: _read_surface_scalar(
+            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
+        ),
+    )
+    if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
+        try:
+            pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
+            e1 = _read_surface_vector(pair1)
+            e2 = _read_surface_vector(pair2)
+        except Exception as exc:  # noqa: BLE001 - both carrier fields share this
+            errors.append(f"carriers: {exc!r}")
+        else:
+            # |E1 + E2| coherent sum vs |E1| + |E2| peak instantaneous exposure
+            # (the upper bound, not the cancellation-prone vector sum).
+            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
+            _project(
+                "hf_max",
+                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
             )
+
+    if not out:
+        raise ValueError(
+            f"no fields projected for {subject_id}/{sim}: " + "; ".join(errors)
+        )
+    if errors:
+        logger.warning(
+            "partial fsaverage projection for %s/%s: %s",
+            subject_id,
+            sim,
+            "; ".join(errors),
+        )
     return out
 
 

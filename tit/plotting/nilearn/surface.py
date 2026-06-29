@@ -25,8 +25,8 @@ import os
 
 import numpy as np
 
+from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.plotting._common import ensure_headless_matplotlib_backend
-from tit.source.fsaverage import _FSAVG_NODES
 
 _VIEWS = ("lateral", "medial")
 _HEMIS = ("left", "right")
@@ -39,7 +39,7 @@ def render_fsaverage_map(
     title: str | None = None,
     threshold: float | None = None,
     cmap: str = "cold_hot",
-    symmetric_cbar="auto",
+    symmetric_cbar: bool | str = "auto",
     out_path: str | None = None,
 ):
     """Paint a ``(n_vertices,)`` fsaverage map on the inflated cortex.
@@ -85,6 +85,9 @@ def render_fsaverage_map(
         "left": (values[:n_lh], fs["infl_left"], fs["sulc_left"]),
         "right": (values[n_lh:], fs["infl_right"], fs["sulc_right"]),
     }
+    # Shared color scale so the single colorbar is valid across all four panels
+    # (nilearn otherwise auto-scales vmax per hemisphere).
+    vmax = float(np.nanmax(np.abs(values))) or None
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), subplot_kw={"projection": "3d"})
     for col, hemi in enumerate(_HEMIS):
@@ -98,6 +101,7 @@ def render_fsaverage_map(
                 view=view,
                 threshold=threshold,
                 cmap=cmap,
+                vmax=vmax,
                 colorbar=(row == 0 and col == 1),
                 symmetric_cbar=symmetric_cbar,
                 axes=axes[row, col],
@@ -114,11 +118,14 @@ def render_fsaverage_map(
     return out_path
 
 
-def render_surface_stats_result(npz_path: str, out_dir: str, spacing: int = 5):
+def render_surface_stats_result(
+    npz_path: str, out_dir: str, spacing: int | None = None
+):
     """Render a :mod:`tit.stats.surface` ``surface_maps.npz`` to PDFs.
 
     Paints the effect map (signed ``r`` if present, else ``t``) and the
-    thresholded significant-cluster mask onto the inflated cortex.
+    thresholded significant-cluster mask onto the inflated cortex.  *spacing* is
+    inferred from the array length when not given.
 
     Returns
     -------
@@ -135,6 +142,14 @@ def render_surface_stats_result(npz_path: str, out_dir: str, spacing: int = 5):
             if "sig_mask" in data.files
             else None
         )
+
+    if spacing is None:
+        by_nodes = {n: s for s, n in _FSAVG_NODES.items()}
+        spacing = by_nodes.get(effect.shape[0])
+        if spacing is None:
+            raise ValueError(
+                f"cannot infer fsaverage spacing from {effect.shape[0]} vertices"
+            )
 
     effect_pdf = os.path.join(out_dir, f"surface_{effect_key}_map.pdf")
     render_fsaverage_map(

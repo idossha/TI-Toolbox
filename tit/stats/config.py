@@ -197,6 +197,14 @@ class GroupComparisonConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.test_type = self.TestType(self.test_type)
+        self.alternative = self.Alternative(self.alternative)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
         _validate_surface_options(
@@ -369,6 +377,13 @@ class CorrelationConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.correlation_type = self.CorrelationType(self.correlation_type)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
         _validate_surface_options(

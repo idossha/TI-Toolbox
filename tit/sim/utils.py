@@ -887,7 +887,9 @@ def _validate_simulation_inputs(config: SimulationConfig) -> None:
         else:
             if not montage.eeg_net:
                 raise ValueError(f"Montage {montage.name!r} requires an EEG net file.")
-            eeg_path = os.path.join(pm.eeg_positions(config.subject_id), montage.eeg_net)
+            eeg_path = os.path.join(
+                pm.eeg_positions(config.subject_id), montage.eeg_net
+            )
             if not os.path.isfile(eeg_path):
                 raise ValueError(
                     f"EEG net file not found for montage {montage.name!r}: {eeg_path}"
@@ -957,8 +959,10 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
     from tit.source.fsaverage import project_subject
 
     try:
+        # overwrite=True: this montage's overlays were just (re)written, so any
+        # cached projection from a prior run of the same montage name is stale.
         _, status, msg = project_subject(
-            config.subject_id, montage.name, FsavgMapConfig()
+            config.subject_id, montage.name, FsavgMapConfig(overwrite=True)
         )
         logger.info("fsaverage projection [%s] %s: %s", status, montage.name, msg)
     except Exception as exc:  # noqa: BLE001 - auxiliary step, never fatal

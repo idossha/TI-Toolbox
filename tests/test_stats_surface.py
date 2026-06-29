@@ -130,6 +130,83 @@ class TestLoadGroupSurfaceData:
 # ---------------------------------------------------------------------------
 
 
+class TestSurfaceClusterMath:
+    """Pure-numpy cluster conventions (no scipy needed)."""
+
+    def test_max_cluster_stat_excludes_singletons(self):
+        from tit.stats import surface
+
+        # cluster 1: size 2 (verts 1,2), cluster 2: singleton (vert 3, big mass).
+        labels = np.array([0, 1, 1, 2, 0])
+        t = np.array([0.0, 1.0, 2.0, 5.0, 0.0])
+        # mass: singleton's 5.0 is ignored; cluster 1 mass = 3.0.
+        assert surface._max_cluster_stat(labels, 2, t, "mass") == 3.0
+        assert surface._max_cluster_stat(labels, 2, t, "size") == 2.0
+
+    def test_max_cluster_stat_all_singletons_is_zero(self):
+        from tit.stats import surface
+
+        labels = np.array([0, 1, 2, 3])
+        t = np.array([0.0, 9.0, 9.0, 9.0])
+        assert surface._max_cluster_stat(labels, 3, t, "mass") == 0.0
+
+    def test_cluster_sizes_masses_alignment(self):
+        from tit.stats import surface
+
+        labels = np.array([0, 1, 1, 2])
+        t = np.array([0.0, 1.0, 2.0, 4.0])
+        sizes, masses = surface._cluster_sizes_masses(labels, 2, t)
+        assert list(sizes) == [2, 1]
+        assert list(masses) == [3.0, 4.0]
+
+    def test_null_threshold_matches_engine_formula(self):
+        from tit.stats import surface
+
+        null = np.array([1.0, 5.0, 3.0, 2.0, 4.0])
+        # sorted desc [5,4,3,2,1]; ti = max(1, min(int(0.4*5)=2, 5)) = 2 -> idx 1 -> 4.
+        assert surface._null_threshold(null, 0.4, 5) == 4.0
+
+    def test_null_threshold_empty_is_zero(self):
+        from tit.stats import surface
+
+        assert surface._null_threshold(np.array([]), 0.05, 0) == 0.0
+
+
+class TestEnumCoercion:
+    """Fix: string config fields (from the GUI) coerce to enums so .value works."""
+
+    def test_group_string_fields_coerced(self):
+        cfg = GroupComparisonConfig(
+            analysis_name="a",
+            subjects=[
+                GroupComparisonConfig.Subject("1", "s", 1),
+                GroupComparisonConfig.Subject("2", "s", 0),
+            ],
+            test_type="paired",
+            cluster_stat="size",
+            alternative="greater",
+            space="mni",
+        )
+        assert cfg.test_type.value == "paired"
+        assert cfg.cluster_stat.value == "size"
+        assert cfg.alternative.value == "greater"
+        assert cfg.space.value == "mni"
+
+    def test_correlation_string_fields_coerced(self):
+        cfg = CorrelationConfig(
+            analysis_name="a",
+            subjects=[
+                CorrelationConfig.Subject("1", "s", 1.0),
+                CorrelationConfig.Subject("2", "s", 2.0),
+                CorrelationConfig.Subject("3", "s", 3.0),
+            ],
+            correlation_type="spearman",
+            cluster_stat="mass",
+        )
+        assert cfg.correlation_type.value == "spearman"
+        assert cfg.cluster_stat.value == "mass"
+
+
 class TestSurfaceDispatch:
     def test_correlation_dispatches_to_surface(self, monkeypatch):
         from tit.stats import permutation

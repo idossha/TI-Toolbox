@@ -29,9 +29,10 @@ import os
 
 import numpy as np
 
+from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import VALID_FSAVG_FIELDS
-from tit.source.fsaverage import _FSAVG_NODES, _output_path
+from tit.source.fsaverage import _output_path
 
 from .config import CorrelationResult, GroupComparisonResult
 from .engine import correlation, pval_from_histogram, ttest_ind, ttest_rel
@@ -40,15 +41,6 @@ logger = logging.getLogger(__name__)
 
 # fsaverage triangle adjacency is fixed per spacing; build it once.
 _ADJ_CACHE: dict[int, "object"] = {}
-
-
-def _enum_value(x):
-    """Return a StrEnum's value, or the value itself if already a plain string.
-
-    Configs built via the CLI carry StrEnum members; the GUI may pass raw
-    strings.  Accept both so the surface path never trips on a missing ``.value``.
-    """
-    return getattr(x, "value", x)
 
 
 # ─── data loading ──────────────────────────────────────────────────────────
@@ -187,6 +179,15 @@ def _max_cluster_stat(labels, n, t_full, cluster_stat):
     )
 
 
+def _null_threshold(null, alpha, n_permutations):
+    """Null-derived cluster-statistic cutoff at *alpha* (mirrors the engine)."""
+    if null.size == 0:
+        return 0.0
+    sorted_null = np.sort(null)[::-1]
+    ti = max(1, min(int(alpha * n_permutations), len(sorted_null)))
+    return float(sorted_null[ti - 1])
+
+
 def _forming_mask(t_full, p_full, valid_mask, threshold, alternative):
     mask = (p_full < threshold) & valid_mask
     if alternative == "greater":
@@ -304,8 +305,8 @@ def run_surface_correlation(
     log.info(
         "field=%s  corr=%s  stat=%s  thr=%.3f  perms=%d  alpha=%.3f",
         config.fsaverage_field,
-        _enum_value(config.correlation_type),
-        _enum_value(config.cluster_stat),
+        config.correlation_type.value,
+        config.cluster_stat.value,
         config.cluster_threshold,
         config.n_permutations,
         config.alpha,
@@ -324,12 +325,14 @@ def run_surface_correlation(
     n_nodes = data.shape[0]
     adjacency = build_fsaverage_adjacency(config.fsaverage_spacing)
 
-    valid_mask = np.any(data > 0, axis=1)
+    # != 0 (not > 0): TI_normal is signed, so a consistently-inward vertex
+    # must stay in the analysis; background is exactly 0 for all fields.
+    valid_mask = np.any(data != 0, axis=1)
     valid_idx = np.flatnonzero(valid_mask)
     data_valid = data[valid_idx]
     log.info("Subjects=%d  valid vertices=%d/%d", len(ids), valid_idx.size, n_nodes)
 
-    ctype = _enum_value(config.correlation_type)
+    ctype = config.correlation_type.value
     # Pre-rank once for Spearman so each permutation skips re-ranking.
     if ctype == "spearman":
         from scipy.stats import rankdata
@@ -367,7 +370,7 @@ def run_surface_correlation(
             _forming_mask(pt, pp, valid_mask, config.cluster_threshold, "two-sided"),
             adjacency,
         )
-        null[i] = _max_cluster_stat(labels, n, pt, _enum_value(config.cluster_stat))
+        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -376,7 +379,7 @@ def run_surface_correlation(
         adjacency,
         config.cluster_threshold,
         null,
-        _enum_value(config.cluster_stat),
+        config.cluster_stat.value,
         config.alpha,
         "two-sided",
         r_full=r_full,
@@ -385,7 +388,7 @@ def run_surface_correlation(
         log.info(
             "  cluster %d: %s=%.2f size=%d p=%.4f",
             obs["id"],
-            _enum_value(config.cluster_stat),
+            config.cluster_stat.value,
             obs["stat_value"],
             obs["size"],
             obs["p_value"],
@@ -403,7 +406,7 @@ def run_surface_correlation(
         n_subjects=len(ids),
         n_significant_voxels=int(sig_mask.sum()),
         n_significant_clusters=len(sig_clusters),
-        cluster_threshold=config.cluster_threshold,
+        cluster_threshold=_null_threshold(null, config.alpha, config.n_permutations),
         analysis_time=time.time() - t0,
         clusters=sig_clusters,
         log_file=log_file,
@@ -438,11 +441,13 @@ def run_surface_group_comparison(
     n_total = data.shape[1]
     adjacency = build_fsaverage_adjacency(config.fsaverage_spacing)
 
-    valid_mask = np.any(data > 0, axis=1)
+    # != 0 (not > 0): TI_normal is signed, so a consistently-inward vertex
+    # must stay in the analysis; background is exactly 0 for all fields.
+    valid_mask = np.any(data != 0, axis=1)
     valid_idx = np.flatnonzero(valid_mask)
     data_valid = data[valid_idx]
-    paired = _enum_value(config.test_type) == "paired"
-    alt = _enum_value(config.alternative)
+    paired = config.test_type.value == "paired"
+    alt = config.alternative.value
     log.info(
         "resp=%d  non=%d  valid vertices=%d  paired=%s",
         n_resp,
@@ -483,7 +488,7 @@ def run_surface_group_comparison(
             _forming_mask(pt, pp, valid_mask, config.cluster_threshold, alt),
             adjacency,
         )
-        null[i] = _max_cluster_stat(labels, n, pt, _enum_value(config.cluster_stat))
+        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -492,7 +497,7 @@ def run_surface_group_comparison(
         adjacency,
         config.cluster_threshold,
         null,
-        _enum_value(config.cluster_stat),
+        config.cluster_stat.value,
         config.alpha,
         alt,
     )
@@ -500,7 +505,7 @@ def run_surface_group_comparison(
         log.info(
             "  cluster %d: %s=%.2f size=%d p=%.4f",
             obs["id"],
-            _enum_value(config.cluster_stat),
+            config.cluster_stat.value,
             obs["stat_value"],
             obs["size"],
             obs["p_value"],
@@ -519,7 +524,7 @@ def run_surface_group_comparison(
         n_non_responders=len(non),
         n_significant_voxels=int(sig_mask.sum()),
         n_significant_clusters=len(sig_clusters),
-        cluster_threshold=config.cluster_threshold,
+        cluster_threshold=_null_threshold(null, config.alpha, config.n_permutations),
         analysis_time=time.time() - t0,
         clusters=sig_clusters,
         log_file=log_file,
