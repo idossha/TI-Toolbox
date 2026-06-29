@@ -42,6 +42,15 @@ logger = logging.getLogger(__name__)
 _ADJ_CACHE: dict[int, "object"] = {}
 
 
+def _enum_value(x):
+    """Return a StrEnum's value, or the value itself if already a plain string.
+
+    Configs built via the CLI carry StrEnum members; the GUI may pass raw
+    strings.  Accept both so the surface path never trips on a missing ``.value``.
+    """
+    return getattr(x, "value", x)
+
+
 # ─── data loading ──────────────────────────────────────────────────────────
 
 
@@ -295,8 +304,8 @@ def run_surface_correlation(
     log.info(
         "field=%s  corr=%s  stat=%s  thr=%.3f  perms=%d  alpha=%.3f",
         config.fsaverage_field,
-        config.correlation_type.value,
-        config.cluster_stat.value,
+        _enum_value(config.correlation_type),
+        _enum_value(config.cluster_stat),
         config.cluster_threshold,
         config.n_permutations,
         config.alpha,
@@ -320,7 +329,7 @@ def run_surface_correlation(
     data_valid = data[valid_idx]
     log.info("Subjects=%d  valid vertices=%d/%d", len(ids), valid_idx.size, n_nodes)
 
-    ctype = config.correlation_type.value
+    ctype = _enum_value(config.correlation_type)
     # Pre-rank once for Spearman so each permutation skips re-ranking.
     if ctype == "spearman":
         from scipy.stats import rankdata
@@ -358,7 +367,7 @@ def run_surface_correlation(
             _forming_mask(pt, pp, valid_mask, config.cluster_threshold, "two-sided"),
             adjacency,
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(labels, n, pt, _enum_value(config.cluster_stat))
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -367,7 +376,7 @@ def run_surface_correlation(
         adjacency,
         config.cluster_threshold,
         null,
-        config.cluster_stat.value,
+        _enum_value(config.cluster_stat),
         config.alpha,
         "two-sided",
         r_full=r_full,
@@ -376,7 +385,7 @@ def run_surface_correlation(
         log.info(
             "  cluster %d: %s=%.2f size=%d p=%.4f",
             obs["id"],
-            config.cluster_stat.value,
+            _enum_value(config.cluster_stat),
             obs["stat_value"],
             obs["size"],
             obs["p_value"],
@@ -432,8 +441,8 @@ def run_surface_group_comparison(
     valid_mask = np.any(data > 0, axis=1)
     valid_idx = np.flatnonzero(valid_mask)
     data_valid = data[valid_idx]
-    paired = config.test_type.value == "paired"
-    alt = config.alternative.value
+    paired = _enum_value(config.test_type) == "paired"
+    alt = _enum_value(config.alternative)
     log.info(
         "resp=%d  non=%d  valid vertices=%d  paired=%s",
         n_resp,
@@ -474,7 +483,7 @@ def run_surface_group_comparison(
             _forming_mask(pt, pp, valid_mask, config.cluster_threshold, alt),
             adjacency,
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(labels, n, pt, _enum_value(config.cluster_stat))
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -483,7 +492,7 @@ def run_surface_group_comparison(
         adjacency,
         config.cluster_threshold,
         null,
-        config.cluster_stat.value,
+        _enum_value(config.cluster_stat),
         config.alpha,
         alt,
     )
@@ -491,7 +500,7 @@ def run_surface_group_comparison(
         log.info(
             "  cluster %d: %s=%.2f size=%d p=%.4f",
             obs["id"],
-            config.cluster_stat.value,
+            _enum_value(config.cluster_stat),
             obs["stat_value"],
             obs["size"],
             obs["p_value"],
