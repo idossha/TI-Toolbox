@@ -11,7 +11,9 @@ central-surface overlays and morphs the requested scalar fields to fsaverage:
 
 * ``TI_max``    -- orientation-maximized TI envelope |E| (central overlay)
 * ``TI_normal`` -- directional TI envelope along the cortical normal
-* ``magnitude`` -- combined carrier exposure |E1 + E2| on the central surface
+* ``magnitude`` -- coherent carrier exposure |E1 + E2| on the central surface
+* ``hf_max``    -- peak instantaneous carrier exposure |E1| + |E2| (the upper
+  bound the tissue sees; distinct from ``magnitude``)
 
 Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
@@ -35,13 +37,11 @@ from pathlib import Path
 
 import numpy as np
 
+from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import FsavgMapConfig
 
 logger = logging.getLogger(__name__)
-
-# fsaverage total node counts (both hemispheres) per subdivision factor.
-_FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 
 
 def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
@@ -85,10 +85,13 @@ def _carrier_overlays(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
     """Locate the two per-pair central E-field overlays for a simulation."""
     sim_dir = Path(pm.simulation(subject_id, sim))
 
+    # ponytail: match the overlays wherever they live -- SimNIBS writes them under
+    # `subject_overlays/`, but the sim pipeline moves them to `surface_overlays/`.
+    # The `_TDCS_{pair}_..._central` stem is specific enough to skip the TI overlay.
     def _find(pair: int) -> Path:
         matches = sorted(
             p
-            for p in sim_dir.glob(f"**/subject_overlays/*_TDCS_{pair}_*_central.msh")
+            for p in sim_dir.glob(f"**/*_TDCS_{pair}_*_central.msh")
             if not p.name.startswith("._")
         )
         if not matches:
@@ -140,28 +143,63 @@ def _compute_fields(
     n_lh, n_rh = _hemisphere_node_counts(subject_files)
     hemispheres = subject_files.hemispheres
 
+    # Each field is projected independently so one bad input (e.g. a missing
+    # carrier overlay) drops only that field, not the others.
     out: dict[str, np.ndarray] = {}
-    if "TI_max" in cfg.fields:
-        values = _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max")
-        out["TI_max"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "TI_normal" in cfg.fields:
-        values = _read_surface_scalar(
-            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
-        )
-        out["TI_normal"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "magnitude" in cfg.fields:
-        pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
-        e_sum = _read_surface_vector(pair1) + _read_surface_vector(pair2)
-        values = np.linalg.norm(e_sum, axis=1)
-        out["magnitude"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-
+    errors: list[str] = []
     expected = _FSAVG_NODES[cfg.fsaverage_spacing]
-    for name, arr in out.items():
-        if arr.shape[0] != expected:
-            raise ValueError(
-                f"{name}: expected {expected} fsaverage{cfg.fsaverage_spacing} "
-                f"nodes, got {arr.shape[0]}"
+
+    def _project(name: str, compute) -> None:
+        if name not in cfg.fields:
+            return
+        try:
+            arr = _morph_split(compute(), n_lh, n_rh, morph, hemispheres)
+            if arr.shape[0] != expected:
+                raise ValueError(
+                    f"expected {expected} fsaverage{cfg.fsaverage_spacing} nodes, "
+                    f"got {arr.shape[0]}"
+                )
+            out[name] = arr
+        except Exception as exc:  # noqa: BLE001 - per-field, keep the rest
+            errors.append(f"{name}: {exc!r}")
+
+    _project(
+        "TI_max",
+        lambda: _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max"),
+    )
+    _project(
+        "TI_normal",
+        lambda: _read_surface_scalar(
+            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
+        ),
+    )
+    if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
+        try:
+            pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
+            e1 = _read_surface_vector(pair1)
+            e2 = _read_surface_vector(pair2)
+        except Exception as exc:  # noqa: BLE001 - both carrier fields share this
+            errors.append(f"carriers: {exc!r}")
+        else:
+            # |E1 + E2| coherent sum vs |E1| + |E2| peak instantaneous exposure
+            # (the upper bound, not the cancellation-prone vector sum).
+            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
+            _project(
+                "hf_max",
+                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
             )
+
+    if not out:
+        raise ValueError(
+            f"no fields projected for {subject_id}/{sim}: " + "; ".join(errors)
+        )
+    if errors:
+        logger.warning(
+            "partial fsaverage projection for %s/%s: %s",
+            subject_id,
+            sim,
+            "; ".join(errors),
+        )
     return out
 
 

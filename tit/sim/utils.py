@@ -887,7 +887,9 @@ def _validate_simulation_inputs(config: SimulationConfig) -> None:
         else:
             if not montage.eeg_net:
                 raise ValueError(f"Montage {montage.name!r} requires an EEG net file.")
-            eeg_path = os.path.join(pm.eeg_positions(config.subject_id), montage.eeg_net)
+            eeg_path = os.path.join(
+                pm.eeg_positions(config.subject_id), montage.eeg_net
+            )
             if not os.path.isfile(eeg_path):
                 raise ValueError(
                     f"EEG net file not found for montage {montage.name!r}: {eeg_path}"
@@ -930,9 +932,41 @@ def _run_simulation_inner(
             else mTISimulation
         )
         results.append(cls(config, montage, logger).run(simulation_dir))
+        if config.map_to_fsavg:
+            _project_montage_to_fsaverage(config, montage, logger)
     if progress_callback:
         progress_callback(total, total, "Complete")
     return results
+
+
+def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> None:
+    """Project a finished TI montage's surface fields onto fsaverage5.
+
+    Auxiliary step driven by ``config.map_to_fsavg``; runs in the same
+    ``simnibs_python`` process right after the montage completes, so the central
+    overlays it reads are already on disk.
+
+    ponytail: best-effort -- a projection failure logs a warning and never aborts
+    the simulation. mTI overlays are not yet supported, so mTI montages are
+    skipped explicitly rather than failing the carrier/central-surface lookups.
+    """
+    if montage.simulation_mode != SimulationMode.TI:
+        logger.info(
+            "fsaverage projection: skipping %s (mTI not yet supported)", montage.name
+        )
+        return
+    from tit.source.config import FsavgMapConfig
+    from tit.source.fsaverage import project_subject
+
+    try:
+        # overwrite=True: this montage's overlays were just (re)written, so any
+        # cached projection from a prior run of the same montage name is stale.
+        _, status, msg = project_subject(
+            config.subject_id, montage.name, FsavgMapConfig(overwrite=True)
+        )
+        logger.info("fsaverage projection [%s] %s: %s", status, montage.name, msg)
+    except Exception as exc:  # noqa: BLE001 - auxiliary step, never fatal
+        logger.warning("fsaverage projection failed for %s: %r", montage.name, exc)
 
 
 def _make_file_logger(

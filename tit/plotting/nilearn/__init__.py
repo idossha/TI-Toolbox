@@ -33,6 +33,7 @@ from .img_glass import (
     create_glass_brain_entry_point_group,
 )
 from .html_report import create_html_entry_point
+from .surface import render_fsaverage_map, render_surface_stats_result
 
 __all__ = [
     "NilearnVisualizer",
@@ -41,4 +42,6 @@ __all__ = [
     "create_glass_brain_entry_point",
     "create_glass_brain_entry_point_group",
     "create_html_entry_point",
+    "render_fsaverage_map",
+    "render_surface_stats_result",
 ]

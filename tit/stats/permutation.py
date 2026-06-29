@@ -107,6 +107,10 @@ def run_group_comparison(
     from tit import constants as _const
 
     with track_operation(_const.TELEMETRY_OP_STATS):
+        if config.space == GroupComparisonConfig.AnalysisSpace.FSAVERAGE:
+            from tit.stats.surface import run_surface_group_comparison
+
+            return run_surface_group_comparison(config, callback_handler, stop_callback)
         return _run_group_comparison_inner(config, callback_handler, stop_callback)
 
 
@@ -370,6 +374,11 @@ def run_correlation(
         KeyboardInterrupt: If ``stop_callback`` returns ``True`` during
             execution.
     """
+    if config.space == CorrelationConfig.AnalysisSpace.FSAVERAGE:
+        from tit.stats.surface import run_surface_correlation
+
+        return run_surface_correlation(config, callback_handler, stop_callback)
+
     t0 = time.time()
     output_dir = _resolve_output_dir(
         "correlation",

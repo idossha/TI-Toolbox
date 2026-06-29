@@ -32,8 +32,14 @@ class TestFsavgMapConfig:
         from tit.source import FsavgMapConfig
 
         cfg = FsavgMapConfig()
-        assert cfg.fields == ("TI_max", "TI_normal", "magnitude")
+        assert cfg.fields == ("TI_max", "TI_normal", "magnitude", "hf_max")
         assert cfg.fsaverage_spacing == 5
+
+    def test_hf_max_is_a_valid_field(self):
+        from tit.source import FsavgMapConfig
+
+        cfg = FsavgMapConfig(fields=("hf_max",))
+        assert cfg.fields == ("hf_max",)
 
     def test_unknown_field_raises(self):
         from tit.source import FsavgMapConfig
@@ -96,6 +102,60 @@ class TestFsavgHelpers:
         path = fsaverage._output_path(init_pm, "001", "TI_sim", 5)
         assert path.name == "sub-001_sim-TI_sim_space-fsaverage5_fields.npz"
         assert str(path.parent).endswith("forward/fsaverage")
+
+    @pytest.mark.parametrize("overlay_subdir", ["subject_overlays", "surface_overlays"])
+    def test_carrier_overlays_found_in_either_layout(self, tmp_path, overlay_subdir):
+        """The glob must resolve overlays both before and after file organization."""
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        sim_dir = tmp_path / "TI_sim"
+        overlays = sim_dir / "TI" / overlay_subdir
+        overlays.mkdir(parents=True)
+        for pair in (1, 2):
+            (overlays / f"001_TDCS_{pair}_scalar_central.msh").write_text("")
+        # The TI overlay must NOT be mistaken for a carrier overlay.
+        (overlays / "TI_sim_TI_central.msh").write_text("")
+
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(sim_dir))
+        p1, p2 = fsaverage._carrier_overlays(pm, "001", "TI_sim")
+        assert p1.name == "001_TDCS_1_scalar_central.msh"
+        assert p2.name == "001_TDCS_2_scalar_central.msh"
+
+    def test_hf_max_is_sum_of_carrier_magnitudes(self, monkeypatch):
+        """hf_max = |E1| + |E2| (sum of magnitudes), not |E1 + E2|."""
+        import numpy as np
+
+        from tit.source import fsaverage
+        from tit.source.config import FsavgMapConfig
+
+        # Two anti-parallel carriers: |E1|+|E2| = 2, but |E1+E2| = 0.
+        e1 = np.array([[1.0, 0.0, 0.0]])
+        e2 = np.array([[-1.0, 0.0, 0.0]])
+        monkeypatch.setattr(fsaverage, "_carrier_overlays", lambda *a: ("p1", "p2"))
+        monkeypatch.setattr(
+            fsaverage, "_read_surface_vector", lambda p: e1 if p == "p1" else e2
+        )
+        monkeypatch.setattr(fsaverage, "_hemisphere_node_counts", lambda sf: (1, 0))
+        monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
+        monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
+
+        import sys
+        from unittest.mock import MagicMock
+
+        sys.modules["simnibs.utils.file_finder"].SubjectFiles = lambda **kw: MagicMock(
+            hemispheres=("lh",)
+        )
+        sys.modules["simnibs.utils.transformations"].cross_subject_map = (
+            lambda *a, **kw: {}
+        )
+        pm = MagicMock()
+        out = fsaverage._compute_fields(
+            pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_max", "magnitude"))
+        )
+        assert out["hf_max"][0] == pytest.approx(2.0)
+        assert out["magnitude"][0] == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
