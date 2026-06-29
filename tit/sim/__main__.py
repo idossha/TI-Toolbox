@@ -50,7 +50,7 @@ def main() -> None:
         map_to_surf=data.get("map_to_surf", True),
         map_to_vol=data.get("map_to_vol", False),
         map_to_mni=data.get("map_to_mni", False),
-        map_to_fsavg=data.get("map_to_fsavg", False),
+        map_to_fsavg=data.get("map_to_fsavg", True),
         open_in_gmsh=data.get("open_in_gmsh", False),
         tissues_in_niftis=data.get("tissues_in_niftis", "all"),
         aniso_maxratio=data.get("aniso_maxratio", 10.0),

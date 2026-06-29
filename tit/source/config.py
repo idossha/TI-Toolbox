@@ -21,7 +21,11 @@ from dataclasses import dataclass, field
 
 #: Field quantities that :func:`tit.source.fsaverage.project_fields_to_fsaverage`
 #: knows how to compute on the subject central surface before morphing.
-VALID_FSAVG_FIELDS: tuple[str, ...] = ("TI_max", "TI_normal", "magnitude")
+#:
+#: ``hf_max`` is the peak instantaneous carrier exposure ``|E1| + |E2|`` (sum of
+#: carrier magnitudes) -- distinct from ``magnitude`` = ``|E1 + E2|`` (the
+#: coherent vector sum); both derive from the same two carrier overlays.
+VALID_FSAVG_FIELDS: tuple[str, ...] = ("TI_max", "TI_normal", "magnitude", "hf_max")
 
 #: fsaverage subdivision factors accepted by SimNIBS ``prepare_eeg_forward`` and
 #: ``cross_subject_map`` (5 -> 10242, 6 -> 40962, 7 -> 163842 nodes per hemi).
@@ -68,7 +72,7 @@ class FsavgMapConfig:
     fields : tuple of str
         Which field quantities to project.  Any of
         :data:`VALID_FSAVG_FIELDS` (``"TI_max"``, ``"TI_normal"``,
-        ``"magnitude"``).
+        ``"magnitude"``, ``"hf_max"``).
     fsaverage_spacing : int
         fsaverage subdivision factor (5, 6, or 7) to morph onto.
     workers : int
