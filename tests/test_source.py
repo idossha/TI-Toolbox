@@ -135,7 +135,9 @@ class TestFsavgHelpers:
         e2 = np.array([[-1.0, 0.0, 0.0]])
         monkeypatch.setattr(fsaverage, "_carrier_overlays", lambda *a: ("p1", "p2"))
         monkeypatch.setattr(
-            fsaverage, "_read_surface_vector", lambda p: e1 if p == "p1" else e2
+            fsaverage,
+            "_read_carrier_fields",
+            lambda p: (np.array([1.0]), e1) if p == "p1" else (np.array([1.0]), e2),
         )
         monkeypatch.setattr(fsaverage, "_hemisphere_node_counts", lambda sf: (1, 0))
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
@@ -156,6 +158,39 @@ class TestFsavgHelpers:
         )
         assert out["hf_max"][0] == pytest.approx(2.0)
         assert out["magnitude"][0] == pytest.approx(0.0)
+
+    def test_hf_max_works_without_vector_e_magnitude_skipped(self, monkeypatch):
+        """When the overlay has only magnE (no vector E): hf_max ok, magnitude skipped."""
+        import numpy as np
+
+        from tit.source import fsaverage
+        from tit.source.config import FsavgMapConfig
+
+        monkeypatch.setattr(fsaverage, "_carrier_overlays", lambda *a: ("p1", "p2"))
+        # magnE-only overlays: magnitude present, vector None.
+        monkeypatch.setattr(
+            fsaverage,
+            "_read_carrier_fields",
+            lambda p: (np.array([0.6]), None) if p == "p1" else (np.array([0.4]), None),
+        )
+        monkeypatch.setattr(fsaverage, "_hemisphere_node_counts", lambda sf: (1, 0))
+        monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
+        monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
+
+        import sys
+        from unittest.mock import MagicMock
+
+        sys.modules["simnibs.utils.file_finder"].SubjectFiles = lambda **kw: MagicMock(
+            hemispheres=("lh",)
+        )
+        sys.modules["simnibs.utils.transformations"].cross_subject_map = (
+            lambda *a, **kw: {}
+        )
+        out = fsaverage._compute_fields(
+            MagicMock(), "001", "TI_sim", FsavgMapConfig(fields=("hf_max", "magnitude"))
+        )
+        assert out["hf_max"][0] == pytest.approx(1.0)  # 0.6 + 0.4
+        assert "magnitude" not in out  # can't do |E1+E2| without vectors
 
 
 # ---------------------------------------------------------------------------

@@ -64,6 +64,27 @@ def _read_surface_vector(path: Path, field_name: str = "E") -> np.ndarray:
     return np.asarray(mesh.field[field_name].value, dtype=float).reshape(-1, 3)
 
 
+def _read_carrier_fields(path: Path) -> tuple[np.ndarray, np.ndarray | None]:
+    """Return ``(|E| per node, E vector or None)`` for a carrier central overlay.
+
+    SimNIBS surface overlays don't always carry the full vector ``E`` -- some
+    versions map only the scalar magnitude ``magnE`` and the normal component
+    ``E_normal``.  ``hf_max`` (|E1| + |E2|) needs only the magnitude, so it works
+    from ``magnE`` alone; ``magnitude`` (|E1 + E2|) needs the vector and is
+    skipped when it is absent.
+    """
+    from simnibs.mesh_tools import mesh_io
+
+    mesh = mesh_io.read_msh(str(path))
+    if "E" in mesh.field:
+        vec = np.asarray(mesh.field["E"].value, dtype=float).reshape(-1, 3)
+        return np.linalg.norm(vec, axis=1), vec
+    if "magnE" in mesh.field:
+        mag = np.asarray(mesh.field["magnE"].value, dtype=float).reshape(-1)
+        return mag, None
+    raise ValueError(f"{path} has neither 'E' nor 'magnE' (only E_normal?)")
+
+
 def _ti_max_overlay(pm, subject_id: str, sim: str) -> Path:
     path = Path(pm.ti_central_surface(subject_id, sim))
     if not path.exists():
@@ -176,18 +197,20 @@ def _compute_fields(
     if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
         try:
             pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
-            e1 = _read_surface_vector(pair1)
-            e2 = _read_surface_vector(pair2)
+            mag1, vec1 = _read_carrier_fields(pair1)
+            mag2, vec2 = _read_carrier_fields(pair2)
         except Exception as exc:  # noqa: BLE001 - both carrier fields share this
             errors.append(f"carriers: {exc!r}")
         else:
-            # |E1 + E2| coherent sum vs |E1| + |E2| peak instantaneous exposure
-            # (the upper bound, not the cancellation-prone vector sum).
-            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
-            _project(
-                "hf_max",
-                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
-            )
+            # hf_max = |E1| + |E2| peak instantaneous exposure (works from |E| or
+            # magnE); magnitude = |E1 + E2| coherent sum needs the vectors.
+            _project("hf_max", lambda: mag1 + mag2)
+            if vec1 is not None and vec2 is not None:
+                _project("magnitude", lambda: np.linalg.norm(vec1 + vec2, axis=1))
+            elif "magnitude" in cfg.fields:
+                errors.append(
+                    "magnitude: needs vector 'E' (overlay has only magnE/E_normal)"
+                )
 
     if not out:
         raise ValueError(
