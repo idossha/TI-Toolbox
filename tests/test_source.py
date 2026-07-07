@@ -72,9 +72,12 @@ class TestForwardPaths:
         expected = init_pm.sub("001") + "/forward"
         assert init_pm.forward("001").replace("//", "/") == expected.replace("//", "/")
 
-    def test_forward_fsaverage_nested_under_forward(self, init_pm):
-        assert init_pm.forward_fsaverage("001").startswith(init_pm.forward("001"))
-        assert init_pm.forward_fsaverage("001").endswith("forward/fsaverage")
+    def test_sim_fsaverage_nested_under_simulation(self, init_pm):
+        path = init_pm.sim_fsaverage("001", "Thalamus")
+        assert path.startswith(init_pm.simulation("001", "Thalamus"))
+        assert path.endswith("Simulations/Thalamus/fsaverage")
+        # Must NOT live under the EEG source-forward directory.
+        assert "/forward/" not in path
 
     def test_forward_distinct_from_leadfields(self, init_pm):
         assert init_pm.forward("001") != init_pm.leadfields("001")
@@ -102,7 +105,7 @@ class TestFsavgHelpers:
 
         path = fsaverage._output_path(init_pm, "001", "TI_sim", 5)
         assert path.name == "sub-001_sim-TI_sim_space-fsaverage5_fields.npz"
-        assert str(path.parent).endswith("forward/fsaverage")
+        assert str(path.parent).endswith("Simulations/TI_sim/fsaverage")
 
     def test_carrier_volume_meshes_skips_central_overlays(self, tmp_path):
         """Locate the per-pair VOLUME meshes, not the *_central.msh overlays."""

@@ -239,7 +239,7 @@ def _compute_fields(
 
 
 def _output_path(pm, subject_id: str, sim: str, spacing: int) -> Path:
-    out_dir = Path(pm.forward_fsaverage(subject_id))
+    out_dir = Path(pm.sim_fsaverage(subject_id, sim))
     return out_dir / f"sub-{subject_id}_sim-{sim}_space-fsaverage{spacing}_fields.npz"
 
 
