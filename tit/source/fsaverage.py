@@ -68,9 +68,12 @@ def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
     sim_dir = Path(pm.simulation(subject_id, sim))
 
     def _find(pair: int) -> Path:
+        # The carrier volume mesh always lives under high_Frequency/ (directly
+        # before file organization, in mesh/ after); restrict to that subtree so
+        # no surface overlay elsewhere under the sim dir can be picked instead.
         matches = sorted(
             p
-            for p in sim_dir.glob(f"**/*_TDCS_{pair}_*.msh")
+            for p in sim_dir.glob(f"high_Frequency/**/*_TDCS_{pair}_*.msh")
             if not p.name.startswith("._") and not p.name.endswith("_central.msh")
         )
         if not matches:
@@ -133,18 +136,24 @@ def _ti_normal_overlay(pm, subject_id: str, sim: str) -> Path:
 def _morph_split(
     values: np.ndarray, n_lh: int, n_rh: int, morph, hemispheres
 ) -> np.ndarray:
-    """Split an [lh; rh] central-surface scalar and morph each hemi to fsaverage."""
+    """Split a per-hemisphere central-surface scalar and morph each to fsaverage.
+
+    The values are concatenated in ``hemispheres`` order, so we split in that
+    same order (rather than assuming lh first) -- keeping the split aligned with
+    however :func:`_interp_to_central` / the central overlay were concatenated.
+    """
     if values.shape[0] != n_lh + n_rh:
         raise ValueError(
             f"overlay has {values.shape[0]} nodes, expected {n_lh + n_rh} (lh+rh)"
         )
-    split = {"lh": values[:n_lh], "rh": values[n_lh:]}
-    return np.concatenate(
-        [
-            np.asarray(morph[hemi].resample(split[hemi]), dtype=float)
-            for hemi in hemispheres
-        ]
-    )
+    counts = {"lh": n_lh, "rh": n_rh}
+    out: list[np.ndarray] = []
+    offset = 0
+    for hemi in hemispheres:
+        n = counts[hemi]
+        out.append(np.asarray(morph[hemi].resample(values[offset : offset + n]), float))
+        offset += n
+    return np.concatenate(out)
 
 
 def _compute_fields(
@@ -199,30 +208,21 @@ def _compute_fields(
             vol1, vol2 = _carrier_volume_meshes(pm, subject_id, sim)
             m1, gm1 = _load_carrier_mesh(vol1)
             m2, gm2 = _load_carrier_mesh(vol2)
-        except Exception as exc:  # noqa: BLE001 - loading is shared; skip both
+            # The full vector E is always present on the FEM volume mesh (unlike
+            # the surface overlays, which some builds fill with only E_normal), so
+            # both carrier fields derive from it -- interpolate it once per carrier.
+            e1 = _interp_to_central(m1, gm1, "E", central, hemispheres).reshape(-1, 3)
+            e2 = _interp_to_central(m2, gm2, "E", central, hemispheres).reshape(-1, 3)
+        except Exception as exc:  # noqa: BLE001 - shared carrier read; skip both
             errors.append(f"carriers: {exc!r}")
         else:
-            # hf_max = |E1| + |E2| peak instantaneous exposure, from the scalar
-            # magnE (interpolated like TI_max). magnitude = |E1 + E2| coherent sum
-            # needs the vector E. Kept separate so a vector-interp issue can't take
-            # down hf_max, the field that actually quantifies carrier exposure.
+            # hf_max = |E1| + |E2| peak instantaneous exposure (the upper bound);
+            # magnitude = |E1 + E2| coherent vector sum. Both the full field.
             _project(
                 "hf_max",
-                lambda: _interp_to_central(m1, gm1, "magnE", central, hemispheres)
-                + _interp_to_central(m2, gm2, "magnE", central, hemispheres),
+                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
             )
-            _project(
-                "magnitude",
-                lambda: np.linalg.norm(
-                    _interp_to_central(m1, gm1, "E", central, hemispheres).reshape(
-                        -1, 3
-                    )
-                    + _interp_to_central(m2, gm2, "E", central, hemispheres).reshape(
-                        -1, 3
-                    ),
-                    axis=1,
-                ),
-            )
+            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
 
     if not out:
         raise ValueError(
