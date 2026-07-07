@@ -1,6 +1,7 @@
 """Tests for the ``tit.source`` EEG forward / fsaverage-map module."""
 
 import json
+from unittest.mock import MagicMock as _MagicMock
 
 import pytest
 
@@ -103,28 +104,38 @@ class TestFsavgHelpers:
         assert path.name == "sub-001_sim-TI_sim_space-fsaverage5_fields.npz"
         assert str(path.parent).endswith("forward/fsaverage")
 
-    @pytest.mark.parametrize("overlay_subdir", ["subject_overlays", "surface_overlays"])
-    def test_carrier_overlays_found_in_either_layout(self, tmp_path, overlay_subdir):
-        """The glob must resolve overlays both before and after file organization."""
+    def test_carrier_volume_meshes_skips_central_overlays(self, tmp_path):
+        """Locate the per-pair VOLUME meshes, not the *_central.msh overlays."""
         from types import SimpleNamespace
 
         from tit.source import fsaverage
 
         sim_dir = tmp_path / "TI_sim"
-        overlays = sim_dir / "TI" / overlay_subdir
+        vol_dir = sim_dir / "high_Frequency" / "mesh"
+        vol_dir.mkdir(parents=True)
+        overlays = sim_dir / "TI" / "surface_overlays"
         overlays.mkdir(parents=True)
         for pair in (1, 2):
+            (vol_dir / f"001_TDCS_{pair}_scalar.msh").write_text("")
+            # Central overlays must NOT be picked up as the volume mesh.
             (overlays / f"001_TDCS_{pair}_scalar_central.msh").write_text("")
-        # The TI overlay must NOT be mistaken for a carrier overlay.
-        (overlays / "TI_sim_TI_central.msh").write_text("")
 
         pm = SimpleNamespace(simulation=lambda sid, sim: str(sim_dir))
-        p1, p2 = fsaverage._carrier_overlays(pm, "001", "TI_sim")
-        assert p1.name == "001_TDCS_1_scalar_central.msh"
-        assert p2.name == "001_TDCS_2_scalar_central.msh"
+        v1, v2 = fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
+        assert v1.name == "001_TDCS_1_scalar.msh"
+        assert v2.name == "001_TDCS_2_scalar.msh"
 
-    def test_hf_max_is_sum_of_carrier_magnitudes(self, monkeypatch):
-        """hf_max = |E1| + |E2| (sum of magnitudes), not |E1 + E2|."""
+    def test_carrier_volume_meshes_missing_raises(self, tmp_path):
+        from types import SimpleNamespace
+
+        from tit.source import fsaverage
+
+        pm = SimpleNamespace(simulation=lambda sid, sim: str(tmp_path))
+        with pytest.raises(FileNotFoundError):
+            fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
+
+    def test_hf_max_and_magnitude_from_carrier_vectors(self, monkeypatch):
+        """hf_max = |E1|+|E2|, magnitude = |E1+E2|, from the interpolated vectors."""
         import numpy as np
 
         from tit.source import fsaverage
@@ -133,64 +144,69 @@ class TestFsavgHelpers:
         # Two anti-parallel carriers: |E1|+|E2| = 2, but |E1+E2| = 0.
         e1 = np.array([[1.0, 0.0, 0.0]])
         e2 = np.array([[-1.0, 0.0, 0.0]])
-        monkeypatch.setattr(fsaverage, "_carrier_overlays", lambda *a: ("p1", "p2"))
+        monkeypatch.setattr(
+            fsaverage, "_carrier_volume_meshes", lambda *a: ("v1", "v2")
+        )
         monkeypatch.setattr(
             fsaverage,
-            "_read_carrier_fields",
-            lambda p: (np.array([1.0]), e1) if p == "p1" else (np.array([1.0]), e2),
+            "_carrier_vectors_on_central",
+            lambda vol, central, hemis: e1 if vol == "v1" else e2,
         )
-        monkeypatch.setattr(fsaverage, "_hemisphere_node_counts", lambda sf: (1, 0))
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
-        import sys
-        from unittest.mock import MagicMock
-
-        sys.modules["simnibs.utils.file_finder"].SubjectFiles = lambda **kw: MagicMock(
-            hemispheres=("lh",)
-        )
-        sys.modules["simnibs.utils.transformations"].cross_subject_map = (
-            lambda *a, **kw: {}
-        )
-        pm = MagicMock()
+        self._mock_simnibs_core(monkeypatch)
         out = fsaverage._compute_fields(
-            pm, "001", "TI_sim", FsavgMapConfig(fields=("hf_max", "magnitude"))
+            _MagicMock(),
+            "001",
+            "TI_sim",
+            FsavgMapConfig(fields=("hf_max", "magnitude")),
         )
         assert out["hf_max"][0] == pytest.approx(2.0)
         assert out["magnitude"][0] == pytest.approx(0.0)
 
-    def test_hf_max_works_without_vector_e_magnitude_skipped(self, monkeypatch):
-        """When the overlay has only magnE (no vector E): hf_max ok, magnitude skipped."""
+    def test_carrier_failure_keeps_ti_fields(self, monkeypatch):
+        """A carrier read failure drops hf_max/magnitude but keeps TI_max/TI_normal."""
         import numpy as np
 
         from tit.source import fsaverage
         from tit.source.config import FsavgMapConfig
 
-        monkeypatch.setattr(fsaverage, "_carrier_overlays", lambda *a: ("p1", "p2"))
-        # magnE-only overlays: magnitude present, vector None.
+        def _boom(*a):
+            raise FileNotFoundError("no volume mesh")
+
+        monkeypatch.setattr(fsaverage, "_carrier_volume_meshes", _boom)
         monkeypatch.setattr(
-            fsaverage,
-            "_read_carrier_fields",
-            lambda p: (np.array([0.6]), None) if p == "p1" else (np.array([0.4]), None),
+            fsaverage, "_read_surface_scalar", lambda path, name: np.array([0.5])
         )
-        monkeypatch.setattr(fsaverage, "_hemisphere_node_counts", lambda sf: (1, 0))
+        monkeypatch.setattr(fsaverage, "_ti_max_overlay", lambda *a: "ti")
+        monkeypatch.setattr(fsaverage, "_ti_normal_overlay", lambda *a: "tn")
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
-        import sys
-        from unittest.mock import MagicMock
+        self._mock_simnibs_core(monkeypatch)
+        out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
+        assert "TI_max" in out and "TI_normal" in out
+        assert "hf_max" not in out and "magnitude" not in out
 
-        sys.modules["simnibs.utils.file_finder"].SubjectFiles = lambda **kw: MagicMock(
+    @staticmethod
+    def _mock_simnibs_core(monkeypatch):
+        """Stub SubjectFiles / cross_subject_map / load_subject_surfaces (1 lh node)."""
+        import sys
+        from types import SimpleNamespace
+
+        sys.modules["simnibs.utils.file_finder"].SubjectFiles = lambda **kw: _MagicMock(
             hemispheres=("lh",)
         )
         sys.modules["simnibs.utils.transformations"].cross_subject_map = (
             lambda *a, **kw: {}
         )
-        out = fsaverage._compute_fields(
-            MagicMock(), "001", "TI_sim", FsavgMapConfig(fields=("hf_max", "magnitude"))
+        sys.modules["simnibs.mesh_tools"].mesh_io.load_subject_surfaces = (
+            lambda sf, kind: {
+                "lh": SimpleNamespace(nodes=SimpleNamespace(nr=1)),
+                "rh": SimpleNamespace(nodes=SimpleNamespace(nr=0)),
+            }
         )
-        assert out["hf_max"][0] == pytest.approx(1.0)  # 0.6 + 0.4
-        assert "magnitude" not in out  # can't do |E1+E2| without vectors
 
 
 # ---------------------------------------------------------------------------
