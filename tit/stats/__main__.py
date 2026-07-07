@@ -56,6 +56,9 @@ def _run_group_comparison(data: dict) -> None:
         ),
         n_permutations=data.get("n_permutations", 1000),
         tissue_type=GroupComparisonConfig.TissueType(data.get("tissue_type", "grey")),
+        space=GroupComparisonConfig.AnalysisSpace(data.get("space", "mni")),
+        fsaverage_field=data.get("fsaverage_field", "TI_max"),
+        fsaverage_spacing=data.get("fsaverage_spacing", 5),
     )
     result = run_group_comparison(config)
     sys.exit(0 if result.n_significant_clusters >= 0 else 1)
@@ -74,6 +77,9 @@ def _run_correlation(data: dict) -> None:
         cluster_stat=CorrelationConfig.ClusterStat(data.get("cluster_stat", "mass")),
         n_permutations=data.get("n_permutations", 1000),
         effect_metric=data.get("effect_metric", ""),
+        space=CorrelationConfig.AnalysisSpace(data.get("space", "mni")),
+        fsaverage_field=data.get("fsaverage_field", "TI_max"),
+        fsaverage_spacing=data.get("fsaverage_spacing", 5),
     )
     result = run_correlation(config)
     sys.exit(0 if result.n_significant_clusters >= 0 else 1)

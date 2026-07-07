@@ -11,7 +11,13 @@ central-surface overlays and morphs the requested scalar fields to fsaverage:
 
 * ``TI_max``    -- orientation-maximized TI envelope |E| (central overlay)
 * ``TI_normal`` -- directional TI envelope along the cortical normal
-* ``magnitude`` -- combined carrier exposure |E1 + E2| on the central surface
+* ``magnitude`` -- coherent carrier exposure |E1 + E2| on the central surface
+* ``hf_max``    -- peak instantaneous carrier exposure |E1| + |E2| (the upper
+  bound the tissue sees; distinct from ``magnitude``)
+
+``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
+``magnitude`` / ``hf_max`` are interpolated from the carrier **volume** meshes
+(the surface overlays only reliably carry ``E_normal`` on some SimNIBS builds).
 
 Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
@@ -35,13 +41,11 @@ from pathlib import Path
 
 import numpy as np
 
+from tit.constants import FSAVG_NODES as _FSAVG_NODES
 from tit.paths import get_path_manager
 from tit.source.config import FsavgMapConfig
 
 logger = logging.getLogger(__name__)
-
-# fsaverage total node counts (both hemispheres) per subdivision factor.
-_FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 
 
 def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
@@ -54,14 +58,62 @@ def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
     return np.asarray(mesh.field[field_name].value, dtype=float).reshape(-1)
 
 
-def _read_surface_vector(path: Path, field_name: str = "E") -> np.ndarray:
-    """Read a node vector field (n, 3) from a central-surface overlay mesh."""
-    from simnibs.mesh_tools import mesh_io
+def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
+    """Locate the two per-pair carrier VOLUME meshes for a simulation.
 
-    mesh = mesh_io.read_msh(str(path))
-    if field_name not in mesh.field:
-        raise ValueError(f"{path} has no field {field_name!r}")
-    return np.asarray(mesh.field[field_name].value, dtype=float).reshape(-1, 3)
+    Unlike the central-surface overlays -- which some SimNIBS builds fill with
+    only ``E_normal`` -- the high-frequency volume meshes always carry the full
+    vector ``E``, so ``magnitude`` / ``hf_max`` can be derived reliably from them.
+    """
+    sim_dir = Path(pm.simulation(subject_id, sim))
+
+    def _find(pair: int) -> Path:
+        # The carrier volume mesh always lives under high_Frequency/ (directly
+        # before file organization, in mesh/ after); restrict to that subtree so
+        # no surface overlay elsewhere under the sim dir can be picked instead.
+        matches = sorted(
+            p
+            for p in sim_dir.glob(f"high_Frequency/**/*_TDCS_{pair}_*.msh")
+            if not p.name.startswith("._") and not p.name.endswith("_central.msh")
+        )
+        if not matches:
+            raise FileNotFoundError(
+                f"No carrier volume mesh for TDCS_{pair} under {sim_dir}"
+            )
+        return matches[0]
+
+    return _find(1), _find(2)
+
+
+def _load_carrier_mesh(vol_path: Path):
+    """Read a carrier volume mesh cropped to brain tissue, with its GM elements."""
+    from simnibs.mesh_tools import mesh_io
+    from simnibs.mesh_tools.mesh_io import ElementTags
+
+    mesh = mesh_io.read_msh(str(vol_path)).crop_mesh(
+        tags=[ElementTags.WM, ElementTags.GM, ElementTags.CSF]
+    )
+    gm_th = mesh.elm.get_tags(ElementTags.GM, return_element_numbers=True)
+    return mesh, gm_th
+
+
+def _interp_to_central(mesh, gm_th, field_name, central, hemispheres) -> np.ndarray:
+    """Interpolate a named GM field onto the ``[lh; rh]`` central surface.
+
+    Mirrors the pipeline's (and sleepTI's) volume->central interpolation for
+    ``TI_max``.  Returns ``(n_lh + n_rh,)`` for a scalar field (e.g. ``magnE``)
+    or ``(n_lh + n_rh, 3)`` for a vector field (e.g. ``E``).
+    """
+    field = mesh.field[field_name]
+    return np.concatenate(
+        [
+            np.asarray(
+                field.interpolate_to_surface(central[hemi], th_indices=gm_th).value,
+                dtype=float,
+            )
+            for hemi in hemispheres
+        ]
+    )
 
 
 def _ti_max_overlay(pm, subject_id: str, sim: str) -> Path:
@@ -81,54 +133,34 @@ def _ti_normal_overlay(pm, subject_id: str, sim: str) -> Path:
     return candidates[0]
 
 
-def _carrier_overlays(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
-    """Locate the two per-pair central E-field overlays for a simulation."""
-    sim_dir = Path(pm.simulation(subject_id, sim))
-
-    def _find(pair: int) -> Path:
-        matches = sorted(
-            p
-            for p in sim_dir.glob(f"**/subject_overlays/*_TDCS_{pair}_*_central.msh")
-            if not p.name.startswith("._")
-        )
-        if not matches:
-            raise FileNotFoundError(
-                f"No per-pair central overlay for TDCS_{pair} under {sim_dir}"
-            )
-        return matches[0]
-
-    return _find(1), _find(2)
-
-
-def _hemisphere_node_counts(subject_files) -> tuple[int, int]:
-    """Return (n_lh, n_rh) central-surface node counts for splitting overlays."""
-    from simnibs.mesh_tools import mesh_io
-
-    central = mesh_io.load_subject_surfaces(subject_files, "central")
-    return central["lh"].nodes.nr, central["rh"].nodes.nr
-
-
 def _morph_split(
     values: np.ndarray, n_lh: int, n_rh: int, morph, hemispheres
 ) -> np.ndarray:
-    """Split an [lh; rh] central-surface scalar and morph each hemi to fsaverage."""
+    """Split a per-hemisphere central-surface scalar and morph each to fsaverage.
+
+    The values are concatenated in ``hemispheres`` order, so we split in that
+    same order (rather than assuming lh first) -- keeping the split aligned with
+    however :func:`_interp_to_central` / the central overlay were concatenated.
+    """
     if values.shape[0] != n_lh + n_rh:
         raise ValueError(
             f"overlay has {values.shape[0]} nodes, expected {n_lh + n_rh} (lh+rh)"
         )
-    split = {"lh": values[:n_lh], "rh": values[n_lh:]}
-    return np.concatenate(
-        [
-            np.asarray(morph[hemi].resample(split[hemi]), dtype=float)
-            for hemi in hemispheres
-        ]
-    )
+    counts = {"lh": n_lh, "rh": n_rh}
+    out: list[np.ndarray] = []
+    offset = 0
+    for hemi in hemispheres:
+        n = counts[hemi]
+        out.append(np.asarray(morph[hemi].resample(values[offset : offset + n]), float))
+        offset += n
+    return np.concatenate(out)
 
 
 def _compute_fields(
     pm, subject_id: str, sim: str, cfg: FsavgMapConfig
 ) -> dict[str, np.ndarray]:
     """Project the requested fields for one (subject, simulation) to fsaverage."""
+    from simnibs.mesh_tools import mesh_io
     from simnibs.utils.file_finder import SubjectFiles
     from simnibs.utils.transformations import cross_subject_map
 
@@ -137,36 +169,77 @@ def _compute_fields(
     morph = cross_subject_map(
         subject_files, "fsaverage", subsampling_to=cfg.fsaverage_spacing
     )
-    n_lh, n_rh = _hemisphere_node_counts(subject_files)
+    central = mesh_io.load_subject_surfaces(subject_files, "central")
     hemispheres = subject_files.hemispheres
+    n_lh, n_rh = central["lh"].nodes.nr, central["rh"].nodes.nr
 
+    # Each field is projected independently so one bad input (e.g. a missing
+    # carrier overlay) drops only that field, not the others.
     out: dict[str, np.ndarray] = {}
-    if "TI_max" in cfg.fields:
-        values = _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max")
-        out["TI_max"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "TI_normal" in cfg.fields:
-        values = _read_surface_scalar(
-            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
-        )
-        out["TI_normal"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-    if "magnitude" in cfg.fields:
-        pair1, pair2 = _carrier_overlays(pm, subject_id, sim)
-        e_sum = _read_surface_vector(pair1) + _read_surface_vector(pair2)
-        values = np.linalg.norm(e_sum, axis=1)
-        out["magnitude"] = _morph_split(values, n_lh, n_rh, morph, hemispheres)
-
+    errors: list[str] = []
     expected = _FSAVG_NODES[cfg.fsaverage_spacing]
-    for name, arr in out.items():
-        if arr.shape[0] != expected:
-            raise ValueError(
-                f"{name}: expected {expected} fsaverage{cfg.fsaverage_spacing} "
-                f"nodes, got {arr.shape[0]}"
+
+    def _project(name: str, compute) -> None:
+        if name not in cfg.fields:
+            return
+        try:
+            arr = _morph_split(compute(), n_lh, n_rh, morph, hemispheres)
+            if arr.shape[0] != expected:
+                raise ValueError(
+                    f"expected {expected} fsaverage{cfg.fsaverage_spacing} nodes, "
+                    f"got {arr.shape[0]}"
+                )
+            out[name] = arr
+        except Exception as exc:  # noqa: BLE001 - per-field, keep the rest
+            errors.append(f"{name}: {exc!r}")
+
+    _project(
+        "TI_max",
+        lambda: _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max"),
+    )
+    _project(
+        "TI_normal",
+        lambda: _read_surface_scalar(
+            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
+        ),
+    )
+    if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
+        try:
+            vol1, vol2 = _carrier_volume_meshes(pm, subject_id, sim)
+            m1, gm1 = _load_carrier_mesh(vol1)
+            m2, gm2 = _load_carrier_mesh(vol2)
+            # The full vector E is always present on the FEM volume mesh (unlike
+            # the surface overlays, which some builds fill with only E_normal), so
+            # both carrier fields derive from it -- interpolate it once per carrier.
+            e1 = _interp_to_central(m1, gm1, "E", central, hemispheres).reshape(-1, 3)
+            e2 = _interp_to_central(m2, gm2, "E", central, hemispheres).reshape(-1, 3)
+        except Exception as exc:  # noqa: BLE001 - shared carrier read; skip both
+            errors.append(f"carriers: {exc!r}")
+        else:
+            # hf_max = |E1| + |E2| peak instantaneous exposure (the upper bound);
+            # magnitude = |E1 + E2| coherent vector sum. Both the full field.
+            _project(
+                "hf_max",
+                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
             )
+            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
+
+    if not out:
+        raise ValueError(
+            f"no fields projected for {subject_id}/{sim}: " + "; ".join(errors)
+        )
+    if errors:
+        logger.warning(
+            "partial fsaverage projection for %s/%s: %s",
+            subject_id,
+            sim,
+            "; ".join(errors),
+        )
     return out
 
 
 def _output_path(pm, subject_id: str, sim: str, spacing: int) -> Path:
-    out_dir = Path(pm.forward_fsaverage(subject_id))
+    out_dir = Path(pm.sim_fsaverage(subject_id, sim))
     return out_dir / f"sub-{subject_id}_sim-{sim}_space-fsaverage{spacing}_fields.npz"
 
 

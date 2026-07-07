@@ -206,7 +206,10 @@ class SimulationConfig:
     map_to_mni : bool
         Reserved; not currently passed to SimNIBS.
     map_to_fsavg : bool
-        Reserved; not currently passed to SimNIBS.
+        After each TI montage finishes, project its surface fields
+        (``TI_max``, ``TI_normal``, ``magnitude``, ``hf_max``) onto fsaverage5
+        for group surface analysis.  On by default; set ``False`` to skip.
+        Failures are logged and never abort the simulation.
     open_in_gmsh : bool
         Open results in Gmsh after simulation.
     tissues_in_niftis : str
@@ -245,7 +248,7 @@ class SimulationConfig:
     # These are kept for documentation/serialization but are not passed to SimNIBS.
     map_to_vol: bool = False
     map_to_mni: bool = False
-    map_to_fsavg: bool = False
+    map_to_fsavg: bool = True
     open_in_gmsh: bool = False
     tissues_in_niftis: str = "all"
     aniso_maxratio: float = 10.0

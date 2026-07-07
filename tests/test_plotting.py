@@ -43,7 +43,9 @@ class TestSaveFigOptions:
     def test_custom_values(self):
         from tit.plotting._common import SaveFigOptions
 
-        opts = SaveFigOptions(dpi=300, bbox_inches="standard", facecolor="black", edgecolor="red")
+        opts = SaveFigOptions(
+            dpi=300, bbox_inches="standard", facecolor="black", edgecolor="red"
+        )
         assert opts.dpi == 300
         assert opts.bbox_inches == "standard"
         assert opts.facecolor == "black"
@@ -145,7 +147,9 @@ class TestSavefigClose:
         from tit.plotting._common import SaveFigOptions, savefig_close
 
         fig = MagicMock()
-        opts = SaveFigOptions(dpi=300, bbox_inches="standard", facecolor="black", edgecolor="red")
+        opts = SaveFigOptions(
+            dpi=300, bbox_inches="standard", facecolor="black", edgecolor="red"
+        )
         result = savefig_close(fig, "/tmp/test.png", fmt="png", opts=opts)
 
         fig.savefig.assert_called_once_with(
@@ -469,6 +473,7 @@ class TestGenerateStaticOverlayImages:
         yield
         import matplotlib.pyplot as plt
         import nibabel as nib
+
         plt.savefig.side_effect = None
         plt.savefig.reset_mock()
         nib.load.side_effect = None
@@ -824,7 +829,7 @@ class TestPlotPermutationNullDistribution:
         null_dist = np.random.rand(200) * 10
         observed = [
             {"stat_value": 15.0},  # No p_value, > threshold => significant
-            {"stat_value": 3.0},   # No p_value, < threshold => non-significant
+            {"stat_value": 3.0},  # No p_value, < threshold => non-significant
         ]
         output_file = str(tmp_path / "null_no_p.pdf")
 
@@ -854,8 +859,8 @@ class TestPlotPermutationNullDistribution:
         observed = [
             {"stat_value": 15.0, "p_value": 0.01},  # sig #1 - gets label
             {"stat_value": 12.0, "p_value": 0.02},  # sig #2 - no label
-            {"stat_value": 3.0, "p_value": 0.10},   # non-sig #1 - gets label
-            {"stat_value": 2.0, "p_value": 0.50},   # non-sig #2 - no label
+            {"stat_value": 3.0, "p_value": 0.10},  # non-sig #1 - gets label
+            {"stat_value": 2.0, "p_value": 0.50},  # non-sig #2 - no label
         ]
         output_file = str(tmp_path / "multi.pdf")
 
@@ -871,7 +876,11 @@ class TestPlotPermutationNullDistribution:
         assert mock_ax.axvline.call_count == 5
 
         # Check that only the first sig and first non-sig got labels
-        label_calls = [c for c in mock_ax.axvline.call_args_list if c.kwargs.get("label") is not None]
+        label_calls = [
+            c
+            for c in mock_ax.axvline.call_args_list
+            if c.kwargs.get("label") is not None
+        ]
         # Should have exactly 2 labeled axvline calls (plus the threshold which has a label)
         # Actually threshold also has label, so 3 labeled calls total
         # But we check cluster labels only (not the threshold one)
@@ -923,7 +932,9 @@ class TestPlotClusterSizeMassCorrelation:
         output_file = str(tmp_path / "corr.pdf")
 
         with patch("scipy.stats.pearsonr", return_value=(0.95, 0.001)):
-            result = plot_cluster_size_mass_correlation(sizes, masses, output_file, dpi=150)
+            result = plot_cluster_size_mass_correlation(
+                sizes, masses, output_file, dpi=150
+            )
 
         assert result == output_file
         mock_fig.savefig.assert_called_once()
@@ -1108,7 +1119,9 @@ class TestPlotIntensityVsFocality:
         # Scatter should be called with composite coloring
         mock_ax.scatter.assert_called_once()
         scatter_kwargs = mock_ax.scatter.call_args
-        assert scatter_kwargs.kwargs.get("c") == [0.5, 0.6, 0.7] or scatter_kwargs[1].get("c") == [0.5, 0.6, 0.7]
+        assert scatter_kwargs.kwargs.get("c") == [0.5, 0.6, 0.7] or scatter_kwargs[
+            1
+        ].get("c") == [0.5, 0.6, 0.7]
         # Colorbar should be added
         mock_fig.colorbar.assert_called_once()
 
@@ -1197,3 +1210,67 @@ class TestPlottingPackageExports:
         assert callable(plot_cluster_size_mass_correlation)
         assert callable(plot_montage_distributions)
         assert callable(plot_intensity_vs_focality)
+
+
+# ============================================================================
+# nilearn/surface.py — fsaverage surface rendering
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestRenderFsaverageMap:
+    """tit.plotting.nilearn.surface.render_fsaverage_map / render_surface_stats_result."""
+
+    def _mock_subplots(self):
+        # 2x2 object array of axes mocks + a figure mock, matching plt.subplots.
+        axes = np.empty((2, 2), dtype=object)
+        for i in range(2):
+            for j in range(2):
+                axes[i, j] = MagicMock()
+        fig = MagicMock()
+        sys.modules["matplotlib.pyplot"].subplots = MagicMock(return_value=(fig, axes))
+        return fig
+
+    def test_wrong_length_raises(self):
+        from tit.plotting.nilearn.surface import render_fsaverage_map
+
+        with pytest.raises(ValueError):
+            render_fsaverage_map(np.zeros(100), spacing=5)
+
+    def test_paints_four_panels(self):
+        from tit.plotting.nilearn import surface
+        from tit.source.fsaverage import _FSAVG_NODES
+
+        self._mock_subplots()
+        plotting = sys.modules["nilearn.plotting"]
+        plotting.plot_surf_stat_map = MagicMock()
+
+        fig = surface.render_fsaverage_map(np.zeros(_FSAVG_NODES[5]), spacing=5)
+        # 2 hemispheres x 2 views = 4 surface panels.
+        assert plotting.plot_surf_stat_map.call_count == 4
+        assert fig is not None
+
+    def test_stats_result_renders_effect_and_clusters(self, tmp_path, monkeypatch):
+        from tit.plotting.nilearn import surface
+        from tit.source.fsaverage import _FSAVG_NODES
+
+        n = _FSAVG_NODES[5]
+        npz = tmp_path / "surface_maps.npz"
+        np.savez_compressed(
+            npz,
+            r=np.zeros(n),
+            t=np.zeros(n),
+            p=np.ones(n),
+            sig_mask=np.concatenate([np.ones(10), np.zeros(n - 10)]),
+        )
+        calls = []
+        monkeypatch.setattr(
+            surface,
+            "render_fsaverage_map",
+            lambda values, spacing=5, **kw: calls.append(kw.get("title"))
+            or kw.get("out_path"),
+        )
+        written = surface.render_surface_stats_result(str(npz), str(tmp_path / "out"))
+        # effect (r) map + significant-cluster map.
+        assert len(written) == 2
+        assert "r map" in calls and "significant clusters" in calls

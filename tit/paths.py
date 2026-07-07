@@ -318,15 +318,6 @@ class PathManager:
         """
         return os.path.join(self.sub(sid), "forward")
 
-    def forward_fsaverage(self, sid: str) -> str:
-        """Path to the fsaverage field-map cache for *sid*.
-
-        ``derivatives/SimNIBS/sub-{sid}/forward/fsaverage/`` -- holds the
-        per-simulation ``.npz`` field projections produced by
-        :func:`tit.source.project_fields_to_fsaverage`.
-        """
-        return os.path.join(self.forward(sid), "fsaverage")
-
     def simulations(self, sid: str) -> str:
         """Path to ``Simulations/`` for *sid*."""
         return os.path.join(self.sub(sid), "Simulations")
@@ -386,6 +377,18 @@ class PathManager:
     def simulation(self, sid: str, sim: str) -> str:
         """Path to a named simulation directory for *sid*."""
         return os.path.join(self.simulations(sid), sim)
+
+    def sim_fsaverage(self, sid: str, sim: str) -> str:
+        """Path to the fsaverage field-map cache for a simulation.
+
+        ``derivatives/SimNIBS/sub-{sid}/Simulations/{sim}/fsaverage/`` -- holds
+        the ``.npz`` field projection produced by
+        :func:`tit.source.project_fields_to_fsaverage`.  Co-located with the
+        simulation it derives from (and mirroring SimNIBS's native
+        ``map_to_fsavg`` layout), a sibling of ``TI/`` and ``high_Frequency/`` --
+        distinct from :meth:`forward`, which is EEG source reconstruction.
+        """
+        return os.path.join(self.simulation(sid, sim), "fsaverage")
 
     def ti_mesh(self, sid: str, sim: str) -> str:
         """Path to the TI mesh file (``{sim}_TI.msh``)."""

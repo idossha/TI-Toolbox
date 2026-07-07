@@ -106,8 +106,20 @@ def _overlay_ring(image: str, x: int, y: int, color: str, ring: str) -> None:
     )
 
 
-def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> None:
-    """Draw a Bezier arc between two electrode positions on *image*."""
+def _draw_arc(
+    image: str,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    color: str,
+    center: tuple[float, float],
+) -> None:
+    """Draw a Bezier arc between two electrode positions on *image*.
+
+    The arc always bulges toward *center* (the cap centre), so paired
+    connections consistently curve inward regardless of pair orientation.
+    """
     dx, dy = x2 - x1, y2 - y1
     dist = (dx**2 + dy**2) ** 0.5
     if dist == 0:
@@ -115,8 +127,13 @@ def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> Non
     ux, uy = dx / dist, dy / dist
     sx, sy = x1 + ux * 15, y1 + uy * 15
     ex, ey = x2 - ux * 15, y2 - uy * 15
-    cx = (sx + ex) / 2 + (-dy / dist) * dist * 0.25
-    cy = (sy + ey) / 2 + (dx / dist) * dist * 0.25
+    # Unit normal to the line; flip it so it points toward the cap centre.
+    nx, ny = -dy / dist, dx / dist
+    mx, my = (sx + ex) / 2, (sy + ey) / 2
+    if nx * (center[0] - mx) + ny * (center[1] - my) < 0:
+        nx, ny = -nx, -ny
+    cx = mx + nx * dist * 0.25
+    cy = my + ny * dist * 0.25
     subprocess.run(
         [
             "convert",
@@ -180,6 +197,12 @@ def visualize_montage(
 
     coords = _load_coordinates(eeg_net)
 
+    # Cap centre used to orient connection arcs consistently inward.
+    center = (
+        sum(x for x, _ in coords.values()) / len(coords),
+        sum(y for _, y in coords.values()) / len(coords),
+    )
+
     template = os.path.join(_RESOURCES_DIR, "GSN-256.png")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -204,4 +227,4 @@ def visualize_montage(
         if e2 in coords:
             _overlay_ring(out_image, *coords[e2], color, ring)
         if e1 in coords and e2 in coords:
-            _draw_arc(out_image, *coords[e1], *coords[e2], color)
+            _draw_arc(out_image, *coords[e1], *coords[e2], color, center)
