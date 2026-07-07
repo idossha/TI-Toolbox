@@ -37,10 +37,11 @@ from tit.calc import get_nTI_vectors, get_TI_vectors
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
-    convert_t1_to_mni,
     extract_fields,
+    finish_t1_to_mni,
     safe_move,
-    transform_to_nifti,
+    start_t1_to_mni,
+    transform_dirs_to_nifti,
 )
 
 # Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
@@ -193,21 +194,26 @@ class mTISimulation(BaseSimulation):
 
         self._generate_central_surface(mti_path, dirs["mti_surfaces"])
 
+        # T1->MNI is independent of the field meshes; start it in the
+        # background so it overlaps the mesh-to-NIfTI conversions.
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid)
+
         self.logger.info("NIfTI transformation: Started")
-        transform_to_nifti(
-            dirs["mti_mesh"], dirs["mti_niftis"], sid, self.m2m_dir, self.logger
-        )
-        transform_to_nifti(
-            dirs["hf_mesh"],
-            dirs["hf_niftis"],
-            sid,
+        transform_dirs_to_nifti(
+            [
+                {"mesh_dir": dirs["mti_mesh"], "output_dir": dirs["mti_niftis"]},
+                {
+                    "mesh_dir": dirs["hf_mesh"],
+                    "output_dir": dirs["hf_niftis"],
+                    "fields": ["magnE"],
+                },
+            ],
             self.m2m_dir,
             self.logger,
-            fields=["magnE"],
         )
         self.logger.info("NIfTI transformation: \u2713 Complete")
 
-        convert_t1_to_mni(self.m2m_dir, sid, self.logger)
+        finish_t1_to_mni(t1_proc, self.logger)
 
         return mti_path
 

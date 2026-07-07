@@ -721,11 +721,94 @@ def transform_to_nifti(
     )
 
 
+def transform_dirs_to_nifti(specs: list[dict], m2m_dir: str, logger) -> None:
+    """Convert several mesh directories to NIfTI in a single process pool.
+
+    Thin wrapper over ``tit.tools.mesh2nii.convert_mesh_dirs``.  Overlaps
+    directories that would otherwise be converted one after another (e.g.
+    the TI-mesh and HF-mesh directories) by submitting every conversion
+    task to one shared pool.
+
+    Parameters
+    ----------
+    specs : list[dict]
+        One dict per directory with keys ``mesh_dir`` and ``output_dir``
+        (required) and optional ``fields`` / ``skip_patterns``.
+    m2m_dir : str
+        Path to the subject's m2m directory, used for coordinate transforms.
+    logger : logging.Logger
+        Logger instance for status messages.
+
+    See Also
+    --------
+    transform_to_nifti : Convert a single directory.
+    """
+    from tit.tools.mesh2nii import convert_mesh_dirs
+
+    convert_mesh_dirs(specs=specs, m2m_dir=m2m_dir)
+
+
+def start_t1_to_mni(m2m_dir: str, subject_id: str) -> subprocess.Popen:
+    """Launch the subject T1-to-MNI warp and return the running process.
+
+    The ``subject2mni`` transform is independent of the simulation field
+    meshes, so it can run concurrently with the mesh-to-NIfTI conversions.
+    Pair this with :func:`finish_t1_to_mni` to wait for completion.
+
+    Parameters
+    ----------
+    m2m_dir : str
+        Path to the subject's m2m directory containing ``T1.nii.gz``.
+    subject_id : str
+        Subject identifier, used for the output filename.
+
+    Returns
+    -------
+    subprocess.Popen
+        The running ``subject2mni`` process.
+    """
+    t1 = os.path.join(m2m_dir, "T1.nii.gz")
+    out = os.path.join(m2m_dir, f"T1_{subject_id}")
+    return subprocess.Popen(
+        ["subject2mni", "-i", t1, "-m", m2m_dir, "-o", out],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def finish_t1_to_mni(proc: subprocess.Popen, logger, timeout: int = 300) -> None:
+    """Wait for a :func:`start_t1_to_mni` process and log any failure.
+
+    Logs a warning (but does not raise) if the conversion fails or times
+    out, matching the previous best-effort behaviour.
+
+    Parameters
+    ----------
+    proc : subprocess.Popen
+        Process returned by :func:`start_t1_to_mni`.
+    logger : logging.Logger
+        Logger instance for warning messages.
+    timeout : int
+        Seconds to wait before killing the process.
+    """
+    try:
+        _, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        logger.warning("T1 MNI conversion timed out")
+        return
+    if proc.returncode != 0:
+        logger.warning(f"T1 MNI conversion warning: {stderr}")
+
+
 def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
     """Convert the subject's T1 image to MNI space via ``subject2mni``.
 
-    Calls the SimNIBS ``subject2mni`` CLI tool.  Logs a warning (but
-    does not raise) if the conversion fails.
+    Blocking convenience wrapper around :func:`start_t1_to_mni` /
+    :func:`finish_t1_to_mni`.  Logs a warning (but does not raise) if the
+    conversion fails.
 
     Parameters
     ----------
@@ -740,16 +823,7 @@ def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
     --------
     transform_to_nifti : Companion mesh-to-NIfTI transform.
     """
-    t1 = os.path.join(m2m_dir, "T1.nii.gz")
-    out = os.path.join(m2m_dir, f"T1_{subject_id}")
-    result = subprocess.run(
-        ["subject2mni", "-i", t1, "-m", m2m_dir, "-o", out],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    if result.returncode != 0:
-        logger.warning(f"T1 MNI conversion warning: {result.stderr}")
+    finish_t1_to_mni(start_t1_to_mni(m2m_dir, subject_id), logger)
 
 
 def safe_move(src: str, dest: str) -> None:
