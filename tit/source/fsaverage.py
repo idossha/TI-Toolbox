@@ -82,13 +82,8 @@ def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
     return _find(1), _find(2)
 
 
-def _carrier_vectors_on_central(vol_path: Path, central, hemispheres) -> np.ndarray:
-    """Interpolate a carrier's volume ``E`` onto the ``[lh; rh]`` central surface.
-
-    Mirrors the pipeline's (and sleepTI's) volume->central interpolation for
-    ``TI_max``: crop to brain tissue, interpolate the GM field to each central
-    hemisphere, and return the concatenated ``(n_lh + n_rh, 3)`` vector.
-    """
+def _load_carrier_mesh(vol_path: Path):
+    """Read a carrier volume mesh cropped to brain tissue, with its GM elements."""
     from simnibs.mesh_tools import mesh_io
     from simnibs.mesh_tools.mesh_io import ElementTags
 
@@ -96,13 +91,23 @@ def _carrier_vectors_on_central(vol_path: Path, central, hemispheres) -> np.ndar
         tags=[ElementTags.WM, ElementTags.GM, ElementTags.CSF]
     )
     gm_th = mesh.elm.get_tags(ElementTags.GM, return_element_numbers=True)
-    field = mesh.field["E"]
+    return mesh, gm_th
+
+
+def _interp_to_central(mesh, gm_th, field_name, central, hemispheres) -> np.ndarray:
+    """Interpolate a named GM field onto the ``[lh; rh]`` central surface.
+
+    Mirrors the pipeline's (and sleepTI's) volume->central interpolation for
+    ``TI_max``.  Returns ``(n_lh + n_rh,)`` for a scalar field (e.g. ``magnE``)
+    or ``(n_lh + n_rh, 3)`` for a vector field (e.g. ``E``).
+    """
+    field = mesh.field[field_name]
     return np.concatenate(
         [
             np.asarray(
                 field.interpolate_to_surface(central[hemi], th_indices=gm_th).value,
                 dtype=float,
-            ).reshape(-1, 3)
+            )
             for hemi in hemispheres
         ]
     )
@@ -192,19 +197,32 @@ def _compute_fields(
     if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
         try:
             vol1, vol2 = _carrier_volume_meshes(pm, subject_id, sim)
-            e1 = _carrier_vectors_on_central(vol1, central, hemispheres)
-            e2 = _carrier_vectors_on_central(vol2, central, hemispheres)
-        except Exception as exc:  # noqa: BLE001 - both carrier fields share this
+            m1, gm1 = _load_carrier_mesh(vol1)
+            m2, gm2 = _load_carrier_mesh(vol2)
+        except Exception as exc:  # noqa: BLE001 - loading is shared; skip both
             errors.append(f"carriers: {exc!r}")
         else:
-            # hf_max = |E1| + |E2| peak instantaneous exposure (the upper bound);
-            # magnitude = |E1 + E2| coherent vector sum. Both from the central-
-            # surface E interpolated from the volume, so both are the full field.
+            # hf_max = |E1| + |E2| peak instantaneous exposure, from the scalar
+            # magnE (interpolated like TI_max). magnitude = |E1 + E2| coherent sum
+            # needs the vector E. Kept separate so a vector-interp issue can't take
+            # down hf_max, the field that actually quantifies carrier exposure.
             _project(
                 "hf_max",
-                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
+                lambda: _interp_to_central(m1, gm1, "magnE", central, hemispheres)
+                + _interp_to_central(m2, gm2, "magnE", central, hemispheres),
             )
-            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
+            _project(
+                "magnitude",
+                lambda: np.linalg.norm(
+                    _interp_to_central(m1, gm1, "E", central, hemispheres).reshape(
+                        -1, 3
+                    )
+                    + _interp_to_central(m2, gm2, "E", central, hemispheres).reshape(
+                        -1, 3
+                    ),
+                    axis=1,
+                ),
+            )
 
     if not out:
         raise ValueError(

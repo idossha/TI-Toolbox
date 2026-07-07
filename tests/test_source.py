@@ -134,24 +134,25 @@ class TestFsavgHelpers:
         with pytest.raises(FileNotFoundError):
             fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
 
-    def test_hf_max_and_magnitude_from_carrier_vectors(self, monkeypatch):
-        """hf_max = |E1|+|E2|, magnitude = |E1+E2|, from the interpolated vectors."""
+    def test_hf_max_from_magne_magnitude_from_vector(self, monkeypatch):
+        """hf_max = magnE1+magnE2 (scalar); magnitude = |E1+E2| (vector)."""
         import numpy as np
 
         from tit.source import fsaverage
         from tit.source.config import FsavgMapConfig
 
-        # Two anti-parallel carriers: |E1|+|E2| = 2, but |E1+E2| = 0.
-        e1 = np.array([[1.0, 0.0, 0.0]])
-        e2 = np.array([[-1.0, 0.0, 0.0]])
         monkeypatch.setattr(
             fsaverage, "_carrier_volume_meshes", lambda *a: ("v1", "v2")
         )
-        monkeypatch.setattr(
-            fsaverage,
-            "_carrier_vectors_on_central",
-            lambda vol, central, hemis: e1 if vol == "v1" else e2,
-        )
+        monkeypatch.setattr(fsaverage, "_load_carrier_mesh", lambda vol: (vol, "gm"))
+
+        def _interp(mesh, gm, name, central, hemis):
+            if name == "magnE":
+                return np.array([1.0])  # each carrier |E| = 1  -> hf_max = 2
+            # name == "E": anti-parallel carriers -> |E1 + E2| = 0
+            return np.array([[1.0, 0.0, 0.0]] if mesh == "v1" else [[-1.0, 0.0, 0.0]])
+
+        monkeypatch.setattr(fsaverage, "_interp_to_central", _interp)
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
@@ -164,6 +165,37 @@ class TestFsavgHelpers:
         )
         assert out["hf_max"][0] == pytest.approx(2.0)
         assert out["magnitude"][0] == pytest.approx(0.0)
+
+    def test_hf_max_survives_when_vector_interp_fails(self, monkeypatch):
+        """A vector-E interpolation failure skips magnitude but keeps hf_max."""
+        import numpy as np
+
+        from tit.source import fsaverage
+        from tit.source.config import FsavgMapConfig
+
+        monkeypatch.setattr(
+            fsaverage, "_carrier_volume_meshes", lambda *a: ("v1", "v2")
+        )
+        monkeypatch.setattr(fsaverage, "_load_carrier_mesh", lambda vol: (vol, "gm"))
+
+        def _interp(mesh, gm, name, central, hemis):
+            if name == "magnE":
+                return np.array([0.5])
+            raise ValueError("vector interpolation unsupported")
+
+        monkeypatch.setattr(fsaverage, "_interp_to_central", _interp)
+        monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
+        monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
+
+        self._mock_simnibs_core(monkeypatch)
+        out = fsaverage._compute_fields(
+            _MagicMock(),
+            "001",
+            "TI_sim",
+            FsavgMapConfig(fields=("hf_max", "magnitude")),
+        )
+        assert out["hf_max"][0] == pytest.approx(1.0)  # 0.5 + 0.5
+        assert "magnitude" not in out
 
     def test_carrier_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier read failure drops hf_max/magnitude but keeps TI_max/TI_normal."""
