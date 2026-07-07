@@ -45,7 +45,7 @@ class _AnalysisSpace(StrEnum):
 
 #: Surface field quantities the fsaverage stats path can load (mirrors
 #: :data:`tit.source.config.VALID_FSAVG_FIELDS`).
-_VALID_FSAVG_FIELDS = ("TI_max", "TI_normal", "magnitude", "hf_max")
+_VALID_FSAVG_FIELDS = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
 _VALID_FSAVG_SPACINGS = (5, 6, 7)
 
 

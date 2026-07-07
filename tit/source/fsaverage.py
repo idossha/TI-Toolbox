@@ -11,17 +11,17 @@ central-surface overlays and morphs the requested scalar fields to fsaverage:
 
 * ``TI_max``    -- orientation-maximized TI envelope |E| (central overlay)
 * ``TI_normal`` -- directional TI envelope along the cortical normal
-* ``magnitude`` -- coherent carrier exposure |E1 + E2| on the central surface
-* ``hf_max``    -- peak instantaneous carrier exposure |E1| + |E2| (the upper
-  bound the tissue sees; distinct from ``magnitude``)
+* ``hf_peak``   -- peak carrier field max(|E1+E2|, |E1-E2|) (Cassarà 2025, safety)
+* ``hf_sar``    -- carrier heating driver |E1|^2 + |E2|^2 (proportional to SAR)
 
 ``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
-``magnitude`` / ``hf_max`` are interpolated from the carrier **volume** meshes
-(the surface overlays only reliably carry ``E_normal`` on some SimNIBS builds).
+``hf_peak`` / ``hf_sar`` are interpolated from the carrier **volume** meshes (the
+surface overlays only reliably carry ``E_normal`` on some SimNIBS builds) using
+the same formulas as the volume output (:mod:`tit.fields`).
 
 Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
-the derived ``TI_normal`` / ``magnitude`` quantities.
+the derived ``TI_normal`` / ``hf_peak`` / ``hf_sar`` quantities.
 
 Runs under ``simnibs_python`` (reads SimNIBS meshes)::
 
@@ -42,6 +42,7 @@ from pathlib import Path
 import numpy as np
 
 from tit.constants import FSAVG_NODES as _FSAVG_NODES
+from tit.fields import hf_peak, hf_sar
 from tit.paths import get_path_manager
 from tit.source.config import FsavgMapConfig
 
@@ -63,7 +64,7 @@ def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
 
     Unlike the central-surface overlays -- which some SimNIBS builds fill with
     only ``E_normal`` -- the high-frequency volume meshes always carry the full
-    vector ``E``, so ``magnitude`` / ``hf_max`` can be derived reliably from them.
+    vector ``E``, so ``hf_peak`` / ``hf_sar`` can be derived reliably from them.
     """
     sim_dir = Path(pm.simulation(subject_id, sim))
 
@@ -203,7 +204,7 @@ def _compute_fields(
             _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
         ),
     )
-    if "magnitude" in cfg.fields or "hf_max" in cfg.fields:
+    if "hf_peak" in cfg.fields or "hf_sar" in cfg.fields:
         try:
             vol1, vol2 = _carrier_volume_meshes(pm, subject_id, sim)
             m1, gm1 = _load_carrier_mesh(vol1)
@@ -216,13 +217,9 @@ def _compute_fields(
         except Exception as exc:  # noqa: BLE001 - shared carrier read; skip both
             errors.append(f"carriers: {exc!r}")
         else:
-            # hf_max = |E1| + |E2| peak instantaneous exposure (the upper bound);
-            # magnitude = |E1 + E2| coherent vector sum. Both the full field.
-            _project(
-                "hf_max",
-                lambda: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1),
-            )
-            _project("magnitude", lambda: np.linalg.norm(e1 + e2, axis=1))
+            # Cassarà 2025 safety metrics (same formulas as the volume output).
+            _project("hf_peak", lambda: hf_peak(e1, e2))
+            _project("hf_sar", lambda: hf_sar(e1, e2))
 
     if not out:
         raise ValueError(
