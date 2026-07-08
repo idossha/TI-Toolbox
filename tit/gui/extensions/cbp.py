@@ -389,7 +389,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
         self.config_layout.addWidget(QtWidgets.QLabel("Surface Field:"), row, 2)
         self.fsavg_field_combo = QtWidgets.QComboBox()
-        self.fsavg_field_combo.addItems(["TI_max", "TI_normal", "magnitude", "hf_max"])
+        self.fsavg_field_combo.addItems(["TI_max", "TI_normal", "hf_peak", "hf_sar"])
         self.fsavg_field_combo.setToolTip(
             "Which fsaverage field to analyze (ignored when Space is MNI)."
         )

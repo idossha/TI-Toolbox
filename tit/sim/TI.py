@@ -30,6 +30,7 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
+from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -139,6 +140,11 @@ class TISimulation(BaseSimulation):
         mout = deepcopy(m1)
         mout.elmdata = []
         mout.add_element_field(TImax, "TI_max")
+        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
+        # heating driver. Written as volume fields so they flow to subject-/MNI-
+        # space NIfTIs alongside TI_max.
+        mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
+        mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
 
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
         mesh_io.write_msh(mout, ti_path)

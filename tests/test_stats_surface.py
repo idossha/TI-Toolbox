@@ -41,9 +41,9 @@ class TestSurfaceConfig:
             analysis_name="a",
             subjects=self._corr_subjects(),
             space=CorrelationConfig.AnalysisSpace.FSAVERAGE,
-            fsaverage_field="hf_max",
+            fsaverage_field="hf_peak",
         )
-        assert cfg.fsaverage_field == "hf_max"
+        assert cfg.fsaverage_field == "hf_peak"
 
     def test_fsaverage_space_rejects_unknown_field(self):
         with pytest.raises(ValueError):
@@ -115,7 +115,8 @@ class TestLoadGroupSurfaceData:
 
         self._write_cache(init_pm, "001", "TI_sim", 5, TI_max=np.zeros(_FSAVG_NODES[5]))
         with pytest.raises(KeyError):
-            surface.load_group_surface_data([("001", "TI_sim")], "hf_max", 5)
+            # hf_peak is a valid field but absent from this cache -> KeyError
+            surface.load_group_surface_data([("001", "TI_sim")], "hf_peak", 5)
 
     def test_wrong_node_count_raises(self, init_pm):
         from tit.stats import surface

@@ -111,15 +111,15 @@ class SourceWidget(QtWidgets.QWidget):
         fields_layout.setContentsMargins(0, 0, 0, 0)
         self.field_ti_max = QtWidgets.QCheckBox("TI_max")
         self.field_ti_normal = QtWidgets.QCheckBox("TI_normal")
-        self.field_magnitude = QtWidgets.QCheckBox("magnitude")
-        self.field_hf_max = QtWidgets.QCheckBox("hf_max")
+        self.field_hf_peak = QtWidgets.QCheckBox("hf_peak")
+        self.field_hf_sar = QtWidgets.QCheckBox("hf_sar")
         self.field_ti_max.setChecked(True)
         self.field_ti_normal.setChecked(True)
         for cb in (
             self.field_ti_max,
             self.field_ti_normal,
-            self.field_magnitude,
-            self.field_hf_max,
+            self.field_hf_peak,
+            self.field_hf_sar,
         ):
             fields_layout.addWidget(cb)
         fields_layout.addStretch()
@@ -206,10 +206,10 @@ class SourceWidget(QtWidgets.QWidget):
             fields.append("TI_max")
         if self.field_ti_normal.isChecked():
             fields.append("TI_normal")
-        if self.field_magnitude.isChecked():
-            fields.append("magnitude")
-        if self.field_hf_max.isChecked():
-            fields.append("hf_max")
+        if self.field_hf_peak.isChecked():
+            fields.append("hf_peak")
+        if self.field_hf_sar.isChecked():
+            fields.append("hf_sar")
         return fields
 
     def _confirm_overwrite(self, paths):
