@@ -97,10 +97,12 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
         layout.addLayout(btn_layout)
 
         # ── Wiring ───────────────────────────────────────────────────────
+        # Clicking / double-clicking a row only updates the highlight (Qt
+        # selection); nothing is loaded and the dialog is not accepted until
+        # the user presses "Add Selected".
         self.search_input.textChanged.connect(self._filter)
         self.add_btn.clicked.connect(self._on_accept)
         self.cancel_btn.clicked.connect(self.reject)
-        self.list_widget.itemDoubleClicked.connect(lambda _item: self._on_accept())
 
     # ------------------------------------------------------------------
     # Construction helpers

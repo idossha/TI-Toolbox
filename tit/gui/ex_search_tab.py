@@ -935,7 +935,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.combine_rois_cb.setToolTip(combine_tooltip)
         combine_layout = QtWidgets.QHBoxLayout()
         combine_layout.addWidget(self.combine_rois_cb)
-        combine_layout.addWidget(HelpIcon(combine_tooltip))
+        combine_layout.addWidget(HelpIcon(combine_tooltip, title="Combine ROIs"))
         combine_layout.addStretch()
         roi_layout.addLayout(combine_layout)
 
