@@ -33,6 +33,10 @@ from tit.gui.components.console import (
 )
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.atlas_region_finder import (
+    AtlasRegionFinderDialog,
+    merge_into_lineedit,
+)
 from tit.atlas.constants import BUILTIN_ATLASES
 from tit.paths import get_path_manager
 
@@ -2224,60 +2228,32 @@ class AnalyzerTab(QtWidgets.QWidget):
         progress_dialog.setValue(100)
         progress_dialog.close()
 
-        # Show searchable region dialog
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle(f"Available Regions - {atlas_type_display}")
-        dialog.setMinimumWidth(400)
-        dialog.setMinimumHeight(500)
-        layout = QtWidgets.QVBoxLayout(dialog)
+        # Build (id, name, rgb) entries for the shared region finder. Mesh
+        # regions are plain names (no numeric id), so a sequential index is
+        # used purely for display; voxel regions arrive as "Name (ID: N)"
+        # strings and are parsed into their id and name parts here so the
+        # dialog can return clean names without any string-splitting hack.
+        if self.space_mesh.isChecked():
+            entries = [(idx, name, None) for idx, name in enumerate(regions)]
+        else:
+            entries = []
+            for region in regions:
+                name_part, _, id_part = region.partition(" (ID:")
+                try:
+                    region_id = int(id_part.rstrip(")").strip())
+                except ValueError:
+                    region_id = 0
+                entries.append((region_id, name_part.strip(), None))
 
-        search_input = QtWidgets.QLineEdit()
-        search_layout = QtWidgets.QHBoxLayout()
-        search_layout.addWidget(QtWidgets.QLabel("Search:"))
-        search_layout.addWidget(search_input)
-        layout.addLayout(search_layout)
-
-        list_widget = QtWidgets.QListWidget()
-        list_widget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        list_widget.addItems(regions)
-        layout.addWidget(list_widget)
-
-        def filter_regions(text):
-            for i in range(list_widget.count()):
-                list_widget.item(i).setHidden(
-                    text.lower() not in list_widget.item(i).text().lower()
-                )
-
-        def select_regions():
-            selected = list_widget.selectedItems()
-            if not selected:
-                return
-            existing = self.region_input.text().strip()
-            current = (
-                [r.strip() for r in existing.split(",") if r.strip()]
-                if existing
-                else []
-            )
-            for item in selected:
-                region_text = item.text().split(" (ID:")[0]
-                if region_text not in current:
-                    current.append(region_text)
-            self.region_input.setText(", ".join(current))
-            dialog.accept()
-
-        search_input.textChanged.connect(filter_regions)
-        list_widget.itemDoubleClicked.connect(lambda: select_regions())
-
-        btn_layout = QtWidgets.QHBoxLayout()
-        copy_btn = QtWidgets.QPushButton("Add Selected")
-        close_btn = QtWidgets.QPushButton("Close")
-        copy_btn.clicked.connect(select_regions)
-        close_btn.clicked.connect(dialog.reject)
-        btn_layout.addWidget(copy_btn)
-        btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
-
-        dialog.exec_()
+        dialog = AtlasRegionFinderDialog(
+            self,
+            f"Available Regions - {atlas_type_display}",
+            entries,
+            return_field="name",
+            multi=True,
+        )
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            merge_into_lineedit(self.region_input, dialog.selected_values())
 
     def load_t1_in_freeview(self):
         """Load subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""

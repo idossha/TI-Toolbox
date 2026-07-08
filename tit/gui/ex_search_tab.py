@@ -36,6 +36,7 @@ from tit.gui.components.console import (
 )
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.help_icon import HelpIcon
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
@@ -923,15 +924,20 @@ class ExSearchTab(QtWidgets.QWidget):
         roi_layout.addLayout(radius_layout)
 
         # Combine selected ROIs into a single (unioned) target
-        self.combine_rois_cb = QtWidgets.QCheckBox(
-            "Combine selected ROIs into one target"
-        )
-        self.combine_rois_cb.setToolTip(
+        combine_tooltip = (
             "When checked, all selected ROIs are unioned into one target and "
             "searched in a single run (output named by joining the ROI names "
             "with '+'). When unchecked, each selected ROI is searched separately."
         )
-        roi_layout.addWidget(self.combine_rois_cb)
+        self.combine_rois_cb = QtWidgets.QCheckBox(
+            "Combine selected ROIs into one target"
+        )
+        self.combine_rois_cb.setToolTip(combine_tooltip)
+        combine_layout = QtWidgets.QHBoxLayout()
+        combine_layout.addWidget(self.combine_rois_cb)
+        combine_layout.addWidget(HelpIcon(combine_tooltip))
+        combine_layout.addStretch()
+        roi_layout.addLayout(combine_layout)
 
         # Add ROI container to grid - Row 1, Column 0
         main_grid_layout.addWidget(roi_container, 1, 0)
