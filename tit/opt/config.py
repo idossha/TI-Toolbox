@@ -482,7 +482,14 @@ class ExConfig:
         Path to the precomputed leadfield HDF5 file.
     roi_name : str
         ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-        is appended automatically if missing.
+        is appended automatically if missing.  Used as the metric-key
+        prefix and (with the net name) the output-directory label.
+    roi_names : list of str or None
+        Optional list of ROI CSV filenames to **union** into a single
+        target.  When provided (combined mode), the spherical masks of
+        every listed ROI are OR-folded into one region.  ``None``
+        (default) keeps single-ROI behavior driven by *roi_name*.  Each
+        entry gets the ``".csv"`` suffix appended if missing.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -559,6 +566,7 @@ class ExConfig:
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
+    roi_names: list[str] | None = None
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
@@ -571,6 +579,10 @@ class ExConfig:
                 self.electrodes = ExConfig.BucketElectrodes(**self.electrodes)
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
+        if self.roi_names is not None:
+            self.roi_names = [
+                n if n.endswith(".csv") else f"{n}.csv" for n in self.roi_names
+            ]
 
         # Validation
         if self.current_step <= 0:
