@@ -698,13 +698,26 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Show confirmation dialog
         roi_description = ""
         if roi_params["method"] == "spherical":
-            roi_description = f"Spherical ROI at ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) with radius {roi_params['radius']}mm"
+            num_spheres = roi_params.get("num_spheres", 1)
+            if num_spheres > 1:
+                roi_description = (
+                    f"Spherical ROI: union of {num_spheres} spheres "
+                    f"(first at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}))"
+                )
+            else:
+                roi_description = (
+                    f"Spherical ROI at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}) "
+                    f"with radius {roi_params['radius']}mm"
+                )
         elif roi_params["method"] == "atlas":
             roi_description = (
-                f"Cortical ROI: {roi_params['atlas']} region {roi_params['region']}"
+                f"Cortical ROI: {roi_params['atlas']} "
+                f"[{roi_params['hemisphere']}] region(s) {roi_params['region']}"
             )
         else:
-            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region {roi_params['volume_region']}"
+            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region(s) {roi_params['volume_region']}"
 
         details = (
             f"Subjects: {', '.join(selected_subjects)}\n"

@@ -222,6 +222,35 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.radius_input.setDecimals(2)
         layout.addRow(self.radius_label, self.radius_input)
 
+        # Additional spheres (optional) — the X/Y/Z/Radius above define the first
+        # sphere; each extra row unions another sphere into one combined target.
+        self.extra_spheres_table = QtWidgets.QTableWidget(0, 4)
+        self.extra_spheres_table.setHorizontalHeaderLabels(["X", "Y", "Z", "Radius"])
+        self.extra_spheres_table.horizontalHeader().setStretchLastSection(True)
+        self.extra_spheres_table.verticalHeader().setVisible(False)
+        self.extra_spheres_table.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectRows
+        )
+        self.extra_spheres_table.setMaximumHeight(140)
+        self.extra_spheres_table.setToolTip(
+            "Extra spheres to union with the first one. Leave empty for a single "
+            "sphere (unchanged behavior)."
+        )
+
+        sphere_btn_widget = QtWidgets.QWidget()
+        sphere_btn_layout = QtWidgets.QHBoxLayout(sphere_btn_widget)
+        sphere_btn_layout.setContentsMargins(0, 0, 0, 0)
+        self.add_sphere_btn = QtWidgets.QPushButton("Add Sphere")
+        self.add_sphere_btn.setToolTip("Union another sphere into this ROI.")
+        self.remove_sphere_btn = QtWidgets.QPushButton("Remove Selected")
+        self.remove_sphere_btn.setToolTip("Remove the selected extra sphere row(s).")
+        sphere_btn_layout.addWidget(self.add_sphere_btn)
+        sphere_btn_layout.addWidget(self.remove_sphere_btn)
+        sphere_btn_layout.addStretch()
+
+        layout.addRow(QtWidgets.QLabel("Additional Spheres:"), self.extra_spheres_table)
+        layout.addRow("", sphere_btn_widget)
+
         # Volumetric toggle + tissue type
         vol_widget = QtWidgets.QWidget()
         vol_layout = QtWidgets.QHBoxLayout(vol_widget)
@@ -281,7 +310,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
         atlas_layout.addWidget(self.hemi_label)
 
         self.hemi_combo = QtWidgets.QComboBox()
-        self.hemi_combo.addItems(["Left (lh)", "Right (rh)"])
+        self.hemi_combo.addItems(["Left (lh)", "Right (rh)", "Both (lh + rh)"])
+        self.hemi_combo.setToolTip(
+            "Choose one hemisphere, or 'Both' to union the same label(s) across "
+            "left and right hemispheres."
+        )
         atlas_layout.addWidget(self.hemi_combo)
 
         self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
@@ -293,11 +326,18 @@ class ROIPickerWidget(QtWidgets.QWidget):
         atlas_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Atlas:"), atlas_widget)
 
-        # Region label value
-        self.label_value_input = QtWidgets.QSpinBox()
-        self.label_value_input.setRange(1, 10000)
-        self.label_value_input.setValue(1)
-        layout.addRow(QtWidgets.QLabel("Region Label Value:"), self.label_value_input)
+        # Region label value(s) — one integer, or several comma-separated to
+        # union multiple regions into one combined target.
+        self.label_value_input = QtWidgets.QLineEdit()
+        self.label_value_input.setText("1")
+        self.label_value_input.setPlaceholderText("17  or  17,53")
+        self.label_value_input.setToolTip(
+            "Integer atlas label(s). Comma-separate several labels to union them "
+            "into one combined target, e.g. 17,53."
+        )
+        layout.addRow(
+            QtWidgets.QLabel("Region Label Value(s):"), self.label_value_input
+        )
 
         return page
 
@@ -347,15 +387,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
         volume_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Volume Atlas:"), volume_widget)
 
-        # Region label value
-        self.volume_label_input = QtWidgets.QSpinBox()
-        self.volume_label_input.setRange(1, 10000)
-        self.volume_label_input.setValue(10)
+        # Region label value(s) — one integer, or several comma-separated to
+        # union multiple regions (e.g. both hippocampi) into one combined target.
+        self.volume_label_input = QtWidgets.QLineEdit()
+        self.volume_label_input.setText("10")
+        self.volume_label_input.setPlaceholderText("10  or  17,53")
         self.volume_label_input.setToolTip(
+            "Integer atlas label(s). Comma-separate several labels to union them "
+            "into one combined target (e.g. 17,53 = both hippocampi). "
             "Common values: 10=Left-Thalamus, 49=Right-Thalamus, "
             "17=Left-Hippocampus, 53=Right-Hippocampus"
         )
-        layout.addRow(QtWidgets.QLabel("Region Label Value:"), self.volume_label_input)
+        layout.addRow(
+            QtWidgets.QLabel("Region Label Value(s):"), self.volume_label_input
+        )
 
         # Tissue type
         self.tissue_combo = QtWidgets.QComboBox()
@@ -400,6 +445,13 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volume_subject_radio.toggled.connect(self._refresh_volume_atlases)
         self.volume_mni_radio.toggled.connect(self._refresh_volume_atlases)
 
+        # Multi-sphere add/remove (lambdas so the button's bool 'checked' arg is
+        # not passed as a coordinate/row argument).
+        self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
+        self.remove_sphere_btn.clicked.connect(
+            lambda: self._remove_selected_sphere_rows()
+        )
+
         # Emit roi_changed on any value change
         self.x_input.valueChanged.connect(self.roi_changed)
         self.y_input.valueChanged.connect(self.roi_changed)
@@ -409,11 +461,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.sphere_tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self.atlas_combo.currentIndexChanged.connect(self.roi_changed)
         self.hemi_combo.currentIndexChanged.connect(self.roi_changed)
-        self.label_value_input.valueChanged.connect(self.roi_changed)
+        self.label_value_input.textChanged.connect(self.roi_changed)
         self.volume_atlas_combo.currentIndexChanged.connect(self.roi_changed)
         self.volume_subject_radio.toggled.connect(self.roi_changed)
         self.volume_mni_radio.toggled.connect(self.roi_changed)
-        self.volume_label_input.valueChanged.connect(self.roi_changed)
+        self.volume_label_input.textChanged.connect(self.roi_changed)
         self.tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self._mode_group.buttonClicked.connect(lambda: self.roi_changed.emit())
 
@@ -469,6 +521,87 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 )
 
     # ------------------------------------------------------------------
+    # Multi-sphere / multi-label helpers
+    # ------------------------------------------------------------------
+
+    def _add_sphere_row(
+        self, x: float = 0.0, y: float = 0.0, z: float = 0.0, r: float = 10.0
+    ):
+        """Append a row of X/Y/Z/Radius spin boxes to the extra-spheres table."""
+        table = self.extra_spheres_table
+        row = table.rowCount()
+        table.insertRow(row)
+        specs = [(-150, 150, x), (-150, 150, y), (-150, 150, z), (1, 50, r)]
+        for col, (lo, hi, val) in enumerate(specs):
+            spin = QtWidgets.QDoubleSpinBox()
+            spin.setRange(lo, hi)
+            spin.setDecimals(2)
+            spin.setValue(val)
+            spin.valueChanged.connect(self.roi_changed)
+            table.setCellWidget(row, col, spin)
+        self.roi_changed.emit()
+
+    def _remove_selected_sphere_rows(self):
+        """Remove the currently selected extra-sphere rows (if any)."""
+        table = self.extra_spheres_table
+        rows = sorted({idx.row() for idx in table.selectedIndexes()}, reverse=True)
+        if not rows and table.rowCount():
+            rows = [table.rowCount() - 1]
+        for row in rows:
+            table.removeRow(row)
+        self.roi_changed.emit()
+
+    def _collect_spheres(self) -> tuple[list[list[float]], list[float]]:
+        """Return ``(centers, radii)`` for the first sphere plus any extra rows.
+
+        The X/Y/Z/Radius spin boxes define the first (always present) sphere;
+        each row in the extra-spheres table adds another. A single sphere (no
+        extra rows) reproduces the pre-union behavior exactly.
+        """
+        centers = [[self.x_input.value(), self.y_input.value(), self.z_input.value()]]
+        radii = [self.radius_input.value()]
+        table = self.extra_spheres_table
+        for row in range(table.rowCount()):
+            widgets = [table.cellWidget(row, col) for col in range(4)]
+            if any(w is None for w in widgets):
+                continue
+            xw, yw, zw, rw = widgets
+            centers.append([xw.value(), yw.value(), zw.value()])
+            radii.append(rw.value())
+        return centers, radii
+
+    def _selected_hemis(self) -> list[str]:
+        """Return the hemispheres selected in the cortical page.
+
+        ``["lh"]`` or ``["rh"]`` for a single hemisphere, or ``["lh", "rh"]``
+        when the "Both" option is chosen.
+        """
+        idx = self.hemi_combo.currentIndex()
+        if idx == 0:
+            return ["lh"]
+        if idx == 1:
+            return ["rh"]
+        return ["lh", "rh"]
+
+    @staticmethod
+    def _parse_labels(text: str) -> list[int]:
+        """Parse comma-separated integer atlas labels (mirrors analyzer input).
+
+        Raises:
+            ValueError: If any non-empty token is not an integer.
+        """
+        return [int(part.strip()) for part in text.split(",") if part.strip()]
+
+    @staticmethod
+    def _collapse(values: list):
+        """Collapse a single-element list to a scalar; pass longer lists through.
+
+        Keeps single-region ROI dataclasses (and their serialized JSON)
+        byte-identical to the pre-union format, while a union yields a list.
+        """
+        return values[0] if len(values) == 1 else values
+
+    # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
@@ -511,14 +644,14 @@ class ROIPickerWidget(QtWidgets.QWidget):
         """
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
+            centers, radii = self._collect_spheres()
             d = {
                 "method": "spherical",
-                "center": [
-                    self.x_input.value(),
-                    self.y_input.value(),
-                    self.z_input.value(),
-                ],
-                "radius": self.radius_input.value(),
+                "center": centers[0],
+                "radius": radii[0],
+                "centers": centers,
+                "radii": radii,
+                "num_spheres": len(centers),
                 "volumetric": self.volumetric_checkbox.isChecked(),
             }
             if self.volumetric_checkbox.isChecked():
@@ -528,14 +661,15 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return {
                 "method": "atlas",
                 "atlas": self.atlas_combo.currentText(),
-                "region": str(self.label_value_input.value()),
+                "region": self.label_value_input.text().strip(),
+                "hemisphere": "+".join(self._selected_hemis()),
             }
         else:  # subcortical
             return {
                 "method": "subcortical",
                 "volume_atlas": self.volume_atlas_combo.currentText(),
                 "volume_atlas_space": self._selected_volume_atlas_space(),
-                "volume_region": str(self.volume_label_input.value()),
+                "volume_region": self.volume_label_input.text().strip(),
                 "tissues": self.tissue_combo.currentData(),
             }
 
@@ -561,11 +695,12 @@ class ROIPickerWidget(QtWidgets.QWidget):
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
             vol = self.volumetric_checkbox.isChecked()
+            centers, radii = self._collect_spheres()
             return FlexConfig.SphericalROI(
-                x=self.x_input.value(),
-                y=self.y_input.value(),
-                z=self.z_input.value(),
-                radius=self.radius_input.value(),
+                x=self._collapse([c[0] for c in centers]),
+                y=self._collapse([c[1] for c in centers]),
+                z=self._collapse([c[2] for c in centers]),
+                radius=self._collapse(radii),
                 use_mni=self.is_mni_space(),
                 volumetric=vol,
                 tissues=self.sphere_tissue_combo.currentData() if vol else "GM",
@@ -574,18 +709,31 @@ class ROIPickerWidget(QtWidgets.QWidget):
             atlas_name = self._resolve_atlas_name_for_subject(
                 self.atlas_combo.currentText(), subject_id
             )
-            hemi = "lh" if self.hemi_combo.currentIndex() == 0 else "rh"
-            atlas_path = os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
+            labels = self._parse_labels(self.label_value_input.text())
+            hemis = self._selected_hemis()
+            # Expand (labels x hemispheres) into equal-length parallel lists so a
+            # target can union across labels and/or both hemispheres. Each entry
+            # carries its own lh/rh .annot path. Outer loop over labels keeps the
+            # ordering label=[17,17,53,53] / hemi=[lh,rh,lh,rh] for Both.
+            atlas_paths, hemispheres, out_labels = [], [], []
+            for label in labels:
+                for hemi in hemis:
+                    out_labels.append(label)
+                    hemispheres.append(hemi)
+                    atlas_paths.append(
+                        os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
+                    )
             return FlexConfig.AtlasROI(
-                atlas_path=atlas_path,
-                label=int(self.label_value_input.value()),
-                hemisphere=hemi,
+                atlas_path=self._collapse(atlas_paths),
+                label=self._collapse(out_labels),
+                hemisphere=self._collapse(hemispheres),
             )
         else:  # subcortical
             volume_atlas_path = self._selected_volume_atlas_path(subject_id, seg_dir)
+            labels = self._parse_labels(self.volume_label_input.text())
             return FlexConfig.SubcorticalROI(
                 atlas_path=volume_atlas_path,
-                label=int(self.volume_label_input.value()),
+                label=self._collapse(labels),
                 tissues=self.tissue_combo.currentData(),
                 atlas_space=self._selected_volume_atlas_space(),
             )
@@ -617,20 +765,35 @@ class ROIPickerWidget(QtWidgets.QWidget):
         """
         roi_type = self.get_roi_type()
         if roi_type == "spherical":
-            if self.radius_input.value() <= 0:
+            _, radii = self._collect_spheres()
+            if any(r <= 0 for r in radii):
                 return "ROI radius must be greater than zero."
         elif roi_type == "atlas":
             if not self.atlas_combo.currentText():
                 return "No cortical atlas selected. Use Refresh to discover atlases."
-            if self.label_value_input.value() < 1:
-                return "Region label value must be at least 1."
+            error = self._validate_labels(self.label_value_input.text())
+            if error:
+                return error
         elif roi_type == "subcortical":
             if not self.volume_atlas_combo.currentText():
                 return (
                     "No volume atlas selected. Use Refresh to discover volume atlases."
                 )
-            if self.volume_label_input.value() < 1:
-                return "Region label value must be at least 1."
+            error = self._validate_labels(self.volume_label_input.text())
+            if error:
+                return error
+        return None
+
+    def _validate_labels(self, text: str) -> str | None:
+        """Validate a comma-separated region-label field. Returns an error or None."""
+        try:
+            labels = self._parse_labels(text)
+        except ValueError:
+            return "Region label value(s) must be integers (comma-separated)."
+        if not labels:
+            return "Enter at least one region label value."
+        if any(label < 1 for label in labels):
+            return "Region label value(s) must be at least 1."
         return None
 
     # ------------------------------------------------------------------
@@ -737,9 +900,13 @@ class ROIPickerWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _on_list_atlas_regions(self):
-        """Show regions for the currently selected cortical atlas."""
+        """Show regions for the currently selected cortical atlas.
+
+        With the "Both" hemisphere option the label sets are identical across
+        hemispheres, so the first selected hemisphere is listed.
+        """
         atlas = self.atlas_combo.currentText()
-        hemi = "lh" if self.hemi_combo.currentIndex() == 0 else "rh"
+        hemi = self._selected_hemis()[0]
         self._show_atlas_regions_dialog(atlas, hemi)
 
     def _on_list_volume_regions(self):
@@ -846,9 +1013,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                             output += f"{label_id:<4} {label_name:<35} (no color)\n"
                         else:
                             r, g, b = rgb
-                            output += (
-                                f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
-                            )
+                            output += f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
         except OSError as e:
             QtWidgets.QMessageBox.warning(
                 self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
@@ -919,7 +1084,9 @@ class ROIPickerWidget(QtWidgets.QWidget):
         return os.path.splitext(filename)[0]
 
     @staticmethod
-    def _parse_lut_line(line: str) -> tuple[str, str, tuple[str, str, str] | None] | None:
+    def _parse_lut_line(
+        line: str,
+    ) -> tuple[str, str, tuple[str, str, str] | None] | None:
         parts = line.split()
         if len(parts) < 2:
             return None
