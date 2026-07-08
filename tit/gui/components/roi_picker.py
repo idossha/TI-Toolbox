@@ -1131,29 +1131,54 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return
 
         atlas_path = self.volume_atlas_combo.currentData()
-        lut_file = self._find_volume_lut(str(atlas_path)) if atlas_path else None
-        if lut_file is None:
+        if not atlas_path:
             QtWidgets.QMessageBox.warning(
                 self,
-                "LUT File Not Found",
-                f"Could not find a label table for {volume_atlas}.",
+                "Atlas Not Found",
+                f"Could not resolve a file path for {volume_atlas}.",
             )
             return
 
+        atlas_path = str(atlas_path)
+        lut_file = self._find_volume_lut(atlas_path)
+
         entries = []
-        try:
-            with open(lut_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        parsed = self._parse_lut_line(line)
-                        if parsed is None:
-                            continue
-                        label_id, label_name, rgb = parsed
-                        entries.append((int(label_id), label_name, rgb))
-        except OSError as e:
+        if lut_file is not None:
+            try:
+                with open(lut_file, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            parsed = self._parse_lut_line(line)
+                            if parsed is None:
+                                continue
+                            label_id, label_name, rgb = parsed
+                            entries.append((int(label_id), label_name, rgb))
+            except OSError as e:
+                QtWidgets.QMessageBox.warning(
+                    self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
+                )
+                return
+        else:
+            # No sidecar LUT (e.g. a subject-space FreeSurfer atlas such as
+            # aparc.DKTatlas+aseg.mgz). Resolve names from the atlas volume's own
+            # integer labels using the bundled standard FreeSurfer color table,
+            # so no FreeSurfer / mri_segstats invocation is required.
+            try:
+                entries = self._resolve_volume_label_entries(atlas_path)
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Error Reading Atlas",
+                    f"Could not read labels from {volume_atlas}: {str(e)}",
+                )
+                return
+
+        if not entries:
             QtWidgets.QMessageBox.warning(
-                self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
+                self,
+                "No Regions Found",
+                f"Could not find any labeled regions for {volume_atlas}.",
             )
             return
 
@@ -1193,6 +1218,93 @@ class ROIPickerWidget(QtWidgets.QWidget):
             if candidate.is_file():
                 return candidate
         return None
+
+    def _resolve_volume_label_entries(
+        self, atlas_path: str
+    ) -> list[tuple[int, str, tuple[str, str, str] | None]]:
+        """Resolve region entries for a volume atlas that has no sidecar LUT.
+
+        Reads the unique nonzero integer labels present in the atlas volume via
+        nibabel and maps them to names/colours using the bundled standard
+        FreeSurfer colour table (``resources/atlas/FreeSurferColorLUT.txt``).
+        Only labels actually present in the volume are returned, so subject-space
+        FreeSurfer atlases (e.g. ``aparc.DKTatlas+aseg.mgz``) can be browsed by
+        name without FreeSurfer / ``mri_segstats``.
+
+        Args:
+            atlas_path: Absolute path to the atlas volume (``.mgz``/``.nii``/
+                ``.nii.gz``).
+
+        Returns:
+            List of ``(id, name, rgb)`` entries, sorted by id, for labels found
+            in both the volume and the bundled colour table. ``rgb`` is a tuple
+            of decimal string components, or ``None`` when unavailable.
+        """
+        import numpy as np
+        import nibabel as nib
+
+        lut = self._load_freesurfer_lut()
+        if not lut:
+            return []
+
+        img = nib.load(atlas_path)
+        # np.unique on the raw dataobj is fast and avoids loading a scaled float
+        # copy of the volume; label maps are stored as integers.
+        present = np.unique(np.asarray(img.dataobj))
+
+        entries: list[tuple[int, str, tuple[str, str, str] | None]] = []
+        for value in present:
+            label_id = int(value)
+            if label_id == 0:
+                continue
+            info = lut.get(label_id)
+            if info is None:
+                continue
+            name, rgb = info
+            entries.append((label_id, name, rgb))
+        return entries
+
+    def _load_freesurfer_lut(
+        self,
+    ) -> dict[int, tuple[str, tuple[str, str, str] | None]]:
+        """Parse the bundled standard FreeSurfer colour table.
+
+        Returns:
+            Mapping of ``label_id -> (name, rgb)``, where ``rgb`` is a tuple of
+            decimal string components (or ``None`` when the row has no colour).
+            Empty dict when the bundled table cannot be located or read.
+        """
+        lut_path = self._freesurfer_lut_path()
+        if lut_path is None:
+            return {}
+
+        lut: dict[int, tuple[str, tuple[str, str, str] | None]] = {}
+        try:
+            with open(lut_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parsed = self._parse_lut_line(line)
+                    if parsed is None:
+                        continue
+                    label_id, label_name, rgb = parsed
+                    lut[int(label_id)] = (label_name, rgb)
+        except OSError:
+            return {}
+        return lut
+
+    def _freesurfer_lut_path(self) -> str | None:
+        """Return the path to the bundled standard FreeSurfer colour table.
+
+        Reuses the same resources/atlas directory resolution as the MNI atlases
+        (container path first, then the repo-relative fallback).
+
+        Returns:
+            Absolute path to ``FreeSurferColorLUT.txt``, or ``None`` if missing.
+        """
+        candidate = os.path.join(self._mni_atlas_dir(), "FreeSurferColorLUT.txt")
+        return candidate if os.path.isfile(candidate) else None
 
     @staticmethod
     def _strip_nifti_suffix(filename: str) -> str:
