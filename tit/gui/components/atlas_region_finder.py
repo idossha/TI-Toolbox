@@ -21,17 +21,16 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 
 class AtlasRegionFinderDialog(QtWidgets.QDialog):
     """Searchable, multi-select dialog for choosing atlas regions.
 
-    Each entry is displayed as ``"{id}: {name}"`` with an optional RGB colour
-    swatch. The ``(id, name)`` pair is stored on every list item via
-    ``Qt.UserRole`` so selections are resolved unambiguously (no fragile string
-    parsing). A search field filters items by id *or* name substring
-    (case-insensitive).
+    Each entry is displayed as ``"{id}: {name}"`` (label number and name only).
+    The ``(id, name)`` pair is stored on every list item via ``Qt.UserRole`` so
+    selections are resolved unambiguously (no fragile string parsing). A search
+    field filters items by id *or* name substring (case-insensitive).
 
     Args:
         parent: Parent widget (``QWidget`` or ``None``).
@@ -114,31 +113,12 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
         preselected: set,
     ) -> None:
         """Create and append a list item for a single ``(id, name, rgb)`` entry."""
-        region_id, name, rgb = entry
+        region_id, name, _rgb = entry
         item = QtWidgets.QListWidgetItem(f"{region_id}: {name}")
         item.setData(QtCore.Qt.UserRole, (int(region_id), str(name)))
-        swatch = self._make_swatch(rgb)
-        if swatch is not None:
-            item.setIcon(swatch)
         self.list_widget.addItem(item)
         if int(region_id) in preselected:
             item.setSelected(True)
-
-    @staticmethod
-    def _make_swatch(rgb: Optional[Tuple]) -> Optional[QtGui.QIcon]:
-        """Build a small colour-swatch icon from an ``(r, g, b)`` tuple.
-
-        Returns ``None`` when ``rgb`` is missing or cannot be parsed.
-        """
-        if not rgb:
-            return None
-        try:
-            r, g, b = (int(c) for c in rgb)
-        except (TypeError, ValueError):
-            return None
-        pixmap = QtGui.QPixmap(12, 12)
-        pixmap.fill(QtGui.QColor(r, g, b))
-        return QtGui.QIcon(pixmap)
 
     # ------------------------------------------------------------------
     # Behaviour
