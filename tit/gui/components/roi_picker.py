@@ -14,10 +14,8 @@ from PyQt5 import QtWidgets, QtCore
 
 from tit.paths import get_path_manager
 from tit.atlas import MNI_ATLAS_DIR, MeshAtlasManager, VoxelAtlasManager
-from tit.gui.components.atlas_region_finder import (
-    AtlasRegionFinderDialog,
-    merge_into_lineedit,
-)
+from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
+from tit.gui.components.region_chips import RegionChipsWidget
 from tit.opt.config import FlexConfig
 
 
@@ -294,9 +292,13 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _build_cortical_page(self) -> QtWidgets.QWidget:
         """Build the cortical (atlas annotation) ROI input page.
 
-        The region field uses analyzer-style, hemisphere-prefixed region
-        *names* (e.g. ``lh.precentral, rh.superiorfrontal``); the hemisphere is
-        carried in each name, so there is no separate hemisphere selector.
+        Selected regions are shown as removable chips (:class:`RegionChipsWidget`)
+        rather than typed free-text. Each chip carries a hemisphere-prefixed
+        region *name* (e.g. ``lh.precentral``) as its key and displays both the
+        name and its ``.annot`` label index. Regions are added via the
+        "List Regions" finder (which lists both hemispheres by name); the
+        hemisphere is carried in each name, so there is no separate hemisphere
+        selector.
         """
         page = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(page)
@@ -323,17 +325,19 @@ class ROIPickerWidget(QtWidgets.QWidget):
         atlas_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Atlas:"), atlas_widget)
 
-        # Region name(s) — one hemisphere-prefixed name, or several
-        # comma-separated to union multiple regions into one combined target.
-        self.label_value_input = QtWidgets.QLineEdit()
-        self.label_value_input.setPlaceholderText("lh.precentral, rh.superiorfrontal")
-        self.label_value_input.setToolTip(
-            "Hemisphere-prefixed region name(s), e.g. lh.precentral. "
-            "Comma-separate several names to union them into one combined "
-            "target, e.g. lh.precentral, rh.superiorfrontal. Use 'List Regions' "
-            "to browse available names."
+        # Selected region(s) shown as removable chips. Regions are added via
+        # "List Regions" (both hemispheres, by name), de-duplicated by chip key
+        # ("hemi.name"). Multiple regions union into one combined target.
+        self.cortical_chips = RegionChipsWidget(
+            placeholder="No regions selected — use List Regions…"
         )
-        layout.addRow(QtWidgets.QLabel("Region Name(s):"), self.label_value_input)
+        self.cortical_chips.setToolTip(
+            "Selected cortical regions. Use 'List Regions' to add hemisphere-"
+            "prefixed regions (e.g. lh.precentral); each chip shows the name and "
+            "its .annot label index. Multiple regions union into one combined "
+            "target; press ✕ on a chip to remove it."
+        )
+        layout.addRow(QtWidgets.QLabel("Region(s):"), self.cortical_chips)
 
         return page
 
@@ -383,20 +387,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
         volume_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Volume Atlas:"), volume_widget)
 
-        # Region label value(s) — one integer, or several comma-separated to
-        # union multiple regions (e.g. both hippocampi) into one combined target.
-        self.volume_label_input = QtWidgets.QLineEdit()
-        self.volume_label_input.setText("10")
-        self.volume_label_input.setPlaceholderText("10  or  17,53")
-        self.volume_label_input.setToolTip(
-            "Integer atlas label(s). Comma-separate several labels to union them "
-            "into one combined target (e.g. 17,53 = both hippocampi). "
-            "Common values: 10=Left-Thalamus, 49=Right-Thalamus, "
-            "17=Left-Hippocampus, 53=Right-Hippocampus"
+        # Selected region(s) shown as removable chips. Regions are added via
+        # "List Regions" (present labels, by name), de-duplicated by chip key
+        # (the integer atlas label id). Multiple regions union into one target.
+        self.subcortical_chips = RegionChipsWidget(
+            placeholder="No regions selected — use List Regions…"
         )
-        layout.addRow(
-            QtWidgets.QLabel("Region Label Value(s):"), self.volume_label_input
+        self.subcortical_chips.setToolTip(
+            "Selected subcortical regions. Use 'List Regions' to add atlas "
+            "labels by name (e.g. Left-Hippocampus); each chip shows the name "
+            "and its integer label id. Multiple regions union into one combined "
+            "target (e.g. 17,53 = both hippocampi); press ✕ on a chip to remove "
+            "it."
         )
+        layout.addRow(QtWidgets.QLabel("Region(s):"), self.subcortical_chips)
 
         # Tissue type
         self.tissue_combo = QtWidgets.QComboBox()
@@ -456,11 +460,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volumetric_checkbox.toggled.connect(self.roi_changed)
         self.sphere_tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self.atlas_combo.currentIndexChanged.connect(self.roi_changed)
-        self.label_value_input.textChanged.connect(self.roi_changed)
+        self.cortical_chips.changed.connect(self.roi_changed)
         self.volume_atlas_combo.currentIndexChanged.connect(self.roi_changed)
         self.volume_subject_radio.toggled.connect(self.roi_changed)
         self.volume_mni_radio.toggled.connect(self.roi_changed)
-        self.volume_label_input.textChanged.connect(self.roi_changed)
+        self.subcortical_chips.changed.connect(self.roi_changed)
         self.tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self._mode_group.buttonClicked.connect(lambda: self.roi_changed.emit())
 
@@ -670,6 +674,56 @@ class ROIPickerWidget(QtWidgets.QWidget):
             x, y, z = center
             self._add_sphere_row(float(x), float(y), float(z), float(radius))
 
+    def set_cortical_regions(self, names: list[str]):
+        """Repopulate the cortical region chips from saved region names.
+
+        The inverse of the cortical branch of :meth:`get_roi_params`: replaces
+        every chip with one per hemisphere-prefixed name. Where the current
+        atlas annotation resolves a name to its ``.annot`` label index the chip
+        shows both name and index; otherwise the name is shown alone.
+
+        Args:
+            names: Sequence of ``"hemi.name"`` tokens (e.g. ``"lh.precentral"``).
+        """
+        name_map = self._cortical_name_index_map()
+        items: list[tuple[str, str]] = []
+        for token in names:
+            token = str(token).strip()
+            if not token:
+                continue
+            display = token
+            hemi, sep, name = token.partition(".")
+            if sep == ".":
+                index = name_map.get((hemi, name))
+                if index is not None:
+                    display = f"{token} · {index}"
+            items.append((token, display))
+        self.cortical_chips.set_items(items)
+
+    def set_subcortical_regions(self, ids: list):
+        """Repopulate the subcortical region chips from saved label ids.
+
+        The inverse of the subcortical branch of :meth:`get_roi_params`:
+        replaces every chip with one per integer atlas label id. Where the
+        current volume atlas resolves an id to a region name the chip shows
+        both name and id; otherwise the id is shown alone.
+
+        Args:
+            ids: Sequence of integer atlas label ids (ints or numeric strings).
+        """
+        id_name = self._subcortical_id_name_map()
+        items: list[tuple[str, str]] = []
+        for value in ids:
+            token = str(value).strip()
+            if not token:
+                continue
+            name = None
+            if token.lstrip("-").isdigit():
+                name = id_name.get(int(token))
+            display = f"{name} · {token}" if name else token
+            items.append((token, display))
+        self.subcortical_chips.set_items(items)
+
     @staticmethod
     def _parse_region_names(text: str) -> list[tuple[str, str]]:
         """Parse comma-separated hemisphere-prefixed cortical region names.
@@ -717,6 +771,40 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 continue
             for idx, name in regions:
                 mapping[(hemi, name)] = idx
+        return mapping
+
+    def _subcortical_id_name_map(self) -> dict[int, str]:
+        """Map ``label_id -> region name`` for the currently selected volume atlas.
+
+        Resolves names from a sidecar LUT when present, otherwise from the
+        atlas volume's own integer labels via the bundled FreeSurfer colour
+        table (Agent A's resolver, :meth:`_resolve_volume_label_entries`).
+        Returns an empty dict when the atlas cannot be read (e.g. no subject
+        set yet); callers fall back to showing the bare id.
+        """
+        atlas_path = self.volume_atlas_combo.currentData()
+        if not atlas_path:
+            return {}
+        atlas_path = str(atlas_path)
+        mapping: dict[int, str] = {}
+        try:
+            lut_file = self._find_volume_lut(atlas_path)
+            if lut_file is not None:
+                with open(lut_file, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        parsed = self._parse_lut_line(line)
+                        if parsed is None:
+                            continue
+                        label_id, label_name, _ = parsed
+                        mapping[int(label_id)] = label_name
+            else:
+                for label_id, name, _ in self._resolve_volume_label_entries(atlas_path):
+                    mapping[int(label_id)] = name
+        except (OSError, ValueError):
+            return {}
         return mapping
 
     @staticmethod
@@ -795,14 +883,14 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return {
                 "method": "atlas",
                 "atlas": self.atlas_combo.currentText(),
-                "region": self.label_value_input.text().strip(),
+                "region": ", ".join(self.cortical_chips.keys()),
             }
         else:  # subcortical
             return {
                 "method": "subcortical",
                 "volume_atlas": self.volume_atlas_combo.currentText(),
                 "volume_atlas_space": self._selected_volume_atlas_space(),
-                "volume_region": self.volume_label_input.text().strip(),
+                "volume_region": ", ".join(self.subcortical_chips.keys()),
                 "tissues": self.tissue_combo.currentData(),
             }
 
@@ -846,7 +934,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             # Region indices are intrinsic to the atlas parcellation, so the map
             # built from the current subject's .annot applies to every subject.
             name_map = self._cortical_name_index_map()
-            tokens = self._parse_region_names(self.label_value_input.text())
+            tokens = self._parse_region_names(", ".join(self.cortical_chips.keys()))
             # Build equal-length parallel lists so a target can union across
             # regions and/or hemispheres; each entry carries its own lh/rh
             # .annot path and label index. The serialized AtlasROI contract
@@ -871,7 +959,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             )
         else:  # subcortical
             volume_atlas_path = self._selected_volume_atlas_path(subject_id, seg_dir)
-            labels = self._parse_labels(self.volume_label_input.text())
+            labels = self._parse_labels(", ".join(self.subcortical_chips.keys()))
             return FlexConfig.SubcorticalROI(
                 atlas_path=volume_atlas_path,
                 label=self._collapse(labels),
@@ -912,7 +1000,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
         elif roi_type == "atlas":
             if not self.atlas_combo.currentText():
                 return "No cortical atlas selected. Use Refresh to discover atlases."
-            error = self._validate_region_names(self.label_value_input.text())
+            error = self._validate_region_names(", ".join(self.cortical_chips.keys()))
             if error:
                 return error
         elif roi_type == "subcortical":
@@ -920,13 +1008,13 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 return (
                     "No volume atlas selected. Use Refresh to discover volume atlases."
                 )
-            error = self._validate_labels(self.volume_label_input.text())
+            error = self._validate_labels(", ".join(self.subcortical_chips.keys()))
             if error:
                 return error
         return None
 
     def _validate_region_names(self, text: str) -> str | None:
-        """Validate the comma-separated cortical region-name field.
+        """Validate the selected cortical region chips (as a comma string).
 
         Returns an error message string, or ``None`` when valid. Unknown names
         are reported only when the atlas annotation files can actually be read;
@@ -940,7 +1028,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 "e.g. lh.precentral, rh.superiorfrontal."
             )
         if not tokens:
-            return "Enter at least one cortical region name."
+            return "Select at least one cortical region (use 'List Regions')."
         name_map = self._cortical_name_index_map()
         if name_map:
             unknown = [f"{h}.{n}" for h, n in tokens if (h, n) not in name_map]
@@ -949,13 +1037,16 @@ class ROIPickerWidget(QtWidgets.QWidget):
         return None
 
     def _validate_labels(self, text: str) -> str | None:
-        """Validate a comma-separated region-label field. Returns an error or None."""
+        """Validate the selected subcortical region chips (as a comma string).
+
+        Returns an error message string, or ``None`` when valid.
+        """
         try:
             labels = self._parse_labels(text)
         except ValueError:
             return "Region label value(s) must be integers (comma-separated)."
         if not labels:
-            return "Enter at least one region label value."
+            return "Select at least one subcortical region (use 'List Regions')."
         if any(label < 1 for label in labels):
             return "Region label value(s) must be at least 1."
         return None
@@ -1067,9 +1158,9 @@ class ROIPickerWidget(QtWidgets.QWidget):
         """Show cortical regions from BOTH hemispheres as hemi-prefixed names.
 
         Entries are built from ``list_annot_regions`` on the lh and rh
-        ``.annot`` files and displayed as ``lh.<name>`` / ``rh.<name>``. The
-        finder returns the selected names, which are merged into the region
-        field.
+        ``.annot`` files and displayed as ``lh.<name>`` / ``rh.<name>``. Each
+        selected region is added as a chip whose key is the hemisphere-prefixed
+        name and whose display carries both the name and its ``.annot`` index.
         """
         atlas_display = self.atlas_combo.currentText()
         if not atlas_display:
@@ -1109,7 +1200,12 @@ class ROIPickerWidget(QtWidgets.QWidget):
             multi=True,
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            merge_into_lineedit(self.label_value_input, dlg.selected_values())
+            # selected_ids()/selected_names() are parallel: names are the
+            # "hemi.name" tokens, ids are the .annot label indices.
+            for index, name_token in zip(dlg.selected_ids(), dlg.selected_names()):
+                self.cortical_chips.add_item(
+                    key=name_token, display=f"{name_token} · {index}"
+                )
 
     def _on_list_volume_regions(self):
         """Show regions for the currently selected volume atlas."""
@@ -1119,7 +1215,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _show_volume_regions_dialog(self, volume_atlas: str):
         """Open the region finder for the selected volume atlas.
 
-        Selected region ids are appended to the volume region-label field.
+        Each selected region is added as a chip whose key is the integer atlas
+        label id and whose display carries both the region name and the id.
 
         Args:
             volume_atlas: Volume atlas display name from the combo box.
@@ -1190,9 +1287,10 @@ class ROIPickerWidget(QtWidgets.QWidget):
             multi=True,
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            merge_into_lineedit(
-                self.volume_label_input, dlg.selected_values(), replace_default="10"
-            )
+            for region_id, name in zip(dlg.selected_ids(), dlg.selected_names()):
+                self.subcortical_chips.add_item(
+                    key=str(region_id), display=f"{name} · {region_id}"
+                )
 
     def _find_volume_lut(self, atlas_path: str) -> Path | None:
         atlas = Path(atlas_path)
