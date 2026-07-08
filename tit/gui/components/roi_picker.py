@@ -96,20 +96,12 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self._mode_group = QtWidgets.QButtonGroup(self)
         self._radios = []
 
-        if self._enable_spherical:
-            self.radio_spherical = QtWidgets.QRadioButton(
-                "Spherical (coordinates and radius)"
-            )
-            radio_layout.addWidget(self.radio_spherical)
-            self._mode_group.addButton(self.radio_spherical, 0)
-            self._radios.append(self.radio_spherical)
-        else:
-            self.radio_spherical = None
-
+        # Display / stacked order: Cortical (default), Subcortical, Spherical.
+        # Button ids match the stacked-page indices below.
         if self._enable_atlas:
             self.radio_cortical = QtWidgets.QRadioButton("Cortical")
             radio_layout.addWidget(self.radio_cortical)
-            self._mode_group.addButton(self.radio_cortical, 1)
+            self._mode_group.addButton(self.radio_cortical, 0)
             self._radios.append(self.radio_cortical)
         else:
             self.radio_cortical = None
@@ -117,14 +109,24 @@ class ROIPickerWidget(QtWidgets.QWidget):
         if self._enable_subcortical:
             self.radio_subcortical = QtWidgets.QRadioButton("Subcortical")
             radio_layout.addWidget(self.radio_subcortical)
-            self._mode_group.addButton(self.radio_subcortical, 2)
+            self._mode_group.addButton(self.radio_subcortical, 1)
             self._radios.append(self.radio_subcortical)
         else:
             self.radio_subcortical = None
 
+        if self._enable_spherical:
+            self.radio_spherical = QtWidgets.QRadioButton(
+                "Spherical (coordinates and radius)"
+            )
+            radio_layout.addWidget(self.radio_spherical)
+            self._mode_group.addButton(self.radio_spherical, 2)
+            self._radios.append(self.radio_spherical)
+        else:
+            self.radio_spherical = None
+
         radio_layout.addStretch()
 
-        # Default: first enabled mode is checked
+        # Default: first enabled mode is checked (Cortical when available)
         if self._radios:
             self._radios[0].setChecked(True)
 
@@ -133,17 +135,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
         # --- Stacked widget ---
         self.stacked = QtWidgets.QStackedWidget()
 
-        # Page 0 — Spherical
-        self._spherical_page = self._build_spherical_page()
-        self.stacked.addWidget(self._spherical_page)
-
-        # Page 1 — Cortical (Atlas)
+        # Page 0 — Cortical (Atlas)
         self._cortical_page = self._build_cortical_page()
         self.stacked.addWidget(self._cortical_page)
 
-        # Page 2 — Subcortical (Volume)
+        # Page 1 — Subcortical (Volume)
         self._subcortical_page = self._build_subcortical_page()
         self.stacked.addWidget(self._subcortical_page)
+
+        # Page 2 — Spherical
+        self._spherical_page = self._build_spherical_page()
+        self.stacked.addWidget(self._spherical_page)
+
+        # Keep the stack sized to the current page (see _resize_stack_to_current).
+        self.stacked.currentChanged.connect(self._resize_stack_to_current)
 
         # Set initial page
         if self._radios:
@@ -151,6 +156,9 @@ class ROIPickerWidget(QtWidgets.QWidget):
             self.stacked.setCurrentIndex(max(0, checked_id))
 
         main_layout.addWidget(self.stacked)
+
+        # Collapse non-current pages so the stack hugs the initial page height.
+        self._resize_stack_to_current()
 
     def _build_spherical_page(self) -> QtWidgets.QWidget:
         """Build the spherical ROI input page.
@@ -284,13 +292,18 @@ class ROIPickerWidget(QtWidgets.QWidget):
         return page
 
     def _build_cortical_page(self) -> QtWidgets.QWidget:
-        """Build the cortical (atlas annotation) ROI input page."""
+        """Build the cortical (atlas annotation) ROI input page.
+
+        The region field uses analyzer-style, hemisphere-prefixed region
+        *names* (e.g. ``lh.precentral, rh.superiorfrontal``); the hemisphere is
+        carried in each name, so there is no separate hemisphere selector.
+        """
         page = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(page)
         layout.setVerticalSpacing(3)
         layout.setContentsMargins(0, 5, 0, 5)
 
-        # Atlas combo + hemisphere + refresh + list regions
+        # Atlas combo + refresh + list regions
         atlas_widget = QtWidgets.QWidget()
         atlas_layout = QtWidgets.QHBoxLayout(atlas_widget)
         atlas_layout.setContentsMargins(0, 0, 0, 0)
@@ -301,17 +314,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
         )
         atlas_layout.addWidget(self.atlas_combo)
 
-        self.hemi_label = QtWidgets.QLabel("Hemisphere:")
-        atlas_layout.addWidget(self.hemi_label)
-
-        self.hemi_combo = QtWidgets.QComboBox()
-        self.hemi_combo.addItems(["Left (lh)", "Right (rh)", "Both (lh + rh)"])
-        self.hemi_combo.setToolTip(
-            "Choose one hemisphere, or 'Both' to union the same label(s) across "
-            "left and right hemispheres."
-        )
-        atlas_layout.addWidget(self.hemi_combo)
-
         self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
         atlas_layout.addWidget(self.refresh_atlases_btn)
 
@@ -321,18 +323,17 @@ class ROIPickerWidget(QtWidgets.QWidget):
         atlas_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Atlas:"), atlas_widget)
 
-        # Region label value(s) — one integer, or several comma-separated to
-        # union multiple regions into one combined target.
+        # Region name(s) — one hemisphere-prefixed name, or several
+        # comma-separated to union multiple regions into one combined target.
         self.label_value_input = QtWidgets.QLineEdit()
-        self.label_value_input.setText("1")
-        self.label_value_input.setPlaceholderText("17  or  17,53")
+        self.label_value_input.setPlaceholderText("lh.precentral, rh.superiorfrontal")
         self.label_value_input.setToolTip(
-            "Integer atlas label(s). Comma-separate several labels to union them "
-            "into one combined target, e.g. 17,53."
+            "Hemisphere-prefixed region name(s), e.g. lh.precentral. "
+            "Comma-separate several names to union them into one combined "
+            "target, e.g. lh.precentral, rh.superiorfrontal. Use 'List Regions' "
+            "to browse available names."
         )
-        layout.addRow(
-            QtWidgets.QLabel("Region Label Value(s):"), self.label_value_input
-        )
+        layout.addRow(QtWidgets.QLabel("Region Name(s):"), self.label_value_input)
 
         return page
 
@@ -455,7 +456,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volumetric_checkbox.toggled.connect(self.roi_changed)
         self.sphere_tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self.atlas_combo.currentIndexChanged.connect(self.roi_changed)
-        self.hemi_combo.currentIndexChanged.connect(self.roi_changed)
         self.label_value_input.textChanged.connect(self.roi_changed)
         self.volume_atlas_combo.currentIndexChanged.connect(self.roi_changed)
         self.volume_subject_radio.toggled.connect(self.roi_changed)
@@ -475,9 +475,41 @@ class ROIPickerWidget(QtWidgets.QWidget):
 
         # Show/hide Freeview button (only visible in spherical mode)
         if self.view_t1_btn is not None:
-            self.view_t1_btn.setVisible(checked_id == 0)
+            self.view_t1_btn.setVisible(self.get_roi_type() == "spherical")
 
         self._update_coordinate_space_labels()
+
+    def _resize_stack_to_current(self, index=None):
+        """Size the stacked widget to the current page instead of the tallest.
+
+        A ``QStackedWidget`` normally reserves the height of its tallest page
+        (here the spherical spheres-table page), leaving large empty space on
+        the compact cortical/subcortical pages. Collapsing every non-current
+        page's vertical size policy to ``Ignored`` (and keeping the current
+        page ``Preferred``) makes the stack size to whichever page is showing.
+        The spherical table keeps its own minimum height, so it still gets
+        adequate room when active.
+
+        Args:
+            index: Unused; accepted so this can be wired to ``currentChanged``.
+        """
+        current = self.stacked.currentWidget()
+        for i in range(self.stacked.count()):
+            page = self.stacked.widget(i)
+            if page is None:
+                continue
+            policy = page.sizePolicy()
+            policy.setVerticalPolicy(
+                QtWidgets.QSizePolicy.Preferred
+                if page is current
+                else QtWidgets.QSizePolicy.Ignored
+            )
+            page.setSizePolicy(policy)
+        if current is not None:
+            current.adjustSize()
+        self.stacked.updateGeometry()
+        self.stacked.adjustSize()
+        self.updateGeometry()
 
     def _update_coordinate_space_labels(self):
         """Update coordinate labels and tooltips based on space selection."""
@@ -638,18 +670,54 @@ class ROIPickerWidget(QtWidgets.QWidget):
             x, y, z = center
             self._add_sphere_row(float(x), float(y), float(z), float(radius))
 
-    def _selected_hemis(self) -> list[str]:
-        """Return the hemispheres selected in the cortical page.
+    @staticmethod
+    def _parse_region_names(text: str) -> list[tuple[str, str]]:
+        """Parse comma-separated hemisphere-prefixed cortical region names.
 
-        ``["lh"]`` or ``["rh"]`` for a single hemisphere, or ``["lh", "rh"]``
-        when the "Both" option is chosen.
+        Accepts analyzer-style tokens such as ``lh.precentral`` or
+        ``rh.superiorfrontal``.
+
+        Returns:
+            List of ``(hemisphere, region_name)`` tuples, e.g.
+            ``("lh", "precentral")``.
+
+        Raises:
+            ValueError: If any non-empty token is not of the form
+                ``lh.<name>`` or ``rh.<name>``.
         """
-        idx = self.hemi_combo.currentIndex()
-        if idx == 0:
-            return ["lh"]
-        if idx == 1:
-            return ["rh"]
-        return ["lh", "rh"]
+        tokens: list[tuple[str, str]] = []
+        for part in text.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            hemi, sep, name = part.partition(".")
+            if sep != "." or hemi not in ("lh", "rh") or not name:
+                raise ValueError(f"Invalid cortical region name: {part!r}")
+            tokens.append((hemi, name))
+        return tokens
+
+    def _cortical_name_index_map(self) -> dict[tuple[str, str], int]:
+        """Map ``(hemi, region_name) -> annot label index`` for the current atlas.
+
+        Built from the cached lh/rh ``.annot`` files discovered for the current
+        subject. Region label indices are intrinsic to an atlas parcellation
+        (the ``.annot`` colour-table ordering), so the same indices apply to
+        every subject sharing that atlas. Returns an empty dict when the atlas
+        files cannot be read (e.g. no subject set yet).
+        """
+        atlas_display = self.atlas_combo.currentText()
+        mapping: dict[tuple[str, str], int] = {}
+        for hemi in ("lh", "rh"):
+            annot_file = self.atlases.get((hemi, atlas_display))
+            if not annot_file:
+                continue
+            try:
+                regions = MeshAtlasManager("").list_annot_regions(annot_file)
+            except (OSError, ValueError):
+                continue
+            for idx, name in regions:
+                mapping[(hemi, name)] = idx
+        return mapping
 
     @staticmethod
     def _parse_labels(text: str) -> list[int]:
@@ -696,9 +764,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             One of ``'spherical'``, ``'atlas'``, or ``'subcortical'``.
         """
         checked_id = self._mode_group.checkedId()
-        return {0: "spherical", 1: "atlas", 2: "subcortical"}.get(
-            checked_id, "spherical"
-        )
+        return {0: "atlas", 1: "subcortical", 2: "spherical"}.get(checked_id, "atlas")
 
     def get_roi_params(self) -> dict:
         """Return a dict describing the current ROI selection.
@@ -730,7 +796,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 "method": "atlas",
                 "atlas": self.atlas_combo.currentText(),
                 "region": self.label_value_input.text().strip(),
-                "hemisphere": "+".join(self._selected_hemis()),
             }
         else:  # subcortical
             return {
@@ -777,20 +842,23 @@ class ROIPickerWidget(QtWidgets.QWidget):
             atlas_name = self._resolve_atlas_name_for_subject(
                 self.atlas_combo.currentText(), subject_id
             )
-            labels = self._parse_labels(self.label_value_input.text())
-            hemis = self._selected_hemis()
-            # Expand (labels x hemispheres) into equal-length parallel lists so a
-            # target can union across labels and/or both hemispheres. Each entry
-            # carries its own lh/rh .annot path. Outer loop over labels keeps the
-            # ordering label=[17,17,53,53] / hemi=[lh,rh,lh,rh] for Both.
+            # Resolve each hemisphere-prefixed name to its annot label index.
+            # Region indices are intrinsic to the atlas parcellation, so the map
+            # built from the current subject's .annot applies to every subject.
+            name_map = self._cortical_name_index_map()
+            tokens = self._parse_region_names(self.label_value_input.text())
+            # Build equal-length parallel lists so a target can union across
+            # regions and/or hemispheres; each entry carries its own lh/rh
+            # .annot path and label index. The serialized AtlasROI contract
+            # (parallel atlas_path/hemisphere/label lists) is unchanged.
             atlas_paths, hemispheres, out_labels = [], [], []
-            for label in labels:
-                for hemi in hemis:
-                    out_labels.append(label)
-                    hemispheres.append(hemi)
-                    atlas_paths.append(
-                        os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot")
-                    )
+            for hemi, name in tokens:
+                index = name_map.get((hemi, name))
+                if index is None:
+                    continue
+                out_labels.append(index)
+                hemispheres.append(hemi)
+                atlas_paths.append(os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot"))
             return FlexConfig.AtlasROI(
                 atlas_path=self._collapse(atlas_paths),
                 label=self._collapse(out_labels),
@@ -839,7 +907,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
         elif roi_type == "atlas":
             if not self.atlas_combo.currentText():
                 return "No cortical atlas selected. Use Refresh to discover atlases."
-            error = self._validate_labels(self.label_value_input.text())
+            error = self._validate_region_names(self.label_value_input.text())
             if error:
                 return error
         elif roi_type == "subcortical":
@@ -850,6 +918,29 @@ class ROIPickerWidget(QtWidgets.QWidget):
             error = self._validate_labels(self.volume_label_input.text())
             if error:
                 return error
+        return None
+
+    def _validate_region_names(self, text: str) -> str | None:
+        """Validate the comma-separated cortical region-name field.
+
+        Returns an error message string, or ``None`` when valid. Unknown names
+        are reported only when the atlas annotation files can actually be read;
+        otherwise name membership is left to the flex backend.
+        """
+        try:
+            tokens = self._parse_region_names(text)
+        except ValueError:
+            return (
+                "Cortical region(s) must be hemisphere-prefixed names, "
+                "e.g. lh.precentral, rh.superiorfrontal."
+            )
+        if not tokens:
+            return "Enter at least one cortical region name."
+        name_map = self._cortical_name_index_map()
+        if name_map:
+            unknown = [f"{h}.{n}" for h, n in tokens if (h, n) not in name_map]
+            if unknown:
+                return "Unknown cortical region(s): " + ", ".join(unknown)
         return None
 
     def _validate_labels(self, text: str) -> str | None:
@@ -968,60 +1059,57 @@ class ROIPickerWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _on_list_atlas_regions(self):
-        """Show regions for the currently selected cortical atlas.
+        """Show cortical regions from BOTH hemispheres as hemi-prefixed names.
 
-        With the "Both" hemisphere option the label sets are identical across
-        hemispheres, so the first selected hemisphere is listed.
+        Entries are built from ``list_annot_regions`` on the lh and rh
+        ``.annot`` files and displayed as ``lh.<name>`` / ``rh.<name>``. The
+        finder returns the selected names, which are merged into the region
+        field.
         """
-        atlas = self.atlas_combo.currentText()
-        hemi = self._selected_hemis()[0]
-        self._show_atlas_regions_dialog(atlas, hemi)
+        atlas_display = self.atlas_combo.currentText()
+        if not atlas_display:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Atlas Selected",
+                "Select a cortical atlas first (use Refresh to discover atlases).",
+            )
+            return
+
+        entries = []
+        for hemi in ("lh", "rh"):
+            annot_file = self.atlases.get((hemi, atlas_display))
+            if not annot_file:
+                continue
+            try:
+                regions = MeshAtlasManager("").list_annot_regions(annot_file)
+            except (OSError, ValueError) as e:
+                QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
+                return
+            for idx, name in regions:
+                entries.append((idx, f"{hemi}.{name}", None))
+
+        if not entries:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Atlas File Not Found",
+                f"Could not find atlas files for {atlas_display}.",
+            )
+            return
+
+        dlg = AtlasRegionFinderDialog(
+            self,
+            f"Cortical Regions - {atlas_display}",
+            entries,
+            return_field="name",
+            multi=True,
+        )
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            merge_into_lineedit(self.label_value_input, dlg.selected_values())
 
     def _on_list_volume_regions(self):
         """Show regions for the currently selected volume atlas."""
         volume_atlas = self.volume_atlas_combo.currentText()
         self._show_volume_regions_dialog(volume_atlas)
-
-    def _show_atlas_regions_dialog(self, atlas_display: str, hemi: str):
-        """Open the region finder for the selected cortical atlas.
-
-        Selected region ids (the ``.annot`` label indices flex expects) are
-        appended to the region-label field.
-
-        Args:
-            atlas_display: Atlas display name from the combo box.
-            hemi: Hemisphere string (``'lh'`` or ``'rh'``).
-        """
-        atlas_key = (hemi, atlas_display)
-        if atlas_key not in self.atlases:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Atlas File Not Found",
-                f"Could not find atlas file for {hemi}.{atlas_display}",
-            )
-            return
-
-        annot_file = self.atlases[atlas_key]
-
-        try:
-            mesh_mgr = MeshAtlasManager("")
-            regions = mesh_mgr.list_annot_regions(annot_file)
-        except (OSError, ValueError) as e:
-            QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
-            return
-
-        entries = [(idx, name, None) for idx, name in regions]
-        dlg = AtlasRegionFinderDialog(
-            self,
-            f"Regions in {hemi}.{atlas_display}",
-            entries,
-            return_field="id",
-            multi=True,
-        )
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            merge_into_lineedit(
-                self.label_value_input, dlg.selected_values(), replace_default="1"
-            )
 
     def _show_volume_regions_dialog(self, volume_atlas: str):
         """Open the region finder for the selected volume atlas.
