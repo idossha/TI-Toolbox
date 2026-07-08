@@ -10,11 +10,14 @@ import os
 import subprocess
 from pathlib import Path
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
 
 from tit.paths import get_path_manager
 from tit.atlas import MNI_ATLAS_DIR, MeshAtlasManager, VoxelAtlasManager
-from tit.gui.style import FONT_HELP, FONT_SIZE_MONOSPACE
+from tit.gui.components.atlas_region_finder import (
+    AtlasRegionFinderDialog,
+    merge_into_lineedit,
+)
 from tit.opt.config import FlexConfig
 
 
@@ -150,10 +153,15 @@ class ROIPickerWidget(QtWidgets.QWidget):
         main_layout.addWidget(self.stacked)
 
     def _build_spherical_page(self) -> QtWidgets.QWidget:
-        """Build the spherical ROI input page."""
+        """Build the spherical ROI input page.
+
+        All spheres live in a single full-width table (one row per sphere). A
+        single row reproduces the classic single-sphere behavior; extra rows
+        union into one combined target.
+        """
         page = QtWidgets.QWidget()
-        layout = QtWidgets.QFormLayout(page)
-        layout.setVerticalSpacing(3)
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setSpacing(5)
         layout.setContentsMargins(0, 5, 0, 5)
 
         # Coordinate space toggle
@@ -168,88 +176,72 @@ class ROIPickerWidget(QtWidgets.QWidget):
             space_layout.addWidget(self.space_subject_radio)
             space_layout.addWidget(self.space_mni_radio)
             space_layout.addStretch()
-            layout.addRow(space_widget)
+            layout.addWidget(space_widget)
         else:
             self.space_subject_radio = None
             self.space_mni_radio = None
 
         self.mni_info_label = None
 
-        # Coordinate inputs + Freeview button
+        # Header row: coordinate-space label + Freeview button
+        header_widget = QtWidgets.QWidget()
+        header_layout = QtWidgets.QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
         self.coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
-        coords_widget = QtWidgets.QWidget()
-        coords_layout = QtWidgets.QHBoxLayout(coords_widget)
-        coords_layout.setContentsMargins(0, 0, 0, 0)
-
-        coords_layout.addWidget(QtWidgets.QLabel("X:"))
-        self.x_input = QtWidgets.QDoubleSpinBox()
-        self.x_input.setRange(-150, 150)
-        self.x_input.setValue(0)
-        self.x_input.setDecimals(2)
-        coords_layout.addWidget(self.x_input)
-
-        coords_layout.addWidget(QtWidgets.QLabel("Y:"))
-        self.y_input = QtWidgets.QDoubleSpinBox()
-        self.y_input.setRange(-150, 150)
-        self.y_input.setValue(0)
-        self.y_input.setDecimals(2)
-        coords_layout.addWidget(self.y_input)
-
-        coords_layout.addWidget(QtWidgets.QLabel("Z:"))
-        self.z_input = QtWidgets.QDoubleSpinBox()
-        self.z_input.setRange(-150, 150)
-        self.z_input.setValue(0)
-        self.z_input.setDecimals(2)
-        coords_layout.addWidget(self.z_input)
+        header_layout.addWidget(self.coords_label)
+        header_layout.addStretch()
 
         if self._enable_freeview_button:
             self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
             self.view_t1_btn.setToolTip(
                 "Open subject's T1 scan in Freeview to find RAS coordinates"
             )
-            coords_layout.addWidget(self.view_t1_btn)
+            header_layout.addWidget(self.view_t1_btn)
         else:
             self.view_t1_btn = None
 
-        coords_layout.addStretch()
-        layout.addRow(self.coords_label, coords_widget)
+        layout.addWidget(header_widget)
 
-        # Radius
-        self.radius_label = QtWidgets.QLabel("ROI Radius (mm):")
-        self.radius_input = QtWidgets.QDoubleSpinBox()
-        self.radius_input.setRange(1, 50)
-        self.radius_input.setValue(10)
-        self.radius_input.setDecimals(2)
-        layout.addRow(self.radius_label, self.radius_input)
-
-        # Additional spheres (optional) — the X/Y/Z/Radius above define the first
-        # sphere; each extra row unions another sphere into one combined target.
-        self.extra_spheres_table = QtWidgets.QTableWidget(0, 4)
-        self.extra_spheres_table.setHorizontalHeaderLabels(["X", "Y", "Z", "Radius"])
-        self.extra_spheres_table.horizontalHeader().setStretchLastSection(True)
-        self.extra_spheres_table.verticalHeader().setVisible(False)
-        self.extra_spheres_table.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectRows
+        # Unified spheres table — every sphere is a row.
+        self.spheres_table = QtWidgets.QTableWidget(0, 5)
+        self.spheres_table.setHorizontalHeaderLabels(
+            ["X (mm)", "Y (mm)", "Z (mm)", "Radius (mm)", ""]
         )
-        self.extra_spheres_table.setMaximumHeight(140)
-        self.extra_spheres_table.setToolTip(
-            "Extra spheres to union with the first one. Leave empty for a single "
-            "sphere (unchanged behavior)."
+        sph_header = self.spheres_table.horizontalHeader()
+        for col in range(4):
+            sph_header.setSectionResizeMode(col, QtWidgets.QHeaderView.Stretch)
+        sph_header.setSectionResizeMode(4, QtWidgets.QHeaderView.Fixed)
+        self.spheres_table.setColumnWidth(4, 40)
+        self.spheres_table.verticalHeader().setVisible(True)
+        self.spheres_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.spheres_table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.spheres_table.setMinimumHeight(190)
+        self.spheres_table.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
+        self.spheres_table.setToolTip(
+            "Each row is a sphere. Multiple rows union into one combined target; "
+            "a single row is a plain single-sphere ROI (unchanged behavior)."
+        )
+        layout.addWidget(self.spheres_table)
 
+        # Sphere management buttons
         sphere_btn_widget = QtWidgets.QWidget()
         sphere_btn_layout = QtWidgets.QHBoxLayout(sphere_btn_widget)
         sphere_btn_layout.setContentsMargins(0, 0, 0, 0)
         self.add_sphere_btn = QtWidgets.QPushButton("Add Sphere")
         self.add_sphere_btn.setToolTip("Union another sphere into this ROI.")
+        self.duplicate_sphere_btn = QtWidgets.QPushButton("Duplicate Selected")
+        self.duplicate_sphere_btn.setToolTip(
+            "Copy the selected sphere row(s) as new rows."
+        )
         self.remove_sphere_btn = QtWidgets.QPushButton("Remove Selected")
-        self.remove_sphere_btn.setToolTip("Remove the selected extra sphere row(s).")
+        self.remove_sphere_btn.setToolTip("Remove the selected sphere row(s).")
         sphere_btn_layout.addWidget(self.add_sphere_btn)
+        sphere_btn_layout.addWidget(self.duplicate_sphere_btn)
         sphere_btn_layout.addWidget(self.remove_sphere_btn)
         sphere_btn_layout.addStretch()
-
-        layout.addRow(QtWidgets.QLabel("Additional Spheres:"), self.extra_spheres_table)
-        layout.addRow("", sphere_btn_widget)
+        layout.addWidget(sphere_btn_widget)
 
         # Volumetric toggle + tissue type
         vol_widget = QtWidgets.QWidget()
@@ -280,11 +272,14 @@ class ROIPickerWidget(QtWidgets.QWidget):
         vol_layout.addWidget(self.sphere_tissue_combo)
 
         vol_layout.addStretch()
-        layout.addRow(vol_widget)
+        layout.addWidget(vol_widget)
 
         # Wire checkbox to enable/disable tissue combo
         self.volumetric_checkbox.toggled.connect(self.sphere_tissue_combo.setEnabled)
         self.volumetric_checkbox.toggled.connect(self.sphere_tissue_label.setEnabled)
+
+        # Seed one default sphere so the table is never empty.
+        self._add_sphere_row()
 
         return page
 
@@ -445,18 +440,18 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volume_subject_radio.toggled.connect(self._refresh_volume_atlases)
         self.volume_mni_radio.toggled.connect(self._refresh_volume_atlases)
 
-        # Multi-sphere add/remove (lambdas so the button's bool 'checked' arg is
-        # not passed as a coordinate/row argument).
+        # Multi-sphere add/duplicate/remove (lambdas so the button's bool
+        # 'checked' arg is not passed as a coordinate/row argument).
         self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
+        self.duplicate_sphere_btn.clicked.connect(
+            lambda: self._duplicate_selected_sphere_rows()
+        )
         self.remove_sphere_btn.clicked.connect(
             lambda: self._remove_selected_sphere_rows()
         )
 
-        # Emit roi_changed on any value change
-        self.x_input.valueChanged.connect(self.roi_changed)
-        self.y_input.valueChanged.connect(self.roi_changed)
-        self.z_input.valueChanged.connect(self.roi_changed)
-        self.radius_input.valueChanged.connect(self.roi_changed)
+        # Emit roi_changed on any value change (per-row sphere spin boxes wire
+        # themselves in _add_sphere_row).
         self.volumetric_checkbox.toggled.connect(self.roi_changed)
         self.sphere_tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self.atlas_combo.currentIndexChanged.connect(self.roi_changed)
@@ -487,7 +482,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _update_coordinate_space_labels(self):
         """Update coordinate labels and tooltips based on space selection."""
         if self.get_roi_type() != "spherical":
-            pass  # mni_info_label removed
             return
 
         if self.is_mni_space():
@@ -497,10 +491,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 "for each subject)"
             )
             self.coords_label.setStyleSheet("color: #007ACC; font-weight: bold;")
-            pass  # mni_info_label removed
-            self.x_input.setToolTip("X coordinate in MNI space")
-            self.y_input.setToolTip("Y coordinate in MNI space")
-            self.z_input.setToolTip("Z coordinate in MNI space")
             if self.view_t1_btn is not None:
                 self.view_t1_btn.setText("View MNI Template")
                 self.view_t1_btn.setToolTip(
@@ -510,10 +500,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
             self.coords_label.setText("ROI Center RAS Coordinates (mm):")
             self.coords_label.setToolTip("Subject-specific RAS coordinates")
             self.coords_label.setStyleSheet("")
-            pass  # mni_info_label removed
-            self.x_input.setToolTip("X coordinate in subject RAS space")
-            self.y_input.setToolTip("Y coordinate in subject RAS space")
-            self.z_input.setToolTip("Z coordinate in subject RAS space")
             if self.view_t1_btn is not None:
                 self.view_t1_btn.setText("View T1 in Freeview")
                 self.view_t1_btn.setToolTip(
@@ -527,8 +513,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
     def _add_sphere_row(
         self, x: float = 0.0, y: float = 0.0, z: float = 0.0, r: float = 10.0
     ):
-        """Append a row of X/Y/Z/Radius spin boxes to the extra-spheres table."""
-        table = self.extra_spheres_table
+        """Append a sphere row (X/Y/Z/Radius spin boxes + delete button)."""
+        table = self.spheres_table
         row = table.rowCount()
         table.insertRow(row)
         specs = [(-150, 150, x), (-150, 150, y), (-150, 150, z), (1, 50, r)]
@@ -539,36 +525,118 @@ class ROIPickerWidget(QtWidgets.QWidget):
             spin.setValue(val)
             spin.valueChanged.connect(self.roi_changed)
             table.setCellWidget(row, col, spin)
+
+        del_btn = QtWidgets.QPushButton("✕")
+        del_btn.setFixedWidth(32)
+        del_btn.setToolTip("Remove this sphere.")
+        del_btn.clicked.connect(lambda: self._remove_sphere_row_widget(del_btn))
+        table.setCellWidget(row, 4, del_btn)
+
         self.roi_changed.emit()
+
+    def _row_values(self, row: int) -> tuple[float, float, float, float] | None:
+        """Return ``(x, y, z, radius)`` for a table row, or ``None`` if empty."""
+        table = self.spheres_table
+        widgets = [table.cellWidget(row, col) for col in range(4)]
+        if any(w is None for w in widgets):
+            return None
+        xw, yw, zw, rw = widgets
+        return xw.value(), yw.value(), zw.value(), rw.value()
+
+    def _remove_sphere_at(self, row: int):
+        """Remove the sphere at ``row``, always keeping at least one row."""
+        table = self.spheres_table
+        if table.rowCount() <= 1:
+            return
+        table.removeRow(row)
+        self.roi_changed.emit()
+
+    def _remove_sphere_row_widget(self, button: QtWidgets.QPushButton):
+        """Remove the row whose trailing delete button is ``button``.
+
+        Rows shift as siblings are removed, so the owning row is resolved by
+        widget identity rather than a captured index.
+        """
+        table = self.spheres_table
+        for row in range(table.rowCount()):
+            if table.cellWidget(row, 4) is button:
+                self._remove_sphere_at(row)
+                return
 
     def _remove_selected_sphere_rows(self):
-        """Remove the currently selected extra-sphere rows (if any)."""
-        table = self.extra_spheres_table
+        """Remove the selected sphere rows, always keeping at least one row."""
+        table = self.spheres_table
         rows = sorted({idx.row() for idx in table.selectedIndexes()}, reverse=True)
+        if not rows:
+            return
+        changed = False
+        for row in rows:
+            if table.rowCount() <= 1:
+                break
+            table.removeRow(row)
+            changed = True
+        if changed:
+            self.roi_changed.emit()
+
+    def _duplicate_selected_sphere_rows(self):
+        """Append a copy of each selected sphere row (last row if none selected)."""
+        table = self.spheres_table
+        rows = sorted({idx.row() for idx in table.selectedIndexes()})
         if not rows and table.rowCount():
             rows = [table.rowCount() - 1]
-        for row in rows:
-            table.removeRow(row)
-        self.roi_changed.emit()
+        # Snapshot values first so appended rows are not re-copied.
+        values = [self._row_values(row) for row in rows]
+        for vals in values:
+            if vals is None:
+                continue
+            x, y, z, r = vals
+            self._add_sphere_row(x, y, z, r)
 
     def _collect_spheres(self) -> tuple[list[list[float]], list[float]]:
-        """Return ``(centers, radii)`` for the first sphere plus any extra rows.
+        """Return ``(centers, radii)`` for every sphere row in the table.
 
-        The X/Y/Z/Radius spin boxes define the first (always present) sphere;
-        each row in the extra-spheres table adds another. A single sphere (no
-        extra rows) reproduces the pre-union behavior exactly.
+        A single row reproduces the pre-union behavior exactly. If the table is
+        somehow empty, a single default sphere is returned so callers always see
+        at least one sphere.
         """
-        centers = [[self.x_input.value(), self.y_input.value(), self.z_input.value()]]
-        radii = [self.radius_input.value()]
-        table = self.extra_spheres_table
+        centers: list[list[float]] = []
+        radii: list[float] = []
+        table = self.spheres_table
         for row in range(table.rowCount()):
-            widgets = [table.cellWidget(row, col) for col in range(4)]
-            if any(w is None for w in widgets):
+            vals = self._row_values(row)
+            if vals is None:
                 continue
-            xw, yw, zw, rw = widgets
-            centers.append([xw.value(), yw.value(), zw.value()])
-            radii.append(rw.value())
+            x, y, z, r = vals
+            centers.append([x, y, z])
+            radii.append(r)
+        if not centers:
+            centers = [[0.0, 0.0, 0.0]]
+            radii = [10.0]
         return centers, radii
+
+    def set_spheres(
+        self,
+        centers: list[list[float]],
+        radii: list[float],
+    ):
+        """Repopulate the spheres table from saved coordinates and radii.
+
+        The inverse of :meth:`_collect_spheres`: clears existing rows and adds
+        one row per ``(center, radius)`` pair. When no spheres are supplied a
+        single default row is seeded so the table is never empty.
+
+        Args:
+            centers: Sequence of ``[x, y, z]`` coordinate triples.
+            radii: Sequence of radii, one per center.
+        """
+        table = self.spheres_table
+        table.setRowCount(0)
+        if not centers:
+            self._add_sphere_row()
+            return
+        for center, radius in zip(centers, radii):
+            x, y, z = center
+            self._add_sphere_row(float(x), float(y), float(z), float(radius))
 
     def _selected_hemis(self) -> list[str]:
         """Return the hemispheres selected in the cortical page.
@@ -915,7 +983,10 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self._show_volume_regions_dialog(volume_atlas)
 
     def _show_atlas_regions_dialog(self, atlas_display: str, hemi: str):
-        """Show a dialog listing regions in the selected cortical atlas.
+        """Open the region finder for the selected cortical atlas.
+
+        Selected region ids (the ``.annot`` label indices flex expects) are
+        appended to the region-label field.
 
         Args:
             atlas_display: Atlas display name from the combo box.
@@ -935,46 +1006,27 @@ class ROIPickerWidget(QtWidgets.QWidget):
         try:
             mesh_mgr = MeshAtlasManager("")
             regions = mesh_mgr.list_annot_regions(annot_file)
-            output_lines = []
-            for idx, name in regions:
-                output_lines.append(f"{idx:3d}: {name}")
-            output = "\n".join(output_lines)
         except (OSError, ValueError) as e:
             QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
             return
 
-        dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle(f"Regions in {hemi}.{atlas_display}")
-        dlg.setMinimumWidth(600)
-        layout = QtWidgets.QVBoxLayout(dlg)
-
-        search_box = QtWidgets.QLineEdit()
-        search_box.setPlaceholderText("Search regions...")
-        layout.addWidget(search_box)
-
-        text = QtWidgets.QTextEdit()
-        text.setReadOnly(True)
-        text.setText(output)
-        layout.addWidget(text)
-
-        def filter_regions():
-            query = search_box.text().strip().lower()
-            if not query:
-                text.setText(output)
-                return
-            filtered = "\n".join(
-                line for line in output.splitlines() if query in line.lower()
+        entries = [(idx, name, None) for idx, name in regions]
+        dlg = AtlasRegionFinderDialog(
+            self,
+            f"Regions in {hemi}.{atlas_display}",
+            entries,
+            return_field="id",
+            multi=True,
+        )
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            merge_into_lineedit(
+                self.label_value_input, dlg.selected_values(), replace_default="1"
             )
-            text.setText(filtered)
-
-        search_box.textChanged.connect(filter_regions)
-        btn = QtWidgets.QPushButton("Close")
-        btn.clicked.connect(dlg.accept)
-        layout.addWidget(btn)
-        dlg.exec_()
 
     def _show_volume_regions_dialog(self, volume_atlas: str):
-        """Show a dialog listing regions in the selected volume atlas.
+        """Open the region finder for the selected volume atlas.
+
+        Selected region ids are appended to the volume region-label field.
 
         Args:
             volume_atlas: Volume atlas display name from the combo box.
@@ -995,62 +1047,34 @@ class ROIPickerWidget(QtWidgets.QWidget):
             )
             return
 
+        entries = []
         try:
-            output = f"Subcortical Regions ({volume_atlas}):\n"
-            output += "=" * 50 + "\n"
-            output += f"{'ID':<4} {'Structure Name':<35} {'RGB'}\n"
-            output += "-" * 50 + "\n"
-
             with open(lut_file, "r") as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#"):
-                        label = self._parse_lut_line(line)
-                        if label is None:
+                        parsed = self._parse_lut_line(line)
+                        if parsed is None:
                             continue
-                        label_id, label_name, rgb = label
-                        if rgb is None:
-                            output += f"{label_id:<4} {label_name:<35} (no color)\n"
-                        else:
-                            r, g, b = rgb
-                            output += f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
+                        label_id, label_name, rgb = parsed
+                        entries.append((int(label_id), label_name, rgb))
         except OSError as e:
             QtWidgets.QMessageBox.warning(
                 self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}"
             )
             return
 
-        dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle(f"Subcortical Regions - {volume_atlas}")
-        dlg.setMinimumWidth(700)
-        layout = QtWidgets.QVBoxLayout(dlg)
-
-        search_box = QtWidgets.QLineEdit()
-        search_box.setPlaceholderText("Search regions (by ID or name)...")
-        layout.addWidget(search_box)
-
-        text = QtWidgets.QTextEdit()
-        text.setReadOnly(True)
-        text.setFont(QtGui.QFont("Consolas", FONT_SIZE_MONOSPACE))
-        text.setText(output)
-        layout.addWidget(text)
-
-        def filter_regions():
-            query = search_box.text().strip().lower()
-            if not query:
-                text.setText(output)
-                return
-            filtered_lines = [
-                line for line in output.splitlines() if query in line.lower()
-            ]
-            text.setText("\n".join(filtered_lines))
-
-        search_box.textChanged.connect(filter_regions)
-
-        btn = QtWidgets.QPushButton("Close")
-        btn.clicked.connect(dlg.accept)
-        layout.addWidget(btn)
-        dlg.exec_()
+        dlg = AtlasRegionFinderDialog(
+            self,
+            f"Subcortical Regions - {volume_atlas}",
+            entries,
+            return_field="id",
+            multi=True,
+        )
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            merge_into_lineedit(
+                self.volume_label_input, dlg.selected_values(), replace_default="10"
+            )
 
     def _find_volume_lut(self, atlas_path: str) -> Path | None:
         atlas = Path(atlas_path)
