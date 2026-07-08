@@ -664,6 +664,16 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", error)
             return
 
+        # Validate non-ROI when focality targets a specific region
+        if (
+            self.goal_combo.currentData() == "focality"
+            and self.nonroi_method_combo.currentData() == "specific"
+        ):
+            error = self.nonroi_picker.validate()
+            if error:
+                QtWidgets.QMessageBox.warning(self, "Warning", f"Non-ROI: {error}")
+                return
+
         # Check coordinate space for spherical ROI with MNI space selected
         if (
             self.roi_picker.get_roi_type() == "spherical"
