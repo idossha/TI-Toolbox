@@ -1879,7 +1879,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
             regions = self._get_regions()
-            details += f"- Region(s): {', '.join(regions) if regions else '+'.join(self._get_regions())}\n"
+            details += f"- Region(s): {', '.join(regions)}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -1922,7 +1922,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 details += f"- Voxel Atlas: Common atlas configuration\n"
             regions = self._get_regions()
-            details += f"- Region(s): {', '.join(regions) if regions else '+'.join(self._get_regions())} (for all)\n"
+            details += f"- Region(s): {', '.join(regions)} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2066,11 +2066,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     "."
                 )[0]
             regions = self._get_regions()
-            region_str = (
-                "+".join(regions)
-                if regions
-                else "+".join(self._get_regions()) or "region"
-            )
+            region_str = "+".join(regions) or "region"
             return f"Cortical: {atlas}.{region_str}"
         else:
             parsed = self._parse_coords_radius()
@@ -2215,6 +2211,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if name == "unknown":
                         continue
                     entries.append((idx, f"{hemi}.{name}", None))
+            entries.sort(key=lambda e: e[1])  # alphabetical within the finder list
             progress_dialog.setValue(80)
             QtWidgets.QApplication.processEvents()
 
