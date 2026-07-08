@@ -51,5 +51,5 @@ class HelpIcon(QtWidgets.QToolButton):
         self.clicked.connect(self._show_popup)
 
     def _show_popup(self) -> None:
-        """Show the help text in a small information popup near the button."""
+        """Show the help text in a small information popup."""
         QtWidgets.QMessageBox.information(self, self._title, self._help_text)

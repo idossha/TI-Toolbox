@@ -859,6 +859,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 out_labels.append(index)
                 hemispheres.append(hemi)
                 atlas_paths.append(os.path.join(seg_dir, f"{hemi}.{atlas_name}.annot"))
+            if not out_labels:
+                raise ValueError(
+                    f"Could not resolve any cortical region name(s) for atlas "
+                    f"'{atlas_name}'; the annotation files could not be read."
+                )
             return FlexConfig.AtlasROI(
                 atlas_path=self._collapse(atlas_paths),
                 label=self._collapse(out_labels),
