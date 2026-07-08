@@ -33,14 +33,14 @@ class TestFsavgMapConfig:
         from tit.source import FsavgMapConfig
 
         cfg = FsavgMapConfig()
-        assert cfg.fields == ("TI_max", "TI_normal", "magnitude", "hf_max")
+        assert cfg.fields == ("TI_max", "TI_normal", "hf_peak", "hf_sar")
         assert cfg.fsaverage_spacing == 5
 
-    def test_hf_max_is_a_valid_field(self):
+    def test_hf_fields_are_valid(self):
         from tit.source import FsavgMapConfig
 
-        cfg = FsavgMapConfig(fields=("hf_max",))
-        assert cfg.fields == ("hf_max",)
+        cfg = FsavgMapConfig(fields=("hf_peak", "hf_sar"))
+        assert cfg.fields == ("hf_peak", "hf_sar")
 
     def test_unknown_field_raises(self):
         from tit.source import FsavgMapConfig
@@ -141,14 +141,14 @@ class TestFsavgHelpers:
         with pytest.raises(FileNotFoundError):
             fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
 
-    def test_hf_max_and_magnitude_from_carrier_e(self, monkeypatch):
-        """Both derive from the interpolated vector E: hf_max=|E1|+|E2|, mag=|E1+E2|."""
+    def test_hf_peak_and_hf_sar_from_carrier_e(self, monkeypatch):
+        """Both derive from the interpolated vector E (Cassarà formulas)."""
         import numpy as np
 
         from tit.source import fsaverage
         from tit.source.config import FsavgMapConfig
 
-        # Anti-parallel carriers: |E1|+|E2| = 2, but |E1+E2| = 0.
+        # Anti-parallel carriers: |E1+E2|=0, |E1-E2|=2 -> hf_peak=2; hf_sar=1+1=2.
         monkeypatch.setattr(
             fsaverage, "_carrier_volume_meshes", lambda *a: ("v1", "v2")
         )
@@ -168,10 +168,10 @@ class TestFsavgHelpers:
             _MagicMock(),
             "001",
             "TI_sim",
-            FsavgMapConfig(fields=("hf_max", "magnitude")),
+            FsavgMapConfig(fields=("hf_peak", "hf_sar")),
         )
-        assert out["hf_max"][0] == pytest.approx(2.0)
-        assert out["magnitude"][0] == pytest.approx(0.0)
+        assert out["hf_peak"][0] == pytest.approx(2.0)
+        assert out["hf_sar"][0] == pytest.approx(2.0)
 
     def test_carrier_interp_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier E-interpolation failure skips hf_max/magnitude, keeps TI."""
@@ -199,7 +199,7 @@ class TestFsavgHelpers:
         self._mock_simnibs_core(monkeypatch)
         out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
         assert "TI_max" in out and "TI_normal" in out
-        assert "hf_max" not in out and "magnitude" not in out
+        assert "hf_peak" not in out and "hf_sar" not in out
 
     def test_carrier_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier read failure drops hf_max/magnitude but keeps TI_max/TI_normal."""
@@ -223,7 +223,7 @@ class TestFsavgHelpers:
         self._mock_simnibs_core(monkeypatch)
         out = fsaverage._compute_fields(_MagicMock(), "001", "TI_sim", FsavgMapConfig())
         assert "TI_max" in out and "TI_normal" in out
-        assert "hf_max" not in out and "magnitude" not in out
+        assert "hf_peak" not in out and "hf_sar" not in out
 
     @staticmethod
     def _mock_simnibs_core(monkeypatch):
