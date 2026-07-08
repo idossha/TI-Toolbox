@@ -531,10 +531,13 @@ def _join(values):
 
     Keeps single-region report fields byte-identical (a bare int/str) while
     rendering a union of labels/hemispheres as e.g. ``"17+53"`` rather than the
-    raw ``[17, 53]`` list repr.
+    raw ``[17, 53]`` list repr.  Duplicates from the cortical "Both" expansion
+    (labels/hemispheres repeated per hemi) are collapsed for display.
     """
     items = _as_list(values)
-    return items[0] if len(items) == 1 else "+".join(str(v) for v in items)
+    if len(items) == 1:
+        return items[0]
+    return "+".join(dict.fromkeys(str(v) for v in items))
 
 
 def _sphere_report_fields(roi_spec):

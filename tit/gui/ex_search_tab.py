@@ -1853,18 +1853,28 @@ class ExSearchTab(QtWidgets.QWidget):
             with open(roi_file, "r") as f:
                 coordinates = f.readline().strip()
             x, y, z = [float(coord.strip()) for coord in coordinates.split(",")]
-            roi_name = current_roi.replace(".csv", "")  # Remove .csv extension
             if self.debug_mode:
                 self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
                 self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug")
         except (OSError, ValueError) as e:
-            self.update_output(
-                f"Error reading ROI file {current_roi}: {str(e)}", "error"
-            )
-            # Move to next ROI
-            self.current_roi_index += 1
-            self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
-            return
+            if self._combine_rois:
+                # In combined mode these coords are display-only (the backend
+                # unions all selected roi_names itself), so a bad display-source
+                # read must NOT abort the whole union run.
+                self.update_output(
+                    f"Warning: could not read coords from {coord_source} "
+                    f"for logging: {str(e)}",
+                    "warning",
+                )
+                x = y = z = 0.0
+            else:
+                self.update_output(
+                    f"Error reading ROI file {current_roi}: {str(e)}", "error"
+                )
+                # Move to next ROI
+                self.current_roi_index += 1
+                self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+                return
 
         # Build ExConfig dataclass from UI state
         ex_config = self._build_ex_config(

@@ -60,6 +60,19 @@ def _union_operators(n: int) -> list[str]:
     return ["intersection"] + ["union"] * (n - 1)
 
 
+def _apply_union_operator(roi_obj) -> None:
+    """Set the union operator sequence on a SimNIBS mask ROI.
+
+    Mirrors the sphere path (:func:`_apply_spheres`): a single region leaves the
+    operator unset (SimNIBS defaults to ``"intersection"``) so single-region
+    setup stays byte-identical with the pre-union code; a union of *N* regions
+    gets the explicit ``["intersection"] + ["union"] * (N-1)`` sequence.
+    """
+    n = len(roi_obj.mask_value)
+    if n > 1:
+        roi_obj.mask_operator = _union_operators(n)
+
+
 def eeg_net_csv_path(eeg_positions_dir: str, eeg_net: str) -> Path:
     """Resolve an EEG net name or filename inside a subject EEG directory."""
     filename = Path(eeg_net).name
@@ -160,7 +173,7 @@ def generate_label(config, pareto: bool = False) -> str:
             if first_path
             else "atlas"
         )
-        roi_str = f"{hemi}-{atlas}-{'+'.join(str(v) for v in labels)}"
+        roi_str = f"{hemi}-{atlas}-{'+'.join(dict.fromkeys(str(v) for v in labels))}"
     elif isinstance(roi, FlexConfig.SubcorticalROI):
         labels = _as_list(roi.label)
         paths = _broadcast(roi.atlas_path, len(labels))
@@ -170,7 +183,9 @@ def generate_label(config, pareto: bool = False) -> str:
             if atlas.endswith(ext):
                 atlas = atlas[: -len(ext)]
                 break
-        roi_str = f"subcortical-{atlas}-{'+'.join(str(v) for v in labels)}"
+        roi_str = (
+            f"subcortical-{atlas}-{'+'.join(dict.fromkeys(str(v) for v in labels))}"
+        )
     else:
         roi_str = "unknown"
 
@@ -381,7 +396,7 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
     roi.method = "surface"
     roi.surface_type = "central"
     roi.mask_space, roi.mask_path, roi.mask_value = _atlas_mask_lists(roi_spec)
-    roi.mask_operator = _union_operators(len(roi.mask_value))
+    _apply_union_operator(roi)
 
     if config.goal == "focality":
         non_roi = opt.add_roi()
@@ -400,7 +415,7 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
             non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
                 _atlas_mask_lists(non_roi_spec)
             )
-            non_roi.mask_operator = _union_operators(len(non_roi.mask_value))
+            _apply_union_operator(non_roi)
             non_roi.weight = -1
 
 
@@ -436,7 +451,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
     roi = opt.add_roi()
     roi.method = "volume"
     roi.mask_space, roi.mask_path, roi.mask_value = _subcortical_mask_lists(roi_spec)
-    roi.mask_operator = _union_operators(len(roi.mask_value))
+    _apply_union_operator(roi)
     roi.tissues = tissues
 
     if config.goal == "focality":
@@ -456,6 +471,6 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
             non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
                 _subcortical_mask_lists(non_roi_spec)
             )
-            non_roi.mask_operator = _union_operators(len(non_roi.mask_value))
+            _apply_union_operator(non_roi)
             non_roi.weight = -1
             non_roi.tissues = tissues
