@@ -244,8 +244,13 @@ class TestConfigureSphericalROI:
 
         config = _make_config(
             roi=SphericalROI(
-                x=-24, y=-4, z=-20, radius=8,
-                use_mni=True, volumetric=True, tissues="WM",
+                x=-24,
+                y=-4,
+                z=-20,
+                radius=8,
+                use_mni=True,
+                volumetric=True,
+                tissues="WM",
             ),
         )
         configure_roi(opt, config)
@@ -620,3 +625,285 @@ class TestGenerateLabelEdgeCases:
         label = generate_label(config)
         assert "10.5" in label
         assert "-20.5" in label
+
+
+# ---------------------------------------------------------------------------
+# Union of same-type ROIs (multi-region targets)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestConfigureAtlasUnion:
+    def test_two_label_same_hemisphere(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=AtlasROI(
+                atlas_path="/path/to/lh.aparc.annot",
+                label=[1001, 1002],
+                hemisphere="lh",
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.mask_value == [1001, 1002]
+        # atlas_path broadcast to match the label list
+        assert roi_mock.mask_path == [
+            "/path/to/lh.aparc.annot",
+            "/path/to/lh.aparc.annot",
+        ]
+        assert roi_mock.mask_space == ["subject_lh", "subject_lh"]
+        # First fold intersects the all-True base, the rest union on.
+        assert roi_mock.mask_operator == ["intersection", "union"]
+
+    def test_cross_hemisphere_union(self):
+        """Two entries with differing mask_path AND mask_space (lh + rh)."""
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=AtlasROI(
+                atlas_path=["/path/to/lh.aparc.annot", "/path/to/rh.aparc.annot"],
+                label=[17, 53],
+                hemisphere=["lh", "rh"],
+            ),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.mask_value == [17, 53]
+        assert roi_mock.mask_path == [
+            "/path/to/lh.aparc.annot",
+            "/path/to/rh.aparc.annot",
+        ]
+        assert roi_mock.mask_space == ["subject_lh", "subject_rh"]
+        assert roi_mock.mask_operator == ["intersection", "union"]
+
+    def test_union_focality_everything_else_complement_length(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="everything_else",
+            roi=AtlasROI(
+                atlas_path="/path/to/lh.aparc.annot",
+                label=[1001, 1002],
+                hemisphere="lh",
+            ),
+        )
+        configure_roi(opt, config)
+
+        # Complement operator length must equal the ROI mask length (N=2).
+        assert non_roi_mock.mask_operator == ["difference", "difference"]
+        assert len(non_roi_mock.mask_operator) == len(roi_mock.mask_value)
+        assert non_roi_mock.weight == -1
+
+
+@pytest.mark.unit
+class TestConfigureSubcorticalUnion:
+    def test_two_label_shared_atlas(self, tmp_path):
+        """Both hippocampi (17, 53) from one aseg atlas."""
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "aseg.nii.gz"
+        atlas_file.write_text("fake")
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SubcorticalROI(atlas_path=str(atlas_file), label=[17, 53]),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.mask_value == [17, 53]
+        assert roi_mock.mask_path == [str(atlas_file), str(atlas_file)]
+        assert roi_mock.mask_space == ["subject", "subject"]
+        assert roi_mock.mask_operator == ["intersection", "union"]
+
+    def test_union_focality_complement_length(self, tmp_path):
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "aseg.nii.gz"
+        atlas_file.write_text("fake")
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="everything_else",
+            roi=SubcorticalROI(atlas_path=str(atlas_file), label=[17, 53]),
+        )
+        configure_roi(opt, config)
+
+        assert non_roi_mock.mask_operator == ["difference", "difference"]
+        assert len(non_roi_mock.mask_operator) == len(roi_mock.mask_value)
+
+    def test_union_missing_one_atlas_raises(self, tmp_path):
+        from tit.opt.flex.utils import configure_roi
+
+        atlas_file = tmp_path / "aseg.nii.gz"
+        atlas_file.write_text("fake")
+
+        opt = MagicMock()
+        opt.add_roi.return_value = MagicMock()
+
+        config = _make_config(
+            roi=SubcorticalROI(
+                atlas_path=[str(atlas_file), "/nonexistent.nii.gz"],
+                label=[17, 53],
+            ),
+        )
+        with pytest.raises(FileNotFoundError):
+            configure_roi(opt, config)
+
+
+@pytest.mark.unit
+class TestConfigureSphericalUnion:
+    def test_two_sphere_union(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=[8, 12]),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.roi_sphere_center == [[10, 20, 30], [-10, -20, -30]]
+        assert roi_mock.roi_sphere_radius == [8, 12]
+        assert roi_mock.roi_sphere_center_space == ["subject", "subject"]
+        assert roi_mock.roi_sphere_operator == ["intersection", "union"]
+
+    def test_two_sphere_shared_radius_broadcast(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(
+            roi=SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=9),
+        )
+        configure_roi(opt, config)
+
+        assert roi_mock.roi_sphere_radius == [9, 9]
+
+    def test_single_sphere_back_compat_flat(self):
+        """Scalar sphere keeps the flat (non-nested) form, no operator set."""
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        opt.add_roi.return_value = roi_mock
+
+        config = _make_config(roi=SphericalROI(x=10, y=20, z=30, radius=15))
+        configure_roi(opt, config)
+
+        assert roi_mock.roi_sphere_center == [10, 20, 30]
+        assert roi_mock.roi_sphere_radius == 15
+
+    def test_union_focality_complement_length(self):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="everything_else",
+            roi=SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=8),
+        )
+        configure_roi(opt, config)
+
+        assert non_roi_mock.roi_sphere_operator == ["difference", "difference"]
+        assert non_roi_mock.roi_sphere_center == [[10, 20, 30], [-10, -20, -30]]
+        assert non_roi_mock.weight == -1
+
+
+@pytest.mark.unit
+class TestUnionLabelRendering:
+    def test_generate_label_atlas_union_joined(self):
+        from tit.opt.flex.utils import generate_label
+
+        config = _make_config(
+            roi=AtlasROI(
+                atlas_path=["/path/to/lh.aparc.annot", "/path/to/rh.aparc.annot"],
+                label=[17, 53],
+                hemisphere=["lh", "rh"],
+            ),
+        )
+        label = generate_label(config)
+        assert "17+53" in label
+        assert "lh+rh" in label
+        assert "[" not in label and "]" not in label
+
+    def test_generate_label_subcortical_union_joined(self):
+        from tit.opt.flex.utils import generate_label
+
+        config = _make_config(
+            roi=SubcorticalROI(atlas_path="/path/to/aseg.nii.gz", label=[17, 53]),
+        )
+        label = generate_label(config)
+        assert "17+53" in label
+        assert "[" not in label
+
+    def test_generate_label_sphere_union_joined(self):
+        from tit.opt.flex.utils import generate_label
+
+        config = _make_config(
+            roi=SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=8),
+        )
+        label = generate_label(config)
+        assert label.count("sphere(") == 2
+        assert "+" in label
+
+
+@pytest.mark.unit
+class TestUnionConfigValidation:
+    def test_atlas_hemisphere_length_mismatch_raises(self):
+        # length 3 hemisphere neither broadcasts (1) nor matches label count (2)
+        with pytest.raises(ValueError, match="hemisphere"):
+            AtlasROI(
+                atlas_path="/a.annot", label=[17, 53], hemisphere=["lh", "rh", "lh"]
+            )
+
+    def test_atlas_single_hemisphere_broadcasts(self):
+        # A single hemisphere is valid and broadcasts across all labels.
+        roi = AtlasROI(atlas_path="/a.annot", label=[17, 53], hemisphere="lh")
+        assert roi.label == [17, 53]
+
+    def test_atlas_empty_label_raises(self):
+        with pytest.raises(ValueError, match="label"):
+            AtlasROI(atlas_path="/a.annot", label=[])
+
+    def test_sphere_unequal_coords_raise(self):
+        with pytest.raises(ValueError, match="equal length"):
+            SphericalROI(x=[1, 2], y=[3], z=[5, 6])
+
+    def test_sphere_bad_radius_length_raises(self):
+        with pytest.raises(ValueError, match="radius"):
+            SphericalROI(x=[1, 2], y=[3, 4], z=[5, 6], radius=[1, 2, 3])
+
+    def test_subcortical_atlas_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="atlas_path"):
+            SubcorticalROI(atlas_path=["/a.nii.gz", "/b.nii.gz"], label=[1, 2, 3])

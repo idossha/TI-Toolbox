@@ -28,7 +28,7 @@ import logging
 
 import numpy as np
 
-from tit.opt.config import FlexConfig
+from tit.opt.config import FlexConfig, _as_list
 
 from . import utils
 
@@ -298,11 +298,12 @@ def generate_report(
     roi_data: dict = {}
 
     if isinstance(roi, FlexConfig.SphericalROI):
+        coordinates, radius = _sphere_report_fields(roi)
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "spherical",
-            "coordinates": [roi.x, roi.y, roi.z],
-            "radius": roi.radius,
+            "coordinates": coordinates,
+            "radius": radius,
             "coordinate_space": "MNI" if roi.use_mni else "subject",
         }
         if (
@@ -311,22 +312,25 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.SphericalROI)
         ):
             nr = config.non_roi
+            nr_coordinates, nr_radius = _sphere_report_fields(nr)
             roi_data.update(
                 {
                     "non_roi_method": config.non_roi_method,
-                    "non_roi_coordinates": [nr.x, nr.y, nr.z],
-                    "non_roi_radius": nr.radius,
+                    "non_roi_coordinates": nr_coordinates,
+                    "non_roi_radius": nr_radius,
                     "non_roi_coordinate_space": ("MNI" if nr.use_mni else "subject"),
                 }
             )
     elif isinstance(roi, FlexConfig.AtlasROI):
-        atlas_name = _atlas_name_from_path(roi.atlas_path, roi.hemisphere)
+        first_path = _as_list(roi.atlas_path)[0]
+        first_hemi = _as_list(roi.hemisphere)[0]
+        atlas_name = _atlas_name_from_path(first_path, first_hemi)
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "atlas",
-            "hemisphere": roi.hemisphere,
-            "atlas": atlas_name or roi.atlas_path,
-            "atlas_label": roi.label,
+            "hemisphere": _join(roi.hemisphere),
+            "atlas": atlas_name or first_path,
+            "atlas_label": _join(roi.label),
         }
         if (
             config.goal == "focality"
@@ -334,23 +338,21 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.AtlasROI)
         ):
             nr = config.non_roi
+            nr_path = _as_list(nr.atlas_path)[0]
             roi_data.update(
                 {
-                    "non_roi_atlas": (
-                        os.path.basename(nr.atlas_path) if nr.atlas_path else None
-                    ),
-                    "non_roi_label": nr.label,
+                    "non_roi_atlas": (os.path.basename(nr_path) if nr_path else None),
+                    "non_roi_label": _join(nr.label),
                 }
             )
     elif isinstance(roi, FlexConfig.SubcorticalROI):
+        first_path = _as_list(roi.atlas_path)[0]
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "subcortical",
-            "volume_atlas": (
-                os.path.basename(roi.atlas_path) if roi.atlas_path else None
-            ),
+            "volume_atlas": (os.path.basename(first_path) if first_path else None),
             "volume_atlas_space": roi.atlas_space,
-            "volume_label": roi.label,
+            "volume_label": _join(roi.label),
         }
         if (
             config.goal == "focality"
@@ -358,13 +360,12 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.SubcorticalROI)
         ):
             nr = config.non_roi
+            nr_path = _as_list(nr.atlas_path)[0]
             roi_data.update(
                 {
-                    "non_roi_atlas": (
-                        os.path.basename(nr.atlas_path) if nr.atlas_path else None
-                    ),
+                    "non_roi_atlas": (os.path.basename(nr_path) if nr_path else None),
                     "non_roi_atlas_space": nr.atlas_space,
-                    "non_roi_label": nr.label,
+                    "non_roi_label": _join(nr.label),
                 }
             )
 
@@ -523,6 +524,32 @@ def _build_electrode_montage_base64(output_dir: Path) -> str | None:
     montage.save(buf, format="PNG")
     buf.seek(0)
     return base64.b64encode(buf.read()).decode("ascii")
+
+
+def _join(values):
+    """Return the scalar when there is one region, else a ``+``-joined string.
+
+    Keeps single-region report fields byte-identical (a bare int/str) while
+    rendering a union of labels/hemispheres as e.g. ``"17+53"`` rather than the
+    raw ``[17, 53]`` list repr.
+    """
+    items = _as_list(values)
+    return items[0] if len(items) == 1 else "+".join(str(v) for v in items)
+
+
+def _sphere_report_fields(roi_spec):
+    """Return ``(coordinates, radius)`` for the report from a (multi) sphere.
+
+    Single sphere -> ``([x, y, z], r)`` (byte-identical with prior reports);
+    multiple spheres -> ``([[x, y, z], ...], [r, ...])``.
+    """
+    xs, ys, zs = _as_list(roi_spec.x), _as_list(roi_spec.y), _as_list(roi_spec.z)
+    radii = _as_list(roi_spec.radius)
+    if len(radii) == 1 and len(xs) != 1:
+        radii = radii * len(xs)
+    if len(xs) == 1:
+        return [xs[0], ys[0], zs[0]], radii[0]
+    return [[x, y, z] for x, y, z in zip(xs, ys, zs)], radii
 
 
 def _atlas_name_from_path(path_value: str, hemisphere: str) -> str:
