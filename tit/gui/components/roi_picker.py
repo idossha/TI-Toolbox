@@ -803,7 +803,9 @@ class ROIPickerWidget(QtWidgets.QWidget):
             else:
                 for label_id, name, _ in self._resolve_volume_label_entries(atlas_path):
                     mapping[int(label_id)] = name
-        except (OSError, ValueError):
+        except Exception:
+            # nibabel can raise ImageFileError (not an OSError) on an unreadable
+            # atlas; match the finder path and degrade to bare-id chips.
             return {}
         return mapping
 
@@ -1283,7 +1285,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             self,
             f"Subcortical Regions - {volume_atlas}",
             entries,
-            return_field="id",
+            return_field="id",  # unused: chips read selected_ids()/selected_names() directly
             multi=True,
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
@@ -1346,8 +1348,8 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return []
 
         img = nib.load(atlas_path)
-        # np.unique on the raw dataobj is fast and avoids loading a scaled float
-        # copy of the volume; label maps are stored as integers.
+        # Label maps carry identity scaling, so np.asarray(dataobj) returns the
+        # native integer labels; int() below normalises regardless.
         present = np.unique(np.asarray(img.dataobj))
 
         entries: list[tuple[int, str, tuple[str, str, str] | None]] = []
