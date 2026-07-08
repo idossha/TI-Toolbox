@@ -1424,17 +1424,17 @@ class ROIPickerWidget(QtWidgets.QWidget):
         if not label_id.lstrip("-").isdigit():
             return None
 
-        color_start = None
-        for i in range(2, len(parts) - 2):
-            if all(part.lstrip("-").isdigit() for part in parts[i : i + 3]):
-                color_start = i
-                break
-
-        if color_start is None:
-            return label_id, " ".join(parts[1:]), None
-
-        label_name = " ".join(parts[1:color_start])
-        rgb = tuple(parts[color_start : color_start + 3])
+        # The name is every non-integer token after the id; the RGB(A) columns
+        # are the integer tokens. This is column-order agnostic, so both a
+        # "ID Name R G B A" table and a "ID R G B Name" table yield a clean name
+        # (never "12 48 255 Left-Pallidum").
+        rest = parts[1:]
+        name_tokens = [p for p in rest if not p.lstrip("-").isdigit()]
+        int_tokens = [p for p in rest if p.lstrip("-").isdigit()]
+        if not name_tokens:
+            return None
+        label_name = " ".join(name_tokens)
+        rgb = tuple(int_tokens[:3]) if len(int_tokens) >= 3 else None
         return label_id, label_name, rgb
 
     # ------------------------------------------------------------------

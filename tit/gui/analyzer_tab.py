@@ -642,12 +642,27 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Region, Atlas, and Spherical parameters - organized into multiple rows
         # Row 1: Region input (comma-separated for combined ROI) + List Regions button
-        region_row = QtWidgets.QHBoxLayout()
-        region_row.setSpacing(10)
+        # Control row: "Region(s):" label + "List Regions" button.
+        region_header = QtWidgets.QHBoxLayout()
+        region_header.setSpacing(10)
         self.region_label = QtWidgets.QLabel("Region(s):")
         self.region_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
+        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
+        self.show_regions_btn.clicked.connect(self.show_available_regions)
+        self.show_regions_btn.setEnabled(False)
+        self.show_regions_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        region_header.addWidget(self.region_label)
+        region_header.addWidget(self.show_regions_btn)
+        region_header.addStretch()
+        analysis_params_layout.addLayout(region_header)
+
+        # Selected-region chips get their OWN full-width row below the controls
+        # so they are clearly visible and wrap instead of being clipped.
         self.region_chips = RegionChipsWidget(
             placeholder="No regions selected — use List Regions…"
         )
@@ -656,27 +671,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             "regions; each chip shows the region name and its atlas label index. "
             "Multiple regions combine into one ROI; press ✕ on a chip to remove it."
         )
-        self.region_chips.setMinimumWidth(100)
-        # Widen the chips horizontally while preserving the height-for-width
-        # plumbing the widget installs on itself (so chips wrap correctly).
         _chips_policy = self.region_chips.sizePolicy()
         _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
         self.region_chips.setSizePolicy(_chips_policy)
-
-        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
-        self.show_regions_btn.clicked.connect(self.show_available_regions)
-        self.show_regions_btn.setEnabled(False)
-        self.show_regions_btn.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-
-        region_row.addWidget(self.region_label)
-        region_row.addWidget(self.region_chips)
-        region_row.addSpacing(5)
-        region_row.addWidget(self.show_regions_btn)
-        region_row.addStretch()
-        analysis_params_layout.addLayout(region_row)
+        analysis_params_layout.addWidget(self.region_chips)
 
         # Row 2: Atlas selection (single widget that shows mesh or voxel based on space)
         atlas_row = QtWidgets.QHBoxLayout()
