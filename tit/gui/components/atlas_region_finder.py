@@ -41,7 +41,9 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
             or ``"name"``. Defaults to ``"id"``.
         multi: If ``True`` (default) allow multi-selection
             (``ExtendedSelection``); otherwise single selection.
-        preselected: Optional iterable of ids to pre-select on open.
+        preselected: Optional iterable of ids-or-names to pre-select on open.
+            Values are compared as strings, so both region ids (int or str)
+            and region names match; callers may pass chip keys directly.
     """
 
     def __init__(
@@ -51,7 +53,7 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
         entries: Sequence[Tuple[int, str, Optional[Tuple]]],
         return_field: str = "id",
         multi: bool = True,
-        preselected: Optional[Iterable[int]] = None,
+        preselected: Optional[Iterable] = None,
     ) -> None:
         super().__init__(parent)
 
@@ -82,7 +84,7 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
             if multi
             else QtWidgets.QAbstractItemView.SingleSelection
         )
-        preselected_set = {int(i) for i in preselected} if preselected else set()
+        preselected_set = {str(x) for x in preselected} if preselected else set()
         for entry in entries or []:
             self._add_entry(entry, preselected_set)
         layout.addWidget(self.list_widget)
@@ -117,7 +119,7 @@ class AtlasRegionFinderDialog(QtWidgets.QDialog):
         item = QtWidgets.QListWidgetItem(f"{region_id}: {name}")
         item.setData(QtCore.Qt.UserRole, (int(region_id), str(name)))
         self.list_widget.addItem(item)
-        if int(region_id) in preselected:
+        if str(region_id) in preselected or name in preselected:
             item.setSelected(True)
 
     # ------------------------------------------------------------------
