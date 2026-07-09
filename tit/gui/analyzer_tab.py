@@ -601,19 +601,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         space_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(space_layout)
 
-        # Tissue type row
-        tissue_layout = QtWidgets.QHBoxLayout()
-        tissue_layout.setSpacing(10)
-        tissue_label = QtWidgets.QLabel("Tissue:")
-        tissue_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        tissue_layout.addWidget(tissue_label)
-        tissue_layout.addWidget(self.tissue_combo)
-        tissue_layout.addStretch()
-        analysis_params_layout.addLayout(tissue_layout)
-
-        # Type selection row (separate from Space) - distribute evenly across width
+        # Type selection row - moved up so it sits right after Space and drives
+        # which target group (cortical vs spherical) is shown below.
         type_layout = QtWidgets.QHBoxLayout()
         type_layout.setSpacing(10)
         self.type_label = QtWidgets.QLabel("Type:")
@@ -640,47 +629,18 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
-        # Region, Atlas, and Spherical parameters - organized into multiple rows
-        # Row 1: Region input (comma-separated for combined ROI) + List Regions button
-        # Control row: "Region(s):" label + "List Regions" button.
-        region_header = QtWidgets.QHBoxLayout()
-        region_header.setSpacing(10)
-        self.region_label = QtWidgets.QLabel("Region(s):")
-        self.region_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
-        self.show_regions_btn.clicked.connect(self.show_available_regions)
-        self.show_regions_btn.setEnabled(False)
-        self.show_regions_btn.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        region_header.addWidget(self.region_label)
-        region_header.addWidget(self.show_regions_btn)
-        region_header.addStretch()
-        analysis_params_layout.addLayout(region_header)
+        # ===================== Cortical target group =====================
+        self.cortical_group = QtWidgets.QGroupBox("Cortical target")
+        cortical_layout = QtWidgets.QVBoxLayout(self.cortical_group)
+        cortical_layout.setSpacing(8)
 
-        # Selected-region chips get their OWN full-width row below the controls
-        # so they are clearly visible and wrap instead of being clipped.
-        self.region_chips = RegionChipsWidget(
-            placeholder="No regions selected — use List Regions…"
-        )
-        self.region_chips.setToolTip(
-            "Selected regions for cortical analysis. Use 'List Regions' to add "
-            "regions; each chip shows the region name and its atlas label index. "
-            "Multiple regions combine into one ROI; press ✕ on a chip to remove it."
-        )
-        _chips_policy = self.region_chips.sizePolicy()
-        _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
-        self.region_chips.setSizePolicy(_chips_policy)
-        analysis_params_layout.addWidget(self.region_chips)
-
-        # Row 2: Atlas selection (single widget that shows mesh or voxel based on space)
+        # Atlas row: the atlas widget(s) (mesh or voxel depending on Space) plus
+        # the "List Regions" button. Both atlas widgets live here; only the one
+        # matching the current Space is shown/enabled (see update_atlas_visibility).
         atlas_row = QtWidgets.QHBoxLayout()
         atlas_row.setSpacing(10)
 
-        # Atlas widgets - always visible, just enabled/disabled
+        # Atlas widgets - always present, only the relevant one shown/enabled
         self.mesh_atlas_widget = QtWidgets.QWidget()
         mesh_atlas_layout = QtWidgets.QHBoxLayout(self.mesh_atlas_widget)
         mesh_atlas_layout.setContentsMargins(0, 0, 0, 0)
@@ -719,16 +679,64 @@ class AnalyzerTab(QtWidgets.QWidget):
         voxel_atlas_row_layout.addWidget(self.atlas_combo)
         voxel_atlas_vlayout.addWidget(voxel_atlas_row)
 
-        # Only add the appropriate atlas widget based on current space
-        # Both will be in the layout, but only one enabled/visible at a time
+        # "List Regions" button lives on the atlas row.
+        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
+        self.show_regions_btn.clicked.connect(self.show_available_regions)
+        self.show_regions_btn.setEnabled(False)
+        self.show_regions_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+
+        # Both atlas widgets in the layout, but only one enabled/visible at a time
         atlas_row.addWidget(self.mesh_atlas_widget)
         atlas_row.addWidget(self.voxel_atlas_widget)
+        atlas_row.addWidget(self.show_regions_btn)
         atlas_row.addStretch()
-        analysis_params_layout.addLayout(atlas_row)
+        cortical_layout.addLayout(atlas_row)
 
-        # Spherical analysis parameters - split into separate rows
+        # Region(s) label above the full-width chips row.
+        self.region_label = QtWidgets.QLabel("Region(s):")
+        self.region_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        cortical_layout.addWidget(self.region_label)
 
-        # Row 2.5: Coordinate space selection (for spherical analysis)
+        # Selected-region chips get their OWN full-width row so they are clearly
+        # visible and wrap instead of being clipped.
+        self.region_chips = RegionChipsWidget(
+            placeholder="No regions selected — use List Regions…"
+        )
+        self.region_chips.setToolTip(
+            "Selected regions for cortical analysis. Use 'List Regions' to add "
+            "regions; each chip shows the region name and its atlas label index. "
+            "Multiple regions combine into one ROI; press ✕ on a chip to remove it."
+        )
+        _chips_policy = self.region_chips.sizePolicy()
+        _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
+        self.region_chips.setSizePolicy(_chips_policy)
+        cortical_layout.addWidget(self.region_chips)
+
+        # Tissue type row (applies to voxel space; enable state handled elsewhere).
+        tissue_layout = QtWidgets.QHBoxLayout()
+        tissue_layout.setSpacing(10)
+        tissue_label = QtWidgets.QLabel("Tissue:")
+        tissue_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        tissue_layout.addWidget(tissue_label)
+        tissue_layout.addWidget(self.tissue_combo)
+        tissue_layout.addStretch()
+        cortical_layout.addLayout(tissue_layout)
+
+        analysis_params_layout.addWidget(self.cortical_group)
+
+        # ===================== Spherical target group =====================
+        self.spherical_group = QtWidgets.QGroupBox("Spherical target")
+        spherical_layout = QtWidgets.QVBoxLayout(self.spherical_group)
+        spherical_layout.setSpacing(8)
+
+        # Coordinate space selection (Subject / MNI) for spherical analysis.
         coord_space_row = QtWidgets.QHBoxLayout()
         coord_space_row.setSpacing(10)
         self.coord_space_label = QtWidgets.QLabel("Coordinate Space:")
@@ -739,9 +747,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         coord_space_row.addWidget(self.coord_space_subject)
         coord_space_row.addWidget(self.coord_space_mni)
         coord_space_row.addStretch()
-        analysis_params_layout.addLayout(coord_space_row)
+        spherical_layout.addLayout(coord_space_row)
 
-        # Row 3: Coordinates & Radius (single input: x,y,z,r)
+        # Coordinates & Radius (single input: x,y,z,r)
         coords_row = QtWidgets.QHBoxLayout()
         coords_row.setSpacing(10)
         self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z,r):")
@@ -768,12 +776,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         coords_row.addSpacing(10)
         coords_row.addWidget(self.view_in_freeview_btn)
         coords_row.addStretch()
-        analysis_params_layout.addLayout(coords_row)
+        spherical_layout.addLayout(coords_row)
+
+        analysis_params_layout.addWidget(self.spherical_group)
 
         # Remove the stacked widget approach - coordinates/radius are always visible
         # Instead, we'll enable/disable them based on mode
 
-        # Original connections from setup_ui for space/type changes
+        # Original connections from setup_ui for space/type changes.
+        # update_atlas_visibility() also drives the adaptive cortical/spherical
+        # target-group visibility, so the type radios need no extra connection.
         self.space_mesh.toggled.connect(self.update_atlas_visibility)
         self.space_voxel.toggled.connect(self.update_atlas_visibility)
         self.type_spherical.toggled.connect(self.update_atlas_visibility)
@@ -789,9 +801,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.coord_space_subject.toggled.connect(self._update_coordinate_space_labels)
         self.coord_space_mni.toggled.connect(self._update_coordinate_space_labels)
 
-        self.update_atlas_visibility()  # Initial call
+        # Initial call also sets the adaptive target-group visibility.
+        self.update_atlas_visibility()
         self.update_cortical_button_text()  # Initial call
-        analysis_params_container.setFixedHeight(250)
+        analysis_params_container.setMinimumHeight(250)
         right_layout.addWidget(analysis_params_container)
 
         # Compact Gmsh visualization - using space more efficiently
@@ -1084,6 +1097,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_mesh = self.space_mesh.isChecked()
         is_cortical = self.type_cortical.isChecked()
         is_spherical = self.type_spherical.isChecked()
+
+        # Adaptive target-group visibility: show only the group matching the
+        # selected analysis type. Guarded for early calls before the groups
+        # are created.
+        if hasattr(self, "cortical_group"):
+            self.cortical_group.setVisible(is_cortical)
+        if hasattr(self, "spherical_group"):
+            self.spherical_group.setVisible(is_spherical)
 
         # Tissue selection only applies to voxel space
         self.tissue_combo.setEnabled(not is_mesh)
