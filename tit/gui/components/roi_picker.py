@@ -1300,10 +1300,13 @@ class ROIPickerWidget(QtWidgets.QWidget):
             if atlas.name == "labeling.nii.gz":
                 lut_path = atlas.with_name("labeling_LUT.txt")
                 return lut_path if lut_path.is_file() else None
-            labels_file = atlas.with_name(
-                f"{self._strip_nifti_suffix(atlas.name)}_labels.txt"
-            )
-            return labels_file if labels_file.is_file() else None
+            # For FreeSurfer subject atlases (e.g. aparc.DKTatlas+aseg) a
+            # "<atlas>_labels.txt" sidecar is an mri_segstats SUMMARY
+            # (Index SegId NVoxels Volume StructName) — NOT a colour LUT — so we
+            # do NOT parse it here (that would show "1: 245555.0 <name>"). Return
+            # None so the caller resolves names from the volume's own labels via
+            # the bundled FreeSurferColorLUT (_resolve_volume_label_entries).
+            return None
 
         stem = self._strip_nifti_suffix(atlas.name)
         candidates = [
