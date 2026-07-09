@@ -627,6 +627,21 @@ class AnalyzerTab(QtWidgets.QWidget):
         type_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(type_layout)
 
+        # Tissue type row (applies to voxel space; enable/disable handled in
+        # update_atlas_visibility). Kept always-visible here — NOT inside
+        # cortical_group — so it stays reachable in Voxel+Spherical mode, where it
+        # still affects output (field-file GM/WM selection and voxel tissue mask).
+        tissue_layout = QtWidgets.QHBoxLayout()
+        tissue_layout.setSpacing(10)
+        tissue_label = QtWidgets.QLabel("Tissue:")
+        tissue_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        tissue_layout.addWidget(tissue_label)
+        tissue_layout.addWidget(self.tissue_combo)
+        tissue_layout.addStretch()
+        analysis_params_layout.addLayout(tissue_layout)
+
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
         # ===================== Cortical target group =====================
@@ -716,18 +731,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
         self.region_chips.setSizePolicy(_chips_policy)
         cortical_layout.addWidget(self.region_chips)
-
-        # Tissue type row (applies to voxel space; enable state handled elsewhere).
-        tissue_layout = QtWidgets.QHBoxLayout()
-        tissue_layout.setSpacing(10)
-        tissue_label = QtWidgets.QLabel("Tissue:")
-        tissue_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        tissue_layout.addWidget(tissue_label)
-        tissue_layout.addWidget(self.tissue_combo)
-        tissue_layout.addStretch()
-        cortical_layout.addLayout(tissue_layout)
 
         analysis_params_layout.addWidget(self.cortical_group)
 
