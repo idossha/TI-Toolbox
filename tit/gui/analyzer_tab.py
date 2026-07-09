@@ -703,10 +703,20 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
 
+        # "Clear" button drops every selected region chip in one click, mirroring
+        # the optimizer's region-selection UX. It is wired to region_chips.clear
+        # below, once the chips widget exists.
+        self.clear_regions_btn = QtWidgets.QPushButton("Clear")
+        self.clear_regions_btn.setToolTip("Clear all selected regions")
+        self.clear_regions_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+
         # Both atlas widgets in the layout, but only one enabled/visible at a time
         atlas_row.addWidget(self.mesh_atlas_widget)
         atlas_row.addWidget(self.voxel_atlas_widget)
         atlas_row.addWidget(self.show_regions_btn)
+        atlas_row.addWidget(self.clear_regions_btn)
         atlas_row.addStretch()
         cortical_layout.addLayout(atlas_row)
 
@@ -731,6 +741,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
         self.region_chips.setSizePolicy(_chips_policy)
         cortical_layout.addWidget(self.region_chips)
+
+        # Now that region_chips exists, wire the "Clear" button created above.
+        self.clear_regions_btn.clicked.connect(self.region_chips.clear)
 
         analysis_params_layout.addWidget(self.cortical_group)
 
@@ -797,6 +810,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
+
+        # Reset the region selection whenever the analysis context changes: mesh
+        # and voxel regions (and different atlases) are not interchangeable, so a
+        # user-initiated Space switch or atlas change invalidates the current
+        # chips. These fire only on genuine user interaction — space_mesh.toggled
+        # emits once per real Space change (and is connected after the initial
+        # setChecked, so setup does not trigger it), while the combos' activated
+        # signal never fires on programmatic repopulation (clear/setCurrentIndex).
+        self.space_mesh.toggled.connect(self._reset_region_selection)
+        self.atlas_name_combo.activated.connect(self._reset_region_selection)
+        self.atlas_combo.activated.connect(self._reset_region_selection)
 
         # (Removed) Analysis mode defaults (surface vs volumetric). Analyzer is surface-only.
 
@@ -2177,6 +2201,18 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.status_label.hide()
 
+    def _reset_region_selection(self, *_args) -> None:
+        """Clear selected region chips when the analysis context changes.
+
+        Connected to ``space_mesh.toggled`` and each atlas combo's ``activated``
+        signal. Mesh vs voxel regions (and regions across different atlases) are
+        not interchangeable, so any user-initiated Space switch or atlas change
+        must reset the selection. ``*_args`` absorbs the ``bool``/``int`` payload
+        those signals emit. ``clear()`` is a no-op (and emits nothing) when no
+        regions are selected, so this is safe to fire on every such change.
+        """
+        self.region_chips.clear()
+
     def _get_regions(self) -> list[str]:
         """Return the selected region names from the region chips.
 
@@ -2278,6 +2314,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             entries,
             return_field="name",
             multi=True,
+            preselected=list(self.region_chips.keys()),
         )
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             # Add each selected region as a de-duplicated chip. The key is the
