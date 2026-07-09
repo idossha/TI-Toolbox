@@ -54,16 +54,23 @@ class DockerManager extends EventEmitter {
 
   computeFreesurferVolume() {
     // Versioned FreeSurfer volume name from the compose image tag.
+    // Returns null if the tag can't be parsed; callers then leave
+    // FREESURFER_VOLUME unset (so compose's versioned default seeds the correct
+    // volume) and skip pruning, rather than falling back to the bare prefix and
+    // destroying the good versioned volume.
+    // The ^\s* + /m anchor mirrors the Python launchers: a commented-out
+    // "# image:" line is not matched, and only the first real image line wins.
     try {
       const content = fs.readFileSync(this.originalComposeFile, 'utf8');
-      const match = content.match(/image:\s*\S*ti-toolbox_freesurfer:(\S+)/);
+      const match = content.match(/^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)/m);
       if (match) {
         return `${FREESURFER_VOLUME_PREFIX}_${match[1].trim()}`;
       }
+      logger.warn('Could not parse FreeSurfer image tag; leaving FREESURFER_VOLUME unset and skipping volume prune.');
     } catch (error) {
       logger.warn(`Could not parse FreeSurfer image tag for volume name: ${error.message}`);
     }
-    return FREESURFER_VOLUME_PREFIX;
+    return null;
   }
 
   createDockerClient() {
@@ -196,8 +203,24 @@ class DockerManager extends EventEmitter {
     );
   }
 
+  // Build a compose env that only sets FREESURFER_VOLUME when the tag was
+  // parsed. When it is null we leave the var unset so compose's versioned
+  // ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1} default applies.
+  composeEnv(env) {
+    if (this.freesurferVolume) {
+      return ensurePathEnv({ ...env, FREESURFER_VOLUME: this.freesurferVolume });
+    }
+    return ensurePathEnv(env);
+  }
+
   async pruneOldVolumes() {
     // Remove stale older-version FreeSurfer volumes (best-effort).
+    // Skip entirely when the active version is unknown (tag parse failed);
+    // otherwise we would delete every versioned volume, including the good one.
+    if (!this.freesurferVolume) {
+      logger.warn('FreeSurfer volume prune skipped: active version unknown.');
+      return;
+    }
     try {
       const { Volumes } = await this.docker.listVolumes();
       const stale = (Volumes || [])
@@ -222,7 +245,7 @@ class DockerManager extends EventEmitter {
   async composeUp(env) {
     this.emitProgress('compose-up', 'Starting Docker Compose services…');
     const execa = await getExeca();
-    const execEnv = ensurePathEnv({ ...env, FREESURFER_VOLUME: this.freesurferVolume });
+    const execEnv = this.composeEnv(env);
     const dockerPath = this.findDockerCommand();
 
     const subprocess = execa(
@@ -269,7 +292,7 @@ class DockerManager extends EventEmitter {
     }
 
     const execa = await getExeca();
-    const execEnv = ensurePathEnv({ ...env, FREESURFER_VOLUME: this.freesurferVolume });
+    const execEnv = this.composeEnv(env);
     const dockerPath = this.findDockerCommand();
     await execa(dockerPath, ['compose', '-f', this.composeFile, 'down', '--remove-orphans'], {
       env: execEnv,

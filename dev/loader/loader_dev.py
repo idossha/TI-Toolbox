@@ -167,17 +167,28 @@ def initialize_project_structure(project_dir: Path) -> None:
     initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
 
 
-def get_freesurfer_volume_name() -> str:
-    """Versioned FreeSurfer volume name from the compose image tag."""
+def get_freesurfer_volume_name() -> Optional[str]:
+    """Versioned FreeSurfer volume name from the compose image tag.
+
+    Returns ``None`` if the image tag cannot be parsed. Callers must then leave
+    ``FREESURFER_VOLUME`` unset (so compose's versioned default seeds the correct
+    volume) and skip pruning, rather than falling back to the bare prefix.
+    """
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
         match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
         if match:
             return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
-    return FREESURFER_VOLUME_PREFIX
+    return None
 
 
-def prune_old_freesurfer_volumes(current_name: str) -> None:
-    """Remove stale older-version FreeSurfer volumes (best-effort)."""
+def prune_old_freesurfer_volumes(current_name: Optional[str]) -> None:
+    """Remove stale older-version FreeSurfer volumes (best-effort).
+
+    A ``None`` ``current_name`` means the active version is unknown (tag parse
+    failed); pruning is skipped so a good versioned volume is never destroyed.
+    """
+    if not current_name:
+        return
     try:
         names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
     except Exception:
@@ -338,7 +349,19 @@ def main() -> None:
     env["TIT_HOST_ARCH"] = platform.machine()  # x86_64, arm64
 
     freesurfer_volume = get_freesurfer_volume_name()
-    env["FREESURFER_VOLUME"] = freesurfer_volume
+    if freesurfer_volume:
+        env["FREESURFER_VOLUME"] = freesurfer_volume
+
+    # Bring any containers from a previous (older-image) run down first so they
+    # release the old FreeSurfer volume; otherwise the prune below fails with
+    # "volume is in use" and the stale volume lingers.
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
     prune_old_freesurfer_volumes(freesurfer_volume)
 
     ensure_images_pulled(env)

@@ -219,17 +219,28 @@ def maybe_init_macos_x11(
     print("XQuartz: ensure 'Allow connections from network clients' is enabled.")
 
 
-def get_freesurfer_volume_name() -> str:
-    """Versioned FreeSurfer volume name from the compose image tag."""
+def get_freesurfer_volume_name() -> Optional[str]:
+    """Versioned FreeSurfer volume name from the compose image tag.
+
+    Returns ``None`` if the image tag cannot be parsed. Callers must then leave
+    ``FREESURFER_VOLUME`` unset (so compose's versioned default seeds the correct
+    volume) and skip pruning, rather than falling back to the bare prefix.
+    """
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
         match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
         if match:
             return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
-    return FREESURFER_VOLUME_PREFIX
+    return None
 
 
-def prune_old_freesurfer_volumes(current_name: str) -> None:
-    """Remove stale older-version FreeSurfer volumes (best-effort)."""
+def prune_old_freesurfer_volumes(current_name: Optional[str]) -> None:
+    """Remove stale older-version FreeSurfer volumes (best-effort).
+
+    A ``None`` ``current_name`` means the active version is unknown (tag parse
+    failed); pruning is skipped so a good versioned volume is never destroyed.
+    """
+    if not current_name:
+        return
     try:
         names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
     except Exception:
@@ -318,10 +329,23 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
 
 def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     freesurfer_volume = get_freesurfer_volume_name()
-    prune_old_freesurfer_volumes(freesurfer_volume)
 
     env = os.environ.copy()
-    env["FREESURFER_VOLUME"] = freesurfer_volume
+    if freesurfer_volume:
+        env["FREESURFER_VOLUME"] = freesurfer_volume
+
+    # Bring any containers from a previous (older-image) run down first so they
+    # release the old FreeSurfer volume; otherwise the prune below fails with
+    # "volume is in use" and the stale volume lingers.
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    prune_old_freesurfer_volumes(freesurfer_volume)
+
     env["LOCAL_PROJECT_DIR"] = str(project_dir)
     env["PROJECT_DIR_NAME"] = project_dir_name
     env["TZ"] = get_host_timezone()
