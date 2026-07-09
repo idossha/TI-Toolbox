@@ -28,7 +28,7 @@ from tit.gui.components.base_thread import BaseProcessThread
 import logging as _std_logging
 from tit.gui.style import FONT_NOTE  # graphics tokens
 from tit.tools.extract_labels import extract_labels
-from tit.tools.nifti_to_mesh import nifti_to_mesh
+from tit.tools.nifti_to_mesh import nifti_to_mesh, nifti_to_field_ply
 from tit.config_io import write_config_json
 from tit.blender.config import (
     MontageConfig,
@@ -517,8 +517,24 @@ class VisualExporterWidget(QtWidgets.QWidget):
         gl.addWidget(self.subcort_clean, r, 0, 1, 2)
         r += 1
 
+        # Field for the coloured PLY export (requires a selected simulation)
+        gl.addWidget(QtWidgets.QLabel("Field (for PLY):"), r, 0)
+        self.subcort_field_edit = QtWidgets.QLineEdit("TI_max")
+        self.subcort_field_edit.setPlaceholderText("e.g. TI_max")
+        gl.addWidget(self.subcort_field_edit, r, 1, 1, 3)
+        r += 1
+
+        field_note = QtWidgets.QLabel(
+            "A field-coloured PLY is also written when a simulation is selected; "
+            "otherwise only STL/MSH geometry is exported."
+        )
+        field_note.setWordWrap(True)
+        field_note.setStyleSheet(f"color: #555; font-size: {FONT_NOTE};")
+        gl.addWidget(field_note, r, 0, 1, 4)
+        r += 1
+
         # Label lookup table button
-        self.subcort_lut_button = QtWidgets.QPushButton("Show Label Lookup Table")
+        self.subcort_lut_button = QtWidgets.QPushButton("Search && Select Labels...")
         self.subcort_lut_button.clicked.connect(self._show_lut_table)
         gl.addWidget(self.subcort_lut_button, r, 0, 1, 2)
         r += 1
@@ -729,11 +745,56 @@ class VisualExporterWidget(QtWidgets.QWidget):
         if path:
             self.subcort_nifti_edit.setText(path)
 
+    def _parse_lut_entries(self, lut_path):
+        """Parse a FreeSurfer-style labeling_LUT.txt into ``(id, name, rgb)`` tuples.
+
+        Returns a list sorted by label id. ``rgb`` is a ``(r, g, b)`` tuple when
+        the LUT provides colour columns, else ``None``.
+        """
+        import re
+
+        entries = []
+        with open(lut_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                # LUT rows may be tab- or whitespace-separated; normalise.
+                parts = re.split(r"\s+", line)
+                if len(parts) < 2:
+                    continue
+                try:
+                    label_id = int(parts[0])
+                except ValueError:
+                    continue
+                # Name is everything up to the first numeric colour column.
+                name_parts = []
+                rest = parts[1:]
+                for part in rest:
+                    if re.match(r"^\d+$", part):
+                        break
+                    name_parts.append(part)
+                label_name = " ".join(name_parts).rstrip(":")
+                if not label_name:
+                    continue
+                # Trailing numbers are R G B [A] colour columns, if present.
+                nums = [p for p in rest[len(name_parts):] if re.match(r"^\d+$", p)]
+                rgb = tuple(int(n) for n in nums[:3]) if len(nums) >= 3 else None
+                entries.append((label_id, label_name, rgb))
+        entries.sort(key=lambda e: e[0])
+        return entries
+
     def _show_lut_table(self):
-        """Show a popup dialog with the labeling lookup table."""
-        # Close any existing LUT dialog
-        if hasattr(self, "_lut_dialog") and self._lut_dialog:
-            self._lut_dialog.close()
+        """Open the shared searchable region picker for subcortical labels.
+
+        Reuses :class:`AtlasRegionFinderDialog` (the same widget used by the
+        flex optimizer and analyzer) so labels can be searched and selected;
+        chosen label ids are merged into the "Labels to extract" field.
+        """
+        from tit.gui.components.atlas_region_finder import (
+            AtlasRegionFinderDialog,
+            merge_into_lineedit,
+        )
 
         subject_id = self.subject_combo.currentText().strip()
         if not subject_id:
@@ -744,6 +805,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
         # Find the labeling_LUT.txt file
         lut_path = None
+        potential_path = None
         if self.pm:
             m2m_dir = self.pm.m2m(subject_id)
             if m2m_dir and os.path.isdir(m2m_dir):
@@ -756,44 +818,19 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 self,
                 "LUT File Not Found",
                 f"Could not find labeling_LUT.txt for subject {subject_id}.\n"
-                f"Expected location: {potential_path if 'potential_path' in locals() else 'm2m/segmentation/labeling_LUT.txt'}",
+                f"Expected location: {potential_path or 'm2m/segmentation/labeling_LUT.txt'}",
             )
             return
 
-        # Load and parse the LUT file
-        label_data = []
         try:
-            with open(lut_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line_num, line in enumerate(f, 1):
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        parts = line.split("\t")
-                        if len(parts) >= 2:
-                            try:
-                                label_id = int(parts[0].strip())
-                                label_name = parts[1].strip()
-                                # Clean up the label name - extract only the name part before any numbers
-                                import re
-
-                                # Split on whitespace and take only the non-numeric parts at the beginning
-                                name_parts = re.split(r"\s+", label_name)
-                                clean_parts = []
-                                for part in name_parts:
-                                    # Stop when we hit a number
-                                    if re.match(r"^\d+$", part):
-                                        break
-                                    clean_parts.append(part)
-                                label_name = " ".join(clean_parts).rstrip(":")
-                                label_data.append((label_id, label_name))
-                            except (ValueError, IndexError):
-                                continue
+            entries = self._parse_lut_entries(lut_path)
         except Exception as e:
             QtWidgets.QMessageBox.critical(
                 self, "Error Loading LUT", f"Failed to load labeling_LUT.txt: {str(e)}"
             )
             return
 
-        if not label_data:
+        if not entries:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Empty LUT",
@@ -801,55 +838,23 @@ class VisualExporterWidget(QtWidgets.QWidget):
             )
             return
 
-        # Create popup dialog
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle(f"Label Lookup Table - {subject_id}")
-        dialog.setMinimumSize(500, 400)
+        # Pre-select labels already present in the "Labels to extract" field.
+        preselected = [
+            v.strip()
+            for v in self.subcort_labels_edit.text().split(",")
+            if v.strip()
+        ]
 
-        layout = QtWidgets.QVBoxLayout(dialog)
-
-        # Add header
-        header = QtWidgets.QLabel(
-            f"<h3>Label Lookup Table</h3><p>Subject: {subject_id}</p>"
+        dialog = AtlasRegionFinderDialog(
+            self,
+            title=f"Select Labels - {subject_id}",
+            entries=entries,
+            return_field="id",
+            multi=True,
+            preselected=preselected,
         )
-        header.setWordWrap(True)
-        layout.addWidget(header)
-
-        # Create table
-        table = QtWidgets.QTableWidget()
-        table.setColumnCount(2)
-        table.setHorizontalHeaderLabels(["Label ID", "Label Name"])
-        table.setRowCount(len(label_data))
-
-        # Sort by label ID
-        label_data.sort(key=lambda x: x[0])
-
-        for row, (label_id, label_name) in enumerate(label_data):
-            table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(label_id)))
-            table.setItem(row, 1, QtWidgets.QTableWidgetItem(label_name))
-
-        # Configure table
-        table.resizeColumnsToContents()
-        table.setAlternatingRowColors(True)
-        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-
-        layout.addWidget(table)
-
-        # Add close button
-        button_box = QtWidgets.QHBoxLayout()
-        button_box.addStretch()
-        close_button = QtWidgets.QPushButton("Close")
-        close_button.clicked.connect(dialog.close)
-        button_box.addWidget(close_button)
-        layout.addLayout(button_box)
-
-        # Make dialog non-modal so user can interact with main GUI
-        dialog.setModal(False)
-        dialog.show()
-
-        # Keep reference to prevent garbage collection and clean up when closed
-        self._lut_dialog = dialog
-        dialog.finished.connect(lambda: setattr(self, "_lut_dialog", None))
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            merge_into_lineedit(self.subcort_labels_edit, dialog.selected_ids())
 
     # Mode switching
     def _on_mode_changed(self):
@@ -874,6 +879,20 @@ class VisualExporterWidget(QtWidgets.QWidget):
         if not self.pm:
             return None
         return self.pm.simulation(subject_id, simulation_name)
+
+    def _find_field_nifti(self, subject_id: str, simulation_name: str, field_name: str):
+        """Locate the subject-space field NIfTI volume for a simulation.
+
+        Simulation field volumes are written by ``mesh2nii`` as
+        ``{basename}_subject_{field}.nii.gz`` under the simulation's ``niftis``
+        directories. Returns the first match, or ``None`` if unavailable.
+        """
+        sim_dir = self._simulation_dir(subject_id, simulation_name)
+        if not sim_dir or not os.path.isdir(sim_dir):
+            return None
+        pattern = os.path.join(sim_dir, "**", f"*_subject_{field_name}.nii.gz")
+        matches = sorted(glob.glob(pattern, recursive=True))
+        return matches[0] if matches else None
 
     def _visual_exports_dir(self, subject_id: str, simulation_name: str):
         project_dir = self._get_project_dir()
@@ -1249,6 +1268,48 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     if msh_result["removed_components"] > 0:
                         self.logger.info(
                             f"Removed {msh_result['removed_components']} small components"
+                        )
+
+                    # Export field-coloured PLY when a simulation field volume
+                    # is available (mirrors the cortical PLY export). Subcortical
+                    # geometry carries no field itself, so the simulation field
+                    # NIfTI is sampled at each surface vertex.
+                    field_name = self.subcort_field_edit.text().strip() or "TI_max"
+                    field_nifti = None
+                    if simulation_name:
+                        field_nifti = self._find_field_nifti(
+                            subject_id, simulation_name, field_name
+                        )
+                    if field_nifti:
+                        ply_output = os.path.join(
+                            output_dir, f"subcortical_{suffix}.ply"
+                        )
+                        self.logger.info(
+                            f"Generating field-coloured PLY from {field_name}..."
+                        )
+                        ply_result = nifti_to_field_ply(
+                            input_file,
+                            field_nifti,
+                            ply_output,
+                            field_name=field_name,
+                            clean_components=clean_components,
+                            clean_threshold=0.1,
+                        )
+                        self.logger.info(
+                            f"PLY created: {ply_result['output_file']} "
+                            f"({ply_result['vertices']} vertices, "
+                            f"{ply_result['faces']} faces; "
+                            f"{field_name} range "
+                            f"{ply_result['field_min']:.3f}-{ply_result['field_max']:.3f})"
+                        )
+                    elif simulation_name:
+                        self.logger.warning(
+                            f"No '{field_name}' subject-space field volume found "
+                            f"for simulation '{simulation_name}'; skipping PLY export."
+                        )
+                    else:
+                        self.logger.info(
+                            "No simulation selected; skipping field-coloured PLY export."
                         )
 
                     # Save the NIfTI file used for mesh generation
