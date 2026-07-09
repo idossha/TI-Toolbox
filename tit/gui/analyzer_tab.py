@@ -115,6 +115,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         self._last_plain_output_line = None
         self._summary_printed = set()
 
+        # Per-Space region selection: Mesh and Voxel keep independent chip sets
+        # (like the optimizer's separate cortical/subcortical chips), so
+        # switching Space does not lose the other Space's selection.
+        self._region_store = {"mesh": [], "voxel": []}
+        self._current_region_space = "mesh"  # default Space (space_mesh checked)
+        self._last_mesh_atlas = None
+        self._last_voxel_atlas = None
+
         self.setup_ui()
 
     def showEvent(self, event):
@@ -818,9 +826,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         # emits once per real Space change (and is connected after the initial
         # setChecked, so setup does not trigger it), while the combos' activated
         # signal never fires on programmatic repopulation (clear/setCurrentIndex).
-        self.space_mesh.toggled.connect(self._reset_region_selection)
-        self.atlas_name_combo.activated.connect(self._reset_region_selection)
-        self.atlas_combo.activated.connect(self._reset_region_selection)
+        self.space_mesh.toggled.connect(self._swap_region_space)
+        self.atlas_name_combo.activated.connect(self._on_analyzer_atlas_changed)
+        self.atlas_combo.activated.connect(self._on_analyzer_atlas_changed)
 
         # (Removed) Analysis mode defaults (surface vs volumetric). Analyzer is surface-only.
 
@@ -2201,27 +2209,43 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.status_label.hide()
 
-    def _reset_region_selection(self, *_args) -> None:
-        """Clear selected region chips when the analysis context changes.
+    def _current_space_name(self) -> str:
+        return "mesh" if self.space_mesh.isChecked() else "voxel"
 
-        Connected to ``space_mesh.toggled`` and each atlas combo's ``activated``
-        signal. Mesh vs voxel regions (and regions across different atlases) are
-        not interchangeable, so any user-initiated Space switch or atlas change
-        must reset the selection. ``*_args`` absorbs the ``bool``/``int`` payload
-        those signals emit. ``clear()`` is a no-op (and emits nothing) when no
-        regions are selected, so this is safe to fire on every such change.
+    def _swap_region_space(self, *_args) -> None:
+        """Preserve each Space's own region selection across a Space switch.
 
-        Guarded by the current (space, mesh-atlas, voxel-atlas) context so
-        re-selecting the same atlas/space does not needlessly wipe the chips.
+        Connected to ``space_mesh.toggled``. On a genuine Space change, the
+        current chips are snapshotted under the Space being left and the chips
+        for the Space being entered are restored (empty if never used), so Mesh
+        and Voxel keep independent selections. ``*_args`` absorbs the ``bool``
+        payload; the connection is made after the initial ``setChecked`` so
+        setup does not trigger it.
         """
-        key = (
-            self.space_mesh.isChecked(),
-            self.atlas_name_combo.currentText(),
-            self.atlas_combo.currentText(),
-        )
-        if key == getattr(self, "_last_region_context", None):
+        new_space = self._current_space_name()
+        if new_space == self._current_region_space:
             return
-        self._last_region_context = key
+        self._region_store[self._current_region_space] = self.region_chips.items()
+        self.region_chips.set_items(self._region_store.get(new_space, []))
+        self._current_region_space = new_space
+
+    def _on_analyzer_atlas_changed(self, *_args) -> None:
+        """Reset the current Space's selection when its atlas actually changes.
+
+        Regions are atlas-specific, so switching the atlas within a Space clears
+        that Space's chips and stored snapshot (single-atlas rule). Wired to the
+        combos' ``activated`` (user-only) signal and guarded so re-selecting the
+        same atlas — or a programmatic repopulation — does not wipe the chips.
+        """
+        space = self._current_space_name()
+        if space == "mesh":
+            atlas, attr = self.atlas_name_combo.currentText(), "_last_mesh_atlas"
+        else:
+            atlas, attr = self.atlas_combo.currentText(), "_last_voxel_atlas"
+        if atlas == getattr(self, attr):
+            return
+        setattr(self, attr, atlas)
+        self._region_store[space] = []
         self.region_chips.clear()
 
     def _get_regions(self) -> list[str]:

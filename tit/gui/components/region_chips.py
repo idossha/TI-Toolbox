@@ -321,6 +321,14 @@ class RegionChipsWidget(QtWidgets.QWidget):
         """Return the chip keys in insertion order."""
         return list(self._items.keys())
 
+    def items(self) -> List[Tuple[str, str]]:
+        """Return the chips as ``(key, display)`` tuples in insertion order.
+
+        Suitable for snapshotting the current selection and restoring it later
+        via :meth:`set_items`.
+        """
+        return list(self._items.items())
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
