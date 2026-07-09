@@ -37,12 +37,13 @@ def remove_small_components(mask, threshold=0.1):
 
     Returns
     -------
-    ndarray
-        Cleaned binary mask
+    tuple
+        ``(cleaned_mask, removed_count)`` -- the cleaned binary mask and the
+        number of components removed.
     """
     labeled, num_features = ndimage.label(mask)
     if num_features <= 1:
-        return mask
+        return mask, 0
 
     # Get size of each component
     component_sizes = ndimage.sum(mask, labeled, range(1, num_features + 1))
