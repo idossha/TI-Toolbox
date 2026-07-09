@@ -2210,7 +2210,18 @@ class AnalyzerTab(QtWidgets.QWidget):
         must reset the selection. ``*_args`` absorbs the ``bool``/``int`` payload
         those signals emit. ``clear()`` is a no-op (and emits nothing) when no
         regions are selected, so this is safe to fire on every such change.
+
+        Guarded by the current (space, mesh-atlas, voxel-atlas) context so
+        re-selecting the same atlas/space does not needlessly wipe the chips.
         """
+        key = (
+            self.space_mesh.isChecked(),
+            self.atlas_name_combo.currentText(),
+            self.atlas_combo.currentText(),
+        )
+        if key == getattr(self, "_last_region_context", None):
+            return
+        self._last_region_context = key
         self.region_chips.clear()
 
     def _get_regions(self) -> list[str]:

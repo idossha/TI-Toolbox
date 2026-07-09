@@ -73,6 +73,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self._subject_id: str | None = None
         self._project_dir: str | None = None
 
+        # Atlas/space the current chips belong to, so re-selecting the SAME
+        # value in a combo does not needlessly wipe the selection.
+        self._last_cortical_atlas = None
+        self._last_volume_key = None
+
         self._setup_ui()
         self._connect_signals()
 
@@ -502,6 +507,10 @@ class ROIPickerWidget(QtWidgets.QWidget):
         start fresh. Wired to ``activated`` (user-only), so a programmatic
         repopulation during refresh does not clear a restored selection.
         """
+        atlas = self.atlas_combo.currentText()
+        if atlas == self._last_cortical_atlas:
+            return
+        self._last_cortical_atlas = atlas
         self.cortical_chips.clear()
 
     def _on_volume_atlas_changed(self, *_):
@@ -513,6 +522,11 @@ class ROIPickerWidget(QtWidgets.QWidget):
         user-only signals (``activated`` / ``buttonClicked``), so programmatic
         repopulation during refresh does not clear a restored selection.
         """
+        space = "mni" if self.volume_mni_radio.isChecked() else "subject"
+        key = (space, self.volume_atlas_combo.currentText())
+        if key == self._last_volume_key:
+            return
+        self._last_volume_key = key
         self.subcortical_chips.clear()
 
     # ------------------------------------------------------------------
