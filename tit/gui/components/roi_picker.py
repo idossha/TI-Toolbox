@@ -322,6 +322,10 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.list_regions_btn = QtWidgets.QPushButton("List Regions")
         atlas_layout.addWidget(self.list_regions_btn)
 
+        self.clear_regions_btn = QtWidgets.QPushButton("Clear")
+        self.clear_regions_btn.setToolTip("Remove all selected cortical regions.")
+        atlas_layout.addWidget(self.clear_regions_btn)
+
         atlas_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Atlas:"), atlas_widget)
 
@@ -348,7 +352,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
         layout.setVerticalSpacing(3)
         layout.setContentsMargins(0, 5, 0, 5)
 
-        # Volume atlas combo + refresh + list regions
+        # Atlas space (subject / MNI) toggle — kept at the top.
         source_widget = QtWidgets.QWidget()
         source_layout = QtWidgets.QHBoxLayout(source_widget)
         source_layout.setContentsMargins(0, 0, 0, 0)
@@ -368,6 +372,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
         source_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Atlas Space:"), source_widget)
 
+        # Tissue type — placed above the volume atlas selector.
+        self.tissue_combo = QtWidgets.QComboBox()
+        self.tissue_combo.addItem("Gray Matter (GM)", "GM")
+        self.tissue_combo.addItem("White Matter (WM)", "WM")
+        self.tissue_combo.addItem("GM + WM (both)", "both")
+        self.tissue_combo.setToolTip(
+            "Tissue compartment(s) to include when evaluating the volume ROI. "
+            "GM is appropriate for most subcortical targets (e.g. thalamus, "
+            "hippocampus). WM or Both can be used when the target overlaps "
+            "white-matter tracts."
+        )
+        layout.addRow(QtWidgets.QLabel("Tissue Type:"), self.tissue_combo)
+
+        # Volume atlas combo + refresh + list regions + clear.
         volume_widget = QtWidgets.QWidget()
         volume_layout = QtWidgets.QHBoxLayout(volume_widget)
         volume_layout.setContentsMargins(0, 0, 0, 0)
@@ -384,12 +402,19 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.list_volume_regions_btn = QtWidgets.QPushButton("List Regions")
         volume_layout.addWidget(self.list_volume_regions_btn)
 
+        self.clear_volume_regions_btn = QtWidgets.QPushButton("Clear")
+        self.clear_volume_regions_btn.setToolTip(
+            "Remove all selected subcortical regions."
+        )
+        volume_layout.addWidget(self.clear_volume_regions_btn)
+
         volume_layout.addStretch()
         layout.addRow(QtWidgets.QLabel("Volume Atlas:"), volume_widget)
 
-        # Selected region(s) shown as removable chips. Regions are added via
-        # "List Regions" (present labels, by name), de-duplicated by chip key
-        # (the integer atlas label id). Multiple regions union into one target.
+        # Selected region(s) shown as removable chips, below the volume atlas.
+        # Regions are added via "List Regions" (present labels, by name),
+        # de-duplicated by chip key (the integer atlas label id). Multiple
+        # regions union into one target.
         self.subcortical_chips = RegionChipsWidget(
             placeholder="No regions selected — use List Regions…"
         )
@@ -401,19 +426,6 @@ class ROIPickerWidget(QtWidgets.QWidget):
             "it."
         )
         layout.addRow(QtWidgets.QLabel("Region(s):"), self.subcortical_chips)
-
-        # Tissue type
-        self.tissue_combo = QtWidgets.QComboBox()
-        self.tissue_combo.addItem("Gray Matter (GM)", "GM")
-        self.tissue_combo.addItem("White Matter (WM)", "WM")
-        self.tissue_combo.addItem("GM + WM (both)", "both")
-        self.tissue_combo.setToolTip(
-            "Tissue compartment(s) to include when evaluating the volume ROI. "
-            "GM is appropriate for most subcortical targets (e.g. thalamus, "
-            "hippocampus). WM or Both can be used when the target overlaps "
-            "white-matter tracts."
-        )
-        layout.addRow(QtWidgets.QLabel("Tissue Type:"), self.tissue_combo)
 
         return page
 
@@ -445,6 +457,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.volume_subject_radio.toggled.connect(self._refresh_volume_atlases)
         self.volume_mni_radio.toggled.connect(self._refresh_volume_atlases)
 
+        # Clear buttons drop the whole current selection.
+        self.clear_regions_btn.clicked.connect(self.cortical_chips.clear)
+        self.clear_volume_regions_btn.clicked.connect(self.subcortical_chips.clear)
+
+        # No cross-atlas mixing: regions are atlas-specific, so switching the
+        # cortical atlas, the volume atlas, or the volume atlas space starts a
+        # fresh selection. These are wired to *user-only* signals
+        # (QComboBox.activated / QButtonGroup.buttonClicked) rather than
+        # currentIndexChanged / toggled, so programmatic repopulation during a
+        # refresh does not spuriously wipe a restored selection.
+        self.atlas_combo.activated.connect(self._on_cortical_atlas_changed)
+        self.volume_atlas_combo.activated.connect(self._on_volume_atlas_changed)
+        self._volume_space_group.buttonClicked.connect(self._on_volume_atlas_changed)
+
         # Multi-sphere add/duplicate/remove (lambdas so the button's bool
         # 'checked' arg is not passed as a coordinate/row argument).
         self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
@@ -467,6 +493,27 @@ class ROIPickerWidget(QtWidgets.QWidget):
         self.subcortical_chips.changed.connect(self.roi_changed)
         self.tissue_combo.currentIndexChanged.connect(self.roi_changed)
         self._mode_group.buttonClicked.connect(lambda: self.roi_changed.emit())
+
+    def _on_cortical_atlas_changed(self, *_):
+        """Clear the cortical region chips when the user picks a new atlas.
+
+        Region names/indices are specific to a parcellation, so a chip added
+        under one atlas is meaningless under another; switching atlases must
+        start fresh. Wired to ``activated`` (user-only), so a programmatic
+        repopulation during refresh does not clear a restored selection.
+        """
+        self.cortical_chips.clear()
+
+    def _on_volume_atlas_changed(self, *_):
+        """Clear the subcortical region chips when the user picks a new volume
+        atlas or switches the atlas space (subject/MNI).
+
+        Label ids are specific to a given atlas volume, so mixing regions across
+        atlases/spaces is invalid; changing either starts fresh. Wired to
+        user-only signals (``activated`` / ``buttonClicked``), so programmatic
+        repopulation during refresh does not clear a restored selection.
+        """
+        self.subcortical_chips.clear()
 
     # ------------------------------------------------------------------
     # Mode switching
@@ -1200,6 +1247,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             entries,
             return_field="name",
             multi=True,
+            preselected=list(self.cortical_chips.keys()),
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # selected_ids()/selected_names() are parallel: names are the
@@ -1287,6 +1335,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
             entries,
             return_field="id",  # unused: chips read selected_ids()/selected_names() directly
             multi=True,
+            preselected=list(self.subcortical_chips.keys()),
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             for region_id, name in zip(dlg.selected_ids(), dlg.selected_names()):
