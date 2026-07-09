@@ -24,6 +24,19 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
 
+
+def _as_list(value) -> list:
+    """Wrap a scalar in a single-element list; pass lists/tuples through.
+
+    Strings are treated as scalars (``"lh"`` -> ``["lh"]``), never iterated
+    character-by-character.  Used to normalise ROI fields that accept either a
+    single value (one region) or a list (a union of several regions).
+    """
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value]
+
+
 # ── Flex-search config ───────────────────────────────────────────────────────
 
 
@@ -187,16 +200,22 @@ class FlexConfig:
         tissue compartments are included (same semantics as
         :class:`SubcorticalROI.tissues`).
 
+        Each of *x*, *y*, *z*, *radius* accepts either a single value (one
+        sphere) or a list of values (a union of several spheres evaluated as
+        one combined target).  The coordinate lists must be non-empty and of
+        equal length; *radius* may be a scalar (shared by every sphere) or a
+        list matching the number of centers.
+
         Attributes
         ----------
-        x : float
-            Center x-coordinate (mm).
-        y : float
-            Center y-coordinate (mm).
-        z : float
-            Center z-coordinate (mm).
-        radius : float
-            Sphere radius in mm.
+        x : float or list of float
+            Center x-coordinate(s) (mm).
+        y : float or list of float
+            Center y-coordinate(s) (mm).
+        z : float or list of float
+            Center z-coordinate(s) (mm).
+        radius : float or list of float
+            Sphere radius/radii in mm.  A scalar is shared by all spheres.
         use_mni : bool
             If True, coordinates are in MNI space and SimNIBS will transform
             them to subject space during ROI setup.
@@ -206,56 +225,124 @@ class FlexConfig:
         tissues : str
             Tissue compartments to include when *volumetric* is True.
             One of ``"GM"``, ``"WM"``, or ``"both"``.
+
+        Raises
+        ------
+        ValueError
+            If *x*/*y*/*z* are empty or unequal length, or *radius* is a list
+            whose length neither equals 1 nor the number of centers.
         """
 
-        x: float
-        y: float
-        z: float
-        radius: float = 10.0
+        x: float | list[float]
+        y: float | list[float]
+        z: float | list[float]
+        radius: float | list[float] = 10.0
         use_mni: bool = False
         volumetric: bool = False
         tissues: str = "GM"  # "GM", "WM", or "both" — only used when volumetric=True
+
+        def __post_init__(self):
+            xs, ys, zs = _as_list(self.x), _as_list(self.y), _as_list(self.z)
+            if not xs or not (len(xs) == len(ys) == len(zs)):
+                raise ValueError(
+                    "SphericalROI x, y, z must be non-empty and of equal length"
+                )
+            if len(_as_list(self.radius)) not in (1, len(xs)):
+                raise ValueError(
+                    "SphericalROI radius must be a scalar or match the number of "
+                    "centers"
+                )
 
     @dataclass
     class AtlasROI:
         """Cortical surface ROI from a FreeSurfer annotation atlas.
 
+        Each of *atlas_path*, *label*, *hemisphere* accepts either a single
+        value (one region) or a list (a union of several regions evaluated as
+        one combined target).  Because ``.annot`` files are per-hemisphere,
+        carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
+        target that spans **both** hemispheres, or even different atlases.
+        Scalars broadcast to the number of labels; lists must match its length.
+
         Attributes
         ----------
-        atlas_path : str
-            Path to the FreeSurfer ``.annot`` annotation file.
-        label : int
-            Integer label index within the annotation atlas.
-        hemisphere : str
-            Hemisphere to use (``"lh"`` or ``"rh"``).
+        atlas_path : str or list of str
+            Path(s) to the FreeSurfer ``.annot`` annotation file(s).
+        label : int or list of int
+            Integer label index/indices within the annotation atlas.
+        hemisphere : str or list of str
+            Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
+
+        Raises
+        ------
+        ValueError
+            If *label* is empty, or *atlas_path*/*hemisphere* is a list whose
+            length neither equals 1 nor the number of labels.
         """
 
-        atlas_path: str
-        label: int
-        hemisphere: str = "lh"
+        atlas_path: str | list[str]
+        label: int | list[int]
+        hemisphere: str | list[str] = "lh"
+
+        def __post_init__(self):
+            n = len(_as_list(self.label))
+            if n == 0:
+                raise ValueError("AtlasROI label must be non-empty")
+            if len(_as_list(self.atlas_path)) not in (1, n):
+                raise ValueError(
+                    "AtlasROI atlas_path must be a scalar or match the number "
+                    "of labels"
+                )
+            if len(_as_list(self.hemisphere)) not in (1, n):
+                raise ValueError(
+                    "AtlasROI hemisphere must be a scalar or match the number "
+                    "of labels"
+                )
 
     @dataclass
     class SubcorticalROI:
         """Subcortical volume ROI from a volumetric atlas.
 
+        *label* accepts either a single value (one region) or a list (a union
+        of several regions -- e.g. both hippocampi from one ``aseg`` atlas --
+        evaluated as one combined target).  *atlas_path* may be a scalar
+        (shared by every label) or a list matching the number of labels; a
+        single shared *tissues* and *atlas_space* apply to the whole union.
+
         Attributes
         ----------
-        atlas_path : str
-            Path to the volumetric atlas NIfTI file.
-        label : int
-            Integer label index within the volumetric atlas.
+        atlas_path : str or list of str
+            Path(s) to the volumetric atlas NIfTI file(s).
+        label : int or list of int
+            Integer label index/indices within the volumetric atlas.
         tissues : str
             Tissue compartments to include.  One of ``"GM"``, ``"WM"``,
             or ``"both"``.
         atlas_space : str
             Space of the atlas NIfTI.  One of ``"subject"`` or ``"mni"``.
             MNI-space masks are transformed by SimNIBS during ROI setup.
+
+        Raises
+        ------
+        ValueError
+            If *label* is empty, or *atlas_path* is a list whose length
+            neither equals 1 nor the number of labels.
         """
 
-        atlas_path: str
-        label: int
+        atlas_path: str | list[str]
+        label: int | list[int]
         tissues: str = "GM"  # "GM", "WM", or "both"
         atlas_space: Literal["subject", "mni"] = "subject"
+
+        def __post_init__(self):
+            n = len(_as_list(self.label))
+            if n == 0:
+                raise ValueError("SubcorticalROI label must be non-empty")
+            if len(_as_list(self.atlas_path)) not in (1, n):
+                raise ValueError(
+                    "SubcorticalROI atlas_path must be a scalar or match the "
+                    "number of labels"
+                )
 
     # ── Nested electrode config ───────────────────────────────────────
 
@@ -395,7 +482,14 @@ class ExConfig:
         Path to the precomputed leadfield HDF5 file.
     roi_name : str
         ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
-        is appended automatically if missing.
+        is appended automatically if missing.  Used as the metric-key
+        prefix and (with the net name) the output-directory label.
+    roi_names : list of str or None
+        Optional list of ROI CSV filenames to **union** into a single
+        target.  When provided (combined mode), the spherical masks of
+        every listed ROI are OR-folded into one region.  ``None``
+        (default) keeps single-ROI behavior driven by *roi_name*.  Each
+        entry gets the ``".csv"`` suffix appended if missing.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -472,6 +566,7 @@ class ExConfig:
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
+    roi_names: list[str] | None = None
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
@@ -484,6 +579,10 @@ class ExConfig:
                 self.electrodes = ExConfig.BucketElectrodes(**self.electrodes)
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
+        if self.roi_names is not None:
+            self.roi_names = [
+                n if n.endswith(".csv") else f"{n}.csv" for n in self.roi_names
+            ]
 
         # Validation
         if self.current_step <= 0:

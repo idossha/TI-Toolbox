@@ -29,7 +29,11 @@ class ExSearchEngine:
     """
 
     def __init__(
-        self, leadfield_hdf: str, roi_file: str, roi_name: str, logger: logging.Logger
+        self,
+        leadfield_hdf: str,
+        roi_file: str | list[str],
+        roi_name: str,
+        logger: logging.Logger,
     ):
         self.leadfield_hdf = leadfield_hdf
         self.roi_file = roi_file
@@ -40,6 +44,7 @@ class ExSearchEngine:
         self.mesh = None
         self.idx_lf = None
         self.roi_coords = None
+        self.roi_centers = None
         self.roi_indices = None
         self.roi_volumes = None
         self.gm_indices = None
@@ -61,24 +66,46 @@ class ExSearchEngine:
         self.logger.info(f"Loaded in {time.time() - start:.1f}s")
 
     def _load_roi_coordinates(self) -> None:
-        """Read ROI center from a simple CSV (one row: x,y,z)."""
-        with open(self.roi_file) as f:
+        """Read ROI center(s) from one or more simple CSVs (one row: x,y,z).
+
+        A single ``roi_file`` (str) yields one center; a list yields one
+        center per file (combined/union mode).  ``roi_coords`` always
+        mirrors the first center for backward compatibility.
+        """
+        files = self.roi_file if isinstance(self.roi_file, list) else [self.roi_file]
+        self.roi_centers = [self._read_center(f) for f in files]
+        self.roi_coords = self.roi_centers[0]
+        if len(self.roi_centers) == 1:
+            self.logger.info(f"ROI coords: {self.roi_coords}")
+        else:
+            self.logger.info(
+                f"ROI centers ({len(self.roi_centers)}): {self.roi_centers}"
+            )
+
+    def _read_center(self, path: str) -> list[float]:
+        """Return the first valid ``[x, y, z]`` triple from an ROI CSV."""
+        with open(path) as f:
             for row in csv.reader(f):
                 if not row:
                     continue
                 coords = [float(v.strip()) for v in row if v.strip()]
                 if len(coords) >= 3:
-                    self.roi_coords = coords[:3]
-                    self.logger.info(f"ROI coords: {self.roi_coords}")
-                    return
-        raise ValueError(f"No valid coordinates in {self.roi_file}")
+                    return coords[:3]
+        raise ValueError(f"No valid coordinates in {path}")
 
     def _find_roi_elements(self, roi_radius: float) -> None:
-        """Find mesh elements whose barycenters fall within a sphere."""
+        """Find mesh elements whose barycenters fall within any ROI sphere.
+
+        For a combined target the per-center spherical masks are OR-folded
+        into one region (single-center is the N=1 case).
+        """
         self.logger.info(f"Finding ROI elements (radius={roi_radius}mm)...")
-        centers = self.mesh.elements_baricenters().value
-        center = np.asarray(self.roi_coords, dtype=float)
-        mask = np.sum((centers - center) ** 2, axis=1) <= roi_radius**2
+        baricenters = self.mesh.elements_baricenters().value
+        roi_centers = self.roi_centers if self.roi_centers else [self.roi_coords]
+        mask = np.zeros(baricenters.shape[0], dtype=bool)
+        for c in roi_centers:
+            center = np.asarray(c, dtype=float)
+            mask |= np.sum((baricenters - center) ** 2, axis=1) <= roi_radius**2
 
         volumes = self.mesh.elements_volumes_and_areas().value
         if volumes.ndim > 1:
