@@ -30,13 +30,15 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
+from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
-    convert_t1_to_mni,
     extract_fields,
+    finish_t1_to_mni,
     safe_move,
-    transform_to_nifti,
+    start_t1_to_mni,
+    transform_dirs_to_nifti,
 )
 
 # Brain tissue crop mask — keeps tissue volume elements and surface elements
@@ -139,6 +141,11 @@ class TISimulation(BaseSimulation):
         mout = deepcopy(m1)
         mout.elmdata = []
         mout.add_element_field(TImax, "TI_max")
+        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
+        # heating driver. Written as volume fields so they flow to subject-/MNI-
+        # space NIfTIs alongside TI_max.
+        mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
+        mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
 
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
         mesh_io.write_msh(mout, ti_path)
@@ -159,21 +166,26 @@ class TISimulation(BaseSimulation):
 
         self._generate_central_surface(ti_path, dirs["ti_surfaces"])
 
+        # T1->MNI is independent of the field meshes; start it in the
+        # background so it overlaps the mesh-to-NIfTI conversions.
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid)
+
         self.logger.info("NIfTI transformation: Started")
-        transform_to_nifti(
-            dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger
-        )
-        transform_to_nifti(
-            dirs["hf_mesh"],
-            dirs["hf_niftis"],
-            sid,
+        transform_dirs_to_nifti(
+            [
+                {"mesh_dir": dirs["ti_mesh"], "output_dir": dirs["ti_niftis"]},
+                {
+                    "mesh_dir": dirs["hf_mesh"],
+                    "output_dir": dirs["hf_niftis"],
+                    "fields": ["magnE"],
+                },
+            ],
             self.m2m_dir,
             self.logger,
-            fields=["magnE"],
         )
         self.logger.info("NIfTI transformation: \u2713 Complete")
 
-        convert_t1_to_mni(self.m2m_dir, sid, self.logger)
+        finish_t1_to_mni(t1_proc, self.logger)
 
         return ti_path
 

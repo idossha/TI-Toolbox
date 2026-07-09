@@ -382,8 +382,14 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         scroll_layout.addLayout(top_row_layout)
 
-        # ROI Definition — use component widget
+        # ROI Definition — use component widget. The picker sizes itself to the
+        # active page (see ROIPickerWidget._resize_stack_to_current), so let the
+        # group hug that height (Maximum) instead of reserving dead space; the
+        # trailing scroll_layout stretch absorbs the freed vertical space.
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
+        self.roi_method_group.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         roi_layout = QtWidgets.QVBoxLayout(self.roi_method_group)
         roi_layout.addWidget(self.roi_picker)
         scroll_layout.addWidget(self.roi_method_group)
@@ -606,16 +612,16 @@ class FlexSearchTab(QtWidgets.QWidget):
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
         roi_type = self.roi_picker.get_roi_type()
-        page_map = {"spherical": 0, "atlas": 1, "subcortical": 2}
+        page_map = {"atlas": 0, "subcortical": 1, "spherical": 2}
         idx = page_map.get(roi_type, 0)
         self.nonroi_picker.stacked.setCurrentIndex(idx)
         # Also check the matching radio if it exists
-        if idx == 0 and self.nonroi_picker.radio_spherical:
-            self.nonroi_picker.radio_spherical.setChecked(True)
-        elif idx == 1 and self.nonroi_picker.radio_cortical:
+        if idx == 0 and self.nonroi_picker.radio_cortical:
             self.nonroi_picker.radio_cortical.setChecked(True)
-        elif idx == 2 and self.nonroi_picker.radio_subcortical:
+        elif idx == 1 and self.nonroi_picker.radio_subcortical:
             self.nonroi_picker.radio_subcortical.setChecked(True)
+        elif idx == 2 and self.nonroi_picker.radio_spherical:
+            self.nonroi_picker.radio_spherical.setChecked(True)
 
     # ------------------------------------------------------------------ #
     #  Run optimization                                                   #
@@ -664,6 +670,16 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", error)
             return
 
+        # Validate non-ROI when focality targets a specific region
+        if (
+            self.goal_combo.currentData() == "focality"
+            and self.nonroi_method_combo.currentData() == "specific"
+        ):
+            error = self.nonroi_picker.validate()
+            if error:
+                QtWidgets.QMessageBox.warning(self, "Warning", f"Non-ROI: {error}")
+                return
+
         # Check coordinate space for spherical ROI with MNI space selected
         if (
             self.roi_picker.get_roi_type() == "spherical"
@@ -698,13 +714,26 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Show confirmation dialog
         roi_description = ""
         if roi_params["method"] == "spherical":
-            roi_description = f"Spherical ROI at ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) with radius {roi_params['radius']}mm"
+            num_spheres = roi_params.get("num_spheres", 1)
+            if num_spheres > 1:
+                roi_description = (
+                    f"Spherical ROI: union of {num_spheres} spheres "
+                    f"(first at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}))"
+                )
+            else:
+                roi_description = (
+                    f"Spherical ROI at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}) "
+                    f"with radius {roi_params['radius']}mm"
+                )
         elif roi_params["method"] == "atlas":
             roi_description = (
-                f"Cortical ROI: {roi_params['atlas']} region {roi_params['region']}"
+                f"Cortical ROI: {roi_params['atlas']} "
+                f"region(s) {roi_params['region']}"
             )
         else:
-            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region {roi_params['volume_region']}"
+            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region(s) {roi_params['volume_region']}"
 
         details = (
             f"Subjects: {', '.join(selected_subjects)}\n"

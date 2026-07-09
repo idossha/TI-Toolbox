@@ -208,3 +208,169 @@ class TestRunExSearch:
         assert result.n_combinations == 3
         assert result.config_json == "/results.json"
         assert result.results_csv == "/results.csv"
+
+
+# ---------------------------------------------------------------------------
+# Combined-ROI (union) support
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestExConfigRoiNames:
+    def test_default_roi_names_is_none(self):
+        cfg = _make_ex_config()
+        assert cfg.roi_names is None
+
+    def test_roi_names_csv_suffix_appended(self):
+        cfg = _make_ex_config(roi_names=["a", "b.csv", "c"])
+        assert cfg.roi_names == ["a.csv", "b.csv", "c.csv"]
+
+    def test_single_roi_name_unchanged(self):
+        # Scalar roi_name path stays byte-identical (1-element behavior).
+        cfg = _make_ex_config(roi_name="motor")
+        assert cfg.roi_name == "motor.csv"
+        assert cfg.roi_names is None
+
+
+@pytest.mark.unit
+class TestRunExSearchCombine:
+    def _run(self, mock_gpm, mock_engine_cls, mock_save, tmp_path, config):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {"m1": {}}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        run_ex_search(config)
+        return pm, mock_engine_cls
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_single_roi_passes_one_file(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        config = _make_ex_config()  # roi_name="motor.csv", roi_names=None
+        pm, engine_cls = self._run(
+            mock_gpm, mock_engine_cls, mock_save, tmp_path, config
+        )
+
+        # Engine receives a single-element roi_files list (N=1 union case).
+        args = engine_cls.call_args[0]
+        roi_files = args[1]
+        assert roi_files == [os.path.join(str(tmp_path / "rois"), "motor.csv")]
+        assert args[2] == "motor.csv"  # metric-key prefix unchanged
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_combine_passes_union_files(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        config = _make_ex_config(
+            roi_name="L_hippo+R_hippo",
+            roi_names=["L_hippo", "R_hippo"],
+        )
+        pm, engine_cls = self._run(
+            mock_gpm, mock_engine_cls, mock_save, tmp_path, config
+        )
+
+        rois = str(tmp_path / "rois")
+        args = engine_cls.call_args[0]
+        roi_files = args[1]
+        assert roi_files == [
+            os.path.join(rois, "L_hippo.csv"),
+            os.path.join(rois, "R_hippo.csv"),
+        ]
+        # Metric-key prefix matches config.roi_name (what process_and_save reads).
+        assert args[2] == "L_hippo+R_hippo.csv"
+
+
+# ---------------------------------------------------------------------------
+# ExSearchEngine multi-center union
+# ---------------------------------------------------------------------------
+
+
+def _make_engine(roi_file="/fake/roi.csv"):
+    from tit.opt.ex.engine import ExSearchEngine
+
+    return ExSearchEngine(
+        leadfield_hdf="/fake/leadfield.hdf5",
+        roi_file=roi_file,
+        roi_name="Combined",
+        logger=MagicMock(),
+    )
+
+
+@pytest.mark.unit
+class TestEngineUnion:
+    def test_loads_multiple_centers(self, tmp_path):
+        import csv
+
+        f1 = tmp_path / "a.csv"
+        f2 = tmp_path / "b.csv"
+        with open(f1, "w", newline="") as f:
+            csv.writer(f).writerow([0.0, 0.0, 0.0])
+        with open(f2, "w", newline="") as f:
+            csv.writer(f).writerow([10.0, 0.0, 0.0])
+
+        engine = _make_engine(roi_file=[str(f1), str(f2)])
+        engine._load_roi_coordinates()
+
+        assert engine.roi_centers == [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        # roi_coords mirrors the first center for back-compat.
+        assert engine.roi_coords == [0.0, 0.0, 0.0]
+
+    def test_unions_masks_from_multiple_centers(self):
+        import numpy as np
+
+        engine = _make_engine(roi_file=["/a.csv", "/b.csv"])
+        engine.roi_centers = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+
+        centers = np.array(
+            [
+                [0.0, 0.0, 0.0],  # near center A
+                [1.0, 0.0, 0.0],  # near center A
+                [10.0, 0.0, 0.0],  # near center B
+                [11.0, 0.0, 0.0],  # near center B
+                [50.0, 0.0, 0.0],  # far from both
+            ]
+        )
+        volumes = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        mesh = MagicMock()
+        mesh.elements_baricenters.return_value = MagicMock(value=centers)
+        mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
+        engine.mesh = mesh
+
+        engine._find_roi_elements(roi_radius=3.0)
+
+        # Union of both spheres: indices 0,1 (A) and 2,3 (B); 4 excluded.
+        assert set(engine.roi_indices.tolist()) == {0, 1, 2, 3}
+
+    def test_single_center_fallback_matches_prior_behavior(self):
+        import numpy as np
+
+        # roi_centers stays None; single-center path uses roi_coords (N=1).
+        engine = _make_engine(roi_file="/a.csv")
+        engine.roi_coords = [0.0, 0.0, 0.0]
+
+        centers = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [5.0, 0.0, 0.0]])
+        volumes = np.array([1.0, 2.0, 3.0])
+        mesh = MagicMock()
+        mesh.elements_baricenters.return_value = MagicMock(value=centers)
+        mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
+        engine.mesh = mesh
+
+        engine._find_roi_elements(roi_radius=3.0)
+
+        assert set(engine.roi_indices.tolist()) == {0, 1}
+        np.testing.assert_array_equal(engine.roi_volumes, [1.0, 2.0])

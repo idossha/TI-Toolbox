@@ -152,6 +152,14 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
+FIELD_HF_PEAK = "hf_peak"  # peak carrier field max(|E1+E2|,|E1-E2|) (Cassarà 2025)
+FIELD_HF_SAR = "hf_sar"  # carrier heating driver |E1|^2+|E2|^2 (∝ SAR)
+
+# fsaverage total node counts (both hemispheres) per subdivision factor.
+# ico5/6/7 surfaces: 10242/40962/163842 vertices per hemisphere, doubled.
+# Lives here (a leaf module) so surface/stats/plotting can share it without
+# importing tit.source, which would pull in mne via tit.source.forward.
+FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 
 # Default analysis parameters
 DEFAULT_PERCENTILES = [95, 99, 99.9]

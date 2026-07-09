@@ -106,8 +106,23 @@ def _overlay_ring(image: str, x: int, y: int, color: str, ring: str) -> None:
     )
 
 
-def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> None:
-    """Draw a Bezier arc between two electrode positions on *image*."""
+def _draw_arc(
+    image: str,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    color: str,
+    target: tuple[float, float],
+) -> None:
+    """Draw a Bezier arc between two electrode positions on *image*.
+
+    The arc bulges toward *target* -- the centroid of the *other*
+    channels' electrodes -- so each pair's connection curves toward the
+    channels it interferes with rather than always toward the cap centre.
+    When only one channel is present, *target* is the cap centre and the
+    arc simply curves inward.
+    """
     dx, dy = x2 - x1, y2 - y1
     dist = (dx**2 + dy**2) ** 0.5
     if dist == 0:
@@ -115,8 +130,13 @@ def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> Non
     ux, uy = dx / dist, dy / dist
     sx, sy = x1 + ux * 15, y1 + uy * 15
     ex, ey = x2 - ux * 15, y2 - uy * 15
-    cx = (sx + ex) / 2 + (-dy / dist) * dist * 0.25
-    cy = (sy + ey) / 2 + (dx / dist) * dist * 0.25
+    # Unit normal to the line; flip it so it points toward *target*.
+    nx, ny = -dy / dist, dx / dist
+    mx, my = (sx + ex) / 2, (sy + ey) / 2
+    if nx * (target[0] - mx) + ny * (target[1] - my) < 0:
+        nx, ny = -nx, -ny
+    cx = mx + nx * dist * 0.25
+    cy = my + ny * dist * 0.25
     subprocess.run(
         [
             "convert",
@@ -133,6 +153,65 @@ def _draw_arc(image: str, x1: int, y1: int, x2: int, y2: int, color: str) -> Non
         ],
         check=True,
     )
+
+
+def _pair_label(idx: int) -> str:
+    """Return the TI-pair label for pair *idx* (0->"1A", 1->"1B", 2->"2A")."""
+    return f"{idx // 2 + 1}{'A' if idx % 2 == 0 else 'B'}"
+
+
+def _draw_legend(image: str, n_pairs: int) -> None:
+    """Draw a channel colour key in the bottom-left corner of *image*.
+
+    One row per pair, labelled by TI unit: ``1A``/``1B`` are the two
+    channels of the first temporal-interference pair, ``2A``/``2B`` the
+    second, and so on.  Positioned low-left so it clears the cap layout.
+    """
+    if n_pairs < 1:
+        return
+    row_h = 46
+    swatch = 30
+    pad = 18
+    text_dx = swatch + 14
+    panel_w = 200
+    panel_h = pad * 2 + n_pairs * row_h
+    x0 = 30
+    # Anchor to the bottom edge (GSN-256 template is 1816x1536).
+    y1 = 1536 - 30
+    y0 = y1 - panel_h
+
+    draw = [
+        "-stroke",
+        "none",
+        "-fill",
+        "rgba(255,255,255,0.82)",
+        "-draw",
+        f"roundrectangle {x0},{y0} {x0 + panel_w},{y1} 14,14",
+    ]
+    for i in range(n_pairs):
+        color = _COLORS[i % len(_COLORS)]
+        ry = y0 + pad + i * row_h
+        sx = x0 + pad
+        cy = ry + row_h // 2
+        draw += [
+            "-fill",
+            color,
+            "-draw",
+            f"roundrectangle {sx},{cy - swatch // 2} "
+            f"{sx + swatch},{cy + swatch // 2} 6,6",
+            "-fill",
+            "black",
+            "-stroke",
+            "none",
+            "-pointsize",
+            "34",
+            "-gravity",
+            "NorthWest",
+            "-annotate",
+            f"+{sx + text_dx}+{ry + 6}",
+            f"Ch {_pair_label(i)}",
+        ]
+    subprocess.run(["convert", image, *draw, image], check=True)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +259,29 @@ def visualize_montage(
 
     coords = _load_coordinates(eeg_net)
 
+    # Cap centre: fallback arc target when a pair has no "other" channels.
+    center = (
+        sum(x for x, _ in coords.values()) / len(coords),
+        sum(y for _, y in coords.values()) / len(coords),
+    )
+
+    # Consecutive pairs form one TI unit: (0,1) work together, (2,3) work
+    # together, ... so each pair's arc bulges toward its *partner* pair --
+    # 1A faces 1B, 2A faces 2B -- rather than the whole montage.
+    def _partner_target(idx: int) -> tuple[float, float]:
+        partner = idx + 1 if idx % 2 == 0 else idx - 1
+        pts = (
+            [coords[e] for e in electrode_pairs[partner] if e in coords]
+            if 0 <= partner < len(electrode_pairs)
+            else []
+        )
+        if not pts:
+            return center
+        return (
+            sum(p[0] for p in pts) / len(pts),
+            sum(p[1] for p in pts) / len(pts),
+        )
+
     template = os.path.join(_RESOURCES_DIR, "GSN-256.png")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -204,4 +306,6 @@ def visualize_montage(
         if e2 in coords:
             _overlay_ring(out_image, *coords[e2], color, ring)
         if e1 in coords and e2 in coords:
-            _draw_arc(out_image, *coords[e1], *coords[e2], color)
+            _draw_arc(out_image, *coords[e1], *coords[e2], color, _partner_target(i))
+
+    _draw_legend(out_image, len(electrode_pairs))

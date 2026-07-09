@@ -485,3 +485,42 @@ class TestAtlasNameFromPath:
         from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/rh.Destrieux.annot", "rh") == "Destrieux"
+
+
+# ---------------------------------------------------------------------------
+# Report field helpers for combined (union) ROIs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestReportUnionFields:
+    def test_join_single_returns_scalar(self):
+        from tit.opt.flex.builder import _join
+
+        # Byte-identical single-region reports: a bare scalar, not a list.
+        assert _join(1001) == 1001
+        assert _join([1001]) == 1001
+
+    def test_join_multi_returns_plus_joined_string(self):
+        from tit.opt.flex.builder import _join
+
+        assert _join([17, 53]) == "17+53"
+        assert "[" not in _join([17, 53])
+
+    def test_sphere_report_fields_single_flat(self):
+        from tit.opt.flex.builder import _sphere_report_fields
+
+        coords, radius = _sphere_report_fields(
+            SphericalROI(x=10, y=20, z=30, radius=15)
+        )
+        assert coords == [10, 20, 30]
+        assert radius == 15
+
+    def test_sphere_report_fields_multi_nested(self):
+        from tit.opt.flex.builder import _sphere_report_fields
+
+        coords, radius = _sphere_report_fields(
+            SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=8)
+        )
+        assert coords == [[10, 20, 30], [-10, -20, -30]]
+        assert radius == [8, 8]

@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 
 #: Field quantities that :func:`tit.source.fsaverage.project_fields_to_fsaverage`
 #: knows how to compute on the subject central surface before morphing.
-VALID_FSAVG_FIELDS: tuple[str, ...] = ("TI_max", "TI_normal", "magnitude")
+#:
+#: ``hf_peak`` = ``max(|E1+E2|, |E1-E2|)`` is the peak carrier field and ``hf_sar``
+#: = ``|E1|^2 + |E2|^2`` the heating driver (Cassarà 2025); see :mod:`tit.fields`.
+VALID_FSAVG_FIELDS: tuple[str, ...] = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
 
 #: fsaverage subdivision factors accepted by SimNIBS ``prepare_eeg_forward`` and
 #: ``cross_subject_map`` (5 -> 10242, 6 -> 40962, 7 -> 163842 nodes per hemi).
@@ -68,7 +71,7 @@ class FsavgMapConfig:
     fields : tuple of str
         Which field quantities to project.  Any of
         :data:`VALID_FSAVG_FIELDS` (``"TI_max"``, ``"TI_normal"``,
-        ``"magnitude"``).
+        ``"hf_peak"``, ``"hf_sar"``).
     fsaverage_spacing : int
         fsaverage subdivision factor (5, 6, or 7) to morph onto.
     workers : int

@@ -570,3 +570,60 @@ class TestRunMontageVisualization:
             logger=logger,
         )
         logger.warning.assert_not_called()
+
+
+# ============================================================================
+# Automatic fsaverage projection hook
+# ============================================================================
+
+
+class TestProjectMontageToFsaverage:
+    """``map_to_fsavg`` hook: TI projects, mTI skips, errors never abort the sim."""
+
+    def _montage(self, mode, name="M1"):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(simulation_mode=mode, name=name)
+
+    def test_ti_montage_projects(self, monkeypatch):
+        from tit.sim import utils
+
+        calls = []
+        monkeypatch.setattr(
+            "tit.source.fsaverage.project_subject",
+            lambda sid, sim, cfg: calls.append((sid, sim)) or (sid, "ok", "done"),
+        )
+        config = SimulationConfig(subject_id="001", montages=[])
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.TI, "TI_sim"), MagicMock()
+        )
+        assert calls == [("001", "TI_sim")]
+
+    def test_mti_montage_skipped(self, monkeypatch):
+        from tit.sim import utils
+
+        calls = []
+        monkeypatch.setattr(
+            "tit.source.fsaverage.project_subject",
+            lambda *a: calls.append(a) or ("x", "ok", ""),
+        )
+        config = SimulationConfig(subject_id="001", montages=[])
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.MTI), MagicMock()
+        )
+        assert calls == []
+
+    def test_projection_error_is_non_fatal(self, monkeypatch):
+        from tit.sim import utils
+
+        def boom(*a):
+            raise RuntimeError("morph blew up")
+
+        monkeypatch.setattr("tit.source.fsaverage.project_subject", boom)
+        logger = MagicMock()
+        config = SimulationConfig(subject_id="001", montages=[])
+        # Must not raise.
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.TI), logger
+        )
+        assert logger.warning.called

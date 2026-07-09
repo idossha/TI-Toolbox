@@ -1165,7 +1165,55 @@ class SimulatorTab(QtWidgets.QWidget):
     @staticmethod
     def _montage_display_name(montage):
         """Return a user-facing montage label without changing its storage key."""
-        return getattr(montage, "display_name", montage.name)
+        return getattr(montage, "display_name", None) or montage.name
+
+    def _choose_existing_simulation_policy(self, existing):
+        """Ask how to handle simulation outputs that already exist.
+
+        Mirrors the preprocessing tab's policy dialog. ``existing`` is a list of
+        ``(subject_id, montage, montage_dir, label)`` tuples. Returns
+        ``(skip_existing, replace_existing)`` or ``None`` if the user cancels.
+        """
+        detail = "\n".join(f"  * {label}" for _, _, _, label in existing)
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Warning)
+        dialog.setWindowTitle("Existing Simulation Outputs")
+        dialog.setText("Some selected simulation outputs already exist.")
+        dialog.setInformativeText(
+            "Choose how to continue:\n\n"
+            "Skip Existing Outputs: leave existing outputs in place and skip "
+            "those simulations.\n"
+            "Replace and Rerun: delete existing outputs for the selected "
+            "simulations, then rerun."
+        )
+        dialog.setDetailedText(detail)
+
+        cancel_button = dialog.addButton(
+            "Cancel / Adjust Options", QtWidgets.QMessageBox.RejectRole
+        )
+        skip_button = dialog.addButton(
+            "Skip Existing Outputs", QtWidgets.QMessageBox.AcceptRole
+        )
+        replace_button = dialog.addButton(
+            "Replace and Rerun", QtWidgets.QMessageBox.DestructiveRole
+        )
+        dialog.setDefaultButton(cancel_button)
+        dialog.exec_()
+
+        clicked = dialog.clickedButton()
+        if clicked == skip_button:
+            return True, False
+        if clicked == replace_button:
+            if ConfirmationDialog.confirm(
+                self,
+                title="Replace Existing Outputs",
+                message="Delete existing outputs for the selected simulations "
+                "and rerun?",
+                details=detail,
+            ):
+                return False, True
+        return None
 
     def _build_montage_configs_from_freehand(self, subject_id, selected_names):
         """Build Montage list from freehand config names."""
@@ -1337,27 +1385,55 @@ class SimulatorTab(QtWidgets.QWidget):
                 return
 
             # ── Check for existing output directories ──────────────────────
-            existing_dirs = []
+            existing = []  # (subject_id, mc, montage_dir, label)
             for subject_id, mc, _ in jobs:
                 simulations_dir = self.pm.simulations(subject_id)
                 montage_dir = os.path.join(simulations_dir or "", mc.name)
                 if simulations_dir and os.path.exists(montage_dir):
                     display_name = self._montage_display_name(mc)
-                    existing_dirs.append(
-                        f"{subject_id}/{display_name} (folder: {mc.name})"
+                    existing.append(
+                        (
+                            subject_id,
+                            mc,
+                            montage_dir,
+                            f"{subject_id}/{display_name} (folder: {mc.name})",
+                        )
                     )
 
-            if existing_dirs:
-                existing_list = "\n".join([f"  * {d}" for d in existing_dirs[:10]])
-                if len(existing_dirs) > 10:
-                    existing_list += f"\n  ... and {len(existing_dirs) - 10} more"
-                self.update_output(
-                    "Simulation directories already exist:\n"
-                    + existing_list
-                    + "\n\nPlease delete them manually before re-running.",
-                    "error",
-                )
-                return
+            if existing:
+                policy = self._choose_existing_simulation_policy(existing)
+                if policy is None:
+                    return
+                skip_existing, replace_existing = policy
+
+                if replace_existing:
+                    for _, _, montage_dir, label in existing:
+                        try:
+                            shutil.rmtree(montage_dir)
+                            self.update_output(f"Removed existing output: {label}")
+                        except OSError as e:
+                            self.update_output(
+                                f"Failed to remove {label}: {e}", "error"
+                            )
+                            return
+                elif skip_existing:
+                    skip_names = {
+                        (subject_id, mc.name)
+                        for subject_id, mc, _, _ in existing
+                    }
+                    jobs = [
+                        job
+                        for job in jobs
+                        if (job[0], job[1].name) not in skip_names
+                    ]
+                    for _, _, _, label in existing:
+                        self.update_output(f"Skipping existing output: {label}")
+                    if not jobs:
+                        self.update_output(
+                            "All selected simulations already exist — nothing to run.",
+                            "warning",
+                        )
+                        return
 
             # ── Store run context ──────────────────────────────────────────
             unique_subjects = list(dict.fromkeys(s for s, _, _ in jobs))

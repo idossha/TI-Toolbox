@@ -46,7 +46,10 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
-    roi_file = os.path.join(pm.rois(config.subject_id), config.roi_name)
+    roi_names = config.roi_names or [config.roi_name]
+    roi_files = [os.path.join(pm.rois(config.subject_id), name) for name in roi_names]
+    if len(roi_files) > 1:
+        logger.info(f"Combining {len(roi_files)} ROIs into one target: {roi_names}")
 
     if isinstance(config.electrodes, ExConfig.PoolElectrodes):
         pool = config.electrodes.electrodes
@@ -63,7 +66,7 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         pm.leadfields(config.subject_id), config.leadfield_hdf
     )
 
-    engine = ExSearchEngine(leadfield_path, roi_file, config.roi_name, logger)
+    engine = ExSearchEngine(leadfield_path, roi_files, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)
 
     ratios = generate_current_ratios(

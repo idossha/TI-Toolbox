@@ -1045,15 +1045,14 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 central_surface = self.pm.ti_central_surface(
                     subject_id, simulation_name
                 )
-                # Build commands for all formats (STL/PLY/MSH)
-                self._prune_infos = []
-                # Store selected region names once
+                # Build commands for all formats (STL/PLY/MSH).
+                # The exporter writes only these regions, so no post-pruning
+                # is needed.
                 selected = [
                     self.cort_regions_list.item(i).text()
                     for i in range(self.cort_regions_list.count())
                     if self.cort_regions_list.item(i).isSelected()
                 ]
-                self._selected_regions = selected
 
                 # Always export STL via config dataclass
                 stl_config = RegionConfig(
@@ -1072,15 +1071,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 commands.append(
                     (["simnibs_python", "-m", "tit.blender", stl_config_path], None)
                 )
-                stl_dir = os.path.join(out_base, "stl")
-                self._prune_infos.append(
-                    {
-                        "format": "stl",
-                        "mode_dir": stl_dir,
-                        "include_whole": True,
-                        "simulation": simulation_name,
-                    }
-                )
 
                 # Always export PLY via config dataclass
                 ply_config = RegionConfig(
@@ -1098,15 +1088,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 )
                 commands.append(
                     (["simnibs_python", "-m", "tit.blender", ply_config_path], None)
-                )
-                ply_dir = os.path.join(out_base, "ply")
-                self._prune_infos.append(
-                    {
-                        "format": "ply",
-                        "mode_dir": ply_dir,
-                        "include_whole": True,
-                        "simulation": simulation_name,
-                    }
                 )
 
             elif self.rb_vec.isChecked():
@@ -1353,45 +1334,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self._update_output("\n========================================", "success")
         self._update_output("EXPORT COMPLETE", "success")
         self._update_output("========================================", "success")
-        # Post-process: keep only selected cortical regions for each generated format
-        try:
-            infos = getattr(self, "_prune_infos", []) or []
-            sel_list = getattr(self, "_selected_regions", None)
-            if not sel_list:
-                return
-            sel = set(sel_list)
-            for info in infos:
-                if info["format"] == "stl":
-                    regions_dir = os.path.join(
-                        info["mode_dir"], "cortical_stls", "regions"
-                    )
-                    if os.path.isdir(regions_dir):
-                        for f in os.listdir(regions_dir):
-                            if f.lower().endswith(".stl"):
-                                name = os.path.splitext(f)[0]
-                                if name not in sel:
-                                    try:
-                                        os.remove(os.path.join(regions_dir, f))
-                                    except OSError:
-                                        # File may be in use or already deleted
-                                        pass
-                else:
-                    regions_dir = os.path.join(
-                        info["mode_dir"], "cortical_plys", "regions"
-                    )
-                    if os.path.isdir(regions_dir):
-                        for f in os.listdir(regions_dir):
-                            if f.lower().endswith(".ply"):
-                                name = os.path.splitext(f)[0]
-                                if name not in sel:
-                                    try:
-                                        os.remove(os.path.join(regions_dir, f))
-                                    except OSError:
-                                        # File may be in use or already deleted
-                                        pass
-        except Exception:
-            # Directory cleanup may fail if files are in use
-            pass
 
     def _on_error(self, err):
         self.action_buttons.enable_run()

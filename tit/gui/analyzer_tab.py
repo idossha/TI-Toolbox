@@ -33,6 +33,8 @@ from tit.gui.components.console import (
 )
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
+from tit.gui.components.region_chips import RegionChipsWidget
 from tit.atlas.constants import BUILTIN_ATLASES
 from tit.paths import get_path_manager
 
@@ -112,6 +114,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         self._last_output_dir = None
         self._last_plain_output_line = None
         self._summary_printed = set()
+
+        # Per-Space region selection: Mesh and Voxel keep independent chip sets
+        # (like the optimizer's separate cortical/subcortical chips), so
+        # switching Space does not lose the other Space's selection.
+        self._region_store = {"mesh": [], "voxel": []}
+        self._current_region_space = "mesh"  # default Space (space_mesh checked)
+        self._last_mesh_atlas = None
+        self._last_voxel_atlas = None
 
         self.setup_ui()
 
@@ -599,19 +609,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         space_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(space_layout)
 
-        # Tissue type row
-        tissue_layout = QtWidgets.QHBoxLayout()
-        tissue_layout.setSpacing(10)
-        tissue_label = QtWidgets.QLabel("Tissue:")
-        tissue_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        tissue_layout.addWidget(tissue_label)
-        tissue_layout.addWidget(self.tissue_combo)
-        tissue_layout.addStretch()
-        analysis_params_layout.addLayout(tissue_layout)
-
-        # Type selection row (separate from Space) - distribute evenly across width
+        # Type selection row - moved up so it sits right after Space and drives
+        # which target group (cortical vs spherical) is shown below.
         type_layout = QtWidgets.QHBoxLayout()
         type_layout.setSpacing(10)
         self.type_label = QtWidgets.QLabel("Type:")
@@ -636,45 +635,35 @@ class AnalyzerTab(QtWidgets.QWidget):
         type_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(type_layout)
 
+        # Tissue type row (applies to voxel space; enable/disable handled in
+        # update_atlas_visibility). Kept always-visible here — NOT inside
+        # cortical_group — so it stays reachable in Voxel+Spherical mode, where it
+        # still affects output (field-file GM/WM selection and voxel tissue mask).
+        tissue_layout = QtWidgets.QHBoxLayout()
+        tissue_layout.setSpacing(10)
+        tissue_label = QtWidgets.QLabel("Tissue:")
+        tissue_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        tissue_layout.addWidget(tissue_label)
+        tissue_layout.addWidget(self.tissue_combo)
+        tissue_layout.addStretch()
+        analysis_params_layout.addLayout(tissue_layout)
+
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
-        # Region, Atlas, and Spherical parameters - organized into multiple rows
-        # Row 1: Region input (comma-separated for combined ROI) + List Regions button
-        region_row = QtWidgets.QHBoxLayout()
-        region_row.setSpacing(10)
-        self.region_label = QtWidgets.QLabel("Region(s):")
-        self.region_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        self.region_input = QtWidgets.QLineEdit()
-        self.region_input.setPlaceholderText(
-            "e.g., superiorfrontal  or  precentral, postcentral"
-        )
-        self.region_input.setMinimumWidth(100)
-        self.region_input.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
+        # ===================== Cortical target group =====================
+        self.cortical_group = QtWidgets.QGroupBox("Cortical target")
+        cortical_layout = QtWidgets.QVBoxLayout(self.cortical_group)
+        cortical_layout.setSpacing(8)
 
-        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
-        self.show_regions_btn.clicked.connect(self.show_available_regions)
-        self.show_regions_btn.setEnabled(False)
-        self.show_regions_btn.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-
-        region_row.addWidget(self.region_label)
-        region_row.addWidget(self.region_input)
-        region_row.addSpacing(5)
-        region_row.addWidget(self.show_regions_btn)
-        region_row.addStretch()
-        analysis_params_layout.addLayout(region_row)
-
-        # Row 2: Atlas selection (single widget that shows mesh or voxel based on space)
+        # Atlas row: the atlas widget(s) (mesh or voxel depending on Space) plus
+        # the "List Regions" button. Both atlas widgets live here; only the one
+        # matching the current Space is shown/enabled (see update_atlas_visibility).
         atlas_row = QtWidgets.QHBoxLayout()
         atlas_row.setSpacing(10)
 
-        # Atlas widgets - always visible, just enabled/disabled
+        # Atlas widgets - always present, only the relevant one shown/enabled
         self.mesh_atlas_widget = QtWidgets.QWidget()
         mesh_atlas_layout = QtWidgets.QHBoxLayout(self.mesh_atlas_widget)
         mesh_atlas_layout.setContentsMargins(0, 0, 0, 0)
@@ -713,16 +702,65 @@ class AnalyzerTab(QtWidgets.QWidget):
         voxel_atlas_row_layout.addWidget(self.atlas_combo)
         voxel_atlas_vlayout.addWidget(voxel_atlas_row)
 
-        # Only add the appropriate atlas widget based on current space
-        # Both will be in the layout, but only one enabled/visible at a time
+        # "List Regions" button lives on the atlas row.
+        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
+        self.show_regions_btn.clicked.connect(self.show_available_regions)
+        self.show_regions_btn.setEnabled(False)
+        self.show_regions_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+
+        # "Clear" button drops every selected region chip in one click, mirroring
+        # the optimizer's region-selection UX. It is wired to region_chips.clear
+        # below, once the chips widget exists.
+        self.clear_regions_btn = QtWidgets.QPushButton("Clear")
+        self.clear_regions_btn.setToolTip("Clear all selected regions")
+        self.clear_regions_btn.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+
+        # Both atlas widgets in the layout, but only one enabled/visible at a time
         atlas_row.addWidget(self.mesh_atlas_widget)
         atlas_row.addWidget(self.voxel_atlas_widget)
+        atlas_row.addWidget(self.show_regions_btn)
+        atlas_row.addWidget(self.clear_regions_btn)
         atlas_row.addStretch()
-        analysis_params_layout.addLayout(atlas_row)
+        cortical_layout.addLayout(atlas_row)
 
-        # Spherical analysis parameters - split into separate rows
+        # Region(s) label above the full-width chips row.
+        self.region_label = QtWidgets.QLabel("Region(s):")
+        self.region_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        cortical_layout.addWidget(self.region_label)
 
-        # Row 2.5: Coordinate space selection (for spherical analysis)
+        # Selected-region chips get their OWN full-width row so they are clearly
+        # visible and wrap instead of being clipped.
+        self.region_chips = RegionChipsWidget(
+            placeholder="No regions selected — use List Regions…"
+        )
+        self.region_chips.setToolTip(
+            "Selected regions for cortical analysis. Use 'List Regions' to add "
+            "regions; each chip shows the region name and its atlas label index. "
+            "Multiple regions combine into one ROI; press ✕ on a chip to remove it."
+        )
+        _chips_policy = self.region_chips.sizePolicy()
+        _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
+        self.region_chips.setSizePolicy(_chips_policy)
+        cortical_layout.addWidget(self.region_chips)
+
+        # Now that region_chips exists, wire the "Clear" button created above.
+        self.clear_regions_btn.clicked.connect(self.region_chips.clear)
+
+        analysis_params_layout.addWidget(self.cortical_group)
+
+        # ===================== Spherical target group =====================
+        self.spherical_group = QtWidgets.QGroupBox("Spherical target")
+        spherical_layout = QtWidgets.QVBoxLayout(self.spherical_group)
+        spherical_layout.setSpacing(8)
+
+        # Coordinate space selection (Subject / MNI) for spherical analysis.
         coord_space_row = QtWidgets.QHBoxLayout()
         coord_space_row.setSpacing(10)
         self.coord_space_label = QtWidgets.QLabel("Coordinate Space:")
@@ -733,9 +771,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         coord_space_row.addWidget(self.coord_space_subject)
         coord_space_row.addWidget(self.coord_space_mni)
         coord_space_row.addStretch()
-        analysis_params_layout.addLayout(coord_space_row)
+        spherical_layout.addLayout(coord_space_row)
 
-        # Row 3: Coordinates & Radius (single input: x,y,z,r)
+        # Coordinates & Radius (single input: x,y,z,r)
         coords_row = QtWidgets.QHBoxLayout()
         coords_row.setSpacing(10)
         self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z,r):")
@@ -762,12 +800,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         coords_row.addSpacing(10)
         coords_row.addWidget(self.view_in_freeview_btn)
         coords_row.addStretch()
-        analysis_params_layout.addLayout(coords_row)
+        spherical_layout.addLayout(coords_row)
+
+        analysis_params_layout.addWidget(self.spherical_group)
 
         # Remove the stacked widget approach - coordinates/radius are always visible
         # Instead, we'll enable/disable them based on mode
 
-        # Original connections from setup_ui for space/type changes
+        # Original connections from setup_ui for space/type changes.
+        # update_atlas_visibility() also drives the adaptive cortical/spherical
+        # target-group visibility, so the type radios need no extra connection.
         self.space_mesh.toggled.connect(self.update_atlas_visibility)
         self.space_voxel.toggled.connect(self.update_atlas_visibility)
         self.type_spherical.toggled.connect(self.update_atlas_visibility)
@@ -777,15 +819,27 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
 
+        # Reset the region selection whenever the analysis context changes: mesh
+        # and voxel regions (and different atlases) are not interchangeable, so a
+        # user-initiated Space switch or atlas change invalidates the current
+        # chips. These fire only on genuine user interaction — space_mesh.toggled
+        # emits once per real Space change (and is connected after the initial
+        # setChecked, so setup does not trigger it), while the combos' activated
+        # signal never fires on programmatic repopulation (clear/setCurrentIndex).
+        self.space_mesh.toggled.connect(self._swap_region_space)
+        self.atlas_name_combo.activated.connect(self._on_analyzer_atlas_changed)
+        self.atlas_combo.activated.connect(self._on_analyzer_atlas_changed)
+
         # (Removed) Analysis mode defaults (surface vs volumetric). Analyzer is surface-only.
 
         # Connect coordinate space radio buttons
         self.coord_space_subject.toggled.connect(self._update_coordinate_space_labels)
         self.coord_space_mni.toggled.connect(self._update_coordinate_space_labels)
 
-        self.update_atlas_visibility()  # Initial call
+        # Initial call also sets the adaptive target-group visibility.
+        self.update_atlas_visibility()
         self.update_cortical_button_text()  # Initial call
-        analysis_params_container.setFixedHeight(250)
+        analysis_params_container.setMinimumHeight(250)
         right_layout.addWidget(analysis_params_container)
 
         # Compact Gmsh visualization - using space more efficiently
@@ -1021,7 +1075,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Should be enabled for cortical analysis, but only if atlas controls are enabled
         region_enabled = cortical_controls_enabled
         self.region_label.setEnabled(region_enabled)
-        self.region_input.setEnabled(region_enabled)
+        self.region_chips.setEnabled(region_enabled)
 
         # Update show regions button
         # Should be enabled for cortical analysis, but only if we have valid atlases
@@ -1078,6 +1132,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_mesh = self.space_mesh.isChecked()
         is_cortical = self.type_cortical.isChecked()
         is_spherical = self.type_spherical.isChecked()
+
+        # Adaptive target-group visibility: show only the group matching the
+        # selected analysis type. Guarded for early calls before the groups
+        # are created.
+        if hasattr(self, "cortical_group"):
+            self.cortical_group.setVisible(is_cortical)
+        if hasattr(self, "spherical_group"):
+            self.spherical_group.setVisible(is_spherical)
 
         # Tissue selection only applies to voxel space
         self.tissue_combo.setEnabled(not is_mesh)
@@ -1269,7 +1331,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.atlas_warning_label.setVisible(False)
                 # Disable all region/atlas controls
                 self.region_label.setEnabled(False)
-                self.region_input.setEnabled(False)
+                self.region_chips.setEnabled(False)
                 self.show_regions_btn.setEnabled(False)
                 return  # Skip the centralized update, as we've set everything explicitly
 
@@ -1490,11 +1552,11 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
-            if not self.region_input.text().strip():
+            if not self.region_chips.keys():
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Warning",
-                    "Please enter a region name for cortical analysis.",
+                    "Please select a region for cortical analysis.",
                 )
                 return False
         return True
@@ -1871,7 +1933,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
             regions = self._get_regions()
-            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()}\n"
+            details += f"- Region(s): {', '.join(regions)}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -1914,7 +1976,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 details += f"- Voxel Atlas: Common atlas configuration\n"
             regions = self._get_regions()
-            details += f"- Region(s): {', '.join(regions) if regions else self.region_input.text()} (for all)\n"
+            details += f"- Region(s): {', '.join(regions)} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2058,11 +2120,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     "."
                 )[0]
             regions = self._get_regions()
-            region_str = (
-                "+".join(regions)
-                if regions
-                else self.region_input.text().strip() or "region"
-            )
+            region_str = "+".join(regions) or "region"
             return f"Cortical: {atlas}.{region_str}"
         else:
             parsed = self._parse_coords_radius()
@@ -2107,7 +2165,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_name_combo,
             self.atlas_combo,
             self.show_regions_btn,
-            self.region_input,
+            self.region_chips,
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, "setEnabled"):
@@ -2130,14 +2188,14 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.type_cortical,
             self.coords_radius_input,
             self.view_in_freeview_btn,
-            # atlas_name_combo, atlas_combo, show_regions_btn, region_input handled by update_atlas_visibility
+            # atlas_name_combo, atlas_combo, show_regions_btn, region_chips handled by update_atlas_visibility
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, "setEnabled"):
                 widget.setEnabled(True)
 
         # Force enable these controls first, then let update_atlas_visibility handle proper state
-        self.region_input.setEnabled(True)
+        self.region_chips.setEnabled(True)
         self.region_label.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
         # Don't force enable atlas_combo - let update_atlas_visibility handle it properly
@@ -2151,17 +2209,54 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.status_label.hide()
 
-    @staticmethod
-    def _list_annot_regions(seg_dir, atlas_name):
-        """Read region names from .annot files in the segmentation directory."""
-        from tit.atlas import MeshAtlasManager
+    def _current_space_name(self) -> str:
+        return "mesh" if self.space_mesh.isChecked() else "voxel"
 
-        return MeshAtlasManager(seg_dir).list_regions(atlas_name)
+    def _swap_region_space(self, *_args) -> None:
+        """Preserve each Space's own region selection across a Space switch.
+
+        Connected to ``space_mesh.toggled``. On a genuine Space change, the
+        current chips are snapshotted under the Space being left and the chips
+        for the Space being entered are restored (empty if never used), so Mesh
+        and Voxel keep independent selections. ``*_args`` absorbs the ``bool``
+        payload; the connection is made after the initial ``setChecked`` so
+        setup does not trigger it.
+        """
+        new_space = self._current_space_name()
+        if new_space == self._current_region_space:
+            return
+        self._region_store[self._current_region_space] = self.region_chips.items()
+        self.region_chips.set_items(self._region_store.get(new_space, []))
+        self._current_region_space = new_space
+
+    def _on_analyzer_atlas_changed(self, *_args) -> None:
+        """Reset the current Space's selection when its atlas actually changes.
+
+        Regions are atlas-specific, so switching the atlas within a Space clears
+        that Space's chips and stored snapshot (single-atlas rule). Wired to the
+        combos' ``activated`` (user-only) signal and guarded so re-selecting the
+        same atlas — or a programmatic repopulation — does not wipe the chips.
+        """
+        space = self._current_space_name()
+        if space == "mesh":
+            atlas, attr = self.atlas_name_combo.currentText(), "_last_mesh_atlas"
+        else:
+            atlas, attr = self.atlas_combo.currentText(), "_last_voxel_atlas"
+        if atlas == getattr(self, attr):
+            return
+        setattr(self, attr, atlas)
+        self._region_store[space] = []
+        self.region_chips.clear()
 
     def _get_regions(self) -> list[str]:
-        """Parse comma-separated region names from the input field."""
-        text = self.region_input.text().strip()
-        return [r.strip() for r in text.split(",") if r.strip()]
+        """Return the selected region names from the region chips.
+
+        Each chip's key is the region name the analyzer config consumes (a
+        hemisphere-prefixed name for mesh atlases, a plain name for voxel
+        atlases), so this is a drop-in replacement for the former
+        comma-separated text field.
+        """
+        return self.region_chips.keys()
 
     def show_available_regions(self):
         """Show a searchable dialog of available regions for the selected atlas."""
@@ -2175,7 +2270,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         progress_dialog.setMinimumDuration(200)
         progress_dialog.setValue(0)
 
-        atlas_type_display, regions = "", []
+        atlas_type_display, entries = "", []
         subject_id = selected_subjects[0]
 
         if self.space_mesh.isChecked():
@@ -2194,7 +2289,22 @@ class AnalyzerTab(QtWidgets.QWidget):
             progress_dialog.setValue(20)
             QtWidgets.QApplication.processEvents()
             seg_dir = os.path.join(m2m_dir, "segmentation")
-            regions = self._list_annot_regions(seg_dir, atlas_name)
+            # Build (index, "hemi.name", None) entries straight from each
+            # hemisphere's .annot so chips display the region's real atlas
+            # label index instead of a fake enumerate position. The name token
+            # ("lh.precentral") is exactly what the analyzer config consumes.
+            from tit.atlas import MeshAtlasManager
+
+            mesh_mgr = MeshAtlasManager(seg_dir)
+            for hemi in ("lh", "rh"):
+                annot_file = mesh_mgr.find_atlas_file(atlas_name, hemi)
+                if not annot_file:
+                    continue
+                for idx, name in mesh_mgr.list_annot_regions(annot_file):
+                    if name == "unknown":
+                        continue
+                    entries.append((idx, f"{hemi}.{name}", None))
+            entries.sort(key=lambda e: e[1])  # alphabetical within the finder list
             progress_dialog.setValue(80)
             QtWidgets.QApplication.processEvents()
 
@@ -2212,10 +2322,19 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             from tit.atlas import VoxelAtlasManager
 
-            regions = VoxelAtlasManager().list_regions(atlas_path)
+            # VoxelAtlasManager yields "Name (ID: N)" strings; parse each into
+            # its real integer label id and clean name so chips show the id and
+            # the config receives the plain region name.
+            for region in VoxelAtlasManager().list_regions(atlas_path):
+                name_part, _, id_part = region.partition(" (ID:")
+                try:
+                    region_id = int(id_part.rstrip(")").strip())
+                except ValueError:
+                    region_id = 0
+                entries.append((region_id, name_part.strip(), None))
             progress_dialog.setValue(90)
 
-        if not regions:
+        if not entries:
             QtWidgets.QMessageBox.information(
                 self, "No Regions", f"No regions for: {atlas_type_display}"
             )
@@ -2224,60 +2343,20 @@ class AnalyzerTab(QtWidgets.QWidget):
         progress_dialog.setValue(100)
         progress_dialog.close()
 
-        # Show searchable region dialog
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle(f"Available Regions - {atlas_type_display}")
-        dialog.setMinimumWidth(400)
-        dialog.setMinimumHeight(500)
-        layout = QtWidgets.QVBoxLayout(dialog)
-
-        search_input = QtWidgets.QLineEdit()
-        search_layout = QtWidgets.QHBoxLayout()
-        search_layout.addWidget(QtWidgets.QLabel("Search:"))
-        search_layout.addWidget(search_input)
-        layout.addLayout(search_layout)
-
-        list_widget = QtWidgets.QListWidget()
-        list_widget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        list_widget.addItems(regions)
-        layout.addWidget(list_widget)
-
-        def filter_regions(text):
-            for i in range(list_widget.count()):
-                list_widget.item(i).setHidden(
-                    text.lower() not in list_widget.item(i).text().lower()
-                )
-
-        def select_regions():
-            selected = list_widget.selectedItems()
-            if not selected:
-                return
-            existing = self.region_input.text().strip()
-            current = (
-                [r.strip() for r in existing.split(",") if r.strip()]
-                if existing
-                else []
-            )
-            for item in selected:
-                region_text = item.text().split(" (ID:")[0]
-                if region_text not in current:
-                    current.append(region_text)
-            self.region_input.setText(", ".join(current))
-            dialog.accept()
-
-        search_input.textChanged.connect(filter_regions)
-        list_widget.itemDoubleClicked.connect(lambda: select_regions())
-
-        btn_layout = QtWidgets.QHBoxLayout()
-        copy_btn = QtWidgets.QPushButton("Add Selected")
-        close_btn = QtWidgets.QPushButton("Close")
-        copy_btn.clicked.connect(select_regions)
-        close_btn.clicked.connect(dialog.reject)
-        btn_layout.addWidget(copy_btn)
-        btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
-
-        dialog.exec_()
+        dialog = AtlasRegionFinderDialog(
+            self,
+            f"Available Regions - {atlas_type_display}",
+            entries,
+            return_field="name",
+            multi=True,
+            preselected=list(self.region_chips.keys()),
+        )
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            # Add each selected region as a de-duplicated chip. The key is the
+            # region name the analyzer config expects (what _get_regions
+            # returned before); the display carries the real atlas label index.
+            for region_id, name in zip(dialog.selected_ids(), dialog.selected_names()):
+                self.region_chips.add_item(key=name, display=f"{name} · {region_id}")
 
     def load_t1_in_freeview(self):
         """Load subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""
@@ -2647,13 +2726,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                 container_width = 400  # Default fallback
 
         # Calculate dynamic maximum widths as percentages of container width
-        # These percentages allow growth while preventing overflow
-        # Region input uses Preferred policy, so it will expand up to max
-        if hasattr(self, "region_input"):
-            # Allow expansion up to a reasonable max based on container size
-            max_region_width = max(200, min(300, int(container_width * 0.40)))
-            if self.region_input.maximumWidth() != max_region_width:
-                self.region_input.setMaximumWidth(max_region_width)
+        # These percentages allow growth while preventing overflow.
+        # The region selector is now a RegionChipsWidget that wraps its chips
+        # via height-for-width, so it needs no maximum-width clamp; leaving one
+        # would stop the chips from reflowing to fill the available row.
 
         # Coordinates+radius input uses Preferred policy
         if hasattr(self, "coords_radius_input"):

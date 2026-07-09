@@ -36,6 +36,33 @@ class _TissueType(StrEnum):
     ALL = "all"
 
 
+class _AnalysisSpace(StrEnum):
+    """Where the group statistics run: MNI volume or fsaverage surface."""
+
+    MNI = "mni"
+    FSAVERAGE = "fsaverage"
+
+
+#: Surface field quantities the fsaverage stats path can load (mirrors
+#: :data:`tit.source.config.VALID_FSAVG_FIELDS`).
+_VALID_FSAVG_FIELDS = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+_VALID_FSAVG_SPACINGS = (5, 6, 7)
+
+
+def _validate_surface_options(space, field, spacing) -> None:
+    """Shared fsaverage-option validation for both config classes."""
+    if space != _AnalysisSpace.FSAVERAGE:
+        return
+    if field not in _VALID_FSAVG_FIELDS:
+        raise ValueError(
+            f"fsaverage_field must be one of {_VALID_FSAVG_FIELDS}, got {field!r}"
+        )
+    if spacing not in _VALID_FSAVG_SPACINGS:
+        raise ValueError(
+            f"fsaverage_spacing must be one of {_VALID_FSAVG_SPACINGS}, got {spacing}"
+        )
+
+
 # ── Private helper ────────────────────────────────────────────────────────
 
 
@@ -104,6 +131,7 @@ class GroupComparisonConfig:
     # ── Nested types ──────────────────────────────────────────────────
     ClusterStat = _ClusterStat
     TissueType = _TissueType
+    AnalysisSpace = _AnalysisSpace
 
     class TestType(StrEnum):
         """Type of statistical test for group comparison."""
@@ -153,6 +181,13 @@ class GroupComparisonConfig:
     tissue_type: TissueType = _TissueType.GREY
     nifti_file_pattern: str | None = None
 
+    # Analysis space: MNI volume (default) or fsaverage surface. When
+    # ``fsaverage``, the per-subject ``fsaverage_field`` caches are used and the
+    # NIfTI/tissue options are ignored.
+    space: AnalysisSpace = _AnalysisSpace.MNI
+    fsaverage_field: str = "TI_max"
+    fsaverage_spacing: int = 5
+
     # Labels
     group1_name: str = "Responders"
     group2_name: str = "Non-Responders"
@@ -162,8 +197,19 @@ class GroupComparisonConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.test_type = self.TestType(self.test_type)
+        self.alternative = self.Alternative(self.alternative)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
+        _validate_surface_options(
+            self.space, self.fsaverage_field, self.fsaverage_spacing
+        )
 
         responders = [s for s in self.subjects if s.response == 1]
         non_responders = [s for s in self.subjects if s.response == 0]
@@ -269,6 +315,7 @@ class CorrelationConfig:
     # ── Nested types ──────────────────────────────────────────────────
     ClusterStat = _ClusterStat
     TissueType = _TissueType
+    AnalysisSpace = _AnalysisSpace
 
     class CorrelationType(StrEnum):
         """Type of correlation coefficient to compute."""
@@ -315,6 +362,13 @@ class CorrelationConfig:
     tissue_type: TissueType = _TissueType.GREY
     nifti_file_pattern: str | None = None
 
+    # Analysis space: MNI volume (default) or fsaverage surface. When
+    # ``fsaverage``, the per-subject ``fsaverage_field`` caches are used and the
+    # NIfTI/tissue options are ignored.
+    space: AnalysisSpace = _AnalysisSpace.MNI
+    fsaverage_field: str = "TI_max"
+    fsaverage_spacing: int = 5
+
     # Labels
     effect_metric: str = "Effect Size"
     field_metric: str = "Electric Field Magnitude"
@@ -323,8 +377,18 @@ class CorrelationConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.correlation_type = self.CorrelationType(self.correlation_type)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
+        _validate_surface_options(
+            self.space, self.fsaverage_field, self.fsaverage_spacing
+        )
 
         if len(self.subjects) < 3:
             raise ValueError(
