@@ -10,10 +10,6 @@ To-Do List:
 - [ ] Ex-search viewer - graphical UI for electrode visualization and selection.
 - [ ] Convert to fully-based Electron frontend?
 
-### Scientific
-
-- [ ] SAR calculation for HF signal
-
 ### Other
 
 - [ ] Integrate with openssf best practices
