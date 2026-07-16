@@ -45,6 +45,9 @@ BIDSIGNORE_LINES = (
     "# anat/ with a lowercase _ct suffix, matching BEP024's proposal.",
     "*_ct.nii.gz",
     "*_ct.json",
+    "# dcm2niix derivatives of a CT series, e.g. _Tilt_1 for gantry tilt.",
+    "*_ct_*.nii.gz",
+    "*_ct_*.json",
 )
 
 

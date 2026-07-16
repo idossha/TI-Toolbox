@@ -79,22 +79,40 @@ class TestSafeScanning:
         assert [p.name for p in found] == ["scan.dcm"]
 
     def test_unreadable_entry_is_skipped_not_fatal(self, tmp_path):
-        """A non-dot entry that cannot be stat'd is skipped, not raised.
+        """A non-dot entry whose is_dir/is_file raises is skipped, not fatal.
 
-        Covers filesystems reporting DT_UNKNOWN, where scandir must fall back
-        to a real stat syscall.
+        Covers filesystems reporting DT_UNKNOWN, where scandir cannot answer
+        from the directory entry and falls back to a real stat syscall.
         """
-        (tmp_path / "scan.dcm").touch()
 
-        with patch(
-            f"{MODULE}.os.scandir",
-            return_value=[
-                MagicMock(
-                    name="x", **{"is_dir.side_effect": PermissionError(1, "nope")}
-                )
-            ],
-        ):
-            assert list(_iter_files(tmp_path)) == []
+        class _Unreadable:
+            """A DirEntry whose type cannot be determined."""
+
+            name = "locked.dcm"
+            path = str(tmp_path / "locked.dcm")
+
+            def is_dir(self):
+                raise PermissionError(1, "Operation not permitted")
+
+            def is_file(self):
+                raise PermissionError(1, "Operation not permitted")
+
+        class _Readable:
+            name = "scan.dcm"
+            path = str(tmp_path / "scan.dcm")
+
+            def is_dir(self):
+                return False
+
+            def is_file(self):
+                return True
+
+        with patch(f"{MODULE}.os.scandir", return_value=[_Unreadable(), _Readable()]):
+            found = list(_iter_files(tmp_path))
+
+        # The unreadable entry is dropped, but the readable sibling survives:
+        # one bad entry must not cost us the rest of the directory.
+        assert [p.name for p in found] == ["scan.dcm"]
 
     def test_unreadable_directory_is_skipped(self, tmp_path):
         """An unreadable directory does not abort the whole scan."""
@@ -112,6 +130,36 @@ class TestSafeScanning:
         assert [p.name for p in _find_files(tmp_path, _DICOM_SUFFIXES)] == [
             "scan.DICOM"
         ]
+
+    def test_follows_symlinked_directory(self, tmp_path):
+        """Researchers point sourcedata at a shared DICOM store by symlink."""
+        store = tmp_path / "store"
+        store.mkdir()
+        (store / "scan.dcm").touch()
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "dicom").symlink_to(store, target_is_directory=True)
+
+        assert [p.name for p in _find_files(modality_dir, _DICOM_SUFFIXES)] == [
+            "scan.dcm"
+        ]
+
+    def test_symlink_cycle_yields_each_file_once(self, tmp_path):
+        """A cycle must not re-yield the same file over and over.
+
+        The kernel's ELOOP cap eventually stops the walk, but without a
+        visited set the same DICOM is reported ~40 times, inflating both the
+        'Found N DICOM file(s)' count and the work handed to dcm2niix.
+        """
+        dicom_dir = tmp_path / "T1w" / "dicom"
+        dicom_dir.mkdir(parents=True)
+        (dicom_dir / "scan.dcm").touch()
+        (dicom_dir / "loop").symlink_to("..", target_is_directory=True)
+
+        found = _find_files(tmp_path / "T1w", _DICOM_SUFFIXES)
+
+        assert len(found) == 1
+        assert found[0].name == "scan.dcm"
 
     def test_ignores_non_dicom_files(self, tmp_path):
         """Only .dcm/.dicom count as DICOM input."""
@@ -192,6 +240,47 @@ class TestArchives:
 
         assert not (nested / "extracted_archives").exists()
 
+    def test_same_named_archives_do_not_collide(self, tmp_path):
+        """Recursive search finds both; a shared destination would drop one."""
+        modality_dir = tmp_path / "T1w"
+        for series in ("series1", "series2"):
+            folder = modality_dir / series
+            folder.mkdir(parents=True)
+            with zipfile.ZipFile(folder / "data.zip", "w") as zf:
+                zf.writestr(f"{series}.dcm", "dicom")
+
+        _extract_archives(modality_dir, MagicMock())
+
+        found = {p.name for p in _find_files(modality_dir, _DICOM_SUFFIXES)}
+        assert found == {"series1.dcm", "series2.dcm"}
+
+    def test_ancestor_named_extracted_archives_is_not_skipped(self, tmp_path):
+        """The recursion guard is relative: an ancestor of that name is fine."""
+        modality_dir = tmp_path / "extracted_archives" / "proj" / "T1w"
+        modality_dir.mkdir(parents=True)
+        with zipfile.ZipFile(modality_dir / "series.zip", "w") as zf:
+            zf.writestr("scan.dcm", "dicom")
+
+        _extract_archives(modality_dir, MagicMock())
+
+        assert [p.name for p in _find_files(modality_dir, _DICOM_SUFFIXES)] == [
+            "scan.dcm"
+        ]
+
+    def test_reuses_previous_extraction(self, tmp_path):
+        """Re-running must not extract an archive a second time."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        with zipfile.ZipFile(modality_dir / "series.zip", "w") as zf:
+            zf.writestr("scan.dcm", "dicom")
+        logger = MagicMock()
+
+        _extract_archives(modality_dir, logger)
+        logger.reset_mock()
+        _extract_archives(modality_dir, logger)
+
+        assert "Using previously extracted" in str(logger.info.call_args)
+
     def test_bad_archive_warns_and_continues(self, tmp_path):
         """A corrupt archive is reported, not fatal."""
         modality_dir = tmp_path / "T1w"
@@ -220,6 +309,32 @@ class TestModalitySourceDir:
 
     def test_missing_folder_returns_default(self, tmp_path):
         assert _modality_source_dir(tmp_path, "dwi") == tmp_path / "dwi"
+
+    def test_populated_case_variant_beats_empty_scaffold(self, tmp_path):
+        """Regression: an empty scaffolded ct/ must not shadow the user's CT/.
+
+        ensure_subject_dirs pre-creates the canonical lowercase folder, so on
+        a case-sensitive filesystem the user's DICOMs were silently skipped.
+        Only meaningful where ct/ and CT/ are distinct -- the container is
+        Linux, but a macOS dev box is not.
+        """
+        (tmp_path / "ct").mkdir()
+        if (tmp_path / "CT").exists():
+            pytest.skip("case-insensitive filesystem: ct/ and CT/ are one folder")
+        user_dir = tmp_path / "CT" / "dicom"
+        user_dir.mkdir(parents=True)
+        (user_dir / "real.dcm").touch()
+
+        picked = _modality_source_dir(tmp_path, "ct")
+
+        assert list(_iter_files(picked)), f"{picked} holds no DICOMs"
+        assert picked.name == "CT"
+
+    def test_empty_folder_still_resolves(self, tmp_path):
+        """With nothing anywhere, the canonical folder is still returned."""
+        (tmp_path / "ct").mkdir()
+
+        assert _modality_source_dir(tmp_path, "ct") == tmp_path / "ct"
 
 
 class TestNiftiPassthrough:
@@ -284,6 +399,20 @@ class TestNiftiPassthrough:
         mock_convert.assert_called_once()
         assert not (out_dir / "sub-001_T1w.nii.gz").exists()
 
+    def test_bval_bvec_are_not_copied_for_anatomicals(self, tmp_path):
+        """A .bval beside a T1w is not valid BIDS in anat/."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.nii.gz").write_bytes(b"volume")
+        (modality_dir / "scan.bval").write_text("0 1000")
+        (modality_dir / "scan.json").write_text("{}")
+        out_dir = tmp_path / "anat"
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "T1w", MagicMock(), None)
+
+        assert (out_dir / "sub-001_T1w.json").exists()
+        assert not (out_dir / "sub-001_T1w.bval").exists()
+
     def test_nifti_stem_strips_double_extension(self):
         assert _nifti_stem(Path("scan.nii.gz")) == "scan"
         assert _nifti_stem(Path("scan.nii")) == "scan"
@@ -310,6 +439,34 @@ class TestIngestModality:
 
         with pytest.raises(PreprocessError, match="already exists"):
             _ingest_modality(modality_dir, out_dir, "001", "T1w", MagicMock(), None)
+
+    def test_existing_uncompressed_output_raises(self, tmp_path):
+        """A hand-placed .nii counts too, or the subject gets the entity twice."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        (out_dir / "sub-001_T1w.nii").touch()
+
+        with pytest.raises(PreprocessError, match="already exists"):
+            _ingest_modality(modality_dir, out_dir, "001", "T1w", MagicMock(), None)
+
+    def test_empty_folder_with_existing_output_is_skipped_not_fatal(self, tmp_path):
+        """Nothing to ingest is a skip, even when an output is already there.
+
+        An empty scaffolded ct/ folder must not abort a run that converts the
+        other modalities fine.
+        """
+        modality_dir = tmp_path / "ct"
+        modality_dir.mkdir()
+        out_dir = tmp_path / "anat"
+        out_dir.mkdir()
+        (out_dir / "sub-001_ct.nii.gz").touch()
+
+        assert not _ingest_modality(
+            modality_dir, out_dir, "001", "ct", MagicMock(), None
+        )
 
     @patch(f"{MODULE}.subprocess.run")
     def test_subprocess_success(self, mock_run, tmp_path):

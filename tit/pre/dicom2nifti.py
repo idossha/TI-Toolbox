@@ -74,10 +74,22 @@ def _iter_files(directory: Path) -> Iterator[Path]:
     The ``OSError`` guards cover the rest: filesystems that report
     ``DT_UNKNOWN`` make ``os.scandir`` fall back to a real ``stat`` syscall,
     so an unreadable non-dot entry must not abort the scan either.
+
+    Symlinked directories are followed -- researchers routinely point
+    sourcedata at a shared DICOM store -- but each real directory is visited
+    only once, so a cycle cannot yield the same file repeatedly.
     """
+    seen: set[Path] = set()
     stack = [directory]
     while stack:
         current = stack.pop()
+        try:
+            resolved = current.resolve()
+        except OSError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
         try:
             entries = list(os.scandir(current))
         except OSError:
@@ -99,11 +111,6 @@ def _find_files(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
     return sorted(
         path for path in _iter_files(directory) if _has_suffix(path.name, suffixes)
     )
-
-
-def _is_archive(path: Path) -> bool:
-    """Return ``True`` when *path* is a supported archive."""
-    return _has_suffix(path.name, _ARCHIVE_SUFFIXES)
 
 
 def _safe_target(base_dir: Path, member_name: str) -> Path:
@@ -165,12 +172,23 @@ def _extract_archive(archive: Path, destination: Path) -> int:
 
 
 def _extract_archives(modality_dir: Path, logger) -> None:
-    """Extract every archive under *modality_dir* into ``extracted_archives/``."""
+    """Extract every archive under *modality_dir* beside itself.
+
+    Each archive extracts to ``<its own folder>/extracted_archives/<name>``
+    rather than to one shared folder, so two archives that happen to share a
+    basename (``series1/data.zip`` and ``series2/data.zip``) cannot collide.
+    """
     for archive in _find_files(modality_dir, _ARCHIVE_SUFFIXES):
-        # Never re-extract our own output, or extraction would recurse.
-        if _EXTRACTED_ARCHIVES_DIR in archive.parts:
+        # Never re-extract our own output, or extraction would recurse. The
+        # check is relative to modality_dir: an absolute path could otherwise
+        # contain an unrelated ancestor of that name.
+        try:
+            relative_parts = archive.relative_to(modality_dir).parts
+        except ValueError:
             continue
-        destination = modality_dir / _EXTRACTED_ARCHIVES_DIR / archive.name
+        if _EXTRACTED_ARCHIVES_DIR in relative_parts:
+            continue
+        destination = archive.parent / _EXTRACTED_ARCHIVES_DIR / archive.name
         if destination.exists() and any(_iter_files(destination)):
             logger.info(f"Using previously extracted {archive.name} at {destination}")
             continue
@@ -188,23 +206,27 @@ def _modality_source_dir(sourcedata_dir: Path, modality: str) -> Path:
     """Return the source folder for *modality*, matching its name case-insensitively.
 
     Users name the folder ``CT`` as readily as ``ct``, and ``DWI`` as ``dwi``.
+    A folder holding something wins over an empty one: on a case-sensitive
+    filesystem the empty ``ct/`` that :func:`tit.pre.utils.ensure_subject_dirs`
+    scaffolds would otherwise shadow the user's populated ``CT/``.
     """
-    default = sourcedata_dir / modality
-    if default.exists() or not sourcedata_dir.exists():
-        return default
+    candidates: list[Path] = []
     try:
         entries = sorted(os.scandir(sourcedata_dir), key=lambda entry: entry.name)
     except OSError:
-        return default
+        return sourcedata_dir / modality
     for entry in entries:
         if entry.name.startswith(".") or entry.name.lower() != modality.lower():
             continue
         try:
             if entry.is_dir():
-                return Path(entry.path)
+                candidates.append(Path(entry.path))
         except OSError:
             continue
-    return default
+    for candidate in candidates:
+        if any(_iter_files(candidate)):
+            return candidate
+    return candidates[0] if candidates else sourcedata_dir / modality
 
 
 def _nifti_stem(path: Path) -> str:
@@ -215,14 +237,18 @@ def _nifti_stem(path: Path) -> str:
     return path.stem
 
 
-def _copy_sidecars(source: Path, output_dir: Path, bids_name: str, logger) -> None:
-    """Copy any ``.json``/``.bval``/``.bvec`` sitting beside *source*.
+def _copy_sidecars(
+    source: Path, output_dir: Path, bids_name: str, modality: str, logger
+) -> None:
+    """Copy the sidecars sitting beside *source* under the BIDS name.
 
-    The ``.bval``/``.bvec`` pair is what makes a copied DWI usable: QSIPrep
-    rejects a diffusion series without them.
+    ``.bval``/``.bvec`` only travel with a diffusion series -- they are what
+    make a copied DWI usable, since QSIPrep rejects one without them, but they
+    are not valid BIDS beside an anatomical image.
     """
+    suffixes = _SIDECAR_SUFFIXES if modality == "dwi" else (".json",)
     stem = _nifti_stem(source)
-    for suffix in _SIDECAR_SUFFIXES:
+    for suffix in suffixes:
         sidecar = source.with_name(f"{stem}{suffix}")
         if not sidecar.exists():
             continue
@@ -230,7 +256,9 @@ def _copy_sidecars(source: Path, output_dir: Path, bids_name: str, logger) -> No
         logger.info(f"Copied {sidecar.name} -> {bids_name}{suffix}")
 
 
-def _copy_nifti(source: Path, output_dir: Path, bids_name: str, logger) -> bool:
+def _copy_nifti(
+    source: Path, output_dir: Path, bids_name: str, modality: str, logger
+) -> bool:
     """Copy an existing NIfTI *source* into *output_dir* under its BIDS name."""
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{bids_name}.nii.gz"
@@ -242,8 +270,23 @@ def _copy_nifti(source: Path, output_dir: Path, bids_name: str, logger) -> bool:
         with source.open("rb") as src, gzip.open(target, "wb") as dst:
             shutil.copyfileobj(src, dst)
     logger.info(f"Copied {source.name} -> {target.name}")
-    _copy_sidecars(source, output_dir, bids_name, logger)
+    _copy_sidecars(source, output_dir, bids_name, modality, logger)
     return True
+
+
+def _reject_existing_output(output_dir: Path, bids_name: str) -> None:
+    """Raise if *bids_name* has already been ingested.
+
+    Both extensions are checked: we always write ``.nii.gz``, but a
+    hand-placed ``.nii`` counts too, and leaving it would make the subject
+    carry the same BIDS entity twice.
+    """
+    for suffix in _NIFTI_SUFFIXES:
+        if (output_dir / f"{bids_name}{suffix}").exists():
+            raise PreprocessError(
+                f"Output already exists for {bids_name}{suffix}. "
+                "Remove the files manually before rerunning."
+            )
 
 
 def _check_dcm2niix_outputs(output_dir: Path, bids_name: str, logger) -> bool:
@@ -256,14 +299,17 @@ def _check_dcm2niix_outputs(output_dir: Path, bids_name: str, logger) -> bool:
             f"(found: {', '.join(produced) if produced else 'nothing'})"
         )
         return False
-    # dcm2niix appends a bare letter on name collisions (sub-01_T1wa.nii.gz),
-    # which is not a BIDS name and is ignored by every downstream step.
+    # dcm2niix writes extra files under names we did not ask for: a bare
+    # letter per colliding series (sub-01_T1wa.nii.gz), and a suffix per
+    # derived volume (_Tilt_1 for gantry tilt, _Eq_1 for resliced). None are
+    # BIDS names, so every downstream step ignores them.
     extra = [name for name in produced if not name.startswith(f"{bids_name}.")]
     if extra:
         logger.warning(
-            f"More than one series was present, so dcm2niix suffixed the extras: "
-            f"{', '.join(extra)}. Only {expected} is used downstream — keep one "
-            f"series per modality folder if that is not the one you want."
+            f"dcm2niix wrote files beyond {expected}: {', '.join(extra)}. These "
+            f"are extra series, or derived volumes such as _Tilt_1 (gantry tilt) "
+            f"and _Eq_1 (resliced). Only {expected} is used downstream — if one "
+            f"of the others is the volume you want, rename it by hand."
         )
     logger.info(f"Created {expected}")
     return True
@@ -323,27 +369,24 @@ def _ingest_modality(
     to write a full sidecar, so a stray NIfTI never shadows the real series.
     """
     bids_name = f"sub-{subject_id}_{modality}"
-    if (output_dir / f"{bids_name}.nii.gz").exists():
-        raise PreprocessError(
-            f"Output already exists for {bids_name}. "
-            "Remove the files manually before rerunning."
-        )
 
     _extract_archives(modality_dir, logger)
 
     dicom_files = _find_files(modality_dir, _DICOM_SUFFIXES)
     if dicom_files:
         logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
+        _reject_existing_output(output_dir, bids_name)
         return _run_dcm2niix(modality_dir, output_dir, bids_name, logger, runner)
 
     nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
     if nifti_files:
+        _reject_existing_output(output_dir, bids_name)
         if len(nifti_files) > 1:
             logger.warning(
                 f"Found {len(nifti_files)} NIfTI files under {modality_dir}; "
                 f"using {nifti_files[0].name} and ignoring the rest."
             )
-        return _copy_nifti(nifti_files[0], output_dir, bids_name, logger)
+        return _copy_nifti(nifti_files[0], output_dir, bids_name, modality, logger)
 
     logger.info(
         f"No DICOM (.dcm/.dicom) or NIfTI (.nii/.nii.gz) files found under "

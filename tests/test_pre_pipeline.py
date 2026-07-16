@@ -419,6 +419,20 @@ class TestRunPipelineReports:
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
     @patch(f"{STRUCTURAL}.ensure_subject_dirs")
     @patch(f"{STRUCTURAL}.get_path_manager")
+    def test_scaffolds_bidsignore_once_per_run(
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, _stub_bidsignore
+    ):
+        """CT output needs .bidsignore, so the pipeline must write it."""
+        from tit.pre import structural
+
+        run_pipeline(["001", "002"], convert_dicom=True, runner=_make_runner())
+
+        structural.ensure_bidsignore.assert_called_once()
+
+    @patch(f"{STRUCTURAL}._run_subject_pipeline")
+    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
+    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
+    @patch(f"{STRUCTURAL}.get_path_manager")
     def test_report_generated_for_each_subject(
         self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
     ):
