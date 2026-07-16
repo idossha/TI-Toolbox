@@ -34,6 +34,17 @@ STRUCTURAL = "tit.pre.structural"
 REPORTING = "tit.reporting"
 
 
+@pytest.fixture(autouse=True)
+def _stub_bidsignore():
+    """These tests mock the path manager, so the project root is not a real path.
+
+    ensure_bidsignore writes there for real; its own behaviour is covered by
+    TestEnsureBidsignore in test_pre_utils_full.py.
+    """
+    with patch(f"{STRUCTURAL}.ensure_bidsignore"):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

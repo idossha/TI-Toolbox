@@ -47,6 +47,7 @@ from .utils import (
     PreprocessCancelled,
     PreprocessError,
     build_logger,
+    ensure_bidsignore,
     ensure_dataset_descriptions,
     ensure_subject_dirs,
 )
@@ -531,6 +532,7 @@ def _run_pipeline_inner(
     if create_m2m:
         datasets.add("simnibs")
     ensure_dataset_descriptions(project_dir, datasets)
+    ensure_bidsignore(project_dir)
 
     if runner is None:
         runner = CommandRunner(stop_event=stop_event)

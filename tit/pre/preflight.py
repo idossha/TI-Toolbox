@@ -11,6 +11,7 @@ from typing import Iterable, Sequence
 from tit import constants as const
 from tit.paths import get_path_manager
 
+from .dicom2nifti import MODALITIES
 from .qsi.utils import validate_bids_dwi
 from .utils import _find_nifti
 
@@ -199,14 +200,9 @@ def _existing_bids_sidecars(output_dir: Path, bids_name: str) -> tuple[Path, ...
 
 def _dicom_outputs(project_dir: str, subject_id: str) -> list[PreprocessingOutput]:
     pm = get_path_manager(project_dir)
-    anat_dir = Path(pm.bids_anat(subject_id))
-    modality_dirs = (
-        ("T1w", anat_dir),
-        ("T2w", anat_dir),
-        ("dwi", Path(pm.bids_dwi(subject_id))),
-    )
     outputs: list[PreprocessingOutput] = []
-    for modality, output_dir in modality_dirs:
+    for modality, datatype in MODALITIES:
+        output_dir = Path(pm.bids_datatype(subject_id, datatype))
         bids_name = f"sub-{subject_id}_{modality}"
         cleanup_paths = _existing_bids_sidecars(output_dir, bids_name)
         if cleanup_paths:

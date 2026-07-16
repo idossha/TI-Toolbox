@@ -1,16 +1,25 @@
-"""Tests for tit.pre.dicom2nifti — DICOM to NIfTI conversion."""
+"""Tests for tit.pre.dicom2nifti — source-image ingestion to BIDS NIfTI."""
 
+import gzip
+import os
 import tarfile
 import zipfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from tit.pre.dicom2nifti import (
-    _convert_modality,
+    MODALITIES,
+    _DICOM_SUFFIXES,
+    _NIFTI_SUFFIXES,
     _extract_archive,
-    _find_dicom_files,
-    _modality_dicom_dir,
+    _extract_archives,
+    _find_files,
+    _ingest_modality,
+    _iter_files,
+    _modality_source_dir,
+    _nifti_stem,
     run_dicom_to_nifti,
 )
 from tit.pre.utils import PreprocessError
@@ -18,60 +27,133 @@ from tit.pre.utils import PreprocessError
 MODULE = "tit.pre.dicom2nifti"
 
 
-class TestDicomDiscoveryAndArchives:
-    """Tests for recursive DICOM discovery and archive extraction."""
+def _eperm_stat(*bad_fragments):
+    """Return an ``os.stat`` replacement that raises EPERM for matching paths.
 
-    def test_finds_direct_dcm_and_dicom_files(self, tmp_path):
-        """Finds direct .dcm and .dicom files."""
-        dicom_dir = tmp_path / "dicom"
-        dicom_dir.mkdir()
-        dcm = dicom_dir / "scan.dcm"
-        dicom = dicom_dir / "scan2.dicom"
-        txt = dicom_dir / "notes.txt"
-        dcm.touch()
-        dicom.touch()
-        txt.touch()
+    Reproduces a macOS AppleDouble file on a Docker bind mount, where stat
+    fails with EPERM rather than the ENOENT that pathlib tolerates.
+    """
+    real_stat = os.stat
 
-        assert _find_dicom_files(dicom_dir) == [dcm, dicom]
+    def fake_stat(path, *args, **kwargs):
+        if any(fragment in str(path) for fragment in bad_fragments):
+            raise PermissionError(1, "Operation not permitted")
+        return real_stat(path, *args, **kwargs)
 
-    def test_finds_recursive_dicom_files(self, tmp_path):
-        """Finds DICOM files in nested folders."""
-        dicom_dir = tmp_path / "dicom"
-        nested = dicom_dir / "series" / "one"
+    return fake_stat
+
+
+class TestSafeScanning:
+    """Directory scanning must survive macOS/Docker junk files."""
+
+    def test_skips_dotfiles(self, tmp_path):
+        """Dotfiles are ignored: dcm2niix skips them and BIDS reserves them."""
+        (tmp_path / "scan.dcm").touch()
+        (tmp_path / ".DS_Store").touch()
+        (tmp_path / "._.DS_Store").touch()
+        (tmp_path / "._scan.dcm").touch()
+
+        assert [p.name for p in _iter_files(tmp_path)] == ["scan.dcm"]
+
+    def test_skips_dot_directories(self, tmp_path):
+        """Dot-directories are not descended into."""
+        hidden = tmp_path / ".AppleDouble"
+        hidden.mkdir()
+        (hidden / "scan.dcm").touch()
+        (tmp_path / "real.dcm").touch()
+
+        assert [p.name for p in _iter_files(tmp_path)] == ["real.dcm"]
+
+    def test_appledouble_eperm_does_not_abort_scan(self, tmp_path):
+        """Regression: '._.DS_Store' whose stat raises EPERM must not crash.
+
+        Python 3.11's Path.is_file() only swallows ENOENT/ENOTDIR/EBADF/ELOOP,
+        so EPERM propagated and aborted DICOM conversion entirely.
+        """
+        (tmp_path / "scan.dcm").touch()
+        (tmp_path / "._.DS_Store").touch()
+
+        with patch("os.stat", _eperm_stat("._")):
+            found = _find_files(tmp_path, _DICOM_SUFFIXES)
+
+        assert [p.name for p in found] == ["scan.dcm"]
+
+    def test_unreadable_entry_is_skipped_not_fatal(self, tmp_path):
+        """A non-dot entry that cannot be stat'd is skipped, not raised.
+
+        Covers filesystems reporting DT_UNKNOWN, where scandir must fall back
+        to a real stat syscall.
+        """
+        (tmp_path / "scan.dcm").touch()
+
+        with patch(
+            f"{MODULE}.os.scandir",
+            return_value=[
+                MagicMock(
+                    name="x", **{"is_dir.side_effect": PermissionError(1, "nope")}
+                )
+            ],
+        ):
+            assert list(_iter_files(tmp_path)) == []
+
+    def test_unreadable_directory_is_skipped(self, tmp_path):
+        """An unreadable directory does not abort the whole scan."""
+        (tmp_path / "good.dcm").touch()
+
+        with patch(f"{MODULE}.os.scandir", side_effect=PermissionError(1, "nope")):
+            assert list(_iter_files(tmp_path)) == []
+
+    def test_finds_files_recursively(self, tmp_path):
+        """DICOMs nested in series folders are found."""
+        nested = tmp_path / "series" / "one"
         nested.mkdir(parents=True)
-        scan = nested / "scan.DICOM"
-        scan.touch()
+        (nested / "scan.DICOM").touch()
 
-        assert _find_dicom_files(dicom_dir) == [scan]
+        assert [p.name for p in _find_files(tmp_path, _DICOM_SUFFIXES)] == [
+            "scan.DICOM"
+        ]
+
+    def test_ignores_non_dicom_files(self, tmp_path):
+        """Only .dcm/.dicom count as DICOM input."""
+        (tmp_path / "scan.dcm").touch()
+        (tmp_path / "notes.txt").touch()
+
+        assert [p.name for p in _find_files(tmp_path, _DICOM_SUFFIXES)] == ["scan.dcm"]
+
+    def test_matches_double_extension_nifti(self, tmp_path):
+        """'.nii.gz' is two suffixes, so Path.suffix alone would miss it."""
+        (tmp_path / "scan.nii.gz").touch()
+        (tmp_path / "scan.nii").touch()
+        (tmp_path / "notes.txt").touch()
+
+        found = [p.name for p in _find_files(tmp_path, _NIFTI_SUFFIXES)]
+        assert sorted(found) == ["scan.nii", "scan.nii.gz"]
+
+
+class TestArchives:
+    """Archive extraction feeds DICOM discovery."""
 
     def test_extracts_zip_archive(self, tmp_path):
-        """Safely extracts zip archives for later discovery."""
         archive = tmp_path / "dicoms.zip"
         with zipfile.ZipFile(archive, "w") as zf:
             zf.writestr("nested/scan.dcm", "dicom")
 
-        destination = tmp_path / "dicom" / "extracted_archives" / archive.name
-        extracted = _extract_archive(archive, destination)
-
-        assert extracted == 1
+        destination = tmp_path / "extracted_archives" / archive.name
+        assert _extract_archive(archive, destination) == 1
         assert (destination / "nested" / "scan.dcm").read_text() == "dicom"
 
     def test_extracts_tgz_archive(self, tmp_path):
-        """Safely extracts tgz archives for later discovery."""
         source = tmp_path / "scan.dicom"
         source.write_text("dicom")
         archive = tmp_path / "dicoms.tgz"
         with tarfile.open(archive, "w:gz") as tf:
             tf.add(source, arcname="series/scan.dicom")
 
-        destination = tmp_path / "dicom" / "extracted_archives" / archive.name
-        extracted = _extract_archive(archive, destination)
-
-        assert extracted == 1
+        destination = tmp_path / "extracted_archives" / archive.name
+        assert _extract_archive(archive, destination) == 1
         assert (destination / "series" / "scan.dicom").read_text() == "dicom"
 
     def test_rejects_unsafe_zip_member(self, tmp_path):
-        """Rejects zip members that would escape the extraction directory."""
         archive = tmp_path / "bad.zip"
         with zipfile.ZipFile(archive, "w") as zf:
             zf.writestr("../escape.dcm", "bad")
@@ -79,234 +161,303 @@ class TestDicomDiscoveryAndArchives:
         with pytest.raises(PreprocessError, match="Unsafe archive member"):
             _extract_archive(archive, tmp_path / "dest")
 
+    def test_extracts_archive_before_conversion(self, tmp_path):
+        """Archives anywhere in the modality folder are extracted first."""
+        modality_dir = tmp_path / "T1w"
+        (modality_dir / "dicom").mkdir(parents=True)
+        archive = modality_dir / "dicoms.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("series/scan.dcm", "dicom")
 
-class TestModalityDicomDir:
-    """Tests for the _modality_dicom_dir helper."""
+        runner = MagicMock()
+        runner.run.return_value = 0
 
-    def test_exact_folder_name(self, tmp_path):
-        dicom_dir = tmp_path / "dwi" / "dicom"
-        dicom_dir.mkdir(parents=True)
+        with patch(f"{MODULE}._check_dcm2niix_outputs", return_value=True):
+            assert _ingest_modality(
+                modality_dir, tmp_path / "out", "001", "T1w", MagicMock(), runner
+            )
+        assert (
+            modality_dir / "extracted_archives" / "dicoms.zip" / "series" / "scan.dcm"
+        ).exists()
 
-        assert _modality_dicom_dir(tmp_path, "dwi") == dicom_dir
+    def test_does_not_re_extract_own_output(self, tmp_path):
+        """An archive inside extracted_archives/ must not be extracted again."""
+        modality_dir = tmp_path / "T1w"
+        nested = modality_dir / "extracted_archives" / "outer.zip"
+        nested.mkdir(parents=True)
+        with zipfile.ZipFile(nested / "inner.zip", "w") as zf:
+            zf.writestr("scan.dcm", "dicom")
 
-    def test_case_insensitive_folder_name(self, tmp_path):
-        """Users name the folder DWI as often as dwi."""
-        dicom_dir = tmp_path / "DWI" / "dicom"
-        dicom_dir.mkdir(parents=True)
+        _extract_archives(modality_dir, MagicMock())
 
-        # On case-insensitive filesystems the default path already matches,
-        # so only assert the resolved dir reaches the DICOMs.
-        result = _modality_dicom_dir(tmp_path, "dwi")
-        assert result.exists()
-        assert result.parent.name.lower() == "dwi"
+        assert not (nested / "extracted_archives").exists()
 
-    def test_missing_folder_returns_default(self, tmp_path):
-        assert _modality_dicom_dir(tmp_path, "dwi") == tmp_path / "dwi" / "dicom"
-
-
-class TestConvertModality:
-    """Tests for the _convert_modality helper."""
-
-    def test_no_dicom_files_returns_false(self, tmp_path):
-        """Returns False when no .dcm/.dicom files are present."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
+    def test_bad_archive_warns_and_continues(self, tmp_path):
+        """A corrupt archive is reported, not fatal."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "broken.zip").write_text("not a zip")
         logger = MagicMock()
 
-        result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, None)
+        _extract_archives(modality_dir, logger)
 
-        assert result is False
-        logger.info.assert_any_call(
-            f"No .dcm or .dicom files found under {dicom_dir}; skipping conversion"
+        assert "Could not extract" in str(logger.warning.call_args)
+
+
+class TestModalitySourceDir:
+    """Modality folders are matched case-insensitively."""
+
+    def test_exact_folder_name(self, tmp_path):
+        (tmp_path / "dwi").mkdir()
+        assert _modality_source_dir(tmp_path, "dwi") == tmp_path / "dwi"
+
+    def test_case_insensitive_folder_name(self, tmp_path):
+        """Users name the folder CT as often as ct."""
+        (tmp_path / "CT").mkdir()
+        result = _modality_source_dir(tmp_path, "ct")
+        assert result.exists()
+        assert result.name.lower() == "ct"
+
+    def test_missing_folder_returns_default(self, tmp_path):
+        assert _modality_source_dir(tmp_path, "dwi") == tmp_path / "dwi"
+
+
+class TestNiftiPassthrough:
+    """A modality folder holding a NIfTI is copied, not converted."""
+
+    def test_copies_gzipped_nifti(self, tmp_path):
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.nii.gz").write_bytes(b"volume")
+        out_dir = tmp_path / "anat"
+
+        with patch(f"{MODULE}._run_dcm2niix") as mock_convert:
+            assert _ingest_modality(
+                modality_dir, out_dir, "001", "T1w", MagicMock(), None
+            )
+
+        mock_convert.assert_not_called()
+        assert (out_dir / "sub-001_T1w.nii.gz").read_bytes() == b"volume"
+
+    def test_compresses_bare_nifti(self, tmp_path):
+        """A bare .nii is gzipped on the way, so the output is always .nii.gz."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.nii").write_bytes(b"volume")
+        out_dir = tmp_path / "anat"
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "T1w", MagicMock(), None)
+
+        assert (
+            gzip.decompress((out_dir / "sub-001_T1w.nii.gz").read_bytes()) == b"volume"
+        )
+
+    def test_copies_bval_bvec_sidecars(self, tmp_path):
+        """QSIPrep rejects a DWI without its .bval/.bvec pair."""
+        modality_dir = tmp_path / "dwi"
+        modality_dir.mkdir()
+        (modality_dir / "scan.nii.gz").write_bytes(b"volume")
+        (modality_dir / "scan.bval").write_text("0 1000")
+        (modality_dir / "scan.bvec").write_text("0 1")
+        (modality_dir / "scan.json").write_text("{}")
+        out_dir = tmp_path / "dwi_out"
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "dwi", MagicMock(), None)
+
+        assert (out_dir / "sub-001_dwi.bval").read_text() == "0 1000"
+        assert (out_dir / "sub-001_dwi.bvec").read_text() == "0 1"
+        assert (out_dir / "sub-001_dwi.json").read_text() == "{}"
+
+    def test_dicom_wins_over_nifti(self, tmp_path):
+        """DICOMs carry the metadata, so a stray NIfTI must not shadow them."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        (modality_dir / "stray.nii.gz").write_bytes(b"volume")
+        out_dir = tmp_path / "anat"
+
+        with patch(f"{MODULE}._run_dcm2niix", return_value=True) as mock_convert:
+            assert _ingest_modality(
+                modality_dir, out_dir, "001", "T1w", MagicMock(), None
+            )
+
+        mock_convert.assert_called_once()
+        assert not (out_dir / "sub-001_T1w.nii.gz").exists()
+
+    def test_nifti_stem_strips_double_extension(self):
+        assert _nifti_stem(Path("scan.nii.gz")) == "scan"
+        assert _nifti_stem(Path("scan.nii")) == "scan"
+
+
+class TestIngestModality:
+    """Conversion behaviour for a single modality."""
+
+    def test_no_inputs_returns_false(self, tmp_path):
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+
+        assert not _ingest_modality(
+            modality_dir, tmp_path / "out", "001", "T1w", MagicMock(), None
         )
 
     def test_existing_output_raises(self, tmp_path):
-        """Raises PreprocessError when output already exists."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dcm").touch()
-
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
         out_dir = tmp_path / "out"
         out_dir.mkdir()
         (out_dir / "sub-001_T1w.nii.gz").touch()
 
         with pytest.raises(PreprocessError, match="already exists"):
-            _convert_modality(dicom_dir, out_dir, "001", "T1w", MagicMock(), None)
+            _ingest_modality(modality_dir, out_dir, "001", "T1w", MagicMock(), None)
 
     @patch(f"{MODULE}.subprocess.run")
     def test_subprocess_success(self, mock_run, tmp_path):
-        """Returns True on successful subprocess conversion."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dcm").touch()
-
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
-
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
         mock_run.return_value = MagicMock(returncode=0)
-        logger = MagicMock()
 
-        result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, None)
-
-        assert result is True
+        with patch(f"{MODULE}._check_dcm2niix_outputs", return_value=True):
+            assert _ingest_modality(
+                modality_dir, tmp_path / "out", "001", "T1w", MagicMock(), None
+            )
         mock_run.assert_called_once()
 
     @patch(f"{MODULE}.subprocess.run")
     def test_subprocess_failure(self, mock_run, tmp_path):
-        """Returns False on subprocess failure."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dcm").touch()
-
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
-
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
         mock_run.return_value = MagicMock(returncode=1)
-        logger = MagicMock()
 
-        result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, None)
+        assert not _ingest_modality(
+            modality_dir, tmp_path / "out", "001", "T1w", MagicMock(), None
+        )
 
-        assert result is False
-
-    def test_with_runner_success(self, tmp_path):
-        """Uses runner when provided."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dicom").touch()
-
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
-
+    def test_runner_command_shape(self, tmp_path):
+        """dcm2niix recursion is -d (max 9); -r would rename instead of convert."""
+        modality_dir = tmp_path / "dwi"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "sub-001" / "dwi"
         runner = MagicMock()
         runner.run.return_value = 0
-        logger = MagicMock()
 
-        result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, runner)
+        with patch(f"{MODULE}._check_dcm2niix_outputs", return_value=True):
+            assert _ingest_modality(
+                modality_dir, out_dir, "001", "dwi", MagicMock(), runner
+            )
 
-        assert result is True
-        runner.run.assert_called_once()
         cmd = runner.run.call_args.args[0]
         assert "-r" not in cmd
-        assert cmd[cmd.index("-f") + 1] == "sub-001_T1w"
-
-    def test_with_runner_failure(self, tmp_path):
-        """Returns False on runner failure."""
-        dicom_dir = tmp_path / "T1w" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dcm").touch()
-
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
-
-        runner = MagicMock()
-        runner.run.return_value = 1
-        logger = MagicMock()
-
-        result = _convert_modality(dicom_dir, out_dir, "001", "T1w", logger, runner)
-
-        assert result is False
-
-    def test_dwi_uses_bids_name_and_creates_output_dir(self, tmp_path):
-        """dcm2niix writes .bval/.bvec next to the NIfTI using the -f name,
-        so sub-{id}_dwi makes outputs match QSIPrep's *_dwi.nii*/.bval/.bvec globs."""
-        dicom_dir = tmp_path / "dwi" / "dicom"
-        dicom_dir.mkdir(parents=True)
-        (dicom_dir / "scan.dcm").touch()
-
-        out_dir = tmp_path / "sub-001" / "dwi"
-
-        runner = MagicMock()
-        runner.run.return_value = 0
-
-        result = _convert_modality(
-            dicom_dir, out_dir, "001", "dwi", MagicMock(), runner
-        )
-
-        assert result is True
-        assert out_dir.is_dir()
-        cmd = runner.run.call_args.args[0]
+        assert cmd[cmd.index("-d") + 1] == "9"
         assert cmd[cmd.index("-f") + 1] == "sub-001_dwi"
         assert cmd[cmd.index("-o") + 1] == str(out_dir)
+        assert cmd[-1] == str(modality_dir)
+        assert out_dir.is_dir()
 
-    def test_extracts_modality_archive_before_conversion(self, tmp_path):
-        """Archives in modality folders are extracted before conversion."""
+    def test_missing_expected_output_returns_false(self, tmp_path):
+        """A zero exit code with no matching NIfTI is still a failure."""
         modality_dir = tmp_path / "T1w"
-        dicom_dir = modality_dir / "dicom"
-        dicom_dir.mkdir(parents=True)
-        archive = modality_dir / "dicoms.zip"
-        with zipfile.ZipFile(archive, "w") as zf:
-            zf.writestr("series/scan.dcm", "dicom")
-
-        out_dir = tmp_path / "out"
-        out_dir.mkdir()
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
         runner = MagicMock()
         runner.run.return_value = 0
+        logger = MagicMock()
 
-        result = _convert_modality(
-            dicom_dir, out_dir, "001", "T1w", MagicMock(), runner
+        assert not _ingest_modality(
+            modality_dir, tmp_path / "out", "001", "T1w", logger, runner
         )
+        assert "produced no" in str(logger.warning.call_args)
 
-        assert result is True
-        assert (
-            dicom_dir / "extracted_archives" / "dicoms.zip" / "series" / "scan.dcm"
-        ).exists()
+    def test_extra_series_is_warned_about(self, tmp_path):
+        """dcm2niix appends a bare letter per extra series (sub-001_T1wa)."""
+        modality_dir = tmp_path / "T1w"
+        modality_dir.mkdir()
+        (modality_dir / "scan.dcm").touch()
+        out_dir = tmp_path / "out"
+        logger = MagicMock()
+
+        def fake_run(cmd, logger=None):
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "sub-001_T1w.nii.gz").touch()
+            (out_dir / "sub-001_T1wa.nii.gz").touch()
+            return 0
+
+        runner = MagicMock()
+        runner.run.side_effect = fake_run
+
+        assert _ingest_modality(modality_dir, out_dir, "001", "T1w", logger, runner)
+        assert "sub-001_T1wa.nii.gz" in str(logger.warning.call_args)
 
 
 class TestRunDicomToNifti:
-    """Tests for run_dicom_to_nifti."""
+    """Top-level modality dispatch."""
 
-    @patch(f"{MODULE}.get_path_manager")
-    @patch(f"{MODULE}._convert_modality")
-    def test_converts_all_modalities(self, mock_convert, mock_gpm, tmp_path):
-        """Processes T1w, T2w, and dwi modalities."""
+    def _path_manager(self, tmp_path):
         pm = MagicMock()
         pm.sourcedata_subject.return_value = str(tmp_path / "sourcedata" / "sub-001")
-        pm.bids_anat.return_value = str(tmp_path / "sub-001" / "anat")
-        pm.bids_dwi.return_value = str(tmp_path / "sub-001" / "dwi")
-        mock_gpm.return_value = pm
-
-        mock_convert.return_value = True
-        logger = MagicMock()
-
-        run_dicom_to_nifti("/proj", "001", logger=logger)
-
-        assert mock_convert.call_count == 3
-        modalities = [call.args[3] for call in mock_convert.call_args_list]
-        assert modalities == ["T1w", "T2w", "dwi"]
+        pm.bids_datatype.side_effect = lambda sid, datatype: str(
+            tmp_path / f"sub-{sid}" / datatype
+        )
+        return pm
 
     @patch(f"{MODULE}.get_path_manager")
-    @patch(f"{MODULE}._convert_modality")
-    def test_dwi_converts_to_bids_dwi_dir(self, mock_convert, mock_gpm, tmp_path):
-        """DWI output goes to sub-{id}/dwi/ where QSIPrep expects it."""
-        pm = MagicMock()
+    @patch(f"{MODULE}._ingest_modality")
+    def test_converts_every_present_modality(self, mock_ingest, mock_gpm, tmp_path):
+        """T1w, T2w, ct and dwi are all ingested when present."""
         sourcedata = tmp_path / "sourcedata" / "sub-001"
-        (sourcedata / "dwi" / "dicom").mkdir(parents=True)
-        pm.sourcedata_subject.return_value = str(sourcedata)
-        pm.bids_anat.return_value = str(tmp_path / "sub-001" / "anat")
-        pm.bids_dwi.return_value = str(tmp_path / "sub-001" / "dwi")
-        mock_gpm.return_value = pm
-
-        mock_convert.return_value = True
+        for modality, _ in MODALITIES:
+            (sourcedata / modality).mkdir(parents=True)
+        mock_gpm.return_value = self._path_manager(tmp_path)
+        mock_ingest.return_value = True
 
         run_dicom_to_nifti("/proj", "001", logger=MagicMock())
 
-        dwi_call = mock_convert.call_args_list[2]
-        assert dwi_call.args[0] == sourcedata / "dwi" / "dicom"
-        assert dwi_call.args[1] == tmp_path / "sub-001" / "dwi"
+        assert [call.args[3] for call in mock_ingest.call_args_list] == [
+            "T1w",
+            "T2w",
+            "ct",
+            "dwi",
+        ]
 
     @patch(f"{MODULE}.get_path_manager")
-    @patch(f"{MODULE}._convert_modality")
-    def test_no_converted_warns(self, mock_convert, mock_gpm, tmp_path):
-        """Logs warning when no files converted."""
-        pm = MagicMock()
-        pm.sourcedata_subject.return_value = str(tmp_path / "sourcedata" / "sub-001")
-        pm.bids_anat.return_value = str(tmp_path / "sub-001" / "anat")
-        pm.bids_dwi.return_value = str(tmp_path / "sub-001" / "dwi")
-        mock_gpm.return_value = pm
+    @patch(f"{MODULE}._ingest_modality")
+    def test_skips_absent_modality_folders(self, mock_ingest, mock_gpm, tmp_path):
+        """A subject with only T1w must not trigger CT or DWI work."""
+        (tmp_path / "sourcedata" / "sub-001" / "T1w").mkdir(parents=True)
+        mock_gpm.return_value = self._path_manager(tmp_path)
+        mock_ingest.return_value = True
 
-        mock_convert.return_value = False
+        run_dicom_to_nifti("/proj", "001", logger=MagicMock())
+
+        assert [call.args[3] for call in mock_ingest.call_args_list] == ["T1w"]
+
+    @patch(f"{MODULE}.get_path_manager")
+    @patch(f"{MODULE}._ingest_modality")
+    def test_ct_goes_to_anat_and_dwi_to_dwi(self, mock_ingest, mock_gpm, tmp_path):
+        """CT is a local extension living in anat/; DWI goes where QSIPrep looks."""
+        sourcedata = tmp_path / "sourcedata" / "sub-001"
+        (sourcedata / "ct").mkdir(parents=True)
+        (sourcedata / "dwi").mkdir(parents=True)
+        mock_gpm.return_value = self._path_manager(tmp_path)
+        mock_ingest.return_value = True
+
+        run_dicom_to_nifti("/proj", "001", logger=MagicMock())
+
+        destinations = {
+            call.args[3]: call.args[1] for call in mock_ingest.call_args_list
+        }
+        assert destinations["ct"] == tmp_path / "sub-001" / "anat"
+        assert destinations["dwi"] == tmp_path / "sub-001" / "dwi"
+
+    @patch(f"{MODULE}.get_path_manager")
+    @patch(f"{MODULE}._ingest_modality")
+    def test_no_converted_warns(self, mock_ingest, mock_gpm, tmp_path):
+        (tmp_path / "sourcedata" / "sub-001" / "T1w").mkdir(parents=True)
+        mock_gpm.return_value = self._path_manager(tmp_path)
+        mock_ingest.return_value = False
         logger = MagicMock()
 
         run_dicom_to_nifti("/proj", "001", logger=logger)

@@ -338,7 +338,8 @@ class PreProcessTab(QtWidgets.QWidget):
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
 
-        # Modalities are determined by the T1w/T2w sourcedata folder layout.
+        # Modalities are determined by the sourcedata folder layout; see
+        # tit.pre.dicom2nifti.MODALITIES for the supported set.
 
         # Update available subjects initially
         self.update_available_subjects()
@@ -374,9 +375,10 @@ class PreProcessTab(QtWidgets.QWidget):
                 "No Subjects Found",
                 "No subjects found in the project directory.\n\n"
                 "Please ensure your subjects follow this structure:\n"
-                f"  {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '{{T1w,T2w}}', 'dicom')}\n"
+                f"  {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '{{T1w,T2w,ct,dwi}}', 'dicom')}\n"
                 "with recursive .dcm/.dicom files, or .zip/.tar/.tar.gz/.tgz archives\n"
-                "placed in the modality folder or its dicom/ folder.",
+                "placed anywhere in the modality folder. A modality folder holding\n"
+                "a .nii/.nii.gz instead is copied straight into place.",
             )
 
     def set_processing_state(self, is_processing):
@@ -454,7 +456,9 @@ class PreProcessTab(QtWidgets.QWidget):
         dialog = QtWidgets.QMessageBox(self)
         dialog.setIcon(QtWidgets.QMessageBox.Warning)
         dialog.setWindowTitle("Missing Pre-processing Inputs")
-        dialog.setText("Some selected pre-processing steps are missing required inputs.")
+        dialog.setText(
+            "Some selected pre-processing steps are missing required inputs."
+        )
         dialog.setInformativeText(
             "Adjust the selected subjects, enable DICOM conversion, replace existing "
             "converted outputs, or add the expected T1w file before starting."
