@@ -8,7 +8,9 @@ from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 
+from tit.pre.dicom2nifti import MODALITIES
 from tit.pre.utils import (
+    BIDSIGNORE_LINES,
     CommandRunner,
     PreprocessCancelled,
     PreprocessError,
@@ -17,6 +19,7 @@ from tit.pre.utils import (
     _terminate_process,
     build_logger,
     discover_subjects,
+    ensure_bidsignore,
     ensure_dataset_descriptions,
     ensure_subject_dirs,
 )
@@ -84,6 +87,50 @@ class TestFindAnatFiles:
         assert result_t2 is None
 
 
+class TestEnsureBidsignore:
+    """Tests for ensure_bidsignore."""
+
+    def test_creates_bidsignore(self, tmp_path):
+        """CT is not in BIDS, so the validator needs to be told to skip it."""
+        ensure_bidsignore(str(tmp_path))
+
+        content = (tmp_path / ".bidsignore").read_text()
+        assert "*_ct.nii.gz" in content
+        assert "*_ct.json" in content
+
+    def test_preserves_existing_user_lines(self, tmp_path):
+        """Users curate this file by hand; never clobber their rules."""
+        target = tmp_path / ".bidsignore"
+        target.write_text("my_custom_rule/\n")
+
+        ensure_bidsignore(str(tmp_path))
+
+        lines = target.read_text().splitlines()
+        assert lines[0] == "my_custom_rule/"
+        assert "*_ct.nii.gz" in lines
+
+    def test_is_idempotent(self, tmp_path):
+        """Re-running the pipeline must not append duplicate lines."""
+        ensure_bidsignore(str(tmp_path))
+        first = (tmp_path / ".bidsignore").read_text()
+        ensure_bidsignore(str(tmp_path))
+
+        assert (tmp_path / ".bidsignore").read_text() == first
+        assert first.count("*_ct.nii.gz") == 1
+
+    def test_adds_only_missing_lines(self, tmp_path):
+        """A partially present file gains just the lines it lacks."""
+        target = tmp_path / ".bidsignore"
+        target.write_text("*_ct.nii.gz\n")
+
+        ensure_bidsignore(str(tmp_path))
+
+        lines = target.read_text().splitlines()
+        assert lines.count("*_ct.nii.gz") == 1
+        assert "*_ct.json" in lines
+        assert set(BIDSIGNORE_LINES) <= set(lines)
+
+
 class TestEnsureSubjectDirs:
     """Tests for ensure_subject_dirs."""
 
@@ -98,9 +145,12 @@ class TestEnsureSubjectDirs:
 
         ensure_subject_dirs("/proj", "001")
 
-        assert (
-            pm.ensure.call_count == 5
-        )  # T1w dicom, T2w dicom, bids_anat, sub, ti-toolbox
+        # One sourcedata dicom dir per supported modality, plus bids_anat,
+        # sub and ti-toolbox.
+        assert pm.ensure.call_count == len(MODALITIES) + 3
+        assert [call.args[1] for call in pm.sourcedata_dicom.call_args_list] == [
+            modality for modality, _ in MODALITIES
+        ]
 
     @patch(f"{MODULE}.get_path_manager")
     def test_does_not_precreate_freesurfer_subject_dir(self, mock_gpm):

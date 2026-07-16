@@ -391,7 +391,9 @@ class TestTrackOperation:
         assert len(payloads) == 2
         params_by_status = _operation_params_by_status(payloads)
         assert set(params_by_status) == {"start", "success"}
-        assert params_by_status["start"]["run_id"] == params_by_status["success"]["run_id"]
+        assert (
+            params_by_status["start"]["run_id"] == params_by_status["success"]["run_id"]
+        )
 
     def test_success_includes_duration(self, monkeypatch):
         self._force_enabled(monkeypatch)
@@ -434,7 +436,9 @@ class TestTrackOperation:
         _wait_for_telemetry_threads()
 
         params_by_status = _operation_params_by_status(payloads)
-        assert params_by_status["start"]["run_id"] == params_by_status["error"]["run_id"]
+        assert (
+            params_by_status["start"]["run_id"] == params_by_status["error"]["run_id"]
+        )
 
     def test_error_detail_strips_paths(self, monkeypatch):
         self._force_enabled(monkeypatch)

@@ -59,7 +59,6 @@ from tit.stats.__main__ import (  # noqa: E402
     main,
 )
 
-
 # ============================================================================
 # _nifti_pattern_for_tissue — WHITE and ALL branches
 # ============================================================================
@@ -156,8 +155,7 @@ class TestConfigTissueTypes:
             tissue_type=GroupComparisonConfig.TissueType.WHITE,
         )
         assert (
-            cfg.nifti_file_pattern
-            == "white_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
+            cfg.nifti_file_pattern == "white_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
         )
 
     def test_group_all_tissue_type(self):
@@ -166,9 +164,7 @@ class TestConfigTissueTypes:
             subjects=self._make_group_subjects(),
             tissue_type=GroupComparisonConfig.TissueType.ALL,
         )
-        assert (
-            cfg.nifti_file_pattern == "{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
-        )
+        assert cfg.nifti_file_pattern == "{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
 
     def test_corr_white_tissue_type(self):
         cfg = CorrelationConfig(
@@ -177,8 +173,7 @@ class TestConfigTissueTypes:
             tissue_type=CorrelationConfig.TissueType.WHITE,
         )
         assert (
-            cfg.nifti_file_pattern
-            == "white_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
+            cfg.nifti_file_pattern == "white_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
         )
 
     def test_corr_all_tissue_type(self):
@@ -187,9 +182,7 @@ class TestConfigTissueTypes:
             subjects=self._make_corr_subjects(),
             tissue_type=CorrelationConfig.TissueType.ALL,
         )
-        assert (
-            cfg.nifti_file_pattern == "{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
-        )
+        assert cfg.nifti_file_pattern == "{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
 
 
 # ============================================================================
@@ -292,9 +285,7 @@ class TestRunGroupComparison:
             call_args = mock_run.call_args
             config = call_args[0][0]
             assert config.test_type == GroupComparisonConfig.TestType.PAIRED
-            assert (
-                config.alternative == GroupComparisonConfig.Alternative.GREATER
-            )
+            assert config.alternative == GroupComparisonConfig.Alternative.GREATER
             assert config.cluster_stat == GroupComparisonConfig.ClusterStat.SIZE
             assert config.n_permutations == 500
             assert config.tissue_type == GroupComparisonConfig.TissueType.WHITE
@@ -359,10 +350,7 @@ class TestRunCorrelation:
             data["effect_metric"] = "Improvement Score"
             _run_correlation(data)
             config = mock_run.call_args[0][0]
-            assert (
-                config.correlation_type
-                == CorrelationConfig.CorrelationType.SPEARMAN
-            )
+            assert config.correlation_type == CorrelationConfig.CorrelationType.SPEARMAN
             assert config.cluster_stat == CorrelationConfig.ClusterStat.SIZE
             assert config.n_permutations == 200
             assert config.effect_metric == "Improvement Score"
@@ -372,9 +360,7 @@ class TestRunCorrelation:
     def test_run_correlation_negative_clusters(self, mock_sys):
         mock_result = MagicMock()
         mock_result.n_significant_clusters = -1
-        with patch(
-            "tit.stats.permutation.run_correlation", return_value=mock_result
-        ):
+        with patch("tit.stats.permutation.run_correlation", return_value=mock_result):
             data = self._make_data()
             _run_correlation(data)
             mock_sys.exit.assert_called_once_with(1)
@@ -493,9 +479,7 @@ class TestNiftiFileNotFound:
         pm = init_pm
 
         # Build the expected directory structure
-        sim_dir = os.path.join(
-            pm.simulation("001", "test_sim"), "TI", "niftis"
-        )
+        sim_dir = os.path.join(pm.simulation("001", "test_sim"), "TI", "niftis")
         os.makedirs(sim_dir, exist_ok=True)
 
         # Create some files in the directory so they show in the error
@@ -516,9 +500,7 @@ class TestNiftiFileNotFound:
         """Error message should include the names of files in the directory."""
         pm = init_pm
 
-        sim_dir = os.path.join(
-            pm.simulation("001", "test_sim"), "TI", "niftis"
-        )
+        sim_dir = os.path.join(pm.simulation("001", "test_sim"), "TI", "niftis")
         os.makedirs(sim_dir, exist_ok=True)
 
         # Create a known file
@@ -549,9 +531,7 @@ class TestNiftiFileNotFound:
         """When directory has >20 files, the error should show a truncation note."""
         pm = init_pm
 
-        sim_dir = os.path.join(
-            pm.simulation("001", "test_sim"), "TI", "niftis"
-        )
+        sim_dir = os.path.join(pm.simulation("001", "test_sim"), "TI", "niftis")
         os.makedirs(sim_dir, exist_ok=True)
 
         # Create 25 files so we exceed the 20-file preview limit
@@ -573,9 +553,7 @@ class TestNiftiFileNotFound:
         with an empty file list (covers lines 73-74)."""
         pm = init_pm
 
-        sim_dir = os.path.join(
-            pm.simulation("001", "test_sim"), "TI", "niftis"
-        )
+        sim_dir = os.path.join(pm.simulation("001", "test_sim"), "TI", "niftis")
         os.makedirs(sim_dir, exist_ok=True)
 
         from tit.stats.nifti import load_subject_nifti_ti_toolbox

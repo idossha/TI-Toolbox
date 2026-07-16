@@ -110,7 +110,9 @@ Project Directory/
 │   │   ├── sub-{subject}_space-XXX_T1w.nii.gz
 │   │   ├── sub-{subject}_space-XXX_T1w.json
 │   │   ├── sub-{subject}_space-XXX_T2w.nii.gz
-│   │   └── sub-{subject}_space-XXX_T2w.json
+│   │   ├── sub-{subject}_space-XXX_T2w.json
+│   │   ├── sub-{subject}_ct.nii.gz         <i>(Optional: CT, see note below)</i>
+│   │   └── sub-{subject}_ct.json
 │   ├── dwi/                                <i>(Optional: For diffusion data)</i>
 │   ├── eeg/                                <i>(Optional: For EEG data)</i>
 │   ├── func/                               <i>(Optional: For functional MRI data)</i>
@@ -121,6 +123,10 @@ Project Directory/
 │       │   └── dicom/                      <i>(Place T1w DICOM files here)</i>
 │       ├── T2w/                            <i>(Optional)</i>
 │       │   └── dicom/                      <i>(Place T2w DICOM files here)</i>
+│       ├── ct/                             <i>(Optional)</i>
+│       │   └── dicom/                      <i>(Place CT DICOM files here)</i>
+│       ├── dwi/                            <i>(Optional)</i>
+│       │   └── dicom/                      <i>(Place DWI DICOM files here)</i>
 │       └── additional_files/               <i>(Optional documentation)</i>
 ├── derivatives/                            <i>(Auto-created during pre-processing)</i>
 │   ├── freesurfer/                         
@@ -155,6 +161,8 @@ Project Directory/
             <li>The <b>sourcedata</b> directory must be set up by the user before preprocessing</li>
             <li>DICOM files must be placed in <code>sourcedata/sub-{subject}/T1w/dicom/</code></li>
             <li>T2w images are optional but can improve head model quality</li>
+            <li>Supported modality folders are <b>T1w</b>, <b>T2w</b>, <b>ct</b> and <b>dwi</b>. Each is searched recursively for <code>.dcm</code>/<code>.dicom</code> files, and <code>.zip</code>/<code>.tar</code>/<code>.tar.gz</code>/<code>.tgz</code> archives are extracted first. A folder holding a <code>.nii</code>/<code>.nii.gz</code> instead is copied straight into place.</li>
+            <li><b>CT is not part of the BIDS standard</b> (BEP024 is still a draft), so it is written to <code>anat/sub-{subject}_ct.nii.gz</code> and listed in the project <code>.bidsignore</code> to keep the BIDS validator quiet.</li>
             <li>All other directories are automatically created during processing</li>
             <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
             <li>TI-Toolbox outputs are organized under <code>derivatives/tit/</code> with subdirectories for tissue analysis, logs, and reports</li>
@@ -166,7 +174,7 @@ Project Directory/
             <li>Create the sourcedata directory structure</li>
             <li>Create a subject folder in sourcedata (e.g., "sub-101")</li>
             <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
-            <li>Optionally add T2w DICOM files in <code>sourcedata/sub-101/T2w/dicom/</code></li>
+            <li>Optionally add T2w, CT or DWI DICOM files in <code>sourcedata/sub-101/{T2w,ct,dwi}/dicom/</code></li>
             <li>Use the Pre-processing tab to begin processing</li>
         </ol>
 

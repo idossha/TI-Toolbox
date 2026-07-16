@@ -10,7 +10,6 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch, mock_open
 
-
 # ============================================================================
 # overlap.py — check_and_resample_atlas
 # ============================================================================
@@ -23,6 +22,7 @@ class TestCheckAndResampleAtlas:
     def test_matching_dimensions_3d(self):
         """When atlas and reference shapes match (3D), return atlas data as int."""
         import sys
+
         sys.modules.setdefault("nibabel.processing", MagicMock())
         from tit.atlas.overlap import check_and_resample_atlas
 
@@ -42,6 +42,7 @@ class TestCheckAndResampleAtlas:
     def test_matching_dimensions_4d_atlas(self):
         """When shapes match but atlas is 4D, the 4th dim is sliced off."""
         import sys
+
         sys.modules.setdefault("nibabel.processing", MagicMock())
         from tit.atlas.overlap import check_and_resample_atlas
 
@@ -63,6 +64,7 @@ class TestCheckAndResampleAtlas:
     def test_matching_dimensions_returns_int_array(self):
         """Returned data should be integer dtype."""
         import sys
+
         sys.modules.setdefault("nibabel.processing", MagicMock())
         from tit.atlas.overlap import check_and_resample_atlas
 
@@ -188,6 +190,7 @@ class TestAtlasOverlapAnalysis:
     def _reset_nib_mock(self):
         """Reset nibabel mock state before each test to avoid leaks."""
         import sys
+
         nib_mock = sys.modules["nibabel"]
         nib_mock.load.side_effect = None
         nib_mock.load.reset_mock()
@@ -565,7 +568,10 @@ class TestVoxelAtlasManagerListAtlases:
         results = mgr.list_atlases()
 
         assert len(results) == 1
-        assert results[0] == ("labeling.nii.gz", os.path.join(str(seg_dir), "labeling.nii.gz"))
+        assert results[0] == (
+            "labeling.nii.gz",
+            os.path.join(str(seg_dir), "labeling.nii.gz"),
+        )
 
     def test_labeling_missing_not_included(self, tmp_path):
         """If labeling.nii.gz is absent, it is not in results."""
@@ -671,10 +677,7 @@ class TestVoxelAtlasManagerListRegions:
 
         atlas_path = str(tmp_path / "myatlas.nii.gz")
         labels_file = tmp_path / "myatlas_labels.txt"
-        labels_file.write_text(
-            "# header\n"
-            " 1   10   500   30.0  Thalamus\n"
-        )
+        labels_file.write_text("# header\n" " 1   10   500   30.0  Thalamus\n")
 
         mgr = VoxelAtlasManager()
         regions = mgr.list_regions(atlas_path)
@@ -692,10 +695,7 @@ class TestVoxelAtlasManagerListRegions:
 
         def fake_subprocess_run(cmd, check, capture_output):
             # Write labels file as mri_segstats would
-            labels_file.write_text(
-                "# header\n"
-                " 1   42   800   40.0  Putamen\n"
-            )
+            labels_file.write_text("# header\n" " 1   42   800   40.0  Putamen\n")
 
         with patch("tit.atlas.voxel.subprocess.run", side_effect=fake_subprocess_run):
             regions = mgr.list_regions(atlas_path)
@@ -745,10 +745,7 @@ class TestVoxelAtlasManagerListRegions:
         atlas_path = str(tmp_path / "partial.mgz")
         labels_file = tmp_path / "partial_labels.txt"
         labels_file.write_text(
-            "# header\n"
-            "short line\n"
-            " 1   10   500   30.0  ValidRegion\n"
-            "a b c\n"
+            "# header\n" "short line\n" " 1   10   500   30.0  ValidRegion\n" "a b c\n"
         )
 
         mgr = VoxelAtlasManager()
@@ -763,8 +760,7 @@ class TestVoxelAtlasManagerListRegions:
         atlas_path = str(tmp_path / "multi.mgz")
         labels_file = tmp_path / "multi_labels.txt"
         labels_file.write_text(
-            "# header\n"
-            " 1   99   500   30.0  Left Superior Temporal Gyrus\n"
+            "# header\n" " 1   99   500   30.0  Left Superior Temporal Gyrus\n"
         )
 
         mgr = VoxelAtlasManager()

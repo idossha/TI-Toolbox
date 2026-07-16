@@ -264,9 +264,7 @@ def test_label_montage_resolves_from_eeg_positions_csv(tmp_path, monkeypatch):
         )
     )
 
-    assert simulation_config_has_xyz_electrodes(
-        config_path, eeg_positions_dir=eeg_dir
-    )
+    assert simulation_config_has_xyz_electrodes(config_path, eeg_positions_dir=eeg_dir)
     create_electrode_overlay_nifti(
         config_path,
         tmp_path / "reference.nii.gz",

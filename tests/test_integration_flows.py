@@ -51,13 +51,10 @@ def test_dicom_archive_to_nifti_flow(tmp_project, monkeypatch):
     )
 
     assert (tmp_project / "sub-001" / "anat" / "sub-001_T1w.nii.gz").exists()
+    # Extraction is relative to the modality folder: an archive can sit
+    # directly in T1w/ with no dicom/ subfolder to extract into.
     assert (
-        modality_dir
-        / "dicom"
-        / "extracted_archives"
-        / "series.zip"
-        / "nested"
-        / "image001.dicom"
+        modality_dir / "extracted_archives" / "series.zip" / "nested" / "image001.dicom"
     ).exists()
 
 

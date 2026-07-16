@@ -39,6 +39,17 @@ DATASET_TEMPLATES = {
     "ti-toolbox": "ti-toolbox.dataset_description.json",
 }
 
+BIDSIGNORE_LINES = (
+    "# CT is not part of the BIDS specification (BEP024 is still a draft),",
+    "# so the validator would reject these. TI-Toolbox writes CT to",
+    "# anat/ with a lowercase _ct suffix, matching BEP024's proposal.",
+    "*_ct.nii.gz",
+    "*_ct.json",
+    "# dcm2niix derivatives of a CT series, e.g. _Tilt_1 for gantry tilt.",
+    "*_ct_*.nii.gz",
+    "*_ct_*.json",
+)
+
 
 class PreprocessError(RuntimeError):
     """Raised when a preprocessing step fails.
@@ -213,13 +224,37 @@ def _find_nifti(directory: Path, stem: str) -> Path | None:
 
 
 def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
-    """Create the standard BIDS directory scaffold for a subject."""
+    """Create the standard BIDS directory scaffold for a subject.
+
+    Scaffolds a ``dicom/`` folder for every supported modality so the drop
+    location for each one is discoverable without reading the docs.
+    """
+    from .dicom2nifti import MODALITIES
+
     pm = get_path_manager(project_dir)
-    for modality in ("T1w", "T2w"):
+    for modality, _datatype in MODALITIES:
         pm.ensure(pm.sourcedata_dicom(subject_id, modality))
     pm.ensure(pm.bids_anat(subject_id))
     pm.ensure(pm.sub(subject_id))
     pm.ensure(pm.ti_toolbox())
+
+
+def ensure_bidsignore(project_dir: str) -> None:
+    """Create or extend the project's root ``.bidsignore``.
+
+    CT has no place in BIDS yet (BEP024 is still a draft), so
+    ``anat/sub-{id}_ct.nii.gz`` would otherwise raise a validator error.
+    Existing lines are preserved -- users curate this file by hand.
+    """
+    target = Path(project_dir) / ".bidsignore"
+    existing = (
+        target.read_text(encoding="utf-8").splitlines() if target.exists() else []
+    )
+    missing = [line for line in BIDSIGNORE_LINES if line not in existing]
+    if not missing:
+        return
+    lines = [*existing, *missing] if existing else list(BIDSIGNORE_LINES)
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _dataset_description_target(project_dir: str, dataset: str) -> Path:

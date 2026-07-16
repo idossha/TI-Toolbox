@@ -1,67 +1,116 @@
 #!/usr/bin/env python
-"""
-DICOM-to-NIfTI conversion with BIDS-compliant naming.
+"""Source-image ingestion with BIDS-compliant naming.
 
-Wraps ``dcm2niix`` to convert DICOM series into NIfTI files that follow
-the BIDS naming convention (``sub-{id}_{modality}.nii.gz``).
+Converts each modality found under ``sourcedata/sub-{id}/`` into a
+BIDS-named NIfTI (``sub-{id}_{suffix}.nii.gz``). DICOM series are
+converted with ``dcm2niix``; a modality folder that already holds a
+NIfTI is copied into place instead.
 
 Public API
 ----------
 run_dicom_to_nifti
-    Convert DICOM files for a subject to BIDS-compliant NIfTI.
+    Ingest every supported modality for a subject.
+MODALITIES
+    Supported modalities and their BIDS datatype directories.
 
 See Also
 --------
 tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
+import gzip
+import os
 import shutil
 import subprocess
 import tarfile
 import zipfile
 from pathlib import Path
+from typing import Iterator
 
 from tit.paths import get_path_manager
 from .utils import CommandRunner, PreprocessError
 
 _ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
 _DICOM_SUFFIXES = (".dcm", ".dicom")
+_NIFTI_SUFFIXES = (".nii.gz", ".nii")
+_SIDECAR_SUFFIXES = (".json", ".bval", ".bvec")
 _EXTRACTED_ARCHIVES_DIR = "extracted_archives"
 
+# Source folder name (also the BIDS suffix) -> BIDS datatype directory.
+#
+# Single source of truth: tit.pre.preflight derives its rerun/cleanup list
+# from this table, so a modality only has to be added here.
+#
+# ``ct`` is a deliberate local extension. BIDS has no CT datatype and no CT
+# suffix -- BEP024 has been an unmerged draft since 2018 -- so no CT layout
+# validates today. We write anat/sub-{id}_ct.nii.gz because that matches both
+# BEP024's proposed suffix (making a future migration a directory move with no
+# rename) and the majority of published OpenNeuro datasets carrying a head CT.
+# tit.pre.utils.ensure_bidsignore keeps the validator quiet about it.
+MODALITIES: tuple[tuple[str, str], ...] = (
+    ("T1w", "anat"),
+    ("T2w", "anat"),
+    ("ct", "anat"),
+    ("dwi", "dwi"),
+)
 
-def _is_archive(path: Path) -> bool:
-    """Return ``True`` when *path* is a supported archive."""
-    name = path.name.lower()
-    return any(name.endswith(suffix) for suffix in _ARCHIVE_SUFFIXES)
+
+def _has_suffix(name: str, suffixes: tuple[str, ...]) -> bool:
+    """Return ``True`` when *name* ends with any of *suffixes* (case-insensitive)."""
+    lowered = name.lower()
+    return any(lowered.endswith(suffix) for suffix in suffixes)
 
 
-def _find_dicom_files(dicom_dir: Path) -> list[Path]:
-    """Return recursive ``.dcm`` and ``.dicom`` files under *dicom_dir*."""
-    if not dicom_dir.exists():
-        return []
-    return sorted(
-        path
-        for path in dicom_dir.rglob("*")
-        if path.is_file() and path.suffix.lower() in _DICOM_SUFFIXES
-    )
+def _iter_files(directory: Path) -> Iterator[Path]:
+    """Yield regular files under *directory*, skipping dotfiles and unreadable entries.
 
+    Dotfiles are filtered by name *before* any ``stat`` call, which is what
+    makes this safe rather than merely tidy. macOS seeds bind mounts with
+    AppleDouble ``._*`` siblings whose ``stat`` raises ``EPERM`` inside Docker,
+    and Python 3.11's ``Path.is_file`` only swallows ENOENT/ENOTDIR/EBADF/ELOOP
+    -- ``EPERM`` propagates and aborts the whole scan. ``dcm2niix`` skips
+    dotfiles by the same rule, and BIDS reserves them for system use.
 
-def _find_archives(modality_dir: Path, dicom_dir: Path) -> list[Path]:
-    """Find supported archives directly in modality or modality/dicom folders."""
-    archives: list[Path] = []
-    for directory in (modality_dir, dicom_dir):
-        if not directory.exists():
+    The ``OSError`` guards cover the rest: filesystems that report
+    ``DT_UNKNOWN`` make ``os.scandir`` fall back to a real ``stat`` syscall,
+    so an unreadable non-dot entry must not abort the scan either.
+
+    Symlinked directories are followed -- researchers routinely point
+    sourcedata at a shared DICOM store -- but each real directory is visited
+    only once, so a cycle cannot yield the same file repeatedly.
+    """
+    seen: set[Path] = set()
+    stack = [directory]
+    while stack:
+        current = stack.pop()
+        try:
+            resolved = current.resolve()
+        except OSError:
             continue
-        archives.extend(
-            path for path in directory.iterdir() if path.is_file() and _is_archive(path)
-        )
-    return sorted(set(archives))
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        try:
+            entries = list(os.scandir(current))
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith("."):
+                continue
+            try:
+                if entry.is_dir():
+                    stack.append(Path(entry.path))
+                elif entry.is_file():
+                    yield Path(entry.path)
+            except OSError:
+                continue
 
 
-def _archive_extract_dir(dicom_dir: Path, archive: Path) -> Path:
-    """Return deterministic extraction directory for *archive*."""
-    safe_name = archive.name.replace("/", "_").replace("\\", "_")
-    return dicom_dir / _EXTRACTED_ARCHIVES_DIR / safe_name
+def _find_files(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
+    """Return sorted files under *directory* whose name ends with one of *suffixes*."""
+    return sorted(
+        path for path in _iter_files(directory) if _has_suffix(path.name, suffixes)
+    )
 
 
 def _safe_target(base_dir: Path, member_name: str) -> Path:
@@ -122,12 +171,25 @@ def _extract_archive(archive: Path, destination: Path) -> int:
     return _extract_tar(archive, destination)
 
 
-def _prepare_dicom_inputs(modality_dir: Path, dicom_dir: Path, logger) -> list[Path]:
-    """Extract supported archives and return recursive DICOM files."""
-    archives = _find_archives(modality_dir, dicom_dir)
-    for archive in archives:
-        destination = _archive_extract_dir(dicom_dir, archive)
-        if destination.exists() and any(destination.iterdir()):
+def _extract_archives(modality_dir: Path, logger) -> None:
+    """Extract every archive under *modality_dir* beside itself.
+
+    Each archive extracts to ``<its own folder>/extracted_archives/<name>``
+    rather than to one shared folder, so two archives that happen to share a
+    basename (``series1/data.zip`` and ``series2/data.zip``) cannot collide.
+    """
+    for archive in _find_files(modality_dir, _ARCHIVE_SUFFIXES):
+        # Never re-extract our own output, or extraction would recurse. The
+        # check is relative to modality_dir: an absolute path could otherwise
+        # contain an unrelated ancestor of that name.
+        try:
+            relative_parts = archive.relative_to(modality_dir).parts
+        except ValueError:
+            continue
+        if _EXTRACTED_ARCHIVES_DIR in relative_parts:
+            continue
+        destination = archive.parent / _EXTRACTED_ARCHIVES_DIR / archive.name
+        if destination.exists() and any(_iter_files(destination)):
             logger.info(f"Using previously extracted {archive.name} at {destination}")
             continue
         try:
@@ -139,61 +201,145 @@ def _prepare_dicom_inputs(modality_dir: Path, dicom_dir: Path, logger) -> list[P
             f"Extracted {extracted} file(s) from {archive.name} to {destination}"
         )
 
-    dicom_files = _find_dicom_files(dicom_dir)
-    if dicom_files:
-        logger.info(f"Found {len(dicom_files)} DICOM file(s) under {dicom_dir}")
+
+def _modality_source_dir(sourcedata_dir: Path, modality: str) -> Path:
+    """Return the source folder for *modality*, matching its name case-insensitively.
+
+    Users name the folder ``CT`` as readily as ``ct``, and ``DWI`` as ``dwi``.
+    A folder holding something wins over an empty one: on a case-sensitive
+    filesystem the empty ``ct/`` that :func:`tit.pre.utils.ensure_subject_dirs`
+    scaffolds would otherwise shadow the user's populated ``CT/``.
+    """
+    candidates: list[Path] = []
+    try:
+        entries = sorted(os.scandir(sourcedata_dir), key=lambda entry: entry.name)
+    except OSError:
+        return sourcedata_dir / modality
+    for entry in entries:
+        if entry.name.startswith(".") or entry.name.lower() != modality.lower():
+            continue
+        try:
+            if entry.is_dir():
+                candidates.append(Path(entry.path))
+        except OSError:
+            continue
+    for candidate in candidates:
+        if any(_iter_files(candidate)):
+            return candidate
+    return candidates[0] if candidates else sourcedata_dir / modality
+
+
+def _nifti_stem(path: Path) -> str:
+    """Return *path*'s name without its NIfTI extension (``.nii`` or ``.nii.gz``)."""
+    for suffix in _NIFTI_SUFFIXES:
+        if path.name.lower().endswith(suffix):
+            return path.name[: -len(suffix)]
+    return path.stem
+
+
+def _copy_sidecars(
+    source: Path, output_dir: Path, bids_name: str, modality: str, logger
+) -> None:
+    """Copy the sidecars sitting beside *source* under the BIDS name.
+
+    ``.bval``/``.bvec`` only travel with a diffusion series -- they are what
+    make a copied DWI usable, since QSIPrep rejects one without them, but they
+    are not valid BIDS beside an anatomical image.
+    """
+    suffixes = _SIDECAR_SUFFIXES if modality == "dwi" else (".json",)
+    stem = _nifti_stem(source)
+    for suffix in suffixes:
+        sidecar = source.with_name(f"{stem}{suffix}")
+        if not sidecar.exists():
+            continue
+        shutil.copyfile(sidecar, output_dir / f"{bids_name}{suffix}")
+        logger.info(f"Copied {sidecar.name} -> {bids_name}{suffix}")
+
+
+def _copy_nifti(
+    source: Path, output_dir: Path, bids_name: str, modality: str, logger
+) -> bool:
+    """Copy an existing NIfTI *source* into *output_dir* under its BIDS name."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target = output_dir / f"{bids_name}.nii.gz"
+    if source.name.lower().endswith(".gz"):
+        shutil.copyfile(source, target)
     else:
-        logger.info(
-            f"No .dcm or .dicom files found under {dicom_dir}; skipping conversion"
+        # Compress with stdlib gzip: nibabel's gzip save is unreliable on
+        # Docker bind mounts, and this avoids loading the volume into memory.
+        with source.open("rb") as src, gzip.open(target, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+    logger.info(f"Copied {source.name} -> {target.name}")
+    _copy_sidecars(source, output_dir, bids_name, modality, logger)
+    return True
+
+
+def _reject_existing_output(output_dir: Path, bids_name: str) -> None:
+    """Raise if *bids_name* has already been ingested.
+
+    Both extensions are checked: we always write ``.nii.gz``, but a
+    hand-placed ``.nii`` counts too, and leaving it would make the subject
+    carry the same BIDS entity twice.
+    """
+    for suffix in _NIFTI_SUFFIXES:
+        if (output_dir / f"{bids_name}{suffix}").exists():
+            raise PreprocessError(
+                f"Output already exists for {bids_name}{suffix}. "
+                "Remove the files manually before rerunning."
+            )
+
+
+def _check_dcm2niix_outputs(output_dir: Path, bids_name: str, logger) -> bool:
+    """Confirm dcm2niix produced the expected NIfTI and flag extra series."""
+    produced = sorted(path.name for path in output_dir.glob(f"{bids_name}*"))
+    expected = f"{bids_name}.nii.gz"
+    if expected not in produced:
+        logger.warning(
+            f"dcm2niix produced no {expected} "
+            f"(found: {', '.join(produced) if produced else 'nothing'})"
         )
-    return dicom_files
+        return False
+    # dcm2niix writes extra files under names we did not ask for: a bare
+    # letter per colliding series (sub-01_T1wa.nii.gz), and a suffix per
+    # derived volume (_Tilt_1 for gantry tilt, _Eq_1 for resliced). None are
+    # BIDS names, so every downstream step ignores them.
+    extra = [name for name in produced if not name.startswith(f"{bids_name}.")]
+    if extra:
+        logger.warning(
+            f"dcm2niix wrote files beyond {expected}: {', '.join(extra)}. These "
+            f"are extra series, or derived volumes such as _Tilt_1 (gantry tilt) "
+            f"and _Eq_1 (resliced). Only {expected} is used downstream — if one "
+            f"of the others is the volume you want, rename it by hand."
+        )
+    logger.info(f"Created {expected}")
+    return True
 
 
-def _modality_dicom_dir(sourcedata_dir: Path, modality: str) -> Path:
-    """Return the DICOM dir for *modality*, matching the folder name case-insensitively."""
-    default = sourcedata_dir / modality / "dicom"
-    if default.exists() or not sourcedata_dir.exists():
-        return default
-    for child in sorted(sourcedata_dir.iterdir()):
-        if child.is_dir() and child.name.lower() == modality.lower():
-            return child / "dicom"
-    return default
-
-
-def _convert_modality(
-    dicom_dir: Path,
+def _run_dcm2niix(
+    input_dir: Path,
     output_dir: Path,
-    subject_id: str,
-    modality: str,
+    bids_name: str,
     logger,
     runner: CommandRunner | None,
 ) -> bool:
-    """Convert DICOM files for a single modality to BIDS location."""
-    modality_dir = dicom_dir.parent
-    dicom_files = _prepare_dicom_inputs(modality_dir, dicom_dir, logger)
-    if not dicom_files:
-        return False
-
-    bids_name = f"sub-{subject_id}_{modality}"
-    if (output_dir / f"{bids_name}.nii.gz").exists():
-        raise PreprocessError(
-            f"Output already exists for {bids_name}. "
-            "Remove the files manually before rerunning."
-        )
-
+    """Convert the DICOMs under *input_dir* into ``{bids_name}.nii.gz``."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Converting {modality} DICOMs from {dicom_dir}")
+    logger.info(f"Converting DICOMs from {input_dir}")
     cmd = [
         "dcm2niix",
         "-z",
         "y",
         "-b",
         "y",
+        # Search depth: dcm2niix defaults to 5, which a deep archive layout can
+        # exceed. 9 is its maximum. It skips dotfiles on its own.
+        "-d",
+        "9",
         "-f",
         bids_name,
         "-o",
         str(output_dir),
-        str(dicom_dir),
+        str(input_dir),
     ]
 
     if runner:
@@ -203,11 +349,50 @@ def _convert_modality(
         exit_code = result.returncode
 
     if exit_code != 0:
-        logger.warning(f"dcm2niix failed for {modality}")
+        logger.warning(f"dcm2niix failed for {bids_name} (exit code {exit_code})")
         return False
 
-    logger.info(f"Created {bids_name}.nii.gz")
-    return True
+    return _check_dcm2niix_outputs(output_dir, bids_name, logger)
+
+
+def _ingest_modality(
+    modality_dir: Path,
+    output_dir: Path,
+    subject_id: str,
+    modality: str,
+    logger,
+    runner: CommandRunner | None,
+) -> bool:
+    """Ingest one modality folder into its BIDS destination.
+
+    DICOMs win when both are present: they carry the metadata dcm2niix needs
+    to write a full sidecar, so a stray NIfTI never shadows the real series.
+    """
+    bids_name = f"sub-{subject_id}_{modality}"
+
+    _extract_archives(modality_dir, logger)
+
+    dicom_files = _find_files(modality_dir, _DICOM_SUFFIXES)
+    if dicom_files:
+        logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
+        _reject_existing_output(output_dir, bids_name)
+        return _run_dcm2niix(modality_dir, output_dir, bids_name, logger, runner)
+
+    nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
+    if nifti_files:
+        _reject_existing_output(output_dir, bids_name)
+        if len(nifti_files) > 1:
+            logger.warning(
+                f"Found {len(nifti_files)} NIfTI files under {modality_dir}; "
+                f"using {nifti_files[0].name} and ignoring the rest."
+            )
+        return _copy_nifti(nifti_files[0], output_dir, bids_name, modality, logger)
+
+    logger.info(
+        f"No DICOM (.dcm/.dicom) or NIfTI (.nii/.nii.gz) files found under "
+        f"{modality_dir}; skipping {modality}"
+    )
+    return False
 
 
 def run_dicom_to_nifti(
@@ -217,18 +402,23 @@ def run_dicom_to_nifti(
     logger,
     runner: CommandRunner | None = None,
 ) -> None:
-    """Convert DICOM files to BIDS-compliant NIfTI for a subject.
+    """Ingest a subject's source images into BIDS-named NIfTI files.
 
-    Looks for ``T1w``, ``T2w``, and ``dwi`` DICOM directories under
-    ``sourcedata/sub-{subject_id}/`` (modality folder names are matched
-    case-insensitively) and converts each found modality using
-    ``dcm2niix``. Anatomical images go to the subject ``anat/`` folder
-    and diffusion images to ``dwi/`` (with ``.bval``/``.bvec`` sidecars).
-    DICOM discovery is recursive under each modality's ``dicom/``
-    directory and includes ``.dcm`` and ``.dicom`` files. Supported
-    archives (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) placed directly
-    in the modality folder or its ``dicom/`` folder are safely extracted
-    to ``dicom/extracted_archives/`` before discovery.
+    Looks for a ``T1w``, ``T2w``, ``ct``, and ``dwi`` folder under
+    ``sourcedata/sub-{subject_id}/`` (folder names are matched
+    case-insensitively) and ingests each one that exists. Anatomical images
+    and CT go to the subject's ``anat/`` folder, diffusion images to ``dwi/``
+    (with their ``.bval``/``.bvec`` sidecars).
+
+    Each modality folder is searched recursively. Supported archives
+    (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) are safely extracted to
+    ``extracted_archives/`` first. DICOM files (``.dcm``/``.dicom``) are then
+    converted with ``dcm2niix``; if the folder holds no DICOMs but does hold a
+    NIfTI, that file is copied into place instead (compressing a bare ``.nii``
+    on the way). Dotfiles are ignored throughout.
+
+    CT is written as ``anat/sub-{id}_ct.nii.gz``. This is a local convention,
+    not BIDS -- see :data:`MODALITIES`.
 
     Parameters
     ----------
@@ -244,11 +434,12 @@ def run_dicom_to_nifti(
     Raises
     ------
     PreprocessError
-        If output NIfTI files already exist for a modality.
+        If an output NIfTI already exists for a modality.
 
     See Also
     --------
     run_pipeline : Full preprocessing pipeline.
+    MODALITIES : Supported modalities and their BIDS datatype directories.
     """
     from tit.telemetry import track_operation
     from tit import constants as _const
@@ -256,20 +447,17 @@ def run_dicom_to_nifti(
     with track_operation(_const.TELEMETRY_OP_PRE_DICOM):
         pm = get_path_manager(project_dir)
         sourcedata_dir = Path(pm.sourcedata_subject(subject_id))
-        bids_anat_dir = Path(pm.bids_anat(subject_id))
-        modality_targets = (
-            ("T1w", bids_anat_dir),
-            ("T2w", bids_anat_dir),
-            ("dwi", Path(pm.bids_dwi(subject_id))),
-        )
 
         converted = False
-        for modality, output_dir in modality_targets:
-            dicom_dir = _modality_dicom_dir(sourcedata_dir, modality)
-            if _convert_modality(
-                dicom_dir, output_dir, subject_id, modality, logger, runner
+        for modality, datatype in MODALITIES:
+            modality_dir = _modality_source_dir(sourcedata_dir, modality)
+            if not modality_dir.exists():
+                continue
+            output_dir = Path(pm.bids_datatype(subject_id, datatype))
+            if _ingest_modality(
+                modality_dir, output_dir, subject_id, modality, logger, runner
             ):
                 converted = True
 
         if not converted:
-            logger.warning("No DICOM files found or converted")
+            logger.warning("No DICOM or NIfTI files found or converted")

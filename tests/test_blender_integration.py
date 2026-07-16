@@ -282,7 +282,11 @@ class TestMainDispatch:
         mock_run.assert_called_once()
 
     def test_unknown_type_returns_error(self, tmp_path):
-        config_data = {"_type": "UnknownConfig", "project_dir": str(tmp_path), "foo": "bar"}
+        config_data = {
+            "_type": "UnknownConfig",
+            "project_dir": str(tmp_path),
+            "foo": "bar",
+        }
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config_data))
 

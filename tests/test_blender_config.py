@@ -131,6 +131,7 @@ class TestMontageConfig:
         assert cfg.show_full_net is True
         assert cfg.electrode_diameter_mm == 10.0
         assert cfg.electrode_height_mm == 6.0
+
     def test_custom_values(self):
         cfg = _montage(
             output_dir="/out",

@@ -34,6 +34,17 @@ STRUCTURAL = "tit.pre.structural"
 REPORTING = "tit.reporting"
 
 
+@pytest.fixture(autouse=True)
+def _stub_bidsignore():
+    """These tests mock the path manager, so the project root is not a real path.
+
+    ensure_bidsignore writes there for real; its own behaviour is covered by
+    TestEnsureBidsignore in test_pre_utils_full.py.
+    """
+    with patch(f"{STRUCTURAL}.ensure_bidsignore"):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -403,6 +414,20 @@ class TestRunPipelineParallelRecon:
 
 class TestRunPipelineReports:
     """Tests for report generation at the end of run_pipeline."""
+
+    @patch(f"{STRUCTURAL}._run_subject_pipeline")
+    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
+    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
+    @patch(f"{STRUCTURAL}.get_path_manager")
+    def test_scaffolds_bidsignore_once_per_run(
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, _stub_bidsignore
+    ):
+        """CT output needs .bidsignore, so the pipeline must write it."""
+        from tit.pre import structural
+
+        run_pipeline(["001", "002"], convert_dicom=True, runner=_make_runner())
+
+        structural.ensure_bidsignore.assert_called_once()
 
     @patch(f"{STRUCTURAL}._run_subject_pipeline")
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")

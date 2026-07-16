@@ -334,13 +334,17 @@ class PathManager:
         """Path to ``<project>/sub-{sid}/`` (raw BIDS subject root)."""
         return os.path.join(self._root(), f"sub-{sid}")
 
+    def bids_datatype(self, sid: str, datatype: str) -> str:
+        """Path to ``<project>/sub-{sid}/{datatype}/`` for any BIDS datatype."""
+        return os.path.join(self.bids_subject(sid), datatype)
+
     def bids_anat(self, sid: str) -> str:
         """Path to ``<project>/sub-{sid}/anat/``."""
-        return os.path.join(self.bids_subject(sid), "anat")
+        return self.bids_datatype(sid, "anat")
 
     def bids_dwi(self, sid: str) -> str:
         """Path to ``<project>/sub-{sid}/dwi/``."""
-        return os.path.join(self.bids_subject(sid), "dwi")
+        return self.bids_datatype(sid, "dwi")
 
     def sourcedata_subject(self, sid: str) -> str:
         """Path to ``sourcedata/sub-{sid}/``."""
