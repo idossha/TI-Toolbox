@@ -37,12 +37,13 @@ def remove_small_components(mask, threshold=0.1):
 
     Returns
     -------
-    ndarray
-        Cleaned binary mask
+    tuple
+        ``(cleaned_mask, removed_count)`` -- the cleaned binary mask and the
+        number of components removed.
     """
     labeled, num_features = ndimage.label(mask)
     if num_features <= 1:
-        return mask
+        return mask, 0
 
     # Get size of each component
     component_sizes = ndimage.sum(mask, labeled, range(1, num_features + 1))
@@ -54,6 +55,47 @@ def remove_small_components(mask, threshold=0.1):
     cleaned = np.isin(labeled, keep_labels)
 
     return cleaned, num_features - len(keep_labels)
+
+
+def mask_to_surface(input_file, clean_components=False, clean_threshold=0.1):
+    """Run marching cubes on a NIfTI mask and return the world-space surface.
+
+    Parameters
+    ----------
+    input_file : str or Path
+        Path to input NIfTI file.
+    clean_components : bool
+        Whether to remove small disconnected components.
+    clean_threshold : float
+        Minimum size threshold for component removal (fraction of largest).
+
+    Returns
+    -------
+    tuple
+        ``(verts_world, faces, removed_components)`` where ``verts_world`` is an
+        ``(N, 3)`` array of RAS world coordinates.
+    """
+    img = nib.load(str(Path(input_file)))
+    data = img.get_fdata()
+    affine = img.affine
+
+    # Create binary mask (any non-zero value)
+    mask = data > 0
+
+    # Remove small disconnected components if requested
+    removed_components = 0
+    if clean_components:
+        mask, removed_components = remove_small_components(
+            mask, threshold=clean_threshold
+        )
+
+    # Run marching cubes
+    verts, faces, _normals, _ = measure.marching_cubes(mask, level=0.5)
+
+    # Transform vertices to world coordinates (RAS)
+    verts_world = nib.affines.apply_affine(affine, verts)
+
+    return verts_world, faces, removed_components
 
 
 def nifti_to_mesh(
@@ -89,26 +131,9 @@ def nifti_to_mesh(
     if output_path.suffix.lower() not in [".stl", ".msh"]:
         raise ValueError("Output file must have .stl or .msh extension")
 
-    # Load NIfTI
-    img = nib.load(str(input_path))
-    data = img.get_fdata()
-    affine = img.affine
-
-    # Create binary mask (any non-zero value)
-    mask = data > 0
-
-    # Remove small disconnected components if requested
-    removed_components = 0
-    if clean_components:
-        mask, removed_components = remove_small_components(
-            mask, threshold=clean_threshold
-        )
-
-    # Run marching cubes
-    verts, faces, normals, _ = measure.marching_cubes(mask, level=0.5)
-
-    # Transform vertices to world coordinates (RAS)
-    verts_world = nib.affines.apply_affine(affine, verts)
+    verts_world, faces, removed_components = mask_to_surface(
+        input_path, clean_components=clean_components, clean_threshold=clean_threshold
+    )
 
     # Save based on extension
     if output_path.suffix.lower() == ".stl":
@@ -121,6 +146,113 @@ def nifti_to_mesh(
         "faces": len(faces),
         "output_file": str(output_path),
         "removed_components": removed_components,
+    }
+
+
+def sample_field_at_points(field_file, points_world):
+    """Trilinearly sample a NIfTI field volume at world-space points.
+
+    Parameters
+    ----------
+    field_file : str or Path
+        Path to a scalar NIfTI field volume (e.g. ``*_subject_TI_max.nii.gz``).
+    points_world : ndarray
+        ``(N, 3)`` array of RAS world coordinates.
+
+    Returns
+    -------
+    ndarray
+        ``(N,)`` array of sampled field values (0 outside the volume).
+    """
+    from scipy.ndimage import map_coordinates
+
+    img = nib.load(str(Path(field_file)))
+    data = img.get_fdata()
+
+    # World -> voxel coordinates via the inverse affine.
+    inv_affine = np.linalg.inv(img.affine)
+    voxels = nib.affines.apply_affine(inv_affine, points_world)
+
+    # map_coordinates expects coordinates indexed by axis: shape (3, N).
+    values = map_coordinates(
+        data, voxels.T, order=1, mode="constant", cval=0.0
+    )
+    return values
+
+
+def nifti_to_field_ply(
+    mask_file,
+    field_file,
+    output_file,
+    field_name="TI_max",
+    clean_components=False,
+    clean_threshold=0.1,
+    colormap="viridis",
+    field_range=None,
+):
+    """Export a NIfTI mask surface as a PLY coloured by a sampled field volume.
+
+    Marching cubes builds the surface from ``mask_file`` (same geometry as the
+    STL export); the ``field_file`` volume is trilinearly sampled at each vertex
+    so the local TI/mTI field is baked into per-vertex colours -- mirroring the
+    cortical PLY export.
+
+    Parameters
+    ----------
+    mask_file : str or Path
+        NIfTI mask/segmentation defining the surface geometry.
+    field_file : str or Path
+        Scalar NIfTI field volume to colour the surface with.
+    output_file : str or Path
+        Output ``.ply`` path.
+    field_name : str
+        Field name (used in the PLY comment).
+    clean_components, clean_threshold :
+        Passed through to :func:`mask_to_surface`.
+    colormap : str
+        Matplotlib colormap name.
+    field_range : tuple or None
+        ``(vmin, vmax)`` for colour mapping; auto-scaled from positive values
+        when ``None``.
+
+    Returns
+    -------
+    dict
+        ``{'vertices': int, 'faces': int, 'output_file': str,
+        'removed_components': int, 'field_min': float, 'field_max': float}``.
+    """
+    from tit.blender.io import field_to_colormap, write_ply_with_colors
+
+    output_path = Path(output_file)
+    if output_path.suffix.lower() != ".ply":
+        raise ValueError("Output file must have .ply extension")
+
+    verts_world, faces, removed_components = mask_to_surface(
+        mask_file, clean_components=clean_components, clean_threshold=clean_threshold
+    )
+
+    field_values = sample_field_at_points(field_file, verts_world)
+
+    if field_range is not None:
+        vmin, vmax = field_range
+    else:
+        positive = field_values[field_values > 0]
+        vmin = 0.0
+        vmax = float(np.max(positive)) if positive.size else 1.0
+
+    colors = field_to_colormap(field_values, colormap, vmin, vmax)
+    comment = f"Sub-cortical surface coloured by {field_name} field"
+    write_ply_with_colors(
+        str(output_path), verts_world, faces, colors, comment=comment
+    )
+
+    return {
+        "vertices": len(verts_world),
+        "faces": len(faces),
+        "output_file": str(output_path),
+        "removed_components": removed_components,
+        "field_min": float(np.min(field_values)) if field_values.size else 0.0,
+        "field_max": float(np.max(field_values)) if field_values.size else 0.0,
     }
 
 
