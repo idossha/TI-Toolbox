@@ -52,13 +52,22 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.manifest.write_manifest")
     @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
     def test_single_run_success(
-        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
         (tmp_path / "m2m" / "001.msh").touch()
@@ -82,13 +91,22 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.manifest.write_manifest")
     @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
     def test_multistart_picks_best(
-        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
         (tmp_path / "m2m" / "001.msh").touch()
@@ -121,13 +139,22 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.manifest.write_manifest")
     @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
     def test_all_runs_fail(
-        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
         (tmp_path / "m2m" / "001.msh").touch()
@@ -149,13 +176,22 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.manifest.write_manifest")
     @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
     @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
     def test_auto_output_folder(
-        self, mock_gpm, mock_builder, mock_dirname, mock_label, mock_manifest, tmp_path
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
     ):
         pm = MagicMock()
         pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
         pm.m2m.return_value = str(tmp_path / "m2m")
         (tmp_path / "m2m").mkdir()
         (tmp_path / "m2m" / "001.msh").touch()
