@@ -7,7 +7,44 @@ permalink: /releases/changelog/
 Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
-### v2.3.2 (Latest Release)
+### v2.4.0 (Latest Release)
+
+**Release Date**: July 20, 2026
+
+#### Additions
+
+- Combine multiple ROIs in optimization: flex-search and exhaustive-search can now target the union of several same-type regions (cortical by name including cross-hemisphere, subcortical by label, or multiple spheres) through a searchable region picker with region chips.
+- New TI safety metrics (Cassara et al. 2025): peak carrier field and SAR-driver maps are now written as subject- and MNI-space NIfTI volumes alongside TI_max.
+- Surface-based group statistics: run group comparisons and correlations directly on the fsaverage cortical surface with cluster-based permutation testing and inflated-cortex rendering; TI fields now auto-project to fsaverage after each simulation.
+- CT and NIfTI ingestion: preprocessing can now import head CT scans and pre-converted NIfTI files (T1w/T2w/CT/DWI), not only DICOMs.
+- 3D Visualizer: export subcortical structures colored by a simulation field (PLY) using a searchable label picker.
+- Simulator: choose to skip or overwrite existing simulation outputs instead of aborting with an error.
+- Montage visualizer: connection arcs now show which channels interfere (TI partners), with a channel color legend.
+- Faster simulations: mesh-to-NIfTI conversion is parallelized, cutting end-to-end simulation time by roughly 30%.
+
+#### Fixes
+
+- Fixed a DICOM import crash on projects seeded with macOS junk (AppleDouble) files.
+- Fixed QSIPrep preprocessing failures: the root BIDS dataset description is now always created, and a missing T1w is reported up front instead of failing deep in the workflow.
+- Fixed the 3D exporter deleting cortical region files after export.
+- FreeSurfer data volume is now versioned by image tag so image updates correctly re-seed it.
+
+#### Download Links
+
+**Desktop App (v2.4.0):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.4.0/TI-Toolbox-2.4.0.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.4.0/TI-Toolbox-2.4.0-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.4.0/TI-Toolbox-2.4.0.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.4.0/TI-Toolbox-2.4.0.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.4.0/TT-Toolbox-2.4.0.deb)
+
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:v2.4.0`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
+---
+
+### v2.3.2
 
 **Release Date**: June 11, 2026
 

@@ -11,7 +11,7 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.3.2
+    image: idossha/simnibs:v2.4.0
     container_name: simnibs_container
     volumes:
       - freesurfer_data:/usr/local/freesurfer/
@@ -33,7 +33,7 @@ services:
       TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
       TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
       KMP_AFFINITY: "disabled"
-      TI_TOOLBOX_VERSION: "v2.3.2"
+      TI_TOOLBOX_VERSION: "v2.4.0"
     ports:
       - "8888:8888"
     networks:
