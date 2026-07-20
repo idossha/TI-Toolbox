@@ -420,7 +420,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         subject_combo = self.pairs_table.cellWidget(row, 0)
         sim_combo = self.pairs_table.cellWidget(row, 1)
 
-        if subject_combo and sim_combo:
+        if subject_combo is not None and sim_combo is not None:
             subject_id = subject_combo.currentText()
             if subject_id:
                 sims = self.pm.list_simulations(subject_id)
@@ -453,7 +453,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 elif all_subjects:
                     subject_combo.setCurrentText(all_subjects[0])
 
-            if sim_combo and subject_combo:
+            if sim_combo is not None and subject_combo is not None:
                 subject_id = subject_combo.currentText()
                 if subject_id:
                     sims = self.pm.list_simulations(subject_id)
@@ -1464,7 +1464,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             subject_combo = self.pairs_table.cellWidget(row, 0)
             sim_combo = self.pairs_table.cellWidget(row, 1)
 
-            if subject_combo and sim_combo:
+            if subject_combo is not None and sim_combo is not None:
                 subject_id = subject_combo.currentText()
                 simulation_name = sim_combo.currentText()
 
@@ -1718,7 +1718,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             for row in range(self.pairs_table.rowCount()):
                 subject_combo = self.pairs_table.cellWidget(row, 0)
                 sim_combo = self.pairs_table.cellWidget(row, 1)
-                if subject_combo and sim_combo:
+                if subject_combo is not None and sim_combo is not None:
                     subject_id = subject_combo.currentText()
                     simulation_name = sim_combo.currentText()
                     if subject_id and simulation_name:
@@ -1768,7 +1768,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 subject_combo = self.pairs_table.cellWidget(row, 0)
                 sim_combo = self.pairs_table.cellWidget(row, 1)
 
-                if subject_combo and sim_combo:
+                if subject_combo is not None and sim_combo is not None:
                     subject_id = subject_combo.currentText()
                     simulation_name = sim_combo.currentText()
 
@@ -1946,7 +1946,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         for row in range(self.pairs_table.rowCount()):
             subject_combo = self.pairs_table.cellWidget(row, 0)
             sim_combo = self.pairs_table.cellWidget(row, 1)
-            if subject_combo and sim_combo:
+            if subject_combo is not None and sim_combo is not None:
                 subject_id = subject_combo.currentText()
                 simulation_name = sim_combo.currentText()
                 if subject_id and simulation_name:

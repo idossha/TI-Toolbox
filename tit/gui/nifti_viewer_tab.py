@@ -708,7 +708,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_combo = self.pairs_table.cellWidget(row, 0)
         sim_combo = self.pairs_table.cellWidget(row, 1)
 
-        if subject_combo and sim_combo:
+        if subject_combo is not None and sim_combo is not None:
             subject_id = subject_combo.currentText()
             if subject_id:
                 sims = self.get_simulations_for_subject(subject_id)
@@ -843,7 +843,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             subject_combo = self.pairs_table.cellWidget(row, 0)
             sim_combo = self.pairs_table.cellWidget(row, 1)
 
-            if subject_combo and sim_combo:
+            if subject_combo is not None and sim_combo is not None:
                 subject_id = subject_combo.currentText()
                 simulation_name = sim_combo.currentText()
 
