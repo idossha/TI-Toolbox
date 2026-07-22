@@ -46,7 +46,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -211,7 +211,7 @@ jobs:
 
       - name: Upload macOS Intel DMG to release
         if: needs.build-mac.result == 'success'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/macOS-Intel-dmg/*
         env:
@@ -219,7 +219,7 @@ jobs:
 
       - name: Upload macOS Silicon DMG to release
         if: needs.build-mac.result == 'success'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/macOS-Silicon-dmg/*
         env:
@@ -227,7 +227,7 @@ jobs:
 
       - name: Upload Windows to release
         if: needs.build-windows.result == 'success'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/Windows/*
         env:
@@ -235,7 +235,7 @@ jobs:
 
       - name: Upload Linux to release
         if: needs.build-linux.result == 'success'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/Linux/*
         env:
