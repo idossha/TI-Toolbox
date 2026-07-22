@@ -664,6 +664,12 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             return
 
+        # Validate electrode parameters
+        error = self.electrode_widget.validate()
+        if error:
+            QtWidgets.QMessageBox.warning(self, "Warning", f"Electrode: {error}")
+            return
+
         # Validate ROI
         error = self.roi_picker.validate()
         if error:

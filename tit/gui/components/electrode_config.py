@@ -66,8 +66,40 @@ class ElectrodeConfigWidget(QtWidgets.QGroupBox):
     # Public API
     # ------------------------------------------------------------------
 
+    def validate(self):
+        """Validate user input; return an error string, or ``None`` if valid.
+
+        Dimensions must be exactly two comma-separated positive numbers
+        (``x,y``). We deliberately do not accept a single value or coerce a
+        square/circle -- callers require complete, explicit input.
+        """
+        parts = [p.strip() for p in self.get_dimensions_text().split(",")]
+        if len(parts) != 2:
+            return (
+                "Dimensions must be two comma-separated numbers 'x,y' "
+                "(e.g. '8,8'). Use a period for decimals, not a comma."
+            )
+        try:
+            dims = [float(p) for p in parts]
+        except ValueError:
+            return f"Dimensions must be numeric, got: {self.get_dimensions_text()!r}"
+        if any(d <= 0 for d in dims):
+            return "Dimensions must be greater than 0."
+
+        try:
+            thickness = float(self.get_thickness_text())
+        except ValueError:
+            return f"Gel thickness must be numeric, got: {self.get_thickness_text()!r}"
+        if thickness <= 0:
+            return "Gel thickness must be greater than 0."
+
+        return None
+
     def get_config(self):
-        """Return ``(FlexConfig.ElectrodeConfig, current_mA)`` tuple."""
+        """Return ``(FlexConfig.ElectrodeConfig, current_mA)`` tuple.
+
+        Call :meth:`validate` first -- this parses input without re-checking it.
+        """
         from tit.opt.config import FlexConfig
 
         shape = self.get_shape()
