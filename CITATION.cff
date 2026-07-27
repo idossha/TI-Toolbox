@@ -5,9 +5,11 @@ message: "If you use this software, please cite both the software and the associ
 
 type: software
 
-version: 2.2.0
-date-released: "2025-12-25"
+version: 2.4.0
+date-released: "2026-07-20"
 url: "https://github.com/idossha/TI-Toolbox"
+repository-code: "https://github.com/idossha/TI-Toolbox"
+license: GPL-3.0
 
 authors:
   - family-names: Haber
@@ -21,12 +23,20 @@ authors:
   - family-names: Tononi
     given-names: G.
 
-doi: 10.1016/j.brs.2025.103016
+# Zenodo concept DOI for the software itself (resolves to the latest release).
+# TODO: uncomment and fill in after the first Zenodo-archived release.
+# doi: 10.5281/zenodo.XXXXXXX
+
+identifiers:
+  - type: doi
+    value: 10.1016/j.brs.2025.103016
+    description: "Journal article describing TI-Toolbox"
 
 preferred-citation:
   type: article
   title: "TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research"
   journal: "Brain Stimulation: Basic, Translational, and Clinical Research in Neuromodulation"
+  year: 2025
   doi: 10.1016/j.brs.2025.103016
   authors:
     - family-names: Haber

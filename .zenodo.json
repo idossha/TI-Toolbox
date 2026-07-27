@@ -1,0 +1,35 @@
+{
+  "title": "TI-Toolbox",
+  "description": "TI-Toolbox (Temporal Interference Toolbox) is an open-source platform for temporal interference stimulation research: simulation of TI and multi-channel TI electric fields, electrode montage optimization, and field/ROI analysis on BIDS-organized neuroimaging data.",
+  "upload_type": "software",
+  "license": "GPL-3.0-or-later",
+  "creators": [
+    {"name": "Haber, I."},
+    {"name": "Jackson, A."},
+    {"name": "Thielscher, A."},
+    {"name": "Hai, A."},
+    {"name": "Tononi, G."}
+  ],
+  "keywords": [
+    "temporal interference",
+    "transcranial electrical stimulation",
+    "neuromodulation",
+    "electric field modeling",
+    "SimNIBS",
+    "BIDS",
+    "neuroimaging"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.1016/j.brs.2025.103016",
+      "relation": "isDescribedBy",
+      "scheme": "doi",
+      "resource_type": "publication-article"
+    },
+    {
+      "identifier": "https://github.com/idossha/TI-Toolbox",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

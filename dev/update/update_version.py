@@ -89,6 +89,16 @@ def update_version(new_version):
         "package/src/main.js": [
             (r"version: '[^']*'", f"version: '{new_version}'"),
         ],
+        # Software citation metadata
+        # Software citation metadata. Anchored on a leading newline so
+        # "version:" does not also match "cff-version:".
+        "CITATION.cff": [
+            (r"\nversion: [^\n]*", f"\nversion: {new_version}"),
+            (
+                r'\ndate-released: [^\n]*',
+                f'\ndate-released: "{datetime.now().strftime("%Y-%m-%d")}"',
+            ),
+        ],
     }
 
     # Update dataset description JSON files

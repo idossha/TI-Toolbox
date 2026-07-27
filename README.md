@@ -16,6 +16,17 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 [Brain Stimulation Journal Publication](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext#supplementary-material>)
 
+## How to Cite
+
+If you use TI-Toolbox in your research, please cite the journal article:
+
+> Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. (2025). TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. *Brain Stimulation*. https://doi.org/10.1016/j.brs.2025.103016
+
+If you additionally need to reference the exact software version used in your
+analysis, cite the Zenodo archive for that release alongside the article. Machine-readable
+metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it under
+"Cite this repository" in the sidebar.
+
 ## Contact
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
