@@ -23,14 +23,19 @@ authors:
   - family-names: Tononi
     given-names: G.
 
-# Zenodo concept DOI for the software itself (resolves to the latest release).
-# TODO: uncomment and fill in after the first Zenodo-archived release.
-# doi: 10.5281/zenodo.XXXXXXX
+# Zenodo concept DOI for the software itself (always resolves to the latest release).
+doi: 10.5281/zenodo.21627945
 
 identifiers:
   - type: doi
     value: 10.1016/j.brs.2025.103016
     description: "Journal article describing TI-Toolbox"
+  - type: doi
+    value: 10.5281/zenodo.21627945
+    description: "Zenodo archive of TI-Toolbox (all versions)"
+  - type: doi
+    value: 10.5281/zenodo.21627946
+    description: "Zenodo archive of TI-Toolbox v2.4.0"
 
 preferred-citation:
   type: article

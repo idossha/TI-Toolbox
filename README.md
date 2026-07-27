@@ -21,9 +21,16 @@ If you use TI-Toolbox in your research, please cite the journal article:
 > Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. (2025). TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. _Brain Stimulation_. https://doi.org/10.1016/j.brs.2025.103016
 
 If you additionally need to reference the exact software version used in your
-analysis, cite the Zenodo archive for that release alongside the article. Machine-readable
-metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it under
-"Cite this repository" in the sidebar.
+analysis, cite the Zenodo archive alongside the article:
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21627945.svg)](https://doi.org/10.5281/zenodo.21627945)
+
+The concept DOI [10.5281/zenodo.21627945](https://doi.org/10.5281/zenodo.21627945)
+always resolves to the latest release; each release also receives its own
+version-specific DOI, listed on that page.
+
+Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it
+under "Cite this repository" in the sidebar.
 
 ## Contact
 
