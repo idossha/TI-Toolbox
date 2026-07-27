@@ -2,7 +2,7 @@
   "title": "TI-Toolbox",
   "description": "TI-Toolbox (Temporal Interference Toolbox) is an open-source platform for temporal interference stimulation research: simulation of TI and multi-channel TI electric fields, electrode montage optimization, and field/ROI analysis on BIDS-organized neuroimaging data.",
   "upload_type": "software",
-  "license": "GPL-3.0-or-later",
+  "license": "gpl-3.0-or-later",
   "creators": [
     {"name": "Haber, I."},
     {"name": "Jackson, A."},
