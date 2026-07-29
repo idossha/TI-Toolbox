@@ -33,6 +33,136 @@ from tit.opt.config import FlexConfig, _as_list
 from . import utils
 
 # ---------------------------------------------------------------------------
+# Custom (threshold-free) focality goals -- F5
+# ---------------------------------------------------------------------------
+
+# SimNIBS' TesFlexOptimization.goal_fun returns a flat 2.0 penalty for
+# overlapping/out-of-region electrode placements *without running a FEM
+# solve* (see the "if e is None" branch in the vendored SimNIBS source,
+# resources/map-electrodes/tes_flex_optimization.py). Because the optimizer
+# minimizes, any custom goal that can legitimately return >= 2.0 would make
+# differential evolution treat invalid placements as *better* than
+# genuinely poor-but-valid ones and converge onto them. Every custom goal
+# below is constructed to already be <= 0 for non-negative field
+# magnitudes, but this clamp is defense-in-depth against a signed
+# postproc type (e.g. dir_TI_normal) or a degenerate denominator.
+_INVALID_PLACEMENT_PENALTY = 2.0
+_CUSTOM_GOAL_CAP = _INVALID_PLACEMENT_PENALTY - 0.1  # 1.9, safety margin
+
+
+def _bound_below_invalid_penalty(value: float) -> float:
+    """Clamp a minimization value strictly below the invalid-placement penalty.
+
+    Parameters
+    ----------
+    value : float
+        Raw (already sign-flipped) goal value.
+
+    Returns
+    -------
+    float
+        ``min(value, 1.9)`` -- guaranteed below SimNIBS' ``2.0`` flat
+        penalty for overlapping/out-of-region electrode placements.
+    """
+    return min(value, _CUSTOM_GOAL_CAP)
+
+
+def _ratio_focality(e1: np.ndarray, e2: np.ndarray, v1: float, v2: float) -> float:
+    """Volume-weighted ROI/non-ROI field ratio (Stoupis & Samaras 2022 ``R_area``).
+
+    ``R_area = (mean(e1) / v1) / (mean(e2) / v2)`` -- the linear analogue of
+    :func:`measures.integral_focality` (Fernandez-Corazza et al. 2020, eq.
+    14, which takes the same form but with a sqrt on the denominator).
+    Normalising each region's mean field by its own average element
+    volume/area (*v1*, *v2*) keeps the ratio comparable across ROIs of
+    different size or mesh density. When ``v1 ~= v2`` this reduces to the
+    plain ``mean(ROI)/mean(non-ROI)`` ratio Bruno et al. (2026) report as
+    **1.10 +/- 0.15** for bilateral thalamus using TI-Toolbox's exhaustive
+    search engine.
+
+    Parameters
+    ----------
+    e1 : numpy.ndarray
+        Electric field magnitude in the ROI.
+    e2 : numpy.ndarray
+        Electric field magnitude in the non-ROI.
+    v1 : float
+        Average element volume/area in the ROI (SimNIBS
+        ``get_element_properties`` output, reused from ``opt._vol``).
+    v2 : float
+        Average element volume/area in the non-ROI.
+
+    Returns
+    -------
+    float
+        The volume-weighted ratio. Non-negative for non-negative field
+        magnitudes.
+    """
+    eps = 1e-12
+    roi_density = float(np.mean(e1)) / max(float(v1), eps)
+    non_roi_density = float(np.mean(e2)) / max(float(v2), eps)
+    return roi_density / max(non_roi_density, eps)
+
+
+def _make_focality_goal_fn(goal: "FlexConfig.OptGoal", opt, measures):
+    """Build a threshold-free Python callable for a custom focality goal.
+
+    SimNIBS' ``TesFlexOptimization.goal_fun`` accepts a Python callable as
+    ``opt.goal`` and calls it as ``self.goal[0](e_pp)``, bypassing
+    ``compute_goal`` (and its 2-point ``measures.ROC`` evaluation) entirely
+    -- see ``goal_fun`` in the vendored SimNIBS source. ``e_pp`` is
+    ``list[n_channel_stim][n_roi]``; TI post-processing always collapses
+    the two stimulation channels into a single effective channel (every
+    :class:`FlexConfig.FieldPostproc` value contains ``"TI"``), so in
+    practice ``e_pp == [[roi_field, non_roi_field]]``. This still averages
+    over ``e_pp``'s outer list for robustness, mirroring how SimNIBS'
+    own ``compute_goal`` averages over stimulation channels.
+
+    Parameters
+    ----------
+    goal : FlexConfig.OptGoal
+        One of ``INTEGRAL_FOCALITY``, ``AUC_FOCALITY``, ``RATIO_FOCALITY``.
+    opt : simnibs.optimization.TesFlexOptimization
+        The optimization object being built. The returned callable closes
+        over *opt* to read ``opt._vol`` at call time -- populated by
+        SimNIBS' own ``_prepare()`` before the goal function is ever
+        invoked -- rather than recomputing ROI/non-ROI element volumes.
+    measures : module
+        The SimNIBS ``tes_flex_optimization.measures`` module (passed in
+        rather than imported inside the closure so it can be swapped for a
+        test double).
+
+    Returns
+    -------
+    callable
+        A plain ``def`` (``types.FunctionType``, as SimNIBS requires)
+        mapping ``e_pp -> float``, scaled so valid placements stay
+        strictly below the ``2.0`` invalid-placement penalty (see
+        :func:`_bound_below_invalid_penalty`).
+    """
+
+    def _focality_goal(e_pp):
+        scores = []
+        for channel_fields in e_pp:
+            e1 = np.asarray(channel_fields[0])  # ROI
+            e2 = np.asarray(channel_fields[1])  # non-ROI
+            if goal == FlexConfig.OptGoal.INTEGRAL_FOCALITY:
+                score = measures.integral_focality(
+                    e1=e1, e2=e2, v1=opt._vol[0], v2=opt._vol[1]
+                )
+            elif goal == FlexConfig.OptGoal.AUC_FOCALITY:
+                score = measures.AUC(e1=e1, e2=e2)
+            else:  # RATIO_FOCALITY
+                score = _ratio_focality(e1, e2, opt._vol[0], opt._vol[1])
+            scores.append(score)
+        # Higher score is better; SimNIBS minimizes, so negate (same sign
+        # convention as the built-in "mean"/"max"/"focality" goals).
+        return _bound_below_invalid_penalty(-float(np.mean(scores)))
+
+    return _focality_goal
+
+
+# ---------------------------------------------------------------------------
 # SimNIBS optimization object construction
 # ---------------------------------------------------------------------------
 
@@ -61,6 +191,7 @@ def build_optimization(config: FlexConfig):
     tit.opt.flex.utils.configure_roi : Delegates ROI setup.
     """
     from simnibs import opt_struct
+    from simnibs.optimization.tes_flex_optimization import measures
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
         ElectrodeArrayPair,
     )
@@ -75,14 +206,21 @@ def build_optimization(config: FlexConfig):
     os.makedirs(opt.output_folder, exist_ok=True)
 
     # Configure goals and thresholds
-    # Use .value to pass plain strings — SimNIBS does substring checks
-    # (e.g. "dir_TI" in self.e_postproc) that fail on StrEnum instances.
-    opt.goal = config.goal.value
-    if config.goal == "focality":
-        thr_raw = (config.thresholds or "").strip()
-        if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
-            vals = [float(v) for v in thr_raw.split(",")]
-            opt.threshold = vals if len(vals) > 1 else vals[0]
+    if config.goal in FlexConfig.OptGoal.custom_callable_goals():
+        # Threshold-free objectives (F5): pass a Python callable so SimNIBS
+        # bypasses its 2-point ROC evaluation entirely. Built after `opt`
+        # exists so the callable can close over `opt._vol`, populated later
+        # by SimNIBS' own _prepare() (see _make_focality_goal_fn).
+        opt.goal = _make_focality_goal_fn(config.goal, opt, measures)
+    else:
+        # Use .value to pass plain strings — SimNIBS does substring checks
+        # (e.g. "dir_TI" in self.e_postproc) that fail on StrEnum instances.
+        opt.goal = config.goal.value
+        if config.goal == "focality":
+            thr_raw = (config.thresholds or "").strip()
+            if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
+                vals = [float(v) for v in thr_raw.split(",")]
+                opt.threshold = vals if len(vals) > 1 else vals[0]
 
     opt.e_postproc = config.postproc.value
     opt.anisotropy_type = config.anisotropy_type

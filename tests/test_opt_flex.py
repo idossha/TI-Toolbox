@@ -289,3 +289,74 @@ class TestValidateFlexInputs:
         )
         with pytest.raises(ValueError, match="ROI atlas file not found"):
             _validate_flex_inputs(config)
+
+
+# ---------------------------------------------------------------------------
+# _warn_if_objective_flat (F5 diagnostic)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestWarnIfObjectiveFlat:
+    def test_warns_when_objective_is_flat(self):
+        from tit.opt.flex.flex import _warn_if_objective_flat
+
+        opt = MagicMock()
+        opt.goal_fun_value = [[0.0] * 10]
+        logger = MagicMock()
+
+        _warn_if_objective_flat(opt, FlexConfig.OptGoal.FOCALITY, logger, 0)
+
+        logger.warning.assert_called_once()
+        # goal name is rendered into the message args for troubleshooting
+        assert "focality" in logger.warning.call_args[0]
+
+    def test_no_warning_when_objective_varies(self):
+        from tit.opt.flex.flex import _warn_if_objective_flat
+
+        opt = MagicMock()
+        opt.goal_fun_value = [[-1.0, -5.0, -12.0, -3.0, -8.0, -20.0]]
+        logger = MagicMock()
+
+        _warn_if_objective_flat(opt, FlexConfig.OptGoal.FOCALITY, logger, 0)
+
+        logger.warning.assert_not_called()
+
+    def test_no_warning_with_too_few_samples(self):
+        from tit.opt.flex.flex import _warn_if_objective_flat
+
+        opt = MagicMock()
+        opt.goal_fun_value = [[0.0, 0.0]]
+        logger = MagicMock()
+
+        _warn_if_objective_flat(opt, FlexConfig.OptGoal.FOCALITY, logger, 0)
+
+        logger.warning.assert_not_called()
+
+    def test_no_warning_when_goal_fun_value_is_an_unconfigured_mock(self):
+        """opt is a MagicMock() throughout run_flex_search's own test suite
+        (builder is entirely mocked there) -- this must never raise or
+        warn on the unconfigured default."""
+        from tit.opt.flex.flex import _warn_if_objective_flat
+
+        opt = MagicMock()
+        logger = MagicMock()
+
+        _warn_if_objective_flat(opt, FlexConfig.OptGoal.FOCALITY, logger, 0)
+
+        logger.warning.assert_not_called()
+
+    def test_no_op_for_custom_callable_goals(self):
+        """Custom goals bypass compute_goal entirely, so goal_fun_value
+        stays empty for them -- nothing to warn about here even if the
+        underlying objective happened to be flat (SimNIBS never records
+        it for a Python-callable goal)."""
+        from tit.opt.flex.flex import _warn_if_objective_flat
+
+        opt = MagicMock()
+        opt.goal_fun_value = [[]]
+        logger = MagicMock()
+
+        _warn_if_objective_flat(opt, FlexConfig.OptGoal.RATIO_FOCALITY, logger, 0)
+
+        logger.warning.assert_not_called()
