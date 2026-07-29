@@ -20,10 +20,14 @@ ExConfig
     Configuration dataclass for exhaustive search.
 ExResult
     Result container returned by :func:`run_ex_search`.
+MTIFrequencyPlan
+    Per-pair carrier/phase assignment for a multipolar (mTI) montage.
 run_flex_search
     Run differential-evolution electrode placement optimization.
 run_ex_search
     Run exhaustive grid search over electrode combinations.
+validate_band_separation
+    Validate carrier-band separation for an :class:`MTIFrequencyPlan`.
 
 See Also
 --------
@@ -37,6 +41,8 @@ from tit.opt.config import (
     FlexResult,
     ExConfig,
     ExResult,
+    MTIFrequencyPlan,
+    validate_band_separation,
 )
 from tit.opt.ex.ex import run_ex_search
 from tit.opt.flex.flex import run_flex_search
@@ -47,7 +53,9 @@ __all__ = [
     "FlexResult",
     "ExConfig",
     "ExResult",
+    "MTIFrequencyPlan",
     # Functions
     "run_flex_search",
     "run_ex_search",
+    "validate_band_separation",
 ]

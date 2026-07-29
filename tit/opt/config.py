@@ -13,13 +13,21 @@ ExConfig
     Full configuration for exhaustive (grid) search optimization.
 ExResult
     Result container for a completed exhaustive search run.
+MTIFrequencyPlan
+    Per-pair carrier/phase assignment for a multipolar (mTI) montage.
+validate_band_separation
+    Validate that an :class:`MTIFrequencyPlan` has enough carrier-band
+    separation for the N>2 envelope closed form to remain valid.
 
 See Also
 --------
 tit.opt.flex.flex.run_flex_search : Consumes :class:`FlexConfig`.
 tit.opt.ex.ex.run_ex_search : Consumes :class:`ExConfig`.
+tit.calc.mti_modulation_depth : Consumes an :class:`MTIFrequencyPlan`'s
+    per-pair phase offsets (as ``psi``) for the N>2 envelope.
 """
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
@@ -623,3 +631,173 @@ class ExResult:
     n_combinations: int
     results_csv: str | None = None
     config_json: str | None = None
+
+
+# ── Multipolar (mTI) frequency plan ──────────────────────────────────────────
+
+
+@dataclass
+class MTIFrequencyPlan:
+    """Per-pair carrier assignment for a multipolar (mTI) TI montage.
+
+    Records the two carrier frequencies and (optional) hardware phase
+    offsets driving each electrode pair. Every pair must share the same
+    beat frequency ``delta_f = |f_b - f_a|`` -- that shared beat frequency
+    is what the N>2 envelope closed form in
+    :func:`tit.calc.mti_modulation_depth` targets. ``phi_b - phi_a`` per
+    pair is exactly the ``psi`` array that function accepts.
+
+    Attributes
+    ----------
+    f_a : list of float
+        Carrier frequency (Hz) of sub-channel *a*, one entry per pair.
+    f_b : list of float
+        Carrier frequency (Hz) of sub-channel *b*, one entry per pair.
+        Must have the same length as *f_a*.
+    phi_a : list of float
+        Hardware phase offset (radians) of sub-channel *a*, one entry per
+        pair. Defaults to all zeros.
+    phi_b : list of float
+        Hardware phase offset (radians) of sub-channel *b*, one entry per
+        pair. Defaults to all zeros.
+
+    Raises
+    ------
+    ValueError
+        If *f_a* is empty, if *f_b*/*phi_a*/*phi_b* do not match *f_a* in
+        length, if any frequency is non-positive, or if the beat frequency
+        ``|f_b - f_a|`` is not the same for every pair.
+
+    See Also
+    --------
+    validate_band_separation : Validates carrier-band separation between
+        pairs (a distinct condition from the shared-beat-frequency check
+        here).
+    tit.calc.mti_modulation_depth : Consumes ``phi_b - phi_a`` per pair as
+        its ``psi`` argument.
+    """
+
+    f_a: list[float]
+    f_b: list[float]
+    phi_a: list[float] = field(default_factory=list)
+    phi_b: list[float] = field(default_factory=list)
+
+    def __post_init__(self):
+        n = len(self.f_a)
+        if n == 0:
+            raise ValueError("MTIFrequencyPlan requires at least one pair")
+        if len(self.f_b) != n:
+            raise ValueError(
+                f"f_a and f_b must have equal length, got {n} and {len(self.f_b)}"
+            )
+        if not self.phi_a:
+            self.phi_a = [0.0] * n
+        if not self.phi_b:
+            self.phi_b = [0.0] * n
+        if len(self.phi_a) != n or len(self.phi_b) != n:
+            raise ValueError(
+                "phi_a and phi_b must have the same length as f_a/f_b "
+                f"({n}); got {len(self.phi_a)} and {len(self.phi_b)}"
+            )
+        if any(f <= 0 for f in self.f_a) or any(f <= 0 for f in self.f_b):
+            raise ValueError(
+                "All carrier frequencies in MTIFrequencyPlan must be positive"
+            )
+
+        delta_fs = [abs(fb - fa) for fa, fb in zip(self.f_a, self.f_b)]
+        ref = delta_fs[0]
+        for i, df in enumerate(delta_fs[1:], start=1):
+            if not math.isclose(df, ref, rel_tol=1e-9, abs_tol=1e-6):
+                raise ValueError(
+                    "MTIFrequencyPlan requires every pair to share the same "
+                    f"beat frequency delta_f; pair 0 has delta_f={ref:.6g} Hz, "
+                    f"pair {i} has delta_f={df:.6g} Hz"
+                )
+
+    @property
+    def delta_f(self) -> float:
+        """Shared beat frequency ``|f_b - f_a|`` (Hz), common to every pair."""
+        return abs(self.f_b[0] - self.f_a[0])
+
+    @property
+    def pair_means(self) -> list[float]:
+        """Per-pair mean carrier frequency ``(f_a + f_b) / 2`` (Hz)."""
+        return [0.5 * (fa + fb) for fa, fb in zip(self.f_a, self.f_b)]
+
+    @property
+    def psi(self) -> list[float]:
+        """Per-pair envelope phase offset ``phi_b - phi_a`` (radians).
+
+        Directly consumable as the ``psi`` argument of
+        :func:`tit.calc.mti_modulation_depth`.
+        """
+        return [pb - pa for pa, pb in zip(self.phi_a, self.phi_b)]
+
+
+def validate_band_separation(plan: MTIFrequencyPlan, f_cutoff: float = 200.0) -> None:
+    """Validate carrier-band separation between every pair of mTI pairs.
+
+    The N>2 envelope closed form (:func:`tit.calc.mti_modulation_depth`)
+    and physiological specificity both require, for every pair of pairs
+    *(i, j)*::
+
+        |mean(f_i) - mean(f_j)| - delta_f  >  f_cutoff
+
+    Below this margin, cross-pair beat products fall inside the
+    demodulation passband: the closed form stops being valid, and stray
+    low-frequency envelopes appear in off-target tissue. Botzanowski et
+    al.'s empirical "at least 1 kHz between pair-mean carrier
+    frequencies" is a conservative instance of this condition (with
+    ``f_cutoff=200`` Hz and typical ``delta_f`` in the tens-of-Hz range,
+    the required gap works out to roughly that order).
+
+    Parameters
+    ----------
+    plan : MTIFrequencyPlan
+        The per-pair carrier assignment to validate.
+    f_cutoff : float, default 200.0
+        Demodulation low-pass cutoff (Hz) -- the beat frequency band that
+        must stay clear of cross-pair carrier-difference products.
+
+    Raises
+    ------
+    ValueError
+        Naming every offending pair of pair-indices, the measured gap, and
+        the required margin, if any pair of pairs violates the condition
+        above.
+
+    See Also
+    --------
+    MTIFrequencyPlan : The per-pair carrier/phase assignment validated here.
+    tit.calc.mti_modulation_depth : The envelope formula whose validity
+        this condition guards.
+    """
+    means = plan.pair_means
+    delta_f = plan.delta_f
+    n = len(means)
+
+    violations = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            gap = abs(means[i] - means[j])
+            margin = gap - delta_f
+            if margin <= f_cutoff:
+                violations.append((i, j, gap, margin))
+
+    if violations:
+        lines = "\n".join(
+            f"  pairs {i} and {j}: carrier-band gap={gap:.1f} Hz, "
+            f"delta_f={delta_f:.1f} Hz -> margin={margin:.1f} Hz "
+            f"(need > {f_cutoff:.1f} Hz)"
+            for i, j, gap, margin in violations
+        )
+        raise ValueError(
+            "Insufficient carrier-band separation between mTI pairs: the "
+            "N>2 envelope closed form requires "
+            "(carrier-band gap - delta_f) > f_cutoff for every pair of "
+            "pairs, or the closed form becomes invalid and stray "
+            "low-frequency envelopes appear off-target "
+            "(Botzanowski et al. recommend >= 1 kHz between pair-mean "
+            "carrier frequencies as a conservative instance of this rule). "
+            f"Violations (f_cutoff={f_cutoff:.1f} Hz):\n{lines}"
+        )
