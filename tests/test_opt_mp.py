@@ -93,7 +93,7 @@ class TestMultiPolarConfig:
         assert cfg.current_mA == 2.0
 
     def test_rejects_n_pairs_below_2(self):
-        with pytest.raises(ValueError, match="n_pairs must be >= 2"):
+        with pytest.raises(ValueError, match="n_pairs must be an even number >= 2"):
             MultiPolarConfig(
                 subject_id="001",
                 leadfield_hdf="lf.hdf5",
@@ -456,3 +456,520 @@ class TestMPResults:
         assert "rank" in header
         assert "pair1_plus" in header
         assert "focality" in header
+
+    def test_save_results_records_scheme_and_frequency_plan(self, tmp_path):
+        """Finding F11: n_pairs alone is ambiguous -- scheme (and, if given,
+        the frequency plan) must always be recorded in the results JSON."""
+        from tit.opt.config import MTIFrequencyPlan
+        from tit.opt.mp.results import save_results
+
+        de_result = {
+            "best_focality": 2.5,
+            "best_montage": [("E1", "E2", 1.0), ("E3", "E4", 1.0)],
+            "best_indices": [0, 1, 2, 3],
+            "n_iterations": 50,
+            "n_evaluations": 1500,
+            "convergence_success": True,
+            "message": "Converged",
+        }
+
+        plan = MTIFrequencyPlan(f_a=[2000.0], f_b=[2020.0])
+        config = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=2,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            current_mA=2.0,
+            scheme="multiband",
+            frequency_plan=plan,
+        )
+
+        logger = MagicMock()
+        paths = save_results(de_result, config, str(tmp_path), logger)
+
+        with open(paths["config_json"]) as f:
+            data = json.load(f)
+        assert data["scheme"] == "multiband"
+        assert data["frequency_plan"]["f_a"] == [2000.0]
+        assert data["frequency_plan"]["f_b"] == [2020.0]
+
+    def test_save_results_frequency_plan_none_by_default(self, tmp_path):
+        from tit.opt.mp.results import save_results
+
+        de_result = {
+            "best_focality": 2.5,
+            "best_montage": [("E1", "E2", 1.0)],
+            "best_indices": [0, 1],
+            "n_iterations": 10,
+            "n_evaluations": 100,
+            "convergence_success": True,
+            "message": "Converged",
+        }
+        config = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=2,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+        )
+        paths = save_results(de_result, config, str(tmp_path), MagicMock())
+        with open(paths["config_json"]) as f:
+            data = json.load(f)
+        assert data["scheme"] == "multiband"
+        assert data["frequency_plan"] is None
+
+
+# ===========================================================================
+# MultiPolarConfig.scheme / frequency_plan (finding F11)
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestMultiPolarConfigScheme:
+    def test_default_scheme_is_multiband(self):
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+        )
+        assert cfg.scheme == "multiband"
+        assert cfg.frequency_plan is None
+
+    def test_dual_carrier_scheme_accepted(self):
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            scheme="dual_carrier",
+        )
+        assert cfg.scheme == "dual_carrier"
+
+    def test_rejects_unknown_scheme(self):
+        with pytest.raises(ValueError, match="scheme must be"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=4,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+                scheme="bogus",
+            )
+
+    def test_rejects_odd_n_pairs(self):
+        with pytest.raises(ValueError, match="n_pairs must be an even number"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=3,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            )
+
+    def test_frequency_plan_requires_multiband(self):
+        from tit.opt.config import MTIFrequencyPlan
+
+        plan = MTIFrequencyPlan(f_a=[2000.0, 3500.0], f_b=[2020.0, 3520.0])
+        with pytest.raises(ValueError, match="only meaningful for scheme='multiband'"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=4,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+                scheme="dual_carrier",
+                frequency_plan=plan,
+            )
+
+    def test_frequency_plan_must_match_pair_count(self):
+        from tit.opt.config import MTIFrequencyPlan
+
+        # n_pairs=4 -> 2 interference pairs required, but plan only has 1
+        plan = MTIFrequencyPlan(f_a=[2000.0], f_b=[2020.0])
+        with pytest.raises(ValueError, match="requires exactly 2"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=4,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+                scheme="multiband",
+                frequency_plan=plan,
+            )
+
+    def test_frequency_plan_validates_band_separation_at_config_time(self):
+        """An invalid plan (insufficient carrier-band separation) must fail
+        loudly at MultiPolarConfig construction time, not silently produce
+        an invalid envelope later."""
+        from tit.opt.config import MTIFrequencyPlan
+
+        # Both pairs share nearly the same mean carrier frequency -> the
+        # (gap - delta_f) > f_cutoff condition is violated.
+        plan = MTIFrequencyPlan(f_a=[2000.0, 2000.5], f_b=[2020.0, 2020.5])
+        with pytest.raises(ValueError, match="Insufficient carrier-band separation"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=4,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+                scheme="multiband",
+                frequency_plan=plan,
+            )
+
+    def test_valid_frequency_plan_accepted(self):
+        from tit.opt.config import MTIFrequencyPlan
+
+        plan = MTIFrequencyPlan(f_a=[2000.0, 3500.0], f_b=[2020.0, 3520.0])
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            scheme="multiband",
+            frequency_plan=plan,
+        )
+        assert cfg.frequency_plan is plan
+
+    def test_rejects_search_nonroi_samples_below_1(self):
+        with pytest.raises(ValueError, match="search_nonroi_samples"):
+            MultiPolarConfig(
+                subject_id="001",
+                leadfield_hdf="lf.hdf5",
+                n_pairs=2,
+                roi=SphericalROI(x=0, y=0, z=0, radius=10),
+                search_nonroi_samples=0,
+            )
+
+    def test_default_search_nonroi_samples(self):
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=2,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+        )
+        assert cfg.search_nonroi_samples == 6000
+
+
+# ===========================================================================
+# fast_eval N>2 metric switch (finding F1)
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestNPairMetricSwitch:
+    """F1: fast_eval's N>2 path now defaults to the correct
+    tit.calc.mti_modulation_depth envelope. The old tit.calc.get_nTI_vectors
+    metric (measured -13%/+12% error at N=4 against time-domain ground
+    truth) is reachable only via metric="recursive_ti", for comparison.
+    """
+
+    def _evaluator_and_diffs(self, n_pairs=4, n_elec=10, n_elements=100, seed=42):
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec, n_elements, seed)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        roi_idx = np.arange(5)
+        nonroi_idx = np.arange(5, n_elements)
+        evaluator.setup_evaluation(
+            roi_idx, np.ones(len(roi_idx)), nonroi_idx, np.ones(len(nonroi_idx))
+        )
+        pairs = [(2 * i, 2 * i + 1) for i in range(n_pairs)]
+        diffs = evaluator.precompute_pair_diffs(pairs)
+        return evaluator, diffs, roi_idx
+
+    def test_default_metric_matches_mti_modulation_depth(self):
+        from tit.calc import mti_modulation_depth
+
+        evaluator, diffs, roi_idx = self._evaluator_and_diffs()
+        currents = [0.001] * 4
+        e_fields = [c * d for c, d in zip(currents, diffs)]
+        expected = mti_modulation_depth(e_fields)["md"]
+
+        metrics = evaluator.evaluate_montage_npair(diffs, currents)
+        assert metrics["roi_max"] == pytest.approx(expected[roi_idx].max(), rel=1e-10)
+
+    def test_default_metric_no_longer_matches_legacy_get_nTI_vectors(self):
+        """The F1 fix: N=4 default output must differ from the old
+        (wrong) get_nTI_vectors-based computation."""
+        from tit.calc import get_nTI_vectors
+
+        evaluator, diffs, roi_idx = self._evaluator_and_diffs()
+        currents = [0.001] * 4
+        e_fields = [c * d for c, d in zip(currents, diffs)]
+        legacy_expected = np.linalg.norm(get_nTI_vectors(e_fields), axis=1)
+
+        metrics = evaluator.evaluate_montage_npair(diffs, currents)
+        assert metrics["roi_max"] != pytest.approx(
+            legacy_expected[roi_idx].max(), rel=1e-6
+        )
+
+    def test_legacy_metric_still_reachable_for_comparison(self):
+        """metric="recursive_ti" reproduces the old get_nTI_vectors path
+        exactly -- kept reachable so the F1 error band stays checkable."""
+        from tit.calc import get_nTI_vectors
+
+        evaluator, diffs, roi_idx = self._evaluator_and_diffs()
+        currents = [0.001] * 4
+        e_fields = [c * d for c, d in zip(currents, diffs)]
+        legacy_expected = np.linalg.norm(get_nTI_vectors(e_fields), axis=1)
+
+        metrics = evaluator.evaluate_montage_npair(
+            diffs, currents, metric="recursive_ti"
+        )
+        assert metrics["roi_max"] == pytest.approx(
+            legacy_expected[roi_idx].max(), rel=1e-10
+        )
+
+    def test_focality_from_diffs_also_uses_correct_metric_by_default(self):
+        from tit.calc import get_nTI_vectors
+
+        evaluator, diffs, roi_idx = self._evaluator_and_diffs()
+        currents = np.array([0.001] * 4)
+
+        default_foc = evaluator.focality_from_diffs(diffs, currents)
+        legacy_foc = evaluator.focality_from_diffs(
+            diffs, currents, metric="recursive_ti"
+        )
+
+        assert np.isfinite(default_foc)
+        assert np.isfinite(legacy_foc)
+        assert default_foc != pytest.approx(legacy_foc, rel=1e-6)
+
+    def test_two_pair_case_unaffected_by_metric_argument(self):
+        """K=1 (2 electrode pairs) always uses the exact closed-form fast
+        path regardless of `metric` -- unaffected by the F1 fix."""
+        evaluator, _, _ = self._evaluator_and_diffs()
+        pairs = [(0, 1), (2, 3)]
+        diffs = evaluator.precompute_pair_diffs(pairs)
+        currents = [0.001, 0.001]
+
+        default_metrics = evaluator.evaluate_montage_npair(diffs, currents)
+        legacy_metrics = evaluator.evaluate_montage_npair(
+            diffs, currents, metric="recursive_ti"
+        )
+        assert default_metrics["roi_max"] == pytest.approx(
+            legacy_metrics["roi_max"], rel=1e-10
+        )
+
+    def test_rejects_unknown_metric(self):
+        evaluator, diffs, _ = self._evaluator_and_diffs()
+        currents = [0.001] * 4
+        with pytest.raises(ValueError, match="Unknown metric"):
+            evaluator.evaluate_montage_npair(diffs, currents, metric="bogus")
+
+
+# ===========================================================================
+# fast_eval grouping schemes (finding F11)
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestGroupingSchemes:
+    def test_multiband_is_adjacent_grouping_noop(self):
+        from tit.opt.fast_eval import SCHEME_MULTIBAND, _group_fields_for_scheme
+
+        rng = np.random.default_rng(0)
+        fields = [rng.standard_normal((10, 3)) for _ in range(4)]
+        grouped = _group_fields_for_scheme(fields, SCHEME_MULTIBAND)
+
+        assert len(grouped) == 4
+        for a, b in zip(grouped, fields):
+            np.testing.assert_array_equal(a, b)
+
+    def test_dual_carrier_superposes_even_and_odd_pairs(self):
+        from tit.opt.fast_eval import SCHEME_DUAL_CARRIER, _group_fields_for_scheme
+
+        rng = np.random.default_rng(1)
+        fields = [rng.standard_normal((10, 3)) for _ in range(4)]
+        grouped = _group_fields_for_scheme(fields, SCHEME_DUAL_CARRIER)
+
+        assert len(grouped) == 2
+        np.testing.assert_allclose(grouped[0], fields[0] + fields[2])
+        np.testing.assert_allclose(grouped[1], fields[1] + fields[3])
+
+    def test_dual_carrier_requires_even_length(self):
+        from tit.opt.fast_eval import SCHEME_DUAL_CARRIER, _group_fields_for_scheme
+
+        fields = [np.zeros((5, 3))] * 3
+        with pytest.raises(ValueError, match="even length"):
+            _group_fields_for_scheme(fields, SCHEME_DUAL_CARRIER)
+
+    def test_rejects_unknown_scheme(self):
+        from tit.opt.fast_eval import _group_fields_for_scheme
+
+        fields = [np.zeros((5, 3))] * 4
+        with pytest.raises(ValueError, match="Unknown scheme"):
+            _group_fields_for_scheme(fields, "bogus")
+
+    def test_schemes_produce_different_envelopes_for_n4(self):
+        """multiband (K=2, adjacent) and dual_carrier (K=1, superposed) are
+        different physics (finding F11) and generally give different
+        fields for the same montage."""
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec=10, n_elements=100, seed=99)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        evaluator.setup_evaluation(
+            np.arange(5), np.ones(5), np.arange(5, 100), np.ones(95)
+        )
+        diffs = evaluator.precompute_pair_diffs([(0, 1), (2, 3), (4, 5), (6, 7)])
+        currents = [0.001] * 4
+
+        multiband = evaluator.evaluate_montage_npair(
+            diffs, currents, scheme="multiband"
+        )
+        dual_carrier = evaluator.evaluate_montage_npair(
+            diffs, currents, scheme="dual_carrier"
+        )
+
+        assert multiband["roi_mean"] != pytest.approx(
+            dual_carrier["roi_mean"], rel=1e-6
+        )
+
+    def test_two_pair_case_both_schemes_agree(self):
+        """K=1 is reached identically regardless of scheme when n_pairs=2 --
+        both group down to the same two fields."""
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec=10, n_elements=100, seed=5)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        evaluator.setup_evaluation(
+            np.arange(5), np.ones(5), np.arange(5, 100), np.ones(95)
+        )
+        diffs = evaluator.precompute_pair_diffs([(0, 1), (2, 3)])
+        currents = [0.001, 0.001]
+
+        multiband = evaluator.evaluate_montage_npair(
+            diffs, currents, scheme="multiband"
+        )
+        dual_carrier = evaluator.evaluate_montage_npair(
+            diffs, currents, scheme="dual_carrier"
+        )
+        assert multiband["roi_mean"] == pytest.approx(
+            dual_carrier["roi_mean"], rel=1e-10
+        )
+
+
+# ===========================================================================
+# fast_eval search subsampling (finding F10)
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestSearchSubsample:
+    def _build_evaluator(self, n_elements, n_roi, n_elec=20, seed=7):
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec, n_elements, seed)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+
+        vol_rng = np.random.default_rng(seed + 1)
+        roi_idx = np.arange(0, n_roi)
+        nonroi_idx = np.arange(n_roi, n_elements)
+        roi_vol = vol_rng.uniform(0.5, 1.5, size=len(roi_idx))
+        nonroi_vol = vol_rng.uniform(0.5, 1.5, size=len(nonroi_idx))
+
+        evaluator.setup_evaluation(roi_idx, roi_vol, nonroi_idx, nonroi_vol)
+        return evaluator
+
+    def test_setup_requires_setup_evaluation_first(self):
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(10, 100)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        with pytest.raises(RuntimeError, match="setup_evaluation"):
+            evaluator.setup_search_subsample()
+
+    def test_subsample_keeps_all_roi_elements(self):
+        evaluator = self._build_evaluator(n_elements=8000, n_roi=300)
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+
+        assert len(evaluator._search_roi_pos) == 300
+        assert len(evaluator.search_nonroi_indices) == 1500
+        np.testing.assert_array_equal(
+            evaluator._search_index[evaluator._search_roi_pos], evaluator.roi_indices
+        )
+
+    def test_subsample_clamped_to_available_nonroi(self):
+        evaluator = self._build_evaluator(n_elements=1000, n_roi=300)
+        # Only 700 non-ROI elements exist; asking for more should clamp,
+        # not error, and should be equivalent to "no subsampling".
+        evaluator.setup_search_subsample(n_nonroi_samples=10000, seed=0)
+        assert len(evaluator.search_nonroi_indices) == 700
+
+    def test_setup_evaluation_invalidates_stale_subsample(self):
+        evaluator = self._build_evaluator(n_elements=8000, n_roi=300)
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+        assert evaluator._search_index is not None
+
+        evaluator.setup_evaluation(
+            np.arange(10), np.ones(10), np.arange(10, 500), np.ones(490)
+        )
+        assert evaluator._search_index is None
+
+    def test_deterministic_across_calls(self):
+        evaluator = self._build_evaluator(n_elements=8000, n_roi=300)
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+        first = evaluator.search_nonroi_indices.copy()
+
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+        second = evaluator.search_nonroi_indices.copy()
+
+        np.testing.assert_array_equal(first, second)
+
+    def test_subsample_focality_matches_full_mesh_within_1pct(self):
+        """F10 acceptance: for >=20 random montages, the subsampled
+        `focality` must match the full-mesh `focality` to <1% relative.
+
+        Uses ``n_nonroi_samples=6000`` -- the tuned production default
+        (see ``MultiPolarConfig.search_nonroi_samples``) -- against a
+        moderately sized synthetic mesh (N=10,000, ~62% non-ROI sampling
+        fraction) for test-suite speed. A separate one-off benchmark at
+        production scale (N=100,000 synthetic elements, matching finding
+        F10's measurement, ~6% sampling fraction) measured mean/worst-case
+        relative error of 0.33%/0.77% across 20 random 4-pair montages
+        with this same ``n_nonroi_samples=6000`` -- still comfortably
+        under the 1% bar even at the harsher, more realistic fraction (a
+        smaller sampling *fraction* of a larger population is a harder
+        estimation problem for a fixed absolute sample size, so this test
+        passing at the easier fraction here is consistent with, not a
+        substitute for, that production-scale measurement). 4000 (the
+        original candidate) measured 1.41% worst-case at production scale
+        -- too high -- which is why the default was raised to 6000.
+        """
+        n_elements = 10000
+        n_roi = 300
+        evaluator = self._build_evaluator(n_elements=n_elements, n_roi=n_roi, n_elec=24)
+        evaluator.setup_search_subsample(n_nonroi_samples=6000, seed=0)
+
+        n_elec_usable = 23  # n_elec=24, one reserved as reference
+        rel_errors = []
+        for trial in range(20):
+            rng_t = np.random.default_rng(2000 + trial)
+            elec_idx = rng_t.choice(n_elec_usable, size=8, replace=False)
+            pairs = [(int(elec_idx[i]), int(elec_idx[i + 1])) for i in range(0, 8, 2)]
+            diffs = evaluator.precompute_pair_diffs(pairs)
+            currents = np.full(4, 0.001)
+
+            full_focality = evaluator.evaluate_montage_npair(diffs, currents)[
+                "focality"
+            ]
+            search_focality = evaluator.focality_from_diffs(diffs, currents)
+
+            assert full_focality > 0
+            rel_err = abs(search_focality - full_focality) / full_focality
+            rel_errors.append(rel_err)
+
+        worst = max(rel_errors)
+        assert worst < 0.01, f"worst relative error {worst:.4%} across 20 montages"
+
+    def test_evaluate_final_matches_full_mesh_not_subsample(self):
+        """evaluate_final always recomputes on the full mesh -- it must
+        match evaluate_montage_npair exactly, not the (possibly biased)
+        search-subsample estimate."""
+        evaluator = self._build_evaluator(n_elements=8000, n_roi=300, n_elec=24)
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+
+        diffs = evaluator.precompute_pair_diffs([(0, 1), (2, 3), (4, 5), (6, 7)])
+        currents = [0.001] * 4
+
+        full = evaluator.evaluate_montage_npair(diffs, currents)
+        final = evaluator.evaluate_final(diffs, currents)
+
+        assert final == full

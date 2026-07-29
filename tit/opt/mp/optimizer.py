@@ -89,6 +89,17 @@ def run_de_search(
     current_A = config.current_mA / 1000.0
     currents_A = np.full(config.n_pairs, current_A)
 
+    # N>2 envelope grouping scheme (finding F11) -- psi only applies to
+    # "multiband", where it is the frequency plan's per-interference-pair
+    # envelope phase offset. "dual_carrier" collapses to K=1 and has no
+    # per-pair phase to give it.
+    scheme = config.scheme
+    psi = (
+        config.frequency_plan.psi
+        if scheme == "multiband" and config.frequency_plan is not None
+        else None
+    )
+
     # DE parameters
     maxiter = config.max_iterations if config.max_iterations is not None else 500
     popsize = config.population_size if config.population_size is not None else 30
@@ -108,7 +119,9 @@ def run_de_search(
             for i in range(config.n_pairs)
         ]
         pair_diffs = evaluator.precompute_pair_diffs(pairs)
-        focality = evaluator.focality_from_diffs(pair_diffs, currents_A)
+        focality = evaluator.focality_from_diffs(
+            pair_diffs, currents_A, scheme=scheme, psi=psi
+        )
         n_evals[0] += 1
         return -focality
 
@@ -183,9 +196,23 @@ def run_de_search(
         minus_idx = best_x[2 * i + 1]
         best_montage.append((names[plus_idx], names[minus_idx], config.current_mA))
 
-    best_focality = -best_fval
+    # Rescore the winning montage on the FULL mesh (finding F10): search may
+    # have used a non-ROI subsample (setup_search_subsample), so -best_fval
+    # is a search-time estimate, not the exact number to report.
+    final_pairs = [
+        (lf_indices[best_x[2 * i]], lf_indices[best_x[2 * i + 1]])
+        for i in range(config.n_pairs)
+    ]
+    final_diffs = evaluator.precompute_pair_diffs(final_pairs)
+    final_metrics = evaluator.evaluate_final(
+        final_diffs, currents_A, scheme=scheme, psi=psi
+    )
+    best_focality = final_metrics["focality"]
 
-    logger.info(f"DE complete: best_focality={best_focality:.4f}")
+    logger.info(
+        f"DE complete: best_focality={best_focality:.4f} "
+        f"(search estimate was {-best_fval:.4f})"
+    )
     for plus_name, minus_name, mA in best_montage:
         logger.info(f"  {plus_name} -> {minus_name}  ({mA:.1f} mA)")
 
@@ -197,4 +224,6 @@ def run_de_search(
         "n_evaluations": n_evals[0],
         "convergence_success": best_result.success,
         "message": best_result.message,
+        "final_metrics": final_metrics,
+        "search_focality_estimate": -best_fval,
     }

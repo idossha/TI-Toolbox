@@ -876,12 +876,37 @@ class MultiPolarConfig:
         subject_id: Subject identifier matching the m2m directory name.
         leadfield_hdf: Path to the precomputed leadfield HDF5 file.
         roi: Target region of interest (SphericalROI or SubcorticalROI).
-        n_pairs: Number of electrode pairs (must be >= 2).
+        n_pairs: Number of electrode pairs (must be an even number >= 2).
+            Grouped into ``n_pairs // 2`` interference pairs per *scheme*
+            (finding F11).
         current_mA: Total injected current in milliamps.
         non_roi_method: How to define the non-ROI region
             ("everything_else" or "specific").
         non_roi: Explicit non-ROI region when non_roi_method is
             "specific". Required if non_roi_method is "specific".
+        scheme: How the ``n_pairs`` bipolar electrode pairs are grouped
+            into interference pairs for the mTI envelope (finding F11).
+            ``"multiband"`` (default) -- Botzanowski Type-2: electrode
+            pairs are grouped *adjacently* into ``n_pairs // 2``
+            interference pairs, each on its own carrier band >= 1 kHz
+            apart, all sharing one beat frequency ``delta_f``. K =
+            ``n_pairs // 2``. ``"dual_carrier"`` -- Lee-2022 Type-1: the
+            even-indexed electrode pairs (0, 2, 4, ...) all share one
+            carrier and superpose into a single aggregate field E1; the
+            odd-indexed pairs (1, 3, 5, ...) share the other carrier and
+            superpose into E2. K = 1 regardless of ``n_pairs``. These are
+            different physics with different optima -- Botzanowski states
+            Type-1 does not improve focality at all.
+        frequency_plan: Optional per-pair carrier/phase assignment
+            (:class:`MTIFrequencyPlan`). Only meaningful for
+            ``scheme="multiband"`` (Type-1 has only two carriers total,
+            not a per-interference-pair assignment). When supplied with
+            ``scheme="multiband"``, must have exactly ``n_pairs // 2``
+            entries and is validated with :func:`validate_band_separation`
+            at config time so an invalid plan fails loudly instead of
+            silently producing an invalid envelope. ``None`` (default)
+            leaves the envelope phase-blind (``psi=None``, i.e. every
+            pair's envelope assumed phase-aligned).
         max_iterations: Maximum DE generations. None for solver default.
         population_size: DE population size. None for solver default.
         tolerance: Convergence tolerance. None for solver default.
@@ -894,6 +919,20 @@ class MultiPolarConfig:
         patience: Early-stopping patience (generations without
             improvement).
         top_k: Number of top solutions to retain from each restart.
+        search_nonroi_samples: Number of non-ROI elements to subsample
+            during search (finding F10) -- the DE objective only needs
+            ``roi_mean``/``nonroi_mean``, not modulation depth on the full
+            ~1e5-element grey-matter mesh. ALL ROI elements are always
+            kept; only the non-ROI side is subsampled. Default 6000 was
+            tuned empirically (synthetic N=100,000-element benchmark, 20
+            random 4-pair montages): mean relative focality error 0.33%,
+            worst-case 0.77%, both under the 1% acceptance bar (4000
+            samples measured 1.41% worst-case -- too high; 6000 was the
+            smallest tested value that cleared it with margin). See
+            :meth:`tit.opt.fast_eval.FastTIEvaluator.setup_search_subsample`.
+            The final returned top-K montage(s) are always rescored on the
+            full mesh, so this only trades search-time speed for a small
+            amount of ranking noise, not final-answer accuracy.
         output_dir: Override for the output directory path. Defaults to
             an auto-generated path.
     """
@@ -909,6 +948,10 @@ class MultiPolarConfig:
     non_roi_method: str = "everything_else"
     non_roi: "FlexConfig.SphericalROI | FlexConfig.SubcorticalROI | None" = None
 
+    # ── mTI pair grouping (finding F11) ──
+    scheme: Literal["multiband", "dual_carrier"] = "multiband"
+    frequency_plan: MTIFrequencyPlan | None = None
+
     # ── DE parameters ──
     max_iterations: int | None = None
     population_size: int | None = None
@@ -923,12 +966,15 @@ class MultiPolarConfig:
     patience: int = 50
     top_k: int = 10
 
+    # ── search-time evaluation (finding F10) ──
+    search_nonroi_samples: int = 6000
+
     # ── output ──
     output_dir: str | None = None
 
     def __post_init__(self):
-        if self.n_pairs < 2:
-            raise ValueError(f"n_pairs must be >= 2, got {self.n_pairs}")
+        if self.n_pairs < 2 or self.n_pairs % 2 != 0:
+            raise ValueError(f"n_pairs must be an even number >= 2, got {self.n_pairs}")
         if hasattr(self.roi, "hemisphere"):
             raise ValueError(
                 "AtlasROI not supported for leadfield optimization. "
@@ -936,6 +982,29 @@ class MultiPolarConfig:
             )
         if self.non_roi_method == "specific" and self.non_roi is None:
             raise ValueError("non_roi_method='specific' requires non_roi config")
+        if self.scheme not in ("multiband", "dual_carrier"):
+            raise ValueError(
+                f"scheme must be 'multiband' or 'dual_carrier', got {self.scheme!r}"
+            )
+        if self.frequency_plan is not None:
+            if self.scheme != "multiband":
+                raise ValueError(
+                    "frequency_plan is only meaningful for scheme='multiband' "
+                    f"(got scheme={self.scheme!r}); dual_carrier has only two "
+                    "carriers total, not a per-interference-pair assignment"
+                )
+            expected_k = self.n_pairs // 2
+            got_k = len(self.frequency_plan.f_a)
+            if got_k != expected_k:
+                raise ValueError(
+                    f"frequency_plan has {got_k} pair(s) but n_pairs={self.n_pairs} "
+                    f"requires exactly {expected_k} (n_pairs // 2) for scheme='multiband'"
+                )
+            validate_band_separation(self.frequency_plan)
+        if self.search_nonroi_samples < 1:
+            raise ValueError(
+                f"search_nonroi_samples must be >= 1, got {self.search_nonroi_samples}"
+            )
 
 
 @dataclass

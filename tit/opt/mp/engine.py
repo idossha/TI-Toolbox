@@ -69,6 +69,17 @@ def run_mp_search(config: MultiPolarConfig) -> MultiPolarResult:
 
     evaluator.setup_evaluation(roi_idx, roi_vol, nonroi_idx, nonroi_vol)
 
+    # ── Search-time non-ROI subsampling (finding F10) ──────────────────────
+    # The DE objective only needs roi_mean/nonroi_mean, not the correct
+    # (expensive) N>2 envelope on every non-ROI element. The winning
+    # montage is always rescored on the full mesh (see run_de_search), so
+    # this only trades search speed for search-time ranking noise.
+    evaluator.setup_search_subsample(n_nonroi_samples=config.search_nonroi_samples)
+    logger.info(
+        f"Search subsample: {config.search_nonroi_samples} non-ROI elements "
+        f"(of {len(nonroi_idx)})"
+    )
+
     # ── Build valid electrode list ───────────────────────────────────────
     valid_electrodes = [(name, idx) for name, idx in idx_lf.items() if idx is not None]
     logger.info(f"Valid electrodes: {len(valid_electrodes)}")

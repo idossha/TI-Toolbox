@@ -61,6 +61,14 @@ def save_results(
         "roi": _serialize_roi(config.roi),
         "non_roi_method": config.non_roi_method,
         "non_roi": _serialize_roi(config.non_roi) if config.non_roi else None,
+        # mTI pair-grouping scheme (finding F11) -- n_pairs alone is
+        # ambiguous between Botzanowski Type-2 ("multiband") and Lee-2022
+        # Type-1 ("dual_carrier"); always record which one this run used.
+        "scheme": config.scheme,
+        "frequency_plan": (
+            asdict(config.frequency_plan) if config.frequency_plan else None
+        ),
+        "search_nonroi_samples": config.search_nonroi_samples,
         "de_params": {
             "max_iterations": config.max_iterations,
             "population_size": config.population_size,
@@ -82,6 +90,12 @@ def save_results(
             "n_evaluations": de_result["n_evaluations"],
             "convergence_success": de_result["convergence_success"],
             "message": de_result["message"],
+            # Full-mesh exact recomputation (finding F10) vs. the DE's own
+            # (possibly non-ROI-subsampled) search-time estimate -- these
+            # can differ slightly by design; best_focality above is always
+            # the exact one.
+            "final_metrics": de_result.get("final_metrics"),
+            "search_focality_estimate": de_result.get("search_focality_estimate"),
         },
     }
 
