@@ -13,6 +13,25 @@ get_nTI_vectors
     Generalised N-channel TI via recursive binary-tree pairing.
 get_mTI_vectors
     4-channel mTI (convenience wrapper around :func:`get_TI_vectors`).
+compute_direct_field_peak_hf
+    Peak instantaneous carrier-field magnitude across N electrode pairs
+    (direction-free, worst-case phase-aligned carrier-exposure metric).
+
+Attribution
+-----------
+``compute_direct_field_peak_hf`` / ``_direct_field_peak_hf_actual`` were
+authored by a collaborator on the ``albantakis`` remote's ``mTI_testing`` /
+``mti_formain_cleanup`` branches (Larissa Albantakis; ``alba`` and
+``albantakis`` are two remote URLs for the same fork) and are **ported here
+with attribution**, not reimplemented -- see
+``tracks/active/mti-focality-core.md`` Phase 4. Her sibling function on the
+same branches, ``compute_full_field_directional_am_vectors`` /
+``_full_field_directional_am_components``, was deliberately **not** ported:
+it is a simplified precursor to the Fibonacci-sphere/chunked-projection
+directional-AM machinery landing separately, missing the
+``max(env_psi0, env_psi_pi) - min(env_psi0, env_psi_pi)`` swap that makes
+that version robust to per-pair envelope sign flips -- without the swap the
+amplitude can go non-physically negative in some configurations.
 """
 
 import numpy as np
@@ -22,9 +41,13 @@ def get_TI_vectors(E1_org, E2_org):
     """
     Calculate the temporal interference (TI) modulation amplitude vectors.
 
-    This function implements the Grossman et al. 2017 algorithm for computing
-    TI vectors that represent both the direction and magnitude of maximum
-    modulation amplitude when two sinusoidal electric fields interfere.
+    Implements the sign-agnostic closed form of the Grossman et al. 2017
+    TI algorithm (Hirata et al. 2024), which is exactly equivalent to the
+    original preprocess-then-branch formulation but needs no explicit
+    magnitude-ordering swap or acute-angle sign flip of the inputs, and no
+    redundant negated copy of ``E2`` inside the cross-product-equivalent
+    term: the regime boundary and both branches are expressed directly in
+    terms of ``|E1.E2|`` and ``min(|E1-E2|, |E1+E2|)``.
 
     PHYSICAL INTERPRETATION:
     When two electric fields E1(t) = E1*cos(2πf1*t) and E2(t) = E2*cos(2πf2*t)
@@ -33,12 +56,14 @@ def get_TI_vectors(E1_org, E2_org):
     - DIRECTION: Spatial direction of maximum envelope modulation
     - MAGNITUDE: Maximum envelope amplitude = 2 * effective_amplitude
 
-    ALGORITHM (Grossman et al. 2017):
-    1. Preprocessing: Ensure |E1| ≥ |E2| and acute angle α < π/2
-    2. Regime selection based on geometric relationship:
-       - Regime 1 (parallel): |E2| ≤ |E1|cos(α) → TI = 2*E2
-       - Regime 2 (oblique): |E2| > |E1|cos(α) → TI = 2*E2_perpendicular_to_h
-       where h = E1 - E2
+    ALGORITHM (Hirata et al. 2024 sign-agnostic form, equivalent to
+    Grossman et al. 2017):
+    ::
+
+        if min(|E1|,|E2|) <= sqrt(|E1.E2|):
+            TIamp = 2 * min(|E1|,|E2|)
+        else:
+            TIamp = 2 * |E1 x E2| / min(|E1-E2|, |E1+E2|)
 
     Parameters
     ----------
@@ -58,6 +83,11 @@ def get_TI_vectors(E1_org, E2_org):
     ----------
     Grossman, N. et al. (2017). Noninvasive Deep Brain Stimulation via
     Temporally Interfering Electric Fields. Cell, 169(6), 1029-1041.
+    Hirata, A. et al. (2024). Computationally efficient formula for
+    temporal interference stimulation. Computers in Biology and Medicine,
+    178, 108697. (sign-agnostic closed form adopted here; verified
+    equivalent to this function's previous implementation to <1e-12 over
+    >=1e4 random field pairs, see ``tests/test_calc_mti.py``.)
 
     See Also
     --------
@@ -68,79 +98,78 @@ def get_TI_vectors(E1_org, E2_org):
     assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
     assert E1_org.shape[1] == 3, "Vectors must be 3D"
 
-    # Work with copies to avoid modifying input arrays
-    E1 = E1_org.copy()
-    E2 = E2_org.copy()
+    E1 = E1_org
+    E2 = E2_org
 
-    # =================================================================
-    # PREPROCESSING STEP 1: Magnitude ordering |E1| ≥ |E2|
-    # =================================================================
-    # Ensures consistency by always treating E1 as the "stronger" field
-    # This simplifies the subsequent regime analysis
-    idx_swap = np.linalg.norm(E2, axis=1) > np.linalg.norm(E1, axis=1)
-    E1[idx_swap], E2[idx_swap] = E2[idx_swap], E1_org[idx_swap]
-
-    # =================================================================
-    # PREPROCESSING STEP 2: Acute angle constraint α < π/2
-    # =================================================================
-    # Ensures constructive interference by flipping E2 if dot product < 0
-    # This avoids destructive interference scenarios
-    idx_flip = np.sum(E1 * E2, axis=1) < 0
-    E2[idx_flip] = -E2[idx_flip]
-
-    # =================================================================
-    # GEOMETRIC PARAMETERS CALCULATION
-    # =================================================================
-    # Calculate field magnitudes and angle between vectors
     normE1 = np.linalg.norm(E1, axis=1)
     normE2 = np.linalg.norm(E2, axis=1)
-
-    # Safe cosine calculation to avoid division by zero and numerical errors
-    denom = normE1 * normE2
-    denom[denom == 0] = 1.0  # Prevent division by zero
-    cosalpha = np.clip(np.sum(E1 * E2, axis=1) / denom, -1.0, 1.0)
+    dot = np.sum(E1 * E2, axis=1)
 
     # =================================================================
-    # REGIME SELECTION CRITERION
+    # REGIME SELECTION -- sign-agnostic: min(|E1|,|E2|) <= sqrt(|E1.E2|)
     # =================================================================
-    # Critical condition from Grossman 2017: |E2| ≤ |E1| * cos(α)
-    # This determines whether E2 is "small" relative to E1's projection
-    regime1_mask = normE2 <= normE1 * cosalpha
+    min_norm = np.minimum(normE1, normE2)
+    regime1_mask = min_norm <= np.sqrt(np.abs(dot))
 
-    # Initialize output array
+    # The "small" field, raw (un-negated); ties go to E2, matching the
+    # strict '>' swap convention of the original preprocess-then-branch
+    # form (so this stays exactly equivalent, not just close).
+    use_E1_as_small = normE1 < normE2
+    Es_raw = np.where(use_E1_as_small[:, None], E1, E2)
+
+    # Acute-angle sign correction: this single scalar replaces the old
+    # explicit array swap + E2 negation -- both branches below apply it
+    # to the same "Es", so there is no separate canonicalization branch.
+    sign = np.where(dot < 0, -1.0, 1.0)
+    Es = sign[:, None] * Es_raw
+
     TI_vectors = np.zeros_like(E1)
 
     # =================================================================
-    # REGIME 1: PARALLEL ALIGNMENT (|E2| ≤ |E1| cos(α))
+    # REGIME 1: PARALLEL ALIGNMENT (min(|E1|,|E2|) <= sqrt(|E1.E2|))
     # =================================================================
-    # Physical interpretation: E2 is effectively "contained" within E1's projection
-    # The TI amplitude is determined entirely by E2's magnitude and direction
-    # Formula: TI = 2 * E2
-    TI_vectors[regime1_mask] = 2.0 * E2[regime1_mask]
+    # Formula: TI = 2 * Es
+    TI_vectors[regime1_mask] = 2.0 * Es[regime1_mask]
 
     # =================================================================
-    # REGIME 2: OBLIQUE CONFIGURATION (|E2| > |E1| cos(α))
+    # REGIME 2: OBLIQUE CONFIGURATION (min(|E1|,|E2|) > sqrt(|E1.E2|))
     # =================================================================
-    # Physical interpretation: E2 has significant perpendicular component to E1
-    # The TI is determined by the component of E2 perpendicular to h = E1 - E2
-    # Formula: TI = 2 * E2_perpendicular_to_h
+    # TI = 2 * component of Es perpendicular to h, where h is whichever
+    # of (E1-E2), (E1+E2) has the smaller norm -- equal in magnitude to
+    # 2*|E1 x E2| / min(|E1-E2|, |E1+E2|), with no negated-E2 copy needed
+    # to build the cross-product-equivalent term.
     regime2_mask = ~regime1_mask
     if np.any(regime2_mask):
-        # Calculate difference vector h = E1 - E2
-        h = E1[regime2_mask] - E2[regime2_mask]
+        a2 = E1[regime2_mask]
+        b2 = E2[regime2_mask]
+        dot2 = dot[regime2_mask]
+        h_minus = a2 - b2
+        h_plus = a2 + b2
+        # Which of (E1-E2), (E1+E2) has the smaller norm is decided from
+        # sign(dot) directly (dot>=0 -> h_minus, dot<0 -> h_plus; exactly
+        # equivalent to comparing the two norms, since
+        # |E1-E2|^2 - |E1+E2|^2 == -4*dot), NOT by comparing the two
+        # computed norms themselves: |E1-E2| and |E1+E2| differ by O(dot),
+        # so when dot is tiny relative to |E1|,|E2| (near-orthogonal
+        # fields) that comparison loses the sign to floating-point
+        # cancellation inside the two sqrt()s, while `dot` itself still
+        # carries it exactly.
+        use_minus = dot2 >= 0
+        h = np.where(use_minus[:, None], h_minus, h_plus)
         h_norm = np.linalg.norm(h, axis=1)
 
         # Handle degenerate case (h = 0) by setting unit norm
-        h_norm[h_norm == 0] = 1.0
-        e_h = h / h_norm[:, None]  # Unit vector along h
+        h_norm_safe = np.where(h_norm == 0, 1.0, h_norm)
+        e_h = h / h_norm_safe[:, None]  # Unit vector along h
 
-        # Project E2 onto h, then subtract to get perpendicular component
-        # E2_perp = E2 - proj_h(E2) = E2 - (E2·ĥ)ĥ
-        E2_parallel_component = np.sum(E2[regime2_mask] * e_h, axis=1)[:, None] * e_h
-        E2_perp = E2[regime2_mask] - E2_parallel_component
+        # Project Es onto h, then subtract to get perpendicular component
+        # Es_perp = Es - proj_h(Es) = Es - (Es.ĥ)ĥ
+        Es_r2 = Es[regime2_mask]
+        Es_parallel_component = np.sum(Es_r2 * e_h, axis=1)[:, None] * e_h
+        Es_perp = Es_r2 - Es_parallel_component
 
         # The TI vector in regime 2 is twice the perpendicular component
-        TI_vectors[regime2_mask] = 2.0 * E2_perp
+        TI_vectors[regime2_mask] = 2.0 * Es_perp
 
     return TI_vectors
 
@@ -258,3 +287,94 @@ def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):
     mTI_vectors = get_TI_vectors(TI_A, TI_B)
 
     return mTI_vectors
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Peak instantaneous carrier-field magnitude (ported from the albantakis
+# collaborator branches with attribution -- see module docstring
+# "Attribution"). This is additive: a new, direction-free carrier-exposure
+# metric, not an envelope/TI quantity, and does not change the behaviour of
+# anything above.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def compute_direct_field_peak_hf(fields):
+    """Peak instantaneous carrier-field magnitude across N electrode pairs.
+
+    A direction-free, worst-case *phase-aligned* carrier-exposure metric:
+    the norm of the signed vector sum of every pair field, i.e.::
+
+        peak_hf = |sum_i field_i|
+
+    assuming all HF carriers happen to line up at their peak instant. This
+    is a genuinely different quantity from everything else in this module
+    -- it is not an envelope/TI amplitude at all, it is a raw carrier
+    load/exposure bound (Finding F4 in ``tracks/active/mti-focality-core.md``:
+    carrier exposure is not currently reported by any TI-Toolbox optimizer).
+
+    Note this is distinct from :func:`tit.fields.hf_peak`, which is the
+    worst case *over both relative signs* of a single electrode pair
+    (``max(|E1+E2|, |E1-E2|)``). This function instead sums every pair's
+    field with one fixed sign, generalised to N >= 2 pairs.
+
+    Parameters
+    ----------
+    fields : sequence of np.ndarray, each shape (N, 3)
+        One field array per electrode pair, in the same ``[E1a, E1b, E2a,
+        E2b, ...]`` convention as :func:`get_nTI_vectors`; must be an even
+        count of at least 2.
+
+    Returns
+    -------
+    np.ndarray, shape (N,)
+        Peak instantaneous carrier-field magnitude [V/m].
+
+    Raises
+    ------
+    ValueError
+        If the field list has an odd length, fewer than 2 fields, or
+        mismatched/invalid shapes.
+
+    References
+    ----------
+    Ported with attribution from the ``albantakis`` collaborator branches
+    (``mTI_testing`` commit ``925a3e99``, ``mti_formain_cleanup``); see
+    module docstring "Attribution".
+
+    See Also
+    --------
+    tit.fields.hf_peak : The 2-pair, sign-maximised carrier-peak metric.
+    """
+    return _direct_field_peak_hf_actual(fields)
+
+
+def _direct_field_peak_hf_actual(fields):
+    """Return the peak instantaneous magnitude of the full carrier sum.
+
+    For the direct-field workflow we assume the HF carriers are
+    phase-aligned at the peak instant, so the peak field is the norm of
+    the signed vector sum of the pair fields.
+    """
+    arrs = _validate_field_list(fields)
+    total = np.sum(np.stack(arrs, axis=0), axis=0)
+    return np.linalg.norm(total, axis=1)
+
+
+def _validate_field_list(fields):
+    """Validate a list of (N, 3) field arrays for the direct-field metrics."""
+    arrs = [np.asarray(field, dtype=np.float64) for field in fields]
+    n = len(arrs)
+    if n < 2 or n % 2 != 0:
+        raise ValueError(
+            f"Direct-field mTI requires an even number of fields >= 2, got {n}"
+        )
+    ref_shape = arrs[0].shape
+    if len(ref_shape) != 2 or ref_shape[1] != 3:
+        raise ValueError(f"Fields must have shape (N, 3), got {ref_shape}")
+    for i, arr in enumerate(arrs[1:], start=2):
+        if arr.shape != ref_shape:
+            raise ValueError(
+                f"All fields must have identical shape; field 1 has "
+                f"{ref_shape}, field {i} has {arr.shape}"
+            )
+    return arrs
