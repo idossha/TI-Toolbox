@@ -1,16 +1,23 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Contact Tab for TI-Toolbox GUI
-This module provides a contact tab for users to reach out to developers.
+"""Contact information tab for the TI-Toolbox GUI.
+
+Displays developer contact details, GitHub links for issues and
+discussions, and best practices for bug reports and pull requests.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class ContactTab(QtWidgets.QWidget):
-    """Contact tab for TI-Toolbox GUI."""
+    """Panel with developer contact details and GitHub contribution guidance.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
 
     def __init__(self, parent=None):
         super(ContactTab, self).__init__(parent)

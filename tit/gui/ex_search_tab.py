@@ -1,9 +1,18 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Ex-Search Tab
-This module provides a GUI interface for the ex-search optimization functionality.
+"""Exhaustive-search optimisation tab for the TI-Toolbox GUI.
+
+Provides an interface for brute-force evaluation of all electrode
+combinations using precomputed leadfield matrices.  Users generate
+leadfields, define ROIs, and launch exhaustive searches that rank every
+montage by field strength in the target region.
+
+See Also
+--------
+tit.opt.config.ExConfig : Backend configuration dataclass.
+tit.opt.ex.engine.ExSearchEngine : Exhaustive search computation engine.
+tit.opt.leadfield.LeadfieldGenerator : Leadfield creation utility.
 """
 
 import os
@@ -27,6 +36,7 @@ from tit.gui.components.console import (
 )
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
+from tit.gui.components.help_icon import HelpIcon
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
@@ -265,7 +275,20 @@ class ExSearchThread(BaseProcessThread):
 
 
 class ExSearchTab(QtWidgets.QWidget):
-    """Tab for ex-search optimization functionality."""
+    """Exhaustive-search electrode optimisation tab.
+
+    Manages leadfield generation, ROI definition, and exhaustive
+    evaluation of all electrode pair combinations.  Results are written
+    as ranked CSV files to the subject's ``ex-search/`` directory.
+
+    See Also
+    --------
+    tit.opt.config.ExConfig : Backend configuration dataclass.
+    tit.opt.ex.engine.ExSearchEngine : Core computation engine.
+    tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
+    """
+
+    ex_search_completed = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
@@ -275,12 +298,15 @@ class ExSearchTab(QtWidgets.QWidget):
         self.leadfield_generating = False
         self.leadfield_thread = None
         self.roi_processing_queue = []
+        self._combine_rois = False
+        self._combined_roi_names = []
         self._shared_log_file = None
         self.e1_plus = []
         self.e1_minus = []
         self.e2_plus = []
         self.e2_minus = []
         self.current_roi_index = 0
+        self._exsearch_had_errors = False
         # Initialize debug mode (default to False)
         self.debug_mode = False
         self.use_all_combinations = False
@@ -851,8 +877,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         roi_container = QtWidgets.QGroupBox("ROI Selection")
         roi_container.setFixedHeight(
-            190
-        )  # Fixed height for balance (includes radius control)
+            220
+        )  # Fixed height for balance (includes radius + combine controls)
         roi_layout = QtWidgets.QVBoxLayout(roi_container)
         roi_layout.setContentsMargins(10, 10, 10, 10)
         roi_layout.setSpacing(8)
@@ -896,6 +922,22 @@ class ExSearchTab(QtWidgets.QWidget):
         radius_layout.addWidget(self.roi_radius_spinbox)
         radius_layout.addStretch()
         roi_layout.addLayout(radius_layout)
+
+        # Combine selected ROIs into a single (unioned) target
+        combine_tooltip = (
+            "When checked, all selected ROIs are unioned into one target and "
+            "searched in a single run (output named by joining the ROI names "
+            "with '+'). When unchecked, each selected ROI is searched separately."
+        )
+        self.combine_rois_cb = QtWidgets.QCheckBox(
+            "Combine selected ROIs into one target"
+        )
+        self.combine_rois_cb.setToolTip(combine_tooltip)
+        combine_layout = QtWidgets.QHBoxLayout()
+        combine_layout.addWidget(self.combine_rois_cb)
+        combine_layout.addWidget(HelpIcon(combine_tooltip, title="Combine ROIs"))
+        combine_layout.addStretch()
+        roi_layout.addLayout(combine_layout)
 
         # Add ROI container to grid - Row 1, Column 0
         main_grid_layout.addWidget(roi_container, 1, 0)
@@ -1226,7 +1268,9 @@ class ExSearchTab(QtWidgets.QWidget):
                 self.leadfield_list.addItem(item)
 
             if not leadfields:
-                no_leadfields_item = QtWidgets.QListWidgetItem("No leadfields found")
+                no_leadfields_item = QtWidgets.QListWidgetItem(
+                    "No leadfields found - click Create New to generate one"
+                )
                 no_leadfields_item.setFlags(
                     QtCore.Qt.NoItemFlags
                 )  # Make it non-selectable
@@ -1630,6 +1674,8 @@ class ExSearchTab(QtWidgets.QWidget):
             f"ROIs: {', '.join(roi_names)}\n"
             f"Total ROIs: {len(roi_names)}"
         )
+        if self.combine_rois_cb.isChecked() and len(roi_names) >= 2:
+            details += f"\nCombine ROIs: union → {'+'.join(roi_names)}"
 
         if not ConfirmationDialog.confirm(
             self,
@@ -1664,9 +1710,21 @@ class ExSearchTab(QtWidgets.QWidget):
         self.disable_controls()
         self.update_status(f"Running optimization for subject {subject_id}...")
 
-        # Initialize ROI processing queue and start pipeline
-        self.roi_processing_queue = selected_roi_names.copy()
+        # Decide whether to union the selected ROIs into a single target.
+        # Combine mode only engages with >= 2 ROIs; a single selection always
+        # takes the byte-identical separate-run path.
+        self._combine_rois = (
+            self.combine_rois_cb.isChecked() and len(selected_roi_names) >= 2
+        )
+        if self._combine_rois:
+            self._combined_roi_names = selected_roi_names.copy()
+            combined_display = "+".join(n[:-4] for n in selected_roi_names)
+            self.roi_processing_queue = [f"{combined_display}.csv"]
+        else:
+            self._combined_roi_names = []
+            self.roi_processing_queue = selected_roi_names.copy()
         self.current_roi_index = 0
+        self._exsearch_had_errors = False
         self.e1_plus = e1_plus
         self.e1_minus = e1_minus
         self.e2_plus = e2_plus
@@ -1679,7 +1737,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
     def _build_ex_config(
-        self, subject_id, roi_name, leadfield_hdf, eeg_net
+        self, subject_id, roi_name, leadfield_hdf, eeg_net, roi_names=None
     ):
         """Build an ExConfig dataclass from current UI widget values.
 
@@ -1688,6 +1746,9 @@ class ExSearchTab(QtWidgets.QWidget):
             roi_name: ROI name (with or without .csv extension).
             leadfield_hdf: Full path to the leadfield HDF5 file.
             eeg_net: Name of the selected EEG net.
+            roi_names: Optional list of ROI CSV filenames to union into a
+                single target (combined mode). ``None`` keeps single-ROI
+                behavior.
 
         Returns:
             ExConfig instance ready for serialization.
@@ -1706,6 +1767,7 @@ class ExSearchTab(QtWidgets.QWidget):
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
+            roi_names=roi_names,
             electrodes=electrodes,
             total_current=self.total_current_spinbox.value(),
             current_step=self.current_step_spinbox.value(),
@@ -1715,11 +1777,12 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
     @staticmethod
-    def _write_ex_config(config):
+    def _write_ex_config(config, project_dir):
         """Serialize an ExConfig to a temporary JSON file.
 
         Args:
             config: ExConfig dataclass instance.
+            project_dir: Project root path required by the CLI entry point.
 
         Returns:
             Path to the written JSON config file.
@@ -1728,6 +1791,7 @@ class ExSearchTab(QtWidgets.QWidget):
         import tempfile
 
         data = dataclasses.asdict(config)
+        data["project_dir"] = project_dir
 
         # Add _type discriminator for electrode spec so __main__.py can reconstruct
         if isinstance(config.electrodes, ExConfig.PoolElectrodes):
@@ -1780,24 +1844,43 @@ class ExSearchTab(QtWidgets.QWidget):
         # Get ROI coordinates
         pm = self.pm
         roi_dir = pm.rois(subject_id)
-        roi_file = os.path.join(roi_dir, current_roi)
+        if self._combine_rois:
+            # Combined target: the queue holds one synthetic entry; read coords
+            # from the first real ROI for logging while the backend unions all
+            # selected ROI spheres (roi_names).
+            roi_names_for_config = list(self._combined_roi_names)
+            coord_source = self._combined_roi_names[0]
+        else:
+            roi_names_for_config = None
+            coord_source = current_roi
+        roi_file = os.path.join(roi_dir, coord_source)
 
         try:
             with open(roi_file, "r") as f:
                 coordinates = f.readline().strip()
             x, y, z = [float(coord.strip()) for coord in coordinates.split(",")]
-            roi_name = current_roi.replace(".csv", "")  # Remove .csv extension
             if self.debug_mode:
                 self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
                 self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug")
         except (OSError, ValueError) as e:
-            self.update_output(
-                f"Error reading ROI file {current_roi}: {str(e)}", "error"
-            )
-            # Move to next ROI
-            self.current_roi_index += 1
-            self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
-            return
+            if self._combine_rois:
+                # In combined mode these coords are display-only (the backend
+                # unions all selected roi_names itself), so a bad display-source
+                # read must NOT abort the whole union run.
+                self.update_output(
+                    f"Warning: could not read coords from {coord_source} "
+                    f"for logging: {str(e)}",
+                    "warning",
+                )
+                x = y = z = 0.0
+            else:
+                self.update_output(
+                    f"Error reading ROI file {current_roi}: {str(e)}", "error"
+                )
+                # Move to next ROI
+                self.current_roi_index += 1
+                self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+                return
 
         # Build ExConfig dataclass from UI state
         ex_config = self._build_ex_config(
@@ -1805,6 +1888,7 @@ class ExSearchTab(QtWidgets.QWidget):
             roi_name,
             selected_hdf5_path,
             selected_net_name,
+            roi_names=roi_names_for_config,
         )
 
         # Minimal env — only pass through what downstream steps still need
@@ -1876,7 +1960,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("Step 1: Running exhaustive search...")
 
         # Serialize config to JSON and build command
-        config_path = self._write_ex_config(ex_config)
+        config_path = self._write_ex_config(ex_config, project_dir)
         cmd = ["simnibs_python", "-m", "tit.opt.ex", config_path]
 
         if self.debug_mode:
@@ -1890,17 +1974,32 @@ class ExSearchTab(QtWidgets.QWidget):
             lambda msg: self.handle_process_error(msg)
         )
 
-        # Connect the finished signal to the mesh processing step for this ROI
-        self.optimization_process.finished.connect(
-            lambda: self.ti_simulation_completed(
-                subject_id, project_dir, ex_search_dir, env
+        # Continue only when the backend process succeeds.
+        self.optimization_process.process_finished.connect(
+            lambda ok, rc: self.ti_simulation_completed(
+                subject_id, project_dir, ex_search_dir, env, ok, rc
             )
         )
 
         self.optimization_process.start()
 
-    def ti_simulation_completed(self, subject_id, project_dir, ex_search_dir, env):
+    def ti_simulation_completed(
+        self, subject_id, project_dir, ex_search_dir, env, success=True, returncode=0
+    ):
         """Handle completion of TI simulation step."""
+        if not success:
+            self._exsearch_had_errors = True
+            self.log_step_complete("TI simulation", success=False)
+            current_roi = self.roi_processing_queue[self.current_roi_index]
+            self.update_output(
+                f"Ex-search failed for ROI {current_roi} (exit code {returncode}). "
+                "Stopping pipeline. Check the console above, generated ex-search "
+                "config, selected leadfield, and ROI file.",
+                "error",
+            )
+            self.pipeline_completed()
+            return
+
         # Log step completion
         self.log_step_complete("TI simulation", success=True)
 
@@ -1968,26 +2067,44 @@ class ExSearchTab(QtWidgets.QWidget):
                 lambda msg: self.handle_process_error(msg)
             )
 
-            # Connect the finished signal to mesh processing
-            self.optimization_process.finished.connect(
-                lambda: self.roi_analysis_completed(
-                    subject_id, project_dir, ex_search_dir, env, temp_roi_list
+            # Continue only when ROI analysis succeeds.
+            self.optimization_process.process_finished.connect(
+                lambda ok, rc: self.roi_analysis_completed(
+                    subject_id, project_dir, ex_search_dir, env, temp_roi_list, ok, rc
                 )
             )
 
             self.optimization_process.start()
 
         except (OSError, ValueError) as e:
-            self.update_output(f"Error setting up ROI analysis: {str(e)}", "error")
-            # Skip to mesh processing
-            self.run_current_roi_mesh_processing(
-                subject_id, project_dir, ex_search_dir, env
+            self._exsearch_had_errors = True
+            self.update_output(
+                f"Error setting up ROI analysis: {str(e)}. ROI analysis will not continue for this ROI.",
+                "error",
             )
+            self.pipeline_completed()
 
     def roi_analysis_completed(
-        self, subject_id, project_dir, ex_search_dir, env, temp_roi_list
+        self,
+        subject_id,
+        project_dir,
+        ex_search_dir,
+        env,
+        temp_roi_list,
+        success=True,
+        returncode=0,
     ):
         """Handle completion of ROI analysis step."""
+        if not success:
+            self._exsearch_had_errors = True
+            self.log_step_complete("ROI analysis", success=False)
+            self.update_output(
+                f"ROI analysis failed with exit code {returncode}. Stopping ex-search pipeline.",
+                "error",
+            )
+            self.pipeline_completed()
+            return
+
         # Log step completion
         self.log_step_complete("ROI analysis", success=True)
 
@@ -2072,6 +2189,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
     def handle_process_error(self, error_msg):
         """Handle process errors with proper GUI state management."""
+        self._exsearch_had_errors = True
         self.update_output(error_msg, "error")
         self.enable_controls()
         self.update_status("Process failed - see console for details", error=True)
@@ -2080,6 +2198,11 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle the completion of the pipeline."""
         # Log completion summary
         self.log_pipeline_completion()
+
+        if self._exsearch_had_errors:
+            self.enable_controls()
+            self.update_status("Ex-search stopped after an error", error=True)
+            return
 
         # Log final completion with summary
         subject_id = self.subject_combo.currentText()
@@ -2096,6 +2219,7 @@ class ExSearchTab(QtWidgets.QWidget):
 
         self.enable_controls()
         self.update_status("Ex-search optimization completed successfully")
+        self.ex_search_completed.emit()
 
     def stop_optimization(self):
         """Stop the running optimization or leadfield generation process."""

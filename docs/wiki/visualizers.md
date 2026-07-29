@@ -62,7 +62,7 @@ Freeview is used to visualize volumetric NIfTI files (.nii/.nii.gz) and provides
 - Multi-subject comparison views
 - Statistical overlay maps
 
-The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensible defaults including percentile-based thresholding (95th-99.9th percentile), opacity controls (70% default), and automatic loading of anatomical atlases.
+The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensible defaults including percentile-based thresholding (95th-99.9th percentile), opacity controls (70% default), automatic loading of anatomical atlases, and optional electrode-placement overlays.
 
 ### How to Use Freeview
 
@@ -81,6 +81,7 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
    - **Thresholds**: Set minimum and maximum values for display
    - **Opacity**: Control overlay transparency
    - **Atlas Overlay**: Add anatomical atlas labels
+   - **Electrode Overlay**: Create or load the selected simulation's electrode-placement label mask
 5. **Launch Freeview**: Click **"Launch Freeview"**
 
 ![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview_menu.png)
@@ -103,6 +104,19 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
 
 ---
 
+### Electrode Placement NIfTI Overlay
+
+For simulations with saved electrode coordinates in `documentation/config.json`, the NIfTI Viewer can create a single binary label-mask NIfTI that shows where electrodes were placed on the subject anatomy. The overlay is loaded automatically when it already exists for the selected simulation.
+
+- **UI location**: Single Subject mode, under the atlas controls in the Subject Configuration box.
+- **Create/refresh**: Click **Create Electrode Overlay** or **Refresh Electrode Overlay**.
+- **Source of truth**: The overlay reads electrode coordinates, channel grouping, dimensions, and simulation mode from the saved simulation config.
+- **Coloring**: Labels are channel-based, not electrode-based. Unipolar simulations use two channel colors; multipolar simulations use four channel colors. The color order matches the montage PNG overlay: blue, red, green, purple, then the remaining montage colors if needed.
+- **Output path**: `Simulations/{simulation}/TI/montage_imgs/electrode_overlay_subject.nii.gz` for TI/unipolar runs, or `Simulations/{simulation}/mTI/montage_imgs/electrode_overlay_subject.nii.gz` for mTI/multipolar runs.
+- **Lookup table**: A matching `electrode_overlay_subject.lut` is saved next to the NIfTI so Freeview can show the channel colors.
+
+---
+
 ## File Formats and Locations
 
 ### Mesh Files (.msh)
@@ -113,6 +127,11 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
 ### NIfTI Files (.nii/.nii.gz)
 - **Location**: `project_dir/subjects/sub-{ID}/simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
 - **Content**: Volumetric data in standard neuroimaging format
+- **Visualizer**: Freeview
+
+### Electrode Overlay Files (.nii/.nii.gz + .lut)
+- **Location**: `project_dir/subjects/sub-{ID}/simulations/{sim_name}/{TI|mTI}/montage_imgs/electrode_overlay_subject.nii.gz`
+- **Content**: Channel-labeled electrode placement mask plus a Freeview LUT
 - **Visualizer**: Freeview
 
 ---

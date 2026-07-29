@@ -1,10 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: Cluster-Based Permutation Testing
-Statistical analysis to identify brain regions with significantly different
-current intensity between responders and non-responders.
+"""Cluster-Based Permutation Testing extension for the TI-Toolbox GUI.
+
+Provides a unified interface for group comparison (classification) and
+correlation-based cluster permutation testing on TI simulation NIfTI
+outputs.
 """
 
 import os
@@ -25,7 +26,16 @@ from tit.gui.components.action_buttons import RunStopButtons
 
 
 class SubjectRow(QtWidgets.QWidget):
-    """Widget for a single subject configuration row"""
+    """Widget for a single subject row with response/effect-size input.
+
+    In ``classification`` mode a Responder/Non-Responder combo is shown;
+    in ``correlation`` mode a numeric effect-size field is shown instead.
+
+    Signals
+    -------
+    remove_requested : object
+        Emitted with ``self`` when the remove button is clicked.
+    """
 
     remove_requested = QtCore.pyqtSignal(object)  # Signal to remove this row
 
@@ -130,7 +140,12 @@ class SubjectRow(QtWidgets.QWidget):
 
 
 class ClusterPermutationWidget(QtWidgets.QWidget):
-    """Main widget for cluster-based permutation testing"""
+    """Main widget for configuring and running cluster permutation analysis.
+
+    Supports classification (two-group comparison) and correlation modes,
+    with configurable NIfTI patterns, permutation counts, cluster thresholds,
+    and TFCE options.
+    """
 
     def __init__(self, parent=None):
         super(ClusterPermutationWidget, self).__init__(parent)
@@ -359,6 +374,26 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             "Use {simulation_name} as a variable (subject is in directory path)"
         )
         self.config_layout.addWidget(self.nifti_pattern_edit, row, 3)
+        row += 1
+
+        # Analysis space: MNI volume (default) or fsaverage cortical surface.
+        self.config_layout.addWidget(QtWidgets.QLabel("Space:"), row, 0)
+        self.space_combo = QtWidgets.QComboBox()
+        self.space_combo.addItems(["MNI (volume)", "fsaverage (surface)"])
+        self.space_combo.setToolTip(
+            "MNI: voxelwise stats on NIfTI volumes (NIfTI Pattern above).\n"
+            "fsaverage: vertexwise stats on the cortical surface, using the "
+            "per-subject fsaverage field caches written at simulation time."
+        )
+        self.config_layout.addWidget(self.space_combo, row, 1)
+
+        self.config_layout.addWidget(QtWidgets.QLabel("Surface Field:"), row, 2)
+        self.fsavg_field_combo = QtWidgets.QComboBox()
+        self.fsavg_field_combo.addItems(["TI_max", "TI_normal", "hf_peak", "hf_sar"])
+        self.fsavg_field_combo.setToolTip(
+            "Which fsaverage field to analyze (ignored when Space is MNI)."
+        )
+        self.config_layout.addWidget(self.fsavg_field_combo, row, 3)
         row += 1
 
         if mode == "classification":
@@ -757,6 +792,10 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             "alpha": self.alpha_spin.value(),
             "n_jobs": int(self.n_jobs_edit.text()) if self.n_jobs_edit.text() else 1,
             "nifti_file_pattern": self.nifti_pattern_edit.text(),
+            "space": (
+                "fsaverage" if "fsaverage" in self.space_combo.currentText() else "mni"
+            ),
+            "fsaverage_field": self.fsavg_field_combo.currentText(),
         }
 
         if mode == "classification":
@@ -1045,7 +1084,17 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
 
 class AnalysisThread(QtCore.QThread):
-    """Thread for running analysis in background"""
+    """Background thread for running cluster permutation analysis.
+
+    Signals
+    -------
+    output_signal : str
+        Progress messages.
+    finished_signal : dict
+        Results dictionary on success.
+    error_signal : str
+        Error message on failure.
+    """
 
     output_signal = QtCore.pyqtSignal(str)
     finished_signal = QtCore.pyqtSignal(dict)
@@ -1118,6 +1167,8 @@ class AnalysisThread(QtCore.QThread):
                     alpha=float(self.config.get("alpha", 0.05)),
                     n_jobs=int(self.config.get("n_jobs", -1)),
                     nifti_file_pattern=pattern,
+                    space=self.config.get("space", "mni"),
+                    fsaverage_field=self.config.get("fsaverage_field", "TI_max"),
                 )
                 result = run_group_comparison(
                     typed_config,
@@ -1145,6 +1196,8 @@ class AnalysisThread(QtCore.QThread):
                     n_jobs=int(self.config.get("n_jobs", -1)),
                     use_weights=bool(self.config.get("use_weights", True)),
                     nifti_file_pattern=pattern,
+                    space=self.config.get("space", "mni"),
+                    fsaverage_field=self.config.get("fsaverage_field", "TI_max"),
                 )
                 result = run_correlation(
                     typed_config,
@@ -1185,7 +1238,7 @@ class AnalysisThread(QtCore.QThread):
 
 
 class ClusterPermutationWindow(QtWidgets.QDialog):
-    """Dialog wrapper for the cluster-based permutation testing widget (for floating windows)"""
+    """Non-modal dialog wrapper for the cluster permutation testing widget."""
 
     def __init__(self, parent=None):
         super(ClusterPermutationWindow, self).__init__(parent)

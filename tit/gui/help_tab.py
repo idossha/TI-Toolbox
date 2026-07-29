@@ -1,16 +1,24 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Help Tab for TI-Toolbox GUI
-This module provides a unified help tab for all TI-Toolbox tools.
+"""Unified help tab for the TI-Toolbox GUI.
+
+Provides scrollable, rich-text documentation covering the BIDS directory
+structure, preprocessing, simulation, optimization, analysis, NIfTI
+viewing, and system monitoring.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class HelpTab(QtWidgets.QWidget):
-    """Unified help tab for TI-Toolbox GUI."""
+    """Scrollable help centre aggregating documentation for every GUI tool.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (typically the main window or a floating dialog).
+    """
 
     def __init__(self, parent=None):
         super(HelpTab, self).__init__(parent)
@@ -102,7 +110,9 @@ Project Directory/
 │   │   ├── sub-{subject}_space-XXX_T1w.nii.gz
 │   │   ├── sub-{subject}_space-XXX_T1w.json
 │   │   ├── sub-{subject}_space-XXX_T2w.nii.gz
-│   │   └── sub-{subject}_space-XXX_T2w.json
+│   │   ├── sub-{subject}_space-XXX_T2w.json
+│   │   ├── sub-{subject}_ct.nii.gz         <i>(Optional: CT, see note below)</i>
+│   │   └── sub-{subject}_ct.json
 │   ├── dwi/                                <i>(Optional: For diffusion data)</i>
 │   ├── eeg/                                <i>(Optional: For EEG data)</i>
 │   ├── func/                               <i>(Optional: For functional MRI data)</i>
@@ -113,6 +123,10 @@ Project Directory/
 │       │   └── dicom/                      <i>(Place T1w DICOM files here)</i>
 │       ├── T2w/                            <i>(Optional)</i>
 │       │   └── dicom/                      <i>(Place T2w DICOM files here)</i>
+│       ├── ct/                             <i>(Optional)</i>
+│       │   └── dicom/                      <i>(Place CT DICOM files here)</i>
+│       ├── dwi/                            <i>(Optional)</i>
+│       │   └── dicom/                      <i>(Place DWI DICOM files here)</i>
 │       └── additional_files/               <i>(Optional documentation)</i>
 ├── derivatives/                            <i>(Auto-created during pre-processing)</i>
 │   ├── freesurfer/                         
@@ -147,6 +161,8 @@ Project Directory/
             <li>The <b>sourcedata</b> directory must be set up by the user before preprocessing</li>
             <li>DICOM files must be placed in <code>sourcedata/sub-{subject}/T1w/dicom/</code></li>
             <li>T2w images are optional but can improve head model quality</li>
+            <li>Supported modality folders are <b>T1w</b>, <b>T2w</b>, <b>ct</b> and <b>dwi</b>. Each is searched recursively for <code>.dcm</code>/<code>.dicom</code> files, and <code>.zip</code>/<code>.tar</code>/<code>.tar.gz</code>/<code>.tgz</code> archives are extracted first. A folder holding a <code>.nii</code>/<code>.nii.gz</code> instead is copied straight into place.</li>
+            <li><b>CT is not part of the BIDS standard</b> (BEP024 is still a draft), so it is written to <code>anat/sub-{subject}_ct.nii.gz</code> and listed in the project <code>.bidsignore</code> to keep the BIDS validator quiet.</li>
             <li>All other directories are automatically created during processing</li>
             <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
             <li>TI-Toolbox outputs are organized under <code>derivatives/tit/</code> with subdirectories for tissue analysis, logs, and reports</li>
@@ -158,7 +174,7 @@ Project Directory/
             <li>Create the sourcedata directory structure</li>
             <li>Create a subject folder in sourcedata (e.g., "sub-101")</li>
             <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
-            <li>Optionally add T2w DICOM files in <code>sourcedata/sub-101/T2w/dicom/</code></li>
+            <li>Optionally add T2w, CT or DWI DICOM files in <code>sourcedata/sub-101/{T2w,ct,dwi}/dicom/</code></li>
             <li>Use the Pre-processing tab to begin processing</li>
         </ol>
 
@@ -208,20 +224,20 @@ Project Directory/
                 "content": (
                     "<b>Convert DICOM files to NIfTI:</b><br>"
                     "- Converts medical DICOM images into NIfTI format (.nii or .nii.gz)<br>"
-                    "- Requires raw DICOM files in the subject's /anat/raw/ directory<br>"
-                    "- Automatically identifies T1 and T2 images based on metadata in the .json file<br><br>"
-                    "<b>Run FreeSurfer recon-all:</b><br>"
-                    "- Performs structural MRI analysis using FreeSurfer's recon-all<br>"
-                    "- Creates cortical surface models and anatomical parcellations<br>"
-                    "- This is a computationally intensive step that can take several hours<br><br>"
-                    "<b>Run FreeSurfer reconstruction in parallel:</b><br>"
-                    "- Uses GNU Parallel to accelerate processing when handling multiple subjects<br>"
-                    "- Only applies when 'Run FreeSurfer recon-all' is selected<br>"
-                    "- This is still experimental and have not been tested extensively<br><br>"
+                    "- Uses <code>sourcedata/sub-{subject}/{T1w,T2w}/dicom/</code> with recursive .dcm/.dicom files or supported archives<br>"
+                    "- T1w/T2w are determined by the source folder layout<br><br>"
                     "<b>Create SimNIBS m2m folder:</b><br>"
                     "- Runs the SimNIBS charm tool to create subject-specific head models<br>"
                     "- Generates meshes necessary for electromagnetic field simulations<br>"
                     "- Creates the m2m_{SUBJECT_ID} directory in the SimNIBS folder<br><br>"
+                    "<b>Run FreeSurfer recon-all:</b><br>"
+                    "- Optional cortical reconstruction using FreeSurfer's recon-all<br>"
+                    "- Creates cortical surface models and anatomical parcellations<br>"
+                    "- This is a computationally intensive step that can take several hours<br><br>"
+                    "<b>Run FreeSurfer reconstruction in parallel:</b><br>"
+                    "- Uses Python ThreadPoolExecutor to run recon-all for multiple subjects at once<br>"
+                    "- Only applies when 'Run FreeSurfer recon-all' is selected for multiple subjects<br>"
+                    "- Each parallel subject runs recon-all with one core; sequential mode lets one subject use FreeSurfer internal parallelism<br><br>"
                     "<b>Run tissue analyzer:</b><br>"
                     "- Analyzes skull bone, skin, and CSF volume and thickness from segmented tissue data<br>"
                     "- Results are saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br>"
@@ -234,13 +250,13 @@ Project Directory/
                     "1. <b>DICOM to NIfTI Conversion:</b><br>"
                     "   - Raw DICOM files are identified and converted to NIfTI format<br>"
                     "   - T1 and T2 images are detected and properly named<br><br>"
-                    "2. <b>FreeSurfer Reconstruction:</b><br>"
+                    "2. <b>SimNIBS Head Model Creation:</b><br>"
+                    "   - Uses the SimNIBS charm tool to create realistic head models<br>"
+                    "   - Generates mesh files for FEM simulations and subject atlas annotations<br><br>"
+                    "3. <b>FreeSurfer Reconstruction (Optional):</b><br>"
                     "   - T1 images and optionally T2 images are processed using FreeSurfer's recon-all<br>"
                     "   - Creates cortical surface models and segmentation of brain structures<br>"
                     "   - Can be run in parallel for multiple subjects<br><br>"
-                    "3. <b>SimNIBS Head Model Creation:</b><br>"
-                    "   - Uses the SimNIBS charm tool to create realistic head models<br>"
-                    "   - Generates mesh files for FEM simulations<br><br>"
                     "4. <b>Tissue Analysis (Optional):</b><br>"
                     "   - Analyzes skull, skin, and CSF volume and thickness from segmented tissue data<br>"
                     "   - Results saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br><br>"
@@ -250,12 +266,13 @@ Project Directory/
             {
                 "title": "Tips and Troubleshooting",
                 "content": (
-                    "- Ensure that raw DICOM files are properly organized in the subject's /anat/raw/ directory<br>"
-                    "- T1-weighted MRI scans are required for SimNIBS & FreeSurfer reconstruction<br>"
+                    "- Ensure that raw DICOM files are organized under <code>sourcedata/sub-{subject}/{T1w,T2w}/dicom/</code><br>"
+                    "- T1-weighted MRI scans are required for SimNIBS; recon-all is optional unless your analysis needs FreeSurfer outputs<br>"
                     "- T2-weighted MRI scans are optional but improve head model quality<br>"
-                    "- When processing multiple subjects, consider using parallel processing<br>"
+                    "- When processing multiple subjects with recon-all, consider parallel processing for throughput<br>"
                     "- The Console Output window shows real-time progress and any error messages<br>"
-                    "- If processing fails, check the console output for specific error messages<br>"
+                    "- Detailed log files are saved under <code>derivatives/ti-toolbox/logs/sub-{subject}/</code><br>"
+                    "- If processing fails, check the console output and per-subject log files for specific error messages<br>"
                     "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state<br>"
                     "- Use the status label at the top to monitor the current processing state<br>"
                     "- The tissue analyzer requires completed SimNIBS processing<br>"

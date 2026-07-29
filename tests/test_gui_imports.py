@@ -6,6 +6,10 @@ references, no leftover debug widgets) and that key GUI modules can
 be imported without crashing.
 """
 
+import json
+import os
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -80,3 +84,43 @@ class TestGuiImports:
             SubjectRowManager,
             detect_message_type_from_content,
         )
+
+    @pytest.mark.unit
+    def test_ex_search_config_writer_includes_project_dir(self):
+        """GUI Ex-Search JSON includes project_dir required by backend CLI."""
+        pytest.importorskip("PyQt5")
+
+        simnibs_mod = sys.modules.setdefault("simnibs", types.ModuleType("simnibs"))
+        utils_mod = sys.modules.setdefault(
+            "simnibs.utils", types.ModuleType("simnibs.utils")
+        )
+        ti_utils_mod = sys.modules.setdefault(
+            "simnibs.utils.TI_utils", types.ModuleType("simnibs.utils.TI_utils")
+        )
+        setattr(simnibs_mod, "utils", utils_mod)
+        setattr(utils_mod, "TI_utils", ti_utils_mod)
+
+        from tit.gui.ex_search_tab import ExSearchTab
+        from tit.opt.config import ExConfig
+
+        config = ExConfig(
+            subject_id="ernie",
+            leadfield_hdf="/leadfields/ernie_leadfield_easycap.hdf5",
+            roi_name="18_Left_Amyg.csv",
+            electrodes=ExConfig.BucketElectrodes(
+                e1_plus=["E1"],
+                e1_minus=["E2"],
+                e2_plus=["E3"],
+                e2_minus=["E4"],
+            ),
+        )
+
+        config_path = ExSearchTab._write_ex_config(config, "/project")
+        try:
+            with open(config_path) as f:
+                data = json.load(f)
+        finally:
+            os.unlink(config_path)
+
+        assert data["project_dir"] == "/project"
+        assert data["electrodes"]["_type"] == "BucketElectrodes"

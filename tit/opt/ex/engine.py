@@ -14,6 +14,9 @@ from pathlib import Path
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
+from tit.calc import mti_modulation_depth
+from tit.opt.carrier import carrier_constraint_penalty
+
 from .logic import (
     count_combinations,
     generate_current_ratios,
@@ -29,17 +32,28 @@ class ExSearchEngine:
     """
 
     def __init__(
-        self, leadfield_hdf: str, roi_file: str, roi_name: str, logger: logging.Logger
+        self,
+        leadfield_hdf: str,
+        roi_file: str | list[str],
+        roi_name: str,
+        logger: logging.Logger,
+        metric: str = "grossman",
+        carrier_constraint: float | None = None,
+        carrier_penalty_weight: float = 0.0,
     ):
         self.leadfield_hdf = leadfield_hdf
         self.roi_file = roi_file
         self.roi_name = roi_name
         self.logger = logger
+        self.metric = metric
+        self.carrier_constraint = carrier_constraint
+        self.carrier_penalty_weight = carrier_penalty_weight
 
         self.leadfield = None
         self.mesh = None
         self.idx_lf = None
         self.roi_coords = None
+        self.roi_centers = None
         self.roi_indices = None
         self.roi_volumes = None
         self.gm_indices = None
@@ -61,24 +75,46 @@ class ExSearchEngine:
         self.logger.info(f"Loaded in {time.time() - start:.1f}s")
 
     def _load_roi_coordinates(self) -> None:
-        """Read ROI center from a simple CSV (one row: x,y,z)."""
-        with open(self.roi_file) as f:
+        """Read ROI center(s) from one or more simple CSVs (one row: x,y,z).
+
+        A single ``roi_file`` (str) yields one center; a list yields one
+        center per file (combined/union mode).  ``roi_coords`` always
+        mirrors the first center for backward compatibility.
+        """
+        files = self.roi_file if isinstance(self.roi_file, list) else [self.roi_file]
+        self.roi_centers = [self._read_center(f) for f in files]
+        self.roi_coords = self.roi_centers[0]
+        if len(self.roi_centers) == 1:
+            self.logger.info(f"ROI coords: {self.roi_coords}")
+        else:
+            self.logger.info(
+                f"ROI centers ({len(self.roi_centers)}): {self.roi_centers}"
+            )
+
+    def _read_center(self, path: str) -> list[float]:
+        """Return the first valid ``[x, y, z]`` triple from an ROI CSV."""
+        with open(path) as f:
             for row in csv.reader(f):
                 if not row:
                     continue
                 coords = [float(v.strip()) for v in row if v.strip()]
                 if len(coords) >= 3:
-                    self.roi_coords = coords[:3]
-                    self.logger.info(f"ROI coords: {self.roi_coords}")
-                    return
-        raise ValueError(f"No valid coordinates in {self.roi_file}")
+                    return coords[:3]
+        raise ValueError(f"No valid coordinates in {path}")
 
     def _find_roi_elements(self, roi_radius: float) -> None:
-        """Find mesh elements whose barycenters fall within a sphere."""
+        """Find mesh elements whose barycenters fall within any ROI sphere.
+
+        For a combined target the per-center spherical masks are OR-folded
+        into one region (single-center is the N=1 case).
+        """
         self.logger.info(f"Finding ROI elements (radius={roi_radius}mm)...")
-        centers = self.mesh.elements_baricenters().value
-        center = np.asarray(self.roi_coords, dtype=float)
-        mask = np.sum((centers - center) ** 2, axis=1) <= roi_radius**2
+        baricenters = self.mesh.elements_baricenters().value
+        roi_centers = self.roi_centers if self.roi_centers else [self.roi_coords]
+        mask = np.zeros(baricenters.shape[0], dtype=bool)
+        for c in roi_centers:
+            center = np.asarray(c, dtype=float)
+            mask |= np.sum((baricenters - center) ** 2, axis=1) <= roi_radius**2
 
         volumes = self.mesh.elements_volumes_and_areas().value
         if volumes.ndim > 1:
@@ -113,16 +149,53 @@ class ExSearchEngine:
         e2_minus: str,
         current_ch2_mA: float,
     ) -> dict[str, float]:
-        """Compute TI field for one montage and return ROI metrics."""
+        """Compute TI field for one montage and return ROI metrics.
+
+        Primary envelope metric (``TImax_ROI`` / ``TImean_ROI`` /
+        ``Focality``) is ``TI.get_maxTI`` (exact for this 2-pair case)
+        unless ``self.metric == "mti_modulation_depth"``, in which case it
+        is routed through :func:`tit.calc.mti_modulation_depth` instead
+        (see ``tit.opt.config.ExConfig.metric``) -- for K=1 the two should
+        agree to floating-point precision.
+
+        Also reports carrier-exposure metrics (finding F4 -- the carrier
+        is not neurally inert and its off-target maximum sits under the
+        electrodes, yet no published TI optimizer constrains it):
+        ``CarrierRMS_ROI`` (RMS along the envelope's best direction,
+        ``sqrt(P)``), and the direction-free ``CarrierRMS_GM`` /
+        ``CarrierPeak_GM`` (``sqrt(0.5 * sum_k |E_k|^2)``, independent of
+        any assumed fiber orientation -- appropriate off-target where we
+        don't want to assume neural orientation). These are purely
+        additive: every pre-existing key and value here is unchanged.
+        """
         lf = self.leadfield
         idx = self.idx_lf
 
         ef1 = TI.get_field([e1_plus, e1_minus, current_ch1_mA / 1000], lf, idx)
         ef2 = TI.get_field([e2_plus, e2_minus, current_ch2_mA / 1000], lf, idx)
-        ti_max_full = TI.get_maxTI(ef1, ef2)
+
+        # K=1 exact closed form (mti-focality-core Phase 2, finding from the
+        # mti-carrier-metrics track) -- no direction sweep, cheap enough to
+        # always compute for the carrier metrics below regardless of which
+        # primary metric is selected.
+        mti_result = mti_modulation_depth([ef1, ef2])
+
+        if self.metric == "mti_modulation_depth":
+            ti_max_full = mti_result["md"]
+        else:
+            ti_max_full = TI.get_maxTI(ef1, ef2)
+
+        # Carrier power along the envelope's best direction, per element.
+        carrier_power_best_dir = mti_result["carrier_power"]
+        # Direction-free total carrier power (no orientation assumption).
+        carrier_power_total = 0.5 * (
+            np.sum(ef1 * ef1, axis=1) + np.sum(ef2 * ef2, axis=1)
+        )
 
         field_roi = ti_max_full[self.roi_indices]
         field_gm = ti_max_full[self.gm_indices]
+        carrier_roi = carrier_power_best_dir[self.roi_indices]
+        carrier_gm = carrier_power_total[self.gm_indices]
 
         n_elements = int(len(field_roi))
         if n_elements == 0:
@@ -130,9 +203,13 @@ class ExSearchEngine:
             roi_mean = 0.0
             gm_mean = 0.0
             focality = 0.0
+            carrier_rms_roi = 0.0
         else:
             roi_max = float(np.max(field_roi))
             roi_mean = float(np.average(field_roi, weights=self.roi_volumes))
+            carrier_rms_roi = float(
+                np.sqrt(np.average(carrier_roi, weights=self.roi_volumes))
+            )
             if len(field_gm) > 0:
                 gm_mean = float(np.average(field_gm, weights=self.gm_volumes))
                 focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
@@ -140,12 +217,33 @@ class ExSearchEngine:
                 gm_mean = 0.0
                 focality = 0.0
 
+        if len(carrier_gm) > 0:
+            carrier_rms_gm = float(
+                np.sqrt(np.average(carrier_gm, weights=self.gm_volumes))
+            )
+            carrier_peak_gm = float(np.sqrt(np.max(carrier_gm)))
+        else:
+            carrier_rms_gm = 0.0
+            carrier_peak_gm = 0.0
+
+        montage_label = f"{e1_plus}_{e1_minus}_and_{e2_plus}_{e2_minus}"
+        carrier_penalty = carrier_constraint_penalty(
+            carrier_rms_gm,
+            self.carrier_constraint,
+            self.carrier_penalty_weight,
+            context=montage_label,
+        )
+
         return {
             f"{self.roi_name}_TImax_ROI": roi_max,
             f"{self.roi_name}_TImean_ROI": roi_mean,
             f"{self.roi_name}_TImean_GM": gm_mean,
             f"{self.roi_name}_Focality": focality,
             f"{self.roi_name}_n_elements": n_elements,
+            f"{self.roi_name}_CarrierRMS_ROI": carrier_rms_roi,
+            f"{self.roi_name}_CarrierRMS_GM": carrier_rms_gm,
+            f"{self.roi_name}_CarrierPeak_GM": carrier_peak_gm,
+            f"{self.roi_name}_CarrierPenalty": carrier_penalty,
             "current_ch1_mA": current_ch1_mA,
             "current_ch2_mA": current_ch2_mA,
         }

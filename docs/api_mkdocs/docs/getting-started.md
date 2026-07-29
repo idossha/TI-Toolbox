@@ -4,6 +4,12 @@ This guide covers the core APIs you'll interact with most frequently.
 
 ## Setup
 
+All scripting happens inside the SimNIBS container. Three ways to develop:
+
+- **JupyterLab**: Type `NOTEBOOK` at the container shell, then open [http://localhost:8888](http://localhost:8888). Select the **"SimNIBS + TI-Toolbox"** kernel.
+- **Neovim**: `nvim my_script.py` — LSP autocompletion is pre-configured.
+- **Plain scripts**: `simnibs_python my_script.py`
+
 Just import — logging and path resolution are automatic. No initialization call is needed.
 
 ```python

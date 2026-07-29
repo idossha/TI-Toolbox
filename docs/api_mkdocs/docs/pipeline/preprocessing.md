@@ -4,12 +4,21 @@ The preprocessing pipeline converts raw imaging data into simulation-ready head 
 
 ```mermaid
 graph LR
-    A[DICOM] -->|dcm2niix| B[NIfTI]
-    B -->|CHARM| C[Head Mesh]
-    C -->|subject_atlas| D[Atlas Parcellations]
-    B -->|recon-all| E[FreeSurfer Surfaces]
-    C -->|tissue analysis| F[Tissue Report]
-    style C fill:#2d5a27,stroke:#4a8,color:#fff
+    A([DICOM]) -->|dcm2niix| B([NIfTI T1/T2])
+    B -->|CHARM| C([Head Mesh])
+    C -->|subject_atlas| D([Atlas Parcellations])
+    B -->|recon-all| E([FreeSurfer Surfaces])
+    C -->|tissue analysis| F([Tissue Report])
+    B -->|QSIPrep| G([DWI Preprocessed])
+    G -->|QSIRecon| H([DTI Tensors])
+    style A fill:#1a3a5c,stroke:#48a,color:#fff
+    style B fill:#1a5c4a,stroke:#4a8,color:#fff
+    style C fill:#1a5c4a,stroke:#4a8,color:#fff
+    style D fill:#1a5c4a,stroke:#4a8,color:#fff
+    style E fill:#1a5c4a,stroke:#4a8,color:#fff
+    style F fill:#1a5c4a,stroke:#4a8,color:#fff
+    style G fill:#1a5c4a,stroke:#4a8,color:#fff
+    style H fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Full Pipeline
@@ -70,12 +79,12 @@ if not check_m2m_exists("001"):
 | DICOM to NIfTI | `run_dicom_to_nifti()` | Converts DICOM files to NIfTI format using `dcm2niix` |
 | CHARM head mesh | `run_charm()` | Creates SimNIBS-compatible head mesh from T1/T2 images |
 | Subject atlas | `run_subject_atlas()` | Creates atlas-based parcellations (a2009s, DK40, HCP_MMP1); runs automatically after CHARM in the pipeline |
-| FreeSurfer recon-all | `run_recon_all()` | Full cortical reconstruction and subcortical segmentation (takes 6-12 hours per subject) |
+| FreeSurfer recon-all | `run_recon_all()` | Optional full cortical reconstruction and subcortical segmentation (takes 6-12 hours per subject) |
 | Tissue analysis | `run_tissue_analysis()` | Analyzes tissue thickness and volume (bone, CSF, skin) from the head mesh |
 | Subcortical segmentation | `run_subcortical_segmentations()` | Runs thalamic nuclei and hippocampal subfield segmentations standalone (also runs automatically at the end of `run_recon_all`) |
 
 !!! warning "Compute Time"
-    FreeSurfer `recon-all` is the most time-consuming step (6-12 hours per subject). Use `parallel_recon=True` with `parallel_cores` to process multiple subjects simultaneously.
+    FreeSurfer `recon-all` is optional and is the most time-consuming step when enabled (6-12 hours per subject). Use `parallel_recon=True` with `parallel_cores` to process multiple subjects simultaneously via Python `ThreadPoolExecutor`; sequential mode lets one subject use FreeSurfer internal parallelism.
 
 ## DTI / Diffusion Pipeline
 
@@ -116,7 +125,7 @@ project_root/
     ├── SimNIBS/sub-001/
     │   └── m2m_001/         # Head mesh (simulation-ready)
     │       └── segmentation/ # Atlas parcellations
-    ├── freesurfer/sub-001/  # recon-all outputs
+    ├── freesurfer/sub-001/  # optional recon-all outputs
     ├── qsiprep/sub-001/     # QSIPrep DWI outputs (if run)
     └── qsirecon/sub-001/    # QSIRecon tensor outputs (if run)
 ```

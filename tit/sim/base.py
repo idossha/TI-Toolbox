@@ -1,21 +1,29 @@
 #!/usr/bin/env simnibs_python
-"""
-Base simulation class with shared logic for TI and mTI simulations.
+"""Base simulation class with shared logic for TI and mTI simulations.
 
-BaseSimulation factors out the identical code shared by TISimulation and
-mTISimulation:
-  - __init__ (config, montage, logger, path manager, m2m_dir)
-  - _apply_tissue_conductivities (env-var overrides)
-  - run() template method (setup dirs, viz, build session, post-process)
-  - _init_session() (common SESSION setup: subpath, tensor, eeg_cap, flags)
-  - _add_electrode_pair() (electrode creation on a TDCS list)
+``BaseSimulation`` factors out the identical code shared by
+``TISimulation`` and ``mTISimulation``:
 
-Subclasses implement:
-  - _simulation_mode      (property returning SimulationMode.TI or .MTI)
-  - _montage_type_label   (property returning "TI" or "mTI")
-  - _montage_imgs_key     (property returning dirs key for montage images)
-  - _build_session()      (electrode-pair-specific session construction)
-  - _post_process()       (field computation and file organization)
+* ``__init__`` -- config, montage, logger, path manager, m2m_dir
+* ``_apply_tissue_conductivities`` -- env-var conductivity overrides
+* ``run`` -- template method (setup dirs, viz, build session, post-process)
+* ``_init_session`` -- common SESSION setup (subpath, tensor, eeg_cap, flags)
+* ``_add_electrode_pair`` -- electrode creation on a TDCS list
+
+Subclasses implement the following abstract interface:
+
+* ``_simulation_mode`` -- property returning ``SimulationMode.TI`` or ``.MTI``
+* ``_montage_type_label`` -- property returning ``"TI"`` or ``"mTI"``
+* ``_montage_imgs_key`` -- property returning dirs key for montage images
+* ``_build_session`` -- electrode-pair-specific session construction
+* ``_post_process`` -- field computation and file organization
+
+See Also
+--------
+TISimulation : 2-pair TI implementation.
+mTISimulation : N-pair mTI implementation.
+SimulationConfig : Configuration consumed by simulations.
+run_simulation : Top-level orchestration entry point.
 """
 
 import os
@@ -36,9 +44,36 @@ from tit.sim.utils import (
 class BaseSimulation(ABC):
     """Abstract base class for TI/mTI simulations.
 
-    Subclasses must implement :pyattr:`_simulation_mode`,
-    :pyattr:`_montage_type_label`, :pyattr:`_montage_imgs_key`,
-    :meth:`_build_session`, and :meth:`_post_process`.
+    Provides the template-method ``run`` pipeline that subclasses
+    customise by implementing ``_build_session`` and ``_post_process``.
+
+    Parameters
+    ----------
+    config : SimulationConfig
+        Fully specified simulation configuration.
+    montage : Montage
+        The electrode montage to simulate.
+    logger : logging.Logger
+        Logger instance for status and diagnostic messages.
+
+    Attributes
+    ----------
+    config : SimulationConfig
+        Simulation configuration supplied at construction.
+    montage : Montage
+        Electrode montage supplied at construction.
+    logger : logging.Logger
+        Logger instance used throughout the pipeline.
+    pm : tit.paths.PathManager
+        Singleton path manager for BIDS path resolution.
+    m2m_dir : str
+        Absolute path to the subject's ``m2m_<subject>`` directory.
+
+    See Also
+    --------
+    TISimulation : Concrete 2-pair TI subclass.
+    mTISimulation : Concrete N-pair mTI subclass.
+    run_simulation : Orchestrates ``BaseSimulation.run`` across montages.
     """
 
     def __init__(self, config: SimulationConfig, montage: Montage, logger):
@@ -53,12 +88,12 @@ class BaseSimulation(ABC):
     @property
     @abstractmethod
     def _simulation_mode(self):
-        """Return the SimulationMode enum value (TI or MTI)."""
+        """Return the ``SimulationMode`` enum value (TI or MTI)."""
 
     @property
     @abstractmethod
     def _montage_type_label(self) -> str:
-        """Return the human-readable montage type label ('TI' or 'mTI')."""
+        """Return the human-readable montage type label (``'TI'`` or ``'mTI'``)."""
 
     @property
     @abstractmethod
@@ -71,12 +106,32 @@ class BaseSimulation(ABC):
 
     @abstractmethod
     def _post_process(self, dirs: dict) -> str:
-        """Run post-processing. Return the path to the primary output mesh."""
+        """Run post-processing and return the path to the primary output mesh."""
 
     # ── Template method ─────────────────────────────────────────────────
 
     def run(self, simulation_dir: str) -> dict:
-        """Execute the full simulation pipeline. Returns a result dict."""
+        """Execute the full simulation pipeline for one montage.
+
+        This template method orchestrates directory setup, montage
+        visualisation, SimNIBS FEM execution, and subclass-specific
+        post-processing.
+
+        Parameters
+        ----------
+        simulation_dir : str
+            Root simulations directory for the subject.
+
+        Returns
+        -------
+        dict
+            Result dictionary with keys ``montage_name``, ``montage_type``,
+            ``status``, and ``output_mesh``.
+
+        See Also
+        --------
+        run_simulation : Calls ``run`` for each montage in a config.
+        """
         montage_dir = self.pm.simulation(
             self.config.subject_id,
             self.montage.name,
@@ -116,7 +171,18 @@ class BaseSimulation(ABC):
     def _init_session(self, output_dir: str) -> sim_struct.SESSION:
         """Create and configure a SimNIBS SESSION with common settings.
 
-        Returns a SESSION ready for electrode pair configuration.
+        Sets up the subject path, head mesh, output directory, tensor
+        file (if available), and EEG cap file (for net-based montages).
+
+        Parameters
+        ----------
+        output_dir : str
+            Directory where SimNIBS writes its FEM output.
+
+        Returns
+        -------
+        sim_struct.SESSION
+            A SESSION ready for electrode pair configuration.
         """
         cfg = self.config
         S = sim_struct.SESSION()
@@ -141,7 +207,7 @@ class BaseSimulation(ABC):
     def _add_electrode_pair(
         self, session: sim_struct.SESSION, pair_positions, current_mA: float
     ):
-        """Add one electrode pair as a TDCS list and return it.
+        """Add one electrode pair as a TDCS list on *session*.
 
         Parameters
         ----------
@@ -150,11 +216,11 @@ class BaseSimulation(ABC):
         pair_positions : sequence
             Two-element sequence of electrode positions (labels or XYZ).
         current_mA : float
-            Current intensity in mA (will be converted to A).
+            Current intensity in mA (converted to A internally).
 
         Returns
         -------
-        tdcs : sim_struct.TDCSLIST
+        sim_struct.TDCSLIST
             The configured TDCS list, for further customization if needed.
         """
         cfg = self.config
@@ -177,7 +243,7 @@ class BaseSimulation(ABC):
         return tdcs
 
     def _generate_central_surface(self, mesh_path: str, surfaces_dir: str) -> None:
-        """Generate the central cortical surface mesh via msh2cortex.
+        """Generate the central cortical surface mesh via ``msh2cortex``.
 
         Parameters
         ----------

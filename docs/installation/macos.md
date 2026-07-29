@@ -35,7 +35,7 @@ Simply download, mount the DMG, and drag TI-Toolbox to your Applications folder 
 ### Step 1: Download Required Files
 
 Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)**
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
 
 ### Step 2: Launch TI-Toolbox
@@ -45,13 +45,9 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    cd ~/TI-Toolbox/
    ```
-3. **Make loader.sh executable**:
+3. **Launch TI-Toolbox**:
    ```bash
-   chmod +x loader.sh
-   ```
-4. **Launch TI-Toolbox**:
-   ```bash
-   ./loader.sh
+   python3 loader.py
    ```
 5. **First run will download Docker images (~30GB)** - this may take 30+ minutes
 

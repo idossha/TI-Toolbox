@@ -1,12 +1,12 @@
 """Cluster-based permutation testing for TI-Toolbox.
 
-Entry points
-------------
-run_group_comparison(config) -> GroupComparisonResult
-run_correlation(config)      -> CorrelationResult
+Entry points:
+    ``run_group_comparison(config)`` -- GroupComparisonResult
+    ``run_correlation(config)`` -- CorrelationResult
 
-Both accept an optional ``callback_handler`` (logging.Handler) for GUI
-console integration.
+Both accept an optional ``callback_handler`` (``logging.Handler``) for GUI
+console integration and a ``stop_callback`` callable for user-initiated
+cancellation.
 """
 
 import gc
@@ -83,15 +83,39 @@ def run_group_comparison(
 ) -> GroupComparisonResult:
     """Run cluster-based permutation testing for group comparison.
 
-    Parameters
-    ----------
-    config : GroupComparisonConfig
-        Fully specified configuration.
-    callback_handler : logging.Handler, optional
-        GUI log handler.
-    stop_callback : callable, optional
-        Returns True to abort.
+    Loads responder and non-responder NIfTI volumes, performs voxelwise
+    t-tests, applies cluster-based permutation correction, generates
+    diagnostic plots, and saves all outputs to the BIDS derivatives tree.
+
+    Args:
+        config: Fully specified group comparison configuration.
+        callback_handler: Optional ``logging.Handler`` for GUI console
+            integration.  Attached to the run-scoped logger so that log
+            messages are forwarded to the GUI.
+        stop_callback: Optional callable that returns ``True`` to request
+            early termination.  Checked between pipeline stages.
+
+    Returns:
+        A ``GroupComparisonResult`` summarising the analysis outcomes,
+        including paths to all generated output files.
+
+    Raises:
+        KeyboardInterrupt: If ``stop_callback`` returns ``True`` during
+            execution.
     """
+    from tit.telemetry import track_operation
+    from tit import constants as _const
+
+    with track_operation(_const.TELEMETRY_OP_STATS):
+        if config.space == GroupComparisonConfig.AnalysisSpace.FSAVERAGE:
+            from tit.stats.surface import run_surface_group_comparison
+
+            return run_surface_group_comparison(config, callback_handler, stop_callback)
+        return _run_group_comparison_inner(config, callback_handler, stop_callback)
+
+
+def _run_group_comparison_inner(config, callback_handler=None, stop_callback=None):
+    """Inner implementation of :func:`run_group_comparison`."""
     t0 = time.time()
     output_dir = _resolve_output_dir(
         "group_comparison",
@@ -330,15 +354,31 @@ def run_correlation(
 ) -> CorrelationResult:
     """Run cluster-based permutation testing for correlation (ACES-style).
 
-    Parameters
-    ----------
-    config : CorrelationConfig
-        Fully specified configuration.
-    callback_handler : logging.Handler, optional
-        GUI log handler.
-    stop_callback : callable, optional
-        Returns True to abort.
+    Loads subject NIfTI volumes and effect sizes, computes voxelwise
+    correlation, applies cluster-based permutation correction, generates
+    diagnostic plots, and saves all outputs to the BIDS derivatives tree.
+
+    Args:
+        config: Fully specified correlation configuration.
+        callback_handler: Optional ``logging.Handler`` for GUI console
+            integration.  Attached to the run-scoped logger so that log
+            messages are forwarded to the GUI.
+        stop_callback: Optional callable that returns ``True`` to request
+            early termination.  Checked between pipeline stages.
+
+    Returns:
+        A ``CorrelationResult`` summarising the analysis outcomes, including
+        paths to all generated output files.
+
+    Raises:
+        KeyboardInterrupt: If ``stop_callback`` returns ``True`` during
+            execution.
     """
+    if config.space == CorrelationConfig.AnalysisSpace.FSAVERAGE:
+        from tit.stats.surface import run_surface_correlation
+
+        return run_surface_correlation(config, callback_handler, stop_callback)
+
     t0 = time.time()
     output_dir = _resolve_output_dir(
         "correlation",

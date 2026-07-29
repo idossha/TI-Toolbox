@@ -74,8 +74,12 @@ class TestSerializeROI:
 
     def test_serialize_roi_spherical_volumetric(self):
         roi = SphericalROI(
-            x=-24.0, y=-4.0, z=-20.0, radius=8.0,
-            volumetric=True, tissues="both",
+            x=-24.0,
+            y=-4.0,
+            z=-20.0,
+            radius=8.0,
+            volumetric=True,
+            tissues="both",
         )
         d = _serialize_roi(roi)
         assert d["type"] == "spherical"
@@ -98,6 +102,7 @@ class TestSerializeROI:
         assert d["type"] == "subcortical"
         assert d["atlas_path"] == "/path/to/aseg.nii.gz"
         assert d["label"] == 11
+        assert d["atlas_space"] == "subject"
         assert d["tissues"] == "GM"
 
 

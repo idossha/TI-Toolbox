@@ -5,13 +5,12 @@ This module provides a report generator for electrode placement
 optimization results from the flex-search algorithm.
 """
 
-
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet
+from ..core.base import MetadataReportlet, TableReportlet, ImageReportlet, TextReportlet
 from ..reportlets.images import MontageImageReportlet
 from ..reportlets.metadata import SummaryCardsReportlet, ParameterListReportlet
 from .base_generator import BaseReportGenerator
@@ -162,8 +161,16 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                 "electrode_1b": electrode_1b,
                 "electrode_2a": electrode_2a,
                 "electrode_2b": electrode_2b,
-                "pair_1": f"{electrode_1a}-{electrode_1b}",
-                "pair_2": f"{electrode_2a}-{electrode_2b}",
+                "pair_1": (
+                    f"{electrode_1a}-{electrode_1b}"
+                    if electrode_1a and electrode_1b
+                    else ""
+                ),
+                "pair_2": (
+                    f"{electrode_2a}-{electrode_2b}"
+                    if electrode_2a and electrode_2b
+                    else ""
+                ),
                 "score": score,
                 "mean_field_roi": mean_field_roi,
                 "max_field_roi": max_field_roi,
@@ -179,8 +186,11 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         metrics: dict[str, Any],
         montage_image_base64: str | None = None,
         field_map_base64: str | None = None,
+        skin_region_image_base64: str | None = None,
         electrode_coordinates: list[list[float]] | None = None,
         channel_array_indices: list[list[int]] | None = None,
+        mapped_labels: list[str] | None = None,
+        mapped_positions: list[list[float]] | None = None,
     ) -> None:
         """
         Set the best (selected) solution.
@@ -191,6 +201,11 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             metrics: Solution metrics
             montage_image_base64: Base64 montage visualization
             field_map_base64: Base64 field map visualization
+            skin_region_image_base64: Base64 valid-skin-region visualization
+            electrode_coordinates: Optimized electrode XYZ positions
+            channel_array_indices: Channel/array index per electrode
+            mapped_labels: EEG net electrode labels (e.g. E061)
+            mapped_positions: Mapped electrode XYZ positions
         """
         self.best_solution = {
             "electrode_pairs": electrode_pairs,
@@ -198,8 +213,11 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "metrics": metrics,
             "montage_image_base64": montage_image_base64,
             "field_map_base64": field_map_base64,
+            "skin_region_image_base64": skin_region_image_base64,
             "electrode_coordinates": electrode_coordinates,
             "channel_array_indices": channel_array_indices,
+            "mapped_labels": mapped_labels,
+            "mapped_positions": mapped_positions,
         }
 
     def populate_from_data(self, data: dict[str, Any]) -> None:
@@ -354,6 +372,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "electrode_current_mA": self.config.get("electrode_current_mA"),
             "channel_1_intensity": self.config.get("intensity_ch1"),
             "channel_2_intensity": self.config.get("intensity_ch2"),
+            "min_electrode_distance_mm": self.config.get("min_electrode_distance_mm"),
             "electrode_net": self.config.get("electrode_net"),
             "mapping_enabled": self.config.get("mapping_enabled"),
             "run_final_simulation": self.config.get("run_final_electrode_simulation"),
@@ -370,6 +389,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             "recombination": self.config.get("recombination"),
             "thresholds": self.config.get("thresholds"),
             "non_roi_method": self.config.get("non_roi_method"),
+            "anisotropy_type": self.config.get("anisotropy_type"),
             "cpu_cores": self.config.get("cpu_cores"),
         }
         param_list.add_category(
@@ -468,10 +488,17 @@ class FlexSearchReportGenerator(BaseReportGenerator):
                 "Rank": result["rank"],
                 "Score": f"{result['score']:.4f}",
             }
+            mapped_labels = result.get("mapped_labels") or []
             if result.get("pair_1"):
                 row["Pair 1"] = result.get("pair_1", "")
+            elif len(mapped_labels) >= 2:
+                row["Pair 1"] = f"{mapped_labels[0]}-{mapped_labels[1]}"
             if result.get("pair_2"):
                 row["Pair 2"] = result.get("pair_2", "")
+            elif len(mapped_labels) >= 4:
+                row["Pair 2"] = f"{mapped_labels[2]}-{mapped_labels[3]}"
+            if mapped_labels:
+                row["Mapped Labels"] = ", ".join(str(label) for label in mapped_labels)
             if result.get("mean_field_roi") is not None:
                 row["Mean Field (V/m)"] = f"{result['mean_field_roi']:.4f}"
             if result.get("focality") is not None:
@@ -501,9 +528,10 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         pair_strings = []
         for pair in pairs:
             if isinstance(pair, dict):
-                pair_strings.append(
-                    f"{pair.get('electrode1', '?')}-{pair.get('electrode2', '?')}"
-                )
+                e1 = pair.get("electrode1", "?")
+                e2 = pair.get("electrode2", "?")
+                if e1 and e2:
+                    pair_strings.append(f"{e1}-{e2}")
             else:
                 pair_strings.append(str(pair))
 
@@ -529,13 +557,16 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         )
         section.add_reportlet(solution_metadata)
 
-        # Electrode coordinates (preferred over names)
+        # Electrode coordinates
         electrode_coords = self.best_solution.get("electrode_coordinates")
         if electrode_coords:
             indices = self.best_solution.get("channel_array_indices") or []
+            mapped_labels = self.best_solution.get("mapped_labels") or []
             coord_rows = []
             for idx, coords in enumerate(electrode_coords):
-                row = {"Electrode": idx + 1}
+                row: dict[str, Any] = {"Electrode": idx + 1}
+                if idx < len(mapped_labels):
+                    row["Label"] = mapped_labels[idx]
                 if isinstance(coords, (list, tuple)) and len(coords) >= 3:
                     row["X"] = f"{coords[0]:.2f}"
                     row["Y"] = f"{coords[1]:.2f}"
@@ -549,19 +580,70 @@ class FlexSearchReportGenerator(BaseReportGenerator):
 
             coord_table = TableReportlet(
                 data=coord_rows,
-                title="Electrode Coordinates (Subject Space)",
+                title="Optimized Electrode Coordinates (Subject Space)",
                 striped=True,
             )
             section.add_reportlet(coord_table)
+
+        # Mapped electrode positions (when EEG net mapping was used)
+        mapped_positions = self.best_solution.get("mapped_positions")
+        mapped_labels = self.best_solution.get("mapped_labels")
+        if mapped_positions and mapped_labels:
+            indices = self.best_solution.get("channel_array_indices") or []
+            mapped_rows = []
+            for idx, coords in enumerate(mapped_positions):
+                row: dict[str, Any] = {"Electrode": idx + 1}
+                if idx < len(mapped_labels):
+                    row["Label"] = mapped_labels[idx]
+                if isinstance(coords, (list, tuple)) and len(coords) >= 3:
+                    row["X"] = f"{coords[0]:.2f}"
+                    row["Y"] = f"{coords[1]:.2f}"
+                    row["Z"] = f"{coords[2]:.2f}"
+                if idx < len(indices):
+                    row["Channel"] = indices[idx][0]
+                    row["Array"] = indices[idx][1]
+                mapped_rows.append(row)
+
+            mapped_table = TableReportlet(
+                data=mapped_rows,
+                title="Mapped EEG Net Electrodes",
+                striped=True,
+            )
+            section.add_reportlet(mapped_table)
 
         # Montage visualization
         if self.best_solution.get("montage_image_base64"):
             montage_img = ImageReportlet(
                 title="Electrode Montage",
                 caption="Optimal electrode placement",
+                width="520px",
             )
             montage_img.set_base64_data(self.best_solution["montage_image_base64"])
             section.add_reportlet(montage_img)
+        else:
+            section.add_reportlet(
+                TextReportlet(
+                    title="Electrode Montage Unavailable",
+                    content=(
+                        "No electrode montage image was found for this flex-search "
+                        "report. The optimized and mapped electrode tables above "
+                        "remain the source of truth for the selected configuration."
+                    ),
+                )
+            )
+
+        # Valid skin region visualization
+        if self.best_solution.get("skin_region_image_base64"):
+            skin_img = ImageReportlet(
+                title="Valid Skin Region",
+                caption=(
+                    "Valid and invalid scalp regions used by flex-search for "
+                    "electrode placement"
+                ),
+                width="820px",
+            )
+            skin_img.set_base64_data(self.best_solution["skin_region_image_base64"])
+            section.add_reportlet(skin_img)
 
         # Field map visualization
         if self.best_solution.get("field_map_base64"):
@@ -571,6 +653,56 @@ class FlexSearchReportGenerator(BaseReportGenerator):
             )
             field_img.set_base64_data(self.best_solution["field_map_base64"])
             section.add_reportlet(field_img)
+        else:
+            section.add_reportlet(
+                TextReportlet(
+                    title="Electric Field Visualization Unavailable",
+                    content=(
+                        "No optional field-map image was embedded in this report. "
+                        "Run the final mapped-electrode simulation and field "
+                        "visualization steps to generate this image."
+                    ),
+                )
+            )
+
+    def _build_computer_friendly_section(self) -> None:
+        """Build final machine-readable flex-search report output."""
+        section = self.assembler.add_section(
+            section_id="computer_friendly_output",
+            title="Computer-Friendly Output",
+            description="JSON payload for automated audit and downstream reuse.",
+            order=110,
+        )
+        section.add_reportlet(
+            TextReportlet(
+                title="Flex-Search Report JSON",
+                content=json.dumps(self._build_computer_friendly_payload(), indent=2),
+                content_type="code",
+                copyable=True,
+                monospace=True,
+            )
+        )
+
+    def _build_computer_friendly_payload(self) -> dict[str, Any]:
+        """Return machine-readable flex-search report metadata and results."""
+        return {
+            "generated_by": {
+                "name": "TI-Toolbox",
+                "version": self.software_versions.get("ti_toolbox", "unknown"),
+            },
+            "report_type": self.report_type,
+            "session_id": self.session_id,
+            "subject_id": self.subject_id,
+            "project_dir": str(self.project_dir),
+            "software_versions": self.software_versions,
+            "configuration": self.config,
+            "roi": self.roi_info,
+            "search_results": self.search_results,
+            "best_solution": self.best_solution,
+            "optimization_metrics": self.optimization_metrics,
+            "warnings": self.warnings,
+            "errors": self.errors,
+        }
 
     def _get_methods_parameters(self) -> dict[str, Any]:
         """Get parameters for methods boilerplate."""
@@ -591,6 +723,7 @@ class FlexSearchReportGenerator(BaseReportGenerator):
         self._build_roi_section()
         self._build_results_section()
         self._build_best_solution_section()
+        self._build_computer_friendly_section()
 
 
 def create_flex_search_report(

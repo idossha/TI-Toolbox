@@ -8,10 +8,10 @@ By Ido Haber
 March 2026
 """
 
-from tit.pre import run_pipeline
-from tit.opt import FlexConfig, run_flex_search
-from tit.sim import SimulationConfig, run_simulation, load_montages
 from tit.analyzer import Analyzer
+from tit.opt import FlexConfig, run_flex_search
+from tit.pre import run_pipeline
+from tit.sim import SimulationConfig, load_montages, run_simulation
 
 SUBJECTS = ["ernie"]
 EEG_NET = "GSN-HydroCel-185.csv"

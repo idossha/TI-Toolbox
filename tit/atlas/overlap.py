@@ -6,7 +6,6 @@ Atlas related functions for NIfTI operations
 
 """
 
-
 import logging
 import os
 

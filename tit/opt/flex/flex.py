@@ -1,24 +1,127 @@
 """Flex-search optimization for TI stimulation.
 
-Public API: ``run_flex_search(config) -> FlexResult``
+Orchestrates multi-start differential-evolution runs, selects the best
+result, and writes a manifest + HTML report.
+
+Public API
+----------
+run_flex_search
+    Run differential-evolution electrode placement optimization.
+
+See Also
+--------
+tit.opt.config.FlexConfig : Input configuration.
+tit.opt.config.FlexResult : Output result container.
+tit.opt.flex.builder : SimNIBS object construction used internally.
 """
 
 import logging
 import os
 import shutil
 import time
+from pathlib import Path
 
 import numpy as np
 
 from tit.opt.config import FlexConfig, FlexResult
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
-from . import builder
+from . import builder, utils
+from .skin_visualization import create_valid_skin_region_visualization
 
 
 def run_flex_search(config: FlexConfig) -> FlexResult:
-    """Run flex-search optimization from a typed FlexConfig."""
+    """Run differential-evolution electrode placement optimization.
 
+    Uses ``scipy.optimize.differential_evolution`` (via SimNIBS
+    ``TesFlexOptimization``) to find electrode positions that maximize
+    field strength, peak intensity, or focality in a target ROI.
+
+    Multiple independent restarts (controlled by
+    ``config.n_multistart``) are executed sequentially; the best run's
+    output is promoted to the base output folder.
+
+    Parameters
+    ----------
+    config : FlexConfig
+        Fully specified optimization configuration including subject,
+        ROI definition, electrode geometry, and DE hyperparameters.
+
+    Returns
+    -------
+    FlexResult
+        Optimization outcomes including best montage, objective value,
+        and convergence diagnostics.
+
+    See Also
+    --------
+    FlexConfig : Configuration dataclass for flex-search.
+    FlexResult : Result container with per-restart function values.
+    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.
+    """
+    from tit.telemetry import track_operation
+    from tit import constants as const
+
+    _validate_flex_inputs(config)
+    with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
+        return _run_flex_search_inner(config)
+
+
+def _validate_flex_inputs(config: FlexConfig) -> None:
+    """Validate user-controlled flex-search inputs before telemetry starts."""
+    pm = get_path_manager()
+    m2m_dir = Path(pm.m2m(config.subject_id))
+    if not m2m_dir.is_dir():
+        raise ValueError(
+            f"SimNIBS m2m directory not found for subject {config.subject_id}: {m2m_dir}. "
+            "Run preprocessing/CHARM before flex-search."
+        )
+    _require_file(
+        m2m_dir / f"{config.subject_id}.msh",
+        "SimNIBS head mesh",
+    )
+    if config.cpus is not None and config.cpus < 1:
+        raise ValueError("Flex-search cpus must be >= 1.")
+    if config.n_multistart < 1:
+        raise ValueError("Flex-search n_multistart must be >= 1.")
+    if config.min_electrode_distance <= 0:
+        raise ValueError("min_electrode_distance must be positive.")
+    if config.enable_mapping and not config.eeg_net:
+        raise ValueError("enable_mapping requires an EEG net name.")
+    if config.enable_mapping:
+        _require_file(
+            utils.eeg_net_csv_path(pm.eeg_positions(config.subject_id), config.eeg_net),
+            "mapped EEG net",
+        )
+    if config.skin_visualization_net:
+        _require_file(Path(config.skin_visualization_net), "skin visualization EEG net")
+    if config.avoid_landmark_regions and config.skin_region_margin_mm > 0:
+        _require_file(
+            Path(pm.eeg_positions(config.subject_id)) / "Fiducials.csv",
+            "SimNIBS fiducials",
+        )
+
+    for label, roi in (("ROI", config.roi), ("non-ROI", config.non_roi)):
+        if roi is None:
+            continue
+        _validate_roi_input(label, roi)
+
+
+def _require_file(path: Path, description: str) -> None:
+    if not path.is_file():
+        raise ValueError(f"{description} file not found: {path}")
+
+
+def _validate_roi_input(label: str, roi) -> None:
+    atlas_path = getattr(roi, "atlas_path", None)
+    if not atlas_path:
+        return
+
+    _require_file(Path(atlas_path), f"{label} atlas")
+
+
+def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
+    """Inner implementation of :func:`run_flex_search` (unwrapped)."""
     from .manifest import write_manifest
     from .utils import generate_label, generate_run_dirname
 
@@ -27,7 +130,9 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     # Set up file logging — capture both tit and simnibs output
     logs_dir = pm.logs(config.subject_id)
     os.makedirs(logs_dir, exist_ok=True)
-    log_file = os.path.join(logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
+    log_file = os.path.join(
+        logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
+    )
     logger_name = f"tit.opt.flex.{config.subject_id}"
     add_file_handler(log_file, logger_name=logger_name)
     add_file_handler(log_file, logger_name="simnibs")
@@ -93,6 +198,9 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     for folder in folders:
         if os.path.isdir(folder):
             shutil.rmtree(folder)
+
+    # -- Valid skin-region visualization --
+    create_valid_skin_region_visualization(config, base_folder, logger)
 
     # -- Report --
     builder.generate_report(config, n, fvals, best_idx, base_folder, logger)

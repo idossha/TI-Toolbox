@@ -128,6 +128,53 @@ function convertWindowsPathToDockerFormat(winPath) {
   return dockerPath;
 }
 
+/**
+ * Return the host-side path to the TI-Toolbox user config directory.
+ *
+ * This directory is mounted into the Docker container at
+ * ``/root/.config/ti-toolbox`` so that user-level settings (telemetry
+ * consent, anonymous ID, future preferences) persist across projects
+ * and container restarts.
+ *
+ * Platform resolution:
+ *   - macOS  : ``~/.config/ti-toolbox``  (NOT ~/Library/Application Support)
+ *   - Linux  : ``~/.config/ti-toolbox``  (XDG)
+ *   - Windows: ``%APPDATA%\ti-toolbox``
+ *
+ * The directory is created if it does not exist.
+ */
+function getUserConfigDir() {
+  const fs = require('fs-extra');
+  let configDir;
+
+  switch (os.platform()) {
+    case 'darwin':
+      // Use ~/.config/ti-toolbox (NOT ~/Library/Application Support/ti-toolbox
+      // which is Electron's userData dir full of cache/session junk)
+      configDir = path.join(os.homedir(), '.config', 'ti-toolbox');
+      break;
+    case 'win32':
+      configDir = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ti-toolbox');
+      break;
+    default: // linux and others
+      configDir = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ti-toolbox');
+      break;
+  }
+
+  fs.ensureDirSync(configDir);
+  logger.info(`User config directory: ${configDir}`);
+  return configDir;
+}
+
+// Map Node's os.arch() values to the Python convention used by
+// tit/telemetry.py's _canonical_arch(). Keeps the raw env var
+// consistent across both launchers so in-container code doesn't have
+// to know which launcher invoked it.
+function toCanonicalArch(nodeArch) {
+  const map = { x64: 'x86_64', x32: 'x86', ia32: 'x86', arm64: 'arm64' };
+  return map[nodeArch] || nodeArch;
+}
+
 function getTimezone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -163,10 +210,23 @@ function buildRuntimeEnv(projectDir) {
   logger.info(`Docker mount path (LOCAL_PROJECT_DIR): ${dockerProjectDir}`);
   logger.info(`Container path will be: /mnt/${projectDirName}`);
 
+  // Resolve user-level config directory (telemetry, preferences)
+  const userConfigDir = getUserConfigDir();
+  let dockerUserConfigDir;
+  if (process.platform === 'win32') {
+    dockerUserConfigDir = convertWindowsPathToDockerFormat(userConfigDir);
+  } else {
+    dockerUserConfigDir = userConfigDir;
+  }
+
   const baseEnv = {
     ...process.env,
     LOCAL_PROJECT_DIR: dockerProjectDir,
     PROJECT_DIR_NAME: projectDirName,
+    TIT_USER_CONFIG: dockerUserConfigDir,
+    TIT_HOST_OS: os.platform(),       // darwin, win32, linux
+    TIT_HOST_OS_VERSION: os.release(), // e.g. 24.6.0 (macOS), 10.0.22631 (Win)
+    TIT_HOST_ARCH: toCanonicalArch(os.arch()),  // x86_64, arm64 (Python convention)
     DISPLAY: getDisplayEnv(),
     TZ: getTimezone(),
     COMPOSE_PROJECT_NAME: 'ti-toolbox'
@@ -187,6 +247,8 @@ function buildRuntimeEnv(projectDir) {
   logger.info(`  DISPLAY = ${result.env.DISPLAY}`);
   logger.info(`  TZ = ${result.env.TZ}`);
   logger.info(`  Docker volume mount: ${result.env.LOCAL_PROJECT_DIR}:/mnt/${result.env.PROJECT_DIR_NAME}`);
+  logger.info(`  TIT_USER_CONFIG = ${result.env.TIT_USER_CONFIG}`);
+  logger.info(`  User config mount: ${result.env.TIT_USER_CONFIG}:/root/.config/ti-toolbox`);
   logger.info('═══════════════════════════════════════════════════════');
 
   return result;
@@ -380,6 +442,7 @@ module.exports = {
   ensurePathEnv,
   patchProcessPathEnv,
   convertWindowsPathToDockerFormat,
+  getUserConfigDir,
   checkWindowsXServer
 };
 

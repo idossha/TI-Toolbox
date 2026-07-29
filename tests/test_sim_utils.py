@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tit.sim.config import SimulationMode, Montage
+from tit.sim.config import SimulationConfig, SimulationMode, Montage
 from tit.sim.utils import (
     ensure_montage_file,
     load_montage_data,
@@ -28,6 +28,8 @@ from tit.sim.utils import (
     parse_flex_montage,
     load_montages,
     setup_montage_directories,
+    run_montage_visualization,
+    create_simulation_config_file,
 )
 
 # ============================================================================
@@ -376,3 +378,252 @@ class TestSetupMontageDirectories:
         dirs1 = setup_montage_directories(montage_dir, SimulationMode.TI)
         dirs2 = setup_montage_directories(montage_dir, SimulationMode.TI)
         assert dirs1 == dirs2
+
+
+@pytest.mark.unit
+class TestCreateSimulationConfigFile:
+    """config.json snapshot includes report provenance fields."""
+
+    def test_writes_anisotropy_and_output_mapping_provenance(self, tmp_path):
+        logger = MagicMock()
+        montage = Montage(
+            name="M1",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("AF3", "AF4"), ("C5", "C6")],
+            eeg_net="EEG10-10_Cutini_2011.csv",
+        )
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[montage],
+            conductivity="vn",
+            intensities=[1.0, 1.0],
+            aniso_maxratio=12.0,
+            aniso_maxcond=1.8,
+            tissues_in_niftis="2,3",
+            open_in_gmsh=True,
+        )
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_pairs"] == [["AF3", "AF4"], ["C5", "C6"]]
+        assert data["conductivity"] == "vn"
+        assert data["aniso_maxratio"] == 12.0
+        assert data["aniso_maxcond"] == 1.8
+        assert data["tissues_in_niftis"] == "2,3"
+        assert data["open_in_gmsh"] is True
+        assert data["electrode_coordinates"] is None
+        assert data["electrode_coordinate_source"] is None
+
+    def test_writes_xyz_coordinates_for_freehand_montage(self, tmp_path):
+        logger = MagicMock()
+        montage = Montage(
+            name="freehand",
+            mode=Montage.Mode.FREEHAND,
+            electrode_pairs=[
+                ([1, 2, 3], [4, 5, 6]),
+                ([7, 8, 9], [10, 11, 12]),
+            ],
+        )
+        config = SimulationConfig(subject_id="001", montages=[montage])
+
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_coordinates"] == [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0],
+        ]
+        assert data["electrode_coordinate_source"] == "config_xyz"
+
+    def test_writes_xyz_coordinates_for_label_montage(
+        self, tmp_project, init_pm, tmp_path
+    ):
+        logger = MagicMock()
+        eeg_dir = (
+            tmp_project
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "m2m_001"
+            / "eeg_positions"
+        )
+        eeg_dir.mkdir(parents=True, exist_ok=True)
+        (eeg_dir / "cap.csv").write_text(
+            "\n".join(
+                [
+                    "Electrode,1.0,2.0,3.0,E001",
+                    "Electrode,4.0,5.0,6.0,E002",
+                    "Electrode,7.0,8.0,9.0,E003",
+                    "Electrode,10.0,11.0,12.0,E004",
+                ]
+            )
+        )
+        montage = Montage(
+            name="net",
+            mode=Montage.Mode.NET,
+            electrode_pairs=[("E001", "E002"), ("E003", "E004")],
+            eeg_net="cap.csv",
+        )
+        config = SimulationConfig(subject_id="001", montages=[montage])
+
+        create_simulation_config_file(config, montage, str(tmp_path), logger)
+
+        data = json.loads((tmp_path / "config.json").read_text())
+        assert data["electrode_coordinates"] == [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0],
+        ]
+        assert data["electrode_coordinate_source"] == os.path.join(
+            "eeg_positions", "cap.csv"
+        )
+
+
+# ============================================================================
+# Montage visualization
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestRunMontageVisualization:
+    """run_montage_visualization is best-effort and explicit."""
+
+    def test_skipped_net_logs_warning(self, tmp_path):
+        logger = MagicMock()
+
+        run_montage_visualization(
+            montage_name="M1",
+            simulation_mode=SimulationMode.TI,
+            eeg_net="freehand",
+            output_dir=str(tmp_path),
+            logger=logger,
+            electrode_pairs=[["E1", "E2"]],
+        )
+
+        logger.warning.assert_called_once()
+        message = logger.warning.call_args.args[0]
+        assert "Montage visualization unavailable" in message
+        assert "supported 2-D montage template" in message
+        assert logger.warning.call_args.args[1] == "freehand"
+        assert logger.warning.call_args.args[2] == "M1_highlighted_visualization.png"
+        assert logger.warning.call_args.args[3] == str(tmp_path)
+
+    def test_unsupported_net_logs_warning(self, tmp_path):
+        logger = MagicMock()
+
+        run_montage_visualization(
+            montage_name="M1",
+            simulation_mode=SimulationMode.MTI,
+            eeg_net="unknown_net.csv",
+            output_dir=str(tmp_path),
+            logger=logger,
+            electrode_pairs=[["E1", "E2"]],
+        )
+
+        logger.warning.assert_called_once()
+        assert "unsupported EEG net" in logger.warning.call_args.args[0]
+        assert logger.warning.call_args.args[1] == "unknown_net.csv"
+        assert logger.warning.call_args.args[2] == "combined_montage_visualization.png"
+
+    def test_visualizer_errors_are_best_effort(self, tmp_path):
+        logger = MagicMock()
+
+        with patch(
+            "tit.tools.montage_visualizer.visualize_montage",
+            side_effect=OSError("missing resource"),
+        ):
+            run_montage_visualization(
+                montage_name="M1",
+                simulation_mode=SimulationMode.TI,
+                eeg_net="GSN-HydroCel-185.csv",
+                output_dir=str(tmp_path),
+                logger=logger,
+                electrode_pairs=[["E1", "E2"]],
+            )
+
+        logger.warning.assert_called_once()
+        assert "Continuing simulation" in logger.warning.call_args.args[0]
+        assert str(logger.warning.call_args.args[3]) == "missing resource"
+
+    def test_success_uses_expected_ti_filename(self, tmp_path):
+        logger = MagicMock()
+
+        with patch("tit.tools.montage_visualizer.visualize_montage") as mock_visualize:
+            run_montage_visualization(
+                montage_name="M1",
+                simulation_mode=SimulationMode.TI,
+                eeg_net="GSN-HydroCel-185.csv",
+                output_dir=str(tmp_path),
+                logger=logger,
+                electrode_pairs=[["E1", "E2"]],
+            )
+
+        mock_visualize.assert_called_once_with(
+            montage_name="M1",
+            electrode_pairs=[["E1", "E2"]],
+            eeg_net="GSN-HydroCel-185.csv",
+            output_dir=str(tmp_path),
+            sim_mode="U",
+            logger=logger,
+        )
+        logger.warning.assert_not_called()
+
+
+# ============================================================================
+# Automatic fsaverage projection hook
+# ============================================================================
+
+
+class TestProjectMontageToFsaverage:
+    """``map_to_fsavg`` hook: TI projects, mTI skips, errors never abort the sim."""
+
+    def _montage(self, mode, name="M1"):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(simulation_mode=mode, name=name)
+
+    def test_ti_montage_projects(self, monkeypatch):
+        from tit.sim import utils
+
+        calls = []
+        monkeypatch.setattr(
+            "tit.source.fsaverage.project_subject",
+            lambda sid, sim, cfg: calls.append((sid, sim)) or (sid, "ok", "done"),
+        )
+        config = SimulationConfig(subject_id="001", montages=[])
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.TI, "TI_sim"), MagicMock()
+        )
+        assert calls == [("001", "TI_sim")]
+
+    def test_mti_montage_skipped(self, monkeypatch):
+        from tit.sim import utils
+
+        calls = []
+        monkeypatch.setattr(
+            "tit.source.fsaverage.project_subject",
+            lambda *a: calls.append(a) or ("x", "ok", ""),
+        )
+        config = SimulationConfig(subject_id="001", montages=[])
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.MTI), MagicMock()
+        )
+        assert calls == []
+
+    def test_projection_error_is_non_fatal(self, monkeypatch):
+        from tit.sim import utils
+
+        def boom(*a):
+            raise RuntimeError("morph blew up")
+
+        monkeypatch.setattr("tit.source.fsaverage.project_subject", boom)
+        logger = MagicMock()
+        config = SimulationConfig(subject_id="001", montages=[])
+        # Must not raise.
+        utils._project_montage_to_fsaverage(
+            config, self._montage(SimulationMode.TI), logger
+        )
+        assert logger.warning.called

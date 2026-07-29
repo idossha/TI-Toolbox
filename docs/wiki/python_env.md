@@ -36,13 +36,14 @@ As of v2.2.4, the `tit.core` sub-package has been dissolved. Modules that used t
 
 ```python
 # Core (logging auto-initializes on import — no setup needed)
-from tit import paths, constants
+from tit import get_path_manager, paths, constants
 
 # Simulation
-from tit.sim import SimulationConfig, run_simulation, load_montages
+from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
 
 # Optimization
-from tit.opt import FlexConfig, SphericalROI, run_flex_search
+from tit.opt import FlexConfig, run_flex_search
+from tit.opt import ExConfig, run_ex_search
 
 # Analysis
 from tit.analyzer import Analyzer, run_group_analysis
@@ -54,10 +55,7 @@ from tit.stats import run_group_comparison, GroupComparisonConfig
 from tit.pre import run_pipeline
 ```
 
-**Lazy-loading notes:**
-- `run_flex_search` is eagerly imported (safe -- SimNIBS is imported inside function bodies)
-- `run_ex_search` must stay lazy (engine.py imports SimNIBS at module level)
-- `run_group_comparison` and `run_correlation` stay lazy (permutation.py imports nibabel at module level)
+All imports are eager — SimNIBS and nibabel are always available in the Docker environment.
 
 ### JSON Config Modules
 

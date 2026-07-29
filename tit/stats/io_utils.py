@@ -57,4 +57,3 @@ def save_permutation_details(
                 f.write(f"Max Cluster Stat: {max_stat:10.2f}\n")
             else:
                 f.write(f"Max Cluster Stat: {max_stat:10d}\n")
-

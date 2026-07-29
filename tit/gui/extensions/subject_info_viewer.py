@@ -1,9 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: Subject Info Viewer
-View detailed information about processed subjects in your TI-Toolbox project.
+"""Subject Info Viewer extension for the TI-Toolbox GUI.
+
+Scans the project directory for subject folders and displays a status
+table showing raw data, FreeSurfer, SimNIBS, simulation, flex-search,
+and analysis availability per subject.
 """
 
 import os
@@ -22,7 +24,16 @@ from tit import constants as const
 
 
 class SubjectInfoWindow(QtWidgets.QDialog):
-    """Subject information viewer window."""
+    """Non-modal dialog displaying per-subject processing status.
+
+    Auto-scans on launch and allows JSON export of selected subjects'
+    detailed information.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    """
 
     def __init__(self, parent=None):
         super(SubjectInfoWindow, self).__init__(parent)

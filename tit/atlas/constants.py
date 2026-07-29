@@ -24,6 +24,8 @@ MNI_ATLAS_DIR = "/ti-toolbox/resources/atlas"
 MNI_TEMPLATE = "MNI152_T1_1mm.nii.gz"
 
 MNI_ATLAS_FILES = [
+    "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+    "MorelMNI152_labeling_1mm.nii.gz",
     "MNI_Glasser_HCP_v1.0.nii.gz",
     "massp2021-parcellation_decade-18to40.nii.gz",
 ]

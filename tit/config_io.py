@@ -1,14 +1,29 @@
-"""JSON serialization for config dataclasses.
+"""JSON serialisation for config dataclasses.
 
-Provides helpers to serialize typed config dataclasses (with Enum fields,
+Provides helpers to serialise typed config dataclasses (with Enum fields,
 nested dataclasses, and union-typed ROI/electrode specs) to JSON files and
-reconstruct them back.
+read them back.
 
-Usage::
+Public API
+----------
+serialize_config
+    Convert a config dataclass to a JSON-serialisable dict (with
+    ``project_dir`` injection).
+write_config_json
+    Serialise a config dataclass to a temporary JSON file.
+read_config_json
+    Read a JSON config file and return the parsed dict.
 
-    from tit.config_io import write_config_json, read_config_json
-    path = write_config_json(my_flex_config, prefix="flex")
-    data = read_config_json(path)
+Examples
+--------
+>>> from tit.config_io import write_config_json, read_config_json
+>>> path = write_config_json(my_flex_config, prefix="flex")
+>>> data = read_config_json(path)
+
+See Also
+--------
+tit.opt.config : ``FlexConfig`` and ``ExConfig`` dataclasses.
+tit.sim.config : ``Montage`` dataclass.
 """
 
 import json
@@ -46,16 +61,29 @@ _TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
 
 
 def serialize_config(config: Any) -> dict[str, Any]:
-    """Convert a dataclass to a JSON-serializable dict.
+    """Convert a config dataclass to a JSON-serialisable dict.
 
-    Handles:
-    - Enum fields (uses ``.value``)
-    - Nested dataclasses (recursed)
-    - Union-typed ROI / electrode specs (adds ``_type`` discriminator)
-    - None values (preserved)
+    Handles Enum fields (via ``.value``), nested dataclasses (recursed),
+    union-typed ROI / electrode specs (injects a ``_type`` discriminator),
+    and *None* values (preserved as JSON ``null``).
 
-    Also injects ``project_dir`` from the active PathManager so that
-    subprocess entry points can initialise their own PathManager.
+    Also injects ``project_dir`` from the active :class:`~tit.paths.PathManager`
+    so that subprocess entry points can initialise their own singleton.
+
+    Parameters
+    ----------
+    config : dataclass instance
+        Any config dataclass (e.g., ``FlexConfig``, ``ExConfig``).
+
+    Returns
+    -------
+    dict
+        JSON-serialisable dictionary representation of *config*.
+
+    See Also
+    --------
+    write_config_json : Serialise and write to a temp file in one step.
+    read_config_json : Read a JSON config back into a dict.
     """
     data = _serialize(config)
     # Inject project_dir for subprocess entry points
@@ -66,9 +94,24 @@ def serialize_config(config: Any) -> dict[str, Any]:
 
 
 def write_config_json(config: Any, prefix: str = "config") -> str:
-    """Serialize config dataclass to a temporary JSON file.
+    """Serialise a config dataclass to a temporary JSON file.
 
-    Returns the absolute file path.
+    Parameters
+    ----------
+    config : dataclass instance
+        Config object to serialise.
+    prefix : str, optional
+        Filename prefix for the temp file.  Default is ``"config"``.
+
+    Returns
+    -------
+    str
+        Absolute path to the created JSON file.
+
+    See Also
+    --------
+    serialize_config : Convert to dict without writing to disk.
+    read_config_json : Read a JSON config file.
     """
     data = serialize_config(config)
     fd, path = tempfile.mkstemp(prefix=f"{prefix}_", suffix=".json")
@@ -78,7 +121,22 @@ def write_config_json(config: Any, prefix: str = "config") -> str:
 
 
 def read_config_json(path: str) -> dict[str, Any]:
-    """Read a JSON config file and return the parsed dict."""
+    """Read a JSON config file and return the parsed dict.
+
+    Parameters
+    ----------
+    path : str
+        Path to the JSON file.
+
+    Returns
+    -------
+    dict
+        Parsed JSON contents.
+
+    See Also
+    --------
+    write_config_json : Create a config JSON file from a dataclass.
+    """
     with open(path) as f:
         return json.load(f)
 
@@ -89,7 +147,7 @@ def read_config_json(path: str) -> dict[str, Any]:
 
 
 def _serialize(obj: Any) -> Any:
-    """Recursively serialize a value to a JSON-compatible type."""
+    """Recursively serialise a value to a JSON-compatible type."""
     if obj is None:
         return None
     if isinstance(obj, Enum):

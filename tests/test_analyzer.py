@@ -125,3 +125,17 @@ class TestFieldSelector:
 
         assert path == mesh_file
         assert field_name == "TI_Max"
+
+    @patch("tit.analyzer.field_selector.get_path_manager")
+    def test_missing_mesh_mentions_postprocessing_when_high_frequency_exists(
+        self, mock_get_pm, tmp_path
+    ):
+        """Missing TI/mTI mesh errors explain partial high-frequency outputs."""
+        from tit.analyzer.field_selector import select_field_file
+
+        sim_dir = tmp_path / "sim"
+        (sim_dir / "high_Frequency").mkdir(parents=True)
+        mock_get_pm.return_value = self._make_mock_pm(str(sim_dir))
+
+        with pytest.raises(FileNotFoundError, match="post-processing outputs"):
+            select_field_file("001", "montage1", "mesh")

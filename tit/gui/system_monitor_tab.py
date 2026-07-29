@@ -1,10 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 System Monitor Tab
-This module provides a GUI interface for monitoring toolbox-related processes.
-Shows CPU, memory usage, and process information for relevant operations.
+"""System monitor tab for the TI-Toolbox GUI.
+
+Provides real-time CPU and memory usage graphs (matplotlib) and a process
+table filtered to toolbox-related operations (SimNIBS, FreeSurfer, QSI,
+optimization, etc.).
 """
 
 import logging
@@ -35,7 +36,18 @@ plt.style.use("dark_background")  # Use dark theme for graphs
 
 
 class ProcessMonitorThread(QThread):
-    """Thread to monitor system processes without blocking the GUI."""
+    """Background thread that polls system processes via ``psutil``.
+
+    Emits CPU/memory statistics and a filtered list of toolbox-related
+    processes at a configurable interval.
+
+    Signals
+    -------
+    process_data_signal : list
+        List of dicts describing relevant processes.
+    system_stats_signal : dict
+        System-wide CPU and memory statistics.
+    """
 
     process_data_signal = pyqtSignal(list)  # List of process data
     system_stats_signal = pyqtSignal(dict)  # System-wide stats
@@ -260,7 +272,17 @@ class ProcessMonitorThread(QThread):
 
 
 class SystemMonitorTab(QtWidgets.QWidget):
-    """Tab for monitoring system resources and toolbox processes."""
+    """GUI tab for real-time system resource and process monitoring.
+
+    Displays CPU/memory graphs (matplotlib on Qt5Agg), a process table
+    filtered to toolbox keywords, and controls for pausing, refreshing,
+    and terminating processes.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (main window).
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -505,18 +527,16 @@ class SystemMonitorTab(QtWidgets.QWidget):
             x_axis = [0]
 
         self.cpu_line.set_data(x_axis, cpu_values)
-        self.cpu_ax.set_xlim(
-            0, max(60, max(x_axis) if x_axis else 60)
-        )  # Show at least 60 seconds
-        self.cpu_ax.set_ylim(0, max(100, max(cpu_values) if cpu_values else 100))
+        x_max = float(max(x_axis)) if x_axis else 60.0
+        cpu_max = float(max(cpu_values)) if cpu_values else 100.0
+        mem_max = float(max(memory_values)) if memory_values else 100.0
+
+        self.cpu_ax.set_xlim(0.0, max(60.0, x_max))
+        self.cpu_ax.set_ylim(0.0, max(100.0, cpu_max))
 
         self.memory_line.set_data(x_axis, memory_values)
-        self.memory_ax.set_xlim(
-            0, max(60, max(x_axis) if x_axis else 60)
-        )  # Show at least 60 seconds
-        self.memory_ax.set_ylim(
-            0, max(100, max(memory_values) if memory_values else 100)
-        )
+        self.memory_ax.set_xlim(0.0, max(60.0, x_max))
+        self.memory_ax.set_ylim(0.0, max(100.0, mem_max))
 
         self.cpu_canvas.draw()
         self.memory_canvas.draw()

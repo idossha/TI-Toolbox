@@ -45,7 +45,7 @@ Simply download and run the AppImage, or install the .deb package — the app ha
 ### Step 1: Download Required Files
 
 Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)**
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
 
 ### Step 2: Launch TI-Toolbox
@@ -55,17 +55,13 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    cd ~/TI-Toolbox/
    ```
-3. **Make loader.sh executable**:
-   ```bash
-   chmod +x loader.sh
-   ```
-4. **Ensure Docker is running**:
+3. **Ensure Docker is running**:
    ```bash
    sudo systemctl status docker
    ```
-5. **Launch TI-Toolbox**:
+4. **Launch TI-Toolbox**:
    ```bash
-   ./loader.sh
+   python3 loader.py
    ```
 6. **First run will download Docker images (~30GB)** - this may take 30+ minutes
 

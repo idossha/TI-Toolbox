@@ -18,7 +18,15 @@ from .results import process_and_save
 
 def run_ex_search(config: ExConfig) -> ExResult:
     """Run exhaustive search from a typed config object."""
+    from tit.telemetry import track_operation
+    from tit import constants as const
 
+    with track_operation(const.TELEMETRY_OP_EX_SEARCH):
+        return _run_ex_search_inner(config)
+
+
+def _run_ex_search_inner(config: ExConfig) -> ExResult:
+    """Inner implementation of :func:`run_ex_search` (unwrapped)."""
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)
@@ -38,7 +46,10 @@ def run_ex_search(config: ExConfig) -> ExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
-    roi_file = os.path.join(pm.rois(config.subject_id), config.roi_name)
+    roi_names = config.roi_names or [config.roi_name]
+    roi_files = [os.path.join(pm.rois(config.subject_id), name) for name in roi_names]
+    if len(roi_files) > 1:
+        logger.info(f"Combining {len(roi_files)} ROIs into one target: {roi_names}")
 
     if isinstance(config.electrodes, ExConfig.PoolElectrodes):
         pool = config.electrodes.electrodes
@@ -51,9 +62,19 @@ def run_ex_search(config: ExConfig) -> ExResult:
         e2_minus = config.electrodes.e2_minus
         all_combinations = False
 
-    leadfield_path = os.path.join(pm.leadfields(config.subject_id), config.leadfield_hdf)
+    leadfield_path = os.path.join(
+        pm.leadfields(config.subject_id), config.leadfield_hdf
+    )
 
-    engine = ExSearchEngine(leadfield_path, roi_file, config.roi_name, logger)
+    engine = ExSearchEngine(
+        leadfield_path,
+        roi_files,
+        config.roi_name,
+        logger,
+        metric=config.metric,
+        carrier_constraint=config.carrier_constraint,
+        carrier_penalty_weight=config.carrier_penalty_weight,
+    )
     engine.initialize(roi_radius=config.roi_radius)
 
     ratios = generate_current_ratios(

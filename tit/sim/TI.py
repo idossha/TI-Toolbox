@@ -1,15 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""
-2-pair Temporal Interference (TI) simulation.
+"""2-pair Temporal Interference (TI) simulation.
 
-Session structure mirrors the official SimNIBS TI example:
-  - SESSION with two TDCS lists (one per electrode pair)
-  - deepcopy pattern for the second pair
-  - TI_max computed with TI.get_maxTI on cropped meshes
-  - TI_normal computed on cortical surface overlays
+Implements :class:`TISimulation`, the concrete ``BaseSimulation`` subclass
+for standard 2-pair TI stimulation.  The session structure mirrors the
+official SimNIBS TI example:
 
-Output mesh includes per-pair E-field magnitudes and TI_max,
+* SESSION with two TDCS lists (one per electrode pair)
+* ``deepcopy`` pattern for the second pair
+* ``TI_max`` computed with ``TI.get_maxTI`` on cropped meshes
+* ``TI_normal`` computed on cortical surface overlays
+
+Output mesh includes per-pair E-field magnitudes and ``TI_max``,
 matching the reference visualisation layout.
+
+See Also
+--------
+BaseSimulation : Abstract base class providing the ``run`` template.
+mTISimulation : N-pair multi-channel TI variant.
+SimulationConfig : Configuration consumed by the simulation.
+run_simulation : Top-level orchestration that dispatches to this class.
 """
 
 import glob
@@ -21,13 +30,15 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
+from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
-    convert_t1_to_mni,
     extract_fields,
+    finish_t1_to_mni,
     safe_move,
-    transform_to_nifti,
+    start_t1_to_mni,
+    transform_dirs_to_nifti,
 )
 
 # Brain tissue crop mask — keeps tissue volume elements and surface elements
@@ -36,33 +47,52 @@ _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_R
 
 
 class TISimulation(BaseSimulation):
-    """
-    Runs a single 2-pair TI simulation.
+    """Run a single 2-pair TI simulation.
 
-    Pipeline:
-      1. Set up BIDS output directory structure
-      2. Visualize electrode placement
-      3. Build SimNIBS SESSION, run FEM
-      4. Compute TI_max (volume) and TI_normal (surface)
-      5. Extract GM/WM meshes, convert to NIfTI, organize outputs
+    Pipeline
+    --------
+    1. Set up BIDS output directory structure.
+    2. Visualize electrode placement.
+    3. Build SimNIBS SESSION, run FEM.
+    4. Compute ``TI_max`` (volume) and ``TI_normal`` (surface).
+    5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
+
+    See Also
+    --------
+    BaseSimulation : Parent class with shared setup and template ``run``.
+    mTISimulation : Multi-channel variant for 4+ electrode pairs.
     """
 
     @property
     def _simulation_mode(self):
+        """Return ``SimulationMode.TI``."""
         return SimulationMode.TI
 
     @property
     def _montage_type_label(self) -> str:
+        """Return ``'TI'``."""
         return "TI"
 
     @property
     def _montage_imgs_key(self) -> str:
+        """Return ``'ti_montage_imgs'``."""
         return "ti_montage_imgs"
 
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for 2-pair TI."""
+        """Build SimNIBS SESSION for 2-pair TI.
+
+        Parameters
+        ----------
+        output_dir : str
+            Directory where SimNIBS writes FEM output.
+
+        Returns
+        -------
+        sim_struct.SESSION
+            Configured session with two TDCS lists.
+        """
         S = self._init_session(output_dir)
 
         # Pair 1
@@ -82,6 +112,18 @@ class TISimulation(BaseSimulation):
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
+        """Compute TI fields, extract meshes, convert to NIfTI.
+
+        Parameters
+        ----------
+        dirs : dict
+            Directory mapping returned by ``setup_montage_directories``.
+
+        Returns
+        -------
+        str
+            Path to the output TI mesh file.
+        """
         sid = self.config.subject_id
         cond = self.config.conductivity
         name = self.montage.name
@@ -99,6 +141,11 @@ class TISimulation(BaseSimulation):
         mout = deepcopy(m1)
         mout.elmdata = []
         mout.add_element_field(TImax, "TI_max")
+        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
+        # heating driver. Written as volume fields so they flow to subject-/MNI-
+        # space NIfTIs alongside TI_max.
+        mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
+        mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
 
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
         mesh_io.write_msh(mout, ti_path)
@@ -119,28 +166,46 @@ class TISimulation(BaseSimulation):
 
         self._generate_central_surface(ti_path, dirs["ti_surfaces"])
 
+        # T1->MNI is independent of the field meshes; start it in the
+        # background so it overlaps the mesh-to-NIfTI conversions.
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid)
+
         self.logger.info("NIfTI transformation: Started")
-        transform_to_nifti(
-            dirs["ti_mesh"], dirs["ti_niftis"], sid, self.m2m_dir, self.logger
-        )
-        transform_to_nifti(
-            dirs["hf_mesh"],
-            dirs["hf_niftis"],
-            sid,
+        transform_dirs_to_nifti(
+            [
+                {"mesh_dir": dirs["ti_mesh"], "output_dir": dirs["ti_niftis"]},
+                {
+                    "mesh_dir": dirs["hf_mesh"],
+                    "output_dir": dirs["hf_niftis"],
+                    "fields": ["magnE"],
+                },
+            ],
             self.m2m_dir,
             self.logger,
-            fields=["magnE"],
         )
         self.logger.info("NIfTI transformation: \u2713 Complete")
 
-        convert_t1_to_mni(self.m2m_dir, sid, self.logger)
+        finish_t1_to_mni(t1_proc, self.logger)
 
         return ti_path
 
     def _calculate_ti_normal(
         self, hf_dir: str, output_dir: str, montage_name: str
     ) -> None:
-        """Compute TI_normal on the cortical surface (requires surface overlays from SimNIBS)."""
+        """Compute TI_normal on the cortical surface.
+
+        Uses SimNIBS surface overlays to compute the directional TI
+        component normal to the cortical surface.
+
+        Parameters
+        ----------
+        hf_dir : str
+            High-frequency output directory containing ``subject_overlays/``.
+        output_dir : str
+            Directory to write the TI_normal mesh into.
+        montage_name : str
+            Montage name used for the output filename.
+        """
         sid = self.config.subject_id
         cond = self.config.conductivity
         overlays = os.path.join(hf_dir, "subject_overlays")

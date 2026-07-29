@@ -19,6 +19,13 @@ if command -v simnibs_python >/dev/null 2>&1; then
     fi
 fi
 
+# Export PYTHONPATH so the Jupyter LSP (pylsp) can resolve simnibs + tit
+# for autocompletion and signature help even outside the kernel process.
+if command -v simnibs_python >/dev/null 2>&1; then
+    SIMNIBS_SITE=$(simnibs_python -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
+    export PYTHONPATH="/ti-toolbox:${SIMNIBS_SITE:+$SIMNIBS_SITE}:${PYTHONPATH:-}"
+fi
+
 # ============================================================================
 # Software Version Checks and Display
 # ============================================================================
@@ -70,6 +77,14 @@ print_software_info() {
         echo "✗ Neovim:         Not found"
     fi
     
+    # Check JupyterLab
+    if simnibs_python -m jupyter --version >/dev/null 2>&1; then
+        JUPYTER_VERSION=$(simnibs_python -m jupyter lab --version 2>/dev/null || echo "unknown")
+        echo "✓ JupyterLab:     v${JUPYTER_VERSION}"
+    else
+        echo "✗ JupyterLab:     Not found"
+    fi
+
     # Check tmux
     if command -v tmux >/dev/null 2>&1; then
         TMUX_VERSION=$(tmux -V | awk '{print $2}')
@@ -77,6 +92,13 @@ print_software_info() {
     else
         echo "✗ tmux:           Not found"
     fi
+
+    echo ""
+    echo "───────────────────────────────────────────────────────────────────"
+    echo "  Quick Commands:"
+    echo "    GUI        Launch the TI-Toolbox GUI"
+    echo "    NOTEBOOK   Launch JupyterLab (open http://localhost:8888)"
+    echo "───────────────────────────────────────────────────────────────────"
 }
 
 # Make CLI scripts executable
@@ -84,6 +106,7 @@ print_software_info() {
 
 # Create CLI script aliases (without .sh extension)
 alias GUI='simnibs_python -m tit.gui.main'
+alias NOTEBOOK='echo "→ Open http://localhost:8888 in your browser" && simnibs_python -m jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --notebook-dir="${PROJECT_DIR:-/mnt}" --IdentityProvider.token="" --ServerApp.password=""'
 
 # Add environment setup to .bashrc
 {
@@ -92,7 +115,9 @@ alias GUI='simnibs_python -m tit.gui.main'
     echo ""
     echo "# TI-Toolbox CLI scripts"
     echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
+    echo "export PYTHONPATH=\"/ti-toolbox:\${PYTHONPATH:-}\""
     echo "alias GUI='simnibs_python -m tit.gui.main'"
+    echo "alias NOTEBOOK='echo \"→ Open http://localhost:8888 in your browser\" && simnibs_python -m jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --notebook-dir=\"\${PROJECT_DIR:-/mnt}\" --IdentityProvider.token=\"\" --ServerApp.password=\"\"'"
     echo ""
     echo "# Display software info on interactive shell"
     echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"

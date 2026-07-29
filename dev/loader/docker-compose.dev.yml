@@ -1,25 +1,25 @@
 services:
-
   freesurfer:
     image: idossha/ti-toolbox_freesurfer:v7.4.1
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
-      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
     restart: unless-stopped
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.3.0
+    image: idossha/simnibs:v2.4.0
     container_name: simnibs_container
     volumes:
-      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # User-level config (telemetry, prefs)
       - ${DEV_CODEBASE_DIR}:/ti-toolbox
-      - /var/run/docker.sock:/var/run/docker.sock     # Docker socket for DooD (QSIPrep/QSIRecon)
+      - /var/run/docker.sock:/var/run/docker.sock # Docker socket for DooD (QSIPrep/QSIRecon)
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
@@ -33,8 +33,13 @@ services:
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
       TZ: ${TZ}
+      TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
+      TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
+      TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "dev"
+    ports:
+      - "8888:8888"
     networks:
       - ti_network
     depends_on:
@@ -50,6 +55,7 @@ networks:
     driver: bridge
 
 volumes:
-  ti-toolbox_freesurfer_data:
-    external: true
-    name: ti-toolbox_freesurfer_data
+  freesurfer_data:
+    # Versioned name (must match the freesurfer image tag) so a FreeSurfer bump
+    # re-seeds a fresh volume. Launcher overrides FREESURFER_VOLUME.
+    name: ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1}

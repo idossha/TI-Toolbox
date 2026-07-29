@@ -6,19 +6,17 @@ Solver Parameters Widget
 
 Self-contained widget for differential evolution hyper-parameters:
 multi-start count, iterations, population, tolerance, mutation,
-recombination, CPU count, and optional diagnostics.
+recombination, and optional advanced controls.
 """
-
-import os
 
 from PyQt5 import QtWidgets
 
 
-class SolverParamsWidget(QtWidgets.QGroupBox):
+class SolverParamsWidget(QtWidgets.QWidget):
     """Hyper-parameters for differential evolution optimizer."""
 
     def __init__(self, parent=None, title="Hyper Parameters"):
-        super().__init__(title, parent)
+        super().__init__(parent)
 
         # ── Left-column widgets ──────────────────────────────────────────
 
@@ -42,13 +40,6 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         self.population_size_input.setValue(13)
         self.population_size_input.setToolTip(
             "Number of individuals in the population for optimization."
-        )
-
-        self.cpus_input = QtWidgets.QSpinBox()
-        self.cpus_input.setRange(1, os.cpu_count() or 16)
-        self.cpus_input.setValue(1)
-        self.cpus_input.setToolTip(
-            "Number of CPU cores to use for parallel processing during " "optimization."
         )
 
         # ── Right-column widgets ─────────────────────────────────────────
@@ -86,26 +77,16 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
             "Recombination probability for differential evolution " "(default: 0.7)"
         )
 
-        # ── Diagnostic options ───────────────────────────────────────────
-
-        self.detailed_results_checkbox = QtWidgets.QCheckBox(
-            "Enable detailed results output"
-        )
-        self.detailed_results_checkbox.setChecked(False)
-        self.detailed_results_checkbox.setToolTip(
-            "Enable detailed results output (creates additional "
-            "visualization and debug files)"
-        )
+        # ── Advanced options ─────────────────────────────────────────────
 
         self.visualize_skin_checkbox = QtWidgets.QCheckBox(
-            "Visualize valid skin region"
+            "Plot EEG net electrodes"
         )
         self.visualize_skin_checkbox.setChecked(False)
         self.visualize_skin_checkbox.setToolTip(
-            "Create 2D visualizations of valid skin region for electrode "
-            "placement (requires detailed results)"
+            "Overlay valid and invalid electrodes from the selected EEG net "
+            "on the valid-skin-region visualization."
         )
-        self.visualize_skin_checkbox.setEnabled(False)
 
         self.skin_net_combo = QtWidgets.QComboBox()
         self.skin_net_combo.setEnabled(False)
@@ -113,11 +94,38 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
             "Select EEG net to visualize electrode positions on skin surface"
         )
 
-        # ── Layout (QGridLayout, 2 logical columns) ─────────────────────
+        self.skin_region_margin_input = QtWidgets.QDoubleSpinBox()
+        self.skin_region_margin_input.setRange(-20.0, 40.0)
+        self.skin_region_margin_input.setValue(0.0)
+        self.skin_region_margin_input.setDecimals(1)
+        self.skin_region_margin_input.setSingleStep(5.0)
+        self.skin_region_margin_input.setSuffix(" mm")
+        self.skin_region_margin_input.setToolTip(
+            "Signed valid-skin-region margin. Positive values expand the "
+            "region; negative values constrict it."
+        )
 
-        grid = QtWidgets.QGridLayout(self)
+        self.avoid_landmark_regions_checkbox = QtWidgets.QCheckBox(
+            "Avoid eye/ear landmarks"
+        )
+        self.avoid_landmark_regions_checkbox.setChecked(True)
+        self.avoid_landmark_regions_checkbox.setToolTip(
+            "Keep fiducial-derived eye and ear exclusion regions invalid "
+            "when expanding the valid skin region."
+        )
 
-        # Left column
+        # ── Layout ──────────────────────────────────────────────────────
+
+        outer_layout = QtWidgets.QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        hyper_group = QtWidgets.QGroupBox(title)
+        grid = QtWidgets.QGridLayout(hyper_group)
+
+        advanced_group = QtWidgets.QGroupBox("Advanced Parameters")
+        advanced_layout = QtWidgets.QGridLayout(advanced_group)
+
+        # Hyper-parameters left column
         row = 0
         grid.addWidget(QtWidgets.QLabel("Number of Optimization Runs:"), row, 0)
         grid.addWidget(self.n_multistart_input, row, 1)
@@ -130,11 +138,7 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         grid.addWidget(QtWidgets.QLabel("Population Size:"), row, 0)
         grid.addWidget(self.population_size_input, row, 1)
 
-        row += 1
-        grid.addWidget(QtWidgets.QLabel("Number of CPUs:"), row, 0)
-        grid.addWidget(self.cpus_input, row, 1)
-
-        # Right column
+        # Hyper-parameters right column
         row = 0
         grid.addWidget(QtWidgets.QLabel("Tolerance:"), row, 2)
         grid.addWidget(self.tolerance_input, row, 3)
@@ -154,15 +158,26 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         grid.addWidget(QtWidgets.QLabel("Recombination:"), row, 2)
         grid.addWidget(self.recombination_input, row, 3)
 
-        row += 1
-        grid.addWidget(self.detailed_results_checkbox, row, 2, 1, 2)
+        advanced_row = 0
+        advanced_layout.addWidget(QtWidgets.QLabel("Skin Region Margin:"), 0, 0)
+        advanced_layout.addWidget(self.skin_region_margin_input, 0, 1)
 
-        row += 1
-        grid.addWidget(self.visualize_skin_checkbox, row, 2, 1, 2)
+        advanced_layout.addWidget(
+            self.avoid_landmark_regions_checkbox,
+            0,
+            2,
+            1,
+            2,
+        )
 
-        row += 1
-        grid.addWidget(QtWidgets.QLabel("Visualization EEG Net:"), row, 2)
-        grid.addWidget(self.skin_net_combo, row, 3)
+        advanced_row += 1
+        advanced_layout.addWidget(self.visualize_skin_checkbox, advanced_row, 0, 1, 2)
+        advanced_layout.addWidget(
+            QtWidgets.QLabel("Visualization EEG Net:"), advanced_row, 2
+        )
+        advanced_layout.addWidget(self.skin_net_combo, advanced_row, 3)
+        advanced_layout.setColumnStretch(1, 1)
+        advanced_layout.setColumnStretch(3, 1)
 
         # Column sizing
         grid.setColumnMinimumWidth(1, 120)
@@ -171,11 +186,11 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
         grid.setColumnStretch(3, 1)
         grid.setHorizontalSpacing(20)
 
+        outer_layout.addWidget(hyper_group)
+        outer_layout.addWidget(advanced_group)
+
         # ── Internal signals ─────────────────────────────────────────────
 
-        self.detailed_results_checkbox.toggled.connect(
-            self._on_detailed_results_toggled
-        )
         self.visualize_skin_checkbox.toggled.connect(self._on_visualize_skin_toggled)
 
     # ------------------------------------------------------------------
@@ -199,9 +214,16 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
             "tolerance": self.tolerance_input.value(),
             "mutation": mutation_str,
             "recombination": self.recombination_input.value(),
-            "cpus": self.cpus_input.value(),
-            "detailed_results": self.detailed_results_checkbox.isChecked(),
-            "visualize_valid_skin_region": (self.visualize_skin_checkbox.isChecked()),
+            "cpus": None,
+            "detailed_results": False,
+            "visualize_valid_skin_region": True,
+            "plot_skin_visualization_electrodes": (
+                self.visualize_skin_checkbox.isChecked()
+            ),
+            "skin_region_margin_mm": self.skin_region_margin_input.value(),
+            "avoid_landmark_regions": (
+                self.avoid_landmark_regions_checkbox.isChecked()
+            ),
         }
 
     def get_skin_net_combo(self) -> QtWidgets.QComboBox:
@@ -215,14 +237,6 @@ class SolverParamsWidget(QtWidgets.QGroupBox):
     # ------------------------------------------------------------------
     # Internal slots
     # ------------------------------------------------------------------
-
-    def _on_detailed_results_toggled(self):
-        """Handle detailed results checkbox state change."""
-        checked = self.detailed_results_checkbox.isChecked()
-        self.visualize_skin_checkbox.setEnabled(checked)
-        if not checked:
-            self.visualize_skin_checkbox.setChecked(False)
-            self.skin_net_combo.setEnabled(False)
 
     def _on_visualize_skin_toggled(self):
         """Handle visualize skin checkbox state change."""

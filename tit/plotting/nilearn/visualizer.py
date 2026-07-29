@@ -12,39 +12,64 @@ Features:
 Based on: https://nilearn.github.io/dev/auto_examples/01_plotting/plot_3d_map_to_surface_projection.html
 """
 
-
+import argparse
+import base64
+import io
 import os
 import sys
-import argparse
-import numpy as np
-import nibabel as nib
-import matplotlib.pyplot as plt
-from nilearn import datasets, plotting, image
-from nilearn.plotting import plot_img_on_surf, view_img_on_surf
-from nilearn.image import threshold_img
-from pathlib import Path
 import warnings
+from pathlib import Path
 
-from tit.paths import get_path_manager
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+from nilearn import datasets, image, plotting
+from nilearn.image import threshold_img
+from nilearn.plotting import plot_img_on_surf, view_img, view_img_on_surf
+
 from tit.constants import DIR_NILEARN_VISUALS
+from tit.paths import get_path_manager
 
 warnings.filterwarnings("ignore")
 
 
 class NilearnVisualizer:
-    """
-    Main visualization class for electric field distributions.
+    """Main visualization class for electric field distributions.
 
-    Provides methods for creating both static PDF visualizations and interactive HTML plots.
-    Uses PathManager for consistent path handling and supports multiple atlas overlays.
+    Provides methods for creating both static PDF visualizations and
+    interactive HTML plots.  Uses PathManager for consistent path handling
+    and supports multiple atlas overlays.
+
+    Parameters
+    ----------
+    subject_id : str or None, optional
+        Subject identifier.  When *None*, PathManager auto-detection is
+        used instead.
+
+    Attributes
+    ----------
+    pm : PathManager
+        Resolved path-manager instance.
+    subject_id : str or None
+        Subject identifier passed at construction time.
+    output_dir : str
+        Directory where visualizations are saved.
+
+    See Also
+    --------
+    tit.plotting.nilearn.img_slices : Convenience entry-points for PDF creation.
+    tit.plotting.nilearn.img_glass : Convenience entry-points for glass-brain PNGs.
+    tit.plotting.nilearn.html_report : Convenience entry-point for HTML reports.
     """
 
     def __init__(self, subject_id: str | None = None):
-        """
-        Initialize the visualizer.
+        """Create a new visualizer instance.
 
-        Args:
-            subject_id: Subject ID (optional, will use PathManager detection if not provided)
+        Parameters
+        ----------
+        subject_id : str or None, optional
+            Subject identifier.  When *None*, PathManager auto-detection
+            is used instead.
         """
         self.pm = get_path_manager()
         self.subject_id = subject_id
@@ -54,7 +79,7 @@ class NilearnVisualizer:
         self._setup_output_directory()
 
     def _setup_output_directory(self):
-        """Set up the output directory for visualizations."""
+        """Create the output directory for visualizations if it does not exist."""
         derivatives_dir = self.pm.derivatives()
         self.output_dir = os.path.join(
             derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS
@@ -62,15 +87,7 @@ class NilearnVisualizer:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _get_simulation_files(self, subject_id: str) -> dict[str, str]:
-        """
-        Get simulation files for a subject using PathManager.
-
-        Args:
-            subject_id: Subject ID
-
-        Returns:
-            Dictionary mapping simulation names to their TI max files
-        """
+        """Return TI-max NIfTI paths keyed by simulation name for *subject_id*."""
         simulations = self.pm.list_simulations(subject_id)
         sim_files = {}
 
@@ -88,15 +105,7 @@ class NilearnVisualizer:
         return sim_files
 
     def _load_electric_field_data(self, filepath: str) -> nib.Nifti1Image | None:
-        """
-        Load electric field NIfTI data.
-
-        Args:
-            filepath: Path to NIfTI file
-
-        Returns:
-            Loaded NIfTI image or None if file not found
-        """
+        """Load a NIfTI file, returning *None* when *filepath* does not exist."""
         if os.path.exists(filepath):
             return nib.load(filepath)
         else:
@@ -112,19 +121,33 @@ class NilearnVisualizer:
         atlas_name: str = "harvard_oxford_sub",
         selected_regions: list[int] | None = None,
     ) -> str | None:
-        """
-        Create PDF visualization with multiple surface views and atlas contours.
+        """Create a multi-slice PDF with atlas contours for a single subject.
 
-        Args:
-            subject_id: Subject ID
-            simulation_name: Name of the simulation
-            min_cutoff: Minimum cutoff for visualization (V/m)
-            max_cutoff: Maximum cutoff for visualization (V/m), if None uses 99.9th percentile
-            atlas_name: Name of atlas to overlay
-            selected_regions: List of region indices to include (0-indexed), if None includes all
+        Generates sagittal, coronal, and axial slice rows with the electric
+        field overlaid as a hot colormap and optional atlas contour lines.
 
-        Returns:
-            Path to saved PDF file or None if failed
+        Parameters
+        ----------
+        subject_id : str
+            Subject identifier (e.g. ``'070'``).
+        simulation_name : str
+            Name of the simulation folder.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.  Default is ``0.3``.
+        max_cutoff : float or None, optional
+            Upper display threshold in V/m.  When *None* the 99.9th
+            percentile of non-zero voxels is used.
+        atlas_name : str, optional
+            Nilearn atlas key.  One of ``'harvard_oxford'``,
+            ``'harvard_oxford_sub'``, ``'aal'``, ``'schaefer_2018'``.
+        selected_regions : list of int or None, optional
+            0-indexed region indices to include in the atlas overlay.
+            When *None*, all regions are shown.
+
+        Returns
+        -------
+        str or None
+            Path to the saved PDF, or *None* on failure.
         """
         print(f"=== Creating PDF Visualization for {subject_id}/{simulation_name} ===")
 
@@ -182,16 +205,7 @@ class NilearnVisualizer:
     def _load_atlas(
         self, atlas_name: str, selected_regions: list[int] | None = None
     ) -> tuple[nib.Nifti1Image | None, str]:
-        """
-        Load the specified atlas and optionally filter to specific regions.
-
-        Args:
-            atlas_name: Name of the atlas
-            selected_regions: Optional list of region indices to include
-
-        Returns:
-            Tuple of (atlas_image, display_name) or (None, "") if failed
-        """
+        """Load a nilearn atlas, optionally filtered to *selected_regions*."""
         atlas_configs = {
             "harvard_oxford": {
                 "name": "Harvard Oxford Cortical Atlas",
@@ -276,17 +290,7 @@ class NilearnVisualizer:
         min_cutoff: float,
         max_cutoff: float,
     ):
-        """
-        Create multi-slice plot with atlas contours and field overlay.
-
-        Args:
-            field_img: Electric field NIfTI image
-            atlas_img: Atlas NIfTI image (optional)
-            atlas_name: Display name for atlas
-            output_path: Path to save the plot
-            min_cutoff: Minimum threshold for field visualization
-            max_cutoff: Maximum threshold for field visualization
-        """
+        """Render a 3-row x 7-column slice grid with field overlay and atlas contours."""
         # Threshold field data
         field_img_thresholded = threshold_img(field_img, threshold=min_cutoff)
 
@@ -378,16 +382,25 @@ class NilearnVisualizer:
     def create_html_visualization(
         self, subject_id: str, simulation_name: str, min_cutoff: float = 0.3
     ) -> str | None:
-        """
-        Create interactive HTML visualization.
+        """Create an interactive HTML surface visualization.
 
-        Args:
-            subject_id: Subject ID
-            simulation_name: Name of the simulation
-            min_cutoff: Minimum cutoff for visualization (V/m)
+        Uses ``nilearn.plotting.view_img_on_surf`` to project the
+        electric-field map onto the cortical surface and saves the result
+        as a self-contained HTML file.
 
-        Returns:
-            Path to saved HTML file or None if failed
+        Parameters
+        ----------
+        subject_id : str
+            Subject identifier.
+        simulation_name : str
+            Name of the simulation folder.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.  Default is ``0.3``.
+
+        Returns
+        -------
+        str or None
+            Path to the saved HTML file, or *None* on failure.
         """
         print(f"=== Creating HTML Visualization for {subject_id}/{simulation_name} ===")
 
@@ -444,20 +457,34 @@ class NilearnVisualizer:
         atlas_name: str = "harvard_oxford_sub",
         selected_regions: list[int] | None = None,
     ) -> str | None:
-        """
-        Create PDF visualization with pre-averaged nifti data.
+        """Create a multi-slice PDF from a pre-averaged group NIfTI image.
 
-        Args:
-            averaged_img: Pre-averaged nibabel Nifti1Image
-            base_filename: Base filename for output (without extension)
-            output_dir: Output directory path
-            min_cutoff: Minimum cutoff for visualization (V/m)
-            max_cutoff: Maximum cutoff for visualization (V/m), if None uses 99.9th percentile
-            atlas_name: Name of atlas to overlay
-            selected_regions: List of region indices to include (0-indexed), if None includes all
+        Identical layout to :meth:`create_pdf_visualization` but accepts
+        an already-averaged ``nibabel.Nifti1Image`` instead of looking up
+        a per-subject simulation file.
 
-        Returns:
-            Path to saved PDF file or None if failed
+        Parameters
+        ----------
+        averaged_img : nibabel.Nifti1Image
+            Pre-averaged electric-field image.
+        base_filename : str
+            Base filename for output (without extension).
+        output_dir : str
+            Directory where the PDF will be saved.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.  Default is ``0.3``.
+        max_cutoff : float or None, optional
+            Upper display threshold in V/m.  When *None* the 99.9th
+            percentile of non-zero voxels is used.
+        atlas_name : str, optional
+            Nilearn atlas key.
+        selected_regions : list of int or None, optional
+            0-indexed region indices for the atlas overlay.
+
+        Returns
+        -------
+        str or None
+            Path to the saved PDF, or *None* on failure.
         """
         print(f"=== Creating PDF Visualization for Group Averaged Data ===")
 
@@ -512,18 +539,29 @@ class NilearnVisualizer:
         max_cutoff: float = None,
         cmap: str = "hot",
     ) -> str | None:
-        """
-        Create glass brain visualization using nilearn's plot_glass_brain.
+        """Create a glass-brain PNG for a single subject simulation.
 
-        Args:
-            subject_id: Subject ID
-            simulation_name: Name of the simulation
-            min_cutoff: Minimum cutoff for visualization (V/m)
-            max_cutoff: Maximum cutoff for visualization (V/m), if None uses 99.9th percentile
-            cmap: Colormap name for visualization
+        Uses ``nilearn.plotting.plot_glass_brain`` to render a
+        maximum-intensity projection of the electric-field map.
 
-        Returns:
-            Path to saved PNG file or None if failed
+        Parameters
+        ----------
+        subject_id : str
+            Subject identifier.
+        simulation_name : str
+            Name of the simulation folder.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.  Default is ``0.3``.
+        max_cutoff : float or None, optional
+            Upper display threshold in V/m.  When *None* the 99.9th
+            percentile of non-zero voxels is used.
+        cmap : str, optional
+            Matplotlib colormap name.  Default is ``'hot'``.
+
+        Returns
+        -------
+        str or None
+            Path to the saved PNG file, or *None* on failure.
         """
         print(
             f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ==="
@@ -583,3 +621,295 @@ class NilearnVisualizer:
         print(f"✓ Saved glass brain visualization: {png_filepath}")
 
         return png_filepath
+
+    # ------------------------------------------------------------------
+    # Base64 helpers for embedding in HTML reports
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def glass_brain_to_base64(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render a glass-brain PNG and return it as a base64 string.
+
+        Intended for embedding in HTML reports via
+        ``ImageReportlet.set_base64_data()``.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file (e.g. TI_max volume).
+        title : str, optional
+            Title text rendered on the figure.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            Base64-encoded PNG string, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        img = nib.load(nifti_path)
+        data = img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            return None
+
+        if max_cutoff is None:
+            max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+        fig = plt.figure(figsize=(10, 4), facecolor="white")
+        display = plotting.plot_glass_brain(
+            stat_map_img=img,
+            threshold=min_cutoff,
+            vmax=max_cutoff,
+            cmap=cmap,
+            colorbar=True,
+            plot_abs=False,
+            symmetric_cbar=False,
+            title=f"{title}\n{min_cutoff:.2f}\u2013{max_cutoff:.2f} V/m",
+            figure=fig,
+        )
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("ascii")
+
+    @staticmethod
+    def multi_slice_to_base64(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+    ) -> str | None:
+        """Render a multi-slice overview and return it as a base64 string.
+
+        Creates a compact 3-row (sagittal / coronal / axial) x 5-column
+        slice grid suitable for embedding in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text rendered on the figure.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+
+        Returns
+        -------
+        str or None
+            Base64-encoded PNG string, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        img = nib.load(nifti_path)
+        data = img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            return None
+
+        if max_cutoff is None:
+            max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+        field_thresholded = threshold_img(img, threshold=min_cutoff)
+
+        fig, axes = plt.subplots(3, 5, figsize=(20, 10), facecolor="white")
+        fig.patch.set_facecolor("white")
+
+        sagittal_coords = [-40, -20, 0, 20, 40]
+        coronal_coords = [-55, -20, 5, 30, 55]
+        axial_coords = [-10, 10, 30, 50, 70]
+
+        all_coords = [sagittal_coords, coronal_coords, axial_coords]
+        view_names = ["Sagittal", "Coronal", "Axial"]
+        coord_labels = ["x", "y", "z"]
+
+        for row, (coords, view_name, coord_label) in enumerate(
+            zip(all_coords, view_names, coord_labels)
+        ):
+            for col, cut_coord in enumerate(coords):
+                ax = axes[row, col]
+                plotting.plot_stat_map(
+                    field_thresholded,
+                    cut_coords=[cut_coord],
+                    display_mode=coord_label.lower(),
+                    axes=ax,
+                    annotate=True,
+                    black_bg=False,
+                    cmap="hot",
+                    vmin=min_cutoff,
+                    vmax=max_cutoff,
+                    colorbar=False,
+                )
+                if col == 0:
+                    ax.set_ylabel(
+                        view_name,
+                        fontsize=9,
+                        fontweight="bold",
+                        rotation=90,
+                        labelpad=8,
+                    )
+
+        import matplotlib.cm as cm
+        import matplotlib.colors as mcolors
+
+        norm = mcolors.Normalize(vmin=min_cutoff, vmax=max_cutoff)
+        sm = cm.ScalarMappable(cmap="hot", norm=norm)
+        sm.set_array([])
+
+        cbar_ax = fig.add_axes([0.15, 0.03, 0.7, 0.02])
+        cbar = fig.colorbar(
+            sm,
+            cax=cbar_ax,
+            orientation="horizontal",
+            label="Electric Field (V/m)",
+        )
+        cbar.set_ticks([min_cutoff, max_cutoff])
+        cbar.set_ticklabels([f"{min_cutoff:.2f}", f"{max_cutoff:.2f}"])
+
+        fig.suptitle(
+            f"{title}  ({min_cutoff:.2f}\u2013{max_cutoff:.2f} V/m)",
+            fontsize=12,
+            fontweight="bold",
+        )
+        plt.tight_layout(rect=[0, 0.08, 1, 0.93])
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("ascii")
+
+    # ------------------------------------------------------------------
+    # Interactive HTML viewers for embedding in reports
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def interactive_volume_to_html(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render an interactive volumetric stat-map viewer as HTML.
+
+        Uses ``nilearn.plotting.view_img`` to create an interactive
+        slice-based viewer suitable for embedding in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text for the viewer.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            HTML string for embedding, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        try:
+            img = nib.load(nifti_path)
+            data = img.get_fdata()
+            data_nonzero = data[data > 0]
+            if len(data_nonzero) == 0:
+                return None
+
+            if max_cutoff is None:
+                max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+            v = view_img(
+                stat_map_img=img,
+                threshold=min_cutoff,
+                vmax=max_cutoff,
+                cmap=cmap,
+                symmetric_cmap=False,
+                title=title,
+            )
+            return v._repr_html_()
+        except Exception:
+            return None
+
+    @staticmethod
+    def interactive_surface_to_html(
+        nifti_path: str,
+        title: str = "Electric Field",
+        min_cutoff: float = 0.1,
+        max_cutoff: float | None = None,
+        cmap: str = "hot",
+    ) -> str | None:
+        """Render an interactive 3-D surface projection as HTML.
+
+        Uses ``nilearn.plotting.view_img_on_surf`` to project the
+        stat-map onto a cortical surface mesh suitable for embedding
+        in HTML reports.
+
+        Parameters
+        ----------
+        nifti_path : str
+            Path to a NIfTI file.
+        title : str, optional
+            Title text for the viewer.
+        min_cutoff : float, optional
+            Lower display threshold in V/m.
+        max_cutoff : float or None, optional
+            Upper display threshold.  Defaults to the 99.9th percentile.
+        cmap : str, optional
+            Matplotlib colormap name.
+
+        Returns
+        -------
+        str or None
+            HTML string for embedding, or *None* on failure.
+        """
+        if not os.path.exists(nifti_path):
+            return None
+
+        try:
+            img = nib.load(nifti_path)
+            data = img.get_fdata()
+            data_nonzero = data[data > 0]
+            if len(data_nonzero) == 0:
+                return None
+
+            if max_cutoff is None:
+                max_cutoff = float(np.percentile(data_nonzero, 99.9))
+
+            v = view_img_on_surf(
+                stat_map=img,
+                threshold=min_cutoff,
+                vmax=max_cutoff,
+                cmap=cmap,
+                symmetric_cmap=False,
+                title=title,
+            )
+            return v._repr_html_()
+        except Exception:
+            return None

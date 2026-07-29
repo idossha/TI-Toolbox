@@ -169,7 +169,12 @@ class TestProcessingStepReportlet:
         from tit.reporting.reportlets.metadata import ProcessingStepReportlet
 
         r = ProcessingStepReportlet()
-        r.add_step("FreeSurfer", description="Cortical reconstruction", status="completed", duration=3600.0)
+        r.add_step(
+            "FreeSurfer",
+            description="Cortical reconstruction",
+            status="completed",
+            duration=3600.0,
+        )
         html = r.render_html()
         assert "FreeSurfer" in html
         assert "1.0h" in html
@@ -201,7 +206,9 @@ class TestProcessingStepReportlet:
         from tit.reporting.reportlets.metadata import ProcessingStepReportlet
 
         r = ProcessingStepReportlet()
-        r.add_step("Step", parameters={"threads": 8, "mode": "fast"}, status="completed")
+        r.add_step(
+            "Step", parameters={"threads": 8, "mode": "fast"}, status="completed"
+        )
         html = r.render_html()
         assert "threads" in html
         assert "8" in html
@@ -435,7 +442,9 @@ class TestSliceSeriesReportlet:
         from tit.reporting.reportlets.images import SliceSeriesReportlet
 
         mock_image = MagicMock()
-        mock_image.save = MagicMock(side_effect=lambda buf, format: buf.write(b"image_data"))
+        mock_image.save = MagicMock(
+            side_effect=lambda buf, format: buf.write(b"image_data")
+        )
         r = SliceSeriesReportlet()
         r.add_slice(mock_image, label="PIL")
         assert len(r.slices) == 1
@@ -498,7 +507,8 @@ class TestMontageImageReportlet:
 
         r = MontageImageReportlet(montage_name="TestMontage")
         html = r.render_html()
-        assert "No montage image available" in html
+        assert "Montage visualization unavailable" in html
+        assert "expected montage visualization PNG" in html
         assert "TestMontage" in html
 
     def test_set_base64_data(self):
@@ -741,7 +751,19 @@ class TestMethodsBoilerplateReportlet:
         )
         text = r.generate_boilerplate()
         assert "circular" in text
-        assert "10mm" in text
+        assert "10 mm" in text
+
+    def test_simulation_boilerplate_minimal_electrode_fallback_is_publication_safe(
+        self,
+    ):
+        from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
+
+        r = MethodsBoilerplateReportlet(pipeline_type="simulation")
+        text = r.generate_boilerplate()
+        assert "electrode recorded-size electrodes" not in text
+        assert "recorded layer" not in text
+        assert "Electrode geometry was modeled" in text
+        assert "available simulation metadata" in text
 
     def test_simulation_boilerplate_with_intensity(self):
         from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
@@ -752,6 +774,63 @@ class TestMethodsBoilerplateReportlet:
         )
         text = r.generate_boilerplate()
         assert "2.0 mA" in text
+
+    def test_simulation_boilerplate_from_config_provenance(self):
+        from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
+
+        r = MethodsBoilerplateReportlet(
+            pipeline_type="simulation",
+            parameters={
+                "subject_id": "ernie",
+                "simulation_mode": "TI",
+                "conductivity_type": "scalar",
+                "mapping_options": {"map_to_surf": True, "map_to_mni": False},
+                "software_versions": {"ti_toolbox": "2.3.1", "simnibs": "4.5"},
+                "electrode_geometry": {
+                    "shape": "ellipse",
+                    "dimensions": [8.0, 8.0],
+                    "gel_thickness": 4.0,
+                    "rubber_thickness": 2.0,
+                },
+                "montages": [
+                    {
+                        "name": "BU_eg2",
+                        "type": "TI",
+                        "montage_mode": "net",
+                        "eeg_net": "EEG10-10_Cutini_2011.csv",
+                        "electrode_pairs": [
+                            {
+                                "name": "Pair 1",
+                                "electrode1": "AF3",
+                                "electrode2": "AF4",
+                                "intensity": 1.0,
+                            },
+                            {
+                                "name": "Pair 2",
+                                "electrode1": "C5",
+                                "electrode2": "C6",
+                                "intensity": 1.0,
+                            },
+                        ],
+                    }
+                ],
+            },
+        )
+        text = r.generate_boilerplate()
+        assert "subject ernie" in text
+        assert "montage BU_eg2" in text
+        assert "AF3-AF4" in text
+        assert "C5-C6" in text
+        assert "1.0 mA per pair" in text
+        assert "scalar conductivity" in text
+        assert "ellipse 8x8 mm electrodes" in text
+        assert "4 mm conductive gel" in text
+        assert "2 mm rubber" in text
+        assert "TI_max and TI_normal" in text
+        assert "NIfTI derivatives" in text
+        assert "[Grossman2017]" in text
+        assert "TI-Toolbox" in text
+        assert "SimNIBS" in text
 
     def test_preprocessing_boilerplate(self):
         from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
@@ -798,6 +877,22 @@ class TestMethodsBoilerplateReportlet:
         text = r.generate_boilerplate()
         assert "optimization" in text.lower()
         assert "flex-search" in text
+        assert "Haber2026" in text
+        assert "Weise2024" in text
+
+    def test_flex_search_boilerplate_uses_optimization_text(self):
+        from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
+
+        r = MethodsBoilerplateReportlet(
+            pipeline_type="flex-search",
+            parameters={"target_region": "hippocampus", "n_candidates": 42},
+        )
+        text = r.generate_boilerplate()
+        assert "hippocampus" in text
+        assert "42" in text
+        assert "leadfield-free" in text
+        assert "Haber2026" in text
+        assert "Weise2024" in text
 
     def test_optimization_boilerplate_with_method(self):
         from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
@@ -807,7 +902,7 @@ class TestMethodsBoilerplateReportlet:
             parameters={"optimization_method": "differential evolution"},
         )
         text = r.generate_boilerplate()
-        assert "differential evolution" in text
+        assert "flex-search" in text
 
     def test_optimization_boilerplate_with_target(self):
         from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
@@ -836,6 +931,8 @@ class TestMethodsBoilerplateReportlet:
         assert "copy-btn" in html
         assert "boilerplate-intro" in html
         assert "methods-boilerplate-reportlet" in html
+        assert "methods-text" in html
+        assert "monospace" not in html
 
     def test_to_dict(self):
         from tit.reporting.reportlets.text import MethodsBoilerplateReportlet
@@ -876,7 +973,9 @@ class TestDescriptionReportlet:
     def test_preformatted_escapes_html(self):
         from tit.reporting.reportlets.text import DescriptionReportlet
 
-        r = DescriptionReportlet("<script>alert(1)</script>", format_type="preformatted")
+        r = DescriptionReportlet(
+            "<script>alert(1)</script>", format_type="preformatted"
+        )
         html = r.render_html()
         assert "&lt;script&gt;" in html
         assert "<script>alert" not in html
@@ -954,16 +1053,15 @@ class TestCommandLogReportlet:
 class TestTIToolboxReferencesReportlet:
     """Tests for TIToolboxReferencesReportlet."""
 
-    def test_include_defaults_no_components_uses_core_keys(self):
-        """Default refs use internal key IDs that don't match DEFAULT_REFERENCES keys.
-        NOTE: This is a known naming mismatch bug — refs_to_add contains internal IDs
-        like 'ti' while DEFAULT_REFERENCES keys are 'TI Theory'. No refs get added.
-        """
+    def test_include_defaults_no_components_uses_core_references(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
 
         r = TIToolboxReferencesReportlet(include_defaults=True)
-        # Due to key naming mismatch, no default refs are added
-        assert isinstance(r.references, list)
+        keys = {ref["key"] for ref in r.references}
+        assert "haber2026_titoolbox" in keys
+        assert "grossman2017_ti" in keys
+        assert "saturnino2019_simnibs_fem" in keys
+        assert "puonti2020_charm" in keys
 
     def test_no_defaults_is_empty(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -978,8 +1076,17 @@ class TestTIToolboxReferencesReportlet:
             include_defaults=True, pipeline_components=["simulation"]
         )
         assert r.pipeline_components == ["simulation"]
-        # _add_default_references is called; refs_to_add gets populated
-        assert isinstance(r.references, list)
+        keys = {ref["key"] for ref in r.references}
+        assert "haber2026_titoolbox" in keys
+        assert "grossman2017_ti" in keys
+        assert "saturnino2019_simnibs_fem" in keys
+        assert "saturnino2015_electrodes" in keys
+        assert "puonti2020_charm" in keys
+        assert "jurcak2007_eeg_positions" in keys
+        html = r.render_html()
+        assert "https://doi.org/10.1016/j.brs.2025.103016" in html
+        assert "https://doi.org/10.1016/j.cell.2017.05.024" in html
+        assert "https://doi.org/10.1088/1741-2552/ab41ba" in html
 
     def test_preprocessing_components_sets_pipeline(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -988,6 +1095,8 @@ class TestTIToolboxReferencesReportlet:
             include_defaults=True, pipeline_components=["preprocessing"]
         )
         assert r.pipeline_components == ["preprocessing"]
+        keys = {ref["key"] for ref in r.references}
+        assert "haber2026_titoolbox" in keys
 
     def test_flex_search_components_sets_pipeline(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -996,18 +1105,20 @@ class TestTIToolboxReferencesReportlet:
             include_defaults=True, pipeline_components=["flex-search"]
         )
         assert r.pipeline_components == ["flex-search"]
+        keys = {ref["key"] for ref in r.references}
+        assert "haber2026_titoolbox" in keys
+        assert "grossman2017_ti" in keys
+        assert "weise2024_leadfield_free" in keys
 
     def test_component_specific_refs_dti_keys_match(self):
-        """DTI component refs use internal IDs that DO match DEFAULT_REFERENCES keys."""
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
 
         r = TIToolboxReferencesReportlet(
             include_defaults=True, pipeline_components=["dti"]
         )
         keys = {ref["key"] for ref in r.references}
-        # 'charmed' and 'dti_conductivity' are both in DEFAULT_REFERENCES keys
-        assert "charmed" in keys
-        assert "dti_conductivity" in keys
+        assert "assaf2005_charmed" in keys
+        assert "rullmann2009_dti_conductivity" in keys
 
     def test_unknown_component_falls_back_to_core(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -1015,9 +1126,20 @@ class TestTIToolboxReferencesReportlet:
         r = TIToolboxReferencesReportlet(
             include_defaults=True, pipeline_components=["totally_unknown"]
         )
-        # Core refs_to_add = {"ti", "simnibs", "simnibs4", "charm"} but these
-        # don't match DEFAULT_REFERENCES keys, so refs list may be empty
-        assert isinstance(r.references, list)
+        keys = {ref["key"] for ref in r.references}
+        assert "haber2026_titoolbox" in keys
+        assert "grossman2017_ti" in keys
+        assert "saturnino2019_simnibs_fem" in keys
+
+    def test_nilearn_component_adds_visualization_citation(self):
+        from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
+
+        r = TIToolboxReferencesReportlet(
+            include_defaults=True, pipeline_components=["simulation", "nilearn"]
+        )
+        keys = {ref["key"] for ref in r.references}
+        assert "abraham2014_nilearn" in keys
+        assert "10.3389/fninf.2014.00014" in r.render_html()
 
     def test_add_default_reference_found(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -1026,6 +1148,7 @@ class TestTIToolboxReferencesReportlet:
         result = r.add_default_reference("FreeSurfer")
         assert result is True
         assert len(r.references) == 1
+        assert r.references[0]["key"] == "fischl2012_freesurfer"
 
     def test_add_default_reference_not_found(self):
         from tit.reporting.reportlets.references import TIToolboxReferencesReportlet
@@ -1040,8 +1163,8 @@ class TestTIToolboxReferencesReportlet:
 
         r = TIToolboxReferencesReportlet(include_defaults=False)
         r.add_default_reference("FreeSurfer")
-        r.add_default_reference("FreeSurfer")
-        count = sum(1 for ref in r.references if ref["key"] == "FreeSurfer")
+        r.add_default_reference("fischl2012_freesurfer")
+        count = sum(1 for ref in r.references if ref["key"] == "fischl2012_freesurfer")
         assert count == 1
 
     def test_render_html_with_manual_refs(self):
@@ -1074,7 +1197,41 @@ class TestReferenceHelperFunctions:
 
         ref = get_reference_by_key("FreeSurfer")
         assert ref is not None
-        assert ref["key"] == "FreeSurfer"
+        assert ref["key"] == "fischl2012_freesurfer"
+
+    def test_get_reference_by_key_supports_legacy_display_keys(self):
+        from tit.reporting.reportlets.references import get_reference_by_key
+
+        expected_keys = {
+            "TI Theory": "grossman2017_ti",
+            "SimNIBS": "saturnino2019_simnibs_fem",
+            "CHARM Segmentation": "puonti2020_charm",
+            "Multipolar TI": "botzanowski2025_mti",
+            "Electrode Parameters": "saturnino2015_electrodes",
+            "Quasi-static Approximation": "gaugain2023_quasistatic",
+            "Electric Field Determinants": "opitz2015_tdcs_determinants",
+            "International Consortium for Brain Mapping (ICBM)": "mazziotta2001_icbm",
+            "Glasser Atlas": "glasser2016_hcp_mmp",
+            "Destrieux Atlas": "destrieux2010_atlas",
+            "Desikan-Killiany-Tourville Atlas": "alexander2019_dkt",
+            "EEG Positions": "jurcak2007_eeg_positions",
+            "EGI Sensor Nets": "egi_sensor_nets",
+            "FreeSurfer": "fischl2012_freesurfer",
+            "Brain Imaging Data Structure (BIDS)": "bids2016",
+            "BIDS Apps": "gorgolewski2017_bids_apps",
+            "QSIprep": "cieslak2021_qsiprep",
+            "DICOM to NIfTI Converter (dcm2niix)": "li2016_dcm2niix",
+            "Leadfield-free Optimization Framework": "weise2024_leadfield_free",
+            "charmed": "assaf2005_charmed",
+            "dti_conductivity": "rullmann2009_dti_conductivity",
+            "Gmsh": "geuzaine2009_gmsh",
+            "Blender": "blender",
+        }
+
+        for legacy_key, expected_key in expected_keys.items():
+            ref = get_reference_by_key(legacy_key)
+            assert ref is not None, legacy_key
+            assert ref["key"] == expected_key
 
     def test_get_reference_by_key_not_found(self):
         from tit.reporting.reportlets.references import get_reference_by_key
@@ -1260,7 +1417,7 @@ class TestTemplates:
         from tit.reporting.core.templates import get_html_template
 
         html = get_html_template(
-            title="Test", content="body", metadata_html='<span>Subject: 001</span>'
+            title="Test", content="body", metadata_html="<span>Subject: 001</span>"
         )
         assert "Subject: 001" in html
 
@@ -1420,7 +1577,13 @@ class TestBaseReportGenerator:
     def test_create_dataset_description(self, tmp_path):
         gen = self._make_concrete_generator(tmp_path)
         gen._create_dataset_description()
-        desc_path = tmp_path / "derivatives" / "ti-toolbox" / "reports" / "dataset_description.json"
+        desc_path = (
+            tmp_path
+            / "derivatives"
+            / "ti-toolbox"
+            / "reports"
+            / "dataset_description.json"
+        )
         assert desc_path.exists()
         data = json.loads(desc_path.read_text())
         assert data["Name"] == "TI-Toolbox Reports"
@@ -1494,7 +1657,9 @@ class TestFlexSearchReportGenerator:
         gen = self._make_generator(tmp_path)
         assert gen.report_type == "flex-search"
         assert gen.subject_id == "001"
-        assert gen._get_default_title() == "Flex-Search Optimization Report - Subject 001"
+        assert (
+            gen._get_default_title() == "Flex-Search Optimization Report - Subject 001"
+        )
         assert gen._get_report_prefix() == "flex_search_report"
 
     def test_set_configuration(self, tmp_path):
@@ -1548,11 +1713,13 @@ class TestFlexSearchReportGenerator:
             metrics={"mean_field": 0.2},
             montage_image_base64="img_b64",
             field_map_base64="field_b64",
+            skin_region_image_base64="skin_b64",
             electrode_coordinates=[[1.0, 2.0, 3.0]],
             channel_array_indices=[[0, 1]],
         )
         assert gen.best_solution is not None
         assert gen.best_solution["score"] == 0.95
+        assert gen.best_solution["skin_region_image_base64"] == "skin_b64"
 
     def test_populate_from_data(self, tmp_path):
         gen = self._make_generator(tmp_path)
@@ -1604,7 +1771,12 @@ class TestFlexSearchReportGenerator:
     def test_build_summary_section(self, tmp_path):
         gen = self._make_generator(tmp_path)
         gen.set_roi_info(roi_name="Target")
-        gen.set_configuration(optimization_goal="mean", n_candidates=50, n_starts=3, post_processing="waveform")
+        gen.set_configuration(
+            optimization_goal="mean",
+            n_candidates=50,
+            n_starts=3,
+            post_processing="waveform",
+        )
         gen.set_best_solution(
             electrode_pairs=[],
             score=0.75,
@@ -1694,6 +1866,53 @@ class TestFlexSearchReportGenerator:
         section = gen.assembler.get_section("results")
         assert section is None
 
+    def test_build_results_section_uses_mapped_labels(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_search_result(
+            rank=1,
+            electrode_1a="",
+            electrode_1b="",
+            electrode_2a="",
+            electrode_2b="",
+            score=0.9,
+            mapped_labels=["E061", "E062", "E063", "E064"],
+        )
+        gen._build_results_section()
+        section = gen.assembler.get_section("results")
+        html = section.reportlets[0].render_html()
+        assert "E061-E062" in html
+        assert "E063-E064" in html
+        assert "Mapped Labels" in html
+
+    def test_add_search_result_omits_blank_pairs(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_search_result(
+            rank=1,
+            electrode_1a="",
+            electrode_1b="",
+            electrode_2a="",
+            electrode_2b="",
+            score=0.9,
+        )
+        assert gen.search_results[0]["pair_1"] == ""
+        assert gen.search_results[0]["pair_2"] == ""
+
+    def test_build_best_solution_section_notes_missing_optional_images(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.set_best_solution(
+            electrode_pairs=[{"electrode1": "E061", "electrode2": "E062"}],
+            score=0.95,
+            metrics={},
+            mapped_labels=["E061", "E062", "E063", "E064"],
+            mapped_positions=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
+        )
+        gen._build_best_solution_section()
+        section = gen.assembler.get_section("best_solution")
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "Mapped EEG Net Electrodes" in html
+        assert "Electrode Montage Unavailable" in html
+        assert "Electric Field Visualization Unavailable" in html
+
     def test_build_best_solution_section_with_coordinates(self, tmp_path):
         gen = self._make_generator(tmp_path)
         gen.set_best_solution(
@@ -1705,6 +1924,7 @@ class TestFlexSearchReportGenerator:
             metrics={"mean_field": 0.2, "focality": 0.85},
             montage_image_base64="montage_b64",
             field_map_base64="field_b64",
+            skin_region_image_base64="skin_b64",
             electrode_coordinates=[
                 [1.0, 2.0, 3.0],
                 [4.0, 5.0, 6.0],
@@ -1716,6 +1936,10 @@ class TestFlexSearchReportGenerator:
         gen._build_best_solution_section()
         section = gen.assembler.get_section("best_solution")
         assert section is not None
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "max-width: 520px" in html
+        assert "Valid Skin Region" in html
+        assert "data:image/png;base64,skin_b64" in html
 
     def test_build_best_solution_section_short_coords(self, tmp_path):
         """Test coordinate display when coordinates have < 3 elements."""
@@ -1750,8 +1974,12 @@ class TestFlexSearchReportGenerator:
         gen.set_configuration(electrode_net="GSN-128", n_candidates=10)
         gen.set_roi_info(roi_name="Hippocampus")
         gen.add_search_result(
-            rank=1, electrode_1a="E1", electrode_1b="E2",
-            electrode_2a="E3", electrode_2b="E4", score=0.9,
+            rank=1,
+            electrode_1a="E1",
+            electrode_1b="E2",
+            electrode_2a="E3",
+            electrode_2b="E4",
+            score=0.9,
         )
         gen.set_best_solution(
             electrode_pairs=[{"electrode1": "E1", "electrode2": "E2"}],
@@ -1763,6 +1991,13 @@ class TestFlexSearchReportGenerator:
         assert result.exists()
         content = result.read_text()
         assert "Flex-Search" in content
+        assert "Computer-Friendly Output" in content
+        assert content.rfind("Computer-Friendly Output") > content.rfind("References")
+        assert "Haber2026" in content
+        assert "Weise2024" in content
+        assert "https://doi.org/10.1016/j.brs.2025.103016" in content
+        assert "https://doi.org/10.1101/2024.12.18.629095" in content
+        assert "&quot;search_results&quot;" in content
 
 
 @pytest.mark.unit
@@ -1807,6 +2042,44 @@ class TestSimulationReportGenerator:
             )
         return gen
 
+    def _write_sim_config(self, tmp_path, subject_id="001", montage_name="BU_eg2"):
+        config_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / f"sub-{subject_id}"
+            / "Simulations"
+            / montage_name
+            / "documentation"
+        )
+        config_dir.mkdir(parents=True)
+        config = {
+            "subject_id": subject_id,
+            "simulation_name": montage_name,
+            "simulation_mode": "TI",
+            "montage_mode": "net",
+            "eeg_net": "EEG10-10_Cutini_2011.csv",
+            "conductivity": "scalar",
+            "electrode_pairs": [["AF3", "AF4"], ["C5", "C6"]],
+            "is_xyz_montage": False,
+            "intensities": [1.0, 1.0],
+            "electrode_geometry": {
+                "shape": "ellipse",
+                "dimensions": [8.0, 8.0],
+                "gel_thickness": 4.0,
+                "rubber_thickness": 2.0,
+            },
+            "mapping_options": {
+                "map_to_surf": True,
+                "map_to_vol": False,
+                "map_to_mni": False,
+                "map_to_fsavg": False,
+            },
+            "created_at": "2026-05-05T19:20:12",
+        }
+        (config_dir / "config.json").write_text(json.dumps(config))
+        return config_dir / "config.json"
+
     def test_initialization(self, tmp_path):
         gen = self._make_generator(tmp_path)
         assert gen.report_type == "simulation"
@@ -1839,7 +2112,9 @@ class TestSimulationReportGenerator:
 
     def test_add_electrode_parameters(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        gen.add_electrode_parameters(shape="rectangular", dimensions=[10, 5], gel_thickness=2.0)
+        gen.add_electrode_parameters(
+            shape="rectangular", dimensions=[10, 5], gel_thickness=2.0
+        )
         assert gen.electrode_parameters["shape"] == "rectangular"
         assert gen.electrode_parameters["dimensions"] == "10x5 mm"
 
@@ -1877,25 +2152,31 @@ class TestSimulationReportGenerator:
 
     def test_normalize_electrode_pairs_list_of_dicts(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"electrode1": "A", "electrode2": "B", "intensity": 1.0},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"electrode1": "A", "electrode2": "B", "intensity": 1.0},
+            ]
+        )
         assert pairs[0]["electrode1"] == "A"
 
     def test_normalize_electrode_pairs_dict_with_pair_key(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"pair": ["E1", "E2", 2.0]},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"pair": ["E1", "E2", 2.0]},
+            ]
+        )
         assert pairs[0]["electrode1"] == "E1"
         assert pairs[0]["electrode2"] == "E2"
         assert pairs[0]["intensity"] == 2.0
 
     def test_normalize_electrode_pairs_dict_alt_keys(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        pairs = gen._normalize_electrode_pairs([
-            {"anode": "A1", "cathode": "A2", "current": 1.0},
-        ])
+        pairs = gen._normalize_electrode_pairs(
+            [
+                {"anode": "A1", "cathode": "A2", "current": 1.0},
+            ]
+        )
         assert pairs[0]["electrode1"] == "A1"
         assert pairs[0]["electrode2"] == "A2"
         assert pairs[0]["intensity"] == 1.0
@@ -1933,6 +2214,29 @@ class TestSimulationReportGenerator:
         assert pairs[0]["intensity"] == 1.5
         assert pairs[1]["intensity"] == 2.5
 
+    def test_normalize_electrode_pairs_formats_xyz_coordinates(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        pairs = gen._normalize_electrode_pairs([([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])])
+        assert pairs[0]["electrode1"] == "(1, 2, 3) mm"
+        assert pairs[0]["electrode2"] == "(4, 5, 6) mm"
+
+    def test_rehydrate_montage_from_config_prefers_config_pairs(self, tmp_path):
+        config_path = self._write_sim_config(tmp_path)
+        gen = self._make_generator(tmp_path)
+        gen.add_simulation_parameters(simulation_mode="TI", intensity_ch1=2.0)
+        gen.add_montage("BU_eg2", [["E1", "E2"]], montage_type="TI")
+
+        assert gen.rehydrate_montage_from_config("BU_eg2", "001") is True
+
+        pairs = gen.montages[0]["electrode_pairs"]
+        assert [p["electrode1"] for p in pairs] == ["AF3", "C5"]
+        assert [p["electrode2"] for p in pairs] == ["AF4", "C6"]
+        assert [p["intensity"] for p in pairs] == [1.0, 1.0]
+        assert gen.electrode_parameters["shape"] == "ellipse"
+        assert gen.electrode_parameters["dimensions"] == "8x8 mm"
+        assert gen.simulation_parameters["config_snapshot_path"] == str(config_path)
+        assert any("saved simulation provenance" in w["message"] for w in gen.warnings)
+
     def test_is_multipolar(self, tmp_path):
         from tit.reporting.generators.simulation import SimulationReportGenerator
 
@@ -1960,6 +2264,112 @@ class TestSimulationReportGenerator:
 
             gen = SimulationReportGenerator(project_dir=tmp_path)
         assert gen._get_montage_subject_id() is None
+
+    def test_find_montage_image_prefers_ti_filename(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        image_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "Simulations"
+            / "M1"
+            / "TI"
+            / "montage_imgs"
+        )
+        image_dir.mkdir(parents=True)
+        image = image_dir / "M1_highlighted_visualization.png"
+        image.write_bytes(b"png")
+
+        assert gen._find_montage_image("M1", "TI") == image
+
+    def test_find_montage_image_prefers_mti_filename(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        image_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "Simulations"
+            / "M1"
+            / "mTI"
+            / "montage_imgs"
+        )
+        image_dir.mkdir(parents=True)
+        image = image_dir / "combined_montage_visualization.png"
+        image.write_bytes(b"png")
+
+        assert gen._find_montage_image("M1", "mTI") == image
+
+    def test_montage_report_note_when_image_missing(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_montage("M1", [["E1", "E2"]], montage_type="TI")
+        with patch.object(gen, "_find_montage_image", return_value=None):
+            gen._build_montages_section()
+
+        section = gen.assembler.get_section("montages")
+        html = section.reportlets[0].render_html()
+        assert "Montage visualization unavailable" in html
+
+    def test_nilearn_report_note_when_field_niftis_missing(self, tmp_path):
+        gen = self._make_generator(tmp_path)
+        gen.add_montage("M1", [["E1", "E2"]], montage_type="TI")
+        gen._build_nilearn_section()
+
+        section = gen.assembler.get_section("nilearn_visualizations")
+        assert section is not None
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "Nilearn Visualizations Unavailable" in html
+        assert (
+            "No MNI-space TI_max NIfTI outputs were found" in html
+            or "Nilearn is not available" in html
+        )
+
+    def test_nilearn_interactive_volume_is_wrapped_for_large_centered_display(
+        self, tmp_path
+    ):
+        gen = self._make_generator(tmp_path)
+        gen.add_montage("M1", [["E1", "E2"]], montage_type="TI")
+        nifti_dir = (
+            tmp_path
+            / "derivatives"
+            / "SimNIBS"
+            / "sub-001"
+            / "Simulations"
+            / "M1"
+            / "TI"
+            / "niftis"
+        )
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_M1_MNI_TI_max.nii.gz").write_text("placeholder")
+
+        with (
+            patch.object(gen, "_compute_field_thresholds", return_value=(0.1, 0.5)),
+            patch(
+                "tit.plotting.nilearn.visualizer.NilearnVisualizer.glass_brain_to_base64",
+                return_value=None,
+            ),
+            patch(
+                "tit.plotting.nilearn.visualizer.NilearnVisualizer.multi_slice_to_base64",
+                return_value=None,
+            ),
+            patch(
+                "tit.plotting.nilearn.visualizer.NilearnVisualizer.interactive_volume_to_html",
+                return_value="<iframe src='about:blank'></iframe>",
+            ),
+            patch(
+                "tit.plotting.nilearn.visualizer.NilearnVisualizer.interactive_surface_to_html",
+                return_value=None,
+            ),
+        ):
+            gen._build_nilearn_section()
+
+        section = gen.assembler.get_section("nilearn_visualizations")
+        assert section is not None
+        html = "\n".join(r.render_html() for r in section.reportlets)
+        assert "Interactive Volume" in html
+        assert "interactive-volume-viewer" in html
+        assert "about:blank" in html
 
     def test_add_simulation_result(self, tmp_path):
         gen = self._make_generator(tmp_path)
@@ -2093,12 +2503,73 @@ class TestSimulationReportGenerator:
         assert params["electrode_shape"] == "circular"
         assert params["intensity"] == 1.5
 
-    def test_generate_full_report(self, tmp_path):
+    def test_reference_components_include_mti_for_four_pairs(self, tmp_path):
         gen = self._make_generator(tmp_path)
         gen.add_simulation_parameters(simulation_mode="TI")
         gen.add_subject("001")
-        gen.add_montage("M1", [["E1", "E2"]])
-        gen.add_simulation_result("001", "M1", status="completed")
+        gen.add_montage(
+            "M4",
+            [["E1", "E2"], ["E3", "E4"], ["E5", "E6"], ["E7", "E8"]],
+        )
+        gen.add_simulation_result("001", "M4", status="completed")
+
+        assert "mti" in gen._get_reference_components()
+
+        with patch.object(gen, "_find_montage_image", return_value=None):
+            result = gen.generate(output_path=tmp_path / "mti_report.html")
+        html = result.read_text()
+        assert "ref-botzanowski2025_mti" in html
+
+    def test_generate_writes_no_report_sidecar_artifacts(self, tmp_path):
+        first = self._make_generator(tmp_path)
+        first.add_simulation_parameters(simulation_mode="TI")
+        first.add_subject("001")
+        first.add_montage("M1", [["A1", "A2"]])
+        first.add_simulation_result("001", "M1", status="completed")
+
+        second = self._make_generator(tmp_path)
+        second.add_simulation_parameters(simulation_mode="TI")
+        second.add_subject("001")
+        second.add_montage("M2", [["B1", "B2"]])
+        second.add_simulation_result("001", "M2", status="completed")
+
+        with (
+            patch.object(first, "_find_montage_image", return_value=None),
+            patch.object(second, "_find_montage_image", return_value=None),
+        ):
+            first_html = first.generate(
+                output_path=tmp_path / "simulation_report_M1.html"
+            )
+            second_html = second.generate(
+                output_path=tmp_path / "simulation_report_M2.html"
+            )
+
+        assert first_html.exists()
+        assert second_html.exists()
+        assert not list(tmp_path.glob("*_METHODS.md"))
+        assert not list(tmp_path.glob("*_CITATION.md"))
+        assert not list(tmp_path.glob("*_CITATION.bib"))
+        assert not list(tmp_path.glob("*_provenance.json"))
+        assert not (
+            tmp_path
+            / "derivatives"
+            / "ti-toolbox"
+            / "reports"
+            / "dataset_description.json"
+        ).exists()
+
+    def test_generate_full_report(self, tmp_path):
+        self._write_sim_config(tmp_path, montage_name="BU_eg2")
+        gen = self._make_generator(tmp_path)
+        gen.add_simulation_parameters(simulation_mode="TI")
+        gen.add_subject("001")
+        gen.add_montage("BU_eg2", [["E1", "E2"]])
+        gen.add_simulation_result(
+            "001",
+            "BU_eg2",
+            output_files=["grey_BU_eg2_TI_max_MNI.nii.gz"],
+            status="completed",
+        )
 
         with patch.object(gen, "_find_montage_image", return_value=None):
             output = tmp_path / "sim_report.html"
@@ -2106,6 +2577,50 @@ class TestSimulationReportGenerator:
         assert result.exists()
         content = result.read_text()
         assert "Simulation" in content
+        assert "AF3" in content
+        assert "C5" in content
+        assert "E1</td>" not in content
+        assert "Runtime report metadata disagreed" in content
+        assert "summary-cards-reportlet" not in content
+        assert "Quiet Mode" not in content
+        assert "Mapping Options" not in content
+        assert "Config Snapshot" not in content
+        assert "Command" not in content
+        assert "&quot;quiet_mode&quot;" not in content
+        assert "&quot;mapping_options&quot;" not in content
+        assert "&quot;config_snapshot_path&quot;" not in content
+        assert "&quot;config_snapshots&quot;" not in content
+        assert "&quot;command&quot;" not in content
+        assert "Ti Toolbox" not in content
+        assert "TI-Toolbox" in content
+        assert "https://doi.org/10.1016/j.cell.2017.05.024" in content
+        assert "https://doi.org/10.1088/1741-2552/ab41ba" in content
+        assert "Simulation Overview" in content
+        assert "Reproducibility" in content
+        assert "Methods" in content
+        assert "Machine-Readable Provenance" in content
+        assert content.rfind("Machine-Readable Provenance") > content.rfind(
+            "References"
+        )
+        assert "AF3-AF4" in content
+        assert "C5-C6" in content
+        assert "ellipse 8x8 mm electrodes" in content
+        assert "TI_max and TI_normal" in content
+        assert "file-tree-wrapper" in content
+        assert "file-tree-file" in content
+        assert "Output File</th>" not in content
+        assert "&quot;name&quot;: &quot;BU_eg2&quot;" in content
+        assert not list(tmp_path.glob("*_METHODS.md"))
+        assert not list(tmp_path.glob("*_CITATION.md"))
+        assert not list(tmp_path.glob("*_CITATION.bib"))
+        assert not list(tmp_path.glob("*_provenance.json"))
+        assert not (
+            tmp_path
+            / "derivatives"
+            / "ti-toolbox"
+            / "reports"
+            / "dataset_description.json"
+        ).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -2119,7 +2634,9 @@ class TestPreprocessingReportGenerator:
 
     def _make_generator(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import PreprocessingReportGenerator
+            from tit.reporting.generators.preprocessing import (
+                PreprocessingReportGenerator,
+            )
 
             gen = PreprocessingReportGenerator(
                 project_dir=tmp_path,
@@ -2183,7 +2700,9 @@ class TestPreprocessingReportGenerator:
 
     def test_add_qc_image(self, tmp_path):
         gen = self._make_generator(tmp_path)
-        gen.add_qc_image("QC Brain", "base64data", step_name="recon", caption="Brain overlay")
+        gen.add_qc_image(
+            "QC Brain", "base64data", step_name="recon", caption="Brain overlay"
+        )
         assert len(gen.qc_images) == 1
 
     def test_build_summary_section(self, tmp_path):
@@ -2400,7 +2919,9 @@ class TestCreatePreprocessingReport:
 
     def test_creates_report(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import create_preprocessing_report
+            from tit.reporting.generators.preprocessing import (
+                create_preprocessing_report,
+            )
 
             output = tmp_path / "pre_report.html"
             result = create_preprocessing_report(
@@ -2416,7 +2937,9 @@ class TestCreatePreprocessingReport:
 
     def test_creates_report_with_auto_scan(self, tmp_path):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            from tit.reporting.generators.preprocessing import create_preprocessing_report
+            from tit.reporting.generators.preprocessing import (
+                create_preprocessing_report,
+            )
 
             output = tmp_path / "pre_report.html"
             result = create_preprocessing_report(

@@ -4,12 +4,17 @@ TI-Toolbox generates interactive HTML reports for every stage of the pipeline. R
 
 ```mermaid
 graph LR
-    SIM_DATA[Simulation Data] --> GEN[Report Generators]
-    FLEX_DATA[Flex-Search Results] --> GEN
-    PRE_DATA[Preprocessing Info] --> GEN
-    GEN --> HTML[HTML Report]
-    GEN --> PLOTS[Plots & Figures]
-    style HTML fill:#2d5a27,stroke:#4a8,color:#fff
+    SIM_DATA([Simulation Data]) --> GEN[Report Generators]
+    FLEX_DATA([Flex-Search Results]) --> GEN
+    PRE_DATA([Preprocessing Info]) --> GEN
+    GEN --> HTML([HTML Report])
+    GEN --> PLOTS([Plots & Figures])
+    style SIM_DATA fill:#1a3a5c,stroke:#48a,color:#fff
+    style FLEX_DATA fill:#1a3a5c,stroke:#48a,color:#fff
+    style PRE_DATA fill:#1a3a5c,stroke:#48a,color:#fff
+    style GEN fill:#2d5a27,stroke:#4a8,color:#fff
+    style HTML fill:#1a5c4a,stroke:#4a8,color:#fff
+    style PLOTS fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Report Generators

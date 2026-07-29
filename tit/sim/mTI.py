@@ -1,15 +1,26 @@
 #!/usr/bin/env simnibs_python
-"""
-N-pair Multi-channel Temporal Interference (mTI) simulation.
+"""N-pair Multi-channel Temporal Interference (mTI) simulation.
 
-Supports arbitrary even numbers of electrode pairs (4, 6, 8, ...):
-  - Each pair produces one HF E-field via SimNIBS TDCS
-  - Adjacent pairs are combined via binary-tree TI recursion
-  - Intermediate TI vector fields are saved for inspection
+Implements :class:`mTISimulation`, the concrete ``BaseSimulation`` subclass
+for multi-channel TI stimulation with an arbitrary even number of electrode
+pairs (4, 6, 8, ...):
 
-Example with 4 pairs (A/B/C/D):
-  - TI_AB = TI(E_A, E_B),  TI_CD = TI(E_C, E_D)
-  - mTI   = TI(TI_AB, TI_CD)
+* Each pair produces one HF E-field via SimNIBS TDCS.
+* Adjacent pairs are combined via binary-tree TI recursion.
+* Intermediate TI vector fields are saved for inspection.
+
+Example with 4 pairs (A/B/C/D)::
+
+    TI_AB = TI(E_A, E_B)
+    TI_CD = TI(E_C, E_D)
+    mTI   = TI(TI_AB, TI_CD)
+
+See Also
+--------
+BaseSimulation : Abstract base class providing the ``run`` template.
+TISimulation : Standard 2-pair TI variant.
+SimulationConfig : Configuration consumed by the simulation.
+run_simulation : Top-level orchestration that dispatches to this class.
 """
 
 import glob
@@ -26,10 +37,11 @@ from tit.calc import get_nTI_vectors, get_TI_vectors
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
-    convert_t1_to_mni,
     extract_fields,
+    finish_t1_to_mni,
     safe_move,
-    transform_to_nifti,
+    start_t1_to_mni,
+    transform_dirs_to_nifti,
 )
 
 # Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
@@ -37,34 +49,53 @@ _TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_R
 
 
 class mTISimulation(BaseSimulation):
-    """
-    Runs a single N-pair mTI simulation (N >= 4, even).
+    """Run a single N-pair mTI simulation (N >= 4, even).
 
-    Pipeline:
-      1. Set up BIDS output directory structure
-      2. Visualize electrode placement
-      3. Build SimNIBS SESSION (N TDCS lists), run FEM
-      4. Compute intermediate TI vector fields via binary-tree pairing
-      5. Compute final mTI_max from the combined TI field
-      6. Extract GM/WM, convert to NIfTI, organize outputs
+    Pipeline
+    --------
+    1. Set up BIDS output directory structure.
+    2. Visualize electrode placement.
+    3. Build SimNIBS SESSION (N TDCS lists), run FEM.
+    4. Compute intermediate TI vector fields via binary-tree pairing.
+    5. Compute final ``mTI_max`` from the combined TI field.
+    6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
+
+    See Also
+    --------
+    BaseSimulation : Parent class with shared setup and template ``run``.
+    TISimulation : Standard 2-pair variant.
     """
 
     @property
     def _simulation_mode(self):
+        """Return ``SimulationMode.MTI``."""
         return SimulationMode.MTI
 
     @property
     def _montage_type_label(self) -> str:
+        """Return ``'mTI'``."""
         return "mTI"
 
     @property
     def _montage_imgs_key(self) -> str:
+        """Return ``'mti_montage_imgs'``."""
         return "mti_montage_imgs"
 
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for N-pair mTI."""
+        """Build SimNIBS SESSION for N-pair mTI.
+
+        Parameters
+        ----------
+        output_dir : str
+            Directory where SimNIBS writes FEM output.
+
+        Returns
+        -------
+        sim_struct.SESSION
+            Configured session with N TDCS lists (one per pair).
+        """
         S = self._init_session(output_dir)
         n_pairs = self.montage.num_pairs
 
@@ -78,6 +109,23 @@ class mTISimulation(BaseSimulation):
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
+        """Compute mTI fields, extract meshes, convert to NIfTI.
+
+        Parameters
+        ----------
+        dirs : dict
+            Directory mapping returned by ``setup_montage_directories``.
+
+        Returns
+        -------
+        str
+            Path to the output mTI mesh file.
+
+        Raises
+        ------
+        ValueError
+            If the montage has more than 26 electrode pairs (A-Z limit).
+        """
         sid = self.config.subject_id
         cond = self.config.conductivity
         name = self.montage.name
@@ -146,21 +194,26 @@ class mTISimulation(BaseSimulation):
 
         self._generate_central_surface(mti_path, dirs["mti_surfaces"])
 
+        # T1->MNI is independent of the field meshes; start it in the
+        # background so it overlaps the mesh-to-NIfTI conversions.
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid)
+
         self.logger.info("NIfTI transformation: Started")
-        transform_to_nifti(
-            dirs["mti_mesh"], dirs["mti_niftis"], sid, self.m2m_dir, self.logger
-        )
-        transform_to_nifti(
-            dirs["hf_mesh"],
-            dirs["hf_niftis"],
-            sid,
+        transform_dirs_to_nifti(
+            [
+                {"mesh_dir": dirs["mti_mesh"], "output_dir": dirs["mti_niftis"]},
+                {
+                    "mesh_dir": dirs["hf_mesh"],
+                    "output_dir": dirs["hf_niftis"],
+                    "fields": ["magnE"],
+                },
+            ],
             self.m2m_dir,
             self.logger,
-            fields=["magnE"],
         )
         self.logger.info("NIfTI transformation: \u2713 Complete")
 
-        convert_t1_to_mni(self.m2m_dir, sid, self.logger)
+        finish_t1_to_mni(t1_proc, self.logger)
 
         return mti_path
 
@@ -179,7 +232,7 @@ class mTISimulation(BaseSimulation):
         self.logger.debug(f"Saved: {path}")
 
     def _organize_files(self, dirs: dict) -> None:
-        """Move HF files, renaming pairs 1..N -> A..Z for mTI convention."""
+        """Move HF files, renaming pairs ``1..N`` to ``A..Z`` for mTI convention."""
         hf = dirs["hf_dir"]
         n_pairs = self.montage.num_pairs
         letters = string.ascii_uppercase

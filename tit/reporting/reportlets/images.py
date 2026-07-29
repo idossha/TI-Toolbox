@@ -5,7 +5,6 @@ This module provides specialized reportlets for brain imaging visualizations,
 including multi-slice brain views and electrode montage displays.
 """
 
-
 import base64
 import io
 from pathlib import Path
@@ -308,8 +307,9 @@ class MontageImageReportlet(BaseReportlet):
             """
         else:
             image_html = """
-            <div class="image-placeholder">
-                <em>No montage image available</em>
+            <div class="image-placeholder montage-unavailable">
+                <em>Montage visualization unavailable</em>
+                <p>The expected montage visualization PNG was not found or could not be generated.</p>
             </div>
             """
 

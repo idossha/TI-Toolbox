@@ -4,12 +4,17 @@ The analysis module evaluates simulation results by computing statistics within 
 
 ```mermaid
 graph LR
-    FIELD[Field Data] --> ANALYZER[Analyzer]
-    ROI[ROI Specification] --> ANALYZER
-    ANALYZER --> STATS[ROI Statistics]
-    ANALYZER --> VIZ[Visualizations]
-    ANALYZER --> CSV[CSV Export]
+    FIELD([Field Data]) --> ANALYZER[Analyzer]
+    ROI([ROI Specification]) --> ANALYZER
+    ANALYZER --> STATS([ROI Statistics])
+    ANALYZER --> VIZ([Visualizations])
+    ANALYZER --> CSV([CSV Export])
+    style FIELD fill:#1a3a5c,stroke:#48a,color:#fff
+    style ROI fill:#1a3a5c,stroke:#48a,color:#fff
     style ANALYZER fill:#2d5a27,stroke:#4a8,color:#fff
+    style STATS fill:#1a5c4a,stroke:#4a8,color:#fff
+    style VIZ fill:#1a5c4a,stroke:#4a8,color:#fff
+    style CSV fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Single-Subject Analysis

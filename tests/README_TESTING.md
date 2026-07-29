@@ -23,8 +23,9 @@ Complete guide for running tests locally and in CI/CD.
 ```
 
 **What it does:**
-- Uses TI-Toolbox test image (`idossha/ti-toolbox-test:latest`)
-- Image contains SimNIBS 4.6 + pytest + BATS + all testing tools
+- Uses TI-Toolbox test image (`idossha/ti-toolbox-test:latest`), built from `container/blueprint/Dockerfile.test`
+- Image contains SimNIBS + pytest + BATS + all testing tools
+- The image also bakes in ErnieExtended and `test_montage` data, copied at runtime to `/mnt/test_projectdir`
 - Mounts your local code into the container at `/ti-toolbox`
 - Tests your current changes (not code from GitHub)
 - Runs all tests: unit + integration
@@ -135,14 +136,53 @@ Same as `test.sh` above
 **Requirements:** Python, pytest, numpy, scipy, pandas, nibabel, matplotlib
 (All included in SimNIBS image)
 
-### Integration Tests (~15-20 minutes)
-- **Test Project Setup**: Downloads test data (ErnieExtended from OSF)
-- **Simulator Integration**: Runs actual electromagnetic simulations
-- **Analyzer Integration**: Runs complete analysis pipelines
-- **Output Validation**: BATS tests verify file structure
+### Integration Tests
+- **CI data checks**: `tests/test_ci_data_integration.py` runs only in the `Dockerfile.test` image, uses `/mnt/test_projectdir`, and calls real `simnibs_python` subprocesses so pytest's unit-test mocks are bypassed.
+- **dcm2niix environment check**: verifies the real `dcm2niix` binary and fixture layout are available in the CI image.
+- **Simulation artifact/report integration**: generates a report from pre-baked `ernie_extended/test_montage` SimNIBS outputs.
+- **Analyzer integration**: runs voxel analysis on the pre-baked NIfTI outputs with the real nibabel/numpy stack.
+- **Lightweight module-flow tests**: additional integration tests exercise orchestration with local fakes for fast host-side development.
 
-**Requirements:** SimNIBS, FreeSurfer, BATS
-(All included in SimNIBS image)
+**Requirements:** SimNIBS, test fixture data, FreeSurfer-related files, BATS
+(All included in the `Dockerfile.test` image)
+
+### Comprehensive Release-Gate Integration
+
+The default CircleCI suite is intentionally fast and mostly validates wiring plus
+pre-baked outputs. Before tagging a release, run the heavy computational entry
+point:
+
+```bash
+tests/run_comprehensive_integration.sh --keep-work
+```
+
+This script uses only data available inside the testing environment. It uses the
+same `idossha/ti-toolbox-test:latest` image built from
+`container/blueprint/Dockerfile.test`, copies `/mnt/test_projectdir` to an
+isolated work directory, sets `TIT_RUN_COMPREHENSIVE=1`, and runs:
+
+1. real DICOM conversion through `dcm2niix`
+2. real SimNIBS CHARM on the baked anatomical fixture
+3. real TI simulation on the ErnieExtended fixture
+4. real flex-search with the focality objective
+5. real leadfield generation
+6. real ex-search with a pooled six-electrode candidate set
+7. real Analyzer runs in both mesh and voxel modes
+
+Useful partial commands during debugging:
+
+```bash
+# Exercise simulation/optimization/analysis without DICOM or CHARM
+tests/run_comprehensive_integration.sh --skip-dicom --skip-charm --keep-work
+
+# Exercise DICOM + CHARM only, skipping later optimization phases
+tests/run_comprehensive_integration.sh --skip-flex --skip-leadfield-ex --keep-work
+```
+
+`--dicom-source /path/to/dicoms` exists only as a debugging override and may
+point to a DICOM directory or a supported compressed file (`.zip`, `.tar`,
+`.tar.gz`, `.tgz`). Clean release-gate runs should not require host data outside
+the test image.
 
 ---
 
@@ -150,20 +190,19 @@ Same as `test.sh` above
 
 ### Automatic Testing
 - **Triggers:** Every pull request to `main` branch
-- **Image:** `idossha/ti-toolbox-test:latest` (static test image)
-- **Contains:** SimNIBS 4.5 + pytest + BATS + testing tools
+- **Image:** `idossha/ti-toolbox-test:latest` (static test image built from `container/blueprint/Dockerfile.test`)
+- **Contains:** SimNIBS, pytest, BATS, testing tools, and pre-baked ErnieExtended/test_montage data
 - **Tests:** ALL tests (unit + integration)
-- **Duration:** ~20-25 minutes
+- **Duration:** depends on Docker host and cache state
 
 ### What CircleCI Runs
 
 ```yaml
-# Pulls test image (SimNIBS + testing tools)
+# Pulls test image (SimNIBS + testing tools + fixture data)
 docker pull idossha/ti-toolbox-test:latest
 
-# Mounts PR code and runs tests
-docker run -v ${WORKSPACE}:/workspace ti-test:latest \
-  bash -c './tests/run_tests.sh --verbose'
+# CircleCI uses the same host-side wrapper as local testing
+TEST_IMAGE=ti-test:latest bash ./tests/test.sh --verbose --coverage
 ```
 
 **Same image, same tests, same script as local testing!**

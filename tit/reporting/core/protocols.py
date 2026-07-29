@@ -1,10 +1,28 @@
-"""
-Protocols and type definitions for the TI-Toolbox reporting system.
+"""Protocols and type definitions for the TI-Toolbox reporting system.
 
-This module defines the core interfaces and enums used by reportlets
-and report generators.
-"""
+Defines the core interfaces and enums used by reportlets and report
+generators.
 
+Public API
+----------
+ReportletType
+    Enumeration of reportlet types (METADATA, IMAGE, TABLE, ...).
+SeverityLevel
+    Severity levels for errors and warnings.
+StatusType
+    Status types for processing steps.
+Reportlet
+    Runtime-checkable protocol every reportlet must satisfy.
+ReportMetadata
+    Dataclass holding report-level metadata (title, subject, etc.).
+ReportSection
+    Dataclass representing a section that holds multiple reportlets.
+
+See Also
+--------
+tit.reporting.core.base : Concrete base reportlet implementations.
+tit.reporting.core.assembler : Assembler that organizes sections into a report.
+"""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -13,7 +31,11 @@ from typing import Any, Protocol, runtime_checkable
 
 
 class ReportletType(Enum):
-    """Enumeration of reportlet types."""
+    """Enumeration of reportlet types.
+
+    Each member corresponds to a rendering strategy in the base reportlet
+    classes.
+    """
 
     METADATA = auto()
     IMAGE = auto()
@@ -24,7 +46,10 @@ class ReportletType(Enum):
 
 
 class SeverityLevel(Enum):
-    """Severity levels for errors and warnings."""
+    """Severity levels for errors and warnings.
+
+    Used by ``ErrorReportlet`` to control icon and colour styling.
+    """
 
     INFO = "info"
     WARNING = "warning"
@@ -33,7 +58,10 @@ class SeverityLevel(Enum):
 
 
 class StatusType(Enum):
-    """Status types for processing steps."""
+    """Status types for processing steps.
+
+    Used by ``ProcessingStepReportlet`` to display step progress.
+    """
 
     PENDING = "pending"
     RUNNING = "running"
@@ -44,7 +72,11 @@ class StatusType(Enum):
 
 @runtime_checkable
 class Reportlet(Protocol):
-    """Protocol defining the interface for all reportlets."""
+    """Protocol defining the interface for all reportlets.
+
+    Any object satisfying this protocol can be added to a
+    ``ReportSection``.
+    """
 
     @property
     def reportlet_type(self) -> ReportletType:
@@ -57,7 +89,7 @@ class Reportlet(Protocol):
         ...
 
     def render_html(self) -> str:
-        """Render the reportlet as HTML."""
+        """Render the reportlet as an HTML fragment."""
         ...
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,7 +99,29 @@ class Reportlet(Protocol):
 
 @dataclass
 class ReportMetadata:
-    """Metadata for a generated report."""
+    """Metadata for a generated report.
+
+    Attributes
+    ----------
+    title : str
+        Report title shown in the header.
+    subject_id : str or None
+        BIDS subject identifier (without ``sub-`` prefix).
+    session_id : str or None
+        Session or run identifier.
+    report_type : str
+        Type tag (e.g. ``"simulation"``, ``"preprocessing"``).
+    generation_time : datetime.datetime
+        Timestamp when the report was generated.
+    software_versions : dict[str, str]
+        Mapping of tool name to version string.
+    project_dir : str or None
+        BIDS project root directory.
+    bids_version : str
+        BIDS specification version.
+    dataset_type : str
+        BIDS dataset type (always ``"derivative"``).
+    """
 
     title: str
     subject_id: str | None = None
@@ -82,7 +136,13 @@ class ReportMetadata:
     dataset_type: str = "derivative"
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert metadata to dictionary."""
+        """Convert metadata to a JSON-serialisable dictionary.
+
+        Returns
+        -------
+        dict
+            All metadata fields with ``generation_time`` as ISO-8601 string.
+        """
         return {
             "title": self.title,
             "subject_id": self.subject_id,
@@ -98,7 +158,23 @@ class ReportMetadata:
 
 @dataclass
 class ReportSection:
-    """A section within a report containing multiple reportlets."""
+    """A section within a report containing multiple reportlets.
+
+    Attributes
+    ----------
+    section_id : str
+        Unique identifier used as the HTML ``id`` attribute.
+    title : str
+        Human-readable section title.
+    reportlets : list
+        Ordered list of reportlet instances.
+    description : str or None
+        Optional description displayed below the title.
+    collapsed : bool
+        Whether the section is initially collapsed.
+    order : int
+        Sort order (lower values appear first).
+    """
 
     section_id: str
     title: str
@@ -112,7 +188,13 @@ class ReportSection:
         self.reportlets.append(reportlet)
 
     def render_html(self) -> str:
-        """Render the section and all its reportlets as HTML."""
+        """Render the section and all its reportlets as HTML.
+
+        Returns
+        -------
+        str
+            HTML fragment for the complete section.
+        """
         collapse_class = "collapsible" if self.collapsed else ""
         content_parts = []
 
@@ -136,7 +218,13 @@ class ReportSection:
         """
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert section to dictionary."""
+        """Convert section to a JSON-serialisable dictionary.
+
+        Returns
+        -------
+        dict
+            Section metadata plus serialised reportlets.
+        """
         return {
             "section_id": self.section_id,
             "title": self.title,

@@ -1,9 +1,17 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox GUI Main Entry Point
-This module provides a GUI interface for the TI-Toolbox toolbox.
+"""Main window and application entry point for the TI-Toolbox GUI.
+
+Creates the ``QApplication``, assembles all tabs, loads saved extensions,
+registers signal handlers for graceful shutdown, and starts the Qt event
+loop.  The ``MainWindow`` class owns the tab widget and provides cross-tab
+event bridging (e.g. analysis completion refreshing the NIfTI viewer).
+
+See Also
+--------
+tit.gui.style : Shared design tokens and stylesheet.
+tit.gui.extensions : Extension discovery and tab integration.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -53,7 +61,32 @@ from tit.gui.settings_menu import SettingsMenuButton, ExtensionsButton
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    """Main window for the TI-Toolbox GUI."""
+    """Top-level window that hosts all TI-Toolbox tabs.
+
+    Assembles the core tabs (Pre-processing, Optimizer, Simulator,
+    Analyzer, NIfTI Viewer, System Monitor), loads user-enabled
+    extensions as additional tabs, and wires cross-tab signals such as
+    the ``analysis_completed`` bridge between the Analyzer and NIfTI
+    Viewer.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    tab_widget : QTabWidget
+        Central tab container.
+    pm : PathManager
+        Project path resolver singleton.
+    core_tab_count : int
+        Number of built-in tabs (extensions start after this index).
+
+    See Also
+    --------
+    tit.gui.settings_menu.SettingsMenuButton : Gear-icon menu (Help / Contact / Ack).
+    tit.gui.extensions.ExtensionsTab : Extension discovery panel.
+    """
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -85,6 +118,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setup_ui()
         self.load_saved_extensions()
         self.center_on_screen()
+
+        # Tag this process (and child subprocesses) as GUI-launched
+        # so telemetry events carry interface=gui.
+        os.environ["TIT_INTERFACE"] = "gui"
+
+        # First-run telemetry consent (non-blocking dialog),
+        # then record a gui_launch event.
+        import time as _time
+
+        from tit.telemetry import consent_prompt_gui, track_event
+        from tit import constants as const
+
+        consent_prompt_gui(self)
+        track_event(const.TELEMETRY_OP_GUI_LAUNCH)
+        self._session_start = _time.monotonic()
 
     def setup_ui(self):
         """Set up the user interface."""
@@ -118,9 +166,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flex_search_tab = self.optimizer_tab.flex_search_tab
         self.ex_search_tab = self.optimizer_tab.ex_search_tab
 
-        # Analyzer -> Main Window event bridge: when analysis completes,
-        # refresh NIfTI viewer and mesh visualization in dependent tabs.
+        # Cross-tab refresh bridges.
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
+        self.simulator_tab.simulation_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
+        self.simulator_tab.simulation_completed.connect(
+            self.nifti_viewer_tab.refresh_available_simulations
+        )
+        self.pre_process_tab.preprocessing_completed.connect(
+            self._refresh_project_dependent_tabs
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.simulator_tab.update_montage_list
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
+        self.flex_search_tab.flex_search_completed.connect(
+            self.nifti_viewer_tab.refresh_available_simulations
+        )
+        self.ex_search_tab.ex_search_completed.connect(
+            self.analyzer_tab.refresh_available_simulations
+        )
         self._processing_analysis_completion = False
 
         self.tab_widget.clear()
@@ -165,10 +233,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(qr.topLeft())
 
     def get_extensions_config_path(self):
-        """Get the path to the extensions configuration file."""
-        from tit.gui.extensions_config import get_extensions_config_path
+        """Get the path to the extensions configuration file.
 
-        config_dir = Path(self.pm.ensure(self.pm.config_dir()))
+        Uses the user-level config directory so that extension
+        preferences persist across projects and container restarts.
+        """
+        from tit.gui.extensions_config import get_extensions_config_path
+        from tit.paths import PathManager
+
+        config_dir = Path(PathManager.user_config_dir())
         return get_extensions_config_path(config_dir)
 
     def ensure_extensions_config(self):
@@ -248,6 +321,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Handle window close event."""
         # Allow programmatic forced shutdown without prompting
         if getattr(self, "_force_exit", False):
+            self._send_close_event()
             self.system_monitor_tab.stop_monitoring()
             event.accept()
             return
@@ -260,11 +334,27 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
+            self._send_close_event()
             # Clean up system monitor thread before closing
             self.system_monitor_tab.stop_monitoring()
             event.accept()
         else:
             event.ignore()
+
+    def _send_close_event(self) -> None:
+        """Send a gui_close telemetry event with session duration."""
+        import time as _time
+
+        from tit.telemetry import track_event
+        from tit import constants as const
+
+        t0 = getattr(self, "_session_start", None)
+        duration_s = int(round(_time.monotonic() - t0)) if t0 is not None else 0
+        track_event(
+            const.TELEMETRY_OP_GUI_CLOSE,
+            {"duration_s": duration_s},
+            _blocking=True,
+        )
 
     def set_tab_busy(
         self,
@@ -274,7 +364,26 @@ class MainWindow(QtWidgets.QMainWindow):
         stop_btn=None,
         keep_enabled=None,
     ):
-        """Disable all interactive widgets in the given tab except the provided stop button, and show a message at the top of the tab."""
+        """Toggle the busy state of a tab, disabling interactive widgets.
+
+        When *busy* is ``True``, all interactive controls inside
+        *tab_widget* are disabled except for *stop_btn* and any widgets
+        in *keep_enabled*.  A warning label is shown at the top of the
+        tab layout.
+
+        Parameters
+        ----------
+        tab_widget : QWidget
+            The tab whose controls should be toggled.
+        busy : bool, optional
+            ``True`` to enter busy state, ``False`` to restore.
+        message : str, optional
+            Text shown in the busy-state warning label.
+        stop_btn : QPushButton or None, optional
+            Button that remains enabled during busy state.
+        keep_enabled : QWidget or list[QWidget] or None, optional
+            Additional widgets to keep enabled.
+        """
         interactive_types = (
             QtWidgets.QPushButton,
             QtWidgets.QLineEdit,
@@ -340,24 +449,52 @@ class MainWindow(QtWidgets.QMainWindow):
         # Optionally, keep window centered after resize (uncomment if desired):
         # self.center_on_screen()
 
+    def _refresh_project_dependent_tabs(self):
+        """Refresh tabs that depend on project-derived subjects/outputs."""
+        refreshers = [
+            self.simulator_tab._load_available_subjects,
+            self.analyzer_tab.refresh_available_simulations,
+            self.nifti_viewer_tab.refresh_available_simulations,
+            self.flex_search_tab.find_available_subjects,
+            self.ex_search_tab.initial_setup,
+        ]
+        for refresh in refreshers:
+            try:
+                refresh()
+            except Exception as exc:
+                print(f"Warning: could not refresh GUI data after preprocessing: {exc}")
+
     def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
-        """Handle analysis completion by updating relevant tabs."""
+        """Refresh dependent tabs after an analysis run completes.
+
+        Parameters
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation whose analysis just finished.
+        analysis_type : str
+            ``"Voxel"`` or ``"Mesh"`` -- determines which viewer to refresh.
+        """
         # Guard against recursive calls
         if self._processing_analysis_completion:
             return
 
         self._processing_analysis_completion = True
         try:
-            # Update NIFTI viewer's analysis regions if it's a voxel analysis
-            if analysis_type == "Voxel":
-                # Update the NIFTI viewer's subject and simulation selection
+            # Update NIFTI viewer's analysis regions if it's a voxel analysis.
+            # Group analyses are not tied to one normal simulation entry, so avoid
+            # forcing the single-subject simulation combo to "group_analysis".
+            if analysis_type == "Voxel" and simulation_name != "group_analysis":
+                self.nifti_viewer_tab.refresh_available_simulations(preserve=True)
                 self.nifti_viewer_tab.subject_combo.setCurrentText(subject_id)
-                self.nifti_viewer_tab.sim_combo.setCurrentText(simulation_name)
-                # Update available analyses for the current subject and simulation
+                self.nifti_viewer_tab.refresh_simulations(
+                    preserve=True, preferred_sim=simulation_name
+                )
                 self.nifti_viewer_tab.update_available_analyses()
 
             # Update mesh files list if it's a mesh analysis
-            if analysis_type == "Mesh":
+            if analysis_type == "Mesh" and simulation_name != "group_analysis":
                 # Update the mesh files list in the analyzer tab and refresh gmsh visualization
                 self.analyzer_tab.update_field_files(subject_id, simulation_name)
         finally:
@@ -365,11 +502,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def check_for_update(current_version, parent_window=None):
-    """Check for updates and show a notification dialog if a newer version is available.
+    """Check GitHub for a newer release and show a notification dialog.
 
-    Args:
-        current_version (str): The current version of the application
-        parent_window (QWidget, optional): The parent window to center the dialog on
+    Parameters
+    ----------
+    current_version : str
+        The running version string (e.g. ``"2.2.3"``).
+    parent_window : QWidget, optional
+        Parent for the notification dialog (centered relative to it).
     """
     from tit.tools.check_for_update import check_for_new_version
 

@@ -1,0 +1,21 @@
+# FreeSurfer color lookup table for CIT168_labeling_MNI152NLin2009cAsym.nii.gz
+# Source: NeuroVault collection 3145, Pauli et al. 2018, Scientific Data 5:180063
+# Label map method: winner-takes-highest-probability, threshold 0.05
+# No. LabelName R G B A
+0 Background 0 0 0 0
+1 CIT168_Pu_Putamen 141 211 199 0
+2 CIT168_Ca_Caudate 255 255 179 0
+3 CIT168_NAC_Nucleus_accumbens 190 186 218 0
+4 CIT168_EXA_Extended_amygdala 251 128 114 0
+5 CIT168_GPe_External_globus_pallidus 128 177 211 0
+6 CIT168_GPi_Internal_globus_pallidus 253 180 98 0
+7 CIT168_SNc_Substantia_nigra_pars_compacta 179 222 105 0
+8 CIT168_RN_Red_nucleus 252 205 229 0
+9 CIT168_SNr_Substantia_nigra_pars_reticulata 217 217 217 0
+10 CIT168_PBP_Parabrachial_pigmented_nucleus 188 128 189 0
+11 CIT168_VTA_Ventral_tegmental_area 204 235 197 0
+12 CIT168_VeP_Ventral_pallidum 255 237 111 0
+13 CIT168_HN_Habenular_nuclei 31 120 180 0
+14 CIT168_HTH_Hypothalamus 51 160 44 0
+15 CIT168_MN_Mammillary_nuclei 227 26 28 0
+16 CIT168_STH_Subthalamic_nucleus 106 61 154 0

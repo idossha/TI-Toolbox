@@ -1,7 +1,22 @@
-"""Configuration dataclasses for cluster-based permutation testing.
+"""Configuration and result dataclasses for cluster-based permutation testing.
 
-Pure Python — no numpy, nibabel, or heavy dependencies.
-Mirrors the tit.opt.config / tit.sim.config pattern.
+Pure Python -- no numpy, nibabel, or heavy dependencies.
+Mirrors the ``tit.opt.config`` / ``tit.sim.config`` pattern.
+
+Public API
+----------
+GroupComparisonConfig
+    Configuration for two-group cluster-based permutation testing.
+GroupComparisonResult
+    Result container for group comparison analysis.
+CorrelationConfig
+    Configuration for correlation-based cluster permutation testing.
+CorrelationResult
+    Result container for correlation analysis.
+
+See Also
+--------
+tit.stats.permutation : Orchestration functions that consume these configs.
 """
 
 from dataclasses import dataclass, field
@@ -21,6 +36,33 @@ class _TissueType(StrEnum):
     ALL = "all"
 
 
+class _AnalysisSpace(StrEnum):
+    """Where the group statistics run: MNI volume or fsaverage surface."""
+
+    MNI = "mni"
+    FSAVERAGE = "fsaverage"
+
+
+#: Surface field quantities the fsaverage stats path can load (mirrors
+#: :data:`tit.source.config.VALID_FSAVG_FIELDS`).
+_VALID_FSAVG_FIELDS = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+_VALID_FSAVG_SPACINGS = (5, 6, 7)
+
+
+def _validate_surface_options(space, field, spacing) -> None:
+    """Shared fsaverage-option validation for both config classes."""
+    if space != _AnalysisSpace.FSAVERAGE:
+        return
+    if field not in _VALID_FSAVG_FIELDS:
+        raise ValueError(
+            f"fsaverage_field must be one of {_VALID_FSAVG_FIELDS}, got {field!r}"
+        )
+    if spacing not in _VALID_FSAVG_SPACINGS:
+        raise ValueError(
+            f"fsaverage_spacing must be one of {_VALID_FSAVG_SPACINGS}, got {spacing}"
+        )
+
+
 # ── Private helper ────────────────────────────────────────────────────────
 
 
@@ -38,28 +80,89 @@ def _nifti_pattern_for_tissue(tissue: _TissueType) -> str:
 
 @dataclass
 class GroupComparisonConfig:
-    """Configuration for group comparison permutation testing."""
+    """Configuration for cluster-based permutation testing between two groups.
+
+    Compares voxelwise field intensities between responders and non-responders
+    using a t-test with cluster-based permutation correction for multiple
+    comparisons.
+
+    Attributes
+    ----------
+    analysis_name : str
+        Human-readable name for this analysis run.
+    subjects : list of Subject
+        Subject entries, each labelled as responder (1) or non-responder (0).
+    test_type : TestType
+        Whether to use an unpaired or paired t-test.
+    alternative : Alternative
+        Sidedness of the test hypothesis.
+    cluster_threshold : float
+        Uncorrected p-value threshold for forming clusters.
+    cluster_stat : ClusterStat
+        Cluster-level statistic used for permutation testing
+        (``"mass"`` or ``"size"``).
+    n_permutations : int
+        Number of permutations for the null distribution.
+    alpha : float
+        Family-wise error rate for significance.
+    n_jobs : int
+        Number of parallel workers (``-1`` for all CPUs).
+    tissue_type : TissueType
+        Which tissue compartment to analyze.
+    nifti_file_pattern : str or None
+        Filename pattern for subject NIfTI files. If ``None``, derived
+        automatically from *tissue_type*.
+    group1_name : str
+        Display label for the responder group.
+    group2_name : str
+        Display label for the non-responder group.
+    value_metric : str
+        Label for the field value axis in plots.
+    atlas_files : list of str
+        Atlas filenames for overlap analysis (looked up in the bundled
+        atlas directory).
+
+    See Also
+    --------
+    GroupComparisonResult : Result container returned by the analysis.
+    run_group_comparison : Orchestration function that consumes this config.
+    """
 
     # ── Nested types ──────────────────────────────────────────────────
     ClusterStat = _ClusterStat
     TissueType = _TissueType
+    AnalysisSpace = _AnalysisSpace
 
     class TestType(StrEnum):
+        """Type of statistical test for group comparison."""
+
         UNPAIRED = "unpaired"
         PAIRED = "paired"
 
     class Alternative(StrEnum):
+        """Sidedness of the test hypothesis."""
+
         TWO_SIDED = "two-sided"
         GREATER = "greater"
         LESS = "less"
 
     @dataclass
     class Subject:
-        """A single subject in a group comparison analysis."""
+        """A single subject in a group comparison analysis.
+
+        Attributes
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation to load for this subject.
+        response : int
+            Group label -- 1 for responder, 0 for non-responder.
+        """
 
         subject_id: str
         simulation_name: str
-        response: int  # 0 or 1
+        response: int
 
     # ── Fields ────────────────────────────────────────────────────────
     analysis_name: str
@@ -78,6 +181,13 @@ class GroupComparisonConfig:
     tissue_type: TissueType = _TissueType.GREY
     nifti_file_pattern: str | None = None
 
+    # Analysis space: MNI volume (default) or fsaverage surface. When
+    # ``fsaverage``, the per-subject ``fsaverage_field`` caches are used and the
+    # NIfTI/tissue options are ignored.
+    space: AnalysisSpace = _AnalysisSpace.MNI
+    fsaverage_field: str = "TI_max"
+    fsaverage_spacing: int = 5
+
     # Labels
     group1_name: str = "Responders"
     group2_name: str = "Non-Responders"
@@ -87,8 +197,19 @@ class GroupComparisonConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.test_type = self.TestType(self.test_type)
+        self.alternative = self.Alternative(self.alternative)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
+        _validate_surface_options(
+            self.space, self.fsaverage_field, self.fsaverage_spacing
+        )
 
         responders = [s for s in self.subjects if s.response == 1]
         non_responders = [s for s in self.subjects if s.response == 0]
@@ -101,7 +222,24 @@ class GroupComparisonConfig:
     def load_subjects(cls, csv_path: str) -> list["GroupComparisonConfig.Subject"]:
         """Load group comparison subjects from a CSV file.
 
-        Expected columns: subject_id, simulation_name, response (0 or 1).
+        Expected columns: ``subject_id``, ``simulation_name``, ``response``
+        (0 or 1).  The ``sub-`` prefix is stripped from subject IDs
+        automatically.
+
+        Parameters
+        ----------
+        csv_path : str
+            Path to a CSV file with the required columns.
+
+        Returns
+        -------
+        list of Subject
+            Subject instances parsed from the CSV rows.
+
+        Raises
+        ------
+        ValueError
+            If required columns are missing from the CSV.
         """
         import pandas as pd
 
@@ -128,19 +266,79 @@ class GroupComparisonConfig:
 
 @dataclass
 class CorrelationConfig:
-    """Configuration for correlation-based permutation testing."""
+    """Configuration for correlation-based cluster permutation testing.
+
+    Tests voxelwise correlation between brain field intensities and a
+    continuous behavioral or clinical measure (effect size) across subjects,
+    with cluster-based permutation correction for multiple comparisons.
+
+    Attributes
+    ----------
+    analysis_name : str
+        Human-readable name for this analysis run.
+    subjects : list of Subject
+        Subject entries with associated effect sizes.
+    correlation_type : CorrelationType
+        Pearson or Spearman rank correlation.
+    cluster_threshold : float
+        Uncorrected p-value threshold for forming clusters.
+    cluster_stat : ClusterStat
+        Cluster-level statistic used for permutation testing
+        (``"mass"`` or ``"size"``).
+    n_permutations : int
+        Number of permutations for the null distribution.
+    alpha : float
+        Family-wise error rate for significance.
+    n_jobs : int
+        Number of parallel workers (``-1`` for all CPUs).
+    use_weights : bool
+        Whether to apply per-subject weights during correlation.
+    tissue_type : TissueType
+        Which tissue compartment to analyze.
+    nifti_file_pattern : str or None
+        Filename pattern for subject NIfTI files. If ``None``, derived
+        automatically from *tissue_type*.
+    effect_metric : str
+        Label for the behavioral/clinical variable in plots.
+    field_metric : str
+        Label for the field intensity axis in plots.
+    atlas_files : list of str
+        Atlas filenames for overlap analysis (looked up in the bundled
+        atlas directory).
+
+    See Also
+    --------
+    CorrelationResult : Result container returned by the analysis.
+    run_correlation : Orchestration function that consumes this config.
+    """
 
     # ── Nested types ──────────────────────────────────────────────────
     ClusterStat = _ClusterStat
     TissueType = _TissueType
+    AnalysisSpace = _AnalysisSpace
 
     class CorrelationType(StrEnum):
+        """Type of correlation coefficient to compute."""
+
         PEARSON = "pearson"
         SPEARMAN = "spearman"
 
     @dataclass
     class Subject:
-        """A single subject in a correlation analysis."""
+        """A single subject in a correlation analysis.
+
+        Attributes
+        ----------
+        subject_id : str
+            Subject identifier (without ``sub-`` prefix).
+        simulation_name : str
+            Name of the simulation to load for this subject.
+        effect_size : float
+            Continuous behavioral or clinical measure to correlate with
+            field intensity.
+        weight : float
+            Per-subject weight (default 1.0).
+        """
 
         subject_id: str
         simulation_name: str
@@ -164,6 +362,13 @@ class CorrelationConfig:
     tissue_type: TissueType = _TissueType.GREY
     nifti_file_pattern: str | None = None
 
+    # Analysis space: MNI volume (default) or fsaverage surface. When
+    # ``fsaverage``, the per-subject ``fsaverage_field`` caches are used and the
+    # NIfTI/tissue options are ignored.
+    space: AnalysisSpace = _AnalysisSpace.MNI
+    fsaverage_field: str = "TI_max"
+    fsaverage_spacing: int = 5
+
     # Labels
     effect_metric: str = "Effect Size"
     field_metric: str = "Electric Field Magnitude"
@@ -172,8 +377,18 @@ class CorrelationConfig:
     atlas_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Coerce strings (e.g. from the GUI) to enum members so downstream
+        # ``.value`` reads never crash; idempotent for members.
+        self.correlation_type = self.CorrelationType(self.correlation_type)
+        self.cluster_stat = self.ClusterStat(self.cluster_stat)
+        self.tissue_type = self.TissueType(self.tissue_type)
+        self.space = self.AnalysisSpace(self.space)
+
         if self.nifti_file_pattern is None:
             self.nifti_file_pattern = _nifti_pattern_for_tissue(self.tissue_type)
+        _validate_surface_options(
+            self.space, self.fsaverage_field, self.fsaverage_spacing
+        )
 
         if len(self.subjects) < 3:
             raise ValueError(
@@ -186,8 +401,25 @@ class CorrelationConfig:
     def load_subjects(cls, csv_path: str) -> list["CorrelationConfig.Subject"]:
         """Load correlation subjects from a CSV file.
 
-        Expected columns: subject_id, simulation_name, effect_size.
-        Optional column: weight.
+        Expected columns: ``subject_id``, ``simulation_name``,
+        ``effect_size``.  Optional column: ``weight``.  Rows with NaN
+        ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``
+        prefix is stripped from subject IDs automatically.
+
+        Parameters
+        ----------
+        csv_path : str
+            Path to a CSV file with the required columns.
+
+        Returns
+        -------
+        list of Subject
+            Subject instances parsed from valid CSV rows.
+
+        Raises
+        ------
+        ValueError
+            If required columns are missing or no valid subjects are found.
         """
         import pandas as pd
 
@@ -235,7 +467,40 @@ class CorrelationConfig:
 
 @dataclass
 class GroupComparisonResult:
-    """Result of a group comparison permutation test."""
+    """Result of a group comparison permutation test.
+
+    Attributes
+    ----------
+    success : bool
+        Whether the analysis completed without error.
+    output_dir : str
+        Absolute path to the directory containing all outputs (NIfTI maps,
+        plots, summary text, log).
+    n_responders : int
+        Number of responder subjects included.
+    n_non_responders : int
+        Number of non-responder subjects included.
+    n_significant_voxels : int
+        Total voxels surviving cluster-corrected threshold.
+    n_significant_clusters : int
+        Number of spatially contiguous clusters that survived permutation
+        correction.
+    cluster_threshold : float
+        Cluster-level statistic threshold derived from the permutation null
+        distribution at the requested alpha.
+    analysis_time : float
+        Wall-clock duration of the full analysis in seconds.
+    clusters : list of dict
+        One entry per significant cluster, containing size, mass, peak
+        coordinates, and atlas overlap info.
+    log_file : str
+        Absolute path to the analysis log file.
+
+    See Also
+    --------
+    GroupComparisonConfig : Configuration that produced this result.
+    run_group_comparison : Function that returns this result.
+    """
 
     success: bool
     output_dir: str
@@ -251,7 +516,39 @@ class GroupComparisonResult:
 
 @dataclass
 class CorrelationResult:
-    """Result of a correlation permutation test."""
+    """Result of a correlation-based cluster permutation test.
+
+    Attributes
+    ----------
+    success : bool
+        Whether the analysis completed without error.
+    output_dir : str
+        Absolute path to the directory containing all outputs (NIfTI maps,
+        plots, summary text, log).
+    n_subjects : int
+        Number of subjects included in the analysis.
+    n_significant_voxels : int
+        Total voxels surviving cluster-corrected threshold.
+    n_significant_clusters : int
+        Number of spatially contiguous clusters that survived permutation
+        correction.
+    cluster_threshold : float
+        Cluster-level statistic threshold derived from the permutation null
+        distribution at the requested alpha.
+    analysis_time : float
+        Wall-clock duration of the full analysis in seconds.
+    clusters : list of dict
+        One entry per significant cluster, containing size, mass, peak
+        coordinates, mean/peak correlation coefficients, and atlas overlap
+        info.
+    log_file : str
+        Absolute path to the analysis log file.
+
+    See Also
+    --------
+    CorrelationConfig : Configuration that produced this result.
+    run_correlation : Function that returns this result.
+    """
 
     success: bool
     output_dir: str

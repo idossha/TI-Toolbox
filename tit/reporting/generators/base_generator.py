@@ -6,7 +6,6 @@ with common functionality for BIDS output management, software version
 collection, and error tracking.
 """
 
-
 import json
 import os
 import subprocess
@@ -336,6 +335,10 @@ class BaseReportGenerator(ABC):
             "software_versions": self.software_versions,
         }
 
+    def _get_reference_components(self) -> list[str]:
+        """Return pipeline components used to select default references."""
+        return [self.report_type]
+
     @abstractmethod
     def _build_report(self) -> None:
         """Build the report content. Must be implemented by subclasses."""
@@ -351,27 +354,29 @@ class BaseReportGenerator(ABC):
         Returns:
             Path to the generated report file
         """
-        # Build the report content
-        self._build_report()
+        from tit.telemetry import track_operation
+        from tit import constants as _const
 
-        # Add standard sections
-        self._add_errors_section()
-        self._add_methods_section(pipeline_components=[self.report_type])
-        self._add_references_section(pipeline_components=[self.report_type])
+        with track_operation(_const.TELEMETRY_OP_REPORT):
+            # Build the report content
+            self._build_report()
 
-        # Ensure output directory exists
-        self._ensure_output_dir()
+            # Add standard sections
+            reference_components = self._get_reference_components()
+            self._add_errors_section()
+            self._add_methods_section(pipeline_components=reference_components)
+            self._add_references_section(pipeline_components=reference_components)
 
-        # Create dataset description
-        self._create_dataset_description()
+            # Ensure output directory exists
+            self._ensure_output_dir()
 
-        # Determine output path
-        if output_path:
-            final_path = Path(output_path)
-        else:
-            final_path = self.get_output_path()
+            # Determine output path
+            if output_path:
+                final_path = Path(output_path)
+            else:
+                final_path = self.get_output_path()
 
-        # Save the report
-        self.assembler.save(final_path)
+            # Save the self-contained HTML report.
+            self.assembler.save(final_path)
 
-        return final_path
+            return final_path

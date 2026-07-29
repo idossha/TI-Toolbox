@@ -4,16 +4,19 @@ The statistics module performs cluster-based permutation testing on MNI-space NI
 
 ```mermaid
 graph LR
-    NIFTI[MNI NIfTI Volumes] --> LOAD[Load Group Data]
-    CSV[Subject CSV] --> CFG[Config]
-    CFG --> TEST[Voxelwise Test]
-    LOAD --> TEST
+    NIFTI([MNI NIfTI Volumes]) --> TEST[Voxelwise Test]
+    CSV([Subject CSV]) --> TEST
     TEST --> PERM[Permutation Engine]
-    PERM --> SIG[Significant Clusters]
-    SIG --> REPORT[Summary Report]
-    SIG --> PLOTS[Null Distribution Plots]
-    SIG --> MAPS[NIfTI Output Maps]
+    PERM --> REPORT([Summary Report])
+    PERM --> PLOTS([Null Distribution Plots])
+    PERM --> MAPS([NIfTI Output Maps])
+    style NIFTI fill:#1a3a5c,stroke:#48a,color:#fff
+    style CSV fill:#1a3a5c,stroke:#48a,color:#fff
+    style TEST fill:#2d5a27,stroke:#4a8,color:#fff
     style PERM fill:#2d5a27,stroke:#4a8,color:#fff
+    style REPORT fill:#1a5c4a,stroke:#4a8,color:#fff
+    style PLOTS fill:#1a5c4a,stroke:#4a8,color:#fff
+    style MAPS fill:#1a5c4a,stroke:#4a8,color:#fff
 ```
 
 ## Group Comparison

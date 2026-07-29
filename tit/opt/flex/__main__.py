@@ -22,6 +22,7 @@ def _build_roi(data: dict | None):
 
 
 def main() -> None:
+    """Run flex search from a JSON config passed as the first CLI argument."""
     from tit.logger import setup_logging, add_stream_handler
 
     setup_logging()

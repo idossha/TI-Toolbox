@@ -101,6 +101,22 @@ EOF
 # The test data (ErnieExtended and test_montage) has already been downloaded and placed
 # in /opt/test_projectdir during the Docker build process.
 
+# Provide a tiny DICOM fixture for release-gate dcm2niix tests. The fixture
+# comes from nibabel's packaged test data inside the SimNIBS Python environment;
+# it is suitable for conversion smoke coverage, not for CHARM.
+DICOM_FIXTURE_DIR=/opt/test_projectdir/sourcedata/sub-dicom_fixture/T1w/dicom
+mkdir -p "$DICOM_FIXTURE_DIR"
+NIB_DICOM_DIR=$(simnibs_python - << 'PY'
+from pathlib import Path
+import nibabel
+root = Path(nibabel.__file__).resolve().parent / 'tests' / 'data'
+print(root)
+PY
+)
+if [ -d "$NIB_DICOM_DIR" ]; then
+    cp -f "$NIB_DICOM_DIR"/*.dcm "$DICOM_FIXTURE_DIR"/ 2>/dev/null || true
+fi
+
 # If /mnt/test_projectdir is mounted (tests expect data there), copy the pre-baked data
 if [ -d "/mnt/test_projectdir" ]; then
     echo "Copying pre-baked test data to mount point..."

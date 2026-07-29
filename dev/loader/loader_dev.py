@@ -16,6 +16,7 @@ from typing import Optional
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.dev"
 DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.dev.yml"
+FREESURFER_VOLUME_PREFIX = "ti-toolbox_freesurfer_data"
 TOOLBOX_ROOT = (SCRIPT_DIR / ".." / "..").resolve()
 STATUS_RELATIVE_PATH = Path("code/ti-toolbox/config/project_status.json")
 SYSTEM_INFO_RELATIVE_DIR = Path("derivatives/ti-toolbox/.ti-toolbox-info")
@@ -166,6 +167,43 @@ def initialize_project_structure(project_dir: Path) -> None:
     initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
 
 
+def get_freesurfer_volume_name() -> Optional[str]:
+    """Versioned FreeSurfer volume name from the compose image tag.
+
+    Returns ``None`` if the image tag cannot be parsed. Callers must then leave
+    ``FREESURFER_VOLUME`` unset (so compose's versioned default seeds the correct
+    volume) and skip pruning, rather than falling back to the bare prefix.
+    """
+    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
+        match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
+        if match:
+            return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
+    return None
+
+
+def prune_old_freesurfer_volumes(current_name: Optional[str]) -> None:
+    """Remove stale older-version FreeSurfer volumes (best-effort).
+
+    A ``None`` ``current_name`` means the active version is unknown (tag parse
+    failed); pruning is skipped so a good versioned volume is never destroyed.
+    """
+    if not current_name:
+        return
+    try:
+        names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
+    except Exception:
+        return
+    for name in names:
+        is_versioned = name.startswith(f"{FREESURFER_VOLUME_PREFIX}_")
+        is_legacy = name == FREESURFER_VOLUME_PREFIX
+        if (is_versioned or is_legacy) and name != current_name:
+            subprocess.run(
+                ["docker", "volume", "rm", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+
 def get_compose_images() -> list[str]:
     images: list[str] = []
     for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
@@ -231,6 +269,24 @@ def display_welcome() -> None:
     print("")
 
 
+def _get_user_config_dir() -> str:
+    """Return the host-side user config directory for TI-Toolbox.
+
+    Mirrors the logic in ``tit.paths.PathManager.user_config_dir()`` and
+    ``package/src/backend/env.js:getUserConfigDir()``.
+    """
+    system = platform.system()
+    if system == "Darwin":
+        base = Path.home() / ".config"
+    elif system == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    config_dir = base / "ti-toolbox"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return str(config_dir)
+
+
 def is_process_running(name: str) -> bool:
     output = capture(["ps", "aux"])
     return name.lower() in output.lower()
@@ -287,6 +343,27 @@ def main() -> None:
     env["TZ"] = capture(["date", "+%Z"])
     env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
     env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
+    env["TIT_USER_CONFIG"] = _get_user_config_dir()
+    env["TIT_HOST_OS"] = platform.system().lower()  # darwin, linux, windows
+    env["TIT_HOST_OS_VERSION"] = platform.release()
+    env["TIT_HOST_ARCH"] = platform.machine()  # x86_64, arm64
+
+    freesurfer_volume = get_freesurfer_volume_name()
+    if freesurfer_volume:
+        env["FREESURFER_VOLUME"] = freesurfer_volume
+
+    # Bring any containers from a previous (older-image) run down first so they
+    # release the old FreeSurfer volume; otherwise the prune below fails with
+    # "volume is in use" and the stale volume lingers.
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    prune_old_freesurfer_volumes(freesurfer_volume)
+
     ensure_images_pulled(env)
     run_docker_compose(env, dev_codebase_dir)
 

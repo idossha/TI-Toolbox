@@ -1,7 +1,15 @@
-"""
-Field extraction utilities for TI-Toolbox.
+"""Extract grey- and white-matter meshes from a SimNIBS head mesh.
 
-Extracts grey and white matter meshes from a full SimNIBS head mesh.
+Loads a full tetrahedral head mesh produced by SimNIBS, crops it to
+grey matter (element tag 2) and white matter (element tag 1), and
+saves each tissue as a separate ``.msh`` file.  Output paths follow
+the BIDS derivatives layout when *project_dir* and *subject_id* are
+provided.
+
+See Also
+--------
+tit.tools.mesh2nii : Convert meshes to NIfTI volumes.
+tit.tools.extract_labels : Extract labels from NIfTI segmentations.
 """
 
 import logging

@@ -154,8 +154,6 @@ class QSIPrepConfig:
         Denoising method: 'dwidenoise', 'patch2self', or 'none'.
     unringing_method : str
         Unringing method: 'mrdegibbs', 'rpg', or 'none'.
-    distortion_group_merge : str
-        Method for merging distortion groups: 'concatenate', 'average', or 'none'.
     """
 
     subject_id: str
@@ -165,7 +163,6 @@ class QSIPrepConfig:
     skip_bids_validation: bool = True
     denoise_method: str = "dwidenoise"
     unringing_method: str = "mrdegibbs"
-    distortion_group_merge: str = "none"
 
     def __post_init__(self) -> None:
         if not self.subject_id:

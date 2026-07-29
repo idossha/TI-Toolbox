@@ -1,9 +1,16 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox GUI Utilities
-This module provides utility functions for the GUI.
+"""Utility functions shared across the TI-Toolbox GUI.
+
+Includes ANSI escape-code stripping, platform-aware file/directory openers,
+message-importance filtering for console output, and a confirmation dialog
+helper.
+
+See Also
+--------
+tit.gui.components.console : Console widget that consumes these helpers.
+tit.gui.components.base_thread : Uses ``strip_ansi_codes`` for output parsing.
 """
 
 import logging
@@ -24,9 +31,19 @@ ANSI_ESCAPE_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI color / control sequences from *text*.
+    """Remove ANSI colour / control sequences from *text*.
 
     This is the single canonical implementation used across the entire GUI.
+
+    Parameters
+    ----------
+    text : str
+        Raw text that may contain ANSI escape codes.
+
+    Returns
+    -------
+    str
+        Cleaned text with all escape sequences removed.
     """
     if not text:
         return text
@@ -47,8 +64,15 @@ def open_file(file_path: str) -> None:
     Tries ``webbrowser.open`` first, then falls back to platform-specific
     commands (``xdg-open``, ``open``, ``os.startfile``).
 
-    Raises:
-        OSError: If the file could not be opened by any method.
+    Parameters
+    ----------
+    file_path : str
+        Path to the file to open.
+
+    Raises
+    ------
+    OSError
+        If the file could not be opened by any method.
     """
     abs_path = os.path.abspath(file_path)
 
@@ -86,8 +110,15 @@ def open_file(file_path: str) -> None:
 def open_directory(dir_path: str) -> None:
     """Open *dir_path* in the platform file manager.
 
-    Raises:
-        OSError: If the directory could not be opened by any method.
+    Parameters
+    ----------
+    dir_path : str
+        Path to the directory to open.
+
+    Raises
+    ------
+    OSError
+        If the directory could not be opened by any method.
     """
     match platform.system().lower():
         case "linux":
@@ -138,11 +169,18 @@ def is_important_message(
 ) -> bool:
     """Return ``True`` if *text* should be displayed in non-debug / summary mode.
 
-    Args:
-        text: The raw message text.
-        message_type: The classified type ('error', 'warning', 'info', etc.).
-        context: Optional context tag (e.g. ``"exsearch"``) — reserved for
-            future per-module filtering.
+    Parameters
+    ----------
+    text : str
+        The raw message text.
+    message_type : str, optional
+        Classified type (``'error'``, ``'warning'``, ``'info'``, etc.).
+    context : str, optional
+        Context tag (e.g. ``"exsearch"``) -- reserved for future filtering.
+
+    Returns
+    -------
+    bool
     """
     if message_type in ("error", "warning", "success"):
         return True
@@ -155,14 +193,42 @@ def is_verbose_message(
 ) -> bool:
     """Return ``True`` if *text* is a verbose / debug message.
 
-    This is the logical complement of :func:`is_important_message` — it
-    returns ``True`` for lines that would normally be hidden in summary mode.
+    Logical complement of :func:`is_important_message` -- returns ``True``
+    for lines that would normally be hidden in summary mode.
+
+    Parameters
+    ----------
+    text : str
+        The raw message text.
+    message_type : str, optional
+        Classified type.
+    context : str, optional
+        Context tag.
+
+    Returns
+    -------
+    bool
     """
     return not is_important_message(text, message_type, context)
 
 
 def confirm_overwrite(parent, path, item_type="directory"):
-    """Ask the user to confirm overwriting an existing path."""
+    """Show a Yes/No dialog asking the user to confirm overwriting *path*.
+
+    Parameters
+    ----------
+    parent : QWidget
+        Parent widget for the dialog.
+    path : str
+        Filesystem path that would be overwritten.
+    item_type : str, optional
+        Label shown in the dialog (e.g. ``"directory"``, ``"file"``).
+
+    Returns
+    -------
+    bool
+        ``True`` if the user confirmed, ``False`` otherwise.
+    """
     from PyQt5 import QtWidgets
 
     reply = QtWidgets.QMessageBox.question(

@@ -14,6 +14,19 @@ from tit.gui.style import FONT_MD
 
 
 class ConductivityEditorDialog(QtWidgets.QDialog):
+    """Editable table dialog for tissue conductivity values.
+
+    Displays default SimNIBS tissue conductivities with literature references
+    and allows the user to override individual values for simulation.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    custom_conductivities : dict or None
+        Mapping of tissue number to conductivity (S/m) overrides.
+    """
+
     def __init__(self, parent=None, custom_conductivities=None):
         super(ConductivityEditorDialog, self).__init__(parent)
         self.setWindowTitle("Tissue Conductivity Editor")

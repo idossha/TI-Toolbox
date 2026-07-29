@@ -1,6 +1,5 @@
 """Entry point: simnibs_python -m tit.sim config.json"""
 
-
 import json
 import sys
 
@@ -19,10 +18,12 @@ def _build_montage(data: dict) -> Montage:
         mode=mode,
         electrode_pairs=pairs,
         eeg_net=data.pop("eeg_net", None),
+        display_name=data.pop("display_name", None),
     )
 
 
 def main() -> None:
+    """Run TI simulation from a JSON config passed as the first CLI argument."""
     from tit.logger import setup_logging, add_stream_handler
 
     setup_logging()
@@ -49,7 +50,7 @@ def main() -> None:
         map_to_surf=data.get("map_to_surf", True),
         map_to_vol=data.get("map_to_vol", False),
         map_to_mni=data.get("map_to_mni", False),
-        map_to_fsavg=data.get("map_to_fsavg", False),
+        map_to_fsavg=data.get("map_to_fsavg", True),
         open_in_gmsh=data.get("open_in_gmsh", False),
         tissues_in_niftis=data.get("tissues_in_niftis", "all"),
         aniso_maxratio=data.get("aniso_maxratio", 10.0),

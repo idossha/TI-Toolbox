@@ -12,7 +12,18 @@ from tit.gui.style import FONT_SM, FONT_HELP
 
 
 class QSIPrepConfigDialog(QtWidgets.QDialog):
-    """Configuration dialog for QSIPrep parameters."""
+    """Configuration dialog for QSIPrep DWI preprocessing parameters.
+
+    Exposes output resolution, resource limits (CPUs, memory, OMP threads),
+    denoising/unringing methods, BIDS validation toggle, and Docker image tag.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    config : dict or None
+        Previously saved configuration to pre-populate the controls.
+    """
 
     def __init__(self, parent=None, config=None):
         super().__init__(parent)
@@ -356,7 +367,18 @@ _CSS_HINT = "color: #888888; font-size: {font}; margin-bottom: 2px;"
 
 
 class QSIReconConfigDialog(QtWidgets.QDialog):
-    """Configuration dialog for QSIRecon parameters."""
+    """Configuration dialog for QSIRecon reconstruction parameters.
+
+    Provides categorised checkbox lists for reconstruction specifications
+    and connectivity atlases, plus resource and GPU settings.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget.
+    config : dict or None
+        Previously saved configuration to pre-populate the controls.
+    """
 
     def __init__(self, parent=None, config=None):
         super().__init__(parent)

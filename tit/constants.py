@@ -1,10 +1,56 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox Constants
-Centralized constants for the entire TI-Toolbox codebase.
-This module contains all hardcoded values, magic numbers, and configuration constants.
+"""Project-wide constants for TI-Toolbox.
+
+Centralises all hard-coded values, magic numbers, and configuration defaults
+used across the TI-Toolbox codebase.  Constants are grouped by domain:
+
+Sections
+--------
+Directory Names
+    BIDS-compliant directory structure names (``DIR_*``).
+File Names and Extensions
+    Configuration filenames (``FILE_*``), NIfTI filenames, and common
+    extensions (``EXT_*``).
+Subject and Naming Patterns
+    BIDS prefixes (``PREFIX_*``).
+Environment Variables
+    Expected ``os.environ`` keys (``ENV_*``).
+Docker and Mount Paths
+    Container-specific path constants.
+Analysis Constants
+    Field names (``FIELD_*``), default percentiles, and focality cutoffs.
+Simulation Constants
+    Simulation types (``SIM_TYPE_*``), modes, electrode shapes, and default
+    electrode parameters.
+Atlas Names
+    Cortical (``ATLAS_DK40``, ``ATLAS_A2009S``) and subcortical atlas
+    identifiers.
+Logging Constants
+    Log levels (``LOG_LEVEL_*``) and format strings (``LOG_FORMAT_*``).
+Numerical Constants
+    Floating-point tolerances and tissue conductivities (S/m) with
+    literature references.
+Tissue Conductivity Table
+    ``TISSUE_PROPERTIES`` lookup list mapping SimNIBS tissue tag numbers
+    to names, conductivities, and references.
+GUI Constants
+    Window dimensions, tab names, and console buffer sizes.
+QSI Integration
+    QSIPrep / QSIRecon Docker images, recon specs, atlases, and resource
+    defaults.
+Validation Bounds
+    Min/max ranges for frontend and API input validation.
+Default Parameters
+    ``DEFAULT_ELECTRODE``, ``DEFAULT_OPTIMIZATION``,
+    ``DEFAULT_STATISTICS`` dictionaries.
+Telemetry Constants
+    GA4 Measurement Protocol settings and operation event names.
+
+See Also
+--------
+tit.paths : Uses many of these constants for BIDS path resolution.
 """
 
 # ============================================================================
@@ -106,6 +152,14 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
+FIELD_HF_PEAK = "hf_peak"  # peak carrier field max(|E1+E2|,|E1-E2|) (Cassarà 2025)
+FIELD_HF_SAR = "hf_sar"  # carrier heating driver |E1|^2+|E2|^2 (∝ SAR)
+
+# fsaverage total node counts (both hemispheres) per subdivision factor.
+# ico5/6/7 surfaces: 10242/40962/163842 vertices per hemisphere, doubled.
+# Lives here (a leaf module) so surface/stats/plotting can share it without
+# importing tit.source, which would pull in mne via tit.source.forward.
+FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 
 # Default analysis parameters
 DEFAULT_PERCENTILES = [95, 99, 99.9]
@@ -322,8 +376,8 @@ PATTERN_COORDINATE = r"^-?\d+\.?\d*$"
 # QSI Docker images
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_QSIPREP_IMAGE_TAG = "1.2.0"
-QSI_QSIRECON_IMAGE_TAG = "1.2.0"
+QSI_QSIPREP_IMAGE_TAG = "26.0.0"
+QSI_QSIRECON_IMAGE_TAG = "26.0.0"
 
 # QSI directories
 DIR_QSIPREP = "qsiprep"
@@ -539,3 +593,61 @@ DEFAULT_STATISTICS = {
     "alpha": 0.05,
     "cluster_threshold": 0.05,
 }
+
+# ============================================================================
+# TELEMETRY CONSTANTS
+# ============================================================================
+
+# Environment variable to disable telemetry (any truthy value)
+ENV_NO_TELEMETRY = "TIT_NO_TELEMETRY"
+
+# Config directory and file
+TELEMETRY_CONFIG_DIR = "ti-toolbox"
+TELEMETRY_CONFIG_FILE = "telemetry.json"
+
+# User-level config directory inside Docker container
+# The Electron launcher mounts the host config dir here.
+USER_CONFIG_CONTAINER_PATH = "/root/.config/ti-toolbox"
+
+# Google Analytics 4 Measurement Protocol
+# Replace these placeholders after creating your GA4 property.
+# See: https://developers.google.com/analytics/devguides/collection/protocol/ga4
+GA4_MEASUREMENT_ID = "G-2GGJF2D8C7"
+GA4_API_SECRET = "6ZFk0B3STC-t3ZJsZmTPbg"
+GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+
+# Telemetry HTTP timeout (seconds) — keep short so it never blocks
+TELEMETRY_TIMEOUT_S = 5
+
+# Operation event names (used as GA4 event names)
+# -- Simulation --
+TELEMETRY_OP_SIM_TI = "sim_ti"
+TELEMETRY_OP_SIM_MTI = "sim_mti"
+# -- Optimization --
+TELEMETRY_OP_FLEX_SEARCH = "flex_search"
+TELEMETRY_OP_EX_SEARCH = "ex_search"
+# -- Analysis --
+TELEMETRY_OP_ANALYSIS = "analysis"
+TELEMETRY_OP_GROUP_ANALYSIS = "group_analysis"
+# -- Preprocessing --
+TELEMETRY_OP_PRE_PIPELINE = "pre_pipeline"
+TELEMETRY_OP_PRE_CHARM = "pre_charm"
+TELEMETRY_OP_PRE_RECON_ALL = "pre_recon_all"
+TELEMETRY_OP_PRE_DICOM = "pre_dicom"
+TELEMETRY_OP_PRE_QSIPREP = "pre_qsiprep"
+TELEMETRY_OP_PRE_QSIRECON = "pre_qsirecon"
+# -- Statistics --
+TELEMETRY_OP_STATS = "stats_comparison"
+# -- Reporting --
+TELEMETRY_OP_REPORT = "report_generate"
+# -- Blender / visualization --
+TELEMETRY_OP_BLENDER_MONTAGE = "blender_montage"
+TELEMETRY_OP_BLENDER_REGIONS = "blender_regions"
+TELEMETRY_OP_BLENDER_VECTORS = "blender_vectors"
+# -- GUI --
+TELEMETRY_OP_GUI_LAUNCH = "gui_launch"
+TELEMETRY_OP_GUI_CLOSE = "gui_close"
+# -- CLI --
+TELEMETRY_OP_CLI_SESSION = "cli_session"
+# -- Lifecycle --
+TELEMETRY_OP_FIRST_OPEN = "first_open"

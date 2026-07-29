@@ -73,6 +73,7 @@ class TestSerializeConfig:
         )
         data = serialize_config(config)
         assert data["roi"]["_type"] == "SubcorticalROI"
+        assert data["roi"]["atlas_space"] == "subject"
         assert data["roi"]["tissues"] == "WM"
 
     def test_nested_electrode_config(self):
@@ -103,6 +104,21 @@ class TestSerializeConfig:
         assert data["non_roi"] is None
         assert data["thresholds"] is None
         assert data["max_iterations"] is None
+
+    def test_skin_region_margin_serialized(self):
+        config = FlexConfig(
+            subject_id="001",
+            goal="mean",
+            postproc="max_TI",
+            current_mA=1.0,
+            electrode=FlexElectrodeConfig(),
+            roi=SphericalROI(x=0, y=0, z=0),
+            skin_region_margin_mm=20.0,
+            avoid_landmark_regions=True,
+        )
+        data = serialize_config(config)
+        assert data["skin_region_margin_mm"] == 20.0
+        assert data["avoid_landmark_regions"] is True
 
     def test_pool_electrodes_discriminator(self):
         electrodes = ExConfig.PoolElectrodes(electrodes=["C3", "C4", "Cz"])
@@ -189,3 +205,25 @@ class TestWriteReadRoundTrip:
             assert isinstance(data, dict)
         finally:
             os.unlink(path)
+
+    def test_simulation_montage_display_name_serializes(self):
+        from tit.sim.config import Montage, SimulationConfig
+
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[
+                Montage(
+                    name="flex_20260507_143012_a1b2c3d4_mapped",
+                    mode=Montage.Mode.FLEX_MAPPED,
+                    electrode_pairs=[("E1", "E2"), ("E3", "E4")],
+                    eeg_net="GSN-HydroCel-185.csv",
+                    display_name="May 7 14:30 | mean maxTI | a1b2c3d4 | mapped",
+                )
+            ],
+        )
+        data = serialize_config(config)
+        montage = data["montages"][0]
+        assert montage["name"] == "flex_20260507_143012_a1b2c3d4_mapped"
+        assert montage["display_name"] == (
+            "May 7 14:30 | mean maxTI | a1b2c3d4 | mapped"
+        )

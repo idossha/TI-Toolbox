@@ -1,10 +1,22 @@
+"""BIDS-compliant project structure initializer.
+
+Creates directory scaffolding, dataset description files, README, and
+project status metadata for a new TI-Toolbox project.
+
+This module is the **single source of truth** for ``project_status.json``.
+All other modules must use :func:`load_project_status` and
+:func:`update_project_status` rather than reading/writing the file directly.
+"""
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from . import example_data_manager
+
+logger = logging.getLogger(__name__)
 
 MARKER_FILES = (
     "code/ti-toolbox/config/.initialized",
@@ -15,6 +27,7 @@ MARKER_FILES = (
 
 
 def _dir_has_files(path: Path, *, patterns: Iterable[str] | None = None) -> bool:
+    """Check whether *path* contains any files, optionally matching *patterns*."""
     if not path.exists() or not path.is_dir():
         return False
     if patterns:
@@ -26,6 +39,19 @@ def _dir_has_files(path: Path, *, patterns: Iterable[str] | None = None) -> bool
 
 
 def has_project_data_or_markers(project_dir: Path) -> bool:
+    """Return ``True`` if *project_dir* contains any project data or marker files.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+
+    Returns
+    -------
+    bool
+        ``True`` when initialization markers, subject folders, source data,
+        derivatives, or loose NIfTI files are detected.
+    """
     for marker in MARKER_FILES:
         if (project_dir / marker).exists():
             return True
@@ -48,6 +74,18 @@ def has_project_data_or_markers(project_dir: Path) -> bool:
 
 
 def is_new_project(project_dir: Path) -> bool:
+    """Return ``True`` if *project_dir* exists and contains no project data.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+
+    Returns
+    -------
+    bool
+        ``True`` when the directory is empty of project data and markers.
+    """
     return (
         project_dir.exists()
         and project_dir.is_dir()
@@ -56,6 +94,7 @@ def is_new_project(project_dir: Path) -> bool:
 
 
 def initialize_readme(project_dir: Path) -> None:
+    """Create a top-level README in *project_dir* if it does not exist."""
     readme_file = project_dir / "README"
     if readme_file.exists():
         return
@@ -98,6 +137,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
 
 
 def initialize_dataset_description(project_dir: Path) -> None:
+    """Write a BIDS ``dataset_description.json`` at the project root."""
     dataset_file = project_dir / "dataset_description.json"
     if dataset_file.exists():
         return
@@ -119,6 +159,7 @@ def initialize_dataset_description(project_dir: Path) -> None:
 def initialize_derivative_dataset_description(
     project_dir: Path, derivative_name: str
 ) -> None:
+    """Write a BIDS derivative ``dataset_description.json`` for *derivative_name*."""
     derivative_dir = project_dir / "derivatives" / derivative_name
     dataset_file = derivative_dir / "dataset_description.json"
     if dataset_file.exists():
@@ -138,9 +179,96 @@ def initialize_derivative_dataset_description(
     dataset_file.write_text(json.dumps(payload, indent=2))
 
 
+def _status_file_path(project_dir: Path) -> Path:
+    """Return the canonical path to ``project_status.json``."""
+    return project_dir / "code" / "ti-toolbox" / "config" / "project_status.json"
+
+
+def _deep_merge(base: dict, updates: dict) -> dict:
+    """Recursively merge *updates* into *base* (mutates *base*)."""
+    for key, value in updates.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def load_project_status(project_dir: Path) -> dict[str, Any]:
+    """Read ``project_status.json`` and return its contents.
+
+    Returns an **empty dict** when the file is missing or unreadable.
+    This function never writes to disk.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+    """
+    status_file = _status_file_path(project_dir)
+    if not status_file.exists():
+        return {}
+    try:
+        return json.loads(status_file.read_text())
+    except Exception as exc:
+        logger.warning("Could not read %s: %s", status_file, exc)
+        return {}
+
+
+def update_project_status(project_dir: Path, updates: dict[str, Any]) -> bool:
+    """Merge *updates* into ``project_status.json`` and write back.
+
+    Performs a recursive (deep) merge so that nested keys such as
+    ``user_preferences.show_welcome`` can be updated without clobbering
+    sibling keys.  Automatically sets ``last_updated``.
+
+    If the file does not yet exist a warning is logged and the function
+    returns ``False`` — the file should have been created by
+    :func:`initialize_project_status`.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the project.
+    updates : dict
+        Fields to merge into the existing status.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
+    status_file = _status_file_path(project_dir)
+    current = load_project_status(project_dir)
+    if not current:
+        logger.warning(
+            "project_status.json does not exist at %s — skipping update",
+            status_file,
+        )
+        return False
+
+    _deep_merge(current, updates)
+    current["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    try:
+        status_file.write_text(json.dumps(current, indent=2))
+        return True
+    except Exception as exc:
+        logger.error("Failed to write %s: %s", status_file, exc)
+        return False
+
+
 def initialize_project_status(project_dir: Path) -> None:
+    """Create ``project_status.json`` **only if it does not already exist**.
+
+    This is the sole place in the codebase that creates the file.
+    Subsequent mutations must go through :func:`update_project_status`.
+    """
     config_dir = project_dir / "code" / "ti-toolbox" / "config"
-    status_file = config_dir / "project_status.json"
+    status_file = _status_file_path(project_dir)
+    if status_file.exists():
+        logger.debug("project_status.json already exists — skipping creation")
+        return
     config_dir.mkdir(parents=True, exist_ok=True)
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     payload = {
@@ -159,6 +287,14 @@ def initialize_project_status(project_dir: Path) -> None:
 
 
 def initialize_project_structure(project_dir: Path) -> None:
+    """Scaffold a full BIDS-compliant directory structure for a new project.
+
+    Parameters
+    ----------
+    project_dir : Path
+        Root directory of the new project.  Directories, metadata files,
+        README, and an initialization marker are created idempotently.
+    """
     print("")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"  New project detected: {project_dir.name}")
@@ -204,6 +340,20 @@ def initialize_project_structure(project_dir: Path) -> None:
 
 
 def setup_example_data(toolbox_root: Path, project_dir: Path) -> bool:
+    """Copy bundled example data into *project_dir*.
+
+    Parameters
+    ----------
+    toolbox_root : Path
+        Root of the TI-Toolbox installation (contains example data).
+    project_dir : Path
+        Target project directory.
+
+    Returns
+    -------
+    bool
+        ``True`` on success, ``False`` on failure.
+    """
     try:
         success, _subjects = example_data_manager.setup_example_data(
             str(toolbox_root), str(project_dir)

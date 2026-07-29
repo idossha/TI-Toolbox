@@ -1,12 +1,87 @@
 #!/usr/bin/env simnibs_python
-"""ROI configuration and output naming for flex-search."""
+"""ROI configuration and output naming for flex-search.
+
+Provides helper functions for directory naming, human-readable labelling,
+SimNIBS log parsing, and ROI setup on ``TesFlexOptimization`` objects.
+
+Public API
+----------
+generate_run_dirname
+    Create a datetime-stamped directory name for a run.
+generate_label
+    Build a human-readable label string for a flex-search run.
+parse_optimization_output
+    Extract the goal-function value from a SimNIBS log line.
+configure_roi
+    Set up ROI(s) on a SimNIBS optimization object.
+
+See Also
+--------
+tit.opt.flex.flex : Main flex-search orchestrator.
+"""
 
 import logging
 import os
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-from tit.opt.config import FlexConfig
+from tit.opt.config import FlexConfig, _as_list
+
+_VOLUME_MASK_SPACES = {"subject", "mni"}
+
+
+def _broadcast(value, n: int) -> list:
+    """Normalise *value* to a list of length *n*.
+
+    A scalar (or single-element list) is repeated to length *n*; a list that
+    already has *n* elements is passed through.  Used to align a shared ROI
+    field (e.g. one atlas path or radius) with a list of labels/centers.
+    """
+    values = _as_list(value)
+    if len(values) == 1 and n != 1:
+        return values * n
+    return values
+
+
+def _fmt_num(value):
+    """Render a coordinate/radius as an int when it has no fractional part."""
+    return int(value) if value == int(value) else value
+
+
+def _union_operators(n: int) -> list[str]:
+    """Operator sequence that unions *n* regions on SimNIBS' all-True base.
+
+    SimNIBS seeds the working mask all-True and folds each region with its
+    operator, so the first fold must ``intersection`` (selecting region 1) and
+    the rest ``union`` on.  An all-``union`` sequence would select the whole
+    brain.
+    """
+    return ["intersection"] + ["union"] * (n - 1)
+
+
+def _apply_union_operator(roi_obj) -> None:
+    """Set the union operator sequence on a SimNIBS mask ROI.
+
+    Mirrors the sphere path (:func:`_apply_spheres`): a single region leaves the
+    operator unset (SimNIBS defaults to ``"intersection"``) so single-region
+    setup stays byte-identical with the pre-union code; a union of *N* regions
+    gets the explicit ``["intersection"] + ["union"] * (N-1)`` sequence.
+    """
+    n = len(roi_obj.mask_value)
+    if n > 1:
+        roi_obj.mask_operator = _union_operators(n)
+
+
+def eeg_net_csv_path(eeg_positions_dir: str, eeg_net: str) -> Path:
+    """Resolve an EEG net name or filename inside a subject EEG directory."""
+    filename = Path(eeg_net).name
+    if not filename:
+        raise ValueError("enable_mapping requires an EEG net name.")
+    if Path(filename).suffix.lower() != ".csv":
+        filename = f"{filename}.csv"
+    return Path(eeg_positions_dir) / filename
+
 
 # ---------------------------------------------------------------------------
 # Output directory naming
@@ -14,15 +89,21 @@ from tit.opt.config import FlexConfig
 
 
 def generate_run_dirname(base_path: str) -> str:
-    """Generate a datetime-based directory name for a flex-search run.
+    """Generate a datetime-stamped directory name for a flex-search run.
 
-    Format: YYYYMMDD_HHMMSS. Appends _1, _2, etc. if the folder already exists.
+    Format is ``YYYYMMDD_HHMMSS``.  When a collision exists, ``_1``,
+    ``_2``, etc. are appended.
 
-    Args:
-        base_path: Parent directory (e.g. flex-search/) to check for collisions.
+    Parameters
+    ----------
+    base_path : str
+        Parent directory (e.g. ``flex-search/``) to check for
+        collisions.
 
-    Returns:
-        Directory name string (not full path).
+    Returns
+    -------
+    str
+        Directory name string (not the full path).
     """
     from datetime import datetime
 
@@ -38,15 +119,20 @@ def generate_run_dirname(base_path: str) -> str:
 def generate_label(config, pareto: bool = False) -> str:
     """Build a human-readable label for a flex-search run.
 
-    This label is stored in flex_meta.json for GUI display purposes.
-    It is NOT used for folder naming or machine parsing.
+    The label is stored in ``flex_meta.json`` for GUI display and is
+    **not** used for folder naming or machine parsing.
 
-    Args:
-        config: FlexConfig instance.
-        pareto: True if this is a pareto sweep run.
+    Parameters
+    ----------
+    config : FlexConfig
+        Flex-search configuration instance.
+    pareto : bool, optional
+        When *True* the goal component is replaced by ``"pareto"``.
 
-    Returns:
-        Label string like "mean_maxTI_sphere(-42,-20,55)r10".
+    Returns
+    -------
+    str
+        Label string, e.g. ``"mean_maxTI_sphere(-42,-20,55)r10"``.
     """
     postproc_short = {
         "max_TI": "maxTI",
@@ -70,26 +156,36 @@ def generate_label(config, pareto: bool = False) -> str:
 
     roi = config.roi
     if isinstance(roi, FlexConfig.SphericalROI):
-        x = int(roi.x) if roi.x == int(roi.x) else roi.x
-        y = int(roi.y) if roi.y == int(roi.y) else roi.y
-        z = int(roi.z) if roi.z == int(roi.z) else roi.z
-        r = int(roi.radius) if roi.radius == int(roi.radius) else roi.radius
-        roi_str = f"sphere({x},{y},{z})r{r}"
+        xs, ys, zs = _as_list(roi.x), _as_list(roi.y), _as_list(roi.z)
+        radii = _broadcast(roi.radius, len(xs))
+        roi_str = "+".join(
+            f"sphere({_fmt_num(x)},{_fmt_num(y)},{_fmt_num(z)})r{_fmt_num(r)}"
+            for x, y, z, r in zip(xs, ys, zs, radii)
+        )
     elif isinstance(roi, FlexConfig.AtlasROI):
-        hemi = roi.hemisphere
+        labels = _as_list(roi.label)
+        hemis = _broadcast(roi.hemisphere, len(labels))
+        paths = _broadcast(roi.atlas_path, len(labels))
+        hemi = "+".join(dict.fromkeys(hemis))
+        first_path = paths[0] if paths else None
         atlas = (
-            os.path.basename(roi.atlas_path).replace(".annot", "").split(".")[-1]
-            if roi.atlas_path
+            os.path.basename(first_path).replace(".annot", "").split(".")[-1]
+            if first_path
             else "atlas"
         )
-        roi_str = f"{hemi}-{atlas}-{roi.label}"
+        roi_str = f"{hemi}-{atlas}-{'+'.join(dict.fromkeys(str(v) for v in labels))}"
     elif isinstance(roi, FlexConfig.SubcorticalROI):
-        atlas = os.path.basename(roi.atlas_path) if roi.atlas_path else "volume"
+        labels = _as_list(roi.label)
+        paths = _broadcast(roi.atlas_path, len(labels))
+        first_path = paths[0] if paths else None
+        atlas = os.path.basename(first_path) if first_path else "volume"
         for ext in (".nii.gz", ".nii", ".mgz"):
             if atlas.endswith(ext):
                 atlas = atlas[: -len(ext)]
                 break
-        roi_str = f"subcortical-{atlas}-{roi.label}"
+        roi_str = (
+            f"subcortical-{atlas}-{'+'.join(dict.fromkeys(str(v) for v in labels))}"
+        )
     else:
         roi_str = "unknown"
 
@@ -97,18 +193,25 @@ def generate_label(config, pareto: bool = False) -> str:
 
 
 def parse_optimization_output(line: str) -> float | None:
-    """Extract the optimization function value from a SimNIBS log line.
+    """Extract the goal-function value from a SimNIBS log line.
 
-    Handles patterns:
-        - "Final goal function value:   -42.123"
-        - "Goal function value.*:  -42.123"
-        - Table row with max_TI column (scientific notation)
+    Recognises three patterns:
 
-    Args:
-        line: A single line of SimNIBS stdout/stderr.
+    * ``"Final goal function value:   -42.123"``
+    * ``"Goal function value<anything>:  -42.123"``
+    * Table row with a ``max_TI`` column (optionally in scientific
+      notation)
 
-    Returns:
-        The function value as a float, or None if the line does not match.
+    Parameters
+    ----------
+    line : str
+        A single line of SimNIBS stdout / stderr.
+
+    Returns
+    -------
+    float or None
+        The extracted function value, or *None* when the line does not
+        match any known pattern.
     """
     import re
 
@@ -142,14 +245,22 @@ def parse_optimization_output(line: str) -> float | None:
 
 
 def configure_roi(opt, config: FlexConfig) -> None:
-    """Configure ROI based on the config's ROI specification.
+    """Configure ROI(s) on a SimNIBS optimization object.
 
-    This is the main entry point for ROI configuration that delegates to
-    the appropriate method-specific function.
+    Delegates to the appropriate private helper based on the ROI type
+    stored in ``config.roi`` (spherical, atlas, or subcortical).
 
-    Args:
-        opt: SimNIBS ``TesFlexOptimization`` object.
-        config: Flex-search configuration with ROI spec.
+    Parameters
+    ----------
+    opt : simnibs.optimization.TesFlexOptimization
+        SimNIBS optimization object to configure.
+    config : FlexConfig
+        Flex-search configuration containing the ROI specification.
+
+    Raises
+    ------
+    ValueError
+        If the ROI type is not recognised.
     """
     if isinstance(config.roi, FlexConfig.SphericalROI):
         _configure_spherical_roi(opt, config)
@@ -162,14 +273,7 @@ def configure_roi(opt, config: FlexConfig) -> None:
 
 
 def _resolve_tissues(tissues_str: str) -> list:
-    """Resolve a tissues string ("GM", "WM", "both") to ElementTags.
-
-    Args:
-        tissues_str: One of ``"GM"``, ``"WM"``, or ``"both"`` (case-insensitive).
-
-    Returns:
-        List of ``ElementTags`` values for SimNIBS ``roi.tissues``.
-    """
+    """Map a ``"GM"``/``"WM"``/``"both"`` string to SimNIBS ``ElementTags``."""
     from simnibs.mesh_tools.mesh_io import ElementTags
 
     value = tissues_str.strip().upper()
@@ -180,48 +284,66 @@ def _resolve_tissues(tissues_str: str) -> list:
     return [ElementTags.GM]
 
 
-def _resolve_sphere_center(roi_spec, opt):
-    """Return the sphere center, transforming from MNI if needed.
+def _apply_spheres(roi_obj, centers, radii, space, *, complement: bool) -> None:
+    """Write sphere geometry onto a SimNIBS ROI object.
 
-    Args:
-        roi_spec: A ``SphericalROI`` instance.
-        opt: SimNIBS optimization object (needed for MNI transform).
-
-    Returns:
-        List of [x, y, z] coordinates in subject space.
+    For a single sphere the scalar/flat form is used (``roi_sphere_center =
+    [x, y, z]``, ``roi_sphere_radius = r``, ``roi_sphere_center_space = space``)
+    so single-region behaviour is byte-identical to the pre-union code.  For a
+    union of *N* spheres the list form is used with an explicit operator
+    sequence.  When *complement* is True (focality "everything else") every
+    sphere is subtracted from the all-True base (``["difference"] * N``);
+    otherwise the union sequence is used.
     """
-    from simnibs import mni2subject_coords
+    n = len(centers)
+    operators = ["difference"] * n if complement else _union_operators(n)
+    if n == 1:
+        roi_obj.roi_sphere_center_space = space
+        roi_obj.roi_sphere_center = centers[0]
+        roi_obj.roi_sphere_radius = radii[0]
+        # A single non-complement sphere leaves the operator unset (SimNIBS
+        # defaults to "intersection") to stay byte-identical with prior output.
+        if complement:
+            roi_obj.roi_sphere_operator = operators
+    else:
+        roi_obj.roi_sphere_center_space = [space] * n
+        roi_obj.roi_sphere_center = centers
+        roi_obj.roi_sphere_radius = list(radii)
+        roi_obj.roi_sphere_operator = operators
 
-    x, y, z = roi_spec.x, roi_spec.y, roi_spec.z
-    if roi_spec.use_mni:
-        log.info(f"Transforming MNI coordinates [{x}, {y}, {z}] to subject space")
-        coords = mni2subject_coords([x, y, z], opt.subpath)
-        log.info(f"Transformed coordinates: {coords}")
-        return coords
-    return [x, y, z]
+
+def _spheres_from_spec(roi_spec: FlexConfig.SphericalROI):
+    """Return ``(centers, radii, space)`` lists for a (possibly multi) sphere."""
+    xs, ys, zs = _as_list(roi_spec.x), _as_list(roi_spec.y), _as_list(roi_spec.z)
+    radii = _broadcast(roi_spec.radius, len(xs))
+    centers = [[x, y, z] for x, y, z in zip(xs, ys, zs)]
+    return centers, radii, _sphere_center_space(roi_spec)
+
+
+def _sphere_center_space(roi_spec: FlexConfig.SphericalROI) -> str:
+    return "mni" if roi_spec.use_mni else "subject"
+
+
+def _volume_mask_space(roi_spec: FlexConfig.SubcorticalROI) -> str:
+    if roi_spec.atlas_space not in _VOLUME_MASK_SPACES:
+        raise ValueError(
+            f"atlas_space must be one of {sorted(_VOLUME_MASK_SPACES)} "
+            f"(was {roi_spec.atlas_space!r})"
+        )
+    return roi_spec.atlas_space
 
 
 def _configure_spherical_roi(opt, config: FlexConfig) -> None:
-    """Configure spherical ROI with optional MNI coordinate transformation.
-
-    When ``roi_spec.volumetric`` is True, uses volume method with tissue
-    filtering (evaluates on tetrahedra). Otherwise uses the surface method
-    on the central cortical surface (default, backwards-compatible).
-
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with SphericalROI spec.
-    """
+    """Set up a spherical ROI (surface or volumetric), unioning N spheres."""
     roi_spec: FlexConfig.SphericalROI = config.roi  # type: ignore[assignment]
 
-    center = _resolve_sphere_center(roi_spec, opt)
-    radius = roi_spec.radius
+    centers, radii, center_space = _spheres_from_spec(roi_spec)
 
     roi = opt.add_roi()
     if roi_spec.volumetric:
         log.info(
-            f"Using volumetric sphere (tissues={roi_spec.tissues}) "
-            f"at {center} r={radius}"
+            f"Using volumetric sphere(s) (tissues={roi_spec.tissues}) "
+            f"at {centers} ({center_space}) r={radii}"
         )
         roi.method = "volume"
         roi.tissues = _resolve_tissues(roi_spec.tissues)
@@ -229,9 +351,7 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
         roi.method = "surface"
         roi.surface_type = "central"
 
-    roi.roi_sphere_center_space = "subject"
-    roi.roi_sphere_center = center
-    roi.roi_sphere_radius = radius
+    _apply_spheres(roi, centers, radii, center_space, complement=False)
 
     # Add non-ROI if focality optimisation is requested
     if config.goal == "focality":
@@ -244,36 +364,39 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
             non_roi.surface_type = "central"
 
         if config.non_roi_method == "everything_else":
-            non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_center = center
-            non_roi.roi_sphere_radius = radius
-            non_roi.roi_sphere_operator = ["difference"]
+            _apply_spheres(non_roi, centers, radii, center_space, complement=True)
             non_roi.weight = -1
         else:
             # Specific non-ROI from config.non_roi (unified ROISpec type)
             non_roi_spec: FlexConfig.SphericalROI = config.non_roi  # type: ignore[assignment]
-            non_roi.roi_sphere_center = _resolve_sphere_center(non_roi_spec, opt)
-            non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_radius = non_roi_spec.radius
+            nr_centers, nr_radii, nr_space = _spheres_from_spec(non_roi_spec)
+            _apply_spheres(non_roi, nr_centers, nr_radii, nr_space, complement=False)
             non_roi.weight = -1
 
 
-def _configure_atlas_roi(opt, config: FlexConfig) -> None:
-    """Configure cortical atlas-based ROI.
+def _atlas_mask_lists(roi_spec: FlexConfig.AtlasROI):
+    """Return parallel ``(mask_space, mask_path, mask_value)`` lists.
 
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with AtlasROI spec.
+    Each label carries its own hemisphere (``subject_lh`` / ``subject_rh``) and
+    atlas path, so a target can span both hemispheres or several atlases.
     """
+    labels = _as_list(roi_spec.label)
+    n = len(labels)
+    hemis = _broadcast(roi_spec.hemisphere, n)
+    paths = _broadcast(roi_spec.atlas_path, n)
+    mask_space = [f"subject_{h}" for h in hemis]
+    return mask_space, list(paths), list(labels)
+
+
+def _configure_atlas_roi(opt, config: FlexConfig) -> None:
+    """Set up a cortical atlas-based ROI (union of N labels) on the surface."""
     roi_spec: FlexConfig.AtlasROI = config.roi  # type: ignore[assignment]
 
     roi = opt.add_roi()
     roi.method = "surface"
     roi.surface_type = "central"
-    hemi = roi_spec.hemisphere
-    roi.mask_space = [f"subject_{hemi}"]
-    roi.mask_path = [roi_spec.atlas_path]
-    roi.mask_value = [roi_spec.label]
+    roi.mask_space, roi.mask_path, roi.mask_value = _atlas_mask_lists(roi_spec)
+    _apply_union_operator(roi)
 
     if config.goal == "focality":
         non_roi = opt.add_roi()
@@ -284,54 +407,51 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
             non_roi.mask_space = roi.mask_space
             non_roi.mask_path = roi.mask_path
             non_roi.mask_value = roi.mask_value
-            non_roi.mask_operator = ["difference"]
+            # Length must match the ROI's mask lists or SimNIBS rejects it.
+            non_roi.mask_operator = ["difference"] * len(roi.mask_value)
             non_roi.weight = -1
         else:
             non_roi_spec: FlexConfig.AtlasROI = config.non_roi  # type: ignore[assignment]
-            non_roi.mask_space = roi.mask_space
-            non_roi.mask_path = [non_roi_spec.atlas_path]
-            non_roi.mask_value = [non_roi_spec.label]
+            non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
+                _atlas_mask_lists(non_roi_spec)
+            )
+            _apply_union_operator(non_roi)
             non_roi.weight = -1
 
 
 def _resolve_roi_tissues(config: FlexConfig) -> list:
-    """Resolve tissue tags from the ROI specification.
-
-    Reads the ``tissues`` field from a SubcorticalROI config.
-    Delegates to :func:`_resolve_tissues`.
-
-    Args:
-        config: Flex-search configuration with SubcorticalROI spec.
-
-    Returns:
-        List of ElementTags values to assign to ``roi.tissues``.
-    """
+    """Read the ``tissues`` field from a SubcorticalROI and resolve to ``ElementTags``."""
     roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
     return _resolve_tissues(roi_spec.tissues)
 
 
-def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
-    """Configure subcortical volume-based ROI.
+def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI):
+    """Return parallel ``(mask_space, mask_path, mask_value)`` lists.
 
-    Args:
-        opt: SimNIBS optimization object.
-        config: Flex-search configuration with SubcorticalROI spec.
+    A single shared *atlas_space* applies to the whole union; *atlas_path* may
+    be shared (broadcast) or one path per label.  Every atlas path is verified
+    to exist.
     """
+    labels = _as_list(roi_spec.label)
+    n = len(labels)
+    paths = _broadcast(roi_spec.atlas_path, n)
+    space = _volume_mask_space(roi_spec)
+    for path in paths:
+        if not path or not os.path.isfile(path):
+            raise FileNotFoundError(f"Volume atlas file not found: {path}")
+    return [space] * n, list(paths), list(labels)
+
+
+def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
+    """Set up a subcortical volume ROI (union of N labels) from a label atlas."""
     roi_spec: FlexConfig.SubcorticalROI = config.roi  # type: ignore[assignment]
-
-    volume_atlas_path = roi_spec.atlas_path
-    label_val = roi_spec.label
-
-    if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
-        raise FileNotFoundError(f"Volume atlas file not found: {volume_atlas_path}")
 
     tissues = _resolve_roi_tissues(config)
 
     roi = opt.add_roi()
     roi.method = "volume"
-    roi.mask_space = ["subject"]
-    roi.mask_path = [volume_atlas_path]
-    roi.mask_value = [label_val]
+    roi.mask_space, roi.mask_path, roi.mask_value = _subcortical_mask_lists(roi_spec)
+    _apply_union_operator(roi)
     roi.tissues = tissues
 
     if config.goal == "focality":
@@ -342,19 +462,15 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
             non_roi.mask_space = roi.mask_space
             non_roi.mask_path = roi.mask_path
             non_roi.mask_value = roi.mask_value
-            non_roi.mask_operator = ["difference"]
+            # Length must match the ROI's mask lists or SimNIBS rejects it.
+            non_roi.mask_operator = ["difference"] * len(roi.mask_value)
             non_roi.weight = -1
             non_roi.tissues = tissues
         else:
             non_roi_spec: FlexConfig.SubcorticalROI = config.non_roi  # type: ignore[assignment]
-            if not non_roi_spec.atlas_path or not os.path.isfile(
-                non_roi_spec.atlas_path
-            ):
-                raise FileNotFoundError(
-                    f"Non-ROI volume atlas not found: {non_roi_spec.atlas_path}"
-                )
-            non_roi.mask_space = ["subject"]
-            non_roi.mask_path = [non_roi_spec.atlas_path]
-            non_roi.mask_value = [non_roi_spec.label]
+            non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
+                _subcortical_mask_lists(non_roi_spec)
+            )
+            _apply_union_operator(non_roi)
             non_roi.weight = -1
             non_roi.tissues = tissues

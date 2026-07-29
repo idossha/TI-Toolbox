@@ -205,9 +205,7 @@ def _run_stl_export(config: RegionConfig, mesh_path: str) -> int:
     os.makedirs(regions_dir, exist_ok=True)
 
     selected = (
-        _resolve_selected(config.regions, set(atlas.keys()))
-        if config.regions
-        else None
+        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
     )
 
     if not config.skip_regions:
@@ -439,9 +437,7 @@ def _run_ply_export(config: RegionConfig, mesh_path: str) -> int:
     use_colors = not config.scalars
     fr = _effective_field_range(config, mesh, mesh_path)
     selected = (
-        _resolve_selected(config.regions, set(atlas.keys()))
-        if config.regions
-        else None
+        _resolve_selected(config.regions, set(atlas.keys())) if config.regions else None
     )
 
     if not config.skip_regions:
@@ -519,19 +515,23 @@ def run_regions(config: RegionConfig) -> int:
         FileNotFoundError: If a required input file is missing.
     """
     _resolve_paths(config)
-    logger.info("Starting region export (format=%s)", config.format)
+    from tit.telemetry import track_operation
+    from tit import constants as _const
 
-    mesh_path = config.mesh
+    with track_operation(_const.TELEMETRY_OP_BLENDER_REGIONS):
+        logger.info("Starting region export (format=%s)", config.format)
 
-    os.makedirs(config.output_dir, exist_ok=True)
+        mesh_path = config.mesh
 
-    if config.format == RegionConfig.Format.STL:
-        converted = _run_stl_export(config, mesh_path)
-        out_subdir = os.path.join(config.output_dir, "cortical_stls")
-    else:
-        converted = _run_ply_export(config, mesh_path)
-        out_subdir = os.path.join(config.output_dir, "cortical_plys")
+        os.makedirs(config.output_dir, exist_ok=True)
 
-    logger.info("Output: %s", out_subdir)
-    logger.info("Done")
-    return converted
+        if config.format == RegionConfig.Format.STL:
+            converted = _run_stl_export(config, mesh_path)
+            out_subdir = os.path.join(config.output_dir, "cortical_stls")
+        else:
+            converted = _run_ply_export(config, mesh_path)
+            out_subdir = os.path.join(config.output_dir, "cortical_plys")
+
+        logger.info("Output: %s", out_subdir)
+        logger.info("Done")
+        return converted

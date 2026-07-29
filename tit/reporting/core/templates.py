@@ -1,7 +1,22 @@
-"""
-CSS and JavaScript templates for TI-Toolbox reports.
+"""CSS and JavaScript templates for TI-Toolbox reports.
 
-This module contains the default styling and interactivity for generated reports.
+Contains the default styling and interactivity for generated reports.
+Templates are consumed by ``ReportAssembler.render_html`` to produce a
+self-contained HTML document.
+
+Public API
+----------
+DEFAULT_CSS_STYLES : str
+    Complete CSS stylesheet for TI-Toolbox reports.
+DEFAULT_JS_SCRIPTS : str
+    JavaScript for copy-to-clipboard, section toggling, and
+    scroll-tracking.
+get_html_template
+    Render a complete HTML document from content fragments.
+
+See Also
+--------
+tit.reporting.core.assembler : Uses ``get_html_template`` during rendering.
 """
 
 DEFAULT_CSS_STYLES = """
@@ -262,6 +277,24 @@ body {
     color: var(--text-muted);
 }
 
+.interactive-volume-viewer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: var(--spacing-lg) auto;
+}
+
+.interactive-volume-viewer > *,
+.interactive-volume-viewer iframe,
+.interactive-volume-viewer .plotly-graph-div {
+    width: min(100%, 1200px) !important;
+    max-width: 1200px !important;
+    min-height: 720px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
 /* Table Reportlet */
 .table-wrapper {
     overflow-x: auto;
@@ -301,6 +334,53 @@ body {
     background: rgba(102, 126, 234, 0.05);
 }
 
+.file-tree-wrapper {
+    background: var(--bg-light);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.file-tree,
+.file-tree ul {
+    list-style: none;
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+    border-left: 1px solid var(--border-color);
+}
+
+.file-tree {
+    border-left: none;
+    padding-left: 0;
+}
+
+.file-tree li {
+    margin: var(--spacing-xs) 0;
+}
+
+.file-tree-label {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.file-tree-root {
+    color: var(--primary-gradient-start);
+}
+
+.file-tree-folder::before {
+    content: "▸ ";
+    color: var(--text-muted);
+}
+
+.file-tree-file {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 0.88rem;
+}
+
+.file-tree-file::before {
+    content: "• ";
+    color: var(--text-muted);
+}
+
 /* Text Reportlet */
 .text-content {
     line-height: 1.8;
@@ -317,6 +397,11 @@ body {
 
 .text-content.copyable {
     position: relative;
+}
+
+.methods-text p {
+    margin: 0 0 var(--spacing-md) 0;
+    text-indent: 0;
 }
 
 .copy-btn {
@@ -719,20 +804,29 @@ def get_html_template(
     custom_css: str = "",
     custom_js: str = "",
 ) -> str:
-    """
-    Generate a complete HTML document with the report content.
+    """Generate a complete HTML document with the report content.
 
-    Args:
-        title: The report title
-        content: The main HTML content
-        toc_html: Table of contents HTML
-        metadata_html: Header metadata HTML
-        footer_html: Footer HTML
-        custom_css: Additional CSS styles
-        custom_js: Additional JavaScript
+    Parameters
+    ----------
+    title : str
+        The report title (used in ``<title>`` and the header ``<h1>``).
+    content : str
+        The main HTML content (rendered sections).
+    toc_html : str, optional
+        Table of contents HTML fragment.
+    metadata_html : str, optional
+        Header metadata HTML fragment.
+    footer_html : str, optional
+        Footer HTML.  Defaults to a TI-Toolbox credit line.
+    custom_css : str, optional
+        Additional CSS appended after the default styles.
+    custom_js : str, optional
+        Additional JavaScript appended after the default scripts.
 
-    Returns:
-        Complete HTML document as a string
+    Returns
+    -------
+    str
+        Complete HTML document as a string.
     """
     css = DEFAULT_CSS_STYLES
     if custom_css:

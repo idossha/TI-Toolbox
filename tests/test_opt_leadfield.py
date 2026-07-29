@@ -294,6 +294,17 @@ class TestLeadfieldGeneratorListLeadfields:
         results = gen.list_leadfields(subject_id="002")
         pm.leadfields.assert_called_with("002")
 
+    @patch("tit.opt.leadfield.get_path_manager")
+    def test_list_leadfields_missing_directory_returns_empty(self, mock_gpm, tmp_path):
+        pm = MagicMock()
+        pm.leadfields.return_value = str(tmp_path / "missing_leadfields")
+        mock_gpm.return_value = pm
+
+        from tit.opt.leadfield import LeadfieldGenerator
+
+        gen = LeadfieldGenerator(subject_id="001")
+        assert gen.list_leadfields() == []
+
 
 # ---------------------------------------------------------------------------
 # LeadfieldGenerator.get_electrode_names

@@ -1,10 +1,11 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Pre-Process Tab
-This module provides a GUI interface for the pre-processing functionality.
-Thread-safe version with deadlock prevention.
+"""Pre-processing tab for the TI-Toolbox GUI.
+
+Provides subject selection, processing options (DICOM conversion, FreeSurfer,
+CHARM, tissue analysis, QSIPrep/QSIRecon, DTI extraction), and a console
+panel for monitoring the ``tit.pre`` subprocess.
 """
 
 import json
@@ -24,8 +25,12 @@ from tit.gui.components.console import (
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
-from tit import constants as const
-from tit.pre import discover_subjects, check_m2m_exists
+from tit.pre import (
+    check_m2m_exists,
+    discover_subjects,
+    find_existing_preprocessing_outputs,
+    find_missing_preprocessing_inputs,
+)
 from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
     QSIPrepConfigDialog,
@@ -34,7 +39,11 @@ from tit.gui.components.qsi_config_dialogs import (
 
 
 class PreProcessThread(BaseProcessThread):
-    """Run tit.pre via subprocess, streaming output to the GUI."""
+    """QThread wrapper that runs ``tit.pre`` via subprocess.
+
+    Streams stdout/stderr back to the GUI console through
+    ``BaseProcessThread`` signals.
+    """
 
     def __init__(self, cmd, env=None):
         super().__init__(cmd=cmd, env=env)
@@ -44,7 +53,19 @@ class PreProcessThread(BaseProcessThread):
 
 
 class PreProcessTab(QtWidgets.QWidget):
-    """Tab for pre-processing functionality."""
+    """GUI tab for the pre-processing pipeline.
+
+    Manages subject selection, processing option checkboxes (DICOM, FreeSurfer,
+    CHARM, tissue analysis, QSIPrep, QSIRecon, DTI extraction), and
+    run/stop lifecycle for the ``tit.pre`` subprocess.
+
+    Parameters
+    ----------
+    parent : QWidget or None
+        Parent widget (main window).
+    """
+
+    preprocessing_completed = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -176,10 +197,17 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Add small comment below
         parallel_comment = QtWidgets.QLabel(
-            f"   {available_cores} cores available on this system"
+            f"   {available_cores} cores available; parallel mode runs multiple subjects via Python threads"
         )
         parallel_comment.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
         options_group_layout.addWidget(parallel_comment)
+
+        log_hint = QtWidgets.QLabel(
+            "Troubleshooting logs: derivatives/ti-toolbox/logs/sub-{subject}/"
+        )
+        log_hint.setWordWrap(True)
+        log_hint.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
+        options_group_layout.addWidget(log_hint)
 
         # Enable spinbox based on checkbox
         self.parallel_cb.toggled.connect(
@@ -310,7 +338,8 @@ class PreProcessTab(QtWidgets.QWidget):
         # Reference to underlying console for backward compatibility
         self.output_text = self.console_widget.get_console_widget()
 
-        # No longer need to manage DICOM type selection as it's auto-detected
+        # Modalities are determined by the sourcedata folder layout; see
+        # tit.pre.dicom2nifti.MODALITIES for the supported set.
 
         # Update available subjects initially
         self.update_available_subjects()
@@ -326,6 +355,17 @@ class PreProcessTab(QtWidgets.QWidget):
     def update_available_subjects(self):
         """Update the list of available subjects."""
         self.subject_list.clear()
+        if self.project_dir is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Project Directory Not Found",
+                "Could not detect a project directory.\n\n"
+                "Make sure you launched the container with loader.py and that\n"
+                "the PROJECT_DIR_NAME environment variable is set.\n\n"
+                "Run:  echo $PROJECT_DIR_NAME\n"
+                "      ls /mnt/",
+            )
+            return
         subjects = discover_subjects(self.project_dir)
         for subject_id in subjects:
             self.subject_list.addItem(subject_id)
@@ -334,9 +374,11 @@ class PreProcessTab(QtWidgets.QWidget):
                 self,
                 "No Subjects Found",
                 "No subjects found in the project directory.\n\n"
-                "Please ensure your subjects follow one of these structures:\n"
-                f"  BIDS: {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', 'T1w', '{{any_subdirectory_or_files}}')}\n"
-                f"  Compressed: {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '*.tgz')}",
+                "Please ensure your subjects follow this structure:\n"
+                f"  {os.path.join(self.project_dir, 'sourcedata', 'sub-{{subjectID}}', '{{T1w,T2w,ct,dwi}}', 'dicom')}\n"
+                "with recursive .dcm/.dicom files, or .zip/.tar/.tar.gz/.tgz archives\n"
+                "placed anywhere in the modality folder. A modality folder holding\n"
+                "a .nii/.nii.gz instead is copied straight into place.",
             )
 
     def set_processing_state(self, is_processing):
@@ -367,6 +409,114 @@ class PreProcessTab(QtWidgets.QWidget):
             self.status_label.show()
         else:
             self.status_label.hide()
+
+    def _format_existing_outputs(self, outputs):
+        """Return a concise grouped summary for existing preprocessing outputs."""
+        grouped = {}
+        for output in outputs:
+            grouped.setdefault(output.subject_id, []).append(output)
+
+        lines = []
+        for subject_id in sorted(grouped):
+            lines.append(f"sub-{subject_id}:")
+            for output in grouped[subject_id]:
+                lines.append(f"  - {output.label}: {output.path}")
+        return "\n".join(lines)
+
+    def _format_input_problems(self, problems):
+        """Return a concise grouped summary for missing preprocessing inputs."""
+        grouped = {}
+        for problem in problems:
+            grouped.setdefault(problem.subject_id, []).append(problem)
+
+        lines = []
+        for subject_id in sorted(grouped):
+            lines.append(f"sub-{subject_id}:")
+            for problem in grouped[subject_id]:
+                lines.append(f"  - {problem.label}: {problem.message}")
+                lines.append(f"    Checked: {problem.path}")
+        return "\n".join(lines)
+
+    def _validate_selected_inputs(self, selected_subjects, *, skip_existing_outputs):
+        """Warn and block when selected steps are missing required inputs."""
+        problems = find_missing_preprocessing_inputs(
+            self.project_dir,
+            selected_subjects,
+            convert_dicom=self.convert_dicom_cb.isChecked(),
+            create_m2m=self.create_m2m_cb.isChecked(),
+            run_recon=self.run_recon_cb.isChecked(),
+            run_qsiprep=self.run_qsiprep_cb.isChecked(),
+            run_qsirecon=self.run_qsirecon_cb.isChecked(),
+            extract_dti=self.extract_dti_cb.isChecked(),
+            skip_existing_outputs=skip_existing_outputs,
+        )
+        if not problems:
+            return True
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Warning)
+        dialog.setWindowTitle("Missing Pre-processing Inputs")
+        dialog.setText(
+            "Some selected pre-processing steps are missing required inputs."
+        )
+        dialog.setInformativeText(
+            "Adjust the selected subjects, enable DICOM conversion, replace existing "
+            "converted outputs, or add the expected T1w file before starting."
+        )
+        dialog.setDetailedText(self._format_input_problems(problems))
+        dialog.exec_()
+        return False
+
+    def _choose_existing_output_policy(self, selected_subjects):
+        """Ask how to handle selected preprocessing outputs that already exist."""
+        outputs = find_existing_preprocessing_outputs(
+            self.project_dir,
+            selected_subjects,
+            convert_dicom=self.convert_dicom_cb.isChecked(),
+            create_m2m=self.create_m2m_cb.isChecked(),
+            run_recon=self.run_recon_cb.isChecked(),
+            run_qsiprep=self.run_qsiprep_cb.isChecked(),
+            run_qsirecon=self.run_qsirecon_cb.isChecked(),
+            extract_dti=self.extract_dti_cb.isChecked(),
+        )
+        if not outputs:
+            return False, False
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Warning)
+        dialog.setWindowTitle("Existing Pre-processing Outputs")
+        dialog.setText("Some selected pre-processing outputs already exist.")
+        dialog.setInformativeText(
+            "Choose how to continue:\n\n"
+            "Skip Existing Outputs: leave existing outputs in place and skip those steps.\n"
+            "Replace and Rerun: delete existing outputs for the selected steps, then rerun."
+        )
+        dialog.setDetailedText(self._format_existing_outputs(outputs))
+
+        cancel_button = dialog.addButton(
+            "Cancel / Adjust Options", QtWidgets.QMessageBox.RejectRole
+        )
+        skip_button = dialog.addButton(
+            "Skip Existing Outputs", QtWidgets.QMessageBox.AcceptRole
+        )
+        replace_button = dialog.addButton(
+            "Replace and Rerun", QtWidgets.QMessageBox.DestructiveRole
+        )
+        dialog.setDefaultButton(cancel_button)
+        dialog.exec_()
+
+        clicked = dialog.clickedButton()
+        if clicked == skip_button:
+            return True, False
+        if clicked == replace_button:
+            if ConfirmationDialog.confirm(
+                self,
+                title="Replace Existing Outputs",
+                message="Delete existing outputs for the selected steps and rerun?",
+                details=self._format_existing_outputs(outputs),
+            ):
+                return False, True
+        return None
 
     def run_preprocessing(self):
         """Run the preprocessing pipeline."""
@@ -418,17 +568,45 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
+        existing_policy = self._choose_existing_output_policy(selected_subjects)
+        if existing_policy is None:
+            return
+        skip_existing_outputs, replace_existing_outputs = existing_policy
+
+        if not self._validate_selected_inputs(
+            selected_subjects,
+            skip_existing_outputs=skip_existing_outputs,
+        ):
+            return
+
         # Show confirmation dialog
+        convert_dicom_text = (
+            "Yes (uses T1w/T2w folder layout)"
+            if self.convert_dicom_cb.isChecked()
+            else "No"
+        )
+        parallel_text = (
+            "Yes (multiple subjects via ThreadPoolExecutor)"
+            if self.parallel_cb.isChecked()
+            else "No"
+        )
+        existing_outputs_text = "Block"
+        if replace_existing_outputs:
+            existing_outputs_text = "Replace and rerun"
+        elif skip_existing_outputs:
+            existing_outputs_text = "Skip"
+
         details = (
             f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n"
-            + f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n"
-            + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
-            + f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n"
+            + f"- Convert DICOM: {convert_dicom_text}\n"
             + f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n"
+            + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
+            + f"- Parallel processing: {parallel_text}\n"
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
-            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}"
+            + f"- Extract DTI tensor: {'Yes' if self.extract_dti_cb.isChecked() else 'No'}\n"
+            + f"- Existing outputs: {existing_outputs_text}"
         )
 
         if not ConfirmationDialog.confirm(
@@ -440,6 +618,7 @@ class PreProcessTab(QtWidgets.QWidget):
             return
 
         # Set processing state
+        self._preproc_had_failures = False
         self.set_processing_state(True)
 
         # Debug output (only show in debug mode)
@@ -448,12 +627,16 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(
             f"- Convert DICOM: {self.convert_dicom_cb.isChecked()}", "debug"
         )
+        self.update_output(
+            f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", "debug"
+        )
         self.update_output(f"- Run recon-all: {self.run_recon_cb.isChecked()}", "debug")
         self.update_output(
             f"- Parallel processing: {self.parallel_cb.isChecked()}", "debug"
         )
         self.update_output(
-            f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", "debug"
+            "Logs are saved under derivatives/ti-toolbox/logs/sub-{subject}/",
+            "info",
         )
         self.update_output(
             f"- Run tissue analyzer: {self.run_tissue_analyzer_cb.isChecked()}", "debug"
@@ -489,6 +672,8 @@ class PreProcessTab(QtWidgets.QWidget):
             "qsiprep_config": qsiprep_config,
             "qsi_recon_config": qsi_recon_config,
             "extract_dti": self.extract_dti_cb.isChecked(),
+            "skip_existing_outputs": skip_existing_outputs,
+            "replace_existing_outputs": replace_existing_outputs,
         }
         fd, config_path = tempfile.mkstemp(prefix="pre_", suffix=".json")
         with os.fdopen(fd, "w") as f:
@@ -498,15 +683,29 @@ class PreProcessTab(QtWidgets.QWidget):
 
         self.processing_thread = PreProcessThread(cmd)
         self.processing_thread.output_signal.connect(self.update_output)
-        self.processing_thread.error_signal.connect(
-            lambda msg: self.update_output(msg, "error")
-        )
-        self.processing_thread.finished.connect(self.preprocessing_finished)
+        self.processing_thread.error_signal.connect(self._handle_process_error)
+        self.processing_thread.process_finished.connect(self.preprocessing_finished)
         self.processing_thread.start()
 
-    def preprocessing_finished(self):
+    def _handle_process_error(self, msg):
+        """Record subprocess errors and show an actionable message."""
+        self._preproc_had_failures = True
+        self.update_output(msg, "error")
+
+    def preprocessing_finished(self, success=False, returncode=0):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
+        if success and not self._preproc_had_failures:
+            self.update_output(
+                "Pre-processing completed. Dependent tabs will refresh their subject and atlas lists.",
+                "success",
+            )
+            self.preprocessing_completed.emit()
+        else:
+            self.update_output(
+                "Pre-processing failed or was stopped. Check the console above and logs under derivatives/ti-toolbox/logs/sub-{subject}/. Common fixes: verify sourcedata DICOM layout, FreeSurfer license, CHARM/SimNIBS inputs, and Docker/QSI access.",
+                "error",
+            )
 
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""

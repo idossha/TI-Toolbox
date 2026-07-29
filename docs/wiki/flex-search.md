@@ -114,6 +114,12 @@ The transition from unconstrained optimization solutions to practical electrode 
 
 **Electrode mapping challenges**: Analysis of optimized electrode positions reveals depth-dependent mapping distances across anatomical targets, with subcortical structures like the hippocampus requiring significantly larger electrode separations (11.74 ± 5.33 mm) compared to cortical regions like the insula (7.30 ± 1.38 mm) or spherical ROIs (8.01 ± 1.43 mm). This pattern reflects the fundamental challenge of targeting deep brain structures with scalp electrodes, where optimal montages often requires large distances between electrodes which may be positioned on the lower scalp that does not have dense electrode coverage. *Data regarding electrode mapping distances comes from the supplementary information of the [TI-Toolbox reference](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext).*
 
+## Reports and mapped electrode labels
+
+Flex-search reports include the selected optimized configuration, subject-space optimized coordinates, and mapped EEG-net labels/positions when `electrode_mapping.json` is produced. Ranked rows show mapped labels for the selected mapped solution; rows without mapping data are intentionally left unlabeled rather than guessing electrode names. If optional montage or field-map images are unavailable, the report includes an explicit note and the tables remain the source of truth.
+
+For template/MNI workflows, confirm that the selected EEG net is available and that final mapped-electrode simulation is enabled if you need report imagery from the practical mapped montage.
+
 ## Output Manifest (`flex_meta.json`)
 
 Every flex-search run writes a `flex_meta.json` file to the output folder. This manifest is the single source of truth for run metadata -- downstream consumers (simulator tab, GUI) read this instead of parsing folder names.
@@ -145,3 +151,11 @@ Flex-search optimization is constrained to valid skin regions where electrodes c
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" style="width: 80%; max-width: 600px;">
 
 If electrode positions fall outside the valid skin region, the valid skin region can be manipulated through preprocessing, or ex-search can be used as an alternative since it is not constrained by skin region limitations.
+
+### Valid Skin Region Margin
+
+The flex-search skin constraint can be adjusted directly from scripts or from the GUI. `skin_region_margin_mm` applies a signed millimeter margin to the default SimNIBS valid skin region: negative values constrict the region, positive values expand it. The default is `0.0`, which preserves the standard SimNIBS mask.
+
+For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear and orbital exclusion zones invalid. This guard uses scalp landmarks only (`Nz`, `LPA`, and `RPA`) and does not depend on eye tissue labels.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">

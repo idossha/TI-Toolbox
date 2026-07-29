@@ -20,6 +20,7 @@ from .metadata import (
 )
 
 from .text import (
+    SimulationMethodsBuilder,
     MethodsBoilerplateReportlet,
     DescriptionReportlet,
     CommandLogReportlet,
@@ -44,6 +45,7 @@ __all__ = [
     "ParameterListReportlet",
     "DEFAULT_CONDUCTIVITIES",
     # Text reportlets
+    "SimulationMethodsBuilder",
     "MethodsBoilerplateReportlet",
     "DescriptionReportlet",
     "CommandLogReportlet",

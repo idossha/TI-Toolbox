@@ -145,6 +145,9 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
 # Install additional Python packages to simnibs_python
 # - Scientific / visualization stack used by tit modules
+# - mne is pinned to ~=1.5 so it stays compatible with the container's
+#   numpy 1.26.x (SimNIBS stack); newer mne would pull numpy 2.x and break the
+#   nan_to_num patch. Used by tit.source EEG forward / fsaverage mapping.
 RUN simnibs_python -m pip install \
     meshio \
     nilearn \
@@ -155,7 +158,10 @@ RUN simnibs_python -m pip install \
     numpy-stl \
     click \
     bpy \
-    psutil
+    psutil \
+    python-lsp-server \
+    jupyterlab-lsp \
+    "mne~=1.5"
 
 
 # Install Neovim v0.11.0 from prebuilt binary
@@ -183,6 +189,9 @@ RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox && \
     # Install TIT package (non-editable). CLI entrypoints are defined in pyproject.toml. \
     cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 
+# Register SimNIBS Python as the Jupyter kernel so the notebook and LSP
+# both resolve simnibs + tit imports for autocompletion / intellisense.
+RUN simnibs_python -m ipykernel install --name simnibs --display-name "SimNIBS + TI-Toolbox"
 
 # Create symlinks for config files
 RUN ln -sf /ti-toolbox/container/config/.tmux.conf /root/.tmux.conf && \
@@ -193,6 +202,18 @@ RUN tmux source-file /root/.tmux.conf || true
 
 # Install plugins using lazy.nvim
 RUN nvim --headless "+LAZY! sync" +qa
+
+# JupyterLab settings: enable continuous hinting and signature help
+RUN SETTINGS_DIR=$(simnibs_python -c "import sysconfig; print(sysconfig.get_path('data'))")/share/jupyter/lab/settings && \
+    mkdir -p "$SETTINGS_DIR" && \
+    echo '{ \
+      "@jupyter-lsp/jupyterlab-lsp:plugin": { \
+        "continuousHinting": true \
+      }, \
+      "@jupyterlab/completer-extension:manager": { \
+        "autoCompletion": true \
+      } \
+    }' > "$SETTINGS_DIR/overrides.json"
 
 # Copy the robust entrypoint script into the image
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

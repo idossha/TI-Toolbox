@@ -1,9 +1,20 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-TI-Toolbox-2.0 Flex Search Tab
-This module provides a GUI interface for the flex-search optimization tool.
+"""Flex-search optimisation tab for the TI-Toolbox GUI.
+
+Provides a form-based interface for the differential-evolution electrode
+placement optimiser (Weise et al. 2025).  Users select subjects, define
+target ROIs (spherical, cortical atlas, or subcortical), set electrode
+and solver hyper-parameters, and launch optimisations in a background
+``QThread``.
+
+See Also
+--------
+tit.opt.config.FlexConfig : Backend configuration dataclass.
+tit.gui.components.roi_picker.ROIPickerWidget : ROI selection widget.
+tit.gui.components.electrode_config.ElectrodeConfigWidget : Electrode parameters.
+tit.gui.components.solver_params.SolverParamsWidget : Solver hyper-parameters.
 """
 
 import os
@@ -37,7 +48,12 @@ from tit.config_io import write_config_json
 
 
 class FlexSearchThread(BaseProcessThread):
-    """Thread to run flex-search in background to prevent GUI freezing."""
+    """Background thread that runs ``tit.opt.flex`` via subprocess.
+
+    See Also
+    --------
+    BaseProcessThread : Provides ``execute_process`` and ``terminate_process``.
+    """
 
     def __init__(self, cmd, env=None):
         super().__init__(cmd=cmd, env=env)
@@ -48,7 +64,21 @@ class FlexSearchThread(BaseProcessThread):
 
 
 class FlexSearchTab(QtWidgets.QWidget):
-    """Tab for flex-search electrode optimization."""
+    """Flex-search electrode optimisation tab.
+
+    Provides controls for differential-evolution optimisation of electrode
+    placements.  Supports multi-subject batch runs, adaptive focality,
+    Pareto sweep modes, and real-time console output.  Configuration is
+    serialised to JSON and executed via ``simnibs_python -m tit.opt.flex``.
+
+    See Also
+    --------
+    FlexSearchThread : Background execution thread.
+    tit.opt.config.FlexConfig : Backend configuration dataclass.
+    tit.gui.optimizer_tab.OptimizerTab : Parent container tab.
+    """
+
+    flex_search_completed = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         """Initialize the flex search tab."""
@@ -82,7 +112,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subject_list.setSelectionMode(
             QtWidgets.QAbstractItemView.ExtendedSelection
         )
-        self.subject_list.setMinimumHeight(80)
+        self.subject_list.setFixedHeight(80)
         self.eeg_net_combo = QtWidgets.QComboBox()
 
         # Initialize goal and postproc combo boxes
@@ -264,11 +294,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Left column: Basic Parameters
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
         basic_params_group.setSizePolicy(
-            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Preferred
+            QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Maximum
         )
         basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
+        basic_params_layout.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.ExpandingFieldsGrow
+        )
 
         subject_controls_widget = QtWidgets.QWidget()
+        subject_controls_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         subject_controls_inner_layout = QtWidgets.QHBoxLayout(subject_controls_widget)
         subject_controls_inner_layout.addWidget(self.subject_list)
 
@@ -285,22 +321,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
 
-        self.goal_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.goal_label, self.goal_combo)
+        for combo, label in (
+            (self.goal_combo, self.goal_label),
+            (self.postproc_combo, self.postproc_label),
+            (self.anisotropy_combo, self.anisotropy_label),
+        ):
+            combo.setSizeAdjustPolicy(
+                QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon
+            )
+            combo.setMinimumContentsLength(24)
+            combo.setSizePolicy(
+                QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+            )
+            basic_params_layout.addRow(label, combo)
 
-        self.postproc_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
-
-        self.anisotropy_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        basic_params_layout.addRow(self.anisotropy_label, self.anisotropy_combo)
-
-        top_row_layout.addWidget(basic_params_group, 9)
+        top_row_layout.addWidget(basic_params_group, 11, QtCore.Qt.AlignTop)
 
         # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
         right_column_widget = QtWidgets.QWidget()
@@ -343,12 +378,18 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         right_column_layout.addWidget(self.electrode_widget)
 
-        top_row_layout.addWidget(right_column_widget, 11)
+        top_row_layout.addWidget(right_column_widget, 9)
 
         scroll_layout.addLayout(top_row_layout)
 
-        # ROI Definition — use component widget
+        # ROI Definition — use component widget. The picker sizes itself to the
+        # active page (see ROIPickerWidget._resize_stack_to_current), so let the
+        # group hug that height (Maximum) instead of reserving dead space; the
+        # trailing scroll_layout stretch absorbs the freed vertical space.
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
+        self.roi_method_group.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         roi_layout = QtWidgets.QVBoxLayout(self.roi_method_group)
         roi_layout.addWidget(self.roi_picker)
         scroll_layout.addWidget(self.roi_method_group)
@@ -432,6 +473,9 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Solver hyper-parameters — use component widget
         scroll_layout.addWidget(self.solver_widget)
+
+        # Absorb extra vertical space so groups keep their natural height
+        scroll_layout.addStretch(1)
 
         scroll_area.setWidget(scroll_content)
 
@@ -565,20 +609,19 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_picker.set_subject(subject_id, project_dir)
             self.nonroi_picker.set_subject(subject_id, project_dir)
 
-
     def _sync_nonroi_mode(self):
         """Keep the nonroi_picker on the same page as the roi_picker."""
         roi_type = self.roi_picker.get_roi_type()
-        page_map = {"spherical": 0, "atlas": 1, "subcortical": 2}
+        page_map = {"atlas": 0, "subcortical": 1, "spherical": 2}
         idx = page_map.get(roi_type, 0)
         self.nonroi_picker.stacked.setCurrentIndex(idx)
         # Also check the matching radio if it exists
-        if idx == 0 and self.nonroi_picker.radio_spherical:
-            self.nonroi_picker.radio_spherical.setChecked(True)
-        elif idx == 1 and self.nonroi_picker.radio_cortical:
+        if idx == 0 and self.nonroi_picker.radio_cortical:
             self.nonroi_picker.radio_cortical.setChecked(True)
-        elif idx == 2 and self.nonroi_picker.radio_subcortical:
+        elif idx == 1 and self.nonroi_picker.radio_subcortical:
             self.nonroi_picker.radio_subcortical.setChecked(True)
+        elif idx == 2 and self.nonroi_picker.radio_spherical:
+            self.nonroi_picker.radio_spherical.setChecked(True)
 
     # ------------------------------------------------------------------ #
     #  Run optimization                                                   #
@@ -611,15 +654,20 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Check if visualize skin region is enabled but no skin net is selected
         solver_params = self.solver_widget.get_params()
         if (
-            solver_params["visualize_valid_skin_region"]
+            solver_params["plot_skin_visualization_electrodes"]
             and not self.solver_widget.get_skin_net_combo().currentText()
         ):
             QtWidgets.QMessageBox.warning(
                 self,
                 "Warning",
-                "Visualizing valid skin region requires selecting an EEG net for visualization.\n\n"
-                "Please select a visualization EEG net.",
+                "Plotting EEG net electrodes requires selecting a visualization EEG net.",
             )
+            return
+
+        # Validate electrode parameters
+        error = self.electrode_widget.validate()
+        if error:
+            QtWidgets.QMessageBox.warning(self, "Warning", f"Electrode: {error}")
             return
 
         # Validate ROI
@@ -627,6 +675,16 @@ class FlexSearchTab(QtWidgets.QWidget):
         if error:
             QtWidgets.QMessageBox.warning(self, "Warning", error)
             return
+
+        # Validate non-ROI when focality targets a specific region
+        if (
+            self.goal_combo.currentData() == "focality"
+            and self.nonroi_method_combo.currentData() == "specific"
+        ):
+            error = self.nonroi_picker.validate()
+            if error:
+                QtWidgets.QMessageBox.warning(self, "Warning", f"Non-ROI: {error}")
+                return
 
         # Check coordinate space for spherical ROI with MNI space selected
         if (
@@ -662,20 +720,37 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Show confirmation dialog
         roi_description = ""
         if roi_params["method"] == "spherical":
-            roi_description = f"Spherical ROI at ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) with radius {roi_params['radius']}mm"
+            num_spheres = roi_params.get("num_spheres", 1)
+            if num_spheres > 1:
+                roi_description = (
+                    f"Spherical ROI: union of {num_spheres} spheres "
+                    f"(first at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}))"
+                )
+            else:
+                roi_description = (
+                    f"Spherical ROI at ({roi_params['center'][0]}, "
+                    f"{roi_params['center'][1]}, {roi_params['center'][2]}) "
+                    f"with radius {roi_params['radius']}mm"
+                )
         elif roi_params["method"] == "atlas":
             roi_description = (
-                f"Cortical ROI: {roi_params['atlas']} region {roi_params['region']}"
+                f"Cortical ROI: {roi_params['atlas']} "
+                f"region(s) {roi_params['region']}"
             )
         else:
-            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region {roi_params['volume_region']}"
+            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region(s) {roi_params['volume_region']}"
 
         details = (
             f"Subjects: {', '.join(selected_subjects)}\n"
             f"Number of subjects: {len(selected_subjects)}\n"
             f"ROI: {roi_description}\n"
             f"Goal: {goal}\n"
-            + (f"EEG Net: {eeg_net}\n" if self.run_mapped_simulation_checkbox.isChecked() else "")
+            + (
+                f"EEG Net: {eeg_net}\n"
+                if self.run_mapped_simulation_checkbox.isChecked()
+                else ""
+            )
             + f"Current: {electrode_current}mA\n"
             f"Electrode shape: {electrode_shape}\n"
             f"Dimensions: {dimensions}mm\n"
@@ -793,6 +868,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.stop_btn.setEnabled(False)
         self.enable_controls()
 
+        if self.successful_runs > 0:
+            self.flex_search_completed.emit()
+
         if self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
@@ -858,7 +936,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Skin visualization net
         skin_net_path = None
         solver = self.solver_widget.get_params()
-        if solver["visualize_valid_skin_region"]:
+        if solver["plot_skin_visualization_electrodes"]:
             skin_net = self.solver_widget.get_skin_net_combo().currentText()
             if skin_net:
                 skin_net_path = self.eeg_nets.get(skin_net)
@@ -895,6 +973,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             detailed_results=solver["detailed_results"],
             visualize_valid_skin_region=solver["visualize_valid_skin_region"],
             skin_visualization_net=skin_net_path,
+            skin_region_margin_mm=solver["skin_region_margin_mm"],
+            avoid_landmark_regions=solver["avoid_landmark_regions"],
             min_electrode_distance=self.electrode_widget.get_min_electrode_distance(),
         )
 
@@ -1029,6 +1109,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     stop_btn=self.stop_btn,
                 )
 
+        self.optimization_thread = None
         self.optimization_process = FlexSearchThread(cmd)
         self.optimization_process.output_signal.connect(self.update_output)
         self.optimization_process.error_signal.connect(
@@ -1055,11 +1136,15 @@ class FlexSearchTab(QtWidgets.QWidget):
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
         # Check if this was a successful completion
-        if self.optimization_process:
-            if (
-                self.optimization_process.process
-                and self.optimization_process.process.returncode == 0
-            ):
+        current_success = False
+        active_thread = self.optimization_process
+        if self.optimization_thread and self.optimization_thread.process:
+            active_thread = self.optimization_thread
+        if active_thread:
+            current_success = bool(
+                active_thread.process and active_thread.process.returncode == 0
+            )
+            if current_success:
                 self.successful_runs += 1
             else:
                 self.failed_runs += 1
@@ -1081,6 +1166,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
+            if current_success:
+                self.flex_search_completed.emit()
 
     def clear_console(self):
         """Clear the output console."""
@@ -1220,8 +1307,12 @@ class FlexSearchTab(QtWidgets.QWidget):
 
     def _update_sweep_preview(self):
         """Recomputes N combinations and updates self.sweep_preview_label."""
-        roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
-        nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        try:
+            roi_pcts = self._parse_pct_list(self.roi_pcts_input.text())
+            nonroi_pcts = self._parse_pct_list(self.nonroi_pcts_input.text())
+        except ValueError:
+            self.sweep_preview_label.setText("")
+            return
         n = len(roi_pcts) * len(nonroi_pcts)
         self.sweep_preview_label.setText(
             f"\u2192 {n} combination{'s' if n != 1 else ''} will be run"
@@ -1402,8 +1493,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         self.optimization_thread.finished.connect(self.optimization_finished)
         self.optimization_thread.start()
-
-        self.optimization_finished()
 
     # ------------------------------------------------------------------ #
     #  Pareto step 2                                                      #

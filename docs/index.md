@@ -21,10 +21,10 @@ layout: home
    Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
   B. CLI Entry:
     Download the two files below to a designated directory.
-   - **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+   - **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
    - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
    ```bash
-   bash loader.sh
+   python3 loader.py
    ```
   3. **Set up your BIDS project directory**
    - Use our example dataset to get familiar with the software or organize your data in BIDS format.<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` 

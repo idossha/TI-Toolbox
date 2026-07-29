@@ -3,12 +3,23 @@
 All SimNIBS imports are isolated here so that ``flex.py`` remains a
 pure-Python orchestrator with zero SimNIBS coupling.
 
-Public API:
-    - ``build_optimization(config) -> TesFlexOptimization``
-    - ``configure_optimizer_options(opt, config, logger)``
-    - ``generate_report(config, n_multistart, funvalue_list, best_idx, base_folder, logger)``
+Public API
+----------
+build_optimization
+    Construct a SimNIBS ``TesFlexOptimization`` from a
+    :class:`~tit.opt.config.FlexConfig`.
+configure_optimizer_options
+    Apply DE hyperparameters to a SimNIBS optimization object.
+generate_report
+    Create an HTML report summarising the flex-search run.
+
+See Also
+--------
+tit.opt.flex.flex.run_flex_search : Calls these functions internally.
+tit.opt.config.FlexConfig : Configuration dataclass consumed here.
 """
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -17,7 +28,7 @@ import logging
 
 import numpy as np
 
-from tit.opt.config import FlexConfig
+from tit.opt.config import FlexConfig, _as_list
 
 from . import utils
 
@@ -27,13 +38,27 @@ from . import utils
 
 
 def build_optimization(config: FlexConfig):
-    """Build a SimNIBS TesFlexOptimization object from a FlexConfig.
+    """Build a SimNIBS ``TesFlexOptimization`` object from a FlexConfig.
 
-    Args:
-        config: Fully-populated FlexConfig.
+    Translates every field from *config* into the corresponding SimNIBS
+    attribute, including electrode geometry, ROI specification, and
+    mapping settings.
 
-    Returns:
-        A configured ``TesFlexOptimization`` object.
+    Parameters
+    ----------
+    config : FlexConfig
+        Fully-populated flex-search configuration.
+
+    Returns
+    -------
+    TesFlexOptimization
+        A configured SimNIBS optimization object ready for
+        ``opt.run()``.
+
+    See Also
+    --------
+    configure_optimizer_options : Apply DE solver parameters after build.
+    tit.opt.flex.utils.configure_roi : Delegates ROI setup.
     """
     from simnibs import opt_struct
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
@@ -75,15 +100,19 @@ def build_optimization(config: FlexConfig):
     if config.detailed_results:
         opt.detailed_results = True
 
-    # Skin visualization control
-    if config.visualize_valid_skin_region:
-        opt.visualize_valid_skin_region = True
+    # Skin visualization is always generated for flex-search reports.
+    opt.visualize_valid_skin_region = True
+    opt.skin_region_margin_mm = config.skin_region_margin_mm
+    opt.avoid_landmark_regions = config.avoid_landmark_regions
+    opt.skin_visualization_net_file = config.skin_visualization_net
 
     # Configure mapping
     if config.enable_mapping:
+        if not config.eeg_net:
+            raise ValueError("enable_mapping requires an EEG net name.")
         opt.map_to_net_electrodes = True
         eeg_dir = pm.eeg_positions(config.subject_id)
-        opt.net_electrode_file = os.path.join(eeg_dir, f"{config.eeg_net}.csv")
+        opt.net_electrode_file = str(utils.eeg_net_csv_path(eeg_dir, config.eeg_net))
         if (
             hasattr(opt, "run_mapped_electrodes_simulation")
             and not config.disable_mapping_simulation
@@ -91,10 +120,6 @@ def build_optimization(config: FlexConfig):
             opt.run_mapped_electrodes_simulation = True
     else:
         opt.electrode_mapping = None
-
-    # Configure skin visualization net file (separate from mapping)
-    if config.skin_visualization_net:
-        opt.net_electrode_file = config.skin_visualization_net
 
     # Configure electrodes
     c_A = config.current_mA / 1000.0  # mA -> A
@@ -140,12 +165,24 @@ def build_optimization(config: FlexConfig):
 def configure_optimizer_options(
     opt, config: FlexConfig, logger: logging.Logger
 ) -> None:
-    """Configure differential-evolution optimizer options on the SimNIBS object.
+    """Apply differential-evolution solver parameters to a SimNIBS object.
 
-    Args:
-        opt: SimNIBS optimization object.
-        config: FlexConfig with solver parameters.
-        logger: Logger instance.
+    Reads optional DE hyperparameters from *config* and writes them
+    into ``opt._optimizer_options_std``.  Parameters that are ``None``
+    in the config are left at their SimNIBS defaults.
+
+    Parameters
+    ----------
+    opt : TesFlexOptimization
+        SimNIBS optimization object (mutated in-place).
+    config : FlexConfig
+        Configuration carrying optional DE parameters.
+    logger : logging.Logger
+        Logger for debug-level messages.
+
+    See Also
+    --------
+    build_optimization : Creates the *opt* object that this function configures.
     """
 
     if config.max_iterations is not None:
@@ -186,15 +223,27 @@ def generate_report(
     base_output_folder: str,
     logger: logging.Logger,
 ) -> None:
-    """Generate an HTML report from config fields (no env vars).
+    """Generate an HTML report summarising the flex-search run.
 
-    Args:
-        config: FlexConfig with all parameters.
-        n_multistart: Number of multi-start runs.
-        optim_funvalue_list: Array of function values.
-        best_opt_idx: Index of best run (-1 if all failed).
-        base_output_folder: Path to the output directory.
-        logger: Logger instance.
+    Delegates to :class:`~tit.reporting.FlexSearchReportGenerator` to
+    produce a self-contained HTML file in the project's reports
+    directory.
+
+    Parameters
+    ----------
+    config : FlexConfig
+        Configuration with all run parameters.
+    n_multistart : int
+        Number of multi-start DE runs executed.
+    optim_funvalue_list : numpy.ndarray
+        Array of objective function values, one per restart.
+    best_opt_idx : int
+        Zero-based index of the best run (``-1`` if all failed).
+    base_output_folder : str
+        Absolute path to the output directory (used to locate
+        ``electrode_positions.json``).
+    logger : logging.Logger
+        Logger for info-level progress messages.
     """
     from tit.reporting import FlexSearchReportGenerator
     from tit.paths import get_path_manager
@@ -219,10 +268,14 @@ def generate_report(
         n_candidates=n_multistart,
         n_starts=n_multistart,
         selection_method="best" if n_multistart > 1 else "single",
+        intensity_ch1=config.current_mA,
+        intensity_ch2=config.current_mA,
         electrode_shape=config.electrode.shape,
         electrode_dimensions_mm=dims_str,
         electrode_thickness_mm=config.electrode.gel_thickness,
         electrode_current_mA=config.current_mA,
+        min_electrode_distance_mm=config.min_electrode_distance,
+        anisotropy_type=config.anisotropy_type,
         mapping_enabled=config.enable_mapping,
         disable_mapping_simulation=config.disable_mapping_simulation,
         run_final_electrode_simulation=config.run_final_electrode_simulation,
@@ -235,8 +288,10 @@ def generate_report(
         non_roi_method=config.non_roi_method,
         cpu_cores=config.cpus,
         detailed_results=config.detailed_results,
-        visualize_valid_skin_region=config.visualize_valid_skin_region,
+        visualize_valid_skin_region=True,
         skin_visualization_net=config.skin_visualization_net,
+        skin_region_margin_mm=config.skin_region_margin_mm,
+        avoid_landmark_regions=config.avoid_landmark_regions,
     )
 
     # Build ROI info from config
@@ -244,11 +299,12 @@ def generate_report(
     roi_data: dict = {}
 
     if isinstance(roi, FlexConfig.SphericalROI):
+        coordinates, radius = _sphere_report_fields(roi)
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "spherical",
-            "coordinates": [roi.x, roi.y, roi.z],
-            "radius": roi.radius,
+            "coordinates": coordinates,
+            "radius": radius,
             "coordinate_space": "MNI" if roi.use_mni else "subject",
         }
         if (
@@ -257,22 +313,25 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.SphericalROI)
         ):
             nr = config.non_roi
+            nr_coordinates, nr_radius = _sphere_report_fields(nr)
             roi_data.update(
                 {
                     "non_roi_method": config.non_roi_method,
-                    "non_roi_coordinates": [nr.x, nr.y, nr.z],
-                    "non_roi_radius": nr.radius,
+                    "non_roi_coordinates": nr_coordinates,
+                    "non_roi_radius": nr_radius,
                     "non_roi_coordinate_space": ("MNI" if nr.use_mni else "subject"),
                 }
             )
     elif isinstance(roi, FlexConfig.AtlasROI):
-        atlas_name = atlas_name_from_path(roi.atlas_path, roi.hemisphere)
+        first_path = _as_list(roi.atlas_path)[0]
+        first_hemi = _as_list(roi.hemisphere)[0]
+        atlas_name = _atlas_name_from_path(first_path, first_hemi)
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "atlas",
-            "hemisphere": roi.hemisphere,
-            "atlas": atlas_name or roi.atlas_path,
-            "atlas_label": roi.label,
+            "hemisphere": _join(roi.hemisphere),
+            "atlas": atlas_name or first_path,
+            "atlas_label": _join(roi.label),
         }
         if (
             config.goal == "focality"
@@ -280,22 +339,21 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.AtlasROI)
         ):
             nr = config.non_roi
+            nr_path = _as_list(nr.atlas_path)[0]
             roi_data.update(
                 {
-                    "non_roi_atlas": (
-                        os.path.basename(nr.atlas_path) if nr.atlas_path else None
-                    ),
-                    "non_roi_label": nr.label,
+                    "non_roi_atlas": (os.path.basename(nr_path) if nr_path else None),
+                    "non_roi_label": _join(nr.label),
                 }
             )
     elif isinstance(roi, FlexConfig.SubcorticalROI):
+        first_path = _as_list(roi.atlas_path)[0]
         roi_data = {
             "roi_name": "Target ROI",
             "roi_type": "subcortical",
-            "volume_atlas": (
-                os.path.basename(roi.atlas_path) if roi.atlas_path else None
-            ),
-            "volume_label": roi.label,
+            "volume_atlas": (os.path.basename(first_path) if first_path else None),
+            "volume_atlas_space": roi.atlas_space,
+            "volume_label": _join(roi.label),
         }
         if (
             config.goal == "focality"
@@ -303,12 +361,12 @@ def generate_report(
             and isinstance(config.non_roi, FlexConfig.SubcorticalROI)
         ):
             nr = config.non_roi
+            nr_path = _as_list(nr.atlas_path)[0]
             roi_data.update(
                 {
-                    "non_roi_atlas": (
-                        os.path.basename(nr.atlas_path) if nr.atlas_path else None
-                    ),
-                    "non_roi_label": nr.label,
+                    "non_roi_atlas": (os.path.basename(nr_path) if nr_path else None),
+                    "non_roi_atlas_space": nr.atlas_space,
+                    "non_roi_label": _join(nr.label),
                 }
             )
 
@@ -317,9 +375,36 @@ def generate_report(
 
     report_gen.set_roi_info(**roi_data)
 
-    # Add search results
+    # Load electrode positions and optional mapping data
+    output_path = Path(base_output_folder)
+    electrode_positions = None
+    channel_array_indices = None
+    mapped_labels = None
+    mapped_positions = None
+
+    positions_file = output_path / "electrode_positions.json"
+    if positions_file.exists():
+        with open(positions_file) as f:
+            pos_data = json.load(f)
+        electrode_positions = pos_data.get("optimized_positions")
+        channel_array_indices = pos_data.get("channel_array_indices")
+
+    mapping_file = output_path / "electrode_mapping.json"
+    if mapping_file.exists():
+        with open(mapping_file) as f:
+            map_data = json.load(f)
+        mapped_labels = map_data.get("mapped_labels")
+        mapped_positions = map_data.get("mapped_positions")
+
+    best_score_idx = best_opt_idx if n_multistart > 1 else 0
+
+    # Add search results. Per-run rows only include mapped EEG labels for the
+    # selected solution because electrode_mapping.json records the final mapping.
     for i, score in enumerate(optim_funvalue_list):
         if score != float("inf"):
+            result_metrics = {}
+            if mapped_labels and best_score_idx >= 0 and i == best_score_idx:
+                result_metrics["mapped_labels"] = mapped_labels
             report_gen.add_search_result(
                 rank=i + 1,
                 electrode_1a="",
@@ -327,49 +412,152 @@ def generate_report(
                 electrode_2a="",
                 electrode_2b="",
                 score=float(score),
+                **result_metrics,
             )
 
-    # Set best solution if available
-    electrode_positions_path = Path(base_output_folder) / "electrode_positions.json"
-    electrode_positions = None
-    channel_array_indices = None
-    if electrode_positions_path.exists():
-        with open(electrode_positions_path) as f:
-            pos_data = json.load(f)
-        electrode_positions = pos_data.get("optimized_positions")
-        channel_array_indices = pos_data.get("channel_array_indices")
+    # Build electrode pairs from mapped labels when available
+    electrode_pairs: list[dict[str, str]] = []
+    if mapped_labels and len(mapped_labels) >= 4:
+        electrode_pairs = [
+            {"electrode1": mapped_labels[0], "electrode2": mapped_labels[1]},
+            {"electrode1": mapped_labels[2], "electrode2": mapped_labels[3]},
+        ]
 
-    if n_multistart > 1 and best_opt_idx != -1:
-        report_gen.set_best_solution(
-            electrode_pairs=[],
-            score=float(optim_funvalue_list[best_opt_idx]),
-            metrics={"run": best_opt_idx + 1},
-            electrode_coordinates=electrode_positions,
-            channel_array_indices=channel_array_indices,
-        )
-    elif n_multistart == 1 and optim_funvalue_list[0] != float("inf"):
-        report_gen.set_best_solution(
-            electrode_pairs=[],
-            score=float(optim_funvalue_list[0]),
-            metrics={},
-            electrode_coordinates=electrode_positions,
-            channel_array_indices=channel_array_indices,
-        )
+    # Build metrics dict
+    if best_score_idx == -1 or optim_funvalue_list[best_score_idx] == float("inf"):
+        report_path = report_gen.generate()
+        logger.info(f"Report generated: {report_path}")
+        return
+
+    best_metrics: dict = {}
+    if n_multistart > 1:
+        best_metrics["run"] = best_opt_idx + 1
+
+    # Discover electrode placement images from output directory
+    montage_b64 = _build_electrode_montage_base64(output_path)
+    skin_region_b64 = _find_skin_region_base64(output_path)
+
+    report_gen.set_best_solution(
+        electrode_pairs=electrode_pairs,
+        score=float(optim_funvalue_list[best_score_idx]),
+        metrics=best_metrics,
+        electrode_coordinates=electrode_positions,
+        channel_array_indices=channel_array_indices,
+        mapped_labels=mapped_labels,
+        mapped_positions=mapped_positions,
+        montage_image_base64=montage_b64,
+        skin_region_image_base64=skin_region_b64,
+    )
 
     report_path = report_gen.generate()
     logger.info(f"Report generated: {report_path}")
 
 
-def atlas_name_from_path(path_value: str, hemisphere: str) -> str:
-    """Extract a human-readable atlas name from an annotation file path.
+def _read_file_base64(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
 
-    Args:
-        path_value: Full path to the .annot file.
-        hemisphere: Hemisphere string (e.g. "lh").
 
-    Returns:
-        Clean atlas name, or empty string if extraction fails.
+def _find_skin_region_base64(output_dir: Path) -> str | None:
+    candidates = [
+        output_dir / "valid_skin_region.png",
+        output_dir / "skin_surface_2d.png",
+        output_dir / "skin_visualization" / "skin_surface_2d.png",
+        output_dir / "detailed_results" / "skin_visualization" / "skin_surface_2d.png",
+    ]
+    candidates.extend(output_dir.glob("*/skin_visualization/skin_surface_2d.png"))
+    candidates.extend(
+        output_dir.glob("*/detailed_results/skin_visualization/skin_surface_2d.png")
+    )
+    for candidate in candidates:
+        encoded = _read_file_base64(candidate)
+        if encoded is not None:
+            return encoded
+    return None
+
+
+def _build_electrode_montage_base64(output_dir: Path) -> str | None:
+    """Combine electrode placement PNGs into a single base64-encoded montage.
+
+    SimNIBS writes one PNG per electrode (e.g.
+    ``electrode_channel_0_array_0.png``).  This helper stitches them into
+    a 2x2 grid and returns the result as a base64 string for embedding
+    in HTML reports.
+
+    Parameters
+    ----------
+    output_dir : Path
+        Flex-search output directory containing ``electrode_*.png`` files.
+
+    Returns
+    -------
+    str or None
+        Base64-encoded PNG, or *None* if no images were found.
     """
+    import io
+
+    electrode_pngs = sorted(output_dir.glob("electrode_channel_*.png"))
+    if not electrode_pngs:
+        return None
+
+    try:
+        from PIL import Image
+    except ImportError:
+        # Fall back: embed the first image only
+        with open(electrode_pngs[0], "rb") as f:
+            return base64.b64encode(f.read()).decode("ascii")
+
+    images = [Image.open(p) for p in electrode_pngs]
+    n = len(images)
+    cols = min(n, 2)
+    rows = (n + cols - 1) // cols
+    w = max(img.width for img in images)
+    h = max(img.height for img in images)
+
+    montage = Image.new("RGBA", (cols * w, rows * h), (255, 255, 255, 255))
+    for idx, img in enumerate(images):
+        r, c = divmod(idx, cols)
+        montage.paste(img, (c * w, r * h))
+
+    buf = io.BytesIO()
+    montage.save(buf, format="PNG")
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
+
+
+def _join(values):
+    """Return the scalar when there is one region, else a ``+``-joined string.
+
+    Keeps single-region report fields byte-identical (a bare int/str) while
+    rendering a union of labels/hemispheres as e.g. ``"17+53"`` rather than the
+    raw ``[17, 53]`` list repr.  Duplicates from the cortical "Both" expansion
+    (labels/hemispheres repeated per hemi) are collapsed for display.
+    """
+    items = _as_list(values)
+    if len(items) == 1:
+        return items[0]
+    return "+".join(dict.fromkeys(str(v) for v in items))
+
+
+def _sphere_report_fields(roi_spec):
+    """Return ``(coordinates, radius)`` for the report from a (multi) sphere.
+
+    Single sphere -> ``([x, y, z], r)`` (byte-identical with prior reports);
+    multiple spheres -> ``([[x, y, z], ...], [r, ...])``.
+    """
+    xs, ys, zs = _as_list(roi_spec.x), _as_list(roi_spec.y), _as_list(roi_spec.z)
+    radii = _as_list(roi_spec.radius)
+    if len(radii) == 1 and len(xs) != 1:
+        radii = radii * len(xs)
+    if len(xs) == 1:
+        return [xs[0], ys[0], zs[0]], radii[0]
+    return [[x, y, z] for x, y, z in zip(xs, ys, zs)], radii
+
+
+def _atlas_name_from_path(path_value: str, hemisphere: str) -> str:
+    """Extract a human-readable atlas name from an annotation file path."""
     atlas_filename = os.path.basename(path_value)
     atlas_with_subject = atlas_filename.replace(f"{hemisphere}.", "").replace(
         ".annot", ""

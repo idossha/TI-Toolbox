@@ -68,6 +68,8 @@ class TestMain:
             "qsi_recon_config": {"specs": ["dki"]},
             "extract_dti": True,
             "run_subcortical_segmentations": True,
+            "skip_existing_outputs": True,
+            "replace_existing_outputs": False,
         }
         with patch("builtins.open", mock_open(read_data=json.dumps(config))):
             from tit.pre.__main__ import main
@@ -79,6 +81,8 @@ class TestMain:
         assert call_kwargs.kwargs["run_recon"] is True
         assert call_kwargs.kwargs["parallel_recon"] is True
         assert call_kwargs.kwargs["create_m2m"] is True
+        assert call_kwargs.kwargs["skip_existing_outputs"] is True
+        assert call_kwargs.kwargs["replace_existing_outputs"] is False
 
     @patch(f"{MODULE}.sys.exit")
     @patch(f"{MODULE}.run_pipeline", return_value=0)
@@ -99,3 +103,5 @@ class TestMain:
         call_kwargs = mock_pipeline.call_args
         assert call_kwargs.kwargs["convert_dicom"] is False
         assert call_kwargs.kwargs["run_recon"] is False
+        assert call_kwargs.kwargs["skip_existing_outputs"] is False
+        assert call_kwargs.kwargs["replace_existing_outputs"] is False

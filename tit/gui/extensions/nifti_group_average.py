@@ -1,9 +1,10 @@
 #!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 
-"""
-Extension: NIfTI Group Averaging
-Compute group averages and differences for NIfTI files organized by groups.
+"""NIfTI Group Averaging extension for the TI-Toolbox GUI.
+
+Computes group-level averages and pairwise differences for TI simulation
+NIfTI files, with CSV import/export of subject-group assignments.
 """
 
 import os
@@ -27,7 +28,13 @@ from tit.gui.components.action_buttons import RunStopButtons
 
 
 class SubjectRow(QtWidgets.QWidget):
-    """Widget for a single subject configuration row"""
+    """Widget for a single subject/simulation/group assignment row.
+
+    Signals
+    -------
+    remove_requested : object
+        Emitted with ``self`` when the remove button is clicked.
+    """
 
     remove_requested = QtCore.pyqtSignal(object)  # Signal to remove this row
 
@@ -119,7 +126,11 @@ class SubjectRow(QtWidgets.QWidget):
 
 
 class NiftiGroupAverageWidget(QtWidgets.QWidget):
-    """Main widget for NIfTI group averaging"""
+    """Main widget for configuring and running NIfTI group averaging.
+
+    Provides subject-row management, NIfTI pattern / difference-pair
+    configuration, and a console for monitoring the analysis thread.
+    """
 
     def __init__(self, parent=None):
         super(NiftiGroupAverageWidget, self).__init__(parent)
@@ -582,7 +593,7 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
 
 
 class AnalysisThread(QtCore.QThread):
-    """Thread for running analysis in background"""
+    """Background thread for computing group averages and differences."""
 
     output_signal = QtCore.pyqtSignal(str)
     finished_signal = QtCore.pyqtSignal(dict)
@@ -778,7 +789,7 @@ class AnalysisThread(QtCore.QThread):
 
 
 class NiftiGroupAverageWindow(QtWidgets.QDialog):
-    """Dialog wrapper for the NIfTI group averaging widget (for floating windows)"""
+    """Non-modal dialog wrapper for the NIfTI group averaging widget."""
 
     def __init__(self, parent=None):
         super(NiftiGroupAverageWindow, self).__init__(parent)

@@ -30,7 +30,6 @@ from tit.analyzer.group import (
     run_group_analysis,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper: build a fake AnalysisResult
 # ---------------------------------------------------------------------------
@@ -186,6 +185,7 @@ class TestGenerateComparisonPlot:
     def test_returns_plot_path(self, tmp_path):
         """Plot path is output_dir / group_comparison.pdf."""
         import matplotlib.pyplot as plt
+
         # Reset any leaked side_effect from other test files
         plt.savefig.side_effect = None
         plt.savefig.reset_mock()
@@ -228,9 +228,9 @@ class TestAddStdLines:
         # Verify the y-values of the horizontal lines
         y_values = [c.kwargs["y"] for c in ax.axhline.call_args_list]
         assert pytest.approx(12.0) in y_values  # mean + 1*std
-        assert pytest.approx(8.0) in y_values   # mean - 1*std
+        assert pytest.approx(8.0) in y_values  # mean - 1*std
         assert pytest.approx(14.0) in y_values  # mean + 2*std
-        assert pytest.approx(6.0) in y_values   # mean - 2*std
+        assert pytest.approx(6.0) in y_values  # mean - 2*std
 
     def test_correct_colors_for_lines(self):
         ax = MagicMock()
@@ -407,8 +407,14 @@ class TestNumericCols:
 
     def test_all_numeric_cols_present(self):
         expected = {
-            "ROI_Mean", "ROI_Max", "ROI_Min", "ROI_Focality",
-            "GM_Mean", "GM_Max",
-            "Normal_Mean", "Normal_Max", "Normal_Focality",
+            "ROI_Mean",
+            "ROI_Max",
+            "ROI_Min",
+            "ROI_Focality",
+            "GM_Mean",
+            "GM_Max",
+            "Normal_Mean",
+            "Normal_Max",
+            "Normal_Focality",
         }
         assert set(_NUMERIC_COLS) == expected

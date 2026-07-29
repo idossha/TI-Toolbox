@@ -1,5 +1,29 @@
-"""Logging configuration for TI-Toolbox."""
+"""Logging configuration for TI-Toolbox.
 
+Configures the ``tit`` logger hierarchy with a handler-free design:
+:func:`setup_logging` sets the log level and silences noisy third-party
+loggers, but attaches **no** handlers.  Handlers are added on demand via
+:func:`add_file_handler`, :func:`add_stream_handler`, or the Qt signal
+bridge in the GUI.
+
+Public API
+----------
+setup_logging
+    Set the package-wide log level (no handlers attached).
+add_file_handler
+    Attach a :class:`~logging.FileHandler` to a named logger.
+add_stream_handler
+    Attach a :class:`~logging.StreamHandler` (stdout) to a named logger.
+get_file_only_logger
+    Return a logger that writes **only** to a file (no console).
+
+Module Attributes
+-----------------
+LOG_FORMAT : str
+    Default format string for file handlers.
+DATE_FORMAT : str
+    Date format used in log timestamps.
+"""
 
 import logging
 from pathlib import Path
@@ -15,12 +39,19 @@ for _name in ("matplotlib", "matplotlib.font_manager", "PIL"):
 def setup_logging(level: str = "INFO") -> None:
     """Configure the ``tit`` logger hierarchy.
 
-    Sets the log level but adds NO handlers — file handlers are attached
-    later via ``add_file_handler()`` and GUI handlers via Qt signal bridges.
+    Sets the log level but adds **no** handlers — file handlers are attached
+    later via :func:`add_file_handler` and GUI handlers via Qt signal bridges.
 
-    Args:
-        level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL).
-               Defaults to INFO.
+    Parameters
+    ----------
+    level : str, optional
+        Logging level name (e.g., ``"DEBUG"``, ``"INFO"``).  Default is
+        ``"INFO"``.
+
+    See Also
+    --------
+    add_file_handler : Attach a file handler to a named logger.
+    add_stream_handler : Attach a console handler to a named logger.
     """
     logger = logging.getLogger("tit")
     logger.handlers.clear()
@@ -39,17 +70,29 @@ def add_file_handler(
 ) -> logging.FileHandler:
     """Attach a file handler to a named logger.
 
-    Creates the parent directory if it does not exist. Returns the handler
+    Creates the parent directory if it does not exist.  Returns the handler
     so callers can remove it when the run completes.
 
-    Args:
-        log_file: Path to the log file (opened in append mode).
-        level: Minimum log level for this handler. Defaults to DEBUG so the
-               file captures everything.
-        logger_name: Logger to attach to. Defaults to the root "tit" logger.
+    Parameters
+    ----------
+    log_file : str or pathlib.Path
+        Path to the log file (opened in append mode).
+    level : str, optional
+        Minimum log level for this handler.  Default is ``"DEBUG"`` so the
+        file captures everything.
+    logger_name : str, optional
+        Logger to attach to.  Default is ``"tit"`` (the package root).
 
-    Returns:
-        The created FileHandler instance.
+    Returns
+    -------
+    logging.FileHandler
+        The newly created handler.
+
+    See Also
+    --------
+    setup_logging : Set the package-wide log level.
+    add_stream_handler : Attach a console (stdout) handler.
+    get_file_only_logger : Create an isolated file-only logger.
     """
     log_file = Path(log_file)
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -69,12 +112,22 @@ def add_stream_handler(
     Used by scripts for terminal output and by ``__main__`` entry points
     so that ``BaseProcessThread`` can capture subprocess stdout for the GUI.
 
-    Args:
-        logger_name: Logger to attach to. Defaults to ``"tit"``.
-        level: Minimum log level. Defaults to INFO.
+    Parameters
+    ----------
+    logger_name : str, optional
+        Logger to attach to.  Default is ``"tit"``.
+    level : str, optional
+        Minimum log level.  Default is ``"INFO"``.
 
-    Returns:
-        The created StreamHandler instance.
+    Returns
+    -------
+    logging.StreamHandler
+        The newly created handler.
+
+    See Also
+    --------
+    setup_logging : Set the package-wide log level.
+    add_file_handler : Attach a file handler.
     """
     import sys
 
@@ -91,18 +144,29 @@ def get_file_only_logger(
     log_file: str | Path,
     level: str = "DEBUG",
 ) -> logging.Logger:
-    """Return a logger that writes ONLY to *log_file* — no console output.
+    """Return a logger that writes **only** to *log_file* — no console output.
 
     If a logger with *name* already exists its handlers are replaced so that
-    repeated calls (e.g. across ROIs) always point at the correct file.
+    repeated calls (e.g., across ROIs) always point at the correct file.
 
-    Args:
-        name: Logger name (should be unique per use-case).
-        log_file: Path to the log file.
-        level: Minimum log level. Defaults to DEBUG.
+    Parameters
+    ----------
+    name : str
+        Logger name (should be unique per use-case).
+    log_file : str or pathlib.Path
+        Path to the log file.
+    level : str, optional
+        Minimum log level.  Default is ``"DEBUG"``.
 
-    Returns:
-        A configured :class:`logging.Logger`.
+    Returns
+    -------
+    logging.Logger
+        A configured logger with a single file handler and
+        ``propagate=False``.
+
+    See Also
+    --------
+    add_file_handler : Lower-level helper used internally.
     """
     logger = logging.getLogger(name)
     logger.handlers.clear()

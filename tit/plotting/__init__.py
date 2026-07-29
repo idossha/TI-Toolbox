@@ -1,10 +1,11 @@
-"""
-Plotting utilities for TI-Toolbox.
+"""Plotting utilities for TI-Toolbox.
 
-This package contains non-blender visualization/plotting functionality.
+Non-Blender visualization and figure-generation helpers including focality
+histograms, intensity-vs-focality scatter plots, permutation null
+distributions, static overlay images, and montage distribution plots.
 
-Kept lightweight: most functions use lazy imports so importing `tit.plotting` does
-not require matplotlib unless you actually call a plot function.
+Most functions use lazy imports so ``import tit.plotting`` does not pull
+in matplotlib unless a plot function is actually called.
 """
 
 from ._common import SaveFigOptions, ensure_headless_matplotlib_backend, savefig_close

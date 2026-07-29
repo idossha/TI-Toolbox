@@ -1,17 +1,30 @@
 """Configuration dataclasses for Blender/SimNIBS export utilities.
 
 Pure Python -- no SimNIBS, numpy, or heavy dependencies.
-Mirrors the tit.opt.config / tit.sim.config pattern.
+Mirrors the ``tit.opt.config`` / ``tit.sim.config`` pattern.
 
-All paths are resolved automatically via PathManager based on
-subject_id and simulation_name.
+All paths are resolved automatically via
+:func:`tit.paths.get_path_manager` based on ``subject_id`` and
+``simulation_name``.
+
+Classes
+-------
+MontageConfig
+    Publication-ready montage scene generation.
+VectorConfig
+    TI/mTI vector arrow PLY export.
+RegionConfig
+    Atlas-labelled cortical region mesh export.
+
+See Also
+--------
+tit.config_io : Serialise configs to/from JSON for CLI dispatch.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-
 
 # ── Montage config ──────────────────────────────────────────────────────────
 
@@ -20,8 +33,30 @@ from enum import StrEnum
 class MontageConfig:
     """Configuration for montage publication scene generation.
 
-    Creates a publication-ready Blender scene (.blend) containing the scalp,
-    gray-matter surface, and electrode placements for a given simulation.
+    Creates a publication-ready Blender scene (``.blend``) containing the
+    scalp, grey-matter surface, and electrode placements for a given
+    simulation.
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation_name : str
+        Name of the simulation directory.
+    output_dir : str or None
+        Output directory.  Resolved automatically when ``None``.
+    show_full_net : bool
+        If ``True``, place the entire electrode net; otherwise only
+        montage electrodes.
+    electrode_diameter_mm : float
+        Electrode cylinder diameter in millimetres.
+    electrode_height_mm : float
+        Electrode cylinder height in millimetres.
+
+    See Also
+    --------
+    tit.blender.montage_publication.run_montage : Entry point that
+        consumes this config.
     """
 
     subject_id: str
@@ -30,6 +65,7 @@ class MontageConfig:
     show_full_net: bool = True
     electrode_diameter_mm: float = 10.0
     electrode_height_mm: float = 6.0
+
     def __post_init__(self) -> None:
         if not (self.subject_id or "").strip():
             raise ValueError("subject_id is required")
@@ -48,12 +84,62 @@ class MontageConfig:
 class VectorConfig:
     """Configuration for TI/mTI vector arrow export to PLY.
 
-    Vectors are placed at face barycenters of the central surface mesh and
-    exported as colored PLY arrow geometry.
+    Vectors are placed at face barycenters of the central surface mesh
+    and exported as coloured PLY arrow geometry.
 
     All paths are resolved automatically from ``subject_id`` +
     ``simulation_name`` via PathManager.  mTI mode is auto-detected
     when TDCS meshes 3 and 4 exist.
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier.
+    simulation_name : str
+        Name of the simulation directory.
+    export_ch1_ch2 : bool
+        Export individual channel arrows.
+    export_sum : bool
+        Export E-field sum arrows.
+    export_ti_normal : bool
+        Export surface-normal projected TI arrows.
+    export_combined : bool
+        Export all channels merged into one PLY.
+    top_percent : float or None
+        Keep only the top *N* percent of vectors by magnitude.
+    count : int
+        Maximum number of arrows to export.
+    all_nodes : bool
+        If ``True``, ignore *count* and export every node.
+    seed : int
+        Random seed for reproducible sub-sampling.
+    length_mode : Length
+        ``"linear"`` or ``"visual"`` arrow-length mapping.
+    length_scale : float
+        Multiplicative length factor.
+    vector_scale : float
+        Global arrow size scale.
+    vector_width : float
+        Arrow shaft width multiplier.
+    vector_length : float
+        Arrow shaft length multiplier.
+    anchor : Anchor
+        ``"tail"`` or ``"head"`` -- which end touches the surface.
+    color : Color
+        ``"rgb"`` (channel colours) or ``"magscale"`` (percentile ramp).
+    blue_percentile : float
+        Percentile threshold for the blue end of the magscale ramp.
+    green_percentile : float
+        Percentile threshold for green.
+    red_percentile : float
+        Percentile threshold for red.
+    verbose : bool
+        Enable verbose logging.
+
+    See Also
+    --------
+    tit.blender.vector_field_exporter.run_vectors : Entry point that
+        consumes this config.
     """
 
     class Color(StrEnum):
@@ -175,6 +261,42 @@ class RegionConfig:
 
     All paths are resolved automatically from ``subject_id`` +
     ``simulation_name`` via PathManager.
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier.
+    simulation_name : str
+        Name of the simulation directory.
+    format : Format
+        Output mesh format (``"stl"`` or ``"ply"``).
+    atlas : str
+        Atlas name, e.g. ``"DK40"``.
+    surface : Surface
+        Cortical surface type (``"central"``, ``"pial"``, or ``"white"``).
+    field_name : str
+        Scalar field to map onto region meshes.
+    skip_regions : bool
+        Skip per-region export (export only whole GM).
+    skip_whole_gm : bool
+        Skip whole-GM export.
+    regions : list of str
+        Region names to export.  Empty means all regions.
+    keep_meshes : bool
+        Also save intermediate ``.msh`` files alongside PLY/STL.
+    scalars : bool
+        PLY-only: embed raw scalar values instead of vertex colours.
+    colormap : str
+        Matplotlib colormap name for PLY vertex colours.
+    field_range : tuple of float or None
+        ``(vmin, vmax)`` for colour normalisation.
+    global_from_nifti : str or None
+        Path to a NIfTI for computing a global colour range.
+
+    See Also
+    --------
+    tit.blender.region_exporter.run_regions : Entry point that
+        consumes this config.
     """
 
     class Format(StrEnum):

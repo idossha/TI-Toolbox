@@ -1,11 +1,24 @@
 #!/usr/bin/env simnibs_python
-"""
-TI-Toolbox NIfTI Module
+"""TI-Toolbox NIfTI loading helpers for statistical analysis.
 
-TI-Toolbox specific NIfTI file operations.
-Provides functions for loading subject and group data from TI-Toolbox BIDS structure.
-"""
+Convenience wrappers around ``nibabel`` that resolve paths through
+:func:`tit.paths.get_path_manager` and return arrays ready for
+voxelwise group comparison or correlation pipelines.
 
+Public API
+----------
+load_subject_nifti_ti_toolbox
+    Load a single subject's NIfTI from the BIDS simulation tree.
+load_group_data_ti_toolbox
+    Stack multiple subjects into a 4-D array.
+load_grouped_subjects_ti_toolbox
+    Load multiple subjects organized by named groups.
+
+See Also
+--------
+tit.stats.comparison : Voxelwise group comparison pipeline.
+tit.stats.correlation : Voxelwise correlation pipeline.
+"""
 
 import os
 import gc
@@ -26,29 +39,33 @@ def load_subject_nifti_ti_toolbox(
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
 ) -> tuple[np.ndarray, nib.Nifti1Image, str]:
-    """
-    Load a NIfTI file from TI-Toolbox BIDS structure
+    """Load a single subject's NIfTI file from TI-Toolbox BIDS structure.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     subject_id : str
-        Subject ID (e.g., '070')
+        Subject identifier (e.g. ``'070'``).
     simulation_name : str
-        Simulation name (e.g., 'ICP_RHIPPO')
+        Simulation folder name (e.g. ``'ICP_RHIPPO'``).
     nifti_file_pattern : str, optional
-        Pattern for NIfTI files. Default: 'grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz'
-        Available variables: {subject_id}, {simulation_name}
+        Filename pattern with ``{subject_id}`` / ``{simulation_name}``
+        placeholders.
     dtype : numpy dtype, optional
-        Data type to load (default: float32)
+        Data type for the returned array.  Default is ``np.float32``.
 
-    Returns:
-    --------
-    data : ndarray
-        NIfTI data
-    img : nibabel Nifti1Image
-        NIfTI image object
+    Returns
+    -------
+    data : numpy.ndarray
+        3-D array of voxel values.
+    img : nibabel.Nifti1Image
+        The loaded NIfTI image (useful for affine / header).
     filepath : str
-        Full path to the loaded file
+        Absolute path of the loaded file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the resolved NIfTI path does not exist.
     """
     pm = get_path_manager()
 
@@ -98,28 +115,32 @@ def load_group_data_ti_toolbox(
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
 ) -> tuple[np.ndarray, nib.Nifti1Image, list[str]]:
-    """
-    Load multiple subjects from TI-Toolbox BIDS structure
+    """Load and stack multiple subjects into a 4-D array.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     subject_configs : list of dict
-        List of subject configurations with keys:
-        - 'subject_id': Subject ID (e.g., '070')
-        - 'simulation_name': Simulation name (e.g., 'ICP_RHIPPO')
+        Each dict must contain ``'subject_id'`` and ``'simulation_name'``
+        keys (e.g. ``{'subject_id': '070', 'simulation_name': 'ICP_RHIPPO'}``).
     nifti_file_pattern : str, optional
-        Pattern for NIfTI files
+        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.
     dtype : numpy dtype, optional
-        Data type to load (default: float32)
+        Data type for the returned arrays.  Default is ``np.float32``.
 
-    Returns:
-    --------
-    data_4d : ndarray (x, y, z, n_subjects)
-        4D array with all loaded data
-    template_img : nibabel Nifti1Image
-        Template image from first subject
+    Returns
+    -------
+    data_4d : numpy.ndarray
+        Shape ``(X, Y, Z, n_subjects)``.
+    template_img : nibabel.Nifti1Image
+        Image from the first subject (affine / header reference).
     subject_ids : list of str
-        List of successfully loaded subject IDs
+        Subject identifiers in the same order as the last axis of
+        *data_4d*.
+
+    Raises
+    ------
+    ValueError
+        If no subjects could be loaded.
     """
     data_list = []
     subject_ids = []
@@ -168,29 +189,30 @@ def load_grouped_subjects_ti_toolbox(
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
     dtype=np.float32,
 ) -> tuple[dict[str, np.ndarray], nib.Nifti1Image, dict[str, list[str]]]:
-    """
-    Load subjects organized by groups from TI-Toolbox BIDS structure
+    """Load subjects organized by named groups.
 
-    Parameters:
-    -----------
+    Each config dict must include a ``'group'`` key in addition to the
+    fields required by :func:`load_group_data_ti_toolbox`.  Configs
+    without a ``'group'`` key are assigned to the ``'default'`` group.
+
+    Parameters
+    ----------
     subject_configs : list of dict
-        List of subject configurations with keys:
-        - 'subject_id': Subject ID (e.g., '070')
-        - 'simulation_name': Simulation name (e.g., 'ICP_RHIPPO')
-        - 'group': Group name (e.g., 'group1', 'Responders', etc.)
+        Each dict must contain ``'subject_id'``, ``'simulation_name'``,
+        and ``'group'`` (e.g. ``'Responders'``).
     nifti_file_pattern : str, optional
-        Pattern for NIfTI files
+        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.
     dtype : numpy dtype, optional
-        Data type to load (default: float32)
+        Data type for the returned arrays.  Default is ``np.float32``.
 
-    Returns:
-    --------
-    groups_data : dict of str -> ndarray
-        Dictionary mapping group names to 4D arrays (x, y, z, n_subjects)
-    template_img : nibabel Nifti1Image
-        Template image from first subject
-    groups_ids : dict of str -> list of str
-        Dictionary mapping group names to lists of subject IDs
+    Returns
+    -------
+    groups_data : dict of str to numpy.ndarray
+        Mapping from group name to a 4-D array ``(X, Y, Z, n_subjects)``.
+    template_img : nibabel.Nifti1Image
+        Image from the first loaded subject.
+    groups_ids : dict of str to list of str
+        Mapping from group name to ordered list of subject identifiers.
     """
     # Organize configs by group
     groups = {}

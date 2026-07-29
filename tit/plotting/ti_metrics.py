@@ -4,7 +4,6 @@ Simple TI-Toolbox metric visualizations (matplotlib).
 Centralizes plots that were previously implemented in optimizer/analyzer modules.
 """
 
-
 from typing import Iterable, Sequence
 
 from ._common import SaveFigOptions, ensure_headless_matplotlib_backend, savefig_close

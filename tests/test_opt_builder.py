@@ -177,6 +177,23 @@ class TestBuildOptimization:
         config = _make_config(enable_mapping=True, eeg_net="EEG10-10")
         result = build_optimization(config)
         assert result.map_to_net_electrodes is True
+        assert result.net_electrode_file == "/eeg/EEG10-10.csv"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_mapping_accepts_eeg_net_csv_suffix(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        opt_mock, pm, _ = builder_env
+        opt_mock.run_mapped_electrodes_simulation = False
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(
+            _make_config(enable_mapping=True, eeg_net="EEG10-10.csv")
+        )
+        assert result.net_electrode_file == "/eeg/EEG10-10.csv"
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
@@ -197,7 +214,7 @@ class TestBuildOptimization:
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        result = build_optimization(_make_config(visualize_valid_skin_region=True))
+        result = build_optimization(_make_config(visualize_valid_skin_region=False))
         assert result.visualize_valid_skin_region is True
 
     @patch("tit.opt.flex.builder.os.makedirs")
@@ -211,7 +228,26 @@ class TestBuildOptimization:
         result = build_optimization(
             _make_config(skin_visualization_net="/path/to/net.csv")
         )
-        assert result.net_electrode_file == "/path/to/net.csv"
+        assert result.skin_visualization_net_file == "/path/to/net.csv"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_skin_region_margin_controls(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(
+            _make_config(
+                skin_region_margin_mm=20.0,
+                avoid_landmark_regions=True,
+            )
+        )
+        assert result.skin_region_margin_mm == 20.0
+        assert result.avoid_landmark_regions is True
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
@@ -431,21 +467,60 @@ class TestGenerateReport:
 @pytest.mark.unit
 class TestAtlasNameFromPath:
     def test_standard_annot_path(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.aparc.annot", "lh") == "aparc"
 
     def test_with_subject_prefix(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.001_aparc.annot", "lh") == "aparc"
 
     def test_no_underscore(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/lh.myatlas.annot", "lh") == "myatlas"
 
     def test_rh_hemisphere(self):
-        from tit.opt.flex.builder import atlas_name_from_path
+        from tit.opt.flex.builder import _atlas_name_from_path as atlas_name_from_path
 
         assert atlas_name_from_path("/path/to/rh.Destrieux.annot", "rh") == "Destrieux"
+
+
+# ---------------------------------------------------------------------------
+# Report field helpers for combined (union) ROIs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestReportUnionFields:
+    def test_join_single_returns_scalar(self):
+        from tit.opt.flex.builder import _join
+
+        # Byte-identical single-region reports: a bare scalar, not a list.
+        assert _join(1001) == 1001
+        assert _join([1001]) == 1001
+
+    def test_join_multi_returns_plus_joined_string(self):
+        from tit.opt.flex.builder import _join
+
+        assert _join([17, 53]) == "17+53"
+        assert "[" not in _join([17, 53])
+
+    def test_sphere_report_fields_single_flat(self):
+        from tit.opt.flex.builder import _sphere_report_fields
+
+        coords, radius = _sphere_report_fields(
+            SphericalROI(x=10, y=20, z=30, radius=15)
+        )
+        assert coords == [10, 20, 30]
+        assert radius == 15
+
+    def test_sphere_report_fields_multi_nested(self):
+        from tit.opt.flex.builder import _sphere_report_fields
+
+        coords, radius = _sphere_report_fields(
+            SphericalROI(x=[10, -10], y=[20, -20], z=[30, -30], radius=8)
+        )
+        assert coords == [[10, 20, 30], [-10, -20, -30]]
+        assert radius == [8, 8]

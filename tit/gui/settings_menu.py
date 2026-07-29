@@ -1,12 +1,29 @@
+"""Settings and extensions menu buttons for the TI-Toolbox GUI title bar.
 
-"""Settings Menu - Gear icon menu for Help, Acknowledgments, and Contact."""
+Provides the gear icon (``SettingsMenuButton``) for Help/Contact/Acknowledgments
+and the extensions icon (``ExtensionsButton``) that opens the extensions panel.
+"""
 
 from PyQt5 import QtWidgets, QtCore
 from tit.gui.style import ICON_SIZE_GEAR, ICON_SIZE_EXTENSIONS
 
 
 class FloatingContentWindow(QtWidgets.QDialog):
-    """Generic floating window that hosts a content widget."""
+    """Generic floating dialog that hosts a content widget with a Close button.
+
+    Parameters
+    ----------
+    parent : QWidget
+        Parent widget.
+    title : str
+        Window title.
+    min_size : tuple[int, int]
+        Minimum (width, height) in pixels.
+    content_class : type
+        Widget class to instantiate as the dialog body.
+    **content_kwargs
+        Extra keyword arguments forwarded to *content_class*.
+    """
 
     def __init__(self, parent, title, min_size, content_class, **content_kwargs):
         super().__init__(parent)
@@ -27,8 +44,8 @@ class FloatingContentWindow(QtWidgets.QDialog):
         layout.addLayout(btn_layout)
 
 
-class SettingsMenuButton(QtWidgets.QPushButton):
-    """Gear icon button with dropdown menu for settings/info."""
+class SettingsMenuButton(QtWidgets.QToolButton):
+    """Gear icon button with a dropdown menu for Help, Contact, and Acknowledgments."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -37,18 +54,19 @@ class SettingsMenuButton(QtWidgets.QPushButton):
 
     def setup_ui(self):
         self.setText("\u2699")
+        self.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         self.setStyleSheet(f"""
-            QPushButton {{
+            QToolButton {{
                 font-size: {ICON_SIZE_GEAR}px;
                 border: none;
                 background: transparent;
                 padding: 5px;
             }}
-            QPushButton:hover {{
+            QToolButton:hover {{
                 background: rgba(0, 0, 0, 0.1);
                 border-radius: 3px;
             }}
-            QPushButton::menu-indicator {{
+            QToolButton::menu-indicator {{
                 width: 0px;
             }}
         """)
@@ -66,43 +84,87 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         acknowledgments_action = self.menu.addAction("Acknowledgments")
         acknowledgments_action.triggered.connect(self.open_acknowledgments)
 
+        self.menu.addSeparator()
+
+        self.privacy_action = self.menu.addAction(self._privacy_label())
+        self.privacy_action.triggered.connect(self.toggle_privacy)
+
         self.setMenu(self.menu)
+
+    # ── Privacy / telemetry toggle ──────────────────────────────────
+
+    @staticmethod
+    def _privacy_label() -> str:
+        """Return the menu label reflecting the current telemetry state."""
+        from tit.telemetry import is_enabled
+
+        state = "✓ Enabled" if is_enabled() else "✗ Disabled"
+        return f"Usage Statistics: {state}"
+
+    def toggle_privacy(self):
+        """Flip telemetry on/off and update the menu label."""
+        from tit.telemetry import is_enabled, set_enabled
+
+        set_enabled(not is_enabled())
+        self.privacy_action.setText(self._privacy_label())
+
+    def _show_single(self, attr, factory):
+        """Show a single-instance window. Reuse if already open, else create."""
+        window = getattr(self, attr, None)
+        if window is not None and window.isVisible():
+            window.raise_()
+            window.activateWindow()
+            return
+        window = factory()
+        setattr(self, attr, window)
+        window.show()
 
     def open_help(self):
         from tit.gui.help_tab import HelpTab
 
-        help_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Help", (800, 600), HelpTab
+        self._show_single(
+            "_help_window",
+            lambda: FloatingContentWindow(
+                self.parent, "TI-Toolbox - Help", (800, 600), HelpTab
+            ),
         )
-        help_window.show()
 
     def open_extensions(self):
         from tit.gui.extensions import FloatingExtensionsWindow
 
-        extensions_window = FloatingExtensionsWindow(
-            self.parent, main_window=self.parent
+        self._show_single(
+            "_extensions_window",
+            lambda: FloatingExtensionsWindow(
+                self.parent, main_window=self.parent
+            ),
         )
-        extensions_window.show()
 
     def open_contact(self):
         from tit.gui.contact_tab import ContactTab
 
-        contact_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Contact", (700, 500), ContactTab
+        self._show_single(
+            "_contact_window",
+            lambda: FloatingContentWindow(
+                self.parent, "TI-Toolbox - Contact", (700, 500), ContactTab
+            ),
         )
-        contact_window.show()
 
     def open_acknowledgments(self):
         from tit.gui.acknowledgments_tab import AcknowledgmentsTab
 
-        acknowledgments_window = FloatingContentWindow(
-            self.parent, "TI-Toolbox - Acknowledgments", (700, 500), AcknowledgmentsTab
+        self._show_single(
+            "_acknowledgments_window",
+            lambda: FloatingContentWindow(
+                self.parent,
+                "TI-Toolbox - Acknowledgments",
+                (700, 500),
+                AcknowledgmentsTab,
+            ),
         )
-        acknowledgments_window.show()
 
 
 class ExtensionsButton(QtWidgets.QPushButton):
-    """Extensions icon button for opening extensions window."""
+    """Icon button that opens the floating extensions window."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -131,7 +193,12 @@ class ExtensionsButton(QtWidgets.QPushButton):
     def open_extensions(self):
         from tit.gui.extensions import FloatingExtensionsWindow
 
-        extensions_window = FloatingExtensionsWindow(
+        window = getattr(self, "_extensions_window", None)
+        if window is not None and window.isVisible():
+            window.raise_()
+            window.activateWindow()
+            return
+        self._extensions_window = FloatingExtensionsWindow(
             self.parent, main_window=self.parent
         )
-        extensions_window.show()
+        self._extensions_window.show()

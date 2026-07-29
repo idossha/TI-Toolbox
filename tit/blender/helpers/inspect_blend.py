@@ -1,6 +1,12 @@
 #!/usr/bin/env simnibs_python
-"""
-Script to inspect a Blender file and extract scene information.
+"""Inspect a Blender file and print detailed scene information.
+
+This script is executed inside Blender's Python interpreter via::
+
+    blender --background --python inspect_blend.py -- /path/to/file.blend
+
+It prints render settings, colour management, EEVEE parameters, cameras,
+lights, materials, collections, and per-object details to stdout.
 """
 
 import bpy
@@ -27,6 +33,7 @@ def _fmt(v):
 
 
 def _getattr(obj, name, default="<n/a>"):
+    """Safe ``getattr`` that catches all exceptions."""
     try:
         return getattr(obj, name)
     except Exception:
@@ -34,16 +41,19 @@ def _getattr(obj, name, default="<n/a>"):
 
 
 def _print_section(title: str) -> None:
+    """Print a section header with a horizontal rule."""
     print("\n" + "-" * 80)
     print(title)
     print("-" * 80)
 
 
 def _print_kv(key: str, value) -> None:
+    """Print a formatted key-value pair."""
     print(f"{key}: {_fmt(value)}")
 
 
 def _print_world_nodes(world) -> None:
+    """Print world shader nodes (background, environment texture, mapping)."""
     if not world:
         print("  <no world>")
         return
@@ -92,6 +102,7 @@ def _print_world_nodes(world) -> None:
 
 
 def _print_color_management(scene) -> None:
+    """Print colour management / view-transform settings for *scene*."""
     vs = getattr(scene, "view_settings", None)
     ds = getattr(scene, "display_settings", None)
     se = getattr(scene, "sequencer_colorspace_settings", None)
@@ -109,6 +120,7 @@ def _print_color_management(scene) -> None:
 
 
 def _print_eevee_settings(scene) -> None:
+    """Print curated and auto-detected EEVEE properties for *scene*."""
     ee = getattr(scene, "eevee", None)
     if not ee:
         print("  <no eevee settings on this Blender version/scene>")
@@ -208,6 +220,7 @@ def _print_eevee_settings(scene) -> None:
 
 
 def _print_render_settings(scene) -> None:
+    """Print render engine, resolution, and film settings for *scene*."""
     r = scene.render
     _print_kv("Engine", r.engine)
     _print_kv("Film Transparent", r.film_transparent)
@@ -228,6 +241,7 @@ def _print_render_settings(scene) -> None:
 
 
 def _print_camera(cam_obj) -> None:
+    """Print camera optics, DOF, and transform for *cam_obj*."""
     cam = cam_obj.data
     print(f"Camera: {cam_obj.name}")
     print(f"  Location: {cam_obj.location}")
@@ -262,6 +276,7 @@ def _print_camera(cam_obj) -> None:
 
 
 def _print_light(light_obj) -> None:
+    """Print light type, energy, colour, shadow, and transform for *light_obj*."""
     ld = light_obj.data
     print(f"  {light_obj.name}:")
     print(f"    Type: {ld.type}")

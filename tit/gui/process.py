@@ -1,7 +1,11 @@
-"""
-Process utilities for TI-Toolbox GUI.
+"""Process utilities for TI-Toolbox GUI.
 
-Provides safe child process discovery using psutil.
+Provides safe child-process discovery via ``psutil``, used by the
+system monitor and process termination helpers.
+
+See Also
+--------
+tit.gui.system_monitor_tab.ProcessMonitorThread : Uses this for tree walking.
 """
 
 import psutil
@@ -10,14 +14,17 @@ __all__ = ["get_child_pids"]
 
 
 def get_child_pids(parent_pid: int) -> list:
-    """
-    Safely get child process IDs using psutil.
+    """Return direct child PIDs of *parent_pid*.
 
-    Args:
-        parent_pid: Parent process ID
+    Parameters
+    ----------
+    parent_pid : int
+        PID of the parent process to query.
 
-    Returns:
-        List of child process IDs. Returns empty list on any error.
+    Returns
+    -------
+    list[int]
+        Child process IDs.  Returns an empty list on any error.
     """
     parent = psutil.Process(parent_pid)
     children = parent.children(recursive=False)

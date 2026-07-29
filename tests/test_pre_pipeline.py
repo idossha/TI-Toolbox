@@ -27,10 +27,22 @@ for _mod in (
     sys.modules.setdefault(_mod, MagicMock())
 
 from tit.pre.structural import _run_step, _run_subject_pipeline, run_pipeline
+from tit.pre.preflight import PreprocessingOutput
 from tit.pre.utils import PreprocessError, CommandRunner
 
 STRUCTURAL = "tit.pre.structural"
 REPORTING = "tit.reporting"
+
+
+@pytest.fixture(autouse=True)
+def _stub_bidsignore():
+    """These tests mock the path manager, so the project root is not a real path.
+
+    ensure_bidsignore writes there for real; its own behaviour is covered by
+    TestEnsureBidsignore in test_pre_utils_full.py.
+    """
+    with patch(f"{STRUCTURAL}.ensure_bidsignore"):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +102,9 @@ def pipeline_mocks():
         patch(f"{STRUCTURAL}.run_qsirecon") as mock_qsirecon,
         patch(f"{STRUCTURAL}.extract_dti_tensor") as mock_dti,
         patch(f"{STRUCTURAL}.run_subcortical_segmentations") as mock_subcort,
+        patch(
+            f"{STRUCTURAL}.existing_outputs_for_step", return_value=[]
+        ) as mock_existing,
     ):
         mock_logger.return_value = MagicMock()
         yield {
@@ -106,7 +121,15 @@ def pipeline_mocks():
             "qsirecon": mock_qsirecon,
             "dti": mock_dti,
             "subcort": mock_subcort,
+            "existing": mock_existing,
         }
+
+
+@pytest.fixture(autouse=True)
+def no_missing_preprocessing_inputs():
+    """Most pipeline tests focus on orchestration, not input preflight."""
+    with patch(f"{STRUCTURAL}.find_missing_preprocessing_inputs", return_value=[]):
+        yield
 
 
 def _make_runner():
@@ -165,9 +188,10 @@ class TestRunSubjectPipeline:
             qsi_recon_config=None,
             extract_dti_step=False,
             run_subcortical=False,
-            debug=False,
             runner=MagicMock(),
             callback=None,
+            skip_existing_outputs=False,
+            replace_existing_outputs=False,
         )
         defaults.update(overrides)
         _run_subject_pipeline("/proj", "001", **defaults)
@@ -189,14 +213,14 @@ class TestRunSubjectPipeline:
         pipeline_mocks["subcort"].assert_called_once()
 
     def test_recon_only_path(self, pipeline_mocks):
-        """run_recon=True without convert_dicom or create_m2m takes the recon-only branch."""
+        """run_recon=True without convert_dicom or create_m2m runs only recon."""
         self._call(pipeline_mocks, run_recon=True)
         pipeline_mocks["recon"].assert_called_once()
         pipeline_mocks["dicom"].assert_not_called()
         pipeline_mocks["charm"].assert_not_called()
 
     def test_dicom_and_recon(self, pipeline_mocks):
-        """convert_dicom=True with run_recon=True takes the else branch."""
+        """convert_dicom=True with run_recon=True runs both, conversion first."""
         self._call(pipeline_mocks, convert_dicom=True, run_recon=True)
         pipeline_mocks["dicom"].assert_called_once()
         pipeline_mocks["recon"].assert_called_once()
@@ -214,6 +238,63 @@ class TestRunSubjectPipeline:
         kw = pipeline_mocks["qsirecon"].call_args
         assert kw.kwargs.get("recon_specs") == ["dipy_dki"]
 
+    def test_existing_output_blocks_by_default(self, pipeline_mocks, tmp_path):
+        """Existing selected outputs fail unless skip or replace is selected."""
+        output = PreprocessingOutput(
+            subject_id="001",
+            step="charm",
+            label="SimNIBS charm",
+            path=tmp_path / "m2m_001",
+        )
+        pipeline_mocks["existing"].return_value = [output]
+
+        with pytest.raises(PreprocessError, match="already exists"):
+            self._call(pipeline_mocks, create_m2m=True)
+
+        pipeline_mocks["charm"].assert_not_called()
+
+    def test_skip_existing_output_skips_step(self, pipeline_mocks, tmp_path):
+        """skip_existing_outputs leaves existing outputs in place and skips the step."""
+        output = PreprocessingOutput(
+            subject_id="001",
+            step="charm",
+            label="SimNIBS charm",
+            path=tmp_path / "m2m_001",
+        )
+        pipeline_mocks["existing"].return_value = [output]
+
+        self._call(
+            pipeline_mocks,
+            create_m2m=True,
+            skip_existing_outputs=True,
+        )
+
+        pipeline_mocks["charm"].assert_not_called()
+        pipeline_mocks["atlas"].assert_not_called()
+
+    def test_replace_existing_output_removes_and_runs(self, pipeline_mocks, tmp_path):
+        """replace_existing_outputs removes the existing output and runs the step."""
+        output_dir = tmp_path / "m2m_001"
+        output_dir.mkdir()
+        (output_dir / "old.txt").write_text("old")
+        output = PreprocessingOutput(
+            subject_id="001",
+            step="charm",
+            label="SimNIBS charm",
+            path=output_dir,
+        )
+        pipeline_mocks["existing"].return_value = [output]
+
+        self._call(
+            pipeline_mocks,
+            create_m2m=True,
+            replace_existing_outputs=True,
+        )
+
+        assert not output_dir.exists()
+        pipeline_mocks["charm"].assert_called_once()
+        pipeline_mocks["atlas"].assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # run_pipeline — parallel_recon path (lines 298-409)
@@ -228,7 +309,7 @@ class TestRunPipelineParallelRecon:
         mock_executor_cls.return_value.__enter__ = MagicMock(return_value=mock_ctx)
         mock_executor_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_future = MagicMock()
-        mock_future.result.return_value = None
+        mock_future.result.return_value = {}
         mock_ctx.submit.return_value = mock_future
         mock_as_completed.return_value = [mock_future] * n_subjects
         return mock_ctx
@@ -338,6 +419,24 @@ class TestRunPipelineReports:
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
     @patch(f"{STRUCTURAL}.ensure_subject_dirs")
     @patch(f"{STRUCTURAL}.get_path_manager")
+    def test_scaffolds_bidsignore_once_per_run(
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
+    ):
+        """CT output needs .bidsignore, so the pipeline must write it."""
+        from tit.pre import structural
+
+        # Stub the report generator like the tests below: the mocked path
+        # manager makes the project root a MagicMock, and the real generator
+        # would write its HTML into a literal MagicMock/ tree in the repo.
+        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
+            run_pipeline(["001", "002"], convert_dicom=True, runner=_make_runner())
+
+        structural.ensure_bidsignore.assert_called_once()
+
+    @patch(f"{STRUCTURAL}._run_subject_pipeline")
+    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
+    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
+    @patch(f"{STRUCTURAL}.get_path_manager")
     def test_report_generated_for_each_subject(
         self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
     ):
@@ -363,6 +462,21 @@ class TestRunPipelineReports:
             run_pipeline(["001"], convert_dicom=True, runner=_make_runner())
         step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
         assert "DICOM Conversion" in step_names
+
+    @patch(f"{STRUCTURAL}._run_subject_pipeline")
+    @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
+    @patch(f"{STRUCTURAL}.ensure_subject_dirs")
+    @patch(f"{STRUCTURAL}.get_path_manager")
+    def test_report_marks_skipped_step(
+        self, mock_pm, mock_dirs, mock_datasets, mock_run_sub, dummy_report
+    ):
+        mock_run_sub.return_value = {"DICOM Conversion": None}
+        with patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report):
+            run_pipeline(["001"], convert_dicom=True, runner=_make_runner())
+
+        step = dummy_report.instances[0].steps[0]
+        assert step["step_name"] == "DICOM Conversion"
+        assert step["status"] == "skipped"
 
     @patch(f"{STRUCTURAL}._run_subject_pipeline")
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")
@@ -465,9 +579,44 @@ class TestRunPipelineValidation:
     """Validation edge cases."""
 
     def test_empty_subject_list_raises(self):
-        with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline([])
+        with patch("tit.telemetry.track_event") as mock_track_event:
+            with pytest.raises(PreprocessError, match="No subjects"):
+                run_pipeline([])
+        mock_track_event.assert_not_called()
 
     def test_whitespace_only_subjects_raises(self):
-        with pytest.raises(PreprocessError, match="No subjects"):
-            run_pipeline(["", "  ", "\t"])
+        with patch("tit.telemetry.track_event") as mock_track_event:
+            with pytest.raises(PreprocessError, match="No subjects"):
+                run_pipeline(["", "  ", "\t"])
+        mock_track_event.assert_not_called()
+
+    def test_skip_and_replace_are_mutually_exclusive(self):
+        with pytest.raises(PreprocessError, match="cannot both be true"):
+            run_pipeline(
+                ["001"],
+                skip_existing_outputs=True,
+                replace_existing_outputs=True,
+            )
+
+    def test_missing_inputs_raise_before_telemetry(self):
+        problem = MagicMock()
+        problem.subject_id = "001"
+        problem.label = "SimNIBS charm"
+        problem.message = "SimNIBS charm requires a BIDS T1w image"
+        problem.path = "/proj/sub-001/anat"
+
+        with (
+            patch(f"{STRUCTURAL}.get_path_manager") as mock_pm,
+            patch(
+                f"{STRUCTURAL}.find_missing_preprocessing_inputs",
+                return_value=[problem],
+            ),
+            patch("tit.telemetry.track_event") as mock_track_event,
+        ):
+            mock_pm.return_value._root.return_value = "/proj"
+            with pytest.raises(
+                PreprocessError, match="Missing required preprocessing inputs"
+            ):
+                run_pipeline(["001"], create_m2m=True)
+
+        mock_track_event.assert_not_called()

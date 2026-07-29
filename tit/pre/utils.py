@@ -1,5 +1,21 @@
-"""Utility helpers for the tit.pre package."""
+"""
+Utility helpers for the ``tit.pre`` package.
 
+Provides subject discovery, BIDS directory scaffolding, dataset-description
+management, subprocess execution with cancellation support, and shared
+exception classes.
+
+Public API
+----------
+discover_subjects
+    Return sorted subject IDs found in a BIDS project tree.
+check_m2m_exists
+    Check whether a SimNIBS m2m directory exists.
+
+See Also
+--------
+tit.pre : Package-level overview and convenience re-exports.
+"""
 
 import glob
 import json
@@ -9,6 +25,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections import deque
 from datetime import date
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -16,28 +33,72 @@ from typing import Iterable, Sequence
 from tit.paths import get_path_manager
 
 DATASET_TEMPLATES = {
+    "root": "root.dataset_description.json",
     "freesurfer": "freesurfer.dataset_description.json",
     "simnibs": "simnibs.dataset_description.json",
     "ti-toolbox": "ti-toolbox.dataset_description.json",
 }
 
+BIDSIGNORE_LINES = (
+    "# CT is not part of the BIDS specification (BEP024 is still a draft),",
+    "# so the validator would reject these. TI-Toolbox writes CT to",
+    "# anat/ with a lowercase _ct suffix, matching BEP024's proposal.",
+    "*_ct.nii.gz",
+    "*_ct.json",
+    "# dcm2niix derivatives of a CT series, e.g. _Tilt_1 for gantry tilt.",
+    "*_ct_*.nii.gz",
+    "*_ct_*.json",
+)
+
 
 class PreprocessError(RuntimeError):
-    """Raised when a preprocessing step fails."""
+    """Raised when a preprocessing step fails.
+
+    See Also
+    --------
+    PreprocessCancelled : Raised specifically when cancelled by a stop event.
+    """
 
 
 class PreprocessCancelled(RuntimeError):
-    """Raised when a preprocessing run is cancelled."""
+    """Raised when a preprocessing run is cancelled via a stop event.
+
+    See Also
+    --------
+    PreprocessError : General preprocessing failure.
+    """
 
 
-def discover_subjects(project_dir: str) -> list[str]:
+def discover_subjects(project_dir: str | None) -> list[str]:
     """Return sorted, deduplicated subject IDs found in a BIDS project tree.
 
+    Returns an empty list when *project_dir* is ``None`` (project not
+    configured).
+
     Discovery order:
-    1. sourcedata/sub-*/T1w/ or T2w/ — any subdir, NIfTI (.nii/.nii.gz), or .tgz
-    2. sourcedata/sub-*/*.tgz (compressed bundles at top level)
-    3. sub-*/anat/*T1w*.nii[.gz] or *T2w*.nii[.gz] at project root
+
+    1. ``sourcedata/sub-*/T1w/`` or ``T2w/`` -- any subdir, NIfTI, DICOM,
+       or supported DICOM archive (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``).
+    2. ``sourcedata/sub-*/*.tgz`` (compressed bundles at top level).
+    3. ``sub-*/anat/*T1w*.nii[.gz]`` or ``*T2w*.nii[.gz]`` at project root.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root directory.
+
+    Returns
+    -------
+    list[str]
+        Sorted list of subject identifiers (without the ``sub-`` prefix).
+
+    See Also
+    --------
+    check_m2m_exists : Check whether a subject's m2m directory exists.
     """
+    if project_dir is None:
+        return []
+
     found: list[str] = []
 
     sourcedata_dir = os.path.join(project_dir, "sourcedata")
@@ -47,6 +108,17 @@ def discover_subjects(project_dir: str) -> list[str]:
                 t1w_dir = os.path.join(subj_dir, "T1w")
                 t2w_dir = os.path.join(subj_dir, "T2w")
 
+                supported_modality_files = (
+                    ".dcm",
+                    ".dicom",
+                    ".zip",
+                    ".tar",
+                    ".tar.gz",
+                    ".tgz",
+                    ".json",
+                    ".nii",
+                    ".nii.gz",
+                )
                 has_valid_structure = (
                     (
                         os.path.exists(t1w_dir)
@@ -56,7 +128,7 @@ def discover_subjects(project_dir: str) -> list[str]:
                                 for d in os.listdir(t1w_dir)
                             )
                             or any(
-                                f.endswith((".tgz", ".json", ".nii", ".nii.gz"))
+                                f.lower().endswith(supported_modality_files)
                                 for f in os.listdir(t1w_dir)
                             )
                         )
@@ -69,7 +141,7 @@ def discover_subjects(project_dir: str) -> list[str]:
                                 for d in os.listdir(t2w_dir)
                             )
                             or any(
-                                f.endswith((".tgz", ".json", ".nii", ".nii.gz"))
+                                f.lower().endswith(supported_modality_files)
                                 for f in os.listdir(t2w_dir)
                             )
                         )
@@ -99,9 +171,27 @@ def discover_subjects(project_dir: str) -> list[str]:
 
 
 def check_m2m_exists(project_dir: str, subject_id: str) -> bool:
-    """Return True if the SimNIBS m2m directory for subject_id already exists.
+    """Return ``True`` if the SimNIBS m2m directory already exists.
 
-    Path: <project_dir>/derivatives/SimNIBS/sub-<subject_id>/m2m_<subject_id>
+    Checks for
+    ``<project_dir>/derivatives/SimNIBS/sub-<subject_id>/m2m_<subject_id>``.
+
+    Parameters
+    ----------
+    project_dir : str
+        BIDS project root directory.
+    subject_id : str
+        Subject identifier without the ``sub-`` prefix.
+
+    Returns
+    -------
+    bool
+        ``True`` if the m2m directory exists on disk.
+
+    See Also
+    --------
+    discover_subjects : Find all subject IDs in a BIDS project.
+    run_charm : Generate the m2m head mesh.
     """
     m2m_dir = os.path.join(
         project_dir,
@@ -114,11 +204,7 @@ def check_m2m_exists(project_dir: str, subject_id: str) -> bool:
 
 
 def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:
-    """Find T1 and T2 weighted anatomical NIfTI files.
-
-    Looks for exact BIDS filenames produced by DICOM conversion:
-    sub-{subject_id}_T1w.nii.gz and sub-{subject_id}_T2w.nii.gz
-    """
+    """Find T1w and T2w anatomical NIfTI files for a subject."""
     pm = get_path_manager()
     bids_anat_dir = Path(pm.bids_anat(subject_id))
 
@@ -129,7 +215,7 @@ def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:
 
 
 def _find_nifti(directory: Path, stem: str) -> Path | None:
-    """Return the first existing .nii.gz or .nii file matching *stem*."""
+    """Return the first ``.nii.gz`` or ``.nii`` file matching *stem*."""
     for ext in (".nii.gz", ".nii"):
         path = directory / f"{stem}{ext}"
         if path.exists():
@@ -138,16 +224,43 @@ def _find_nifti(directory: Path, stem: str) -> Path | None:
 
 
 def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
+    """Create the standard BIDS directory scaffold for a subject.
+
+    Scaffolds a ``dicom/`` folder for every supported modality so the drop
+    location for each one is discoverable without reading the docs.
+    """
+    from .dicom2nifti import MODALITIES
+
     pm = get_path_manager(project_dir)
-    for modality in ("T1w", "T2w"):
+    for modality, _datatype in MODALITIES:
         pm.ensure(pm.sourcedata_dicom(subject_id, modality))
     pm.ensure(pm.bids_anat(subject_id))
-    pm.ensure(pm.freesurfer_subject(subject_id))
     pm.ensure(pm.sub(subject_id))
     pm.ensure(pm.ti_toolbox())
 
 
+def ensure_bidsignore(project_dir: str) -> None:
+    """Create or extend the project's root ``.bidsignore``.
+
+    CT has no place in BIDS yet (BEP024 is still a draft), so
+    ``anat/sub-{id}_ct.nii.gz`` would otherwise raise a validator error.
+    Existing lines are preserved -- users curate this file by hand.
+    """
+    target = Path(project_dir) / ".bidsignore"
+    existing = (
+        target.read_text(encoding="utf-8").splitlines() if target.exists() else []
+    )
+    missing = [line for line in BIDSIGNORE_LINES if line not in existing]
+    if not missing:
+        return
+    lines = [*existing, *missing] if existing else list(BIDSIGNORE_LINES)
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _dataset_description_target(project_dir: str, dataset: str) -> Path:
+    """Return the target path for a dataset_description.json file."""
+    if dataset == "root":
+        return Path(project_dir) / "dataset_description.json"
     if dataset == "freesurfer":
         return (
             Path(project_dir)
@@ -170,6 +283,7 @@ def _dataset_description_target(project_dir: str, dataset: str) -> Path:
 
 
 def ensure_dataset_descriptions(project_dir: str, datasets: Iterable[str]) -> None:
+    """Create or update ``dataset_description.json`` for each dataset."""
     project_name = Path(project_dir).name
     today = date.today().strftime("%Y-%m-%d")
     repo_root = Path(__file__).resolve().parents[2]
@@ -205,6 +319,9 @@ def ensure_dataset_descriptions(project_dir: str, datasets: Iterable[str]) -> No
 
         payload = json.loads(target_path.read_text(encoding="utf-8"))
 
+        if not payload.get("Name"):
+            payload["Name"] = project_name
+
         uri_value = f"bids:{project_name}@{today}"
         source_datasets = payload.get("SourceDatasets")
         if isinstance(source_datasets, list) and source_datasets:
@@ -229,6 +346,7 @@ def build_logger(
     log_file: str | None = None,
     console: bool = True,
 ) -> logging.Logger:
+    """Create a named logger with a file handler for a preprocessing step."""
     from tit.logger import add_file_handler
 
     pm = get_path_manager(project_dir)
@@ -244,6 +362,7 @@ def build_logger(
 
 
 def _terminate_process(proc: subprocess.Popen) -> None:
+    """Send SIGTERM to a subprocess and its process group."""
     try:
         if os.name == "nt":
             proc.terminate()
@@ -257,16 +376,40 @@ def _terminate_process(proc: subprocess.Popen) -> None:
 
 
 class CommandRunner:
+    """Run subprocesses with cancellation and streaming log output.
+
+    Wraps ``subprocess.Popen`` to stream stdout/stderr line-by-line to a
+    logger while honouring a ``threading.Event`` for cancellation.
+
+    Parameters
+    ----------
+    stop_event : threading.Event or None, optional
+        Event that, when set, causes any running command to be terminated.
+        A fresh event is created if ``None``.
+
+    Attributes
+    ----------
+    stop_event : threading.Event
+        The cancellation event.
+
+    See Also
+    --------
+    PreprocessCancelled : Exception raised when a command is cancelled.
+    """
+
     def __init__(self, stop_event: threading.Event | None = None) -> None:
         self.stop_event = stop_event or threading.Event()
         self._lock = threading.Lock()
         self._processes: set[subprocess.Popen] = set()
+        self.last_output_lines: list[str] = []
 
     def request_stop(self) -> None:
+        """Signal cancellation and terminate all running processes."""
         self.stop_event.set()
         self.terminate_all()
 
     def terminate_all(self) -> None:
+        """Terminate all tracked child processes."""
         with self._lock:
             procs = list(self._processes)
         for proc in procs:
@@ -280,6 +423,31 @@ class CommandRunner:
         cwd: str | None = None,
         env: dict | None = None,
     ) -> int:
+        """Execute *cmd* and stream its output to *logger*.
+
+        Parameters
+        ----------
+        cmd : sequence of str
+            Command and arguments.
+        logger : logging.Logger
+            Logger that receives each output line at INFO level.
+        cwd : str or None, optional
+            Working directory for the subprocess.
+        env : dict or None, optional
+            Environment variables for the subprocess.
+
+        Returns
+        -------
+        int
+            Process exit code.
+
+        Raises
+        ------
+        PreprocessCancelled
+            If ``stop_event`` is set before or during execution.
+        ValueError
+            If *cmd* is empty.
+        """
         if self.stop_event.is_set():
             raise PreprocessCancelled("Pre-processing cancelled before command start.")
 
@@ -287,6 +455,8 @@ class CommandRunner:
             raise ValueError("Command is empty.")
 
         logger.debug(f"Command: {' '.join(cmd)}")
+        output_tail: deque[str] = deque(maxlen=20)
+        self.last_output_lines = []
 
         preexec_fn = os.setsid if os.name != "nt" else None
         proc = subprocess.Popen(
@@ -311,9 +481,11 @@ class CommandRunner:
                         raise PreprocessCancelled("Pre-processing cancelled.")
                     line = line.strip()
                     if line:
+                        output_tail.append(line)
                         logger.info(line)
             returncode = proc.wait()
         finally:
+            self.last_output_lines = list(output_tail)
             with self._lock:
                 self._processes.discard(proc)
 

@@ -14,6 +14,10 @@ from pathlib import Path
 def update_file_content(file_path, patterns):
     """Update patterns in a file"""
 
+    if not os.path.exists(file_path):
+        print(f"Skipped (not found): {file_path}")
+        return False
+
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -84,6 +88,16 @@ def update_version(new_version):
         # Electron app project metadata version
         "package/src/main.js": [
             (r"version: '[^']*'", f"version: '{new_version}'"),
+        ],
+        # Software citation metadata
+        # Software citation metadata. Anchored on a leading newline so
+        # "version:" does not also match "cff-version:".
+        "CITATION.cff": [
+            (r"\nversion: [^\n]*", f"\nversion: {new_version}"),
+            (
+                r'\ndate-released: [^\n]*',
+                f'\ndate-released: "{datetime.now().strftime("%Y-%m-%d")}"',
+            ),
         ],
     }
 
@@ -252,11 +266,11 @@ def update_changelog_file(version, release_notes, release_date):
             break
 
     if insert_index > 0:
-        # Split the new section into lines and insert them
+        # Split the new section into lines and insert them, preserving the
+        # blank lines that separate sections so the entry matches the rest.
         new_lines = new_changelog_section.split("\n")
-        for i, new_line in enumerate(reversed(new_lines)):
-            if new_line.strip():  # Only insert non-empty lines
-                lines.insert(insert_index, new_line)
+        for new_line in reversed(new_lines):
+            lines.insert(insert_index, new_line)
 
         new_content = "\n".join(lines)
         with open(changelog_file, "w", encoding="utf-8") as f:
@@ -435,6 +449,7 @@ def get_release_info():
     # Format the release notes
     release_notes = []
     release_notes.append("#### Additions")
+    release_notes.append("")
     if additions:
         release_notes.extend(f"- {add}" for add in additions)
     else:
@@ -442,6 +457,7 @@ def get_release_info():
 
     release_notes.append("")
     release_notes.append("#### Fixes")
+    release_notes.append("")
     if fixes:
         release_notes.extend(f"- {fix}" for fix in fixes)
     else:

@@ -3,8 +3,18 @@
 Runs per-subject ROI analyses in-process via :class:`Analyzer`, aggregates the
 results into a summary CSV with an AVERAGE row, and produces a 2x2 comparison
 bar-chart saved as PDF.
-"""
 
+Public API
+----------
+GroupResult
+    Container for multi-subject group analysis outcomes.
+run_group_analysis
+    Run the same ROI analysis across multiple subjects and summarise.
+
+See Also
+--------
+tit.analyzer.analyzer : Single-subject analyzer used per-subject.
+"""
 
 import logging
 import time
@@ -40,7 +50,24 @@ _NUMERIC_COLS = [
 
 @dataclass
 class GroupResult:
-    """Outcome of a multi-subject group analysis."""
+    """Outcome of a multi-subject group analysis.
+
+    Attributes
+    ----------
+    subject_results : dict of str to AnalysisResult
+        Mapping of subject ID to its
+        :class:`~tit.analyzer.analyzer.AnalysisResult`.
+    summary_csv_path : pathlib.Path
+        Path to the summary CSV (one row per subject plus an AVERAGE row).
+    comparison_plot_path : pathlib.Path or None
+        Path to the 2x2 comparison bar-chart PDF, or ``None`` if plotting
+        failed.
+
+    See Also
+    --------
+    run_group_analysis : Factory function that produces this result.
+    AnalysisResult : Per-subject analysis container.
+    """
 
     subject_results: dict[str, AnalysisResult]
     summary_csv_path: Path
@@ -61,59 +88,108 @@ def run_group_analysis(
     visualize: bool = False,
     output_dir: str | Path | None = None,
 ) -> GroupResult:
-    """Run the same ROI analysis across *subject_ids* and summarise.
+    """Run the same ROI analysis across multiple subjects and summarise.
 
     Dispatches to ``analyze_sphere`` or ``analyze_cortex`` on each subject,
     builds a summary CSV (with an AVERAGE row), and generates a 2x2
-    comparison bar-chart PDF.  Returns a :class:`GroupResult`.
+    comparison bar-chart PDF.
+
+    Parameters
+    ----------
+    subject_ids : list of str
+        Subject identifiers (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name, shared by all subjects.
+    space : str, optional
+        ``"mesh"`` or ``"voxel"``. Default ``"mesh"``.
+    tissue_type : str, optional
+        ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
+    analysis_type : str, optional
+        ``"spherical"`` or ``"cortical"``. Default ``"spherical"``.
+    center : tuple of float or None, optional
+        ``(x, y, z)`` sphere centre; required when *analysis_type* is
+        ``"spherical"``.
+    radius : float or None, optional
+        Sphere radius in mm; required when *analysis_type* is
+        ``"spherical"``.
+    coordinate_space : str, optional
+        ``"subject"`` or ``"MNI"`` (spherical only). Default ``"subject"``.
+    atlas : str or None, optional
+        Atlas name (cortical only).
+    region : str, list of str, or None, optional
+        Region name or list of region names (cortical only).
+    visualize : bool, optional
+        Generate per-subject visualization artifacts. Default ``False``.
+    output_dir : str, pathlib.Path, or None, optional
+        Override output directory. If ``None``, derived from PathManager.
+
+    Returns
+    -------
+    GroupResult
+        Per-subject results, the summary CSV path, and the comparison
+        plot path.
+
+    Raises
+    ------
+    KeyError
+        If *analysis_type* is not ``"spherical"`` or ``"cortical"``.
+
+    See Also
+    --------
+    Analyzer : Single-subject analyzer used internally per subject.
+    GroupResult : Container for the returned outcomes.
     """
-    out = _resolve_output_dir(output_dir)
+    from tit.telemetry import track_operation
+    from tit import constants as _const
 
-    # File handler so group analysis logs are persisted
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    log_file = out / f"group_analysis_{timestamp}.log"
-    add_file_handler(log_file)
+    with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
+        out = _resolve_output_dir(output_dir)
 
-    logger.info(
-        "Group analysis started: %d subjects, space=%s, type=%s",
-        len(subject_ids),
-        space,
-        analysis_type,
-    )
+        # File handler so group analysis logs are persisted
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        log_file = out / f"group_analysis_{timestamp}.log"
+        add_file_handler(log_file)
 
-    dispatch: dict[str, callable] = {
-        "spherical": lambda a: a.analyze_sphere(
-            center=center,
-            radius=radius,
-            coordinate_space=coordinate_space,
-            visualize=visualize,
-        ),
-        "cortical": lambda a: a.analyze_cortex(
-            atlas=atlas,
-            region=region,
-            visualize=visualize,
-        ),
-    }
-    analyze_fn = dispatch[analysis_type]
+        logger.info(
+            "Group analysis started: %d subjects, space=%s, type=%s",
+            len(subject_ids),
+            space,
+            analysis_type,
+        )
 
-    results: dict[str, AnalysisResult] = {}
-    for sid in subject_ids:
-        logger.info("Analyzing subject %s", sid)
-        results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
+        dispatch: dict[str, callable] = {
+            "spherical": lambda a: a.analyze_sphere(
+                center=center,
+                radius=radius,
+                coordinate_space=coordinate_space,
+                visualize=visualize,
+            ),
+            "cortical": lambda a: a.analyze_cortex(
+                atlas=atlas,
+                region=region,
+                visualize=visualize,
+            ),
+        }
+        analyze_fn = dispatch[analysis_type]
 
-    df = _build_summary_df(results)
-    csv_path = out / "group_summary.csv"
-    df.to_csv(csv_path, index=False, float_format="%.3f")
-    logger.info("Summary CSV written to %s", csv_path)
+        results: dict[str, AnalysisResult] = {}
+        for sid in subject_ids:
+            logger.info("Analyzing subject %s", sid)
+            results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
 
-    plot_path = _generate_comparison_plot(df, out)
-    logger.info("Comparison plot written to %s", plot_path)
+        df = _build_summary_df(results)
+        csv_path = out / "group_summary.csv"
+        df.to_csv(csv_path, index=False, float_format="%.3f")
+        logger.info("Summary CSV written to %s", csv_path)
 
-    return GroupResult(
-        subject_results=results,
-        summary_csv_path=csv_path,
-        comparison_plot_path=plot_path,
-    )
+        plot_path = _generate_comparison_plot(df, out)
+        logger.info("Comparison plot written to %s", plot_path)
+
+        return GroupResult(
+            subject_results=results,
+            summary_csv_path=csv_path,
+            comparison_plot_path=plot_path,
+        )
 
 
 # ---------------------------------------------------------------------------
