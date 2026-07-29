@@ -380,6 +380,72 @@ class FlexConfig:
                 )
 
     @dataclass
+    class CorticalROI:
+        """Cortical surface-atlas label, projected into the volumetric GM ribbon.
+
+        Field shape mirrors :class:`AtlasROI` exactly (same
+        *atlas_path*/*label*/*hemisphere* union semantics) -- only the
+        resolution target differs. :class:`AtlasROI` is evaluated directly
+        on the cortical surface by flex-search; ``CorticalROI`` instead
+        rasterizes the same ``.annot`` label into voxel space (sampling
+        along each masked vertex's white->pial "cortical column"),
+        intersects with the subject's aseg cortex ribbon
+        (``segmentation/labeling.nii.gz``, Left/Right-Cerebral-Cortex), and
+        matches the surviving voxels to volume tetrahedra. This is what lets
+        :class:`~tit.opt.roi.ROIResolver` hand a cortical atlas region to the
+        leadfield-based optimizers (:mod:`tit.opt.mp`), which have no notion
+        of a surface ROI and otherwise only accept :class:`SphericalROI` /
+        :class:`SubcorticalROI`.
+
+        Attributes
+        ----------
+        atlas_path : str or list of str
+            Path(s) to the FreeSurfer ``.annot`` annotation file(s).
+        label : int or list of int
+            Integer label index/indices within the annotation atlas -- the
+            position of the region in the ``.annot`` colour table, i.e. the
+            same indexing convention as :class:`AtlasROI.label`.
+        hemisphere : str or list of str
+            Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
+        tissues : str
+            Tissue compartments to include in the final volumetric match.
+            One of ``"GM"``, ``"WM"``, or ``"both"``. ``"GM"`` (default) is
+            almost always correct for a cortical label.
+
+        Raises
+        ------
+        ValueError
+            If *label* is empty, or *atlas_path*/*hemisphere* is a list whose
+            length neither equals 1 nor the number of labels.
+
+        See Also
+        --------
+        AtlasROI : The surface-only counterpart consumed directly by flex-search.
+        tit.opt.roi.ROIResolver : Performs the surface -> volume projection
+            and GM-ribbon intersection.
+        """
+
+        atlas_path: str | list[str]
+        label: int | list[int]
+        hemisphere: str | list[str] = "lh"
+        tissues: str = "GM"  # "GM", "WM", or "both"
+
+        def __post_init__(self):
+            n = len(_as_list(self.label))
+            if n == 0:
+                raise ValueError("CorticalROI label must be non-empty")
+            if len(_as_list(self.atlas_path)) not in (1, n):
+                raise ValueError(
+                    "CorticalROI atlas_path must be a scalar or match the number "
+                    "of labels"
+                )
+            if len(_as_list(self.hemisphere)) not in (1, n):
+                raise ValueError(
+                    "CorticalROI hemisphere must be a scalar or match the number "
+                    "of labels"
+                )
+
+    @dataclass
     class SubcorticalROI:
         """Subcortical volume ROI from a volumetric atlas.
 
@@ -948,13 +1014,15 @@ class MultiPolarConfig:
 
     Uses a precomputed leadfield matrix to optimize electrode placements
     and current weights for multi-channel TI stimulation via differential
-    evolution. AtlasROI is not supported; use SphericalROI or
-    SubcorticalROI.
+    evolution. Surface-only AtlasROI is not supported; use SphericalROI,
+    SubcorticalROI, or CorticalROI (an AtlasROI label projected into the
+    volumetric GM ribbon -- see :class:`FlexConfig.CorticalROI`).
 
     Attributes:
         subject_id: Subject identifier matching the m2m directory name.
         leadfield_hdf: Path to the precomputed leadfield HDF5 file.
-        roi: Target region of interest (SphericalROI or SubcorticalROI).
+        roi: Target region of interest (SphericalROI, SubcorticalROI, or
+            CorticalROI).
         n_pairs: Number of electrode pairs (must be an even number >= 2).
             Grouped into ``n_pairs // 2`` interference pairs per *scheme*
             (finding F11).
@@ -1051,13 +1119,13 @@ class MultiPolarConfig:
     # ── required ──
     subject_id: str
     leadfield_hdf: str
-    roi: "FlexConfig.SphericalROI | FlexConfig.SubcorticalROI"
+    roi: "FlexConfig.SphericalROI | FlexConfig.SubcorticalROI | FlexConfig.CorticalROI"
 
     # ── search ──
     n_pairs: int = 4
     current_mA: float = 2.0
     non_roi_method: str = "everything_else"
-    non_roi: "FlexConfig.SphericalROI | FlexConfig.SubcorticalROI | None" = None
+    non_roi: "FlexConfig.SphericalROI | FlexConfig.SubcorticalROI | FlexConfig.CorticalROI | None" = (None)
 
     # ── mTI pair grouping (finding F11) ──
     scheme: Literal["multiband", "dual_carrier"] = "multiband"
@@ -1087,10 +1155,12 @@ class MultiPolarConfig:
     def __post_init__(self):
         if self.n_pairs < 2 or self.n_pairs % 2 != 0:
             raise ValueError(f"n_pairs must be an even number >= 2, got {self.n_pairs}")
-        if hasattr(self.roi, "hemisphere"):
+        if isinstance(self.roi, FlexConfig.AtlasROI):
             raise ValueError(
-                "AtlasROI not supported for leadfield optimization. "
-                "Use SphericalROI or SubcorticalROI instead."
+                "AtlasROI (surface-only) is not supported for leadfield "
+                "optimization. Use SphericalROI, SubcorticalROI, or "
+                "CorticalROI (the same atlas label, projected into the "
+                "volumetric GM ribbon) instead."
             )
         if self.non_roi_method == "specific" and self.non_roi is None:
             raise ValueError("non_roi_method='specific' requires non_roi config")

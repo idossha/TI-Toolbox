@@ -44,6 +44,7 @@ _TYPE_DISCRIMINATED: dict[type, str] = {
     FlexConfig.SphericalROI: "SphericalROI",
     FlexConfig.AtlasROI: "AtlasROI",
     FlexConfig.SubcorticalROI: "SubcorticalROI",
+    FlexConfig.CorticalROI: "CorticalROI",
     ExConfig.PoolElectrodes: "PoolElectrodes",
     ExConfig.BucketElectrodes: "BucketElectrodes",
     Montage: "Montage",

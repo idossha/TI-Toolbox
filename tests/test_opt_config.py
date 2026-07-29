@@ -35,6 +35,7 @@ NonROIMethod = FlexConfig.NonROIMethod
 SphericalROI = FlexConfig.SphericalROI
 AtlasROI = FlexConfig.AtlasROI
 SubcorticalROI = FlexConfig.SubcorticalROI
+CorticalROI = FlexConfig.CorticalROI
 FlexElectrodeConfig = FlexConfig.ElectrodeConfig
 
 # ---------------------------------------------------------------------------
@@ -365,6 +366,11 @@ class TestROIDefaults:
     def test_subcortical_roi_defaults(self):
         roi = SubcorticalROI(atlas_path="/atlas.nii.gz", label=17)
         assert roi.atlas_space == "subject"
+        assert roi.tissues == "GM"
+
+    def test_cortical_roi_defaults(self):
+        roi = CorticalROI(atlas_path="/atlas.annot", label=18)
+        assert roi.hemisphere == "lh"
         assert roi.tissues == "GM"
 
     def test_flex_electrode_config_defaults(self):

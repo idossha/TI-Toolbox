@@ -9,6 +9,7 @@ from tit.opt.mp.engine import run_mp_search
 _ROI_BUILDERS = {
     "SphericalROI": FlexConfig.SphericalROI,
     "SubcorticalROI": FlexConfig.SubcorticalROI,
+    "CorticalROI": FlexConfig.CorticalROI,
 }
 
 
@@ -17,6 +18,10 @@ def _build_roi(data: dict | None):
 
     Supports ``_type`` discriminator field. Falls back to field-based
     inference: ``x`` -> SphericalROI, ``atlas_path`` -> SubcorticalROI.
+    CorticalROI shares the ``atlas_path`` field with SubcorticalROI, so it
+    always relies on the ``_type`` discriminator (present on every config
+    serialized by ``tit.config_io``); the fallback only exists for
+    hand-written / pre-CorticalROI JSON.
     """
     if data is None:
         return None
