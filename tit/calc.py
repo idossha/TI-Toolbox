@@ -374,7 +374,12 @@ def compute_grossman_ext_directional_am_stats(fields):
 
 
 def mti_modulation_depth(
-    fields, psi=None, directions=None, num_directions=192, chunk_size=16384
+    fields,
+    psi=None,
+    directions=None,
+    num_directions=192,
+    chunk_size=16384,
+    refine=True,
 ):
     r"""Compute the coherent multi-pair TI modulation-depth envelope.
 
@@ -426,6 +431,64 @@ def mti_modulation_depth(
     Validity requires sufficient carrier-band separation between pairs
     (finding F7); see :func:`tit.opt.config.validate_band_separation`.
 
+    Direction-sweep sampling error (Phase 2, finding from the mti-carrier-
+    metrics track)
+    -----------------------------------------------------------------------
+    The raw 192-direction Fibonacci-sphere sweep (``refine=False``) can only
+    ever *underestimate* the true best-direction envelope -- a finite sweep
+    finds a max that is less-than-or-equal to the true max -- so its bias is
+    one-sided. But the *variance* of that underestimate is per-montage noise
+    that tracks field geometry, and it does **not** cancel when ranking two
+    candidate montages against each other. Measured against the exact K=1
+    closed form (:func:`get_TI_vectors`) over random field pairs::
+
+        sweep resolution   mean err   median err   p95 err   worst err
+        n_dir=  192          1.54%       1.00%       4.28%      6.86%
+        n_dir=  512          0.77%       0.53%       2.30%      2.85%
+        n_dir= 2048          0.25%       0.14%       0.86%      1.41%
+        n_dir= 8192          0.12%       0.07%       0.40%      0.79%
+        signed error at n_dir=192: mean -1.50%, std 1.45%, range [-8.37%, 0.00%]
+
+    For scale, Lee et al. (2020)'s entire optimized-vs-baseline hippocampus
+    focality range is 1.1 -> 1.2 (a 9% effect) -- an 8%-tailed sampling
+    noise floor at the production default is large enough to flip montage
+    rankings.
+
+    ``refine=True`` (the default) removes this noise with a two-tier fix
+    that leaves ``num_directions=192`` unchanged as the coarse-stage
+    resolution:
+
+    - **K = 1** (a single TI pair -- two carrier fields): the best-direction
+      envelope has an exact closed form (Grossman et al. 2017; the
+      sign-agnostic form of Hirata et al. 2024 used here needs no
+      canonicalization branch). No sweep is performed at all -- error is
+      floating-point noise only (< 1e-12 vs. :func:`get_TI_vectors`, see
+      ``tests/test_calc_mti.py::TestK1ExactPath``), and this path is
+      *cheaper* than the sweep it replaces, not more expensive.
+    - **K >= 2**: the coarse 192-direction sweep locates several diverse
+      starting directions (not just the argmax -- picking only the single
+      best coarse sample is not robust: the envelope surface can have
+      multiple local maxima, and the samples nearest the true global
+      maximum occasionally rank below a cluster of neighbouring samples
+      around a different, decoy peak), then a few rounds of shrinking-
+      radius local-patch search (no ``scipy`` dependency, so this stays
+      testable under the project's mocked-``scipy`` test environment)
+      refine each. Measured worst-case error against a 300,000-direction
+      reference sweep drops from the ~6-8% figure above to **< 0.5%**
+      (see ``tests/test_calc_mti.py::TestRefinementAccuracy``) at a
+      measured cost of roughly **7x** the coarse sweep alone -- higher
+      than the ~2x originally targeted; a lighter configuration (fewer
+      seeds/rounds) was measured and did not reliably clear the 0.5%
+      worst-case bar across a broad trial sweep, so accuracy was kept as
+      the binding constraint. This cost is scale-invariant (measured
+      flat from N=5e4 to N=2e6 elements) and still cheap in absolute
+      terms -- a few seconds per 1e6 elements.
+
+    ``refine=False`` reproduces the original (Phase 1) coarse-sweep-only
+    behaviour exactly, including for K=1 -- this is what makes the
+    ``psi=None`` bit-parity comparison against the ported collaborator
+    implementation meaningful, and is the mode to use for that comparison.
+
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
@@ -437,26 +500,34 @@ def mti_modulation_depth(
         phase-aligned (``psi_k = 0``) and takes a real-only fast path that
         is bit-identical to the ported real-weight implementation.
     directions : np.ndarray, shape (N, 3), or None
-        If ``None`` (default), sweep a 192-point chunked Fibonacci-sphere
-        grid (matching the ported implementation's resolution and
-        16384-element chunk size) and return the best-direction envelope
-        per element -- the mode used for mTI field maps. If given, use
-        the supplied per-element direction directly (normalised
-        internally) with no search -- the mode used to project onto a
-        known orientation (e.g. cortical normal) or to validate the
-        closed form against ground truth at an exact, known direction.
+        If ``None`` (default), find the best-direction envelope per
+        element -- the mode used for mTI field maps; see ``refine`` below
+        for how the search is performed. If given, use the supplied
+        per-element direction directly (normalised internally) with no
+        search -- the mode used to project onto a known orientation (e.g.
+        cortical normal) or to validate the closed form against ground
+        truth at an exact, known direction. ``refine`` has no effect in
+        this mode.
     num_directions : int, default 192
-        Number of Fibonacci-sphere sample directions when ``directions``
-        is ``None``. The default matches the ported implementation
-        exactly (required for the ``psi=None`` bit-identity guarantee
-        above). Higher values trade sampling error for compute cost --
-        e.g. verification against an exact analytical optimum (K=1) needs
-        a much finer sweep than the production default; see
-        ``scripts/verify_mti_envelope.py``.
+        Number of Fibonacci-sphere sample directions for the coarse-stage
+        sweep when ``directions`` is ``None``. The default matches the
+        ported implementation exactly (required for the ``psi=None``,
+        ``refine=False`` bit-identity guarantee). Higher values trade
+        sampling error for compute cost -- e.g. verification against an
+        exact analytical optimum (K=1) needs a much finer sweep than the
+        production default; see ``scripts/verify_mti_envelope.py``.
     chunk_size : int, default 16384
         Mesh elements processed per chunk during the direction sweep,
-        bounding peak memory to ``chunk_size * num_directions`` floats
-        regardless of total element count.
+        bounding peak memory regardless of total element count.
+    refine : bool, default True
+        If ``True`` (default), use the accurate two-tier direction search
+        described above: the K=1 exact closed form (no sweep), or coarse
+        sweep + local refinement for K >= 2. If ``False``, use the original
+        Phase 1 coarse-sweep-only search unconditionally (for both K=1 and
+        K >= 2) at ``num_directions`` resolution -- bit-identical to Phase 1
+        and to the ported collaborator implementation (when ``psi=None``).
+        Kept reachable for bit-parity comparison; not recommended for new
+        code since it carries the sampling error documented above.
 
     Returns
     -------
@@ -494,7 +565,14 @@ def mti_modulation_depth(
 
     if directions is not None:
         return _mti_modulation_depth_at_directions(arrs, psi_arr, directions)
-    return _mti_modulation_depth_sweep(arrs, psi_arr, num_directions, chunk_size)
+
+    if refine and n_pairs == 1:
+        md, P, best_direction = _k1_exact_envelope(arrs[0], arrs[1])
+        return {"md": md, "carrier_power": P, "best_direction": best_direction}
+
+    return _mti_modulation_depth_sweep(
+        arrs, psi_arr, num_directions, chunk_size, refine
+    )
 
 
 def _validate_psi(psi, n_pairs):
@@ -554,9 +632,297 @@ def _envelope_from_PQ(P, Q):
     return np.sqrt(2.0 * smax) - np.sqrt(2.0 * smin)
 
 
-def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size):
+def _k1_exact_envelope(E1, E2):
+    """Exact best-direction K=1 envelope via the sign-agnostic closed form
+    (Hirata et al. 2024), with no sweep and no canonicalization branch.
+
+    .. math::
+
+        MD = \\begin{cases}
+            2\\min(|E_1|,|E_2|) & \\min(|E_1|,|E_2|) \\le \\sqrt{|E_1\\cdot E_2|} \\\\
+            \\dfrac{2|E_1\\times E_2|}{\\min(|E_1-E_2|,|E_1+E_2|)} & \\text{otherwise}
+        \\end{cases}
+
+    Verified to match :func:`get_TI_vectors`'s magnitude to < 1e-12 over
+    >= 1e4 random field pairs -- see
+    ``tests/test_calc_mti.py::TestK1ExactPath``.
+
+    The per-pair envelope phase ``psi`` has no effect on K=1 (a single
+    complex term's magnitude is phase-invariant: ``|a*b*e^{i psi}| =
+    |a*b|``), so this fast path is unconditionally correct regardless of
+    hardware phase offset.
+
+    Returns
+    -------
+    md : np.ndarray, shape (N,)
+    carrier_power : np.ndarray, shape (N,)
+        ``P = 0.5 * (a^2 + b^2)`` evaluated at the same direction as ``md``.
+    best_direction : np.ndarray, shape (N, 3)
+        Unit vector (sign is arbitrary -- MD and P are direction-sign
+        invariant).
+    """
+    n = E1.shape[0]
+    norm_e1 = np.linalg.norm(E1, axis=1)
+    norm_e2 = np.linalg.norm(E2, axis=1)
+    dot = np.sum(E1 * E2, axis=1)
+    min_norm = np.minimum(norm_e1, norm_e2)
+
+    md = np.zeros(n, dtype=np.float64)
+    best_dir = np.tile(np.array([0.0, 0.0, 1.0]), (n, 1))
+
+    # Regime A ("parallel"): the smaller field's own direction is optimal.
+    regime_a = min_norm <= np.sqrt(np.abs(dot))
+    if np.any(regime_a):
+        use_e1 = norm_e1[regime_a] <= norm_e2[regime_a]
+        e_small = np.where(use_e1[:, None], E1[regime_a], E2[regime_a])
+        norm_small = np.where(use_e1, norm_e1[regime_a], norm_e2[regime_a])
+        nonzero = norm_small > 0.0
+        norm_small_safe = np.where(nonzero, norm_small, 1.0)
+        dir_a = e_small / norm_small_safe[:, None]
+        rows_a = np.flatnonzero(regime_a)
+        best_dir[rows_a[nonzero]] = dir_a[nonzero]
+        md[regime_a] = 2.0 * min_norm[regime_a]
+
+    # Regime B ("oblique"): optimal direction is the component of either
+    # field perpendicular to h = E1 -/+ E2 (whichever has smaller norm);
+    # E1_perp == E2_perp exactly for that choice of h (both fields differ
+    # from each other only along h), so projecting either field is exact.
+    regime_b = ~regime_a
+    if np.any(regime_b):
+        e1b, e2b = E1[regime_b], E2[regime_b]
+        h_minus = e1b - e2b
+        h_plus = e1b + e2b
+        norm_minus = np.linalg.norm(h_minus, axis=1)
+        norm_plus = np.linalg.norm(h_plus, axis=1)
+        use_minus = norm_minus <= norm_plus
+        h = np.where(use_minus[:, None], h_minus, h_plus)
+        h_norm = np.where(use_minus, norm_minus, norm_plus)
+        h_nonzero = h_norm > 0.0
+        h_norm_safe = np.where(h_nonzero, h_norm, 1.0)
+        e_h = h / h_norm_safe[:, None]
+
+        e2_perp = e2b - np.sum(e2b * e_h, axis=1, keepdims=True) * e_h
+        perp_norm = np.linalg.norm(e2_perp, axis=1)
+        perp_nonzero = perp_norm > 0.0
+        perp_norm_safe = np.where(perp_nonzero, perp_norm, 1.0)
+        dir_b = e2_perp / perp_norm_safe[:, None]
+
+        cross_norm = np.linalg.norm(np.cross(e1b, e2b), axis=1)
+        md_b = np.where(h_nonzero, 2.0 * cross_norm / h_norm_safe, 0.0)
+
+        rows_b = np.flatnonzero(regime_b)
+        valid = h_nonzero & perp_nonzero
+        best_dir[rows_b[valid]] = dir_b[valid]
+        md[regime_b] = md_b
+
+    a = np.sum(E1 * best_dir, axis=1)
+    b = np.sum(E2 * best_dir, axis=1)
+    P = 0.5 * (a * a + b * b)
+    return md, P, best_dir
+
+
+# ── Local refinement (K>=2), pure NumPy -- no scipy dependency so this
+#    stays testable under the project's mocked-scipy test environment. ─────
+#
+# A single-seed local search (refine only around the coarse sweep's
+# argmax) is not robust on its own: the K>=2 envelope surface can have
+# multiple local maxima close in value, and the discrete 192-point sweep
+# occasionally ranks a *decoy* peak above the true global one while a
+# sample much closer to the true peak scores lower. Refining only the
+# argmax then converges on the wrong peak. Even ranking by raw amplitude
+# and taking the top-M is not enough on its own: the top few coarse
+# samples often cluster around the *same* decoy peak (they are spatial
+# neighbours, so they tend to rank together), leaving the true peak's
+# nearest sample outside the top-M despite there being "room" in M.
+# Enforcing angular separation between chosen seeds (see
+# ``_diverse_top_m_directions``) so they spread across distinct regions
+# of the sphere fixes this at a modest, bounded extra cost -- see
+# ``tests/test_calc_mti.py::TestRefinementAccuracy`` for the measured
+# worst-case error this achieves.
+
+_REFINE_N_ROUNDS = 3
+_REFINE_PATCH_SIZE = 16
+_REFINE_SHRINK = 0.4
+_REFINE_N_SEEDS = 6
+_REFINE_MIN_SEED_ANGLE_DEG = 25.0
+
+
+def _local_patch_directions(centers, half_angle, n_patch):
+    """Return ``n_patch`` unit directions within angular radius
+    ``half_angle`` (radians) of each row of ``centers``, an array of unit
+    vectors with an arbitrary leading batch shape ``(..., 3)``. Output has
+    shape ``(..., n_patch, 3)``.
+
+    Uses a deterministic low-discrepancy spherical-cap parameterisation
+    (exact, not a small-angle approximation): an orthonormal tangent basis
+    ``(u, v)`` perpendicular to each center, then
+    ``cos(r)*center + sin(r)*(cos(phi)*u + sin(phi)*v)`` for a Fibonacci-
+    spiral set of ``(r, phi)`` offsets bounded by ``half_angle``.
+
+    Batch dimensions beyond the trailing ``3`` (e.g. an element axis and a
+    seed axis) are flattened internally so the whole batch is one
+    vectorised NumPy computation -- no Python-level loop over seeds.
+    """
+    batch_shape = centers.shape[:-1]
+    c = centers.reshape(-1, 3)
+    m = c.shape[0]
+
+    ref = np.tile(np.array([1.0, 0.0, 0.0]), (m, 1))
+    parallel = np.abs(np.sum(c * ref, axis=1)) > 0.99
+    if np.any(parallel):
+        ref[parallel] = np.array([0.0, 1.0, 0.0])
+
+    u = np.cross(c, ref)
+    u_norm = np.linalg.norm(u, axis=1, keepdims=True)
+    u_norm[u_norm == 0.0] = 1.0
+    u /= u_norm
+    v = np.cross(c, u)
+
+    j = np.arange(n_patch, dtype=np.float64)
+    golden_angle = np.pi * (3.0 - np.sqrt(5.0))
+    r = half_angle * np.sqrt((j + 0.5) / n_patch)
+    phi = golden_angle * j
+
+    cos_r = np.cos(r)
+    weight_u = np.sin(r) * np.cos(phi)
+    weight_v = np.sin(r) * np.sin(phi)
+
+    patch = (
+        c[:, None, :] * cos_r[None, :, None]
+        + u[:, None, :] * weight_u[None, :, None]
+        + v[:, None, :] * weight_v[None, :, None]
+    )
+    return patch.reshape(*batch_shape, n_patch, 3)
+
+
+def _diverse_top_m_directions(amp, directions, n_seeds, min_angle_deg):
+    """Greedily select ``n_seeds`` coarse-sweep directions per element,
+    spread across the sphere rather than just the top-M by raw amplitude.
+
+    Picks the highest-amplitude remaining direction, then masks out every
+    direction within ``min_angle_deg`` of it (per element) before picking
+    the next. Plain top-M-by-amplitude tends to pick several near-duplicate
+    directions clustered around the *same* local peak (they are spatial
+    neighbours on the Fibonacci grid, so they rank together) -- which can
+    leave every seed anchored to a decoy peak while the true global
+    maximum's nearest coarse sample ranks below M. Spacing seeds apart
+    fixes this at the same M.
+
+    Parameters
+    ----------
+    amp : np.ndarray, shape (n, num_directions)
+        Coarse-sweep envelope amplitude at every direction, per element.
+    directions : np.ndarray, shape (num_directions, 3)
+        The coarse Fibonacci-sweep direction grid (shared across elements).
+    n_seeds : int
+        Number of seeds to select.
+    min_angle_deg : float
+        Minimum angular separation enforced between chosen seeds.
+
+    Returns
+    -------
+    np.ndarray, shape (n, n_seeds)
+        Column indices into ``directions``/``amp`` for the chosen seeds.
+    """
+    n = amp.shape[0]
+    min_cos = np.cos(np.radians(min_angle_deg))
+    remaining = amp.copy()
+    chosen_idx = np.zeros((n, n_seeds), dtype=np.int64)
+
+    for s in range(n_seeds):
+        idx = np.argmax(remaining, axis=1)
+        chosen_idx[:, s] = idx
+        if s == n_seeds - 1:
+            break
+        cos_to_chosen = (directions @ directions[idx].T).T  # (n, num_directions)
+        remaining = np.where(cos_to_chosen > min_cos, -np.inf, remaining)
+
+    return chosen_idx
+
+
+def _refine_local_directions(
+    arrs_chunk,
+    psi,
+    directions,
+    amp,
+    P,
+    num_directions,
+):
+    """Multi-seed local-patch refinement of a coarse Fibonacci-sweep result.
+
+    Refines around ``_REFINE_N_SEEDS`` diverse coarse-sweep candidates per
+    element (see :func:`_diverse_top_m_directions`), then keeps the best
+    result across seeds. The seed axis is a vectorised batch dimension
+    throughout the refinement rounds (no Python-level loop over seeds), so
+    this costs a modest, bounded multiple of a single-seed refinement, not
+    ``n_seeds``-times a per-seed Python loop.
+
+    Parameters
+    ----------
+    arrs_chunk : list of np.ndarray, each shape (n, 3)
+        Field arrays for the current chunk.
+    psi : np.ndarray or None
+        Per-pair envelope phase, shape (K,).
+    directions : np.ndarray, shape (num_directions, 3)
+        The coarse Fibonacci-sweep direction grid.
+    amp, P : np.ndarray, each shape (n, num_directions)
+        Envelope and carrier power evaluated at every coarse direction
+        (already computed by the caller -- reused here to rank seeds).
+    num_directions : int
+        Number of coarse-sweep directions (sets the initial patch radius).
+
+    Returns
+    -------
+    best_md, best_P, best_dir : the refined per-element results (never
+        worse than the coarse sweep's own per-element best).
+    """
+    n = amp.shape[0]
+    n_seeds = min(_REFINE_N_SEEDS, directions.shape[0])
+
+    top_idx = _diverse_top_m_directions(
+        amp, directions, n_seeds, _REFINE_MIN_SEED_ANGLE_DEG
+    )  # (n, S)
+
+    best_dir = directions[top_idx]  # (n, S, 3)
+    best_md = np.take_along_axis(amp, top_idx, axis=1)  # (n, S)
+    best_P = np.take_along_axis(P, top_idx, axis=1)  # (n, S)
+
+    half_angle = 2.0 / np.sqrt(num_directions)
+    seed_rows = np.arange(n)[:, None, None]
+    seed_cols = np.arange(n_seeds)[None, :, None]
+
+    for _ in range(_REFINE_N_ROUNDS):
+        # (n, S, patch, 3)
+        patch = _local_patch_directions(best_dir, half_angle, _REFINE_PATCH_SIZE)
+        proj = [np.einsum("nd,nspd->nsp", field, patch) for field in arrs_chunk]
+        Pc, Qc = _pairwise_products(proj, psi)  # (n, S, patch)
+        ampc = _envelope_from_PQ(Pc, Qc)  # (n, S, patch)
+
+        idx = np.argmax(ampc, axis=2)  # (n, S)
+        cand_md = np.take_along_axis(ampc, idx[:, :, None], axis=2)[:, :, 0]
+        cand_P = np.take_along_axis(Pc, idx[:, :, None], axis=2)[:, :, 0]
+        cand_dir = patch[seed_rows, seed_cols, idx[:, :, None], :][:, :, 0, :]
+
+        improved = cand_md > best_md
+        best_md = np.where(improved, cand_md, best_md)
+        best_P = np.where(improved, cand_P, best_P)
+        best_dir = np.where(improved[:, :, None], cand_dir, best_dir)
+
+        half_angle *= _REFINE_SHRINK
+
+    best_seed = np.argmax(best_md, axis=1)  # (n,)
+    final_md = np.take_along_axis(best_md, best_seed[:, None], axis=1)[:, 0]
+    final_P = np.take_along_axis(best_P, best_seed[:, None], axis=1)[:, 0]
+    final_dir = best_dir[np.arange(n), best_seed]
+    return final_md, final_P, final_dir
+
+
+def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     """Chunked Fibonacci-sphere direction sweep -- returns best-direction
-    md/carrier_power/best_direction per element."""
+    md/carrier_power/best_direction per element. When ``refine`` is True,
+    each chunk's coarse-sweep result is locally refined (see
+    :func:`_refine_local_directions`); when False, this reproduces the
+    original Phase 1 coarse-sweep-only behaviour exactly."""
     directions = _fibonacci_sphere(num_directions)
     n_vox = arrs[0].shape[0]
 
@@ -566,15 +932,25 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size):
 
     for start in range(0, n_vox, chunk_size):
         stop = min(start + chunk_size, n_vox)
-        proj = [field[start:stop] @ directions.T for field in arrs]
+        arrs_chunk = [field[start:stop] for field in arrs]
+        proj = [field @ directions.T for field in arrs_chunk]
         P, Q = _pairwise_products(proj, psi)
         amp = _envelope_from_PQ(P, Q)
 
-        idx = np.argmax(amp, axis=1)
-        rows = np.arange(stop - start)
-        md[start:stop] = amp[rows, idx]
-        carrier_power[start:stop] = P[rows, idx]
-        best_direction[start:stop] = directions[idx]
+        if refine:
+            chunk_md, chunk_P, chunk_dir = _refine_local_directions(
+                arrs_chunk, psi, directions, amp, P, num_directions
+            )
+        else:
+            idx = np.argmax(amp, axis=1)
+            rows = np.arange(stop - start)
+            chunk_md = amp[rows, idx]
+            chunk_P = P[rows, idx]
+            chunk_dir = directions[idx]
+
+        md[start:stop] = chunk_md
+        carrier_power[start:stop] = chunk_P
+        best_direction[start:stop] = chunk_dir
 
     return {"md": md, "carrier_power": carrier_power, "best_direction": best_direction}
 

@@ -211,6 +211,83 @@ class TestRunExSearch:
 
 
 # ---------------------------------------------------------------------------
+# metric / carrier_constraint / carrier_penalty_weight threading
+# (mti-carrier-metrics track, Tasks B/C)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMetricAndCarrierThreading:
+    def _run(self, mock_gpm, mock_engine_cls, mock_save, tmp_path, config):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        run_ex_search(config)
+        return mock_engine_cls
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_default_metric_and_carrier_threaded(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        config = _make_ex_config()  # metric="grossman", carrier_constraint=None
+        engine_cls = self._run(mock_gpm, mock_engine_cls, mock_save, tmp_path, config)
+
+        kwargs = engine_cls.call_args.kwargs
+        assert kwargs["metric"] == "grossman"
+        assert kwargs["carrier_constraint"] is None
+        assert kwargs["carrier_penalty_weight"] == 0.0
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_custom_metric_and_carrier_threaded(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        config = _make_ex_config(
+            metric="mti_modulation_depth",
+            carrier_constraint=0.3,
+            carrier_penalty_weight=1.5,
+        )
+        engine_cls = self._run(mock_gpm, mock_engine_cls, mock_save, tmp_path, config)
+
+        kwargs = engine_cls.call_args.kwargs
+        assert kwargs["metric"] == "mti_modulation_depth"
+        assert kwargs["carrier_constraint"] == 0.3
+        assert kwargs["carrier_penalty_weight"] == 1.5
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_existing_positional_args_unchanged(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        # Regression: the pre-existing positional call signature
+        # (leadfield_path, roi_files, roi_name, logger) must be preserved
+        # -- the new kwargs are additive, appended after it.
+        config = _make_ex_config()
+        engine_cls = self._run(mock_gpm, mock_engine_cls, mock_save, tmp_path, config)
+
+        args = engine_cls.call_args.args
+        assert len(args) == 4
+        assert args[2] == "motor.csv"
+
+
+# ---------------------------------------------------------------------------
 # Combined-ROI (union) support
 # ---------------------------------------------------------------------------
 

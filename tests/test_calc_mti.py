@@ -171,9 +171,17 @@ class TestAntiPhaseCancellation:
 
 
 class TestMatchesCollaboratorImplementation:
-    """With psi=None, mti_modulation_depth must reproduce the ported
-    alba/ex-search-multipolar real-weight implementation
+    """With psi=None AND refine=False, mti_modulation_depth must reproduce
+    the ported alba/ex-search-multipolar real-weight implementation
     (compute_botzanowski_directional_am_stats) to floating-point equality.
+
+    ``refine=False`` is required for this comparison as of the
+    mti-carrier-metrics track (Phase 2): the default ``refine=True``
+    deliberately improves on the coarse-sweep-only result the ported
+    implementation computes (K=1 exact closed form; K>=2 local
+    refinement -- see ``tit/calc.py`` module docstring "Direction-sweep
+    sampling error"), so it is no longer expected to match bit-for-bit.
+    ``refine=False`` is kept exactly for this kind of bit-parity check.
 
     The comparison goes through vectors=direction*amplitude on the
     collaborator side (the only way to recover the scalar amplitude from
@@ -185,7 +193,7 @@ class TestMatchesCollaboratorImplementation:
     @pytest.mark.parametrize("K", [1, 2, 4, 6])
     def test_random_fields(self, K):
         fields = [RNG.normal(size=(30, 3)) for _ in range(2 * K)]
-        ours = mti_modulation_depth(fields)["md"]
+        ours = mti_modulation_depth(fields, refine=False)["md"]
         theirs = np.linalg.norm(
             compute_botzanowski_directional_am_stats(fields)["vectors"], axis=1
         )
@@ -198,33 +206,41 @@ class TestMatchesCollaboratorImplementation:
 
 
 class TestK1MatchesExactClosedFormIn3D:
-    """The best-direction sweep result for K=1 matches the exact Grossman
-    closed form (get_TI_vectors) to < 0.1% -- residual is direction-sweep
-    sampling error. The production default (192 directions) is a coarse
-    sweep (~1% mean error); this uses a much finer sweep to demonstrate the
+    """The best-direction *coarse-sweep-only* (refine=False) result for K=1
+    matches the exact Grossman closed form (get_TI_vectors) to < 0.1% at
+    fine resolution -- residual is direction-sweep sampling error. The
+    production default (192 directions, refine=False) is a coarse sweep
+    (~1% mean error); this uses a much finer sweep to demonstrate the
     sampling error vanishes with resolution, per
-    tracks/active/mti-focality-core.md Phase 1 acceptance."""
+    tracks/active/mti-focality-core.md Phase 1 acceptance.
+
+    ``refine=False`` is explicit throughout this class: with the
+    mti-carrier-metrics track's default ``refine=True``, K=1 bypasses the
+    sweep entirely for the *exact* closed form (see
+    ``TestK1ExactPath`` below), which would make these particular
+    sweep-accuracy assertions vacuous.
+    """
 
     def test_fine_sweep_matches_grossman_closed_form(self):
         n_trials = 8
         E1 = RNG.normal(size=(n_trials, 3))
         E2 = RNG.normal(size=(n_trials, 3))
-        res = mti_modulation_depth([E1, E2], num_directions=300_000)
+        res = mti_modulation_depth([E1, E2], num_directions=300_000, refine=False)
         md_sweep = res["md"]
         md_exact = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
         err_pct = 100 * np.abs(md_sweep - md_exact) / md_exact
         assert err_pct.max() < 0.1, f"max error {err_pct.max():.4f}%"
 
     def test_default_192_direction_sweep_is_a_coarser_approximation(self):
-        # Documents the production-default resolution/accuracy trade-off:
-        # 192 directions (matching the ported implementation) is fast and
-        # bit-parity-preserving for psi=None, but is NOT sub-0.1%-accurate
-        # against the exact closed form on its own -- num_directions must
-        # be raised for that; see the test above.
+        # Documents the coarse-sweep-only (refine=False) resolution/accuracy
+        # trade-off: 192 directions (matching the ported implementation) is
+        # fast and bit-parity-preserving for psi=None, but is NOT
+        # sub-0.1%-accurate against the exact closed form on its own --
+        # num_directions must be raised for that; see the test above.
         n_trials = 20
         E1 = RNG.normal(size=(n_trials, 3))
         E2 = RNG.normal(size=(n_trials, 3))
-        res = mti_modulation_depth([E1, E2])  # default num_directions=192
+        res = mti_modulation_depth([E1, E2], refine=False)  # num_directions=192
         md_sweep = res["md"]
         md_exact = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
         err_pct = 100 * np.abs(md_sweep - md_exact) / md_exact
@@ -232,6 +248,127 @@ class TestK1MatchesExactClosedFormIn3D:
         assert np.all(md_sweep <= md_exact + 1e-9)
         # Coarse sweep is measurably less accurate than the fine one above.
         assert err_pct.mean() > 0.1
+
+
+# ---------------------------------------------------------------------------
+# K=1 exact closed form (refine=True, the default) -- mti-carrier-metrics
+# track, Task A
+# ---------------------------------------------------------------------------
+
+
+class TestK1ExactPath:
+    """With refine=True (the default), K=1 bypasses the direction sweep
+    entirely and uses the sign-agnostic Hirata et al. (2024) closed form.
+    Must match :func:`get_TI_vectors`'s magnitude to < 1e-12 over >= 1e4
+    random field pairs -- the acceptance bar from
+    tracks/active/mti-focality-core.md (mti-carrier-metrics addendum)."""
+
+    def test_matches_get_TI_vectors_within_1e_minus_12(self):
+        n_trials = 10_000
+        E1 = RNG.normal(size=(n_trials, 3)) * 3
+        E2 = RNG.normal(size=(n_trials, 3)) * 3
+        res = mti_modulation_depth([E1, E2])  # refine=True default, no directions
+        md_exact = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
+        max_abs_err = np.max(np.abs(res["md"] - md_exact))
+        assert max_abs_err < 1e-12, f"max abs error {max_abs_err:.3e}"
+
+    def test_no_sweep_bypass_is_exact_even_for_near_degenerate_pairs(self):
+        # Near-parallel, near-antiparallel, and near-zero-norm pairs
+        # exercise both regimes' safe-division branches.
+        E1 = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [2.0, 1.0, 0.0],
+            ]
+        )
+        E2 = np.array(
+            [
+                [1.0, 1e-9, 0.0],
+                [-1.0, 0.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [-2.0, -1.0, 0.0],
+            ]
+        )
+        res = mti_modulation_depth([E1, E2])
+        md_exact = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
+        np.testing.assert_allclose(res["md"], md_exact, atol=1e-9)
+
+    def test_psi_has_no_effect_on_k1(self):
+        # A single pair's magnitude is phase-invariant: |a*b*e^{i psi}| = |a*b|.
+        E1 = RNG.normal(size=(50, 3))
+        E2 = RNG.normal(size=(50, 3))
+        res_no_phase = mti_modulation_depth([E1, E2], psi=[0.0])
+        res_with_phase = mti_modulation_depth([E1, E2], psi=[1.7])
+        np.testing.assert_allclose(res_no_phase["md"], res_with_phase["md"])
+        np.testing.assert_allclose(
+            res_no_phase["carrier_power"], res_with_phase["carrier_power"]
+        )
+
+    def test_much_cheaper_than_the_coarse_sweep(self):
+        # No direction search at all for K=1 -- should be markedly faster
+        # than the (already fast) 192-direction sweep it replaces.
+        import time
+
+        n = 20_000
+        E1 = RNG.normal(size=(n, 3))
+        E2 = RNG.normal(size=(n, 3))
+
+        t0 = time.perf_counter()
+        mti_modulation_depth([E1, E2], refine=False)
+        t_sweep = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        mti_modulation_depth([E1, E2], refine=True)
+        t_exact = time.perf_counter() - t0
+
+        assert t_exact < t_sweep
+
+
+# ---------------------------------------------------------------------------
+# K>=2 local refinement accuracy (refine=True, the default) --
+# mti-carrier-metrics track, Task A
+# ---------------------------------------------------------------------------
+
+
+class TestRefinementAccuracy:
+    """With refine=True (the default), K>=2 worst-case direction error is
+    < 0.5% vs a 300,000-direction reference sweep, over >= 20 random
+    trials -- the acceptance bar from
+    tracks/active/mti-focality-core.md (mti-carrier-metrics addendum)."""
+
+    @pytest.mark.parametrize("K", [2, 3, 4, 6])
+    def test_worst_case_error_under_half_percent(self, K):
+        n_trials = 25  # >= 20 required by the acceptance criterion
+        fields = [RNG.normal(size=(n_trials, 3)) for _ in range(2 * K)]
+        psi = RNG.uniform(0, 2 * np.pi, size=K)
+
+        reference = mti_modulation_depth(
+            fields, psi=psi, num_directions=300_000, refine=False
+        )
+        refined = mti_modulation_depth(fields, psi=psi, refine=True)
+
+        err_pct = 100 * np.abs(refined["md"] - reference["md"]) / reference["md"]
+        assert err_pct.max() < 0.5, f"K={K}: worst error {err_pct.max():.4f}%"
+
+    def test_refinement_never_worse_than_coarse_sweep(self):
+        K = 4
+        fields = [RNG.normal(size=(30, 3)) for _ in range(2 * K)]
+        psi = RNG.uniform(0, 2 * np.pi, size=K)
+
+        coarse = mti_modulation_depth(fields, psi=psi, refine=False)
+        refined = mti_modulation_depth(fields, psi=psi, refine=True)
+
+        assert np.all(refined["md"] >= coarse["md"] - 1e-9)
+
+    def test_refine_true_is_new_default_but_refine_false_still_reachable(self):
+        K = 2
+        fields = [RNG.normal(size=(10, 3)) for _ in range(2 * K)]
+        default_res = mti_modulation_depth(fields)
+        explicit_false_res = mti_modulation_depth(fields, refine=False)
+        # The default (refine=True) is at least as good as refine=False.
+        assert np.all(default_res["md"] >= explicit_false_res["md"] - 1e-9)
 
 
 # ---------------------------------------------------------------------------

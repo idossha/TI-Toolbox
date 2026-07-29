@@ -116,6 +116,9 @@ def build_csv_rows(
         "TImean_GM",
         "Focality",
         "Composite_Index",
+        "CarrierRMS_ROI",
+        "CarrierRMS_GM",
+        "CarrierPeak_GM",
     ]
     rows = [header]
     timax_vals, timean_vals, foc_vals, comp_vals = [], [], [], []
@@ -127,6 +130,13 @@ def build_csv_rows(
         ti_mean_gm = data[f"{roi_name}_TImean_GM"]
         focality = data[f"{roi_name}_Focality"]
         composite = ti_mean * focality
+        # .get() with a default: older/hand-built result dicts (e.g. in
+        # tests or results loaded from before this field existed) may not
+        # carry the carrier keys -- additive feature, not a hard schema
+        # requirement.
+        carrier_rms_roi = data.get(f"{roi_name}_CarrierRMS_ROI", 0.0)
+        carrier_rms_gm = data.get(f"{roi_name}_CarrierRMS_GM", 0.0)
+        carrier_peak_gm = data.get(f"{roi_name}_CarrierPeak_GM", 0.0)
 
         rows.append(
             [
@@ -138,6 +148,9 @@ def build_csv_rows(
                 f"{ti_mean_gm:.4f}",
                 f"{focality:.4f}",
                 f"{composite:.4f}",
+                f"{carrier_rms_roi:.4f}",
+                f"{carrier_rms_gm:.4f}",
+                f"{carrier_peak_gm:.4f}",
             ]
         )
         timax_vals.append(ti_max)

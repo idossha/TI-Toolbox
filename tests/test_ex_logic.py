@@ -275,18 +275,22 @@ class TestBuildCsvRows:
     """Tests for build_csv_rows()."""
 
     def test_header_row(self):
-        """First row is the header with 8 columns."""
+        """First row is the header with 11 columns (8 pre-existing +
+        3 additive carrier-metric columns, mti-carrier-metrics track)."""
         results = _make_results(1)
         rows, *_ = build_csv_rows(results, "region")
         assert rows[0][0] == "Montage"
         assert "Composite_Index" in rows[0]
-        assert len(rows[0]) == 8
+        assert "CarrierRMS_ROI" in rows[0]
+        assert "CarrierRMS_GM" in rows[0]
+        assert "CarrierPeak_GM" in rows[0]
+        assert len(rows[0]) == 11
 
-    def test_data_row_has_8_elements(self):
-        """Each data row has 8 elements matching the header."""
+    def test_data_row_has_11_elements(self):
+        """Each data row has 11 elements matching the header."""
         results = _make_results(1)
         rows, *_ = build_csv_rows(results, "region")
-        assert len(rows[1]) == 8
+        assert len(rows[1]) == 11
 
     def test_row_count(self):
         """Number of data rows equals number of results + 1 header."""
@@ -342,6 +346,29 @@ class TestBuildCsvRows:
         rows, timax, timean, foc, comp = build_csv_rows({}, "roi")
         assert len(rows) == 1  # header only
         assert timax == []
+
+    def test_missing_carrier_keys_default_to_zero(self):
+        """Results dicts built before the carrier-metric columns existed
+        (e.g. hand-built in older tests, or loaded from an old run) don't
+        KeyError -- carrier columns default to 0.0."""
+        results = _make_results(1)  # no Carrier* keys
+        rows, *_ = build_csv_rows(results, "region")
+        assert rows[1][-3:] == ["0.0000", "0.0000", "0.0000"]
+
+    def test_carrier_columns_carry_through_when_present(self):
+        results = {
+            "TI_field_A1_and_B2.msh": {
+                "roi_TImax_ROI": 1.0,
+                "roi_TImean_ROI": 0.5,
+                "roi_TImean_GM": 0.3,
+                "roi_Focality": 0.8,
+                "roi_CarrierRMS_ROI": 1.25,
+                "roi_CarrierRMS_GM": 0.75,
+                "roi_CarrierPeak_GM": 2.5,
+            }
+        }
+        rows, *_ = build_csv_rows(results, "roi")
+        assert rows[1][-3:] == ["1.2500", "0.7500", "2.5000"]
 
 
 # ===========================================================================

@@ -234,6 +234,56 @@ class TestExConfigValidation:
 
 
 # ---------------------------------------------------------------------------
+# ExConfig.metric / carrier_constraint / carrier_penalty_weight
+# (mti-carrier-metrics track, Tasks B/C)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestExConfigMetricAndCarrier:
+    """New Phase-2 fields default off / to the current behaviour."""
+
+    def _make(self, **overrides):
+        defaults = dict(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="region",
+            electrodes=ExConfig.PoolElectrodes(electrodes=["E1", "E2"]),
+        )
+        defaults.update(overrides)
+        return ExConfig(**defaults)
+
+    def test_metric_defaults_to_grossman(self):
+        cfg = self._make()
+        assert cfg.metric == "grossman"
+
+    def test_metric_accepts_mti_modulation_depth(self):
+        cfg = self._make(metric="mti_modulation_depth")
+        assert cfg.metric == "mti_modulation_depth"
+
+    def test_metric_rejects_unknown_value(self):
+        with pytest.raises(ValueError, match="metric must be"):
+            self._make(metric="not_a_real_metric")
+
+    def test_carrier_constraint_defaults_to_none(self):
+        cfg = self._make()
+        assert cfg.carrier_constraint is None
+
+    def test_carrier_penalty_weight_defaults_to_zero(self):
+        cfg = self._make()
+        assert cfg.carrier_penalty_weight == 0.0
+
+    def test_carrier_constraint_and_weight_settable(self):
+        cfg = self._make(carrier_constraint=0.5, carrier_penalty_weight=2.0)
+        assert cfg.carrier_constraint == 0.5
+        assert cfg.carrier_penalty_weight == 2.0
+
+    def test_negative_carrier_penalty_weight_rejected(self):
+        with pytest.raises(ValueError, match="carrier_penalty_weight"):
+            self._make(carrier_penalty_weight=-1.0)
+
+
+# ---------------------------------------------------------------------------
 # ROI type defaults
 # ---------------------------------------------------------------------------
 

@@ -201,13 +201,20 @@ def check_anti_phase(verbose) -> CheckResult:
 
 
 def check_psi_none_matches_ported(n_trials, rng, verbose) -> CheckResult:
-    """psi=None reproduces the ported collaborator implementation
-    (compute_botzanowski_directional_am_stats, from alba/ex-search-multipolar)
-    to floating-point equality."""
+    """psi=None AND refine=False reproduces the ported collaborator
+    implementation (compute_botzanowski_directional_am_stats, from
+    alba/ex-search-multipolar) to floating-point equality.
+
+    refine=False is required as of the mti-carrier-metrics track: the
+    default refine=True deliberately improves on the coarse-sweep-only
+    result the ported implementation computes (K=1 exact closed form;
+    K>=2 local refinement), so it is no longer expected to match
+    bit-for-bit. refine=False is kept exactly for this kind of bit-parity
+    check."""
     worst = 0.0
     for K in (1, 2, 4, 6):
         fields = [rng.normal(size=(30, 3)) for _ in range(2 * K)]
-        ours = mti_modulation_depth(fields)["md"]
+        ours = mti_modulation_depth(fields, refine=False)["md"]
         theirs = np.linalg.norm(
             compute_botzanowski_directional_am_stats(fields)["vectors"], axis=1
         )
@@ -228,14 +235,17 @@ def check_psi_none_matches_ported(n_trials, rng, verbose) -> CheckResult:
 
 
 def check_k1_vs_closed_form_3d(n_trials, num_directions, rng, verbose) -> CheckResult:
-    """K=1 best-direction sweep matches the exact Grossman closed form
-    (get_TI_vectors) to < 0.1% in full 3D -- residual is direction-sweep
-    sampling error, which shrinks as num_directions grows. This uses a much
-    finer sweep than the 192-direction production default to demonstrate
-    the closed form itself (not the coarse default sweep) is correct."""
+    """K=1 best-direction sweep (refine=False) matches the exact Grossman
+    closed form (get_TI_vectors) to < 0.1% in full 3D -- residual is
+    direction-sweep sampling error, which shrinks as num_directions grows.
+    This uses a much finer sweep than the 192-direction production default
+    to demonstrate the closed form itself (not the coarse default sweep)
+    is correct. (With the mti-carrier-metrics track's default refine=True,
+    K=1 bypasses the sweep for the exact closed form directly -- see
+    tests/test_calc_mti.py::TestK1ExactPath for that path's own check.)"""
     E1 = rng.normal(size=(n_trials, 3))
     E2 = rng.normal(size=(n_trials, 3))
-    res = mti_modulation_depth([E1, E2], num_directions=num_directions)
+    res = mti_modulation_depth([E1, E2], num_directions=num_directions, refine=False)
     md_sweep = res["md"]
     md_exact = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
     err_pct = 100 * np.abs(md_sweep - md_exact) / md_exact

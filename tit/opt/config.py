@@ -514,17 +514,47 @@ class ExConfig:
         Spherical ROI radius in mm for the target region.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    metric : str
+        Envelope metric used for the primary reported field (``TImax_ROI``
+        / ``TImean_ROI`` / ``Focality``). ``"grossman"`` (default) is the
+        current, unchanged path -- SimNIBS's ``TI.get_maxTI``, exact for
+        the 2-pair case exhaustive search always evaluates.
+        ``"mti_modulation_depth"`` instead routes through
+        :func:`tit.calc.mti_modulation_depth` (K=1 exact closed form, see
+        ``tracks/active/mti-focality-core.md`` Phase 2 finding), which
+        lets the two be compared on identical montages. The two should
+        agree to floating-point precision for K=1 -- a divergence would
+        indicate a bug in one of the two implementations.
+    carrier_constraint : float or None
+        Maximum acceptable off-target (grey-matter) carrier RMS, in V/m.
+        ``None`` (default) disables the constraint entirely -- the carrier
+        (the un-modulated high-frequency field) is not neurally inert
+        (Opancar 2025, Semenov 2025, Peterchev 2025) and its off-target
+        maximum sits under the electrodes, yet no published TI optimizer
+        constrains it (finding F4). This is a new scientific claim, not a
+        behaviour users asked for, so it ships off by default. Consumed
+        together with *carrier_penalty_weight* by
+        :func:`tit.opt.carrier.carrier_constraint_penalty`.
+    carrier_penalty_weight : float
+        Soft-constraint weight applied to the amount by which off-target
+        carrier RMS exceeds *carrier_constraint*. ``0.0`` (default)
+        disables the penalty even if *carrier_constraint* is set --
+        both must be configured for the constraint to have any effect.
+        Kept separate from *carrier_constraint* so a constraint can be
+        recorded/reported without yet being enforced.
 
     Raises
     ------
     ValueError
         If *current_step*, *total_current*, or *channel_limit* are
-        non-positive.
+        non-positive, or if *metric* is not a recognized value.
 
     See Also
     --------
     ExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.
     tit.opt.ex.ex.run_ex_search : Consumes this config.
+    tit.opt.carrier.carrier_constraint_penalty : Computes the soft-constraint
+        penalty from *carrier_constraint* / *carrier_penalty_weight*.
     """
 
     # ── Nested electrode types ─────────────────────────────────────────
@@ -579,6 +609,13 @@ class ExConfig:
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
 
+    # ── Envelope metric (mti-focality-core Phase 2) ─────────────────────
+    metric: Literal["grossman", "mti_modulation_depth"] = "grossman"
+
+    # ── Carrier-exposure constraint (finding F4) -- off by default ──────
+    carrier_constraint: float | None = None
+    carrier_penalty_weight: float = 0.0
+
     def __post_init__(self):
         if isinstance(self.electrodes, dict):
             if "electrodes" in self.electrodes:
@@ -599,6 +636,13 @@ class ExConfig:
             raise ValueError("total_current must be positive")
         if self.channel_limit is not None and self.channel_limit <= 0:
             raise ValueError("channel_limit must be positive")
+        if self.metric not in ("grossman", "mti_modulation_depth"):
+            raise ValueError(
+                "metric must be 'grossman' or 'mti_modulation_depth', got "
+                f"{self.metric!r}"
+            )
+        if self.carrier_penalty_weight < 0:
+            raise ValueError("carrier_penalty_weight must be non-negative")
 
 
 @dataclass
