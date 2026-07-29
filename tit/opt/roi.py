@@ -163,11 +163,19 @@ class ROIResolver:
         data = np.asarray(img.dataobj)
         affine = img.affine
 
-        # Find voxel coordinates matching the label
-        voxel_ijk = np.argwhere(data == roi.label)
+        # Find voxel coordinates matching the label(s).
+        #
+        # SubcorticalROI.label accepts either a scalar or a list -- a union of
+        # several regions evaluated as one combined target (e.g. both thalami,
+        # labels [10, 49]).  np.isin handles both; a bare `data == roi.label`
+        # raises a broadcast error for the list case.
+        labels = np.atleast_1d(np.asarray(roi.label))
+        voxel_ijk = np.argwhere(np.isin(data, labels))
         if len(voxel_ijk) == 0:
-            log.warning(f"Label {roi.label} not found in {roi.atlas_path}")
-            return np.array([], dtype=int), np.array([], dtype=float)
+            raise ValueError(
+                f"Label(s) {labels.tolist()} not found in {roi.atlas_path}. "
+                f"Check the atlas LUT for the correct label indices."
+            )
 
         # Convert voxel indices to world (mm) coordinates
         ones = np.ones((len(voxel_ijk), 1))
