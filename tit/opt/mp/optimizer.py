@@ -110,6 +110,27 @@ def run_de_search(
     # Evaluation counter
     n_evals = [0]
 
+    # Finding F10, real-leadfield follow-up. Two independent search-time
+    # speedups, profiled on a real 74-electrode leadfield:
+    #
+    # 1. If a search subsample is configured, build pair diffs directly
+    #    from the pre-sliced leadfield (precompute_pair_diffs_search)
+    #    instead of the full mesh (precompute_pair_diffs) -- avoids a
+    #    full-mesh (M, 3) allocation+subtraction per pair per candidate.
+    #    Measured: real for K=1 (2 electrode pairs), negligible for K>=2.
+    # 2. search_refine controls tit.calc.mti_modulation_depth's `refine`
+    #    argument for K>=2 (n_pairs >= 4) candidates -- irrelevant for
+    #    n_pairs=2, which never reaches mti_modulation_depth. Profiling
+    #    found this, not (1), is the dominant K>=2 search-time cost (~95%
+    #    of a K=2 evaluation). See tit/opt/fast_eval.py's module docstring
+    #    and MultiPolarConfig.search_refine for the measured breakdown.
+    #
+    # Neither affects the final rescore below, which always uses the
+    # full-mesh precompute_pair_diffs and evaluate_final's accurate
+    # (refine=True) default.
+    use_search_slice = evaluator.has_search_subsample
+    search_refine = config.search_refine
+
     def objective(x):
         indices = np.clip(np.round(x).astype(int), 0, n_elec - 1)
         indices = _repair_duplicates(indices, n_elec)
@@ -118,10 +139,25 @@ def run_de_search(
             (lf_indices[indices[2 * i]], lf_indices[indices[2 * i + 1]])
             for i in range(config.n_pairs)
         ]
-        pair_diffs = evaluator.precompute_pair_diffs(pairs)
-        focality = evaluator.focality_from_diffs(
-            pair_diffs, currents_A, scheme=scheme, psi=psi
-        )
+        if use_search_slice:
+            pair_diffs = evaluator.precompute_pair_diffs_search(pairs)
+            focality = evaluator.focality_from_diffs(
+                pair_diffs,
+                currents_A,
+                scheme=scheme,
+                psi=psi,
+                pre_sliced=True,
+                refine=search_refine,
+            )
+        else:
+            pair_diffs = evaluator.precompute_pair_diffs(pairs)
+            focality = evaluator.focality_from_diffs(
+                pair_diffs,
+                currents_A,
+                scheme=scheme,
+                psi=psi,
+                refine=search_refine,
+            )
         n_evals[0] += 1
         return -focality
 

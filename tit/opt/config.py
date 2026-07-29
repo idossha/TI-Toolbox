@@ -1012,6 +1012,38 @@ class MultiPolarConfig:
             The final returned top-K montage(s) are always rescored on the
             full mesh, so this only trades search-time speed for a small
             amount of ranking noise, not final-answer accuracy.
+        search_refine: Whether the DE search's inner envelope computation
+            uses :func:`tit.calc.mti_modulation_depth`'s accurate
+            (``refine=True``) local-direction search or the original,
+            coarse-sweep-only (``refine=False``) mode, for K>=2 interference
+            pairs (``n_pairs`` >= 4; irrelevant for ``n_pairs=2``, which
+            never uses this codepath -- see
+            :meth:`tit.opt.fast_eval.FastTIEvaluator.evaluate_montage_npair`).
+            Default ``False``. Profiling on a real 74-electrode leadfield
+            (subject ``ernie``, left hippocampus, ROI=7086 + 6000-element
+            non-ROI subsample = 13086 search elements; real-leadfield
+            follow-up to finding F10) found the refinement step, not the
+            ``search_nonroi_samples`` element count above, is the dominant
+            K>=2 search-time cost -- ~95% of a K=2 evaluation regardless of
+            how many elements it runs over in the relevant range. Measured
+            effect of ``search_refine=False`` (combined with the
+            pre-sliced-leadfield fix, see
+            :meth:`~tit.opt.fast_eval.FastTIEvaluator.precompute_pair_diffs_search`):
+            474 -> 42 ms/eval at ``n_pairs=4`` (11.4x), 997 -> 66 ms/eval at
+            ``n_pairs=8`` (15.1x). Measured accuracy cost, same montage and
+            element set, ``refine=False`` vs ``refine=True`` focality (20
+            random montages each): ``n_pairs=4`` mean 0.60% / median 0.43% /
+            worst 2.32%; ``n_pairs=8`` mean 0.29% / median 0.24% / worst
+            0.96%. The winning montage is always rescored with
+            ``refine=True`` on the full mesh
+            (:meth:`~tit.opt.fast_eval.FastTIEvaluator.evaluate_final`), so
+            this only trades search-time speed and ranking noise, never
+            final-answer accuracy, exactly like ``search_nonroi_samples``.
+            Set ``True`` to trade search speed back for the lower per-element
+            sampling error (see :func:`tit.calc.mti_modulation_depth`'s
+            docstring for the raw-sweep error figures) if search-time
+            ranking quality turns out to matter more than wall-clock time
+            for a given search.
         output_dir: Override for the output directory path. Defaults to
             an auto-generated path.
     """
@@ -1047,6 +1079,7 @@ class MultiPolarConfig:
 
     # ── search-time evaluation (finding F10) ──
     search_nonroi_samples: int = 6000
+    search_refine: bool = False
 
     # ── output ──
     output_dir: str | None = None

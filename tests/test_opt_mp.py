@@ -447,6 +447,8 @@ class TestMPResults:
         assert data["n_pairs"] == 2
         assert data["result"]["best_focality"] == 2.5
         assert len(data["result"]["best_montage"]) == 2
+        assert data["search_nonroi_samples"] == 6000
+        assert data["search_refine"] is False
 
         # Verify top_k.csv content
         with open(paths["top_k_csv"]) as f:
@@ -644,6 +646,29 @@ class TestMultiPolarConfigScheme:
             roi=SphericalROI(x=0, y=0, z=0, radius=10),
         )
         assert cfg.search_nonroi_samples == 6000
+
+    def test_default_search_refine_is_false(self):
+        """Real-leadfield follow-up to finding F10: refine=True's
+        local-direction refinement, not element count, is the dominant
+        K>=2 search-time cost -- search defaults to the fast coarse-sweep
+        mode. See tit/opt/fast_eval.py's module docstring."""
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+        )
+        assert cfg.search_refine is False
+
+    def test_search_refine_can_be_enabled(self):
+        cfg = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            search_refine=True,
+        )
+        assert cfg.search_refine is True
 
 
 # ===========================================================================
@@ -973,3 +998,400 @@ class TestSearchSubsample:
         final = evaluator.evaluate_final(diffs, currents)
 
         assert final == full
+
+
+# ===========================================================================
+# Pre-sliced search path (mti-focality-core.md F10 real-leadfield follow-up)
+#
+# On a real (multi-million-element) leadfield, precompute_pair_diffs()
+# builds full-mesh (M, 3) diffs that focality_from_diffs() immediately
+# slices down to the search index set. precompute_pair_diffs_search() +
+# focality_from_diffs(..., pre_sliced=True) instead slice the leadfield
+# ONCE (in setup_search_subsample) and build diffs directly on that small
+# array. These tests prove the two paths agree exactly -- pre-slicing
+# changes *which array elements are subtracted where*, never *how* they
+# are subtracted, so the result must be bit-identical, not just close.
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestPreSlicedSearchPath:
+    def _build_evaluator(self, n_elements, n_roi, n_elec=24, seed=11):
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec, n_elements, seed)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+
+        vol_rng = np.random.default_rng(seed + 1)
+        roi_idx = np.arange(0, n_roi)
+        nonroi_idx = np.arange(n_roi, n_elements)
+        roi_vol = vol_rng.uniform(0.5, 1.5, size=len(roi_idx))
+        nonroi_vol = vol_rng.uniform(0.5, 1.5, size=len(nonroi_idx))
+
+        evaluator.setup_evaluation(roi_idx, roi_vol, nonroi_idx, nonroi_vol)
+        return evaluator
+
+    def test_requires_setup_search_subsample_first(self):
+        evaluator = self._build_evaluator(n_elements=2000, n_roi=100)
+        with pytest.raises(RuntimeError, match="setup_search_subsample"):
+            evaluator.precompute_pair_diffs_search([(0, 1), (2, 3)])
+
+    def test_focality_pre_sliced_requires_setup_search_subsample_first(self):
+        evaluator = self._build_evaluator(n_elements=2000, n_roi=100)
+        diffs = evaluator.precompute_pair_diffs([(0, 1), (2, 3)])
+        with pytest.raises(RuntimeError, match="setup_search_subsample"):
+            evaluator.focality_from_diffs(diffs, [0.001, 0.001], pre_sliced=True)
+
+    def test_diffs_shaped_to_search_index_set(self):
+        evaluator = self._build_evaluator(n_elements=5000, n_roi=200, n_elec=24)
+        evaluator.setup_search_subsample(n_nonroi_samples=1000, seed=0)
+        n_search = len(evaluator._search_index)
+
+        diffs = evaluator.precompute_pair_diffs_search([(0, 1), (2, 3), (4, 5), (6, 7)])
+        assert len(diffs) == 4
+        for d in diffs:
+            assert d.shape == (n_search, 3)
+
+    def test_has_search_subsample_property(self):
+        evaluator = self._build_evaluator(n_elements=2000, n_roi=100)
+        assert evaluator.has_search_subsample is False
+        evaluator.setup_search_subsample(n_nonroi_samples=500, seed=0)
+        assert evaluator.has_search_subsample is True
+
+    @pytest.mark.parametrize("n_pairs", [2, 4, 6])
+    def test_focality_matches_full_mesh_sliced_path_exactly(self, n_pairs):
+        """The DE hot path (precompute_pair_diffs_search + pre_sliced=True)
+        must agree BIT-FOR-BIT with the old path (precompute_pair_diffs on
+        the full mesh, then sliced inside focality_from_diffs) for the same
+        montage -- pre-slicing changes which elements are computed, never
+        how, per the acceptance requirement in the mti-focality-core track.
+        """
+        evaluator = self._build_evaluator(
+            n_elements=12000, n_roi=400, n_elec=24, seed=5
+        )
+        evaluator.setup_search_subsample(n_nonroi_samples=3000, seed=0)
+
+        rng = np.random.default_rng(2 * n_pairs + 1)
+        elec_idx = rng.choice(23, size=2 * n_pairs, replace=False)
+        pairs = [
+            (int(elec_idx[2 * k]), int(elec_idx[2 * k + 1])) for k in range(n_pairs)
+        ]
+        currents = np.full(n_pairs, 0.001)
+
+        diffs_full = evaluator.precompute_pair_diffs(pairs)
+        old_path_focality = evaluator.focality_from_diffs(diffs_full, currents)
+
+        diffs_sliced = evaluator.precompute_pair_diffs_search(pairs)
+        new_path_focality = evaluator.focality_from_diffs(
+            diffs_sliced, currents, pre_sliced=True
+        )
+
+        assert new_path_focality == old_path_focality
+
+    def test_evaluate_final_unaffected_by_search_slicing(self):
+        """evaluate_final/evaluate_montage_npair (full mesh) are untouched
+        by the pre-sliced search path -- final top-K numbers stay exact
+        regardless of which search-time code path produced the winner."""
+        evaluator = self._build_evaluator(n_elements=8000, n_roi=300, n_elec=24, seed=3)
+        evaluator.setup_search_subsample(n_nonroi_samples=1500, seed=0)
+
+        pairs = [(0, 1), (2, 3), (4, 5), (6, 7)]
+        currents = [0.001] * 4
+
+        diffs_full = evaluator.precompute_pair_diffs(pairs)
+        full_metrics = evaluator.evaluate_montage_npair(diffs_full, currents)
+        final_metrics = evaluator.evaluate_final(diffs_full, currents)
+
+        assert final_metrics == full_metrics
+        # Full-mesh evaluation must not depend on whether a search
+        # subsample happens to be configured.
+        assert len(diffs_full[0]) == evaluator.leadfield.shape[1]
+
+
+@pytest.mark.unit
+class TestRunDESearchUsesPreSlicedPath:
+    """Finding F10 real-leadfield follow-up: run_de_search's DE objective
+    must route through the pre-sliced search path
+    (precompute_pair_diffs_search + pre_sliced=True) on every candidate
+    evaluation once a search subsample is configured, and must only ever
+    call the full-mesh precompute_pair_diffs once -- for the final rescore
+    of the winning montage. Patches scipy.optimize.differential_evolution
+    where tit.opt.mp.optimizer actually uses it (module-level import), not
+    by re-importing scipy.optimize.
+    """
+
+    def test_objective_uses_search_slice_and_full_mesh_only_for_rescore(
+        self, monkeypatch
+    ):
+        import tit.opt.mp.optimizer as optimizer_mod
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec=12, n_elements=2000, seed=3)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        roi_idx = np.arange(0, 100)
+        nonroi_idx = np.arange(100, 2000)
+        evaluator.setup_evaluation(
+            roi_idx, np.ones(len(roi_idx)), nonroi_idx, np.ones(len(nonroi_idx))
+        )
+        evaluator.setup_search_subsample(n_nonroi_samples=500, seed=0)
+
+        calls = {"search": 0, "full": 0}
+        orig_search = evaluator.precompute_pair_diffs_search
+        orig_full = evaluator.precompute_pair_diffs
+
+        def spy_search(pairs):
+            calls["search"] += 1
+            return orig_search(pairs)
+
+        def spy_full(pairs):
+            calls["full"] += 1
+            return orig_full(pairs)
+
+        monkeypatch.setattr(evaluator, "precompute_pair_diffs_search", spy_search)
+        monkeypatch.setattr(evaluator, "precompute_pair_diffs", spy_full)
+
+        valid_electrodes = [
+            (name, idx) for name, idx in idx_lf.items() if idx is not None
+        ]
+
+        def fake_differential_evolution(objective, bounds, **kwargs):
+            n_dims = len(bounds)
+            rng = np.random.default_rng(0)
+            best_x, best_fun = None, float("inf")
+            for _ in range(5):
+                x = rng.uniform(0, 1, size=n_dims) * np.array(
+                    [b[1] for b in bounds], dtype=float
+                )
+                fun = objective(x)
+                if fun < best_fun:
+                    best_fun, best_x = fun, x
+            return SimpleNamespace(
+                fun=best_fun, x=best_x, nit=5, success=True, message="fake"
+            )
+
+        monkeypatch.setattr(
+            optimizer_mod, "differential_evolution", fake_differential_evolution
+        )
+
+        config = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=2,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            population_size=5,
+            max_iterations=1,
+            n_multistart=1,
+        )
+
+        result = optimizer_mod.run_de_search(
+            evaluator, valid_electrodes, config, MagicMock()
+        )
+
+        assert calls["search"] == 5  # every DE candidate evaluation
+        assert calls["full"] == 1  # only the final full-mesh rescore
+        assert "best_focality" in result
+        assert np.isfinite(result["best_focality"])
+
+
+# ===========================================================================
+# refine parameter (real-leadfield follow-up to finding F10)
+#
+# Profiling on a real 74-electrode leadfield found that for K>=2 (n_pairs
+# >= 4), tit.calc.mti_modulation_depth's refine=True local-direction
+# refinement -- not the full-vs-sliced-mesh diff construction above -- is
+# the dominant search-time cost (~95% of a K=2 evaluation, ~7x the
+# coarse-sweep-only cost). focality_from_diffs (search-only) exposes
+# `refine` so search callers can opt into the cheap mode;
+# evaluate_montage_npair/evaluate_final (final-scoring) do not expose it at
+# all -- they always use the accurate default -- so final top-K numbers are
+# unaffected by whatever the search used internally.
+# ===========================================================================
+
+
+@pytest.mark.unit
+class TestFocalityFromDiffsRefineParameter:
+    def _evaluator_and_diffs(self, n_pairs=4, n_elec=10, n_elements=100, seed=42):
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec, n_elements, seed)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        roi_idx = np.arange(5)
+        nonroi_idx = np.arange(5, n_elements)
+        evaluator.setup_evaluation(
+            roi_idx, np.ones(len(roi_idx)), nonroi_idx, np.ones(len(nonroi_idx))
+        )
+        pairs = [(2 * i, 2 * i + 1) for i in range(n_pairs)]
+        diffs = evaluator.precompute_pair_diffs(pairs)
+        return evaluator, diffs
+
+    def test_refine_defaults_to_true(self):
+        """focality_from_diffs's default must match evaluate_montage_npair
+        (always refine=True) so an un-opted-in caller sees no behaviour
+        change."""
+        evaluator, diffs = self._evaluator_and_diffs(n_pairs=4)
+        currents = [0.001] * 4
+
+        default_foc = evaluator.focality_from_diffs(diffs, currents)
+        explicit_true_foc = evaluator.focality_from_diffs(diffs, currents, refine=True)
+        assert default_foc == explicit_true_foc
+
+    def test_refine_false_actually_changes_npair_result(self):
+        """refine must be threaded through to tit.calc.mti_modulation_depth
+        for K>=2 -- refine=False (coarse sweep) and refine=True (refined)
+        must generally disagree, proving the parameter takes effect rather
+        than being silently dropped."""
+        evaluator, diffs = self._evaluator_and_diffs(n_pairs=4, seed=7)
+        currents = [0.001] * 4
+
+        foc_refined = evaluator.focality_from_diffs(diffs, currents, refine=True)
+        foc_coarse = evaluator.focality_from_diffs(diffs, currents, refine=False)
+
+        assert foc_refined != pytest.approx(foc_coarse, rel=1e-9)
+
+    def test_refine_has_no_effect_for_k1(self):
+        """K=1 (2 electrode pairs) never reaches mti_modulation_depth here
+        -- it always uses the exact closed-form _fast_ti_magnitude path --
+        so refine=True/False must agree exactly."""
+        evaluator, diffs = self._evaluator_and_diffs(n_pairs=2, seed=3)
+        currents = [0.001, 0.001]
+
+        foc_true = evaluator.focality_from_diffs(diffs, currents, refine=True)
+        foc_false = evaluator.focality_from_diffs(diffs, currents, refine=False)
+        assert foc_true == foc_false
+
+    def test_evaluate_montage_npair_has_no_refine_parameter(self):
+        """evaluate_montage_npair/evaluate_final are the *final* API and
+        must always be accurate -- they intentionally do not expose a
+        refine knob at all, unlike focality_from_diffs."""
+        import inspect
+
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        assert (
+            "refine"
+            not in inspect.signature(FastTIEvaluator.evaluate_montage_npair).parameters
+        )
+        assert (
+            "refine" not in inspect.signature(FastTIEvaluator.evaluate_final).parameters
+        )
+
+    def test_evaluate_montage_npair_matches_focality_refine_true(self):
+        """evaluate_montage_npair's (always-accurate) roi_mean/nonroi_mean
+        ratio must equal focality_from_diffs(refine=True) on the same
+        (full-mesh) diffs -- confirms the 'final' API is equivalent to the
+        search API's accurate mode, not some third behaviour."""
+        evaluator, diffs = self._evaluator_and_diffs(n_pairs=4, seed=11)
+        currents = [0.001] * 4
+
+        metrics = evaluator.evaluate_montage_npair(diffs, currents)
+        foc_via_search_api = evaluator.focality_from_diffs(diffs, currents, refine=True)
+        assert metrics["focality"] == pytest.approx(foc_via_search_api, rel=1e-12)
+
+
+@pytest.mark.unit
+class TestRunDESearchRespectsSearchRefineConfig:
+    def test_search_refine_false_by_default_is_forwarded(self, monkeypatch):
+        """MultiPolarConfig.search_refine (default False) must reach
+        focality_from_diffs's refine argument on every DE candidate
+        evaluation."""
+        import tit.opt.mp.optimizer as optimizer_mod
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec=12, n_elements=500, seed=1)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        roi_idx = np.arange(0, 50)
+        nonroi_idx = np.arange(50, 500)
+        evaluator.setup_evaluation(
+            roi_idx, np.ones(len(roi_idx)), nonroi_idx, np.ones(len(nonroi_idx))
+        )
+        evaluator.setup_search_subsample(n_nonroi_samples=200, seed=0)
+
+        seen_refine = []
+        orig_focality = evaluator.focality_from_diffs
+
+        def spy_focality(*args, **kwargs):
+            seen_refine.append(kwargs.get("refine"))
+            return orig_focality(*args, **kwargs)
+
+        monkeypatch.setattr(evaluator, "focality_from_diffs", spy_focality)
+
+        valid_electrodes = [
+            (name, idx) for name, idx in idx_lf.items() if idx is not None
+        ]
+
+        def fake_differential_evolution(objective, bounds, **kwargs):
+            n_dims = len(bounds)
+            x = np.array([b[1] / 2 for b in bounds], dtype=float)
+            fun = objective(x)
+            return SimpleNamespace(fun=fun, x=x, nit=1, success=True, message="fake")
+
+        monkeypatch.setattr(
+            optimizer_mod, "differential_evolution", fake_differential_evolution
+        )
+
+        config = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            population_size=5,
+            max_iterations=1,
+            n_multistart=1,
+        )
+        assert config.search_refine is False  # documented default
+
+        optimizer_mod.run_de_search(evaluator, valid_electrodes, config, MagicMock())
+
+        assert len(seen_refine) >= 1
+        assert all(r is False for r in seen_refine)
+
+    def test_search_refine_true_is_forwarded_when_configured(self, monkeypatch):
+        import tit.opt.mp.optimizer as optimizer_mod
+        from tit.opt.fast_eval import FastTIEvaluator
+
+        lf, mesh, idx_lf = _make_mock_leadfield(n_elec=12, n_elements=500, seed=1)
+        evaluator = FastTIEvaluator(lf, mesh, idx_lf)
+        roi_idx = np.arange(0, 50)
+        nonroi_idx = np.arange(50, 500)
+        evaluator.setup_evaluation(
+            roi_idx, np.ones(len(roi_idx)), nonroi_idx, np.ones(len(nonroi_idx))
+        )
+        evaluator.setup_search_subsample(n_nonroi_samples=200, seed=0)
+
+        seen_refine = []
+        orig_focality = evaluator.focality_from_diffs
+
+        def spy_focality(*args, **kwargs):
+            seen_refine.append(kwargs.get("refine"))
+            return orig_focality(*args, **kwargs)
+
+        monkeypatch.setattr(evaluator, "focality_from_diffs", spy_focality)
+
+        valid_electrodes = [
+            (name, idx) for name, idx in idx_lf.items() if idx is not None
+        ]
+
+        def fake_differential_evolution(objective, bounds, **kwargs):
+            x = np.array([b[1] / 2 for b in bounds], dtype=float)
+            fun = objective(x)
+            return SimpleNamespace(fun=fun, x=x, nit=1, success=True, message="fake")
+
+        monkeypatch.setattr(
+            optimizer_mod, "differential_evolution", fake_differential_evolution
+        )
+
+        config = MultiPolarConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            n_pairs=4,
+            roi=SphericalROI(x=0, y=0, z=0, radius=10),
+            population_size=5,
+            max_iterations=1,
+            n_multistart=1,
+            search_refine=True,
+        )
+
+        optimizer_mod.run_de_search(evaluator, valid_electrodes, config, MagicMock())
+
+        assert len(seen_refine) >= 1
+        assert all(r is True for r in seen_refine)

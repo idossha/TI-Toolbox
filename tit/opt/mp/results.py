@@ -69,6 +69,7 @@ def save_results(
             asdict(config.frequency_plan) if config.frequency_plan else None
         ),
         "search_nonroi_samples": config.search_nonroi_samples,
+        "search_refine": config.search_refine,
         "de_params": {
             "max_iterations": config.max_iterations,
             "population_size": config.population_size,

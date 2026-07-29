@@ -20,6 +20,51 @@ for a 15k-evaluation run). The DE objective only ever needs ``roi_mean`` and
 per-element envelope computation to ROI (kept whole -- it is small) plus a
 representative non-ROI subsample recovers correct-metric search speed
 without changing what the optimizer is actually trying to estimate.
+
+On a real (not synthetic) leadfield, measured with ``cProfile`` on subject
+``ernie``'s 74-electrode leadfield (1,857,173 GM+WM elements, left
+hippocampus ROI = 7086 elements, 6000-element non-ROI subsample): the
+subsample above is necessary but, for K>=2 (``n_pairs`` >= 4), nowhere near
+sufficient. Two distinct costs turned out to matter very differently:
+
+1. **Full-mesh diff construction.** :meth:`FastTIEvaluator.precompute_pair_diffs`
+   builds ``lf[plus] - lf[minus]`` over the **full** leadfield -- ~44.6 MB
+   allocation+subtraction per electrode pair -- even though
+   :meth:`focality_from_diffs` immediately slices almost all of it away down
+   to the ``roi_indices UNION nonroi_subsample`` set (~13k elements here).
+   :meth:`FastTIEvaluator.precompute_pair_diffs_search` fixes this by
+   slicing the leadfield down to the search index set **once**, in
+   :meth:`setup_search_subsample`, instead of on every candidate evaluation.
+   Measured effect: real but K-dependent -- **3.2x** faster for K=1 (2
+   electrode pairs), where this was in fact the dominant cost, but
+   negligible (~1.0-1.1x) for K>=2.
+2. **The ``mti_modulation_depth(refine=True)`` local-direction refinement
+   (K>=2 only).** Profiling showed this is ~95% of a K>=2 evaluation's
+   total time, and its cost does *not* meaningfully depend on how many
+   elements it runs over in the range that matters here -- it dominated at
+   K=2 (n_pairs=4) even after (1) above reduced the input to ~13k elements.
+   This, not (1), is why K>=2 search was still ~200-300ms/eval after the
+   diff-construction fix. :meth:`focality_from_diffs` therefore also takes
+   a ``refine`` argument: search callers should pass ``refine=False`` (the
+   original, ~7x cheaper coarse-sweep-only mode) to get real speed, at a
+   documented, bounded accuracy cost -- see ``search_refine`` on
+   :class:`tit.opt.config.MultiPolarConfig` for the measured numbers and
+   :func:`tit.calc.mti_modulation_depth`'s docstring for where the ~7x and
+   the sampling-error figures come from.
+
+Both fixes only ever change the DE search's *internal ranking* signal.
+:meth:`evaluate_final`/:meth:`evaluate_montage_npair` always use the
+full-mesh :meth:`precompute_pair_diffs` and the accurate ``refine=True``
+path (:meth:`focality_from_diffs`'s ``refine`` default), unconditionally --
+so final top-K numbers stay exactly as accurate as before either fix
+existed, for whatever montage the (now much faster) search returns.
+
+Combined measured effect (both fixes together, ``popsize=30``)::
+
+    n_pairs   before          after          speedup
+    2         27.4 ms/eval    3.8 ms/eval     7.3x   (3.3 s/iter -> 0.5 s/iter)
+    4         474  ms/eval    41.8 ms/eval    11.4x  (114  s/iter -> 10.0 s/iter)
+    8         997  ms/eval    66.0 ms/eval    15.1x  (479  s/iter -> 31.7 s/iter)
 """
 
 import logging
@@ -167,6 +212,7 @@ def _ti_magnitude_npair(
     metric: str = METRIC_MTI_MODULATION_DEPTH,
     scheme: str = SCHEME_MULTIBAND,
     psi=None,
+    refine: bool = True,
 ) -> np.ndarray:
     """Compute the N>2-pair TI envelope magnitude at every mesh element.
 
@@ -191,6 +237,18 @@ def _ti_magnitude_npair(
         Per-interference-pair envelope phase offset, forwarded to
         :func:`tit.calc.mti_modulation_depth` when ``metric`` is the
         default. Ignored when ``metric="recursive_ti"``.
+    refine : bool, default True
+        Forwarded to :func:`tit.calc.mti_modulation_depth`. For K=1 this
+        is irrelevant here (K=1 never reaches this function -- see
+        :meth:`FastTIEvaluator.evaluate_montage_npair`). For K>=2, this is
+        the dominant per-evaluation cost: measured on a real 74-electrode
+        leadfield, ``refine=True``'s local-direction refinement is ~95% of
+        :func:`tit.calc.mti_modulation_depth`'s runtime, independent of
+        how many elements it runs over (profiled at K=2, ~13k elements:
+        refine=True ~300ms/eval vs. the full-mesh diff construction this
+        module's ``precompute_pair_diffs`` vs. ``precompute_pair_diffs_search``
+        distinguishes, which is sub-millisecond by comparison at that
+        element count). Ignored when ``metric="recursive_ti"``.
 
     Returns
     -------
@@ -207,7 +265,7 @@ def _ti_magnitude_npair(
         )
 
     grouped = _group_fields_for_scheme(e_fields, scheme)
-    return mti_modulation_depth(grouped, psi=psi)["md"]
+    return mti_modulation_depth(grouped, psi=psi, refine=refine)["md"]
 
 
 class FastTIEvaluator:
@@ -219,7 +277,14 @@ class FastTIEvaluator:
 
     The *search* API (:meth:`focality_from_diffs`) can operate on a fixed
     subsample of the non-ROI elements once :meth:`setup_search_subsample`
-    has been called — see the module docstring and finding F10.
+    has been called — see the module docstring and finding F10. Pair it
+    with :meth:`precompute_pair_diffs_search` (instead of
+    :meth:`precompute_pair_diffs`) and pass ``pre_sliced=True`` to
+    :meth:`focality_from_diffs` to also avoid building full-mesh (M, 3)
+    arrays on every DE candidate. For K>=2 (``n_pairs`` >= 4), also pass
+    ``refine=False`` — measured to be the dominant cost, well ahead of the
+    full-mesh diff construction above. See the module docstring for the
+    measured breakdown (real-leadfield follow-up to finding F10).
 
     Parameters
     ----------
@@ -257,6 +322,16 @@ class FastTIEvaluator:
         self._search_index: np.ndarray | None = None
         self._search_roi_pos: np.ndarray | None = None
         self._search_nonroi_pos: np.ndarray | None = None
+        # leadfield, pre-sliced down to _search_index -- (n_elec-1, n_search, 3).
+        # Built once in setup_search_subsample() so the DE hot path
+        # (precompute_pair_diffs_search) never touches the full M-element
+        # leadfield. See module docstring.
+        self._leadfield_sliced: np.ndarray | None = None
+
+    @property
+    def has_search_subsample(self) -> bool:
+        """Whether :meth:`setup_search_subsample` has configured a search slice."""
+        return self._search_index is not None
 
     def setup_evaluation(
         self,
@@ -294,6 +369,7 @@ class FastTIEvaluator:
         self._search_index = None
         self._search_roi_pos = None
         self._search_nonroi_pos = None
+        self._leadfield_sliced = None
 
         log.info(
             f"FastTIEvaluator: M={self.leadfield.shape[1]} elements, "
@@ -339,6 +415,17 @@ class FastTIEvaluator:
         recompute exact numbers on the full mesh for the winning montage(s)
         -- search-time subsampling only ever affects search speed and
         ranking noise, never the final reported numbers.
+
+        This also builds :attr:`_leadfield_sliced` -- the leadfield matrix
+        restricted to ``roi_indices UNION nonroi_subsample`` along the
+        element axis -- **once**, here. :meth:`precompute_pair_diffs_search`
+        then builds per-pair diffs directly from this small array instead of
+        from the full leadfield, which is what actually matters for speed on
+        a real (multi-million-element) leadfield: building
+        ``lf[plus] - lf[minus]`` on the full mesh is a large allocation +
+        subtraction that :meth:`focality_from_diffs` previously threw away
+        by slicing immediately afterward, on every single DE candidate
+        evaluation.
 
         Must be called after :meth:`setup_evaluation` (which invalidates
         any existing subsample, since it depends on the non-ROI index set).
@@ -391,9 +478,15 @@ class FastTIEvaluator:
         self._search_roi_pos = np.arange(n_roi)
         self._search_nonroi_pos = np.arange(n_roi, n_roi + n_sub)
 
+        # Slice the leadfield down to the search index set ONCE, here --
+        # not on every DE candidate evaluation. See precompute_pair_diffs_search.
+        self._leadfield_sliced = self.leadfield[:, self._search_index, :]
+
         log.info(
             f"FastTIEvaluator search subsample: ROI={n_roi} (full), "
-            f"nonROI={n_sub}/{n_nonroi} (subsampled, seed={seed})"
+            f"nonROI={n_sub}/{n_nonroi} (subsampled, seed={seed}), "
+            f"leadfield sliced to {self._leadfield_sliced.shape[1]} elements "
+            f"(from {self.leadfield.shape[1]} full-mesh)"
         )
 
     def resolve_electrode(self, name: str) -> int | None:
@@ -428,6 +521,50 @@ class FastTIEvaluator:
         """
         diffs = []
         lf = self.leadfield
+        for plus_idx, minus_idx in pairs:
+            if plus_idx is None:
+                diffs.append(-lf[minus_idx].copy())
+            elif minus_idx is None:
+                diffs.append(lf[plus_idx].copy())
+            else:
+                diffs.append(lf[plus_idx] - lf[minus_idx])
+        return diffs
+
+    def precompute_pair_diffs_search(
+        self, pairs: list[tuple[int | None, int | None]]
+    ) -> list[np.ndarray]:
+        """Pre-compute ``lf[plus] - lf[minus]`` on the pre-sliced search set.
+
+        Search-time counterpart to :meth:`precompute_pair_diffs`, and the
+        actual fix for the real-leadfield cost described in the module
+        docstring: instead of subtracting two (M, 3) full-mesh leadfield
+        rows (M ~= 1.85e6 on a real leadfield) and then throwing away
+        everything but ~1e4 elements a moment later in
+        :meth:`focality_from_diffs`, this subtracts two rows of the
+        already-sliced :attr:`_leadfield_sliced` (~1e4 elements), built once
+        by :meth:`setup_search_subsample`.
+
+        Requires :meth:`setup_search_subsample` to have been called first.
+        Pass the result to :meth:`focality_from_diffs` with
+        ``pre_sliced=True``.
+
+        Parameters
+        ----------
+        pairs : list of (plus_idx, minus_idx)
+            Electrode leadfield-row indices, as for :meth:`precompute_pair_diffs`.
+
+        Returns
+        -------
+        diffs : list of (n_search, 3) arrays, where
+            ``n_search = len(roi_indices) + len(search_nonroi_indices)``.
+        """
+        if self._leadfield_sliced is None:
+            raise RuntimeError(
+                "precompute_pair_diffs_search() requires setup_search_subsample() "
+                "to have been called first"
+            )
+        diffs = []
+        lf = self._leadfield_sliced
         for plus_idx, minus_idx in pairs:
             if plus_idx is None:
                 diffs.append(-lf[minus_idx].copy())
@@ -515,6 +652,8 @@ class FastTIEvaluator:
         metric: str = METRIC_MTI_MODULATION_DEPTH,
         scheme: str = SCHEME_MULTIBAND,
         psi=None,
+        pre_sliced: bool = False,
+        refine: bool = True,
     ) -> float:
         """Fast focality-only computation for the inner DE optimizer.
 
@@ -524,9 +663,45 @@ class FastTIEvaluator:
         :meth:`evaluate_final` once the search has picked a winner to
         recompute exact numbers on the full mesh.
 
-        Parameters: see :meth:`evaluate_montage_npair`.
+        Parameters
+        ----------
+        pair_diffs : list of (M, 3) or (n_search, 3) arrays
+            Either full-mesh diffs from :meth:`precompute_pair_diffs`
+            (``pre_sliced=False``, the default -- sliced down to the search
+            index set here, same as before) or already-sliced diffs from
+            :meth:`precompute_pair_diffs_search` (``pre_sliced=True`` --
+            used as-is, no further slicing). The latter avoids ever
+            allocating a full-(M, 3) array in the DE hot loop -- real, but
+            secondary, savings (see ``refine`` below and the module
+            docstring for the measured breakdown).
+        pre_sliced : bool, default False
+            Set True when *pair_diffs* came from
+            :meth:`precompute_pair_diffs_search`. Requires
+            :meth:`setup_search_subsample` to have been called.
+        refine : bool, default True
+            Forwarded to :func:`tit.calc.mti_modulation_depth` for K>=2
+            (three or more electrode pairs); has no effect for K=1, which
+            never uses ``mti_modulation_depth`` here (see
+            :meth:`evaluate_montage_npair`). ``True`` (the default, and
+            what :meth:`evaluate_montage_npair`/:meth:`evaluate_final`
+            always use) is the accurate two-tier direction search. Search
+            callers should pass ``False`` -- the coarse-sweep-only mode --
+            for real speed: measured on a real 74-electrode leadfield,
+            this refinement step, not the full-vs-sliced mesh distinction
+            above, is ~95% of a K>=2 evaluation's cost. See the module
+            docstring and :class:`tit.opt.config.MultiPolarConfig`'s
+            ``search_refine`` for the measured speed/accuracy trade-off.
+
+        Other parameters: see :meth:`evaluate_montage_npair`.
         """
-        if self._search_index is not None:
+        if pre_sliced:
+            if self._search_index is None:
+                raise RuntimeError(
+                    "focality_from_diffs(pre_sliced=True) requires "
+                    "setup_search_subsample() to have been called first"
+                )
+            e_fields = [c * d for c, d in zip(currents_A, pair_diffs)]
+        elif self._search_index is not None:
             idx = self._search_index
             e_fields = [c * d[idx] for c, d in zip(currents_A, pair_diffs)]
         else:
@@ -536,10 +711,10 @@ class FastTIEvaluator:
             ti_mag = _fast_ti_magnitude(e_fields[0], e_fields[1])
         else:
             ti_mag = _ti_magnitude_npair(
-                e_fields, metric=metric, scheme=scheme, psi=psi
+                e_fields, metric=metric, scheme=scheme, psi=psi, refine=refine
             )
 
-        if self._search_index is not None:
+        if pre_sliced or self._search_index is not None:
             roi_mean = ti_mag[self._search_roi_pos] @ self.roi_weights
             nonroi_mean = ti_mag[self._search_nonroi_pos] @ self.search_nonroi_weights
         else:
