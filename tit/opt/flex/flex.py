@@ -29,6 +29,77 @@ from tit.paths import get_path_manager
 from . import builder, utils
 from .skin_visualization import create_valid_skin_region_visualization
 
+# ---------------------------------------------------------------------------
+# Flat-objective diagnostic -- F5
+# ---------------------------------------------------------------------------
+
+# Below this standard deviation the recorded objective is treated as
+# constant. The built-in "focality" goal collapses to an exact, bit-
+# identical value once both t_ROI and t_nonROI are jointly infeasible (see
+# _warn_if_objective_flat), so a tight tolerance is deliberate.
+_FLATNESS_STD_TOLERANCE = 1e-6
+_FLATNESS_MIN_SAMPLES = 5
+
+
+def _warn_if_objective_flat(
+    opt, goal: FlexConfig.OptGoal, logger: logging.Logger, restart_index: int
+) -> None:
+    """Warn when a completed restart's recorded objective values are flat.
+
+    SimNIBS only appends to ``opt.goal_fun_value`` for its own built-in
+    string goals -- a custom Python callable goal (``integral_focality``,
+    ``auc_focality``, ``ratio_focality``) bypasses ``compute_goal`` entirely
+    (see ``goal_fun`` in the vendored SimNIBS source), so this diagnostic is
+    a no-op for those and only ever fires for ``"mean"``, ``"max"``, or
+    ``"focality"``.
+
+    A near-constant objective across the many electrode placements SimNIBS
+    evaluates during a single differential-evolution run means the
+    optimizer has no gradient to follow. For ``goal="focality"`` this is the
+    signature of F5 (``tracks/active/mti-focality-core.md``): jointly
+    infeasible ``t_ROI``/``t_nonROI`` thresholds against a deep ROI with an
+    ``everything_else`` non-ROI pin SimNIBS' 2-point ROC evaluation
+    (``measures.ROC``) at a constant value. Weise et al. (2025, *Comput Biol
+    Med* 195:110648) report TIS-focality as having the largest run-to-run
+    spread of any ``TesFlexOptimization`` application tested, attributed
+    there to local minima -- a flat objective landscape is the better
+    explanation.
+
+    Parameters
+    ----------
+    opt : simnibs.optimization.TesFlexOptimization
+        The just-completed optimization object.
+    goal : FlexConfig.OptGoal
+        The configured goal, used only for the warning message.
+    logger : logging.Logger
+        Logger to warn on.
+    restart_index : int
+        Zero-based multistart restart index, for the log message.
+    """
+    try:
+        samples = np.asarray(opt.goal_fun_value[0], dtype=float)
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return
+    samples = samples[np.isfinite(samples)]
+    if samples.size < _FLATNESS_MIN_SAMPLES:
+        return
+    spread = float(np.std(samples))
+    if spread >= _FLATNESS_STD_TOLERANCE:
+        return
+    logger.warning(
+        "Flex-search restart #%d: the '%s' objective barely varied across "
+        "%d evaluations (std=%.3g). This is the signature of jointly "
+        "infeasible focality thresholds (t_ROI/t_nonROI) against a deep "
+        "ROI with an 'everything_else' non-ROI -- differential evolution "
+        "has no gradient to follow (Weise et al. 2025, Comput Biol Med "
+        "195:110648). Consider a threshold-free goal instead: "
+        "goal='integral_focality', 'auc_focality', or 'ratio_focality'.",
+        restart_index + 1,
+        str(goal),
+        samples.size,
+        spread,
+    )
+
 
 def run_flex_search(config: FlexConfig) -> FlexResult:
     """Run differential-evolution electrode placement optimization.
@@ -163,6 +234,7 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
         opt.run(cpus=config.cpus)
         fvals[i] = opt.optim_funvalue
+        _warn_if_objective_flat(opt, config.goal, logger, i)
 
     # -- Select best --
     valid_mask = fvals < float("inf")

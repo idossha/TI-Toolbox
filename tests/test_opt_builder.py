@@ -277,6 +277,241 @@ class TestBuildOptimization:
         # current should be 4.0/1000 = 0.004 A
         assert pair_mock.current == [0.004, -0.004]
 
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_custom_focality_goal_wires_a_callable(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env, goal_str
+    ):
+        """Regression guard for F5: new goals must bypass SimNIBS' 2-point
+        ROC evaluation by becoming a plain Python callable on opt.goal."""
+        opt_mock, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(goal=goal_str, non_roi_method="everything_else")
+        result = build_optimization(config)
+
+        assert callable(result.goal)
+        assert not isinstance(result.goal, str)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_existing_goals_stay_plain_strings(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        """Byte-identical regression guard: mean/max/focality must remain
+        the plain SimNIBS string goal, never routed through the new
+        callable path added for F5."""
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        assert build_optimization(_make_config(goal="mean")).goal == "mean"
+        assert build_optimization(_make_config(goal="max")).goal == "max"
+        assert (
+            build_optimization(
+                _make_config(goal="focality", non_roi_method="everything_else")
+            ).goal
+            == "focality"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Custom threshold-free focality goals (F5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestCustomFocalityGoalFn:
+    """Tests for _make_focality_goal_fn / _ratio_focality / the <2.0 bound."""
+
+    def _opt_with_vol(self, v1=10.0, v2=1000.0):
+        opt = MagicMock()
+        opt._vol = [v1, v2]
+        return opt
+
+    def test_integral_focality_calls_simnibs_measure(self):
+        from tit.opt.flex.builder import _make_focality_goal_fn
+        from tit.opt.config import FlexConfig
+
+        opt = self._opt_with_vol(v1=10.0, v2=1000.0)
+        measures = MagicMock()
+        measures.integral_focality.return_value = 0.02
+
+        goal_fn = _make_focality_goal_fn(
+            FlexConfig.OptGoal.INTEGRAL_FOCALITY, opt, measures
+        )
+        e1 = np.array([0.3, 0.35, 0.32])
+        e2 = np.array([0.05, 0.06, 0.04])
+        value = goal_fn([[e1, e2]])
+
+        measures.integral_focality.assert_called_once()
+        kwargs = measures.integral_focality.call_args.kwargs
+        assert kwargs["v1"] == 10.0
+        assert kwargs["v2"] == 1000.0
+        np.testing.assert_allclose(kwargs["e1"], e1)
+        np.testing.assert_allclose(kwargs["e2"], e2)
+        assert value == pytest.approx(-0.02)
+
+    def test_auc_focality_calls_simnibs_measure(self):
+        from tit.opt.flex.builder import _make_focality_goal_fn
+        from tit.opt.config import FlexConfig
+
+        opt = self._opt_with_vol()
+        measures = MagicMock()
+        measures.AUC.return_value = 0.83
+
+        goal_fn = _make_focality_goal_fn(FlexConfig.OptGoal.AUC_FOCALITY, opt, measures)
+        e1 = np.array([0.3, 0.35])
+        e2 = np.array([0.05, 0.06])
+        value = goal_fn([[e1, e2]])
+
+        measures.AUC.assert_called_once()
+        assert value == pytest.approx(-0.83)
+
+    def test_ratio_focality_does_not_touch_simnibs_measures(self):
+        from tit.opt.flex.builder import _make_focality_goal_fn
+        from tit.opt.config import FlexConfig
+
+        opt = self._opt_with_vol(v1=10.0, v2=10.0)
+        measures = MagicMock()
+
+        goal_fn = _make_focality_goal_fn(
+            FlexConfig.OptGoal.RATIO_FOCALITY, opt, measures
+        )
+        e1 = np.array([0.4, 0.4])  # mean 0.4
+        e2 = np.array([0.1, 0.1])  # mean 0.1
+        value = goal_fn([[e1, e2]])
+
+        measures.integral_focality.assert_not_called()
+        measures.AUC.assert_not_called()
+        # v1 == v2 == 10 -> reduces to the plain mean ratio, negated: -4.0
+        assert value == pytest.approx(-4.0)
+
+    @pytest.mark.parametrize(
+        "goal, raw_score",
+        [
+            ("integral_focality", 50.0),  # deliberately huge, unrealistic score
+            ("auc_focality", 1.0),  # AUC's theoretical maximum
+            ("ratio_focality", 1e6),  # denominator near zero
+        ],
+    )
+    def test_custom_goal_values_stay_below_invalid_penalty(self, goal, raw_score):
+        """SimNIBS returns a flat 2.0 for overlapping/invalid placements
+        without running a FEM solve. A custom goal that can reach >= 2.0
+        for a *valid* montage would make differential evolution prefer
+        invalid, overlapping electrode placements -- this must never
+        happen, however extreme the underlying score."""
+        from tit.opt.flex.builder import _make_focality_goal_fn
+        from tit.opt.config import FlexConfig
+
+        opt = self._opt_with_vol(v1=1.0, v2=1.0)
+        measures = MagicMock()
+        measures.integral_focality.return_value = raw_score
+        measures.AUC.return_value = raw_score
+
+        goal_fn = _make_focality_goal_fn(FlexConfig.OptGoal(goal), opt, measures)
+        e1 = np.array([raw_score, raw_score])
+        e2 = np.array([1.0, 1.0])
+        value = goal_fn([[e1, e2]])
+
+        assert value < 2.0
+
+    def test_ratio_focality_guards_against_zero_denominator(self):
+        from tit.opt.flex.builder import _ratio_focality
+
+        # non-ROI mean field is exactly zero -> must not raise ZeroDivisionError
+        result = _ratio_focality(
+            e1=np.array([0.3, 0.3]), e2=np.array([0.0, 0.0]), v1=1.0, v2=1.0
+        )
+        assert np.isfinite(result)
+        assert result > 0
+
+    def test_bound_below_invalid_penalty(self):
+        from tit.opt.flex.builder import _bound_below_invalid_penalty
+
+        assert _bound_below_invalid_penalty(-5.0) == -5.0
+        assert _bound_below_invalid_penalty(0.0) == 0.0
+        assert _bound_below_invalid_penalty(1.95) < 2.0
+        assert _bound_below_invalid_penalty(1_000_000.0) < 2.0
+
+
+# ---------------------------------------------------------------------------
+# F5 evidence: FOCALITY goes flat at deep targets, RATIO_FOCALITY does not
+# ---------------------------------------------------------------------------
+
+
+def _mirrors_simnibs_roc_focality(e1: np.ndarray, e2: np.ndarray, t_nonroi, t_roi):
+    """Byte-for-byte mirror of ``measures.ROC(e1, e2, [t_nonroi, t_roi],
+    focal=True)`` composed with ``compute_goal``'s ``-100*(sqrt(2)-ROCval)``
+    transform (see F5, ``tracks/active/mti-focality-core.md``).
+
+    SimNIBS is not installed on the host test environment (only inside the
+    Docker container -- see ``memory/feedback_verify_in_container.md``), so
+    this test-only helper reproduces the well-defined, ~15-line 2-point ROC
+    formula locally rather than importing the real
+    ``simnibs.optimization.tes_flex_optimization.measures`` module. It was
+    transcribed from and cross-checked against the vendored SimNIBS source
+    at ``resources/map-electrodes/tes_flex_optimization.py`` /
+    ``.../measures.py`` inside the container image. Production code
+    (``tit.opt.flex.builder``) never uses this helper -- it always calls the
+    real SimNIBS module at runtime.
+    """
+    threshold_array = np.array([t_nonroi, t_roi], dtype=float)
+    sensitivity = np.array([np.sum(e1 >= t) / len(e1) for t in threshold_array])
+    specificity_inv = np.array([np.sum(e2 >= t) / len(e2) for t in threshold_array])
+
+    sens_thresh = sensitivity[1]  # threshold_array is already sorted
+    spec_inv_thresh = specificity_inv[0]
+
+    roc_val = float(np.linalg.norm([spec_inv_thresh, sens_thresh - 1]))
+    return -100 * (np.sqrt(2) - roc_val)
+
+
+@pytest.mark.unit
+class TestF5FlatObjectiveEvidence:
+    """Demonstrates the F5 defect and its fix with synthetic e_pp arrays --
+    no FEM solve required (see the track's Phase 3 acceptance criteria)."""
+
+    def test_focality_flat_ratio_focality_not_flat(self):
+        from tit.opt.flex.builder import _ratio_focality
+
+        rng = np.random.default_rng(42)
+        t_roi, t_nonroi = 0.2, 0.1
+        n_placements = 25
+
+        focality_values = []
+        ratio_values = []
+        for _ in range(n_placements):
+            # Deep-target ROI (e.g. thalamus): achievable envelope is
+            # 0.1-0.7 V/m, but here always < t_ROI=0.2 -- reproducing the
+            # jointly-infeasible regime F5 describes.
+            e1 = rng.uniform(0.10, 0.19, size=200)
+            # "everything_else" non-ROI (whole cortex): always >= t_nonROI
+            # =0.1, dominated by near-electrode superficial cortex.
+            e2 = rng.uniform(0.10, 0.90, size=2000)
+
+            focality_values.append(
+                _mirrors_simnibs_roc_focality(e1, e2, t_nonroi, t_roi)
+            )
+            # v1 == v2 so this is directly the Bruno-2026-comparable ratio.
+            ratio_values.append(-_ratio_focality(e1, e2, v1=1.0, v2=1.0))
+
+        focality_std = float(np.std(focality_values))
+        ratio_std = float(np.std(ratio_values))
+
+        # Built-in "focality" collapses to a bit-identical constant once
+        # both thresholds are jointly infeasible: no gradient for DE.
+        assert focality_std < 1e-9
+        # RATIO_FOCALITY keeps tracking the underlying field difference
+        # between placements.
+        assert ratio_std > 1e-3
+
 
 # ---------------------------------------------------------------------------
 # configure_optimizer_options

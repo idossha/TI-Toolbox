@@ -104,6 +104,67 @@ class TestFlexConfigValidation:
         )
         assert cfg.non_roi is not None
 
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    def test_custom_focality_goal_coerced_to_enum(self, goal_str):
+        cfg = _make_flex_config(goal=goal_str, non_roi_method="everything_else")
+        assert cfg.goal is OptGoal(goal_str)
+
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    def test_custom_focality_goal_requires_non_roi_method(self, goal_str):
+        with pytest.raises(ValueError, match="non_roi_method"):
+            _make_flex_config(goal=goal_str, non_roi_method=None)
+
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    def test_custom_focality_goal_specific_without_non_roi_raises(self, goal_str):
+        with pytest.raises(ValueError, match="non_roi"):
+            _make_flex_config(
+                goal=goal_str,
+                non_roi_method="specific",
+                non_roi=None,
+            )
+
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    def test_custom_focality_goal_everything_else_is_valid(self, goal_str):
+        cfg = _make_flex_config(goal=goal_str, non_roi_method="everything_else")
+        assert cfg.non_roi_method is NonROIMethod.EVERYTHING_ELSE
+
+    @pytest.mark.parametrize(
+        "goal_str", ["integral_focality", "auc_focality", "ratio_focality"]
+    )
+    def test_custom_focality_goal_specific_with_non_roi_is_valid(self, goal_str):
+        cfg = _make_flex_config(
+            goal=goal_str,
+            non_roi_method="specific",
+            non_roi=SphericalROI(x=10, y=10, z=10),
+        )
+        assert cfg.non_roi is not None
+
+    def test_requiring_non_roi_includes_all_focality_goals(self):
+        assert OptGoal.requiring_non_roi() == {
+            OptGoal.FOCALITY,
+            OptGoal.INTEGRAL_FOCALITY,
+            OptGoal.AUC_FOCALITY,
+            OptGoal.RATIO_FOCALITY,
+        }
+
+    def test_custom_callable_goals_excludes_focality(self):
+        # "focality" still uses SimNIBS' built-in string goal (thresholds),
+        # not a custom Python callable.
+        assert OptGoal.FOCALITY not in OptGoal.custom_callable_goals()
+        assert OptGoal.custom_callable_goals() == {
+            OptGoal.INTEGRAL_FOCALITY,
+            OptGoal.AUC_FOCALITY,
+            OptGoal.RATIO_FOCALITY,
+        }
+
     def test_invalid_thresholds_raises(self):
         with pytest.raises(ValueError):
             _make_flex_config(thresholds="abc,def")

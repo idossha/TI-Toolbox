@@ -91,7 +91,17 @@ class FlexConfig:
     non_roi : SphericalROI or AtlasROI or SubcorticalROI or None
         Explicit non-ROI region when *non_roi_method* is ``"specific"``.
     thresholds : str or None
-        Comma-separated focality threshold values (e.g. ``"0.1,0.2"``).
+        Comma-separated focality threshold values (e.g. ``"0.1,0.2"``), used
+        only by ``goal="focality"``. For deep targets (thalamus,
+        hippocampus) scored against a superficial ``everything_else``
+        non-ROI, ``t_ROI`` and ``t_nonROI`` are frequently *jointly
+        infeasible* -- no montage both exceeds ``t_ROI`` in the ROI and
+        stays under ``t_nonROI`` outside it -- which pins SimNIBS' 2-point
+        ROC evaluation at a constant value and removes differential
+        evolution's gradient (Weise et al. 2025, *Comput Biol Med*
+        195:110648). Prefer ``goal="integral_focality"``, ``"auc_focality"``,
+        or ``"ratio_focality"`` for deep targets; those goals are
+        threshold-free and ignore *thresholds* entirely.
     eeg_net : str or None
         EEG net name or filename (e.g. ``"GSN-HydroCel-185"`` or
         ``"GSN-HydroCel-185.csv"``) for electrode-name mapping.
@@ -162,12 +172,66 @@ class FlexConfig:
         MAX : str
             Maximize peak field intensity in the ROI.
         FOCALITY : str
-            Maximize ROI-to-non-ROI intensity ratio.
+            Maximize ROI-to-non-ROI intensity ratio via SimNIBS' 2-point ROC
+            evaluation (``measures.ROC``). Requires *thresholds*. For deep
+            targets (thalamus, hippocampus) scored against a superficial
+            ``everything_else`` non-ROI, the two thresholds are frequently
+            *jointly infeasible* -- no montage both exceeds ``t_ROI`` in the
+            ROI and stays under ``t_nonROI`` outside it -- which pins this
+            objective at a constant value and removes differential
+            evolution's gradient (Weise et al. 2025, *Comput Biol Med*
+            195:110648). Prefer one of the threshold-free goals below for
+            deep targets.
+        INTEGRAL_FOCALITY : str
+            Threshold-free focality (Fernandez-Corazza et al. 2020, eq. 14):
+            ``(mean(ROI)/v_ROI) / sqrt(mean(non-ROI)/v_non-ROI)``. Requires
+            exactly two ROIs (see *non_roi_method*).
+        AUC_FOCALITY : str
+            Threshold-free focality: area under the full 500-threshold ROC
+            curve (``measures.AUC``, Simpson integration). Requires exactly
+            two ROIs.
+        RATIO_FOCALITY : str
+            Threshold-free focality: volume-weighted ``mean(ROI) /
+            mean(non-ROI)`` (Stoupis & Samaras 2022 ``R_area``), reusing the
+            per-ROI element volumes SimNIBS already computes rather than a
+            plain node-count mean. Requires exactly two ROIs. In the common
+            case where the ROI and non-ROI have similar average element
+            size, this reduces to the plain mean-ratio Bruno et al. (2026)
+            report as **1.10 +/- 0.15** for bilateral thalamus using
+            TI-Toolbox's exhaustive search engine.
         """
 
         MEAN = "mean"
         MAX = "max"
         FOCALITY = "focality"
+        INTEGRAL_FOCALITY = "integral_focality"
+        AUC_FOCALITY = "auc_focality"
+        RATIO_FOCALITY = "ratio_focality"
+
+        @classmethod
+        def requiring_non_roi(cls) -> frozenset["FlexConfig.OptGoal"]:
+            """Goals that need exactly two ROIs (target ROI, then non-ROI)."""
+            return frozenset(
+                {
+                    cls.FOCALITY,
+                    cls.INTEGRAL_FOCALITY,
+                    cls.AUC_FOCALITY,
+                    cls.RATIO_FOCALITY,
+                }
+            )
+
+        @classmethod
+        def custom_callable_goals(cls) -> frozenset["FlexConfig.OptGoal"]:
+            """Threshold-free goals wired as a Python callable onto ``opt.goal``.
+
+            SimNIBS' ``TesFlexOptimization`` accepts a Python callable for
+            ``goal`` and, when given one, calls it directly instead of its
+            built-in 2-point ROC evaluation (see F5 in
+            ``tracks/active/mti-focality-core.md``).
+            """
+            return frozenset(
+                {cls.INTEGRAL_FOCALITY, cls.AUC_FOCALITY, cls.RATIO_FOCALITY}
+            )
 
     class FieldPostproc(StrEnum):
         """Field post-processing method applied to the TI envelope.
@@ -447,6 +511,21 @@ class FlexConfig:
             raise ValueError(
                 "goal='focality' with method='specific' requires a non_roi specification"
             )
+        if self.goal in FlexConfig.OptGoal.custom_callable_goals():
+            if self.non_roi_method is None:
+                raise ValueError(
+                    f"goal={self.goal.value!r} requires non_roi_method to be set "
+                    "('everything_else' or 'specific') -- like 'focality', it needs "
+                    "exactly two ROIs (ROI, then non-ROI)."
+                )
+            if (
+                self.non_roi_method is FlexConfig.NonROIMethod.SPECIFIC
+                and self.non_roi is None
+            ):
+                raise ValueError(
+                    f"goal={self.goal.value!r} with method='specific' requires a "
+                    "non_roi specification"
+                )
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())

@@ -353,8 +353,9 @@ def _configure_spherical_roi(opt, config: FlexConfig) -> None:
 
     _apply_spheres(roi, centers, radii, center_space, complement=False)
 
-    # Add non-ROI if focality optimisation is requested
-    if config.goal == "focality":
+    # Add non-ROI if a focality-style goal is requested (built-in "focality"
+    # or one of the threshold-free goals -- all need exactly two ROIs).
+    if config.goal in FlexConfig.OptGoal.requiring_non_roi():
         non_roi = opt.add_roi()
         if roi_spec.volumetric:
             non_roi.method = "volume"
@@ -398,7 +399,9 @@ def _configure_atlas_roi(opt, config: FlexConfig) -> None:
     roi.mask_space, roi.mask_path, roi.mask_value = _atlas_mask_lists(roi_spec)
     _apply_union_operator(roi)
 
-    if config.goal == "focality":
+    # Add non-ROI if a focality-style goal is requested (built-in "focality"
+    # or one of the threshold-free goals -- all need exactly two ROIs).
+    if config.goal in FlexConfig.OptGoal.requiring_non_roi():
         non_roi = opt.add_roi()
         non_roi.method = "surface"
         non_roi.surface_type = "central"
@@ -454,7 +457,9 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
     _apply_union_operator(roi)
     roi.tissues = tissues
 
-    if config.goal == "focality":
+    # Add non-ROI if a focality-style goal is requested (built-in "focality"
+    # or one of the threshold-free goals -- all need exactly two ROIs).
+    if config.goal in FlexConfig.OptGoal.requiring_non_roi():
         non_roi = opt.add_roi()
         non_roi.method = "volume"
 
