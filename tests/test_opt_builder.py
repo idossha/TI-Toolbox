@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
@@ -276,6 +277,91 @@ class TestBuildOptimization:
 
         # current should be 4.0/1000 = 0.004 A
         assert pair_mock.current == [0.004, -0.004]
+
+
+# ---------------------------------------------------------------------------
+# build_optimization -- FieldPostproc.DIR_TI_TANGENTIAL deprecation warning
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestDirTiTangentialDeprecation:
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_dir_ti_tangential_warns(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        """Selecting dir_TI_tangential emits exactly one DeprecationWarning."""
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(postproc="dir_TI_tangential")
+        with pytest.warns(DeprecationWarning, match="DIR_TI_TANGENTIAL"):
+            result = build_optimization(config)
+
+        # The option still runs end-to-end -- it is not blocked or removed.
+        assert result.e_postproc == "dir_TI_tangential"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_dir_ti_tangential_warns_exactly_once(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(postproc="dir_TI_tangential")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            build_optimization(config)
+
+        deprecation_warnings = [
+            w for w in caught if issubclass(w.category, DeprecationWarning)
+        ]
+        assert len(deprecation_warnings) == 1
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_max_ti_does_not_warn(self, mock_gpm, mock_roi, mock_mkdirs, builder_env):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(postproc="max_TI")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            build_optimization(config)
+
+        deprecation_warnings = [
+            w for w in caught if issubclass(w.category, DeprecationWarning)
+        ]
+        assert deprecation_warnings == []
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_dir_ti_normal_does_not_warn(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        """dir_TI_normal is a correct, unrelated field -- not deprecated."""
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(postproc="dir_TI_normal")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            build_optimization(config)
+
+        deprecation_warnings = [
+            w for w in caught if issubclass(w.category, DeprecationWarning)
+        ]
+        assert deprecation_warnings == []
 
 
 # ---------------------------------------------------------------------------

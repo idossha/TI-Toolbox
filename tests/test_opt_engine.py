@@ -228,28 +228,39 @@ class TestFindGmElements:
 @pytest.mark.unit
 class TestComputeTiField:
     def test_computes_metrics(self):
-        from simnibs.utils import TI_utils as TI
+        import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
         _setup_engine_fields(engine)
 
         # Mock TI functions to return known arrays
         ti_field = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
-        TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        TI.get_maxTI = MagicMock(return_value=ti_field)
+        engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
+        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
         result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
 
-        assert "TestROI_TImax_ROI" in result
-        assert "TestROI_TImean_ROI" in result
-        assert "TestROI_TImean_GM" in result
-        assert "TestROI_Focality" in result
-        assert "TestROI_n_elements" in result
+        # roi_indices=[0,1,2] -> field_roi=[0.1,0.2,0.3]
+        assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
+        assert result["TestROI_TImean_ROI"] == pytest.approx(0.2)
+        # gm_indices=[0..4] -> field_gm=[0.1,0.2,0.3,0.15,0.25], mean=0.2
+        assert result["TestROI_TImean_GM"] == pytest.approx(0.2)
+        # focality = roi_mean / gm_mean = 0.2 / 0.2
+        assert result["TestROI_Focality"] == pytest.approx(1.0)
+        assert result["TestROI_n_elements"] == 3
         assert result["current_ch1_mA"] == 1.0
         assert result["current_ch2_mA"] == 1.0
 
+        engine_mod.TI.get_field.assert_any_call(
+            ["E1", "E2", 0.001], engine.leadfield, engine.idx_lf
+        )
+        engine_mod.TI.get_field.assert_any_call(
+            ["E3", "E4", 0.001], engine.leadfield, engine.idx_lf
+        )
+        engine_mod.TI.get_maxTI.assert_called_once()
+
     def test_empty_roi(self):
-        from simnibs.utils import TI_utils as TI
+        import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
         _setup_engine_fields(engine)
@@ -257,17 +268,19 @@ class TestComputeTiField:
         engine.roi_volumes = np.array([])
 
         ti_field = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
-        TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        TI.get_maxTI = MagicMock(return_value=ti_field)
+        engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
+        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
         result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
 
         assert result["TestROI_TImax_ROI"] == 0.0
         assert result["TestROI_TImean_ROI"] == 0.0
+        assert result["TestROI_TImean_GM"] == 0.0
         assert result["TestROI_Focality"] == 0.0
+        assert result["TestROI_n_elements"] == 0
 
     def test_zero_gm_mean(self):
-        from simnibs.utils import TI_utils as TI
+        import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
         _setup_engine_fields(engine)
@@ -276,14 +289,20 @@ class TestComputeTiField:
 
         # All-zero GM field
         ti_field = np.array([0.1, 0.2, 0.3, 0.0, 0.0])
-        TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        TI.get_maxTI = MagicMock(return_value=ti_field)
+        engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
+        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
         result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+
+        # roi_indices=[0,1,2] unaffected -> field_roi=[0.1,0.2,0.3]
+        assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
+        assert result["TestROI_TImean_ROI"] == pytest.approx(0.2)
+        # gm_indices=[3,4] -> field_gm=[0.0,0.0] -> gm_mean=0.0
+        assert result["TestROI_TImean_GM"] == pytest.approx(0.0)
         assert result["TestROI_Focality"] == 0.0
 
     def test_empty_gm(self):
-        from simnibs.utils import TI_utils as TI
+        import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
         _setup_engine_fields(engine)
@@ -291,10 +310,14 @@ class TestComputeTiField:
         engine.gm_volumes = np.array([])
 
         ti_field = np.array([0.1, 0.2, 0.3])
-        TI.get_field = MagicMock(return_value=np.zeros((3, 3)))
-        TI.get_maxTI = MagicMock(return_value=ti_field)
+        engine_mod.TI.get_field = MagicMock(return_value=np.zeros((3, 3)))
+        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
 
         result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+
+        # roi_indices=[0,1,2] -> field_roi=[0.1,0.2,0.3]
+        assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
+        assert result["TestROI_TImean_ROI"] == pytest.approx(0.2)
         assert result["TestROI_TImean_GM"] == 0.0
         assert result["TestROI_Focality"] == 0.0
 

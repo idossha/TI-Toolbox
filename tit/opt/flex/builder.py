@@ -22,6 +22,7 @@ tit.opt.config.FlexConfig : Configuration dataclass consumed here.
 import base64
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 import logging
@@ -84,6 +85,20 @@ def build_optimization(config: FlexConfig):
             vals = [float(v) for v in thr_raw.split(",")]
             opt.threshold = vals if len(vals) > 1 else vals[0]
 
+    if config.postproc == FlexConfig.FieldPostproc.DIR_TI_TANGENTIAL:
+        warnings.warn(
+            "FieldPostproc.DIR_TI_TANGENTIAL ('dir_TI_tangential') computes "
+            "tangential TI as sqrt(max(0, maxTI**2 - dirTI_normal**2)) -- a "
+            "non-Pythagorean projection of already-modulated TI envelope "
+            "amplitudes, not a vector decomposition of the underlying "
+            "carrier fields. For a correct tangential/normal decomposition, "
+            "use get_dirTI(E1, E2, n) applied to the raw carrier fields "
+            "(as tit.analyzer's TI_normal does), not this postproc option. "
+            "This option is kept for backward compatibility with existing "
+            "configs and is not removed by this warning.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     opt.e_postproc = config.postproc.value
     opt.anisotropy_type = config.anisotropy_type
     opt.aniso_maxratio = config.aniso_maxratio
