@@ -185,16 +185,39 @@ class ROIResolver:
         from scipy.spatial import cKDTree
 
         tree = cKDTree(world_coords)
-        # Voxel size determines the matching radius
-        voxel_size = np.abs(np.diag(affine)[:3]).max()
+        # Voxel size determines the matching radius.
+        #
+        # Must be derived from the COLUMN NORMS of the direction matrix, not
+        # its diagonal: SimNIBS atlases (e.g. segmentation/labeling.nii.gz)
+        # carry an oblique affine whose scale sits entirely in the off-diagonal
+        # terms, so np.diag() is all zeros there.  Using the diagonal silently
+        # yields voxel_size == 0, a zero match radius, and an empty ROI.
+        voxel_size = float(np.linalg.norm(affine[:3, :3], axis=0).max())
+        if not np.isfinite(voxel_size) or voxel_size <= 0:
+            raise ValueError(
+                f"Could not determine voxel size from the affine of "
+                f"{roi.atlas_path} (computed {voxel_size}). The atlas affine "
+                f"may be degenerate."
+            )
         dists, _ = tree.query(tissue_centers, k=1)
         match_mask = dists <= voxel_size * 1.5  # generous tolerance
 
         matched_idx = tissue_idx[match_mask]
         log.info(
             f"SubcorticalROI: atlas={roi.atlas_path}, label={roi.label}, "
-            f"tissues={roi.tissues} → {len(matched_idx)} elements"
+            f"tissues={roi.tissues}, voxel_size={voxel_size:.3f}mm "
+            f"→ {len(matched_idx)} elements"
         )
+        if len(matched_idx) == 0:
+            raise ValueError(
+                f"SubcorticalROI resolved to 0 mesh elements "
+                f"(atlas={roi.atlas_path}, label={roi.label}, "
+                f"tissues={roi.tissues}). The label exists in the atlas "
+                f"({len(voxel_ijk)} voxels) but no {roi.tissues} element "
+                f"barycenter fell within {voxel_size * 1.5:.2f}mm of it. "
+                f"Check that the atlas and the leadfield mesh are in the same "
+                f"space, and that the tissue filter is not excluding the target."
+            )
         return matched_idx, self.volumes[matched_idx]
 
     def _mni_to_subject(self, coords_mni: np.ndarray) -> np.ndarray:
