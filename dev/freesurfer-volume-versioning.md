@@ -32,6 +32,7 @@ broke `segmentThalamicNuclei.sh` / `segmentHA_T1.sh` (GitHub issue #123).
 | `dev/loader/docker-compose.dev.yml` | same |
 | `loader.py` | `get_freesurfer_volume_name()` + `prune_old_freesurfer_volumes()`; set `FREESURFER_VOLUME`; removed manual volume create |
 | `dev/loader/loader_dev.py` | same |
+| `dev/loader/loader_dev.sh` | same (bash port, for hosts without Python) |
 | `package/src/backend/docker-manager.js` | `computeFreesurferVolume()` + `pruneOldVolumes()`; inject `FREESURFER_VOLUME`; removed `ensureVolume()` |
 
 ## When bumping the FreeSurfer image
