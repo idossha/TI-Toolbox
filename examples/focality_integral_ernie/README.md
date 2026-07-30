@@ -1,65 +1,59 @@
-# Deep vs superficial focality: ROC vs integral (ernie)
+# Three-arm focality comparison on deep targets (ernie)
 
-Validation/demo for the `focality_integral` flex-search goal. Runs flex-search
-four times on the SimNIBS `ernie` head model — {superficial, deep} target ×
-{ROC `focality`, threshold-free `focality_integral`} — and renders a visual
-comparison report: TI field on gray matter, optimized electrodes on the scalp,
-ROC curves (Weise-style), ROI/non-ROI field distributions (Fernández-Corazza-
-style), and DE progress curves.
+Validation/demo for the `focality_integral` flex-search goal. For deep targets
+(thalamus, hippocampus) it runs flex-search under **three arms** — ROC focality at
+two thresholds and threshold-free integral focality — and renders a visual report:
+progress on a common metric, ROC curves (Weise-style), ROI/non-ROI distributions
+(Fernández-Corazza-style), the TI field **on the T1 with the ROI outlined**, and the
+optimized electrodes on the scalp.
 
-## What it shows (empirical, 2 mA, ernie)
+## Why three arms
 
-At a modest optimization budget, the threshold-free **integral** objective — with
-its smoother landscape — reaches a far more focal montage at the **superficial**
-target and ties at **depth**:
+The two ROC arms use different threshold pairs (non-ROI max, ROI min): a
+conservative `0.1/0.2 V/m` and an aggressive `0.2/0.4 V/m`. Comparing them shows how
+much the ROC result depends on a threshold the user must pick — the pitfall the
+threshold-free integral objective sidesteps.
 
-| Target | Goal | AUC | mean ROI/non-ROI |
-|---|---|---|---|
-| superficial | ROC | 0.55 | 1.00 |
-| superficial | **integral** | **0.94** | **1.78** |
-| deep | ROC | 0.79 | 1.34 |
-| deep | integral | 0.78 | 1.30 |
+## Objectives are on different scales
 
-Note: the ROC objective **does not automatically "go flat" at deep targets** — with
-a *reachable* ROI threshold (0.1/0.2 V/m) the deep target reached ROI mean 0.23 V/m
-> 0.20, so ROC kept its gradient. Flatness only appears when the ROI threshold is set
-*infeasibly* high (see `--thresholds`), which is exactly the threshold-selection
-pitfall the threshold-free integral objective avoids.
+- **ROC arm** minimizes `−100·(√2 − d)`, d = distance of the (1−specificity,
+  sensitivity) point to the ideal corner at the chosen thresholds. Range ≈ [−141, 0].
+- **Integral arm** minimizes `−IF`, `IF = (mean E_ROI/V_ROI)/√(mean E_nonROI/V_nonROI)`.
+  Range ≈ [−5, 0].
+
+Because those aren't comparable, all cross-arm plots use a **common** yardstick: the
+mean-field ROI/non-ROI contrast (progress, summary) and the ROC AUC.
 
 ## Run
 
 ```bash
-# 1. Run the four optimizations (writes results.json + per-run outputs + final-sim meshes).
-OUT_DIR=/tmp/focint_ernie PROJECT_DIR=/path/to/bids_project \
-    simnibs_python run_comparison.py --maxiter 15 --popsize 6 --cpus 4
+# 1. Optimize (3 arms × 2 targets = 6 runs) at SimNIBS default budget.
+OUT_DIR=/tmp/foc3 PROJECT_DIR=/path/to/bids_project \
+    simnibs_python run_comparison.py --default --cpus 4
 
-# 2. Render the PNG panels (+ a basic report.html).
-simnibs_python make_report.py /tmp/focint_ernie/results.json
+# 2. Render the PNG panels (comparative + per-condition T1/scalp).
+simnibs_python make_report.py /tmp/foc3/results.json
 
-# 3. (optional) Assemble a polished, self-contained report.html with metrics.
-simnibs_python make_artifact.py /tmp/focint_ernie /tmp/focint_ernie/report.html
+# 3. Assemble the self-contained report.html.
+simnibs_python make_artifact.py /tmp/foc3 /tmp/foc3/report.html
 ```
 
-`PROJECT_DIR` must be a BIDS project with
-`derivatives/SimNIBS/sub-ernie/m2m_ernie`. Outputs go under `OUT_DIR`, never into
-the source dataset.
+`--default` uses SimNIBS defaults (popsize 13, maxiter 1000, tol 0.1). Drop it and
+pass `--maxiter N --popsize N` for a faster, lower-budget run. Other flags:
+`--only <cell>` (e.g. `thalamus_integral`), `--no-final-sim` (skip field render).
 
-### Useful flags
+`PROJECT_DIR` must be a BIDS project with `derivatives/SimNIBS/sub-ernie/m2m_ernie`
+(the m2m must contain `T1.nii.gz` for the on-T1 overlay). Outputs go under `OUT_DIR`,
+never into the source dataset.
 
-- `--only <cell>` — run one cell, e.g. `--only deep_focality`.
-- `--thresholds "nonROImax,ROImin"` — ROC thresholds in V/m (default `0.1,0.2`).
-  Set `ROImin` above what the target can reach to reproduce the flat-ROC regime.
-- `--no-final-sim` — skip the final TI-field simulation (fast; no field render).
+## Files
 
-## Notes
+- `run_comparison.py` — runs the arms; captures the objective trajectory, a common
+  ROI/non-ROI progress metric, best-montage fields, and the final-sim meshes.
+- `t1_overlay.py` — mesh→NIfTI + T1/field/ROI-contour slice renderer.
+- `make_report.py` — PNG panels. `make_artifact.py` — HTML report with captions.
 
-- Small budgets are fast but not fully converged; `--maxiter 15 --popsize 6` gives
-  reasonable results. On macOS SimNIBS falls back to the MUMPS solver (~20 s per FEM
-  solve on ernie); expect several minutes per condition, more with the final sim.
-- `run_comparison.py` persists `results.json` after every cell, so partial runs are
-  never lost. It captures the exact best-montage ROI/non-ROI fields (for ROC curves
-  and distributions), the DE trajectory, and the per-channel final-sim meshes (for
-  the TI field render and electrode-on-scalp positions, read from the mesh gel tags).
-- Targets (MNI): superficial = left M1 hand-knob `[-37,-21,58]`; deep = left
-  hippocampus `[-28,-20,-16]` (volumetric). Edit the constants at the top of
-  `run_comparison.py` to retarget.
+## Targets (MNI)
+
+thalamus `[-10,-19,8]` r6 · hippocampus `[-28,-20,-16]` r8 (both volumetric). Edit
+`TARGETS`/`ARMS` at the top of `run_comparison.py` to change targets or thresholds.

@@ -1,29 +1,29 @@
 #!/usr/bin/env simnibs_python
-"""Deep-vs-superficial focality comparison on the SimNIBS ``ernie`` head model.
+"""Three-arm focality comparison on deep targets (ernie).
 
-Runs flex-search for {superficial, deep} target x {ROC ``focality``, threshold-
-free ``focality_integral``} and captures, for each run: the objective trajectory,
-the best-montage ROI / non-ROI E-field arrays, the optimized electrode positions,
-and the final-simulation TI-field mesh. :mod:`make_report` turns the resulting
-``results.json`` (+ ``*.npz`` arrays) into the comparison report:
+For each deep target (thalamus, hippocampus) runs flex-search under three arms:
 
-* DE progress / convergence curves,
-* ROC curves (Weise-style) and ROI/non-ROI field distributions
-  (Fernandez-Corazza-style),
-* electrode positions on the scalp and the TI field distribution.
+  * ROC focality at a **conservative** threshold,
+  * ROC focality at an **aggressive** threshold,
+  * threshold-free **integral** focality,
 
-Both goals are run through the production build path
-(:func:`tit.opt.flex.builder.build_optimization`); the goal callable is wrapped
-with a plain-function recorder (a ``types.FunctionType``, as SimNIBS's callable-
-goal path requires) that stores the best-so-far fields without changing the
-objective value. The ROC objective is reproduced faithfully via SimNIBS's own
-``measures.ROC``.
+and captures, per run: the objective trajectory, a *common* focality metric
+(best mean ROI/non-ROI contrast so far — comparable across arms despite the two
+objectives living on different scales), the best-montage ROI/non-ROI E-field
+arrays, and the per-channel final-simulation meshes (for the on-T1 field render
+and electrode positions). Feed `results.json` to make_report.py / make_artifact.py.
+
+Both goals run through the production build path
+(`tit.opt.flex.builder.build_optimization`); the goal callable is wrapped with a
+plain-function recorder (a `types.FunctionType`, as SimNIBS's callable-goal path
+requires) that never changes the objective value. The ROC objective is reproduced
+faithfully via SimNIBS's own `measures.ROC`.
 
 Usage
 -----
     OUT_DIR=/path/out PROJECT_DIR=/path/bids \\
-        simnibs_python run_comparison.py [--maxiter N] [--popsize N] [--cpus N] \\
-        [--only superficial_focality_integral]
+        simnibs_python run_comparison.py [--default | --maxiter N --popsize N] \\
+        [--cpus N] [--only thalamus_integral]
 """
 
 from __future__ import annotations
@@ -43,26 +43,32 @@ from tit.opt.flex import builder
 
 logger = logging.getLogger("focality_compare")
 
-# --- Targets (MNI coordinates) --------------------------------------------
-SUPERFICIAL_ROI = dict(x=-37, y=-21, z=58, radius=10.0, use_mni=True)
-DEEP_ROI = dict(x=-28, y=-20, z=-16, radius=8.0, use_mni=True, volumetric=True)
-# ROC thresholds (V/m): non-ROI max, ROI min.
-ROC_THRESHOLDS = "0.1,0.2"
-# Cap on how many non-ROI samples to persist (whole-brain non-ROI is large).
+# --- Deep targets (MNI) ----------------------------------------------------
+TARGETS = [
+    {"key": "thalamus", "roi": dict(x=-10, y=-19, z=8, radius=6.0,
+                                     use_mni=True, volumetric=True)},
+    {"key": "hippocampus", "roi": dict(x=-28, y=-20, z=-16, radius=8.0,
+                                        use_mni=True, volumetric=True)},
+]
+
+# --- Three arms: two ROC thresholds (V/m: nonROImax,ROImin) + threshold-free
+ARMS = [
+    {"key": "roc_lo", "goal": "focality", "thr": "0.1,0.2", "label": "ROC (0.1/0.2 V/m)"},
+    {"key": "roc_hi", "goal": "focality", "thr": "0.2,0.4", "label": "ROC (0.2/0.4 V/m)"},
+    {"key": "integral", "goal": "focality_integral", "thr": None, "label": "Integral (threshold-free)"},
+]
+
 _MAX_NONROI = 40000
 
 
 def _roc_inner(threshold):
-    """Faithful reproduction of SimNIBS's native ROC objective as a callable."""
     from simnibs.optimization.tes_flex_optimization.measures import ROC
-
     thr = [float(v) for v in threshold.split(",")]
 
     def roc(e_pp):
         vals = []
         for chan in e_pp:
-            r = ROC(e1=np.asarray(chan[0]), e2=np.asarray(chan[1]),
-                    threshold=thr, focal=True)
+            r = ROC(e1=np.asarray(chan[0]), e2=np.asarray(chan[1]), threshold=thr, focal=True)
             vals.append(-100.0 * (np.sqrt(2) - r))
         return float(np.mean(vals))
 
@@ -70,76 +76,69 @@ def _roc_inner(threshold):
 
 
 def _make_recording_goal(inner, opt, store):
-    """Wrap *inner* in a plain function that records the best-so-far state.
-
-    Returned object is a ``types.FunctionType`` (SimNIBS requires this for a
-    callable goal). It never alters the objective value.
-    """
+    """Wrap *inner* in a plain function that records best-so-far state + a common
+    focality metric (ROI/non-ROI mean contrast of the current best montage)."""
 
     def goal(e_pp):
         value = inner(e_pp)
+        e1 = np.asarray(e_pp[0][0], dtype=float)
+        e2 = np.asarray(e_pp[0][1], dtype=float)
+        ratio = float(e1.mean()) / max(float(e2.mean()), 1e-9)
         store["trajectory"].append(value)
         if value < store["best_value"]:
             store["best_value"] = value
-            store["e_roi"] = np.asarray(e_pp[0][0], dtype=float).copy()
-            store["e_nonroi"] = np.asarray(e_pp[0][1], dtype=float).copy()
+            store["best_ratio"] = ratio
+            store["e_roi"] = e1.copy()
+            store["e_nonroi"] = e2.copy()
             try:
                 store["electrode_pos"] = [
-                    [None if p is None else np.asarray(p, dtype=float).tolist()
-                     for p in arr]
+                    [None if p is None else np.asarray(p, float).tolist() for p in arr]
                     for arr in opt.electrode_pos
                 ]
             except Exception:
                 store["electrode_pos"] = None
+        # common metric: focality of the montage currently considered best
+        store["ratio_progress"].append(store["best_ratio"])
         return value
 
     return goal
 
 
 def _final_meshes(out_dir: Path):
-    """Per-channel final-simulation E-field meshes (one per TI pair).
-
-    flex writes ``final_sim_<k>/<subject>_TDCS_*.msh`` per channel; the report
-    combines the two channels' E-fields into the TI envelope.
-    """
     meshes = sorted(str(p) for p in out_dir.glob("final_sim_*/*.msh"))
     return meshes or None
 
 
-def _subsample(a: np.ndarray, n: int) -> np.ndarray:
+def _subsample(a, n):
     if a.size <= n:
         return a
-    idx = np.linspace(0, a.size - 1, n).astype(int)
-    return a[idx]
+    return a[np.linspace(0, a.size - 1, n).astype(int)]
 
 
-def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget,
-             final_sim=True) -> dict:
+def _run_one(subject, roi_kwargs, arm, out_dir: Path, budget, final_sim=True) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg = FlexConfig(
         subject_id=subject,
-        goal=goal,
+        goal=arm["goal"],
         postproc="max_TI",
         current_mA=2.0,
         electrode=FlexConfig.ElectrodeConfig(),
         roi=FlexConfig.SphericalROI(**roi_kwargs),
         non_roi_method="everything_else",
-        thresholds=thresholds if goal == "focality" else None,
+        thresholds=arm["thr"],
         output_folder=str(out_dir),
         max_iterations=budget["maxiter"],
         population_size=budget["popsize"],
+        tolerance=budget["tol"],
         n_multistart=1,
-        run_final_electrode_simulation=final_sim,  # produce final TI-field mesh
+        run_final_electrode_simulation=final_sim,
     )
-
     opt = builder.build_optimization(cfg)
     builder.configure_optimizer_options(opt, cfg, logger)
 
-    # Wrap the goal to record best-so-far fields. For integral, opt.goal[0] is
-    # the production closure; for ROC we supply a faithful native-ROC callable.
-    inner = opt.goal[0] if goal == "focality_integral" else _roc_inner(thresholds)
-    store = {"trajectory": [], "best_value": float("inf"),
-             "e_roi": None, "e_nonroi": None, "electrode_pos": None}
+    inner = opt.goal[0] if arm["goal"] == "focality_integral" else _roc_inner(arm["thr"])
+    store = {"trajectory": [], "ratio_progress": [], "best_value": float("inf"),
+             "best_ratio": 0.0, "e_roi": None, "e_nonroi": None, "electrode_pos": None}
     opt.goal = [_make_recording_goal(inner, opt, store)]
 
     t0 = time.time()
@@ -148,16 +147,14 @@ def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget,
 
     arrays_path = out_dir / "fields.npz"
     if store["e_roi"] is not None:
-        np.savez_compressed(
-            arrays_path,
-            e_roi=store["e_roi"],
-            e_nonroi=_subsample(store["e_nonroi"], _MAX_NONROI),
-        )
+        np.savez_compressed(arrays_path, e_roi=store["e_roi"],
+                            e_nonroi=_subsample(store["e_nonroi"], _MAX_NONROI))
     return {
-        "goal": goal,
-        "roi": roi_kwargs,
+        "arm": arm["key"], "arm_label": arm["label"], "goal": arm["goal"],
+        "thresholds": arm["thr"], "roi": roi_kwargs,
         "best_value": None if store["best_value"] == float("inf") else store["best_value"],
-        "trajectory": store["trajectory"],
+        "best_ratio": store["best_ratio"],
+        "trajectory": store["trajectory"], "ratio_progress": store["ratio_progress"],
         "n_evaluations": len(store["trajectory"]),
         "electrode_pos": store["electrode_pos"],
         "arrays_npz": str(arrays_path) if store["e_roi"] is not None else None,
@@ -167,52 +164,53 @@ def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--maxiter", type=int, default=3)
-    parser.add_argument("--popsize", type=int, default=4)
-    parser.add_argument("--cpus", type=int, default=4)
-    parser.add_argument("--subject", default="ernie")
-    parser.add_argument("--only", default=None,
-                        help="Run a single cell, e.g. 'deep_focality'")
-    parser.add_argument("--thresholds", default=ROC_THRESHOLDS,
-                        help="ROC thresholds 'nonROImax,ROImin' in V/m")
-    parser.add_argument("--no-final-sim", action="store_true",
-                        help="Skip the final TI-field simulation (faster; no field render)")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--default", action="store_true",
+                   help="Use SimNIBS default optimizer settings (popsize 13, maxiter 1000, tol 0.1)")
+    p.add_argument("--maxiter", type=int, default=15)
+    p.add_argument("--popsize", type=int, default=6)
+    p.add_argument("--tol", type=float, default=None)
+    p.add_argument("--cpus", type=int, default=4)
+    p.add_argument("--subject", default="ernie")
+    p.add_argument("--only", default=None, help="Run a single cell, e.g. 'thalamus_integral'")
+    p.add_argument("--no-final-sim", action="store_true")
+    args = p.parse_args()
+
+    if args.default:
+        budget = {"maxiter": None, "popsize": None, "tol": None, "cpus": args.cpus}
+    else:
+        budget = {"maxiter": args.maxiter, "popsize": args.popsize,
+                  "tol": args.tol, "cpus": args.cpus}
 
     project_dir = os.environ.get("PROJECT_DIR", "/Users/idohaber/datasets/000")
-    out_root = Path(os.environ.get("OUT_DIR", "./focality_integral_ernie_out"))
+    out_root = Path(os.environ.get("OUT_DIR", "./focality_3arm_out"))
     out_root.mkdir(parents=True, exist_ok=True)
     get_path_manager(project_dir)
-    budget = {"maxiter": args.maxiter, "popsize": args.popsize, "cpus": args.cpus}
 
-    matrix = [
-        ("superficial", SUPERFICIAL_ROI, "focality"),
-        ("superficial", SUPERFICIAL_ROI, "focality_integral"),
-        ("deep", DEEP_ROI, "focality"),
-        ("deep", DEEP_ROI, "focality_integral"),
-    ]
+    matrix = [(t, a) for t in TARGETS for a in ARMS]
     if args.only:
-        matrix = [c for c in matrix if f"{c[0]}_{c[2]}" == args.only]
+        matrix = [(t, a) for t, a in matrix if f"{t['key']}_{a['key']}" == args.only]
 
-    results = {"subject": args.subject, "budget": budget, "cells": []}
+    results = {"subject": args.subject,
+               "budget": ("SimNIBS default (popsize 13, maxiter 1000, tol 0.1)"
+                          if args.default else budget),
+               "cells": []}
     results_path = out_root / "results.json"
-    for depth, roi, goal in matrix:
-        print(f"\n=== {depth} x {goal} ===", flush=True)
-        out_dir = out_root / f"{depth}_{goal}"
+    for target, arm in matrix:
+        key = f"{target['key']}_{arm['key']}"
+        print(f"\n=== {key} ===", flush=True)
         try:
-            cell = _run_one(args.subject, roi, goal, out_dir, args.thresholds, budget,
+            cell = _run_one(args.subject, target["roi"], arm, out_root / key, budget,
                             final_sim=not args.no_final_sim)
         except Exception as exc:
             import traceback
             traceback.print_exc()
-            cell = {"goal": goal, "roi": roi, "error": repr(exc),
-                    "trajectory": [], "n_evaluations": 0}
-        cell["depth"] = depth
+            cell = {"arm": arm["key"], "goal": arm["goal"], "error": repr(exc),
+                    "trajectory": [], "ratio_progress": [], "n_evaluations": 0}
+        cell["target"] = target["key"]
         results["cells"].append(cell)
-        sp = (max(cell["trajectory"]) - min(cell["trajectory"])) if cell["trajectory"] else 0.0
-        print(f"  evals={cell.get('n_evaluations')} best={cell.get('best_value')} "
-              f"spread={sp:.4g} mesh={'yes' if cell.get('final_mesh') else 'no'} "
+        print(f"  evals={cell.get('n_evaluations')} best_ratio={cell.get('best_ratio')} "
+              f"mesh={'yes' if cell.get('final_meshes') else 'no'} "
               f"elapsed={cell.get('elapsed_sec')}s", flush=True)
         results_path.write_text(json.dumps(results, indent=2))
 
