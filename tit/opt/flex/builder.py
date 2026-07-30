@@ -77,12 +77,20 @@ def build_optimization(config: FlexConfig):
     # Configure goals and thresholds
     # Use .value to pass plain strings — SimNIBS does substring checks
     # (e.g. "dir_TI" in self.e_postproc) that fail on StrEnum instances.
-    opt.goal = config.goal.value
-    if config.goal == "focality":
-        thr_raw = (config.thresholds or "").strip()
-        if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
-            vals = [float(v) for v in thr_raw.split(",")]
-            opt.threshold = vals if len(vals) > 1 else vals[0]
+    if config.goal is FlexConfig.OptGoal.FOCALITY_INTEGRAL:
+        # Integral focality is not a SimNIBS built-in goal; inject it as a
+        # callable objective. SimNIBS's callable-goal path skips the threshold
+        # requirement, and the closure reads opt._vol lazily at run time.
+        from .objectives import make_integral_focality_objective
+
+        opt.goal = [make_integral_focality_objective(opt)]
+    else:
+        opt.goal = config.goal.value
+        if config.goal == "focality":
+            thr_raw = (config.thresholds or "").strip()
+            if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
+                vals = [float(v) for v in thr_raw.split(",")]
+                opt.threshold = vals if len(vals) > 1 else vals[0]
 
     opt.e_postproc = config.postproc.value
     opt.anisotropy_type = config.anisotropy_type
@@ -307,7 +315,7 @@ def generate_report(
             "coordinate_space": "MNI" if roi.use_mni else "subject",
         }
         if (
-            config.goal == "focality"
+            config.is_focality
             and config.non_roi_method == "specific"
             and isinstance(config.non_roi, FlexConfig.SphericalROI)
         ):
@@ -333,7 +341,7 @@ def generate_report(
             "atlas_label": _join(roi.label),
         }
         if (
-            config.goal == "focality"
+            config.is_focality
             and config.non_roi_method == "specific"
             and isinstance(config.non_roi, FlexConfig.AtlasROI)
         ):
@@ -355,7 +363,7 @@ def generate_report(
             "volume_label": _join(roi.label),
         }
         if (
-            config.goal == "focality"
+            config.is_focality
             and config.non_roi_method == "specific"
             and isinstance(config.non_roi, FlexConfig.SubcorticalROI)
         ):
@@ -369,7 +377,7 @@ def generate_report(
                 }
             )
 
-    if config.goal == "focality" and config.non_roi_method:
+    if config.is_focality and config.non_roi_method:
         roi_data.setdefault("non_roi_method", config.non_roi_method)
 
     report_gen.set_roi_info(**roi_data)

@@ -123,6 +123,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             "focality (maximize field in target ROI while minimizing field elsewhere)",
             "focality",
         )
+        self.goal_combo.addItem(
+            "focality (integral) — threshold-free ROI/non-ROI contrast, robust at deep targets",
+            "focality_integral",
+        )
 
         self.postproc_combo = QtWidgets.QComboBox()
         self.postproc_combo.addItem("max_TI (maximum TI field)", "max_TI")
@@ -397,15 +401,28 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Focality Options group
         focality_layout = QtWidgets.QFormLayout(self.focality_group)
 
-        # --- Mode selector row ---
-        mode_selector_widget = QtWidgets.QWidget()
-        mode_selector_layout = QtWidgets.QHBoxLayout(mode_selector_widget)
+        # --- Mode selector row (ROC focality only; hidden for integral) ---
+        self.mode_selector_widget = QtWidgets.QWidget()
+        mode_selector_layout = QtWidgets.QHBoxLayout(self.mode_selector_widget)
         mode_selector_layout.setContentsMargins(0, 0, 0, 0)
         mode_selector_layout.addWidget(self.mode_manual_radio)
         mode_selector_layout.addWidget(self.mode_adaptive_radio)
         mode_selector_layout.addWidget(self.mode_pareto_radio)
         mode_selector_layout.addStretch()
-        focality_layout.addRow(QtWidgets.QLabel("Mode:"), mode_selector_widget)
+        self.mode_selector_label = QtWidgets.QLabel("Mode:")
+        focality_layout.addRow(self.mode_selector_label, self.mode_selector_widget)
+
+        # --- Integral-focality help (shown only for the integral goal) ---
+        self.integral_focality_help = QtWidgets.QLabel(
+            "Integral focality (Fernandez-Corazza 2020): threshold-free "
+            "ROI/non-ROI contrast ratio. No thresholds to set — just choose the "
+            "non-ROI region below. Stays optimizable at deep targets where the "
+            "threshold-based focality goal can go flat."
+        )
+        self.integral_focality_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
+        self.integral_focality_help.setWordWrap(True)
+        focality_layout.addRow(self.integral_focality_help)
+        self.integral_focality_help.setVisible(False)
 
         # --- Pareto sweep widget (shown only in Pareto mode) ---
         self.pareto_widget = QtWidgets.QWidget()
@@ -676,9 +693,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", error)
             return
 
-        # Validate non-ROI when focality targets a specific region
+        # Validate non-ROI when a focality goal targets a specific region
         if (
-            self.goal_combo.currentData() == "focality"
+            self.goal_combo.currentData() in ("focality", "focality_integral")
             and self.nonroi_method_combo.currentData() == "specific"
         ):
             error = self.nonroi_picker.validate()
@@ -918,10 +935,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi = self._build_roi_from_ui(subject_id, project_dir, roi_params)
         electrode = self._build_electrode_config(electrode_shape, dimensions, thickness)
 
-        # Focality-specific fields
+        # Focality-specific fields (both ROC and integral focality use a non-ROI)
         non_roi_method = None
         non_roi = None
-        if goal == "focality":
+        if goal in ("focality", "focality_integral"):
             nonroi_method_val = self.nonroi_method_combo.currentData()
             non_roi_method = (
                 NonROIMethod(nonroi_method_val)
@@ -1212,14 +1229,34 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_label.setVisible(is_mapping_enabled)
 
     def _update_focality_visibility(self):
-        is_focality = self.goal_combo.currentData() == "focality"
-        self.focality_group.setVisible(is_focality)
-        # Default to 'everything_else' and collapse non-ROI region
-        if is_focality:
+        goal = self.goal_combo.currentData()
+        is_threshold_focality = goal == "focality"
+        is_integral_focality = goal == "focality_integral"
+        is_any_focality = is_threshold_focality or is_integral_focality
+
+        # The Focality Options group carries the non-ROI selector, needed by both
+        # focality goals. The threshold/Manual/Adaptive/Pareto machinery is
+        # ROC-only, so it is hidden when the threshold-free integral goal is set.
+        self.focality_group.setVisible(is_any_focality)
+        self.mode_selector_label.setVisible(is_threshold_focality)
+        self.mode_selector_widget.setVisible(is_threshold_focality)
+        self.integral_focality_help.setVisible(is_integral_focality)
+
+        if is_any_focality:
+            # Default to 'everything_else' and collapse non-ROI region
             self.nonroi_method_combo.setCurrentIndex(0)
             self.nonroi_picker.setVisible(False)
-            # Initialize mode-based controls visibility
-            self._update_focality_mode_visibility()
+            if is_threshold_focality:
+                # Initialize mode-based controls visibility
+                self._update_focality_mode_visibility()
+            else:
+                # Integral focality has no thresholds — hide every ROC control.
+                self.pareto_widget.setVisible(False)
+                self.adaptive_widget.setVisible(False)
+                self.threshold_input.setVisible(False)
+                self.threshold_label.setVisible(False)
+                if self.threshold_help:
+                    self.threshold_help.setVisible(False)
 
     def _update_focality_mode_visibility(self):
         """Update visibility of Manual / Adaptive / Pareto Sweep controls."""

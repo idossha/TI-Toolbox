@@ -99,6 +99,27 @@ class TestConfigureSphericalROI:
         assert non_roi_mock.roi_sphere_operator == ["difference"]
         assert non_roi_mock.weight == -1
 
+    def test_spherical_integral_focality_adds_non_roi(self):
+        # The integral goal must build a non-ROI just like ROC focality, so the
+        # objective closure has both regions (e_pp index 0 and 1) to compare.
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal="focality_integral",
+            non_roi_method="everything_else",
+            roi=SphericalROI(x=10, y=20, z=30, radius=10),
+        )
+        configure_roi(opt, config)
+
+        assert opt.add_roi.call_count == 2
+        assert non_roi_mock.roi_sphere_operator == ["difference"]
+        assert non_roi_mock.weight == -1
+
     def test_spherical_focality_specific(self):
         from tit.opt.flex.utils import configure_roi
 

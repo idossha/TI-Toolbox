@@ -102,6 +102,46 @@ class TestFlexConfigValidation:
         )
         assert cfg.non_roi is not None
 
+    # -- integral focality --------------------------------------------------
+
+    def test_string_integral_goal_coerced_to_enum(self):
+        cfg = _make_flex_config(goal="focality_integral")
+        assert cfg.goal is OptGoal.FOCALITY_INTEGRAL
+
+    def test_is_focality_true_for_both_focality_goals(self):
+        assert _make_flex_config(goal="focality").is_focality is True
+        assert _make_flex_config(goal="focality_integral").is_focality is True
+
+    def test_is_focality_false_for_mean_and_max(self):
+        assert _make_flex_config(goal="mean").is_focality is False
+        assert _make_flex_config(goal="max").is_focality is False
+
+    def test_integral_focality_defaults_non_roi_method(self):
+        # Omitting the method should default to 'everything else', not crash.
+        cfg = _make_flex_config(goal="focality_integral")
+        assert cfg.non_roi_method is NonROIMethod.EVERYTHING_ELSE
+
+    def test_integral_focality_specific_without_non_roi_raises(self):
+        with pytest.raises(ValueError, match="non_roi"):
+            _make_flex_config(
+                goal="focality_integral",
+                non_roi_method="specific",
+                non_roi=None,
+            )
+
+    def test_integral_focality_specific_with_non_roi_is_valid(self):
+        cfg = _make_flex_config(
+            goal="focality_integral",
+            non_roi_method="specific",
+            non_roi=SphericalROI(x=10, y=10, z=10),
+        )
+        assert cfg.non_roi is not None
+
+    def test_integral_focality_does_not_require_thresholds(self):
+        # Threshold-free goal: no thresholds set, still valid.
+        cfg = _make_flex_config(goal="focality_integral")
+        assert cfg.thresholds is None
+
     def test_invalid_thresholds_raises(self):
         with pytest.raises(ValueError):
             _make_flex_config(thresholds="abc,def")

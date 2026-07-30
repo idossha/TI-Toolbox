@@ -53,7 +53,8 @@ class FlexConfig:
     subject_id : str
         Subject identifier matching the m2m directory name.
     goal : OptGoal
-        Optimization objective (``"mean"``, ``"max"``, or ``"focality"``).
+        Optimization objective (``"mean"``, ``"max"``, ``"focality"``, or
+        ``"focality_integral"``).
     postproc : FieldPostproc
         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
         or ``"dir_TI_tangential"``).
@@ -146,12 +147,19 @@ class FlexConfig:
         MAX : str
             Maximize peak field intensity in the ROI.
         FOCALITY : str
-            Maximize ROI-to-non-ROI intensity ratio.
+            Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
+            ROC measure (``measures.ROC``).
+        FOCALITY_INTEGRAL : str
+            Maximize the threshold-free integral-focality contrast ratio
+            (Fernandez-Corazza et al. 2020, NeuroImage, eq. 14). Unlike
+            ``FOCALITY`` it needs no thresholds and stays optimizable at deep
+            targets where the ROC objective degenerates to a flat landscape.
         """
 
         MEAN = "mean"
         MAX = "max"
         FOCALITY = "focality"
+        FOCALITY_INTEGRAL = "focality_integral"
 
     class FieldPostproc(StrEnum):
         """Field post-processing method applied to the TI envelope.
@@ -418,18 +426,37 @@ class FlexConfig:
             self.postproc = FlexConfig.FieldPostproc(self.postproc)
         if isinstance(self.non_roi_method, str):
             self.non_roi_method = FlexConfig.NonROIMethod(self.non_roi_method)
+        # Any focality goal (ROC or integral) needs a non-ROI region; default to
+        # "everything else" so a config that omits the method still runs.
+        if self.is_focality and self.non_roi_method is None:
+            self.non_roi_method = FlexConfig.NonROIMethod.EVERYTHING_ELSE
         if (
-            self.goal is FlexConfig.OptGoal.FOCALITY
+            self.is_focality
             and self.non_roi_method is FlexConfig.NonROIMethod.SPECIFIC
             and self.non_roi is None
         ):
             raise ValueError(
-                "goal='focality' with method='specific' requires a non_roi specification"
+                f"goal='{self.goal.value}' with method='specific' requires a "
+                "non_roi specification"
             )
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())
         self.skin_region_margin_mm = float(self.skin_region_margin_mm)
+
+    @property
+    def is_focality(self) -> bool:
+        """True for any focality goal (ROC-based or integral).
+
+        Focality goals share the same ROI/non-ROI setup (a target ROI plus a
+        non-ROI region), so callers use this to gate non-ROI construction and
+        reporting. Threshold-specific logic keeps comparing against
+        ``OptGoal.FOCALITY`` directly, since only the ROC goal uses thresholds.
+        """
+        return self.goal in (
+            FlexConfig.OptGoal.FOCALITY,
+            FlexConfig.OptGoal.FOCALITY_INTEGRAL,
+        )
 
 
 @dataclass

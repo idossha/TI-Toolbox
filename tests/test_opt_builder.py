@@ -124,6 +124,28 @@ class TestBuildOptimization:
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
+    def test_integral_focality_wires_callable_goal(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(
+            goal="focality_integral", non_roi_method="everything_else"
+        )
+        result = build_optimization(config)
+
+        # goal is a single-element list holding a plain function (SimNIBS's
+        # callable-goal path requires isinstance(goal[0], types.FunctionType)).
+        assert isinstance(result.goal, list) and len(result.goal) == 1
+        assert isinstance(result.goal[0], types.FunctionType)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
     def test_output_folder_from_config(
         self, mock_gpm, mock_roi, mock_mkdirs, builder_env
     ):
