@@ -182,11 +182,13 @@ code {{ font-family:ui-monospace,Menlo,monospace; font-size:.85em; background:va
     <h2>What the run shows</h2>
     {findings}
     <p style="margin:.6rem 0 0;color:var(--muted);font-size:.9rem">The threshold-free integral
-    objective has a smoother landscape, so at this modest budget it reaches a far more focal
-    superficial montage and ties at depth. The hypothesized "ROC goes flat at deep" did
-    <b>not</b> occur here — with a reachable threshold ({', '.join(str(x) for x in [0.1,0.2])} V/m)
-    the ROC objective still has gradient at depth. A higher-budget confirmation is
-    {'complete' if budget.get('maxiter',0)>=10 else 'in progress'}.</p>
+    objective has a smoother landscape, so at this budget it reaches a far more focal superficial
+    montage and ties at depth. The hypothesized "ROC goes flat at deep" did <b>not</b> reproduce:
+    with a reachable threshold (0.1/0.2&nbsp;V/m) deep ROC kept a strong gradient (candidate spread
+    ≈34), and even with an <i>infeasible</i> ROI threshold (0.6&nbsp;V/m) it stayed informative
+    (spread ≈39) because the non-ROI specificity term still varies. Integral's advantage is the
+    smoother, threshold-free landscape — not curing a flat ROC. Budget:
+    maxiter&nbsp;{budget.get('maxiter','?')}.</p>
   </div>
   <h2>Focality metrics</h2>
   <table><thead><tr><th>Target</th><th>Goal</th><th>Valid evals</th><th>AUC</th>
