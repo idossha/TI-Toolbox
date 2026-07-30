@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import time
@@ -33,6 +34,31 @@ from pathlib import Path
 
 from tit.paths import get_path_manager
 from tit.opt import FlexConfig, run_flex_search
+
+# Match only *evaluated* candidates -- those with an "(n_sim: N" suffix. Bare
+# "Goal (...): 2.0" lines are SimNIBS's overlap penalty for electrode positions
+# rejected before any FEM solve, so they are not real objective values.
+_GOAL_RE = re.compile(r"Goal \(.*?\):\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*\(n_sim:")
+
+
+class _GoalCapture(logging.Handler):
+    """Capture per-evaluation objective values from the ``simnibs`` logger.
+
+    Attached to the logger for one run only, so it is immune to the file-handler
+    accumulation that makes shared-logdir parsing cross-contaminate cells.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.values: list[float] = []
+
+    def emit(self, record):
+        m = _GOAL_RE.search(record.getMessage())
+        if m:
+            try:
+                self.values.append(float(m.group(1)))
+            except ValueError:
+                pass
 
 # --- Targets (MNI coordinates) --------------------------------------------
 # Superficial: left primary motor cortex (hand knob). Deep: left hippocampus,
@@ -45,37 +71,12 @@ DEEP_ROI = dict(x=-28, y=-20, z=-16, radius=8.0, use_mni=True, volumetric=True)
 # plausibly reach the ROI threshold while a deep target cannot -> flat ROC.
 ROC_THRESHOLDS = "0.1,0.2"
 
-# Match only *evaluated* candidates -- those with an "(n_sim: N" suffix. Bare
-# "Goal (...): 2.0" lines are SimNIBS's overlap penalty for electrode positions
-# that were rejected before any FEM solve, so they are not real objective values.
-_GOAL_RE = re.compile(
-    r"Goal \(.*?\):\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*\(n_sim:"
-)
-
-
-def _parse_trajectory(log_path: Path) -> list[float]:
-    """Extract the per-evaluation objective values from a flex-search log."""
-    if not log_path.is_file():
-        return []
-    values: list[float] = []
-    for line in log_path.read_text(errors="ignore").splitlines():
-        m = _GOAL_RE.search(line)
-        if m:
-            try:
-                values.append(float(m.group(1)))
-            except ValueError:
-                continue
-    return values
-
-
-def _newest_log(logs_dir: Path) -> Path | None:
-    logs = sorted(logs_dir.glob("flex_search_*.log"))
-    return logs[-1] if logs else None
-
-
 def _run_one(subject, roi_kwargs, goal, out_dir, thresholds, budget) -> dict:
-    """Run a single flex config and return its summary dict."""
-    pm = get_path_manager()
+    """Run a single flex config and return its summary dict.
+
+    The objective trajectory is captured live off the ``simnibs`` logger for
+    this run only, so sequential cells never cross-contaminate.
+    """
     cfg = FlexConfig(
         subject_id=subject,
         goal=goal,
@@ -91,12 +92,17 @@ def _run_one(subject, roi_kwargs, goal, out_dir, thresholds, budget) -> dict:
         n_multistart=1,
         cpus=budget["cpus"],
     )
+    capture = _GoalCapture()
+    sim_logger = logging.getLogger("simnibs")
+    sim_logger.addHandler(capture)
     t0 = time.time()
-    result = run_flex_search(cfg)
+    try:
+        result = run_flex_search(cfg)
+    finally:
+        sim_logger.removeHandler(capture)
     elapsed = time.time() - t0
 
-    log = _newest_log(Path(pm.logs(subject)))
-    trajectory = _parse_trajectory(log) if log else []
+    trajectory = capture.values
     return {
         "goal": goal,
         "roi": roi_kwargs,
