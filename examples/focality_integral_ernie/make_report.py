@@ -1,12 +1,12 @@
 #!/usr/bin/env simnibs_python
-"""Render comparison panels for the 3-arm focality study.
+"""Render comparison panels for the focality study (3-arm or variant).
 
-Reads results.json (+ per-cell fields.npz and final-sim meshes) and writes PNG
-panels: a common-metric progress plot, per-target ROC curves, ROI/non-ROI
-distributions, a summary bar, plus per-condition electrodes-on-scalp and
-field-on-T1 renders. make_artifact.py assembles these into report.html.
+Arm-agnostic: reads the arm set from results.json, so it works for both the
+3-arm comparison and the improved-integral variant study. Writes a common-metric
+progress plot, per-target ROC curves, ROI/non-ROI distributions, a summary bar,
+plus per-condition electrodes-on-scalp and field-on-T1 renders.
 
-Usage:  simnibs_python make_report.py results.json
+Usage:  PROJECT_DIR=/path/bids simnibs_python make_report.py results.json
 """
 
 from __future__ import annotations
@@ -25,11 +25,22 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from examples.focality_integral_ernie import t1_overlay
 
-ARMS = ["roc_lo", "roc_hi", "integral"]
-ARM_COLOR = {"roc_lo": "#e08a2e", "roc_hi": "#b11226", "integral": "#0353a4"}
+_PALETTE = ["#b11226", "#0353a4", "#e08a2e", "#2a9d8f", "#7b2cbf", "#1d3557", "#e76f51"]
 
 
-def _targets(results):
+def arms(results):
+    seen = []
+    for c in results["cells"]:
+        if c.get("arm") not in seen:
+            seen.append(c.get("arm"))
+    return seen
+
+
+def color(results, arm):
+    return _PALETTE[arms(results).index(arm) % len(_PALETTE)]
+
+
+def targets(results):
     out = []
     for c in results["cells"]:
         if c.get("target") not in out:
@@ -37,131 +48,118 @@ def _targets(results):
     return out
 
 
-def _cell(results, target, arm):
-    for c in results["cells"]:
-        if c.get("target") == target and c.get("arm") == arm:
-            return c
-    return {}
+def cell(results, t, a):
+    return next((c for c in results["cells"] if c.get("target") == t and c.get("arm") == a), {})
 
 
-def _label(results, arm):
-    for c in results["cells"]:
-        if c.get("arm") == arm and c.get("arm_label"):
-            return c["arm_label"]
-    return arm
+def label(results, a):
+    return next((c["arm_label"] for c in results["cells"] if c.get("arm") == a and c.get("arm_label")), a)
 
 
-def _fields(cell):
-    p = cell.get("arrays_npz")
+def fields(c):
+    p = c.get("arrays_npz")
     if not p or not Path(p).is_file():
         return None, None
     z = np.load(p)
     return z["e_roi"], z["e_nonroi"]
 
 
-def _roc(e1, e2, n=200):
+def roc_curve(e1, e2, n=200):
     emax = max(float(e1.max()), float(e2.max()), 1e-12)
     thr = np.linspace(0, emax, n)
     sens = np.array([(e1 >= t).mean() for t in thr])
     fpr = np.array([(e2 >= t).mean() for t in thr])
     o = np.argsort(fpr)
-    trapz = getattr(np, "trapezoid", np.trapz)
-    return fpr[o], sens[o], float(trapz(sens[o], fpr[o]))
+    tz = getattr(np, "trapezoid", np.trapz)
+    return fpr[o], sens[o], float(tz(sens[o], fpr[o]))
 
 
 def fig_progress(results, path):
-    """Common metric: best ROI/non-ROI contrast so far — comparable across arms."""
-    tg = _targets(results)
-    fig, axes = plt.subplots(1, len(tg), figsize=(6 * len(tg), 4.6),
+    tg, ar = targets(results), arms(results)
+    fig, axes = plt.subplots(1, len(tg), figsize=(6.2 * len(tg), 4.8),
                              constrained_layout=True, squeeze=False)
     fig.suptitle("Optimization progress — focality of the current-best montage "
                  "(common metric, comparable across arms)", fontweight="bold")
-    for ax, target in zip(axes[0], tg):
-        for arm in ARMS:
-            c = _cell(results, target, arm)
-            rp = c.get("ratio_progress", [])
+    for ax, t in zip(axes[0], tg):
+        for a in ar:
+            rp = cell(results, t, a).get("ratio_progress", [])
             if rp:
-                ax.plot(range(1, len(rp) + 1), rp, "-", lw=2, color=ARM_COLOR[arm],
-                        label=_label(results, arm))
-        ax.set_title(f"{target} target", fontsize=11)
-        ax.set_xlabel("valid evaluation #")
-        ax.set_ylabel("best mean ROI / non-ROI so far")
-        ax.legend(fontsize=8.5); ax.grid(True, alpha=0.3)
+                ax.plot(range(1, len(rp) + 1), rp, "-", lw=1.8, color=color(results, a),
+                        label=label(results, a))
+        ax.set_title(f"{t} target", fontsize=11)
+        ax.set_xlabel("valid evaluation #"); ax.set_ylabel("best mean ROI / non-ROI so far")
+        ax.legend(fontsize=7.5); ax.grid(True, alpha=0.3)
     fig.savefig(path, dpi=130); plt.close(fig)
 
 
 def fig_roc(results, path):
-    tg = _targets(results)
-    fig, axes = plt.subplots(1, len(tg), figsize=(6 * len(tg), 5.0),
+    tg, ar = targets(results), arms(results)
+    fig, axes = plt.subplots(1, len(tg), figsize=(6.2 * len(tg), 5.0),
                              constrained_layout=True, squeeze=False)
-    fig.suptitle("ROC of the optimized montage (Weise-style): ROI sensitivity vs "
-                 "non-ROI 1−specificity", fontweight="bold")
-    for ax, target in zip(axes[0], tg):
+    fig.suptitle("ROC of the optimized montage: ROI sensitivity vs non-ROI 1−specificity",
+                 fontweight="bold")
+    for ax, t in zip(axes[0], tg):
         ax.plot([0, 1], [0, 1], "k--", lw=0.8, alpha=0.5)
-        for arm in ARMS:
-            e1, e2 = _fields(_cell(results, target, arm))
+        for a in ar:
+            e1, e2 = fields(cell(results, t, a))
             if e1 is None:
                 continue
-            fpr, sens, auc = _roc(e1, e2)
-            ax.plot(fpr, sens, "-", lw=2, color=ARM_COLOR[arm],
-                    label=f"{_label(results, arm)} (AUC={auc:.3f})")
-        ax.set_title(f"{target} target", fontsize=11)
-        ax.set_xlabel("1 − specificity (non-ROI above threshold)")
-        ax.set_ylabel("sensitivity (ROI above threshold)")
+            fpr, sens, auc = roc_curve(e1, e2)
+            ax.plot(fpr, sens, "-", lw=1.8, color=color(results, a),
+                    label=f"{label(results, a)} — AUC {auc:.3f}")
+        ax.set_title(f"{t} target", fontsize=11)
+        ax.set_xlabel("1 − specificity"); ax.set_ylabel("sensitivity")
         ax.set_xlim(0, 1); ax.set_ylim(0, 1)
         if ax.get_legend_handles_labels()[1]:
-            ax.legend(fontsize=8.5, loc="lower right")
+            ax.legend(fontsize=7.5, loc="lower right")
         ax.grid(True, alpha=0.3)
     fig.savefig(path, dpi=130); plt.close(fig)
 
 
 def fig_distributions(results, path):
-    tg = _targets(results)
-    fig, axes = plt.subplots(len(tg), len(ARMS), figsize=(4.2 * len(ARMS), 3.4 * len(tg)),
+    tg, ar = targets(results), arms(results)
+    fig, axes = plt.subplots(len(tg), len(ar), figsize=(2.9 * len(ar), 3.2 * len(tg)),
                              constrained_layout=True, squeeze=False)
-    fig.suptitle("Field distributions of the optimized montage "
-                 "(ROI vs non-ROI, Fernández-Corazza-style)", fontweight="bold")
-    for i, target in enumerate(tg):
-        for j, arm in enumerate(ARMS):
+    fig.suptitle("Field distributions (ROI vs non-ROI, Fernández-Corazza-style)",
+                 fontweight="bold")
+    for i, t in enumerate(tg):
+        for j, a in enumerate(ar):
             ax = axes[i][j]
-            e1, e2 = _fields(_cell(results, target, arm))
+            e1, e2 = fields(cell(results, t, a))
             if e1 is None:
-                ax.set_title(f"{target} · {arm} (no data)", fontsize=9); continue
+                ax.set_title(f"{t}·{a}\n(no data)", fontsize=8); continue
             hi = max(float(np.percentile(e1, 99)), float(np.percentile(e2, 99)), 1e-6)
-            bins = np.linspace(0, hi, 55)
+            bins = np.linspace(0, hi, 45)
             ax.hist(e2, bins=bins, density=True, color="#8d99ae", alpha=0.6, label="non-ROI")
-            ax.hist(e1, bins=bins, density=True, color=ARM_COLOR[arm], alpha=0.75, label="ROI")
+            ax.hist(e1, bins=bins, density=True, color=color(results, a), alpha=0.75, label="ROI")
             ratio = float(e1.mean()) / max(float(e2.mean()), 1e-9)
-            ax.set_title(f"{target} · {_label(results, arm)}\nROI/non-ROI={ratio:.2f}", fontsize=8.5)
-            ax.set_xlabel("TI (V/m)"); ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
+            ax.set_title(f"{t} · {a}\nROI/nonROI={ratio:.2f}", fontsize=8)
+            ax.set_xlabel("TI (V/m)"); ax.legend(fontsize=6.5); ax.grid(True, alpha=0.3)
     fig.savefig(path, dpi=130); plt.close(fig)
 
 
 def fig_summary(results, path):
-    tg = _targets(results)
-    x = np.arange(len(tg)); w = 0.26
-    fig, ax = plt.subplots(figsize=(1.8 + 2.4 * len(tg), 4.4), constrained_layout=True)
-    for k, arm in enumerate(ARMS):
-        vals = [_cell(results, t, arm).get("best_ratio", 0.0) or 0.0 for t in tg]
-        bars = ax.bar(x + (k - 1) * w, vals, w, color=ARM_COLOR[arm], label=_label(results, arm))
-        for b, v in zip(bars, vals):
-            ax.annotate(f"{v:.2f}", (b.get_x() + b.get_width() / 2, v), ha="center",
-                        va="bottom", fontsize=8)
+    tg, ar = targets(results), arms(results)
+    x = np.arange(len(tg)); w = 0.8 / max(len(ar), 1)
+    fig, ax = plt.subplots(figsize=(2.5 + 3.0 * len(tg), 4.6), constrained_layout=True)
+    for k, a in enumerate(ar):
+        vals = [cell(results, t, a).get("best_ratio", 0.0) or 0.0 for t in tg]
+        ax.bar(x + (k - (len(ar) - 1) / 2) * w, vals, w, color=color(results, a),
+               label=label(results, a))
     ax.set_xticks(x); ax.set_xticklabels(tg)
-    ax.set_ylabel("best mean ROI / non-ROI"); ax.set_title("Focality contrast achieved",
-                                                           fontweight="bold")
-    ax.legend(fontsize=8.5); ax.grid(True, axis="y", alpha=0.3)
+    ax.set_ylabel("best mean ROI / non-ROI")
+    ax.set_title("Focality contrast achieved", fontweight="bold")
+    ax.legend(fontsize=7.5); ax.grid(True, axis="y", alpha=0.3)
     fig.savefig(path, dpi=130); plt.close(fig)
 
 
-# ---- per-condition mesh renders ------------------------------------------
-def _project_views():
-    return [("top (x-y)", 0, 1, lambda p: np.ones(len(p), bool)),
-            ("left (y-z)", 1, 2, lambda p: p[:, 0] <= 0),
-            ("front (x-z)", 0, 2, lambda p: p[:, 1] >= 0)]
+def _views():
+    return [("top", 0, 1, lambda p: np.ones(len(p), bool)),
+            ("left", 1, 2, lambda p: p[:, 0] <= 0),
+            ("front", 0, 2, lambda p: p[:, 1] >= 0)]
 
 
-def fig_scalp(cell, meshes, path):
+def fig_scalp(c, meshes, path):
     if not meshes:
         return False
     skin = meshes[0].crop_mesh(tags=[1005])
@@ -176,16 +174,16 @@ def fig_scalp(cell, meshes, path):
                 epos.append(bary[m.elm.tag1 == t].mean(axis=0))
     epos = np.array(epos) if epos else None
     fig, axes = plt.subplots(1, 3, figsize=(12, 4.2), constrained_layout=True)
-    fig.suptitle(f"Optimized electrodes on scalp — {cell['target']} · {cell.get('arm_label','')}",
-                 fontweight="bold")
-    for ax, (title, xi, yi, mfn) in zip(axes, _project_views()):
+    fig.suptitle(f"Optimized electrodes on scalp — {c['target']} · {c.get('arm_label','')}",
+                 fontweight="bold", fontsize=11)
+    for ax, (title, xi, yi, mfn) in zip(axes, _views()):
         vm = mfn(pts)
         ax.scatter(pts[vm, xi], pts[vm, yi], c="#cbd5e1", s=0.4, alpha=0.6, rasterized=True)
         if epos is not None and epos.size:
             evm = mfn(epos)
             ax.scatter(epos[evm, xi], epos[evm, yi], c="#d00000", s=110,
                        edgecolors="k", linewidths=0.7, zorder=5)
-        ax.set_title(title, fontsize=10); ax.set_aspect("equal"); ax.axis("off")
+        ax.set_title(title, fontsize=9); ax.set_aspect("equal"); ax.axis("off")
     fig.savefig(path, dpi=130); plt.close(fig)
     return True
 
@@ -201,11 +199,9 @@ def main():
         pm = get_path_manager(project_dir) if project_dir else get_path_manager()
         m2m = str(Path(pm.m2m(subject)))
         if not Path(m2m, "T1.nii.gz").is_file():
-            print(f"  note: no T1 at {m2m} — skipping on-T1 overlays")
-            m2m = None
+            print(f"  note: no T1 at {m2m} — skipping on-T1 overlays"); m2m = None
     except Exception as exc:
-        print(f"  note: could not resolve m2m ({exc!r}) — skipping on-T1 overlays")
-        m2m = None
+        print(f"  note: could not resolve m2m ({exc!r}) — skipping on-T1 overlays"); m2m = None
 
     fig_progress(results, out / "progress.png")
     fig_roc(results, out / "roc.png")
@@ -215,23 +211,19 @@ def main():
     import simnibs
     for c in results["cells"]:
         key = f"{c.get('target')}_{c.get('arm')}"
-        meshes_paths = [p for p in (c.get("final_meshes") or []) if Path(p).is_file()][:2]
-        # field on T1 with ROI contour
-        if meshes_paths and m2m and c.get("roi"):
+        mp = [p for p in (c.get("final_meshes") or []) if Path(p).is_file()][:2]
+        if mp and m2m and c.get("roi"):
             r = c["roi"]
             try:
                 t1_overlay.render_overlay_from_meshes(
-                    meshes_paths, [r["x"], r["y"], r["z"]], r.get("radius", 8.0),
-                    m2m, str(out / f"t1_{key}.png"),
-                    f"{c['target']} · {c.get('arm_label','')}")
+                    mp, [r["x"], r["y"], r["z"]], r.get("radius", 8.0), m2m,
+                    str(out / f"t1_{key}.png"), f"{c['target']} · {c.get('arm_label','')}")
             except Exception as exc:
                 print(f"  t1 overlay failed {key}: {exc!r}")
-        # electrodes on scalp
-        if meshes_paths:
+        if mp:
             try:
-                loaded = [simnibs.read_msh(p) for p in meshes_paths]
-                fig_scalp(c, loaded, out / f"scalp_{key}.png")
-                del loaded
+                loaded = [simnibs.read_msh(p) for p in mp]
+                fig_scalp(c, loaded, out / f"scalp_{key}.png"); del loaded
             except Exception as exc:
                 print(f"  scalp failed {key}: {exc!r}")
     print(f"Wrote panels to {out}")
