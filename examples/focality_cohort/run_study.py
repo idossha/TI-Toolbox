@@ -59,7 +59,8 @@ ARMS = [
 
 # Fixed, logged experiment constants.
 CURRENT_MA = 2.0
-ELECTRODE_DIM = [22.0, 22.0]   # circular Ø22 mm (Weise TIS spec)
+ELECTRODE_DIM = [8.0, 8.0]     # TI-Toolbox default: Ø8 mm
+ELECTRODE_GEL = 4.0            # TI-Toolbox default gel thickness (mm)
 ROC_WEISE = (0.2, 0.1)         # (t_ROI, t_nonROI) V/m for the Weise ROC-distance metric
 E_TH = 0.2                     # V/m, Ghanem V_off threshold
 _MAX_NONROI = 60000
@@ -162,7 +163,8 @@ def _run_cell(subject, atlas, target, arm, out_dir: Path, budget) -> dict:
         goal=cfg_goal,
         postproc="max_TI",
         current_mA=CURRENT_MA,
-        electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=list(ELECTRODE_DIM)),
+        electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=list(ELECTRODE_DIM),
+                                             gel_thickness=ELECTRODE_GEL),
         roi=FlexConfig.SubcorticalROI(atlas_path=atlas, label=target["label"],
                                       tissues="GM", atlas_space="subject"),
         non_roi_method="everything_else",
@@ -218,6 +220,7 @@ def main():
     get_path_manager(project_dir)
 
     manifest = {"current_mA": CURRENT_MA, "electrode_dim_mm": ELECTRODE_DIM,
+                "electrode_gel_mm": ELECTRODE_GEL,
                 "envelope": "max_TI (free direction)", "non_roi": "everything_else",
                 "budget": "SimNIBS default (popsize 13, maxiter 1000, tol 0.1)"
                 if args.maxiter is None else {"maxiter": args.maxiter, "popsize": args.popsize},
