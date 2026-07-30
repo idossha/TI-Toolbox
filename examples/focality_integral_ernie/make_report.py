@@ -12,6 +12,7 @@ Usage:  simnibs_python make_report.py results.json
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -195,9 +196,15 @@ def main():
     out = results_path.parent
     subject = results.get("subject", "ernie")
     from tit.paths import get_path_manager
+    project_dir = os.environ.get("PROJECT_DIR")
     try:
-        m2m = str(Path(get_path_manager().m2m(subject)))
-    except Exception:
+        pm = get_path_manager(project_dir) if project_dir else get_path_manager()
+        m2m = str(Path(pm.m2m(subject)))
+        if not Path(m2m, "T1.nii.gz").is_file():
+            print(f"  note: no T1 at {m2m} — skipping on-T1 overlays")
+            m2m = None
+    except Exception as exc:
+        print(f"  note: could not resolve m2m ({exc!r}) — skipping on-T1 overlays")
         m2m = None
 
     fig_progress(results, out / "progress.png")
