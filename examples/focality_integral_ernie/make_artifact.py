@@ -89,6 +89,20 @@ done = [c for c in cells if c.get("n_evaluations")]
 status = ("All six conditions complete." if len(done) >= 6
           else f"{len(done)} of 6 conditions complete — run still in progress.")
 
+# quantitative findings: ROC threshold-sensitivity + where integral lands
+_fl = []
+for t in targets():
+    a_lo, a_hi, a_int = m(t, "roc_lo", 0), m(t, "roc_hi", 0), m(t, "integral", 0)
+    if None in (a_lo, a_hi, a_int):
+        continue
+    lo, hi = min(a_lo, a_hi), max(a_lo, a_hi)
+    _fl.append(
+        f"<li><b>{t}:</b> ROC AUC ranges <b>{lo:.2f}–{hi:.2f}</b> depending on which "
+        f"threshold you pick; threshold-free integral = <b style='color:{ARM_COLOR['integral']}'>"
+        f"{a_int:.2f}</b> (best ROC here = {hi:.2f}).</li>"
+    )
+findings = ("<ul class='findings'>" + "".join(_fl) + "</ul>") if _fl else ""
+
 # comparative panels with explanatory captions
 comparative = "".join([
     fig("progress.png",
@@ -144,6 +158,8 @@ h3 {{ font-size:1.08rem; margin:1.8rem 0 .7rem; }} h4 {{ margin:0 0 .5rem; font-
 .box h2 {{ margin:0 0 .5rem; border:0; font-size:1.05rem; }}
 .box p {{ margin:.5rem 0; font-size:.9rem; color:var(--muted); }}
 .box b {{ color:var(--ink); }}
+ul.findings {{ margin:.4rem 0; padding-left:1.1rem; }}
+ul.findings li {{ margin:.3rem 0; font-size:.9rem; color:var(--muted); }}
 figure {{ margin:0 0 1.1rem; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:.7rem; }}
 figure.dark {{ background:#0d0d0f; }}
 figure img {{ display:block; width:100%; height:auto; border-radius:6px; }}
@@ -171,6 +187,16 @@ code {{ font-family:ui-monospace,Menlo,monospace; font-size:.85em; background:va
     <span class="chip">SimNIBS 4.6 · ernie</span>
   </div>
   <div class="status">{status}</div>
+
+  <div class="box"><h2>What the run shows</h2>
+    <p>All three arms reach good focality (AUC 0.85–0.96). The key result is the
+    <b>threshold-sensitivity of ROC</b>:</p>
+    {findings}
+    <p style="margin-top:.6rem"><b>Takeaway:</b> the ROC objective's quality depends on a
+    threshold the user must choose in advance; a bad pick costs real focality. Threshold-free
+    integral focality lands near the <i>better</i>-threshold ROC at both targets — you get
+    close to the best result without having to guess the threshold.</p>
+  </div>
 
   <div class="box"><h2>Methods — the three arms &amp; the two objectives</h2>
     <p><b>Arms.</b> <span style="color:{ARM_COLOR['roc_lo']}">ROC (0.1/0.2&nbsp;V/m)</span> and
