@@ -82,15 +82,26 @@ def _ti_field_volume(channel_meshes, t1):
     return field, ti[brain]
 
 
-def _render_slices(t1d, field, roi_mask, com, out_png, title, vmax):
+def _plane_labels(affine):
+    """Anatomical plane obtained by slicing (fixing) each voxel axis."""
+    name = {0: "sagittal", 1: "coronal", 2: "axial"}  # by the world axis fixed
+    return [name[int(np.argmax(np.abs(affine[:3, a])))] for a in range(3)]
+
+
+def _render_slices(t1d, field, roi_mask, com, out_png, title, vmax, spacing=(1, 1, 1),
+                   labels=("sagittal", "coronal", "axial")):
     i0, j0, k0 = com
+    si, sj, sk = spacing
+    # Display aspect per view = row-spacing / col-spacing (post-rot90), so
+    # non-cubic voxels (e.g. 0.8x0.5x0.5 mm) don't stretch the anatomy.
+    aspects = [sk / sj, sk / si, sj / si]
     fig, axes = plt.subplots(1, 3, figsize=(12, 4.4), facecolor="#0d0d0f")
     im = None
-    for ax, (bg, md, rm, lab) in zip(axes, [
-        (t1d[i0], field[i0], roi_mask[i0], "coronal"),
-        (t1d[:, j0], field[:, j0], roi_mask[:, j0], "axial"),
-        (t1d[:, :, k0], field[:, :, k0], roi_mask[:, :, k0], "sagittal"),
-    ]):
+    for ax, (bg, md, rm, lab), asp in zip(axes, [
+        (t1d[i0], field[i0], roi_mask[i0], labels[0]),
+        (t1d[:, j0], field[:, j0], roi_mask[:, j0], labels[1]),
+        (t1d[:, :, k0], field[:, :, k0], roi_mask[:, :, k0], labels[2]),
+    ], aspects):
         ax.set_facecolor("#0d0d0f")
         ax.imshow(np.rot90(bg), cmap="gray", vmin=0.02, vmax=0.92, interpolation="bilinear")
         masked = np.ma.masked_where(np.rot90(md) <= vmax * 0.015, np.rot90(md))
@@ -98,6 +109,7 @@ def _render_slices(t1d, field, roi_mask, com, out_png, title, vmax):
                        interpolation="bilinear")
         ax.contour(np.rot90(rm).astype(float), levels=[0.5], colors="#39ff14",
                    linewidths=1.4, alpha=0.95)
+        ax.set_aspect(asp)
         ax.set_xticks([]); ax.set_yticks([])
         ax.set_title(lab, color="#9aa0a6", fontsize=10, pad=5)
     cb = fig.colorbar(im, ax=axes, shrink=0.72, pad=0.01)
@@ -120,7 +132,8 @@ def render_overlay_from_meshes(channel_meshes, center_mni, radius_mm, m2m_dir,
     t1d = np.clip(np.asarray(t1.dataobj).astype(float) / (np.percentile(np.asarray(t1.dataobj), 99.0) or 1), 0, 1.0)
     roi, com = _sphere_roi_mask(center_mni, radius_mm, m2m_dir, t1)
     vmax = vmax or (float(np.percentile(ti, 99)) if ti.size else 1.0)
-    return _render_slices(t1d, field, roi, com, out_png, title, vmax)
+    sp = np.sqrt((t1.affine[:3, :3] ** 2).sum(0))
+    return _render_slices(t1d, field, roi, com, out_png, title, vmax, sp, _plane_labels(t1.affine))
 
 
 def render_overlay_atlas(channel_meshes, atlas_path, label, m2m_dir, out_png, title, vmax=None):
@@ -140,4 +153,5 @@ def render_overlay_atlas(channel_meshes, atlas_path, label, m2m_dir, out_png, ti
         return False
     com = tuple(np.round(np.argwhere(roi).mean(0)).astype(int))
     vmax = vmax or (float(np.percentile(ti, 99)) if ti.size else 1.0)
-    return _render_slices(t1d, field, roi, com, out_png, title, vmax)
+    sp = np.sqrt((t1.affine[:3, :3] ** 2).sum(0))
+    return _render_slices(t1d, field, roi, com, out_png, title, vmax, sp, _plane_labels(t1.affine))

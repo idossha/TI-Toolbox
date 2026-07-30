@@ -11,6 +11,7 @@ Usage:
 import base64
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -84,13 +85,60 @@ def fig_dist(cells_by_arm, target, path):
     return True
 
 
+_GOAL_RE = re.compile(r"Goal \(.*?\):\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*\(n_sim:")
+
+
+def parse_progress(log_text, key):
+    """Objective trajectory (valid evals) for one cell, from the study log."""
+    m = re.search(r"===\s*" + re.escape(key) + r"\s*===", log_text)
+    if not m:
+        return []
+    seg = log_text[m.end():]
+    nxt = re.search(r"\n===\s", seg)
+    if nxt:
+        seg = seg[:nxt.start()]
+    return [float(x) for x in _GOAL_RE.findall(seg)]
+
+
+def fig_progress(cba, target, path, log_text, subj):
+    """Per-arm DE convergence — best objective so far, normalized per arm so the
+    arms (different objective scales) are comparable in shape."""
+    fig, ax = plt.subplots(figsize=(6.6, 3.6), constrained_layout=True)
+    got = False
+    for arm in ARM_ORDER:
+        c = cba.get(arm)
+        if not c:
+            continue
+        traj = parse_progress(log_text, f"{subj}_{target}_{arm}")
+        if len(traj) < 2:
+            continue
+        bsf = np.minimum.accumulate(traj)
+        rng = bsf[0] - bsf[-1]
+        norm = (bsf - bsf[-1]) / (rng if abs(rng) > 1e-9 else 1.0)
+        ax.plot(range(1, len(norm) + 1), norm, "-", lw=1.8, color=ARM_COLOR[arm],
+                label=c["arm_label"])
+        got = True
+    ax.set_title(f"{target} — optimization progress", fontweight="bold", fontsize=10)
+    ax.set_xlabel("valid evaluation #")
+    ax.set_ylabel("best objective (normalized, →0 converged)")
+    ax.grid(True, alpha=0.3)
+    if got:
+        ax.legend(fontsize=7.5)
+    fig.savefig(path, dpi=130); plt.close(fig)
+    return got
+
+
 def b64(p):
     return ("data:image/png;base64," + base64.b64encode(Path(p).read_bytes()).decode()
             ) if Path(p).is_file() else None
 
 
-def img(p, cap=""):
-    s = b64(p); return f'<figure class="dark"><img src="{s}"><figcaption>{cap}</figcaption></figure>' if s else ""
+def img(p, cap="", dark=False, cls=""):
+    s = b64(p)
+    if not s:
+        return ""
+    klass = " ".join(x for x in [("dark" if dark else ""), cls] if x)
+    return f'<figure class="{klass}"><img src="{s}"><figcaption>{cap}</figcaption></figure>'
 
 
 def main():
@@ -120,11 +168,25 @@ def main():
 
     # per-target figures
     sections = ""
+    log_text = ""
+    log_path = Path(str(sub_dir.parent) + ".log")
+    if log_path.is_file():
+        log_text = log_path.read_text(errors="ignore")
     atlas = FS_ATLAS.format(s=subj); m2m = M2M.format(s=subj)
     for t in targets:
         cba = {c["arm"]: c for c in done if c["target"] == t}
         fig_roc(cba, t, sub_dir / f"_roc_{t}.png")
         fig_dist(cba, t, sub_dir / f"_dist_{t}.png")
+        has_prog = fig_progress(cba, t, sub_dir / f"_prog_{t}.png", log_text, subj)
+        # Common, non-saturating field scale across arms for this target.
+        pooled = []
+        for arm in ARM_ORDER:
+            c = cba.get(arm)
+            if c:
+                e1, e2 = fields(c)
+                if e1 is not None:
+                    pooled.append(np.concatenate([e1, e2]))
+        vmax_t = float(np.percentile(np.concatenate(pooled), 99.5)) if pooled else None
         overlays = ""
         for arm in ARM_ORDER:
             c = cba.get(arm)
@@ -133,13 +195,15 @@ def main():
             png = sub_dir / f"_t1_{t}_{arm}.png"
             try:
                 if t1_overlay.render_overlay_atlas(c["final_meshes"], atlas, c["atlas_label"],
-                                                   m2m, str(png), f"{t} · {c['arm_label']}"):
-                    overlays += img(png)
+                                                   m2m, str(png), f"{t} · {c['arm_label']}",
+                                                   vmax=vmax_t):
+                    overlays += img(png, dark=True)
             except Exception as exc:
                 print(f"  overlay failed {t}/{arm}: {exc!r}")
-        sections += (f"<h2>{t}</h2><div class='row'>{img(sub_dir/f'_roc_{t}.png')}"
-                     f"{img(sub_dir/f'_dist_{t}.png')}</div>"
-                     f"<h3>Field on T1 (green contour = atlas ROI)</h3>{overlays}")
+        prog = img(sub_dir / f"_prog_{t}.png", cls="plot") if has_prog else ""
+        sections += (f"<h2>{t}</h2>{img(sub_dir/f'_roc_{t}.png', cls='plot')}"
+                     f"{img(sub_dir/f'_dist_{t}.png')}{prog}"
+                     f"<h3>Field on T1 (green contour = atlas ROI; common scale, aspect-corrected)</h3>{overlays}")
 
     pending = 15 - len(done)
     html = f"""<style>
@@ -154,7 +218,7 @@ h1{{font-size:1.6rem;margin:.2rem 0 .4rem}}h2{{font-size:1.2rem;margin:2.2rem 0 
 table{{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.86rem}}th,td{{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line)}}th{{color:var(--mut);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}}
 .num{{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}}
 .row{{display:flex;flex-wrap:wrap;gap:1rem}}.row figure{{flex:1;min-width:320px}}
-figure{{margin:0 0 1rem;background:var(--p);border:1px solid var(--line);border-radius:10px;padding:.6rem}}figure.dark{{background:#0d0d0f}}figure img{{display:block;width:100%;border-radius:6px}}figcaption{{color:var(--mut);font-size:.8rem;margin-top:.4rem}}
+figure{{margin:0 0 1rem;background:var(--p);border:1px solid var(--line);border-radius:10px;padding:.6rem}}figure.dark{{background:#0d0d0f}}figure.plot{{max-width:700px}}figure img{{display:block;width:100%;border-radius:6px}}figcaption{{color:var(--mut);font-size:.8rem;margin-top:.4rem}}
 .foot{{margin-top:2.5rem;color:var(--mut);font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}}code{{font-family:ui-monospace,Menlo,monospace;font-size:.85em;background:var(--p);border:1px solid var(--line);padding:.05rem .3rem;border-radius:4px}}
 </style>
 <div class="wrap">
