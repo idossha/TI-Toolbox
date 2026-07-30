@@ -113,7 +113,8 @@ def _subsample(a: np.ndarray, n: int) -> np.ndarray:
     return a[idx]
 
 
-def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget) -> dict:
+def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget,
+             final_sim=True) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg = FlexConfig(
         subject_id=subject,
@@ -128,7 +129,7 @@ def _run_one(subject, roi_kwargs, goal, out_dir: Path, thresholds, budget) -> di
         max_iterations=budget["maxiter"],
         population_size=budget["popsize"],
         n_multistart=1,
-        run_final_electrode_simulation=True,  # produce final TI-field mesh
+        run_final_electrode_simulation=final_sim,  # produce final TI-field mesh
     )
 
     opt = builder.build_optimization(cfg)
@@ -173,6 +174,10 @@ def main() -> None:
     parser.add_argument("--subject", default="ernie")
     parser.add_argument("--only", default=None,
                         help="Run a single cell, e.g. 'deep_focality'")
+    parser.add_argument("--thresholds", default=ROC_THRESHOLDS,
+                        help="ROC thresholds 'nonROImax,ROImin' in V/m")
+    parser.add_argument("--no-final-sim", action="store_true",
+                        help="Skip the final TI-field simulation (faster; no field render)")
     args = parser.parse_args()
 
     project_dir = os.environ.get("PROJECT_DIR", "/Users/idohaber/datasets/000")
@@ -196,7 +201,8 @@ def main() -> None:
         print(f"\n=== {depth} x {goal} ===", flush=True)
         out_dir = out_root / f"{depth}_{goal}"
         try:
-            cell = _run_one(args.subject, roi, goal, out_dir, ROC_THRESHOLDS, budget)
+            cell = _run_one(args.subject, roi, goal, out_dir, args.thresholds, budget,
+                            final_sim=not args.no_final_sim)
         except Exception as exc:
             import traceback
             traceback.print_exc()
