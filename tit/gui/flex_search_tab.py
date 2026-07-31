@@ -123,6 +123,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             "focality (maximize field in target ROI while minimizing field elsewhere)",
             "focality",
         )
+        self.goal_combo.addItem(
+            "focality — threshold-free (no thresholds to tune)",
+            "focality_tf",
+        )
 
         self.postproc_combo = QtWidgets.QComboBox()
         self.postproc_combo.addItem("max_TI (maximum TI field)", "max_TI")
@@ -245,6 +249,33 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
 
+        # Threshold-free focality: intensity weight (only meaningful for focality_tf)
+        self.intensity_weight_label = QtWidgets.QLabel("Intensity weight:")
+        self.intensity_weight_input = QtWidgets.QDoubleSpinBox()
+        self.intensity_weight_input.setRange(0.0, 1.0)
+        self.intensity_weight_input.setSingleStep(0.05)
+        self.intensity_weight_input.setDecimals(2)
+        self.intensity_weight_input.setValue(0.0)
+        self.intensity_weight_input.setToolTip(
+            "0 = most focal (balanced), 1 = favours on-target intensity"
+        )
+
+        # Current-ratio search (applies to every goal)
+        self.current_ratio_group = QtWidgets.QGroupBox("Current Ratio Search")
+        self.optimize_ratio_checkbox = QtWidgets.QCheckBox("Optimize current ratio")
+        self.optimize_ratio_checkbox.setChecked(False)
+        self.ratio_levels_label = QtWidgets.QLabel("Ratio levels:")
+        self.ratio_levels_input = QtWidgets.QSpinBox()
+        self.ratio_levels_input.setRange(2, 51)
+        self.ratio_levels_input.setValue(21)
+        self.ratio_levels_input.setToolTip(
+            "Number of current splits tested per candidate placement. Rounded "
+            "up to the next odd number so the balanced 1:1 split is always "
+            "one of them."
+        )
+        self.ratio_levels_label.setEnabled(False)
+        self.ratio_levels_input.setEnabled(False)
+
         # Set up the UI
         self.setup_ui()
 
@@ -269,6 +300,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         # When the ROI picker mode changes, also update the nonroi picker page
         self.roi_picker.roi_changed.connect(self._sync_nonroi_mode)
+        self.optimize_ratio_checkbox.toggled.connect(self._update_ratio_options)
 
         # Find available subjects (which will trigger finding EEG nets and atlases)
         self.find_available_subjects()
@@ -378,6 +410,34 @@ class FlexSearchTab(QtWidgets.QWidget):
         )
         right_column_layout.addWidget(self.electrode_widget)
 
+        # Current Ratio Search — a stimulation-dose parameter, so it sits with the
+        # electrode parameters rather than the solver hyper-parameters. Applies to
+        # every goal, so it stays visible regardless of the selected goal.
+        ratio_layout = QtWidgets.QVBoxLayout(self.current_ratio_group)
+        ratio_layout.addWidget(self.optimize_ratio_checkbox)
+
+        ratio_levels_row = QtWidgets.QHBoxLayout()
+        ratio_levels_row.setContentsMargins(0, 0, 0, 0)
+        ratio_levels_row.addWidget(self.ratio_levels_label)
+        ratio_levels_row.addWidget(self.ratio_levels_input)
+        ratio_levels_row.addStretch()
+        ratio_layout.addLayout(ratio_levels_row)
+
+        self.ratio_help = QtWidgets.QLabel(
+            "Jointly searches the two-channel current split alongside electrode "
+            "placement. The total stays fixed at twice the Electrode Current, "
+            "but each individual channel ranges from 0.5x to 1.5x that value: "
+            "at 2.0 mA a channel carries between 1.0 and 3.0 mA (4.0 mA total). "
+            "Set the Electrode Current so the 1.5x end is still within your "
+            "intended dose. The balanced 1:1 split is always among those "
+            "searched. Off = both channels carry the same current."
+        )
+        self.ratio_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
+        self.ratio_help.setWordWrap(True)
+        ratio_layout.addWidget(self.ratio_help)
+
+        right_column_layout.addWidget(self.current_ratio_group)
+
         top_row_layout.addWidget(right_column_widget, 9)
 
         scroll_layout.addLayout(top_row_layout)
@@ -397,15 +457,41 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Focality Options group
         focality_layout = QtWidgets.QFormLayout(self.focality_group)
 
-        # --- Mode selector row ---
-        mode_selector_widget = QtWidgets.QWidget()
-        mode_selector_layout = QtWidgets.QHBoxLayout(mode_selector_widget)
+        # --- Mode selector row (ROC focality only; hidden for integral) ---
+        self.mode_selector_widget = QtWidgets.QWidget()
+        mode_selector_layout = QtWidgets.QHBoxLayout(self.mode_selector_widget)
         mode_selector_layout.setContentsMargins(0, 0, 0, 0)
         mode_selector_layout.addWidget(self.mode_manual_radio)
         mode_selector_layout.addWidget(self.mode_adaptive_radio)
         mode_selector_layout.addWidget(self.mode_pareto_radio)
         mode_selector_layout.addStretch()
-        focality_layout.addRow(QtWidgets.QLabel("Mode:"), mode_selector_widget)
+        self.mode_selector_label = QtWidgets.QLabel("Mode:")
+        focality_layout.addRow(self.mode_selector_label, self.mode_selector_widget)
+
+        # --- Threshold-free focality help (shown only for the focality_tf goal) ---
+        self.tf_focality_help = QtWidgets.QLabel(
+            "Threshold-free focality: ROI/non-ROI contrast ratio. No thresholds "
+            "to set — just choose the non-ROI region below. Stays optimizable at "
+            "deep targets where the threshold-based focality goal can go flat."
+        )
+        self.tf_focality_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
+        self.tf_focality_help.setWordWrap(True)
+        focality_layout.addRow(self.tf_focality_help)
+        self.tf_focality_help.setVisible(False)
+
+        # --- Intensity weight (threshold-free focality only) ---
+        focality_layout.addRow(self.intensity_weight_label, self.intensity_weight_input)
+        self.intensity_weight_help = QtWidgets.QLabel(
+            "0 = most focal (balanced), 1 = favours on-target intensity."
+        )
+        self.intensity_weight_help.setStyleSheet(
+            f"font-size: {FONT_HELP}; color: gray;"
+        )
+        self.intensity_weight_help.setWordWrap(True)
+        focality_layout.addRow(self.intensity_weight_help)
+        self.intensity_weight_label.setVisible(False)
+        self.intensity_weight_input.setVisible(False)
+        self.intensity_weight_help.setVisible(False)
 
         # --- Pareto sweep widget (shown only in Pareto mode) ---
         self.pareto_widget = QtWidgets.QWidget()
@@ -676,9 +762,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", error)
             return
 
-        # Validate non-ROI when focality targets a specific region
+        # Validate non-ROI when a focality goal targets a specific region
         if (
-            self.goal_combo.currentData() == "focality"
+            self.goal_combo.currentData() in ("focality", "focality_tf")
             and self.nonroi_method_combo.currentData() == "specific"
         ):
             error = self.nonroi_picker.validate()
@@ -918,10 +1004,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi = self._build_roi_from_ui(subject_id, project_dir, roi_params)
         electrode = self._build_electrode_config(electrode_shape, dimensions, thickness)
 
-        # Focality-specific fields
+        # Focality-specific fields (both ROC and threshold-free focality use a non-ROI)
         non_roi_method = None
         non_roi = None
-        if goal == "focality":
+        if goal in ("focality", "focality_tf"):
             nonroi_method_val = self.nonroi_method_combo.currentData()
             non_roi_method = (
                 NonROIMethod(nonroi_method_val)
@@ -929,6 +1015,16 @@ class FlexSearchTab(QtWidgets.QWidget):
                 else NonROIMethod.EVERYTHING_ELSE
             )
             non_roi = self._build_non_roi_from_ui(subject_id, project_dir, roi_params)
+
+        # Intensity weight is only meaningful for the threshold-free focality goal;
+        # the spinbox keeps its value while hidden, so do not leak it to other goals.
+        intensity_weight = (
+            self.intensity_weight_input.value() if goal == "focality_tf" else 0.0
+        )
+
+        # Current-ratio search applies to every goal.
+        optimize_current_ratio = self.optimize_ratio_checkbox.isChecked()
+        ratio_levels = self.ratio_levels_input.value()
 
         # EEG mapping
         enable_mapping = self.run_mapped_simulation_checkbox.isChecked()
@@ -958,6 +1054,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             non_roi_method=non_roi_method,
             non_roi=non_roi,
             thresholds=thresholds,
+            intensity_weight=intensity_weight,
+            optimize_current_ratio=optimize_current_ratio,
+            ratio_levels=ratio_levels,
             eeg_net=eeg_net if enable_mapping else None,
             enable_mapping=enable_mapping,
             disable_mapping_simulation=False,
@@ -1212,14 +1311,45 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_label.setVisible(is_mapping_enabled)
 
     def _update_focality_visibility(self):
-        is_focality = self.goal_combo.currentData() == "focality"
-        self.focality_group.setVisible(is_focality)
-        # Default to 'everything_else' and collapse non-ROI region
-        if is_focality:
+        goal = self.goal_combo.currentData()
+        is_threshold_focality = goal == "focality"
+        is_tf_focality = goal == "focality_tf"
+        is_any_focality = is_threshold_focality or is_tf_focality
+
+        # The Focality Options group carries the non-ROI selector, needed by both
+        # focality goals. The threshold/Manual/Adaptive/Pareto machinery is
+        # ROC-only, so it is hidden when the threshold-free goal is set.
+        self.focality_group.setVisible(is_any_focality)
+        self.mode_selector_label.setVisible(is_threshold_focality)
+        self.mode_selector_widget.setVisible(is_threshold_focality)
+        self.tf_focality_help.setVisible(is_tf_focality)
+
+        # Intensity weight only means anything for the threshold-free goal.
+        self.intensity_weight_label.setVisible(is_tf_focality)
+        self.intensity_weight_input.setVisible(is_tf_focality)
+        self.intensity_weight_help.setVisible(is_tf_focality)
+
+        if is_any_focality:
+            # Default to 'everything_else' and collapse non-ROI region
             self.nonroi_method_combo.setCurrentIndex(0)
             self.nonroi_picker.setVisible(False)
-            # Initialize mode-based controls visibility
-            self._update_focality_mode_visibility()
+            if is_threshold_focality:
+                # Initialize mode-based controls visibility
+                self._update_focality_mode_visibility()
+            else:
+                # Threshold-free focality has no thresholds — hide every ROC control.
+                self.pareto_widget.setVisible(False)
+                self.adaptive_widget.setVisible(False)
+                self.threshold_input.setVisible(False)
+                self.threshold_label.setVisible(False)
+                if self.threshold_help is not None:
+                    self.threshold_help.setVisible(False)
+
+    def _update_ratio_options(self):
+        """Enable the ratio-levels spinbox only when ratio search is requested."""
+        enabled = self.optimize_ratio_checkbox.isChecked()
+        self.ratio_levels_label.setEnabled(enabled)
+        self.ratio_levels_input.setEnabled(enabled)
 
     def _update_focality_mode_visibility(self):
         """Update visibility of Manual / Adaptive / Pareto Sweep controls."""
@@ -1230,7 +1360,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.adaptive_widget.setVisible(is_adaptive)
         self.threshold_input.setVisible(is_manual)
         self.threshold_label.setVisible(is_manual)
-        if self.threshold_help:
+        if self.threshold_help is not None:
             self.threshold_help.setVisible(is_manual)
 
     def _update_nonroi_stacked(self):
@@ -1259,7 +1389,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.roi_picker.set_enabled(enabled)
         self.electrode_widget.setEnabled(enabled)
         self.solver_widget.setEnabled(enabled)
+        self.optimize_ratio_checkbox.setEnabled(enabled)
+        ratio_enabled = enabled and self.optimize_ratio_checkbox.isChecked()
+        self.ratio_levels_label.setEnabled(ratio_enabled)
+        self.ratio_levels_input.setEnabled(ratio_enabled)
         if self.focality_group.isVisible():
+            self.intensity_weight_input.setEnabled(enabled)
             self.mode_manual_radio.setEnabled(enabled)
             self.mode_adaptive_radio.setEnabled(enabled)
             self.mode_pareto_radio.setEnabled(enabled)

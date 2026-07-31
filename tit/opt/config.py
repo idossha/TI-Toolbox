@@ -37,6 +37,25 @@ def _as_list(value) -> list:
     return [value]
 
 
+#: Threshold specifications that mean "let SimNIBS choose" rather than naming an
+#: explicit numeric threshold.  The empty string is included so a blank GUI field
+#: is treated the same as an unset one.
+_THRESHOLD_PLACEHOLDERS = frozenset({"", "dynamic", "auto"})
+
+
+def _has_usable_thresholds(thresholds) -> bool:
+    """True when *thresholds* names explicit numeric focality thresholds.
+
+    ``None`` and the placeholders in :data:`_THRESHOLD_PLACEHOLDERS` both mean
+    "let SimNIBS pick".  SimNIBS's built-in ROC goal supplies its own defaults in
+    that case, but a Python-side ROC objective (as used by the current-ratio
+    search) has nothing to fall back on.
+    """
+    if thresholds is None:
+        return False
+    return str(thresholds).strip().lower() not in _THRESHOLD_PLACEHOLDERS
+
+
 # ── Flex-search config ───────────────────────────────────────────────────────
 
 
@@ -53,7 +72,8 @@ class FlexConfig:
     subject_id : str
         Subject identifier matching the m2m directory name.
     goal : OptGoal
-        Optimization objective (``"mean"``, ``"max"``, or ``"focality"``).
+        Optimization objective (``"mean"``, ``"max"``, ``"focality"``, or
+        ``"focality_tf"``).
     postproc : FieldPostproc
         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
         or ``"dir_TI_tangential"``).
@@ -76,6 +96,33 @@ class FlexConfig:
         Explicit non-ROI region when *non_roi_method* is ``"specific"``.
     thresholds : str or None
         Comma-separated focality threshold values (e.g. ``"0.1,0.2"``).
+        Only used by the ROC-based ``"focality"`` goal.  ``None`` (or a
+        placeholder such as ``"dynamic"``) lets SimNIBS supply its own
+        defaults -- but that fallback exists only inside SimNIBS, so
+        combining ``goal="focality"`` with *optimize_current_ratio* makes
+        explicit numeric thresholds **required**: the ratio search scores
+        candidates with its own ROC objective, which has no defaults.
+    intensity_weight : float
+        Weight ``w`` in ``[0, 1]`` trading ROI intensity against focality
+        for the ``"focality_tf"`` goal.  ``0.0`` gives the balanced form,
+        ``1.0`` weights raw ROI intensity most heavily.  Ignored by the
+        other goals.
+    optimize_current_ratio : bool
+        If True, jointly search the electrode placement **and** the
+        current split between the two channels instead of fixing it at
+        1:1.  Applies to any goal.  Scoring then happens in a Python
+        callable rather than in SimNIBS, which has two consequences:
+        ``goal="focality"`` requires explicit *thresholds*, and
+        *detailed_results* cannot be used.
+    ratio_total_mA : float or None
+        Total current (mA) shared by the two channels during the ratio
+        search.  ``None`` uses ``2 * current_mA``, i.e. the 1:1 split is
+        contained in the search range.  When set explicitly it must be
+        greater than zero.
+    ratio_levels : int
+        Number of discrete current splits evaluated per candidate
+        placement.  Must be at least 2 when *optimize_current_ratio* is
+        True.
     eeg_net : str or None
         EEG net name or filename (e.g. ``"GSN-HydroCel-185"`` or
         ``"GSN-HydroCel-185.csv"``) for electrode-name mapping.
@@ -108,7 +155,12 @@ class FlexConfig:
     min_electrode_distance : float
         Minimum geodesic distance (mm) between any two electrodes.
     detailed_results : bool
-        If True, save per-restart detailed output.
+        If True, save per-restart detailed output.  Incompatible with any
+        configuration whose goal is a Python callable -- ``"focality_tf"``
+        or *optimize_current_ratio* -- because SimNIBS writes ``opt.goal``
+        into the detailed-results HDF5 file and h5py cannot serialise a
+        function.  The combination is rejected at config time rather than
+        after the (potentially hours-long) optimization has finished.
     visualize_valid_skin_region : bool
         If True, save a mesh showing the valid electrode placement region.
     skin_visualization_net : str or None
@@ -125,8 +177,14 @@ class FlexConfig:
     ------
     ValueError
         If *goal* is ``"focality"`` with *non_roi_method* ``"specific"``
-        but *non_roi* is ``None``, or if *thresholds* contains
-        non-numeric values.
+        but *non_roi* is ``None``, if *thresholds* contains non-numeric
+        values, if *intensity_weight* falls outside ``[0, 1]``, if
+        *ratio_levels* is below 2 while *optimize_current_ratio* is True,
+        if *ratio_total_mA* is set but not positive, if
+        *optimize_current_ratio* is combined with ``goal="focality"``
+        without explicit *thresholds*, or if *detailed_results* is
+        combined with a callable-goal configuration
+        (``goal="focality_tf"`` or *optimize_current_ratio*).
 
     See Also
     --------
@@ -146,12 +204,22 @@ class FlexConfig:
         MAX : str
             Maximize peak field intensity in the ROI.
         FOCALITY : str
-            Maximize ROI-to-non-ROI intensity ratio.
+            Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
+            ROC measure (``measures.ROC``).
+        FOCALITY_TF : str
+            Maximize a threshold-free focality contrast,
+            ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
+            thresholds it avoids the threshold-selection failure mode of the
+            ROC goal, whose landscape flattens when the requested ROI and
+            non-ROI thresholds are jointly infeasible (as happens at deep
+            targets).  The weight ``w`` is
+            :attr:`FlexConfig.intensity_weight`.
         """
 
         MEAN = "mean"
         MAX = "max"
         FOCALITY = "focality"
+        FOCALITY_TF = "focality_tf"
 
     class FieldPostproc(StrEnum):
         """Field post-processing method applied to the TI envelope.
@@ -384,6 +452,12 @@ class FlexConfig:
     non_roi_method: NonROIMethod | None = None
     non_roi: "FlexConfig.SphericalROI | FlexConfig.AtlasROI | FlexConfig.SubcorticalROI | None" = (None)
     thresholds: str | None = None
+    intensity_weight: float = 0.0
+
+    # ── current-ratio search ──
+    optimize_current_ratio: bool = False
+    ratio_total_mA: float | None = None
+    ratio_levels: int = 21
 
     # ── eeg mapping ──
     eeg_net: str | None = None
@@ -418,18 +492,94 @@ class FlexConfig:
             self.postproc = FlexConfig.FieldPostproc(self.postproc)
         if isinstance(self.non_roi_method, str):
             self.non_roi_method = FlexConfig.NonROIMethod(self.non_roi_method)
+        # Any focality goal (ROC or threshold-free) needs a non-ROI region; default to
+        # "everything else" so a config that omits the method still runs.
+        if self.is_focality and self.non_roi_method is None:
+            self.non_roi_method = FlexConfig.NonROIMethod.EVERYTHING_ELSE
         if (
-            self.goal is FlexConfig.OptGoal.FOCALITY
+            self.is_focality
             and self.non_roi_method is FlexConfig.NonROIMethod.SPECIFIC
             and self.non_roi is None
         ):
             raise ValueError(
-                "goal='focality' with method='specific' requires a non_roi specification"
+                f"goal='{self.goal.value}' with method='specific' requires a "
+                "non_roi specification"
+            )
+        # The ratio search scores candidates itself, so the ROC goal can no
+        # longer lean on the thresholds SimNIBS would have supplied. Catch it
+        # here: otherwise it surfaces as a ValueError raised deep inside the
+        # `simnibs_python -m tit.opt.flex` child process, long after launch.
+        if (
+            self.optimize_current_ratio
+            and self.goal is FlexConfig.OptGoal.FOCALITY
+            and not _has_usable_thresholds(self.thresholds)
+        ):
+            raise ValueError(
+                "optimize_current_ratio=True with goal='focality' requires "
+                "explicit numeric thresholds, because the current-ratio "
+                "search scores candidates with its own ROC objective and "
+                "cannot fall back on the thresholds SimNIBS would supply "
+                f"(thresholds={self.thresholds!r}). Set thresholds (e.g. "
+                "'0.1,0.2'), use goal='focality_tf' which needs none, or "
+                "set optimize_current_ratio=False."
             )
         if self.thresholds is not None:
             for part in self.thresholds.split(","):
                 float(part.strip())
+        self.intensity_weight = float(self.intensity_weight)
+        if not 0.0 <= self.intensity_weight <= 1.0:
+            raise ValueError(
+                f"intensity_weight must be in [0, 1] (was {self.intensity_weight})"
+            )
+        self.ratio_levels = int(self.ratio_levels)
+        if self.optimize_current_ratio and self.ratio_levels < 2:
+            raise ValueError(
+                f"ratio_levels must be >= 2 when optimize_current_ratio is "
+                f"enabled (was {self.ratio_levels})"
+            )
+        if self.ratio_total_mA is not None:
+            self.ratio_total_mA = float(self.ratio_total_mA)
+            if self.ratio_total_mA <= 0.0:
+                raise ValueError(
+                    f"ratio_total_mA must be > 0 when set (was "
+                    f"{self.ratio_total_mA}); leave it None to use "
+                    f"2 * current_mA"
+                )
+        # SimNIBS serialises opt.goal into the detailed-results HDF5 file, and
+        # h5py cannot store a Python function. That failure fires only after the
+        # optimization completes, so reject the combination up front.
+        if self.detailed_results and (
+            self.goal is FlexConfig.OptGoal.FOCALITY_TF or self.optimize_current_ratio
+        ):
+            trigger = (
+                "goal='focality_tf'"
+                if self.goal is FlexConfig.OptGoal.FOCALITY_TF
+                else "optimize_current_ratio=True"
+            )
+            raise ValueError(
+                f"detailed_results=True is not supported with {trigger}: that "
+                "configuration scores candidates with a Python callable goal, "
+                "and SimNIBS writes opt.goal into its detailed-results HDF5 "
+                "file, where h5py rejects a callable: TypeError: Object dtype "
+                "dtype('O') has no native HDF5 equivalent. The error is "
+                "raised only after the optimization finishes, discarding the "
+                "whole run. Set detailed_results=False."
+            )
         self.skin_region_margin_mm = float(self.skin_region_margin_mm)
+
+    @property
+    def is_focality(self) -> bool:
+        """True for any focality goal (ROC-based or threshold-free).
+
+        Focality goals share the same ROI/non-ROI setup (a target ROI plus a
+        non-ROI region), so callers use this to gate non-ROI construction and
+        reporting. Threshold-specific logic keeps comparing against
+        ``OptGoal.FOCALITY`` directly, since only the ROC goal uses thresholds.
+        """
+        return self.goal in (
+            FlexConfig.OptGoal.FOCALITY,
+            FlexConfig.OptGoal.FOCALITY_TF,
+        )
 
 
 @dataclass

@@ -142,6 +142,98 @@ class TestRunFlexSearch:
     @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
     @patch("tit.opt.flex.flex.builder")
     @patch("tit.opt.flex.flex.get_path_manager")
+    def test_manifest_records_the_best_runs_current_split(
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
+    ):
+        # Each restart converges on its own split; the manifest must record the
+        # split of the best-scoring restart, not of the last one to finish.
+        pm = MagicMock()
+        pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        mock_gpm.return_value = pm
+
+        values = [-0.020, -0.035, -0.015]
+        splits = [(1.5, 2.5), (3.0, 1.0), (2.0, 2.0)]
+        call_idx = [0]
+
+        def side_effect(config):
+            opt = MagicMock()
+            opt.optim_funvalue = values[call_idx[0]]
+            opt._best_current_split = splits[call_idx[0]]
+            call_idx[0] += 1
+            return opt
+
+        mock_builder.build_optimization.side_effect = side_effect
+
+        from tit.opt.flex.flex import run_flex_search
+
+        config = _make_config(
+            n_multistart=3,
+            optimize_current_ratio=True,
+            output_folder=str(tmp_path / "output"),
+        )
+        for i in range(3):
+            os.makedirs(tmp_path / "output" / f"{i:02d}", exist_ok=True)
+
+        result = run_flex_search(config)
+
+        assert result.best_run_index == 1
+        assert mock_manifest.call_args.kwargs["current_split"] == (3.0, 1.0)
+
+    @patch("tit.opt.flex.manifest.write_manifest")
+    @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
+    @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
+    @patch("tit.opt.flex.flex.builder")
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_manifest_records_no_split_without_a_ratio_search(
+        self,
+        mock_gpm,
+        mock_builder,
+        mock_skin_viz,
+        mock_dirname,
+        mock_label,
+        mock_manifest,
+        tmp_path,
+    ):
+        pm = MagicMock()
+        pm.flex_search.return_value = str(tmp_path / "flex")
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        mock_gpm.return_value = pm
+
+        opt_mock = MagicMock()
+        opt_mock.optim_funvalue = -0.025
+        # install_ratio_search never ran, so the attribute is simply absent.
+        del opt_mock._best_current_split
+        mock_builder.build_optimization.return_value = opt_mock
+
+        from tit.opt.flex.flex import run_flex_search
+
+        config = _make_config(output_folder=str(tmp_path / "output"))
+        result = run_flex_search(config)
+
+        assert result.success is True
+        assert mock_manifest.call_args.kwargs["current_split"] is None
+
+    @patch("tit.opt.flex.manifest.write_manifest")
+    @patch("tit.opt.flex.utils.generate_label", return_value="test_label")
+    @patch("tit.opt.flex.utils.generate_run_dirname", return_value="20260309_120000")
+    @patch("tit.opt.flex.flex.create_valid_skin_region_visualization")
+    @patch("tit.opt.flex.flex.builder")
+    @patch("tit.opt.flex.flex.get_path_manager")
     def test_all_runs_fail(
         self,
         mock_gpm,

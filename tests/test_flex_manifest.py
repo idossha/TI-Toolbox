@@ -169,6 +169,62 @@ class TestManifestIO:
         assert data["result"]["best_value"] == min(values)
         assert data["result"]["best_run_index"] == 3
 
+    def test_manifest_records_ratio_defaults(self, tmp_path):
+        # With the ratio search off the new keys still exist, holding the
+        # documented defaults, so downstream readers never have to guess.
+        roi = SphericalROI(x=0, y=0, z=0, radius=5.0)
+        write_manifest(str(tmp_path), _make_config(roi), _make_result(), "label")
+        data = read_manifest(str(tmp_path))
+
+        assert data["version"] == MANIFEST_VERSION  # additive keys only
+        assert data["intensity_weight"] == 0.0
+        assert data["optimize_current_ratio"] is False
+        assert data["ratio_total_mA"] is None
+        assert data["ratio_levels"] == 21
+        assert data["current_split"] is None
+
+    def test_manifest_records_ratio_settings_and_selected_split(self, tmp_path):
+        roi = SphericalROI(x=0, y=0, z=0, radius=5.0)
+        config = _make_config(
+            roi,
+            goal="focality_tf",
+            intensity_weight=0.25,
+            optimize_current_ratio=True,
+            ratio_total_mA=6.0,
+            ratio_levels=9,
+        )
+        write_manifest(
+            str(tmp_path), config, _make_result(), "label", current_split=(4.5, 1.5)
+        )
+        data = read_manifest(str(tmp_path))
+
+        assert data["goal"] == "focality_tf"
+        assert data["intensity_weight"] == 0.25
+        assert data["optimize_current_ratio"] is True
+        assert data["ratio_total_mA"] == 6.0
+        assert data["ratio_levels"] == 9
+        assert data["current_split"] == [4.5, 1.5]
+
+    def test_current_split_serialised_as_a_two_element_list(self, tmp_path):
+        # Tuples are not a JSON type, so the writer must emit a list.
+        roi = SphericalROI(x=0, y=0, z=0, radius=5.0)
+        config = _make_config(roi, optimize_current_ratio=True)
+        write_manifest(
+            str(tmp_path), config, _make_result(), "label", current_split=(3.0, 1.0)
+        )
+
+        raw = json.loads((tmp_path / MANIFEST_FILENAME).read_text())
+        assert isinstance(raw["current_split"], list)
+        assert raw["current_split"] == [3.0, 1.0]
+
+    def test_current_split_omitted_records_null(self, tmp_path):
+        # The all-runs-failed path writes a manifest without a split.
+        roi = SphericalROI(x=0, y=0, z=0, radius=5.0)
+        config = _make_config(roi, optimize_current_ratio=True)
+        write_manifest(str(tmp_path), config, _make_result(success=False), "label")
+
+        assert read_manifest(str(tmp_path))["current_split"] is None
+
     def test_manifest_with_pareto_data(self, tmp_path):
         roi = SphericalROI(x=-42.0, y=-20.0, z=55.0, radius=10.0)
         config = _make_config(roi, goal="focality")

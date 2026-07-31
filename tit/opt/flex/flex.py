@@ -153,6 +153,9 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
     fvals = np.full(n, float("inf"))
 
     folders = [os.path.join(base_folder, f"{i:02d}") for i in range(n)]
+    # Winning channel current split per restart; stays None unless the
+    # optional current-ratio search ran (see objectives.install_ratio_search).
+    splits: list[tuple[float, float] | None] = [None] * n
 
     # -- Run optimizations --
     for i in range(n):
@@ -163,6 +166,7 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
         opt.run(cpus=config.cpus)
         fvals[i] = opt.optim_funvalue
+        splits[i] = getattr(opt, "_best_current_split", None)
 
     # -- Select best --
     valid_mask = fvals < float("inf")
@@ -215,6 +219,6 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
 
     # -- Write manifest --
     label = generate_label(config)
-    write_manifest(base_folder, config, result, label)
+    write_manifest(base_folder, config, result, label, current_split=splits[best_idx])
 
     return result

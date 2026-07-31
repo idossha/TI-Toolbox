@@ -13,12 +13,15 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Ensure simnibs submodules needed by builder.py are mocked
+# Ensure simnibs submodules needed by builder.py (and by the lazy imports in
+# objectives.py) are mocked
 for mod_name in (
     "simnibs.opt_struct",
     "simnibs.optimization",
     "simnibs.optimization.tes_flex_optimization",
     "simnibs.optimization.tes_flex_optimization.electrode_layout",
+    "simnibs.optimization.tes_flex_optimization.measures",
+    "simnibs.optimization.tes_flex_optimization.tes_flex_optimization",
 ):
     if mod_name not in sys.modules:
         sys.modules[mod_name] = MagicMock()
@@ -120,6 +123,236 @@ class TestBuildOptimization:
         )
         result = build_optimization(config)
         assert result.threshold == 0.5
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_threshold_free_focality_wires_callable_goal(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(goal="focality_tf", non_roi_method="everything_else")
+        result = build_optimization(config)
+
+        # goal is a single-element list holding a plain function (SimNIBS's
+        # callable-goal path requires isinstance(goal[0], types.FunctionType)).
+        assert isinstance(result.goal, list) and len(result.goal) == 1
+        assert isinstance(result.goal[0], types.FunctionType)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_threshold_free_goal_scores_roi_against_non_roi(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+        from tit.opt.flex.objectives import threshold_free_focality
+
+        config = _make_config(goal="focality_tf", non_roi_method="everything_else")
+        goal_fn = build_optimization(config).goal[0]
+
+        # e_pp[channel][roi_index]; index 0 = ROI, 1 = non-ROI.
+        e_pp = [[np.full(8, 0.5), np.full(8, 0.1)]]
+        assert goal_fn(e_pp) == pytest.approx(
+            -threshold_free_focality(np.full(8, 0.5), np.full(8, 0.1))
+        )
+        # A stronger off-target field must score worse (larger, since the
+        # solver minimizes).
+        assert goal_fn([[np.full(8, 0.5), np.full(8, 0.4)]]) > goal_fn(e_pp)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_threshold_free_goal_forwards_intensity_weight(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+        from tit.opt.flex.objectives import threshold_free_focality
+
+        config = _make_config(
+            goal="focality_tf",
+            non_roi_method="everything_else",
+            intensity_weight=0.75,
+        )
+        goal_fn = build_optimization(config).goal[0]
+
+        e_pp = [[np.full(8, 0.5), np.full(8, 0.1)]]
+        assert goal_fn(e_pp) == pytest.approx(
+            -threshold_free_focality(np.full(8, 0.5), np.full(8, 0.1), 0.75)
+        )
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_off_leaves_goal_fun_untouched(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(_make_config())
+        assert not isinstance(result.goal_fun, types.FunctionType)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_installs_goal_fun_wrapper(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        result = build_optimization(_make_config(optimize_current_ratio=True))
+
+        # SimNIBS's own goal_fun is replaced by the plain-function wrapper that
+        # scores placement and current split together.
+        assert isinstance(result.goal_fun, types.FunctionType)
+        assert callable(result.goal_fun)
+        # The declared goal is left in place so SimNIBS's own prepare()
+        # validation still runs before the wrapper takes over scoring.
+        assert result.goal == "mean"
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_with_roc_focality_keeps_thresholds(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(
+            goal="focality",
+            non_roi_method="everything_else",
+            thresholds="0.02,0.08",
+            optimize_current_ratio=True,
+        )
+        result = build_optimization(config)
+
+        assert result.goal == "focality"
+        assert result.threshold == [0.02, 0.08]
+        assert isinstance(result.goal_fun, types.FunctionType)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_with_threshold_free_goal(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        import types
+
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        from tit.opt.flex.builder import build_optimization
+
+        config = _make_config(
+            goal="focality_tf",
+            non_roi_method="everything_else",
+            optimize_current_ratio=True,
+            ratio_levels=5,
+        )
+        result = build_optimization(config)
+
+        # Both hooks are wired: the callable goal for SimNIBS's own path and
+        # the goal_fun wrapper that actually scores each candidate.
+        assert isinstance(result.goal, list)
+        assert isinstance(result.goal[0], types.FunctionType)
+        assert isinstance(result.goal_fun, types.FunctionType)
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_defaults_total_to_twice_current(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        import tit.opt.flex.objectives as objectives_mod
+        from tit.opt.flex.builder import build_optimization
+
+        with patch.object(
+            objectives_mod, "install_ratio_search", MagicMock()
+        ) as install:
+            build_optimization(
+                _make_config(current_mA=3.0, optimize_current_ratio=True)
+            )
+
+        ratios = install.call_args.kwargs["ratios"]
+        assert install.call_args.kwargs["base_mA"] == 3.0
+        assert len(ratios) == 21
+        # total = 2 * current_mA = 6.0 mA, spanning 1:3 .. 3:1
+        assert ratios[0] == pytest.approx((1.5, 4.5))
+        assert ratios[-1] == pytest.approx((4.5, 1.5))
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_ratio_search_honours_explicit_total(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm, _ = builder_env
+        mock_gpm.return_value = pm
+        import tit.opt.flex.objectives as objectives_mod
+        from tit.opt.flex.builder import build_optimization
+
+        with patch.object(
+            objectives_mod, "install_ratio_search", MagicMock()
+        ) as install:
+            build_optimization(
+                _make_config(
+                    current_mA=2.0,
+                    optimize_current_ratio=True,
+                    ratio_total_mA=8.0,
+                    ratio_levels=3,
+                )
+            )
+
+        ratios = install.call_args.kwargs["ratios"]
+        assert ratios == pytest.approx([(2.0, 6.0), (4.0, 4.0), (6.0, 2.0)])
+
+    @patch("tit.opt.flex.builder.os.makedirs")
+    @patch("tit.opt.flex.builder.utils.configure_roi")
+    @patch("tit.paths.get_path_manager")
+    def test_even_ratio_levels_still_include_the_balanced_split(
+        self, mock_gpm, mock_roi, mock_mkdirs, builder_env
+    ):
+        _, pm = builder_env[0], builder_env[1]
+        mock_gpm.return_value = pm
+        import tit.opt.flex.objectives as objectives_mod
+        from tit.opt.flex.builder import build_optimization
+
+        with patch.object(
+            objectives_mod, "install_ratio_search", MagicMock()
+        ) as install:
+            build_optimization(
+                _make_config(
+                    current_mA=2.0, optimize_current_ratio=True, ratio_levels=20
+                )
+            )
+
+        # ratio_levels rounds up to the next odd count, so the 1:1 split the
+        # search would otherwise fall back on stays inside the sweep.
+        ratios = install.call_args.kwargs["ratios"]
+        assert len(ratios) == 21
+        assert any(pair == pytest.approx((2.0, 2.0)) for pair in ratios)
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
@@ -391,6 +624,46 @@ class TestGenerateReport:
             mock_gen.set_configuration.assert_called_once()
             mock_gen.set_roi_info.assert_called_once()
             mock_gen.generate.assert_called_once()
+
+    def test_generate_report_records_ratio_settings(self, tmp_path):
+        patcher, mock_gen = self._patch_report_gen()
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
+            from tit.opt.flex.builder import generate_report
+
+            config = _make_config(
+                goal="focality_tf",
+                non_roi_method="everything_else",
+                intensity_weight=0.5,
+                optimize_current_ratio=True,
+                ratio_total_mA=6.0,
+                ratio_levels=9,
+            )
+            generate_report(
+                config, 1, np.array([-0.025]), 0, str(tmp_path), MagicMock()
+            )
+
+            kwargs = mock_gen.set_configuration.call_args.kwargs
+            assert kwargs["intensity_weight"] == 0.5
+            assert kwargs["optimize_current_ratio"] is True
+            assert kwargs["ratio_total_mA"] == 6.0
+            assert kwargs["ratio_levels"] == 9
+
+    def test_generate_report_ratio_settings_default_off(self, tmp_path):
+        patcher, mock_gen = self._patch_report_gen()
+        with patcher, patch("tit.paths.get_path_manager") as mock_gpm:
+            mock_gpm.return_value = MagicMock(project_dir="/proj")
+            from tit.opt.flex.builder import generate_report
+
+            generate_report(
+                _make_config(), 1, np.array([-0.025]), 0, str(tmp_path), MagicMock()
+            )
+
+            kwargs = mock_gen.set_configuration.call_args.kwargs
+            assert kwargs["intensity_weight"] == 0.0
+            assert kwargs["optimize_current_ratio"] is False
+            assert kwargs["ratio_total_mA"] is None
+            assert kwargs["ratio_levels"] == 21
 
     def test_generate_report_single_run(self, tmp_path):
         patcher, mock_gen = self._patch_report_gen()

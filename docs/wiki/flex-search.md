@@ -17,7 +17,7 @@ permalink: /wiki/flex-search/
 Flex Search uses differential evolution optimization to determine the best electrode positions for TI stimulation. The public API is `run_flex_search(config: FlexConfig) -> FlexResult`, with all configuration expressed through type-safe dataclasses and enums.
 
 **Core capabilities:**
-- **Optimization Goals** (`OptGoal` enum): `mean`, `max`, or `focality` (field in ROI / field in non-ROI)
+- **Optimization Goals** (`OptGoal` enum): `mean`, `max`, `focality` (threshold-based ROC), or `focality_tf` (threshold-free focality)
 - **Post-processing Methods** (`FieldPostproc` enum): `max_TI`, `dir_TI_normal`, or `dir_TI_tangential`
 - **ROI Definition** (`ROISpec`): `SphericalROI`, `AtlasROI`, or `SubcorticalROI` dataclasses
 - **Anisotropy Support**: Four conductivity models (`scalar`, `vn`, `dir`, `mc`) with configurable max ratio and conductivity
@@ -93,6 +93,107 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
 
 **Focality optimization analysis**: Comparative evaluation of threshold strategies reveals critical insights: threshold selection profoundly impacts results, with relative thresholds (50% of peak) yielding 75% higher focality than fixed thresholds, while 80% thresholds reduce focality by 37%, compared to fixed thresholds (0.1V/m and 0.3V/m) highlighting the importance of threshold optimization for precise neuromodulation. Dynamic % based thresholds were derived automatically from an intial pass of mean TImax search and applied to the upper bound only. The lower bound was kept at 20% from that value. *Data regarding focality thresholds and optimization performance comes from the supplementary information of the [TI-Toolbox reference](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext).*
+
+## Threshold-Free Focality Optimization
+
+The `focality_tf` goal targets the same objective as the ROC goal above -- concentrate the field in the ROI and keep it out of the non-ROI -- without asking the user to commit to a field threshold in advance. Instead of counting elements above and below a cutoff, it scores the ratio of the ROI field to the upper tail of the non-ROI field:
+
+**focality_tf** = mean(E<sub>ROI</sub>)<sup>1+w</sup> / p95(E<sub>non-ROI</sub>)
+
+Larger is better; the optimizer minimizes its negative. The denominator uses the 95th percentile rather than the mean or the maximum, so the score is driven by the hot spots that actually matter for off-target stimulation while staying insensitive to a handful of extreme elements.
+
+### The Intensity Weight
+
+The exponent `w` is the `intensity_weight` parameter (range `[0, 1]`, default `0.0`) and controls the trade-off between focality and on-target strength:
+
+- **`intensity_weight = 0.0`** -- balanced "tail" form. The ROI field enters linearly, so a montage that halves the off-target field is worth as much as one that doubles the on-target field. This is the default.
+- **`intensity_weight = 1.0`** -- intensity-first. The ROI field is squared, so the objective strongly prefers solutions that deliver field to the target even at the cost of some spread.
+- Intermediate values interpolate between the two.
+
+### Why Threshold-Free Matters
+
+The ROC goal's result depends entirely on a threshold that the user has to choose before the optimization runs, and the [threshold analysis above](#focality-thresholds---critical-for-optimization-success) shows how much that choice moves the outcome. The deeper problem is that a threshold pair which is well-calibrated for one target can be **jointly infeasible for another**: if no montage on the scalp can simultaneously push the ROI above the lower bound and hold the non-ROI below the upper bound, every candidate scores identically, the objective landscape goes flat, and differential evolution has no gradient to follow. This is most likely exactly where optimization is needed most -- deep targets.
+
+`focality_tf` has no such failure mode. It is a continuous ratio, so it always ranks one candidate above another and always hands the optimizer a usable landscape, whatever the depth of the target.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_objective-comparison.png" alt="Optimization goal comparison" style="width: 80%; max-width: 700px;">
+
+**Focality versus on-target intensity for each optimization goal, measured across subjects and deep targets.** In our tests all threshold-free objectives outperformed both ROC threshold settings on focality (AUC), and the ROC goal failed outright at targets where its thresholds were jointly infeasible. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand.
+
+### When to Use Which
+
+| | `focality` (ROC) | `focality_tf` (threshold-free) |
+|---|---|---|
+| **Thresholds required** | Yes -- `thresholds` must be set | No |
+| **What is scored** | ROC separation of ROI and non-ROI elements at the chosen cutoff | mean ROI field over the 95th percentile of the non-ROI field |
+| **Behavior at deep targets** | Can degenerate to a flat landscape if the thresholds are jointly infeasible | Stays graded; always ranks candidates |
+| **Intensity trade-off** | Implicit in the threshold choice | Explicit via `intensity_weight` |
+| **Use when** | You have a threshold you can defend and that the target can actually reach -- e.g. derived from a prior mean TI<sub>max</sub> pass | You do not want to commit to a threshold up front, or the target is deep enough that feasibility is in doubt |
+
+Both goals use the same ROI and non-ROI setup, so switching between them requires no change to the region definitions. One restriction applies only to `focality_tf`: it cannot be run with `detailed_results=True` (see [Detailed Results](#detailed-results)).
+
+## Current-Ratio Optimization
+
+By default the two TI channels carry equal current. The `optimize_current_ratio` flag opts into searching that split as well: the **total** injected current is held constant and divided between the two channels, with `ratio_levels` (default `21`) setting the density of the grid, which spans **1:3 to 3:1**. The total defaults to `2 x current_mA` and can be set explicitly with `ratio_total_mA`.
+
+### What Each Channel Carries
+
+Holding the *total* fixed means the *per-channel* current necessarily moves. Over the 1:3 to 3:1 grid each channel spans a quarter to three quarters of the total -- that is, **0.5x to 1.5x the configured `current_mA`** (the GUI's *Electrode Current*). With the default total of `2 x current_mA` and `current_mA = 2.0`, a channel is driven anywhere between `1.0 mA` and `3.0 mA`, with the pair always summing to `4.0 mA`. `current_mA` is therefore the center of the searched range, not a per-channel ceiling: choose it (or set `ratio_total_mA` directly) so that the 1.5x end is still within the dose you intend to deliver.
+
+The grid always contains the balanced 1:1 split -- `ratio_levels` is rounded up to the next odd number so the midpoint of the sweep is the exact even split. Enabling the ratio search therefore cannot return a worse solution than the equal-current montage it would otherwise have used.
+
+### Why the Split Matters
+
+The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is `2 * min(|E1|, |E2|)`. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Published TI montages essentially never have their optimum at 1:1, so leaving the split fixed gives up a free axis of the search space.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
+
+**How the two-channel current split scales and steers the TI envelope.** Because the envelope is bounded by the weaker channel, an unequal split trades peak amplitude against the position of the interference locus.
+
+### Searched Jointly, Not Afterwards
+
+The ratio is optimized **jointly with electrode placement**, not applied as a post-hoc refinement. Every candidate placement is scored at its own best split, so the optimizer sees the landscape it will actually be evaluated on. Running a ratio sweep after the fact would only refine a montage that had already been selected under a 1:1 assumption -- a different, and worse, optimum.
+
+The joint search costs almost nothing. The FEM is linear, so for a fixed electrode placement the per-channel fields simply scale with the injected current: evaluating an additional split is a rescale of the already-computed fields and a re-combination of the envelope, with no new FEM solve. Candidate splits are ranked on a deterministic subsample of the non-ROI, and only the winning split is re-scored on the full non-ROI, so the several-million-element non-ROI is traversed once per evaluation rather than once per split.
+
+Current-ratio optimization works with **any** goal (`mean`, `max`, `focality`, `focality_tf`). The winning split is applied to the final electrode simulation, so the fields written to disk are the ones the objective actually scored, and it is recorded in the run manifest (`flex_meta.json`).
+
+### Python Usage
+
+```python
+from tit.opt import FlexConfig, run_flex_search
+
+config = FlexConfig(
+    subject_id="101",
+    goal="focality_tf",           # threshold-free focality
+    postproc="max_TI",
+    current_mA=2.0,
+    intensity_weight=0.0,         # 0 = balanced, 1 = intensity-first
+    electrode=FlexConfig.ElectrodeConfig(
+        shape="ellipse",
+        dimensions=[8.0, 8.0],
+        gel_thickness=4.0,
+    ),
+    roi=FlexConfig.SphericalROI(
+        x=-35.0, y=5.0, z=5.0,
+        radius=10.0,
+        use_mni=True,
+    ),
+    non_roi_method="everything_else",
+    optimize_current_ratio=True,  # search the channel split jointly
+    ratio_total_mA=4.0,           # defaults to 2 * current_mA
+    ratio_levels=21,              # grid density, spanning 1:3 .. 3:1
+)
+
+result = run_flex_search(config)
+print(f"Best value: {result.best_value:.4f}")
+```
+
+Note that `thresholds` is not used by `focality_tf` and can be omitted; it remains required for the ROC-based `focality` goal.
+
+### Detailed Results
+
+`detailed_results=True` cannot be combined with the current-ratio search or with the `focality_tf` goal. Both install a Python callable as the optimization goal, and SimNIBS cannot serialize a callable into its detailed-results HDF5 file, so requesting the combination raises an error before the run starts rather than failing partway through. Leave `detailed_results` at its default of `False` -- the GUI does not expose it -- and read run metadata from `flex_meta.json` instead.
 
 ## Multi-Start Optimization
 

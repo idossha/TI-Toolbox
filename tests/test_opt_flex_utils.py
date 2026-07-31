@@ -99,6 +99,64 @@ class TestConfigureSphericalROI:
         assert non_roi_mock.roi_sphere_operator == ["difference"]
         assert non_roi_mock.weight == -1
 
+    @pytest.mark.parametrize("goal", ["focality", "focality_tf"])
+    def test_spherical_focality_goals_add_non_roi(self, goal):
+        # Both focality goals must build a non-ROI, so the objective has both
+        # regions (e_pp index 0 and 1) to compare.
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal=goal,
+            non_roi_method="everything_else",
+            roi=SphericalROI(x=10, y=20, z=30, radius=10),
+        )
+        configure_roi(opt, config)
+
+        assert opt.add_roi.call_count == 2
+        assert non_roi_mock.roi_sphere_operator == ["difference"]
+        assert non_roi_mock.weight == -1
+
+    @pytest.mark.parametrize("goal", ["mean", "max"])
+    def test_non_focality_goals_skip_the_non_roi(self, goal):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        opt.add_roi.return_value = MagicMock()
+
+        config = _make_config(
+            goal=goal,
+            roi=SphericalROI(x=10, y=20, z=30, radius=10),
+        )
+        configure_roi(opt, config)
+
+        assert opt.add_roi.call_count == 1
+
+    @pytest.mark.parametrize("goal", ["focality", "focality_tf"])
+    def test_spherical_focality_goals_specific_non_roi(self, goal):
+        from tit.opt.flex.utils import configure_roi
+
+        opt = MagicMock()
+        roi_mock = MagicMock()
+        non_roi_mock = MagicMock()
+        opt.add_roi.side_effect = [roi_mock, non_roi_mock]
+
+        config = _make_config(
+            goal=goal,
+            non_roi_method="specific",
+            roi=SphericalROI(x=10, y=20, z=30, radius=10),
+            non_roi=SphericalROI(x=-10, y=-20, z=-30, radius=15),
+        )
+        configure_roi(opt, config)
+
+        assert non_roi_mock.roi_sphere_center == [-10, -20, -30]
+        assert non_roi_mock.roi_sphere_radius == 15
+        assert non_roi_mock.weight == -1
+
     def test_spherical_focality_specific(self):
         from tit.opt.flex.utils import configure_roi
 
@@ -287,7 +345,8 @@ class TestConfigureAtlasROI:
         assert roi_mock.mask_path == ["/path/to/lh.aparc.annot"]
         assert roi_mock.mask_value == [1001]
 
-    def test_atlas_focality_everything_else(self):
+    @pytest.mark.parametrize("goal", ["focality", "focality_tf"])
+    def test_atlas_focality_everything_else(self, goal):
         from tit.opt.flex.utils import configure_roi
 
         opt = MagicMock()
@@ -296,7 +355,7 @@ class TestConfigureAtlasROI:
         opt.add_roi.side_effect = [roi_mock, non_roi_mock]
 
         config = _make_config(
-            goal="focality",
+            goal=goal,
             non_roi_method="everything_else",
             roi=AtlasROI(
                 atlas_path="/path/to/lh.aparc.annot", label=1001, hemisphere="lh"
@@ -413,7 +472,8 @@ class TestConfigureSubcorticalROI:
         with pytest.raises(FileNotFoundError):
             configure_roi(opt, config)
 
-    def test_subcortical_focality_everything_else(self, tmp_path):
+    @pytest.mark.parametrize("goal", ["focality", "focality_tf"])
+    def test_subcortical_focality_everything_else(self, tmp_path, goal):
         from tit.opt.flex.utils import configure_roi
 
         atlas_file = tmp_path / "aseg.nii.gz"
@@ -425,7 +485,7 @@ class TestConfigureSubcorticalROI:
         opt.add_roi.side_effect = [roi_mock, non_roi_mock]
 
         config = _make_config(
-            goal="focality",
+            goal=goal,
             non_roi_method="everything_else",
             roi=SubcorticalROI(atlas_path=str(atlas_file), label=11),
         )
