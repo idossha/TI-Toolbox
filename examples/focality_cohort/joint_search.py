@@ -36,7 +36,11 @@ ratio_levels, pareto_objective, install_joint_goal
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
+
+_log = logging.getLogger("simnibs")
 
 # Baseline used by Huang & Parra: the modulation depth 2*min(|E1|,|E2|) is
 # maximised when the two induced *fields* match at the target, which for
@@ -98,7 +102,8 @@ def field_equalising_ratio(e1_roi, e2_roi, total_mA: float, base_mA: float):
 
 
 def install_joint_goal(opt, objective, store, base_mA: float,
-                       ratios: list[tuple[float, float]] | None = None):
+                       ratios: list[tuple[float, float]] | None = None,
+                       select_subsample: int = 50000):
     """Replace ``opt.goal_fun`` with a joint placement + current-ratio search.
 
     *objective* is called as ``objective(e_roi_env, e_nonroi_env)`` and must
@@ -119,6 +124,13 @@ def install_joint_goal(opt, objective, store, base_mA: float,
         Per-channel current baked into ``opt.electrode`` (fields scale from it).
     ratios : list of (I1, I2), optional
         Splits to sweep. ``None`` keeps the built-in equal split (1:1).
+    select_subsample : int, optional
+        Evaluate the *ratio choice* on at most this many non-ROI points, then
+        re-score the winner on the full non-ROI. The non-ROI is typically the
+        whole brain (~3M elements), so sweeping every ratio at full resolution
+        would dominate the FEM cost; a fixed deterministic subsample makes the
+        selection ~free while the returned objective stays exact. Set to 0 to
+        always use the full non-ROI.
     """
     from simnibs.optimization.tes_flex_optimization.tes_flex_optimization import (
         postprocess_e,
@@ -131,6 +143,24 @@ def install_joint_goal(opt, objective, store, base_mA: float,
     store.setdefault("best_ratio_hist", [])
 
     sweep = ratios if ratios else [(base_mA, base_mA)]
+    idx_cache: dict[int, np.ndarray | None] = {}
+
+    def _sub_idx(n):
+        """Deterministic subsample index for the non-ROI (cached by size)."""
+        if n not in idx_cache:
+            idx_cache[n] = (np.linspace(0, n - 1, select_subsample).astype(int)
+                            if select_subsample and n > select_subsample else None)
+        return idx_cache[n]
+
+    def _envelope(e, i_roi, a1, a2, rows=None):
+        e1 = e[0][i_roi] if rows is None else e[0][i_roi][rows]
+        e2 = e[1][i_roi] if rows is None else e[1][i_roi][rows]
+        dirvec = opt._goal_dir[i_roi]
+        if rows is not None and isinstance(dirvec, np.ndarray) and dirvec.ndim == 2 \
+                and dirvec.shape[0] == len(e[0][i_roi]):
+            dirvec = dirvec[rows]
+        return postprocess_e(e=a1 * e1, e2=a2 * e2, dirvec=dirvec,
+                             type=opt.e_postproc[i_roi])
 
     def goal_fun(parameters):
         opt.n_test += 1
@@ -140,23 +170,23 @@ def install_joint_goal(opt, objective, store, base_mA: float,
             return 2.0  # electrode overlap — SimNIBS's own penalty value
         opt.n_sim += 1
 
-        best_v, best_env, best_split = float("inf"), None, None
-        for i1, i2 in sweep:
-            a1, a2 = i1 / base_mA, i2 / base_mA
-            env = [
-                postprocess_e(
-                    e=a1 * e[0][i_roi],
-                    e2=a2 * e[1][i_roi],
-                    dirvec=opt._goal_dir[i_roi],
-                    type=opt.e_postproc[i_roi],
-                )
-                for i_roi in range(opt._n_roi)
-            ]
-            v = float(objective(env[0], env[1]))
-            if np.isfinite(v) and v < best_v:
-                best_v, best_env, best_split = v, env, (i1, i2)
+        # -- stage 1: pick the split on a cheap non-ROI subsample --
+        rows = _sub_idx(len(e[0][1])) if len(sweep) > 1 and opt._n_roi > 1 else None
+        best_split, best_probe = sweep[0], float("inf")
+        if len(sweep) > 1:
+            for i1, i2 in sweep:
+                a1, a2 = i1 / base_mA, i2 / base_mA
+                roi_env = _envelope(e, 0, a1, a2)
+                non_env = _envelope(e, 1, a1, a2, rows)
+                v = float(objective(roi_env, non_env))
+                if np.isfinite(v) and v < best_probe:
+                    best_probe, best_split = v, (i1, i2)
 
-        if best_env is None:
+        # -- stage 2: exact score for the winning split (full non-ROI) --
+        a1, a2 = best_split[0] / base_mA, best_split[1] / base_mA
+        best_env = [_envelope(e, i_roi, a1, a2) for i_roi in range(opt._n_roi)]
+        best_v = float(objective(best_env[0], best_env[1]))
+        if not np.isfinite(best_v):
             return 1e3
 
         store["trajectory"].append(best_v)
@@ -177,6 +207,12 @@ def install_joint_goal(opt, objective, store, base_mA: float,
             except Exception:
                 store["electrode_pos"] = None
         store["ratio_progress"].append(store.get("best_ratio", 0.0))
+        # Emit SimNIBS's own progress line so live monitoring and the report's
+        # trajectory parser keep working for joint runs.
+        _log.info(
+            "Goal (joint): %.3f (n_sim: %d, n_test: %d) split %.1f:%.1f mA",
+            best_v, opt.n_sim, opt.n_test, best_split[0], best_split[1],
+        )
         return best_v
 
     opt.goal_fun = goal_fun
