@@ -151,6 +151,9 @@ def main():
     for c in done:
         if c["target"] not in targets:
             targets.append(c["target"])
+    # Only show targets whose full arm set is complete (avoid half-empty sections).
+    n_arms = len(ARM_ORDER)
+    targets = [t for t in targets if len([c for c in done if c["target"] == t]) >= n_arms]
 
     # metrics table
     rows = ""
