@@ -718,6 +718,28 @@ class TestApplyCurrentSplit:
         assert electrodes[0].current == pytest.approx([0.003, -0.003])
         assert electrodes[1].current == pytest.approx([0.001, -0.001])
 
+    @pytest.mark.parametrize("per_pole", [1, 2, 4])
+    def test_split_is_per_channel_not_per_electrode(self, per_pole):
+        # The split is a per-CHANNEL dose, so the sum of a channel's anode
+        # currents must equal it regardless of how many electrodes share the
+        # load. Scaling off a single electrode's current would overshoot by
+        # `per_pole` once a pole holds more than one electrode.
+        share = 0.002 / per_pole
+        electrodes = [
+            SimpleNamespace(current=[share] * per_pole + [-share] * per_pole)
+            for _ in range(2)
+        ]
+        objectives._apply_current_split(
+            SimpleNamespace(electrode=electrodes), (3.0, 1.0)
+        )
+
+        for pair, expected_mA in zip(electrodes, (3.0, 1.0)):
+            injected_mA = sum(v for v in pair.current if v > 0) * 1000.0
+            assert injected_mA == pytest.approx(expected_mA)
+            # Still balanced, and the load is still shared evenly.
+            assert sum(pair.current) == pytest.approx(0.0)
+            assert len(pair.current) == 2 * per_pole
+
     def test_preserves_the_total_current(self):
         electrodes = [_electrode_pair(), _electrode_pair()]
         objectives._apply_current_split(

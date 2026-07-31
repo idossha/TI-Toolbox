@@ -359,11 +359,19 @@ def _balanced_first(
 
 
 def _apply_current_split(opt, split: tuple[float, float]) -> None:
-    """Rescale the channel electrodes so they inject the chosen *split*.
+    """Rescale each channel's electrodes so the channel injects the *split*.
 
-    The per-electrode currents are scaled rather than overwritten, so whatever
-    sign and array structure SimNIBS built (including the ``_current_channel``
-    used when Dirichlet correction is active) is preserved.
+    ``split`` gives the current **per channel** in mA, which is the quantity the
+    ratio search reasons about and the quantity a dose limit applies to.  A
+    channel's injected current is the sum of its positive per-electrode
+    currents, so that sum -- not any single electrode's current -- is the
+    reference the scale factor is built from.  An array with several electrodes
+    per pole therefore still ends up injecting exactly the requested channel
+    current, with the load shared across its electrodes as SimNIBS arranged it.
+
+    Currents are scaled rather than overwritten, so the sign pattern and array
+    structure SimNIBS built are preserved -- including ``_current_channel``,
+    used when Dirichlet correction is active.
     """
     electrodes = getattr(opt, "electrode", None) or []
     for channel, current_mA in enumerate(split):
@@ -373,11 +381,15 @@ def _apply_current_split(opt, split: tuple[float, float]) -> None:
         existing = getattr(electrode, "current", None)
         if existing is None or len(existing) == 0:
             continue
-        # |current| is identical across a channel's electrodes; use it as the
-        # reference amplitude so the scale factor is exact.
-        reference = max(abs(float(existing[0])), 1e-12)
+        values = [float(value) for value in existing]
+        # The channel current is what the anodes inject in total; fall back to
+        # the summed magnitude if the array is stored without signs.
+        injected = sum(value for value in values if value > 0.0)
+        if injected <= 0.0:
+            injected = sum(abs(value) for value in values) / 2.0
+        reference = max(injected, 1e-12)
         scale = (float(current_mA) / 1000.0) / reference
-        electrode.current = [float(value) * scale for value in existing]
+        electrode.current = [value * scale for value in values]
         per_channel = getattr(electrode, "_current_channel", None)
         if per_channel is not None:
             electrode._current_channel = [float(v) * scale for v in per_channel]
