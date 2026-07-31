@@ -191,8 +191,10 @@ def hf_peak(*fields) -> np.ndarray:
 def hf_sar(*fields) -> np.ndarray:
     """Incoherent carrier heating driver, proportional to SAR: ``sum_i |E_i|^2``.
 
-    Carriers sit at different, incommensurate frequencies, so their
-    SAR/power adds rather than their amplitudes.
+    Carriers sit at different, incommensurate frequencies, so their SAR/power
+    adds rather than their amplitudes. This is a field-domain proxy in
+    ``(V/m)^2``, **not** calibrated SAR: the latter is ``(sigma / 2 rho) *
+    hf_sar`` and needs per-tissue conductivity and density.
 
     Parameters
     ----------
