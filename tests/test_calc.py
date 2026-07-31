@@ -4,8 +4,11 @@ Unit tests for tit/calc.py — TI vector math (core physics).
 
 Tests the Grossman et al. 2017 TI algorithm including:
 - get_TI_vectors: two-field temporal interference
-- get_nTI_vectors: recursive binary-tree N-field TI
-- get_mTI_vectors: convenience 4-field mTI wrapper
+- get_nTI_vectors: deprecated recursive binary-tree N-field TI shim
+- get_mTI_vectors: K-pair mTI modulation-amplitude vectors
+
+See tests/test_calc_mti.py for coverage of the N>2 modulation-depth
+envelope (_mti_modulation_depth) that now backs get_mTI_vectors.
 """
 
 import sys
@@ -343,53 +346,34 @@ class TestTIVectorsAnalytical:
 
 
 # ---------------------------------------------------------------------------
-# get_nTI_vectors
+# get_nTI_vectors (deprecated shim -> delegates to get_mTI_vectors)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestNTIVectors:
-    """Tests for get_nTI_vectors (recursive binary-tree pairing)."""
+    """Tests for the deprecated get_nTI_vectors shim.
+
+    Numerical equivalence with the recursive binary-tree formula it used
+    to implement is intentionally NOT tested here -- that formula was
+    measured to be physically wrong for N>2 (see get_nTI_vectors's
+    docstring and tests/test_calc_mti.py::TestRecursiveRegression). This
+    class only checks delegation, shape, and error behavior.
+    """
 
     def test_two_fields_equals_get_ti_vectors(self):
         E1 = RNG.standard_normal((10, 3))
         E2 = RNG.standard_normal((10, 3))
-        result = get_nTI_vectors([E1, E2])
+        with pytest.deprecated_call():
+            result = get_nTI_vectors([E1, E2])
         expected = get_TI_vectors(E1, E2)
         np.testing.assert_allclose(result, expected, atol=1e-12)
 
-    def test_four_fields_binary_tree(self):
+    def test_four_fields_matches_get_mti_vectors(self):
         fields = [RNG.standard_normal((8, 3)) for _ in range(4)]
-        result = get_nTI_vectors(fields)
-        # TI(TI(E1,E2), TI(E3,E4))
-        ti_a = get_TI_vectors(fields[0], fields[1])
-        ti_b = get_TI_vectors(fields[2], fields[3])
-        expected = get_TI_vectors(ti_a, ti_b)
-        np.testing.assert_allclose(result, expected, atol=1e-12)
-
-    def test_six_fields(self):
-        fields = [RNG.standard_normal((5, 3)) for _ in range(6)]
-        result = get_nTI_vectors(fields)
-        # First round: TI(E1,E2), TI(E3,E4), TI(E5,E6) -> 3 results
-        r1 = get_TI_vectors(fields[0], fields[1])
-        r2 = get_TI_vectors(fields[2], fields[3])
-        r3 = get_TI_vectors(fields[4], fields[5])
-        # Second round: TI(r1, r2), r3 carries forward -> 2 results
-        s1 = get_TI_vectors(r1, r2)
-        # Third round: TI(s1, r3)
-        expected = get_TI_vectors(s1, r3)
-        np.testing.assert_allclose(result, expected, atol=1e-12)
-
-    def test_eight_fields(self):
-        fields = [RNG.standard_normal((5, 3)) for _ in range(8)]
-        result = get_nTI_vectors(fields)
-        r1 = get_TI_vectors(fields[0], fields[1])
-        r2 = get_TI_vectors(fields[2], fields[3])
-        r3 = get_TI_vectors(fields[4], fields[5])
-        r4 = get_TI_vectors(fields[6], fields[7])
-        s1 = get_TI_vectors(r1, r2)
-        s2 = get_TI_vectors(r3, r4)
-        expected = get_TI_vectors(s1, s2)
+        with pytest.deprecated_call():
+            result = get_nTI_vectors(fields)
+        expected = get_mTI_vectors(fields)
         np.testing.assert_allclose(result, expected, atol=1e-12)
 
     def test_odd_number_raises(self):
@@ -408,15 +392,18 @@ class TestNTIVectors:
     def test_output_shape_preserved(self):
         n_points = 20
         fields = [RNG.standard_normal((n_points, 3)) for _ in range(4)]
-        result = get_nTI_vectors(fields)
+        with pytest.deprecated_call():
+            result = get_nTI_vectors(fields)
         assert result.shape == (n_points, 3)
 
     def test_two_fields_identical_to_direct_call(self):
         """Sanity check: nTI with 2 fields is just get_TI_vectors."""
         E1 = np.array([[1.0, 0.0, 0.0]])
         E2 = np.array([[0.0, 1.0, 0.0]])
+        with pytest.deprecated_call():
+            result = get_nTI_vectors([E1, E2])
         np.testing.assert_allclose(
-            get_nTI_vectors([E1, E2]),
+            result,
             get_TI_vectors(E1, E2),
             atol=1e-12,
         )
@@ -429,67 +416,62 @@ class TestNTIVectors:
 
 @pytest.mark.unit
 class TestMTIVectors:
-    """Tests for get_mTI_vectors (4-field convenience wrapper)."""
+    """Tests for get_mTI_vectors (K-pair mTI modulation-amplitude vectors).
 
-    def test_mti_equals_nested_ti(self):
+    Deep numerical verification of the K>=2 envelope (_mti_modulation_depth)
+    lives in tests/test_calc_mti.py; this class covers get_mTI_vectors's
+    own contract: N=2 dispatch, shape, and input validation.
+    """
+
+    def test_mti_two_fields_dispatches_to_ti_vectors(self):
         E1 = RNG.standard_normal((10, 3))
         E2 = RNG.standard_normal((10, 3))
-        E3 = RNG.standard_normal((10, 3))
-        E4 = RNG.standard_normal((10, 3))
-        result = get_mTI_vectors(E1, E2, E3, E4)
-        ti_a = get_TI_vectors(E1, E2)
-        ti_b = get_TI_vectors(E3, E4)
-        expected = get_TI_vectors(ti_a, ti_b)
+        result = get_mTI_vectors([E1, E2])
+        expected = get_TI_vectors(E1, E2)
         np.testing.assert_allclose(result, expected, atol=1e-12)
-
-    def test_mti_equals_nti_with_four(self):
-        fields = [RNG.standard_normal((8, 3)) for _ in range(4)]
-        mti_result = get_mTI_vectors(*fields)
-        nti_result = get_nTI_vectors(fields)
-        np.testing.assert_allclose(mti_result, nti_result, atol=1e-12)
 
     def test_mti_shape_validation_wrong_dim(self):
         bad = np.array([[1.0, 2.0]])  # (1, 2) not (N, 3)
         ok = np.array([[1.0, 2.0, 3.0]])
         with pytest.raises(ValueError, match="must have shape"):
-            get_mTI_vectors(bad, ok, ok, ok)
+            get_mTI_vectors([bad, ok, ok, ok])
 
     def test_mti_shape_validation_1d(self):
         bad = np.array([1.0, 2.0, 3.0])  # 1D not 2D
         ok = np.array([[1.0, 2.0, 3.0]])
         with pytest.raises(ValueError, match="must have shape"):
-            get_mTI_vectors(bad, ok, ok, ok)
+            get_mTI_vectors([bad, ok, ok, ok])
 
     def test_mti_shape_mismatch(self):
         E1 = np.ones((5, 3))
         E2 = np.ones((5, 3))
         E3 = np.ones((3, 3))
         E4 = np.ones((3, 3))
-        with pytest.raises(ValueError, match="identical shapes"):
-            get_mTI_vectors(E1, E2, E3, E4)
+        with pytest.raises(ValueError, match="identical shape"):
+            get_mTI_vectors([E1, E2, E3, E4])
 
     def test_mti_output_shape(self):
         n = 15
         fields = [RNG.standard_normal((n, 3)) for _ in range(4)]
-        result = get_mTI_vectors(*fields)
+        result = get_mTI_vectors(fields)
         assert result.shape == (n, 3)
 
     def test_mti_all_zeros(self):
         z = np.zeros((5, 3))
-        result = get_mTI_vectors(z, z, z, z)
+        result = get_mTI_vectors([z, z, z, z])
         np.testing.assert_allclose(result, np.zeros((5, 3)))
 
     def test_mti_with_one_zero_pair(self):
         E1 = np.array([[1.0, 0.0, 0.0]])
         E2 = np.array([[0.5, 0.0, 0.0]])
         z = np.zeros((1, 3))
-        result = get_mTI_vectors(E1, E2, z, z)
+        result = get_mTI_vectors([E1, E2, z, z])
         assert result.shape == (1, 3)
         assert not np.any(np.isnan(result))
 
     def test_mti_no_nans(self):
         for _ in range(20):
             fields = [RNG.standard_normal((10, 3)) for _ in range(4)]
-            result = get_mTI_vectors(*fields)
+            result = get_mTI_vectors(fields)
             assert not np.any(np.isnan(result))
             assert not np.any(np.isinf(result))

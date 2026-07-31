@@ -22,6 +22,8 @@ tit.stats.permutation : Orchestration functions that consume these configs.
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from tit.constants import FSAVG_FIELD_NAMES
+
 # ── Shared enums (private; aliased into both config classes) ──────────────
 
 
@@ -43,9 +45,11 @@ class _AnalysisSpace(StrEnum):
     FSAVERAGE = "fsaverage"
 
 
-#: Surface field quantities the fsaverage stats path can load (mirrors
-#: :data:`tit.source.config.VALID_FSAVG_FIELDS`).
-_VALID_FSAVG_FIELDS = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+#: Surface field quantities the fsaverage stats path can load. Sourced from
+#: :data:`tit.constants.FSAVG_FIELD_NAMES` (not from
+#: :data:`tit.source.config.VALID_FSAVG_FIELDS`, which it mirrors) because
+#: importing ``tit.source.config`` would pull in ``mne``.
+_VALID_FSAVG_FIELDS = FSAVG_FIELD_NAMES
 _VALID_FSAVG_SPACINGS = (5, 6, 7)
 
 

@@ -24,11 +24,23 @@ import tempfile
 
 from PyQt5 import QtCore, QtWidgets
 
+from tit.constants import get_field_spec
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.style import COLOR_ERROR, COLOR_ERROR_DARK, COLOR_ERROR_DARKER
 from tit.gui.utils import confirm_overwrite
 from tit.paths import get_path_manager
+from tit.source.config import VALID_FSAVG_FIELDS
+
+# fsaverage checkbox fields, in display order, with their initial checked
+# state. TI_max / TI_normal (functional) start checked; hf_peak / hf_sar
+# (safety) start unchecked.
+_FSAVG_FIELD_DEFAULTS = {
+    "TI_max": True,
+    "TI_normal": True,
+    "hf_peak": False,
+    "hf_sar": False,
+}
 
 # Extension metadata (required)
 EXTENSION_NAME = "Source"
@@ -109,18 +121,13 @@ class SourceWidget(QtWidgets.QWidget):
         fields_widget = QtWidgets.QWidget()
         fields_layout = QtWidgets.QHBoxLayout(fields_widget)
         fields_layout.setContentsMargins(0, 0, 0, 0)
-        self.field_ti_max = QtWidgets.QCheckBox("TI_max")
-        self.field_ti_normal = QtWidgets.QCheckBox("TI_normal")
-        self.field_hf_peak = QtWidgets.QCheckBox("hf_peak")
-        self.field_hf_sar = QtWidgets.QCheckBox("hf_sar")
-        self.field_ti_max.setChecked(True)
-        self.field_ti_normal.setChecked(True)
-        for cb in (
-            self.field_ti_max,
-            self.field_ti_normal,
-            self.field_hf_peak,
-            self.field_hf_sar,
-        ):
+        self.field_checkboxes = {}
+        for name in VALID_FSAVG_FIELDS:
+            spec = get_field_spec(name)
+            cb = QtWidgets.QCheckBox(spec.label)
+            cb.setChecked(_FSAVG_FIELD_DEFAULTS[name])
+            cb.setToolTip(f"{spec.description} ({spec.units})")
+            self.field_checkboxes[name] = cb
             fields_layout.addWidget(cb)
         fields_layout.addStretch()
         fsavg_form.addRow("Fields:", fields_widget)
@@ -201,16 +208,11 @@ class SourceWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _selected_fields(self):
-        fields = []
-        if self.field_ti_max.isChecked():
-            fields.append("TI_max")
-        if self.field_ti_normal.isChecked():
-            fields.append("TI_normal")
-        if self.field_hf_peak.isChecked():
-            fields.append("hf_peak")
-        if self.field_hf_sar.isChecked():
-            fields.append("hf_sar")
-        return fields
+        return [
+            name
+            for name in VALID_FSAVG_FIELDS
+            if self.field_checkboxes[name].isChecked()
+        ]
 
     def _confirm_overwrite(self, paths):
         """Return ``True`` if it is safe to proceed for *paths*.

@@ -390,7 +390,7 @@ def _compute_fields(config, m1, m2, m3, m4, positions):
 
     # Compute TI / mTI
     if config.is_mti:
-        TI = get_mTI_vectors(E1, E2, E3, E4)
+        TI = get_mTI_vectors([E1, E2, E3, E4])
         E_sum = (E1 + E2 + E3 + E4) if config.export_sum else None
     else:
         TI = get_TI_vectors(E1, E2)

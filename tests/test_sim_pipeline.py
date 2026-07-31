@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,20 @@ import tit.sim.utils as _utils_mod
 # ============================================================================
 # Helpers
 # ============================================================================
+
+
+def _mock_mesh_efields(mock_mesh_io, n_elements=8):
+    """Give a mocked ``mesh_io`` realistic ``(N, 3)`` E-field values.
+
+    The field metrics in :mod:`tit.fields` validate input shape, so a bare
+    ``MagicMock`` (which ``np.asarray`` flattens to an empty array) is not a
+    usable stand-in for an E-field.
+    """
+    value = np.zeros((n_elements, 3), dtype=float)
+    mesh = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+    mesh.field.__getitem__.return_value.value = value
+    mock_mesh_io.read_msh.return_value.field.__getitem__.return_value.value = value
+    return value
 
 
 def _make_sim_config(**overrides):
@@ -110,13 +125,14 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_ti_mod, "TI"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
 
             dirs = {
                 "montage_dir": "/fake/sim/test_ti",
@@ -158,13 +174,14 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_ti_mod, "TI"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
             mock_setup_dirs.return_value = {
                 "montage_dir": "/fake",
                 "hf_dir": "/fake/hf",
@@ -228,7 +245,7 @@ class TestMTISimulation:
             patch.object(_mti_mod, "start_t1_to_mni"),
             patch.object(_mti_mod, "finish_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
-            patch.object(_mti_mod, "mesh_io"),
+            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
             patch.object(_mti_mod, "get_nTI_vectors") as mock_get_nti,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
@@ -237,6 +254,7 @@ class TestMTISimulation:
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
 
             dirs = {
                 "montage_dir": "/fake/sim/test_mti",

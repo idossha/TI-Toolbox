@@ -37,6 +37,7 @@ from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
 from tit.gui.components.region_chips import RegionChipsWidget
 from tit.atlas.constants import BUILTIN_ATLASES
 from tit.paths import get_path_manager
+from tit import constants as const
 
 
 class AnalysisThread(BaseProcessThread):
