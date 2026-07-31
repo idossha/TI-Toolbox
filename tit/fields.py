@@ -30,10 +30,10 @@ import itertools
 import numpy as np
 
 #: Fields at or below this count use exact sign enumeration (2**(N-1)
-#: combinations) in `hf_peak`; above it, a direction-sweep lower bound is
-#: used instead. Measured cost of exact enumeration at 200k elements: N=8
-#: (128 combos) ~2.0s, N=12 (2048 combos) ~44.6s -- the combinatorial blowup
-#: past N=8 is what the sweep fallback avoids.
+#: combinations) in `hf_peak`; above it, a sign-refined direction sweep is
+#: used instead (see `_hf_peak_sweep`). Measured cost of exact enumeration at
+#: 200k elements: N=8 (128 combos) ~2.0s, N=12 (2048 combos) ~44.6s -- the
+#: combinatorial blowup past N=8 is what the sweep fallback avoids.
 EXACT_SIGN_ENUM_MAX_FIELDS = 8
 
 # Spatial elements processed per chunk, bounding peak memory independent of
@@ -41,19 +41,15 @@ EXACT_SIGN_ENUM_MAX_FIELDS = 8
 _CHUNK_SIZE = 20_000
 
 # Direction count for the N > EXACT_SIGN_ENUM_MAX_FIELDS sweep fallback.
-# hf_peak_sweep is a lower bound (max over a finite sample of directions),
-# so this is chosen generously to keep the underestimate small.
+# The sweep is still a lower bound on the true max (only sampled directions'
+# implied sign patterns are tried), so this is chosen generously to keep the
+# sampling gap small.
 _SWEEP_N_DIRECTIONS = 4000
 
 # Directions processed per inner batch during the sweep, bounding memory
 # alongside _CHUNK_SIZE (peak use ~ _CHUNK_SIZE * _SWEEP_DIR_BATCH, independent
 # of N since the sweep accumulates one field at a time).
 _SWEEP_DIR_BATCH = 200
-
-
-def _norm(E: np.ndarray) -> np.ndarray:
-    """Per-row Euclidean norm of an ``(..., 3)`` vector array."""
-    return np.linalg.norm(np.asarray(E, dtype=float), axis=-1)
 
 
 def _stack_fields(fields: tuple) -> tuple[np.ndarray, tuple]:
@@ -120,10 +116,16 @@ def _fibonacci_directions(n_points: int) -> np.ndarray:
 
 
 def _hf_peak_sweep(stack: np.ndarray) -> np.ndarray:
-    """Lower-bound ``max_n sum_i |E_i . n|`` via a chunked direction sweep.
+    """Sign-refined direction sweep for N > `EXACT_SIGN_ENUM_MAX_FIELDS`.
 
-    Accumulates one field at a time (BLAS matmul per field against a batch
-    of directions) so memory stays independent of N.
+    Samples directions and finds each row's best support direction ``n*``
+    (``max_n sum_i |E_i . n|``), then evaluates the *exact*, realizable
+    vector sum for the sign pattern ``n*`` implies: ``s_i = sign(E_i . n*)``,
+    result ``|sum_i s_i E_i|``. By Cauchy-Schwarz this is >= the raw support
+    value (a mere projection), so it is both tighter and an actually
+    achievable field state. Still a lower bound on the true max over all
+    ``2**(N-1)`` sign combinations, since only the sampled directions'
+    implied patterns are tried -- see `hf_peak`.
     """
     n, m, _ = stack.shape
     directions = _fibonacci_directions(_SWEEP_N_DIRECTIONS)
@@ -131,15 +133,28 @@ def _hf_peak_sweep(stack: np.ndarray) -> np.ndarray:
     for lo in range(0, m, _CHUNK_SIZE):
         hi = min(lo + _CHUNK_SIZE, m)
         c = hi - lo
-        best = np.zeros(c, dtype=float)
+        best_support = np.full(c, -np.inf, dtype=float)
+        best_dir = np.zeros(c, dtype=np.int64)
         for d0 in range(0, _SWEEP_N_DIRECTIONS, _SWEEP_DIR_BATCH):
             d1 = min(d0 + _SWEEP_DIR_BATCH, _SWEEP_N_DIRECTIONS)
             dirs_batch = directions[d0:d1]
             support = np.zeros((c, d1 - d0), dtype=float)
             for i in range(n):
                 support += np.abs(stack[i, lo:hi, :] @ dirs_batch.T)
-            np.maximum(best, support.max(axis=1), out=best)
-        out[lo:hi] = best
+            batch_argmax = support.argmax(axis=1)
+            batch_best = support[np.arange(c), batch_argmax]
+            improved = batch_best > best_support
+            best_support = np.where(improved, batch_best, best_support)
+            best_dir = np.where(improved, d0 + batch_argmax, best_dir)
+
+        n_star = directions[best_dir]  # (c, 3), each row's best direction
+        total = np.zeros((c, 3), dtype=float)
+        for i in range(n):
+            e_i = stack[i, lo:hi, :]
+            dot = np.einsum("cx,cx->c", e_i, n_star)
+            sign = np.where(dot < 0, -1.0, 1.0)  # tie-break dot==0 to +1
+            total += sign[:, None] * e_i
+        out[lo:hi] = np.linalg.norm(total, axis=-1)
     return out
 
 
@@ -147,9 +162,11 @@ def hf_peak(*fields) -> np.ndarray:
     """Peak carrier field: max over sign choices of the vector sum (Cassarà 2025, Eq. 3).
 
     Exact sign enumeration (``2**(N-1)`` combinations) is used up to
-    `EXACT_SIGN_ENUM_MAX_FIELDS` fields; above that a Fibonacci-sphere
-    direction sweep (support-function form) is used instead, which is a
-    lower bound and thus slightly non-conservative for large N.
+    `EXACT_SIGN_ENUM_MAX_FIELDS` fields. Above that, a Fibonacci-sphere
+    direction sweep picks the best-sampled direction and evaluates the exact,
+    realizable vector sum for the sign pattern it implies -- tighter than a
+    raw support-function value, but still a lower bound (hence slightly
+    non-conservative) since only sampled directions' sign patterns are tried.
 
     Parameters
     ----------

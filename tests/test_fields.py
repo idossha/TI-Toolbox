@@ -5,6 +5,7 @@ import itertools
 import numpy as np
 import pytest
 
+import tit.fields as fields_module
 from tit.fields import EXACT_SIGN_ENUM_MAX_FIELDS, hf_peak, hf_sar
 
 
@@ -104,6 +105,37 @@ class TestHfPeak:
         assert np.all(swept <= exact + 1e-9)  # sweep never overestimates
         rel_err = np.abs(swept - exact) / np.maximum(exact, 1e-9)
         assert rel_err.max() < 0.01  # within 1% of the true peak
+
+    def test_sweep_at_least_as_tight_as_raw_support(self):
+        # hf_peak's sign-refined estimate evaluates an actually-realizable
+        # field state (a real sign combination), so by Cauchy-Schwarz it must
+        # be >= the raw support-function value at the same sampled direction
+        # (a mere projection sum_i |E_i . n*|).
+        rng = np.random.default_rng(11)
+        n = EXACT_SIGN_ENUM_MAX_FIELDS + 2
+        m = 100
+        fields = [rng.normal(size=(m, 3)) for _ in range(n)]
+        directions = fields_module._fibonacci_directions(
+            fields_module._SWEEP_N_DIRECTIONS
+        )
+        support_per_dir = np.zeros((m, directions.shape[0]))
+        for f in fields:
+            support_per_dir += np.abs(np.asarray(f, dtype=float) @ directions.T)
+        raw_support = support_per_dir.max(axis=1)
+
+        refined = hf_peak(*fields)
+        assert np.all(refined >= raw_support - 1e-9)
+
+    def test_sweep_matches_exact_on_random_trials(self):
+        # The sign-refined sweep should recover the exact sign-enumeration
+        # answer (or come very close) on typical inputs, well above N=8.
+        for n in (10, 12):
+            rng = np.random.default_rng(2000 + n)
+            fields = [rng.normal(size=(30, 3)) for _ in range(n)]
+            exact = _brute_force_peak(*fields)
+            refined = hf_peak(*fields)
+            assert np.all(refined <= exact + 1e-9)  # never overestimates
+            np.testing.assert_allclose(refined, exact, atol=0.05, rtol=0)
 
     def test_chunking_matches_unchunked_reference(self):
         # Exercise the chunk boundary (element count not a multiple of the
