@@ -154,6 +154,7 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
+FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field max(|E1+E2|,|E1-E2|) (Cassarà 2025)
 FIELD_HF_SAR = "hf_sar"  # carrier heating driver |E1|^2+|E2|^2 (∝ SAR)
 
@@ -187,7 +188,7 @@ class FieldSpec:
     description: str
 
 
-#: Single source of truth for the five output field quantities. Order here
+#: Single source of truth for the six output field quantities. Order here
 #: is the canonical display order used by GUI widgets built from this
 #: registry (``get_field_names()`` preserves it).
 FIELD_REGISTRY: tuple[FieldSpec, ...] = (
@@ -216,6 +217,13 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description="Modulation depth along the cortical surface normal.",
+    ),
+    FieldSpec(
+        name=FIELD_TI_AVG,
+        label=FIELD_TI_AVG,
+        kind=FIELD_KIND_FUNCTIONAL,
+        units="V/m",
+        description="Modulation depth (peak-to-trough envelope), averaged over direction.",
     ),
     FieldSpec(
         name=FIELD_HF_PEAK,
@@ -270,15 +278,20 @@ def get_field_spec(name: str) -> FieldSpec:
 
 
 #: Field names valid on the fsaverage surface: every registered field except
-#: ``FIELD_MTI_MAX`` ("TI_Max"). The central-surface pipeline always emits
-#: ``TI_max`` regardless of whether the simulation was 2-pair or 4-pair, so
-#: there is no separate mTI fsaverage field. Derived here (rather than in each
-#: consumer) so :mod:`tit.source.config` and :mod:`tit.stats.config` cannot
-#: drift apart. Lives in this leaf module because importing
+#: ``FIELD_MTI_MAX`` ("TI_Max") and ``FIELD_TI_AVG`` ("TI_avg"). The
+#: central-surface pipeline always emits ``TI_max`` regardless of whether the
+#: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: field; ``TI_avg`` has no central-surface overlay to project (it is only
+#: written as a volume field), so it is excluded too rather than added to
+#: :mod:`tit.source.fsaverage` sight-unseen. Derived here (rather than in
+#: each consumer) so :mod:`tit.source.config` and :mod:`tit.stats.config`
+#: cannot drift apart. Lives in this leaf module because importing
 #: ``tit.source.config`` would execute ``tit/source/__init__.py`` and pull in
 #: ``mne`` via ``tit.source.forward``.
 FSAVG_FIELD_NAMES: tuple[str, ...] = tuple(
-    spec.name for spec in FIELD_REGISTRY if spec.name != FIELD_MTI_MAX
+    spec.name
+    for spec in FIELD_REGISTRY
+    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG)
 )
 
 

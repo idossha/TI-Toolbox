@@ -162,6 +162,60 @@ class TestTISimulation:
             assert result["status"] == "completed"
             assert "output_mesh" in result
 
+    def test_run_writes_ti_avg_field(self):
+        """TI_avg (tit.calc.get_TI_avg) must be written as a volume field
+        on the TI output mesh alongside TI_max, hf_peak, and hf_sar."""
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "subprocess"),
+            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_ti_mod, "transform_dirs_to_nifti"),
+            patch.object(_ti_mod, "start_t1_to_mni"),
+            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_ti_mod, "safe_move"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "glob"),
+            patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
+            # Identity deepcopy so the mesh mock written to (mout) is the
+            # same tracked object read from mesh_io.read_msh, letting the
+            # add_element_field assertion below see every field written.
+            mock_deepcopy.side_effect = lambda obj: obj
+
+            mock_setup_dirs.return_value = {
+                "montage_dir": "/fake/sim/test_ti",
+                "hf_dir": "/fake/sim/test_ti/high_Frequency",
+                "hf_mesh": "/fake/sim/test_ti/high_Frequency/mesh",
+                "hf_niftis": "/fake/sim/test_ti/high_Frequency/niftis",
+                "hf_analysis": "/fake/sim/test_ti/high_Frequency/analysis",
+                "ti_mesh": "/fake/sim/test_ti/TI/mesh",
+                "ti_niftis": "/fake/sim/test_ti/TI/niftis",
+                "ti_surfaces": "/fake/sim/test_ti/TI/mesh/surfaces",
+                "ti_surface_overlays": "/fake/sim/test_ti/TI/surface_overlays",
+                "ti_montage_imgs": "/fake/sim/test_ti/TI/montage_imgs",
+                "documentation": "/fake/sim/test_ti/documentation",
+            }
+
+            sim = _ti_mod.TISimulation(
+                _make_sim_config(), _make_ti_montage(), MagicMock()
+            )
+            sim.run("/fake/sim_dir")
+
+            mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+            written_field_names = [
+                call.args[1] for call in mout.add_element_field.call_args_list
+            ]
+            assert const.FIELD_TI_AVG in written_field_names
+
     def test_run_calls_setup_and_simnibs(self):
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
@@ -315,6 +369,10 @@ class TestMTISimulation:
             ]
             assert const.FIELD_HF_PEAK in written_field_names
             assert const.FIELD_HF_SAR in written_field_names
+
+            # TI_avg (tit.calc.get_TI_avg): orientation-averaged companion
+            # to TI_Max, must also be written unconditionally.
+            assert const.FIELD_TI_AVG in written_field_names
 
 
 # ============================================================================

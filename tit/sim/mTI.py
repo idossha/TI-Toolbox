@@ -38,7 +38,7 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_mTI_vectors, get_TI_vectors
+from tit.calc import get_mTI_vectors, get_TI_avg, get_TI_vectors
 from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
@@ -65,8 +65,9 @@ class mTISimulation(BaseSimulation):
     4. Compute intermediate 2-pair TI vector fields (adjacent pairings,
        saved for inspection only).
     5. Compute final ``mTI_max`` from the verified K-pair modulation-depth
-       envelope over all N carrier fields, plus ``hf_peak``/``hf_sar``
-       carrier-exposure safety maps.
+       envelope over all N carrier fields, plus its orientation-averaged
+       companion ``TI_avg`` and the ``hf_peak``/``hf_sar`` carrier-exposure
+       safety maps.
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -177,6 +178,10 @@ class mTISimulation(BaseSimulation):
         mout = deepcopy(meshes[0])
         mout.elmdata = []
         mout.add_element_field(mti_field, "TI_Max")
+        # TI_avg: orientation-averaged companion to TI_Max, over all N
+        # per-pair carrier fields jointly (tit.calc.get_TI_avg).
+        mti_avg = get_TI_avg(e_fields)
+        mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
         # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
         # heating driver, over all N per-pair carrier fields. Written unconditionally
         # as volume fields so they flow to subject-/MNI-space NIfTIs alongside

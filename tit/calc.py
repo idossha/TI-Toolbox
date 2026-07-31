@@ -12,6 +12,10 @@ get_TI_vectors
 get_mTI_vectors
     Modulation-amplitude vectors for K >= 1 electrode pairs; the
     verified N>2 replacement for :func:`get_nTI_vectors`.
+get_TI_avg
+    Direction-averaged modulation depth for K >= 1 electrode pairs.
+get_magnitude_am
+    Direction-free magnitude-envelope AM, K >= 1 electrode pairs.
 get_nTI_vectors
     Deprecated. Recursive binary-tree N-field TI; not physically valid
     for N > 2. Delegates to :func:`get_mTI_vectors`.
@@ -21,7 +25,8 @@ Attribution
 The K >= 2 envelope and the ``_fibonacci_sphere`` /
 ``_validate_field_list`` helpers originate from collaborator Larissa
 Albantakis's branch ``alba/mTI_testing`` and are ported here with
-attribution, not reimplemented.
+attribution, not reimplemented. ``get_magnitude_am`` is likewise ported
+from that branch's ``_botzanowski_magnitude_am_components``.
 """
 
 import warnings
@@ -133,6 +138,82 @@ def get_mTI_vectors(fields, psi=None):
 
     result = _mti_modulation_depth(arrs, psi=psi)
     return result["best_direction"] * result["md"][:, None]
+
+
+def get_TI_avg(fields, psi=None):
+    """Direction-averaged modulation depth for K >= 1 electrode pairs.
+
+    ``TI_max`` (:func:`get_mTI_vectors`) maximizes the envelope over
+    direction -- a best case for a neuron aligned with the optimal axis.
+    ``TI_avg`` instead averages the same coarse Fibonacci-sphere sweep
+    over all sampled directions, giving what a randomly-oriented neuron
+    sees on average. Local refinement (accurate for a single best
+    direction only) is skipped as irrelevant to an average.
+
+    Parameters
+    ----------
+    fields : list of np.ndarray, each shape (N, 3)
+        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
+    psi : array-like, shape (K,), or None
+        Per-pair envelope phase offset (radians); see
+        :func:`get_mTI_vectors`.
+
+    Returns
+    -------
+    np.ndarray, shape (N,)
+        Modulation depth [V/m], averaged over sampled directions.
+    """
+    arrs = _validate_field_list(fields)
+    n_pairs = len(arrs) // 2
+    psi_arr = _validate_psi(psi, n_pairs)
+    return _mti_modulation_depth_avg(arrs, psi_arr)
+
+
+def get_magnitude_am(fields):
+    """Direction-free amplitude-modulation envelope of ``||E(t)||``.
+
+    Not the direction-maximized modulation depth from
+    :func:`get_mTI_vectors` -- the AM envelope of the field *magnitude*
+    itself, no direction search, computed on the full 3-vectors:
+    ``P = 0.5*sum_i ||E_i||^2``, ``Q = |sum_k E_ka . E_kb|`` (3D dot
+    products per pair), result ``= sqrt(2*(P+Q)) - sqrt(2*max(P-Q, 0))``.
+    At K=1 this reduces to ``abs(|E1+E2| - |E1-E2|)``.
+
+    Parameters
+    ----------
+    fields : list of np.ndarray, each shape (N, 3)
+        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
+
+    Returns
+    -------
+    np.ndarray, shape (N,)
+        Magnitude-AM envelope [V/m].
+
+    See Also
+    --------
+    get_mTI_vectors : Direction-maximized modulation-amplitude vectors --
+        a different quantity from this magnitude envelope.
+
+    References
+    ----------
+    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7.
+    """
+    arrs = _validate_field_list(fields)
+    n_pairs = len(arrs) // 2
+
+    P = np.zeros(arrs[0].shape[0], dtype=np.float64)
+    for e in arrs:
+        P += np.sum(e * e, axis=1)
+    P *= 0.5
+
+    dot_sum = np.zeros(arrs[0].shape[0], dtype=np.float64)
+    for k in range(n_pairs):
+        dot_sum += np.sum(arrs[2 * k] * arrs[2 * k + 1], axis=1)
+    Q = np.abs(dot_sum)
+
+    env_max = np.sqrt(2.0 * np.maximum(P + Q, 0.0))
+    env_min = np.sqrt(2.0 * np.maximum(P - Q, 0.0))
+    return env_max - env_min
 
 
 def get_nTI_vectors(fields):
@@ -552,6 +633,44 @@ def _refine_local_directions(
     return final_md, final_P, final_dir
 
 
+def _sweep_envelope_chunk(arrs_chunk, psi, directions):
+    """Coarse-sweep envelope amplitude/carrier-power at every candidate
+    direction, for one chunk of elements. Shared by the max-seeking sweep
+    (:func:`_mti_modulation_depth_sweep`) and the direction-averaged
+    envelope (:func:`_mti_modulation_depth_avg`) -- the mean over
+    directions is a by-product of the same (P, Q) computation the max
+    search already does, not a second sweep.
+
+    Returns
+    -------
+    amp, P : np.ndarray, each shape (n_chunk, num_directions)
+    """
+    proj = [field @ directions.T for field in arrs_chunk]
+    P, Q = _pairwise_products(proj, psi)
+    return _envelope_from_PQ(P, Q), P
+
+
+def _mti_modulation_depth_avg(arrs, psi, num_directions=192, chunk_size=16384):
+    """Mean coarse-sweep envelope amplitude over sampled directions.
+
+    Backs :func:`get_TI_avg`. Unlike :func:`_mti_modulation_depth_sweep`,
+    there is no per-element argmax or local refinement -- refinement only
+    sharpens a single best direction, which an average over directions
+    does not need.
+    """
+    directions = _fibonacci_sphere(num_directions)
+    n_vox = arrs[0].shape[0]
+    avg_md = np.zeros(n_vox, dtype=np.float64)
+
+    for start in range(0, n_vox, chunk_size):
+        stop = min(start + chunk_size, n_vox)
+        arrs_chunk = [field[start:stop] for field in arrs]
+        amp, _ = _sweep_envelope_chunk(arrs_chunk, psi, directions)
+        avg_md[start:stop] = np.mean(amp, axis=1)
+
+    return avg_md
+
+
 def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     """Chunked Fibonacci-sphere direction sweep -- returns best-direction
     md/carrier_power/best_direction per element. When ``refine`` is True,
@@ -568,9 +687,7 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     for start in range(0, n_vox, chunk_size):
         stop = min(start + chunk_size, n_vox)
         arrs_chunk = [field[start:stop] for field in arrs]
-        proj = [field @ directions.T for field in arrs_chunk]
-        P, Q = _pairwise_products(proj, psi)
-        amp = _envelope_from_PQ(P, Q)
+        amp, P = _sweep_envelope_chunk(arrs_chunk, psi, directions)
 
         if refine:
             chunk_md, chunk_P, chunk_dir = _refine_local_directions(

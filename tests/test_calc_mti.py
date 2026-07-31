@@ -22,7 +22,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from tit.calc import (
     get_TI_vectors,
+    get_TI_avg,
     get_mTI_vectors,
+    get_magnitude_am,
     get_nTI_vectors,
     _mti_modulation_depth,
 )
@@ -242,3 +244,113 @@ class TestRecursiveRegression:
 
         rel_diff = np.abs(new_mag - old_mag) / np.maximum(old_mag, 1e-8)
         assert np.mean(rel_diff) > 0.05
+
+
+# ---------------------------------------------------------------------------
+# get_TI_avg -- direction-averaged modulation depth
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGetTIAvg:
+    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
+    def test_avg_never_exceeds_max(self, n_pairs):
+        """Key invariant: an average over directions cannot exceed the
+        direction maximum (get_mTI_vectors's norm)."""
+        fields = _random_fields(2 * n_pairs, n_elements=200)
+        avg = get_TI_avg(fields)
+        max_mag = np.linalg.norm(get_mTI_vectors(fields), axis=1)
+        assert np.all(avg <= max_mag + 1e-9)
+
+    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
+    def test_shape_and_nonneg(self, n_pairs):
+        n_elements = 40
+        fields = _random_fields(2 * n_pairs, n_elements=n_elements)
+        avg = get_TI_avg(fields)
+        assert avg.shape == (n_elements,)
+        assert not np.any(np.isnan(avg))
+        assert np.all(avg >= 0.0)
+
+    def test_psi_accepted(self):
+        fields = _random_fields(4, n_elements=20)
+        avg = get_TI_avg(fields, psi=[0.0, 1.2])
+        assert avg.shape == (20,)
+        assert not np.any(np.isnan(avg))
+
+    def test_odd_n_raises(self):
+        fields = _random_fields(5)
+        with pytest.raises(ValueError, match="even number"):
+            get_TI_avg(fields)
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="even number"):
+            get_TI_avg([])
+
+    def test_bad_psi_shape_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="psi"):
+            get_TI_avg(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
+
+
+# ---------------------------------------------------------------------------
+# get_magnitude_am -- direction-free magnitude envelope
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGetMagnitudeAM:
+    def test_k1_matches_norm_identity(self):
+        """At K=1, get_magnitude_am reduces exactly to
+        abs(|E1+E2| - |E1-E2|)."""
+        E1, E2 = _random_fields(2, n_elements=300)
+        result = get_magnitude_am([E1, E2])
+        expected = np.abs(
+            np.linalg.norm(E1 + E2, axis=1) - np.linalg.norm(E1 - E2, axis=1)
+        )
+        np.testing.assert_allclose(result, expected, atol=1e-9)
+
+    def test_k1_differs_materially_from_mti_vectors(self):
+        """get_magnitude_am is a genuinely different quantity from the
+        direction-maximized modulation depth, not a refinement of it."""
+        E1, E2 = _random_fields(2, n_elements=500)
+        mag_am = get_magnitude_am([E1, E2])
+        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
+
+        rel_diff = np.abs(mag_am - ti_mag) / np.maximum(ti_mag, 1e-8)
+        assert np.mean(rel_diff > 0.01) > 0.5
+
+    def test_collinear_fields_all_three_forms_agree(self):
+        """For collinear (same-direction) E1, E2 the magnitude-AM envelope,
+        the direction-maximized envelope, and 2*min(|E1|,|E2|) all coincide
+        -- an identity that holds only in the collinear case."""
+        n = 20
+        n_hat = np.array([1.0, 0.0, 0.0])
+        a = RNG.uniform(0.5, 3.0, size=n)
+        b = RNG.uniform(0.5, 3.0, size=n)
+        E1 = np.outer(a, n_hat)
+        E2 = np.outer(b, n_hat)
+
+        mag_am = get_magnitude_am([E1, E2])
+        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
+        expected = 2.0 * np.minimum(a, b)
+
+        np.testing.assert_allclose(mag_am, expected, atol=1e-9)
+        np.testing.assert_allclose(ti_mag, expected, atol=1e-9)
+
+    @pytest.mark.parametrize("n_fields", [2, 4, 6])
+    def test_shape_and_nonneg(self, n_fields):
+        n_elements = 30
+        fields = _random_fields(n_fields, n_elements=n_elements)
+        result = get_magnitude_am(fields)
+        assert result.shape == (n_elements,)
+        assert np.all(result >= -1e-9)  # tiny round-off only
+        assert not np.any(np.isnan(result))
+
+    def test_odd_n_raises(self):
+        fields = _random_fields(5)
+        with pytest.raises(ValueError, match="even number"):
+            get_magnitude_am(fields)
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="even number"):
+            get_magnitude_am([])

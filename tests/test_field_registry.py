@@ -19,6 +19,7 @@ class TestFieldRegistryCompleteness:
         "FIELD_TI_MAX",
         "FIELD_MTI_MAX",
         "FIELD_TI_NORMAL",
+        "FIELD_TI_AVG",
         "FIELD_HF_PEAK",
         "FIELD_HF_SAR",
     )
@@ -31,8 +32,8 @@ class TestFieldRegistryCompleteness:
                 value in registry_names
             ), f"{attr} ({value!r}) missing from FIELD_REGISTRY"
 
-    def test_registry_has_exactly_five_fields(self):
-        assert len(const.FIELD_REGISTRY) == 5
+    def test_registry_has_exactly_six_fields(self):
+        assert len(const.FIELD_REGISTRY) == 6
 
     def test_registry_names_match_constants_exactly(self):
         """No drift: the registry's name set equals the FIELD_* constant set."""
@@ -73,6 +74,7 @@ class TestFieldSpecCasingPreserved:
         assert const.FIELD_TI_MAX == "TI_max"
         assert const.FIELD_MTI_MAX == "TI_Max"
         assert const.FIELD_TI_NORMAL == "TI_normal"
+        assert const.FIELD_TI_AVG == "TI_avg"
         assert const.FIELD_HF_PEAK == "hf_peak"
         assert const.FIELD_HF_SAR == "hf_sar"
 
@@ -82,12 +84,19 @@ class TestFieldRegistryLookupHelpers:
     def test_get_field_names_returns_all_in_registry_order(self):
         names = const.get_field_names()
         assert names == tuple(spec.name for spec in const.FIELD_REGISTRY)
-        assert names == ("TI_max", "TI_Max", "TI_normal", "hf_peak", "hf_sar")
+        assert names == (
+            "TI_max",
+            "TI_Max",
+            "TI_normal",
+            "TI_avg",
+            "hf_peak",
+            "hf_sar",
+        )
 
     def test_get_field_names_filters_by_kind(self):
         functional = const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL)
         safety = const.get_field_names(kind=const.FIELD_KIND_SAFETY)
-        assert set(functional) == {"TI_max", "TI_Max", "TI_normal"}
+        assert set(functional) == {"TI_max", "TI_Max", "TI_normal", "TI_avg"}
         assert set(safety) == {"hf_peak", "hf_sar"}
         # Partition: every field is exactly one kind.
         assert set(functional) | set(safety) == set(const.get_field_names())
@@ -127,7 +136,24 @@ class TestSafetyFieldsGuard:
 
     def test_functional_fields_are_exactly_the_ti_fields(self):
         functional_names = set(const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL))
-        assert functional_names == {"TI_max", "TI_Max", "TI_normal"}
+        assert functional_names == {"TI_max", "TI_Max", "TI_normal", "TI_avg"}
+
+
+@pytest.mark.unit
+class TestFieldRegistryTIAvg:
+    """TI_avg (tit.calc.get_TI_avg) registry entry."""
+
+    def test_ti_avg_present_and_functional(self):
+        assert const.FIELD_TI_AVG == "TI_avg"
+        registry_names = {spec.name for spec in const.FIELD_REGISTRY}
+        assert const.FIELD_TI_AVG in registry_names
+        spec = const.get_field_spec(const.FIELD_TI_AVG)
+        assert spec.kind == const.FIELD_KIND_FUNCTIONAL
+
+    def test_safety_fields_unaffected_by_ti_avg(self):
+        """Adding a new functional field must not perturb the safety set."""
+        safety_names = set(const.get_field_names(kind=const.FIELD_KIND_SAFETY))
+        assert safety_names == {"hf_peak", "hf_sar"}
 
 
 @pytest.mark.unit
@@ -146,6 +172,11 @@ class TestValidFsavgFieldsConsumer:
         """fsaverage projection only ever emits TI_max (see tit.source.fsaverage);
         the 4-pair mesh spelling TI_Max must not appear."""
         assert const.FIELD_MTI_MAX not in VALID_FSAVG_FIELDS
+
+    def test_valid_fsavg_fields_excludes_ti_avg(self):
+        """TI_avg has no central-surface overlay to project (tit.source.fsaverage
+        does not handle it); it must stay out of the fsaverage field list."""
+        assert const.FIELD_TI_AVG not in VALID_FSAVG_FIELDS
 
     def test_valid_fsavg_fields_all_come_from_registry(self):
         registry_names = set(const.get_field_names())

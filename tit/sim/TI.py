@@ -30,6 +30,7 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
+from tit.calc import get_TI_avg
 from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
@@ -54,7 +55,7 @@ class TISimulation(BaseSimulation):
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION, run FEM.
-    4. Compute ``TI_max`` (volume) and ``TI_normal`` (surface).
+    4. Compute ``TI_max``/``TI_avg`` (volume) and ``TI_normal`` (surface).
     5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -141,6 +142,10 @@ class TISimulation(BaseSimulation):
         mout = deepcopy(m1)
         mout.elmdata = []
         mout.add_element_field(TImax, "TI_max")
+        # TI_avg: orientation-averaged companion to TI_max (tit.calc, not
+        # SimNIBS's TI.get_maxTI -- there is no direction-averaged form there).
+        TIavg = get_TI_avg([ef1.value, ef2.value])
+        mout.add_element_field(TIavg, const.FIELD_TI_AVG)
         # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
         # heating driver. Written as volume fields so they flow to subject-/MNI-
         # space NIfTIs alongside TI_max.
