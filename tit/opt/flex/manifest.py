@@ -36,6 +36,7 @@ def write_manifest(
     result: FlexResult,
     label: str,
     pareto_data: dict | None = None,
+    current_split: tuple[float, float] | None = None,
 ) -> str:
     """Write ``flex_meta.json`` to *output_folder*.
 
@@ -51,6 +52,9 @@ def write_manifest(
         Human-readable summary label for GUI display.
     pareto_data : dict or None
         Optional dict with Pareto sweep summary (for sweep runs).
+    current_split : tuple of float or None
+        Optional ``(I1_mA, I2_mA)`` channel split selected by the
+        current-ratio search; ``None`` when no ratio search ran.
 
     Returns
     -------
@@ -89,6 +93,15 @@ def write_manifest(
             else str(config.non_roi_method) if config.non_roi_method else None
         ),
         "thresholds": config.thresholds,
+        "intensity_weight": config.intensity_weight,
+        "optimize_current_ratio": config.optimize_current_ratio,
+        "ratio_total_mA": config.ratio_total_mA,
+        "ratio_levels": config.ratio_levels,
+        "current_split": (
+            [float(current_split[0]), float(current_split[1])]
+            if current_split is not None
+            else None
+        ),
         "n_multistart": config.n_multistart,
         "min_electrode_distance": config.min_electrode_distance,
         "result": {
