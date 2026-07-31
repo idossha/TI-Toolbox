@@ -6,14 +6,19 @@ for multi-channel TI stimulation with an arbitrary even number of electrode
 pairs (4, 6, 8, ...):
 
 * Each pair produces one HF E-field via SimNIBS TDCS.
-* Adjacent pairs are combined via binary-tree TI recursion.
-* Intermediate TI vector fields are saved for inspection.
+* Adjacent pairs are combined into intermediate 2-pair TI vector fields,
+  saved for inspection only.
+* The final mTI envelope is the verified K-pair modulation-depth envelope
+  (:func:`tit.calc.get_mTI_vectors`) over all N carrier fields jointly --
+  *not* a recursive binary-tree TI-of-TI combination of the intermediate
+  fields above (that approximation is deprecated; see
+  :func:`tit.calc.get_nTI_vectors`).
 
 Example with 4 pairs (A/B/C/D)::
 
-    TI_AB = TI(E_A, E_B)
-    TI_CD = TI(E_C, E_D)
-    mTI   = TI(TI_AB, TI_CD)
+    TI_AB = TI(E_A, E_B)                       # intermediate, inspection only
+    TI_CD = TI(E_C, E_D)                       # intermediate, inspection only
+    mTI   = get_mTI_vectors([E_A, E_B, E_C, E_D])
 
 See Also
 --------
@@ -33,7 +38,8 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_nTI_vectors, get_TI_vectors
+from tit.calc import get_mTI_vectors, get_TI_vectors
+from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -56,8 +62,11 @@ class mTISimulation(BaseSimulation):
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION (N TDCS lists), run FEM.
-    4. Compute intermediate TI vector fields via binary-tree pairing.
-    5. Compute final ``mTI_max`` from the combined TI field.
+    4. Compute intermediate 2-pair TI vector fields (adjacent pairings,
+       saved for inspection only).
+    5. Compute final ``mTI_max`` from the verified K-pair modulation-depth
+       envelope over all N carrier fields, plus ``hf_peak``/``hf_sar``
+       carrier-exposure safety maps.
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -158,12 +167,22 @@ class mTISimulation(BaseSimulation):
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI using recursive binary-tree combination
-        mti_vectors = get_nTI_vectors(e_fields)
+        # Final mTI: verified K-pair modulation-depth envelope over all N
+        # carrier fields jointly (tit.calc.get_mTI_vectors) -- not a
+        # recursive binary-tree TI-of-TI combination of the intermediate
+        # pairwise fields saved above (that approximation is deprecated;
+        # see tit.calc.get_nTI_vectors).
+        mti_vectors = get_mTI_vectors(e_fields)
         mti_field = np.linalg.norm(mti_vectors, axis=1)
         mout = deepcopy(meshes[0])
         mout.elmdata = []
         mout.add_element_field(mti_field, "TI_Max")
+        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
+        # heating driver, over all N per-pair carrier fields. Written unconditionally
+        # as volume fields so they flow to subject-/MNI-space NIfTIs alongside
+        # TI_Max, mirroring tit.sim.TI.TISimulation._post_process.
+        mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
+        mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
 
         mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
         mesh_io.write_msh(mout, mti_path)
@@ -171,6 +190,16 @@ class mTISimulation(BaseSimulation):
             mti_path
         )
         self.logger.info(f"mTI_max saved: {mti_path}")
+
+        # TI_normal is not computed for mTI. TISimulation._calculate_ti_normal
+        # uses SimNIBS's 2-field TI.get_dirTI; the N-pair analogue needs the
+        # coherent K-pair envelope evaluated at a fixed direction (the surface
+        # normal) rather than maximized over directions. tit.calc has that
+        # primitive but only as a private helper, so this is deferred until it
+        # exposes a public fixed-direction envelope rather than duplicating
+        # safety-adjacent math here. tit/analyzer/field_selector.py would also
+        # need updating, since it resolves the TI_normal mesh under TI/mesh/
+        # unconditionally.
 
         # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")

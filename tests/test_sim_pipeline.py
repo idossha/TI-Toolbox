@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from tit import constants as const
 from tit.sim.config import (
     SimulationConfig,
     SimulationMode,
@@ -247,14 +248,19 @@ class TestMTISimulation:
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_nTI_vectors") as mock_get_nti,
+            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
             patch.object(_mti_mod, "glob"),
+            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
-            _mock_mesh_efields(mock_mesh_io)
+            e_field_value = _mock_mesh_efields(mock_mesh_io)
+            # Identity deepcopy so the mesh mocks written to (mout) are the
+            # same tracked objects read from mesh_io.read_msh, letting the
+            # add_element_field assertions below see every field written.
+            mock_deepcopy.side_effect = lambda obj: obj
 
             dirs = {
                 "montage_dir": "/fake/sim/test_mti",
@@ -277,7 +283,7 @@ class TestMTISimulation:
 
             import numpy as np
 
-            mock_get_nti.return_value = np.zeros((10, 3))
+            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_ti.return_value = np.zeros((10, 3))
 
             config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
@@ -296,6 +302,19 @@ class TestMTISimulation:
                 "/fake/sim/test_mti", SimulationMode.MTI
             )
             mock_run_simnibs.assert_called_once()
+
+            # D3: the true K-pair envelope replaces the deprecated
+            # recursive binary-tree get_nTI_vectors combination.
+            mock_get_mti.assert_called_once()
+
+            # D2 regression guard: hf_peak/hf_sar safety metrics must be
+            # written onto the mTI output mesh unconditionally.
+            mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+            written_field_names = [
+                call.args[1] for call in mout.add_element_field.call_args_list
+            ]
+            assert const.FIELD_HF_PEAK in written_field_names
+            assert const.FIELD_HF_SAR in written_field_names
 
 
 # ============================================================================

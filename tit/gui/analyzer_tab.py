@@ -176,6 +176,30 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.tissue_combo.addItem("White Matter (WM)", "WM")
         self.tissue_combo.addItem("GM + WM (both)", "both")
 
+        # Field combo, built from the field registry (constants.FIELD_REGISTRY)
+        # so new fields show up automatically. A separator marks the
+        # functional/safety boundary; default selection is TI_max (registry
+        # order), preserving today's implicit field choice.
+        #
+        # FIELD_MTI_MAX ("TI_Max") is skipped: it and FIELD_TI_MAX ("TI_max")
+        # are the same quantity (modulation depth) under the 4-pair/mTI vs.
+        # 2-pair mesh spelling. Listing both would force the user to guess
+        # which spelling their simulation used; field_selector already
+        # resolves that automatically from the TI/mTI detection.
+        self.field_combo = QtWidgets.QComboBox()
+        prev_kind = None
+        first_spec = None
+        for spec in const.FIELD_REGISTRY:
+            if spec.name == const.FIELD_MTI_MAX:
+                continue
+            if prev_kind is not None and spec.kind != prev_kind:
+                self.field_combo.insertSeparator(self.field_combo.count())
+            self.field_combo.addItem(spec.label, spec.name)
+            first_spec = first_spec or spec
+            prev_kind = spec.kind
+        self.field_combo.setToolTip(first_spec.description)
+        self.field_combo.currentIndexChanged.connect(self._update_field_tooltip)
+
         self.status_label = QtWidgets.QLabel()
         self.status_label.setStyleSheet("""
             QLabel {
@@ -650,6 +674,20 @@ class AnalyzerTab(QtWidgets.QWidget):
         tissue_layout.addWidget(self.tissue_combo)
         tissue_layout.addStretch()
         analysis_params_layout.addLayout(tissue_layout)
+
+        # Field row - which output quantity to analyze (functional metrics
+        # like TI_max, or safety metrics like hf_peak/hf_sar). Always
+        # available in both Mesh and Voxel space.
+        field_layout = QtWidgets.QHBoxLayout()
+        field_layout.setSpacing(10)
+        field_label = QtWidgets.QLabel("Field:")
+        field_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+        field_layout.addWidget(field_label)
+        field_layout.addWidget(self.field_combo)
+        field_layout.addStretch()
+        analysis_params_layout.addLayout(field_layout)
 
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
@@ -1128,6 +1166,14 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.atlas_combo.isEnabled() and self.type_cortical.isChecked()
             )
             self.show_regions_btn.setEnabled(can_list_regions)
+
+    def _update_field_tooltip(self, index=None):
+        """Refresh the field combo's tooltip with the selected field's description."""
+        try:
+            spec = const.get_field_spec(self.field_combo.currentData())
+        except KeyError:
+            return
+        self.field_combo.setToolTip(spec.description)
 
     def update_atlas_visibility(self):
         is_mesh = self.space_mesh.isChecked()
@@ -1864,6 +1910,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 "simulation": simulation,
                 "space": space,
                 "tissue_type": self.tissue_combo.currentData(),
+                "field": self.field_combo.currentData(),
                 "analysis_type": analysis_type,
                 "visualize": True,
                 "output_dir": temp_output_dir,
@@ -1912,6 +1959,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         space = "Mesh" if self.space_mesh.isChecked() else "Voxel"
         atype = "Spherical" if self.type_spherical.isChecked() else "Cortical"
         details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Simulation: {mont}\n"
+        details += f"- Metric: {self.field_combo.currentText()}\n"
         if self.space_voxel.isChecked():
             details += f"- Tissue: {self.tissue_combo.currentText()}\n"
         if self.space_mesh.isChecked():
@@ -1954,6 +2002,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     pairs_info.append(f"{subject_id}({simulation_name})")
 
         details = f"- Subject-Simulation Pairs: {', '.join(pairs_info)}\n- Space: {space}\n- Analysis Type: {analysis_type}\n"
+        details += f"- Metric: {self.field_combo.currentText()}\n"
         if self.space_voxel.isChecked():
             details += f"- Tissue: {self.tissue_combo.currentText()}\n"
 
@@ -2664,6 +2713,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 "simulation": simulation_name,
                 "space": space,
                 "tissue_type": self.tissue_combo.currentData(),
+                "field": self.field_combo.currentData(),
                 "analysis_type": analysis_type,
                 "visualize": True,
                 "output_dir": output_dir,

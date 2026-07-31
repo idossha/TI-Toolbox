@@ -47,6 +47,9 @@ def select_field_file(
     field : str or None, optional
         Field name from ``constants.FIELD_REGISTRY`` (e.g. ``"hf_peak"``).
         Default ``None`` resolves ``TI_max`` (TI) or ``TI_Max`` (mTI).
+        ``"TI_max"``/``"TI_Max"`` are treated as aliases for the same
+        quantity; the on-disk spelling is always chosen by the detected
+        simulation type, regardless of which alias is passed.
 
     Returns
     -------
@@ -91,6 +94,19 @@ def select_field_file(
 # ---------------------------------------------------------------------------
 
 
+def _canonical_field_name(field_name: str, is_mti: bool) -> str:
+    """Resolve the TI_max/TI_Max alias pair to the on-disk spelling.
+
+    ``TI_max`` and ``TI_Max`` are the same quantity (modulation depth) — the
+    2-pair TI mesh and the 4-pair/mTI mesh just spell it differently. Callers
+    (e.g. the GUI) should not need to know which spelling a given simulation
+    used; only *is_mti* decides it.
+    """
+    if field_name in (const.FIELD_TI_MAX, const.FIELD_MTI_MAX):
+        return const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX
+    return field_name
+
+
 def _select_mesh(
     sim_dir: Path, simulation: str, is_mti: bool, field: str | None
 ) -> tuple[Path, str]:
@@ -100,6 +116,7 @@ def _select_mesh(
         if field is not None
         else (const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX)
     )
+    field_name = _canonical_field_name(field_name, is_mti)
 
     # TI_normal lives in a separate mesh (written by _calculate_ti_normal),
     # not the main TI/mTI output mesh.
@@ -147,6 +164,7 @@ def _select_voxel(
         if field is not None
         else (const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX)
     )
+    field_name = _canonical_field_name(field_name, is_mti)
 
     if not nifti_dir.is_dir():
         high_freq = sim_dir / "high_Frequency"
