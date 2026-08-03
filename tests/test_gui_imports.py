@@ -8,6 +8,7 @@ be imported without crashing.
 
 import json
 import os
+import re
 import sys
 import types
 from pathlib import Path
@@ -356,6 +357,34 @@ class TestGuiImports:
         assert "self.roi_mode_atlas_radio.setEnabled(not is_mti)" in body
         # and it must not leave the stack showing a page the user cannot reach
         assert "self.roi_mode_sphere_radio.setChecked(True)" in body
+
+    def test_ex_search_grid_rows_pinned_and_no_internal_vstretch(self):
+        """Leftover height must go to the trailing stretch, not between boxes.
+
+        Two things reserved vertical space after the container fixed heights
+        were dropped. A QGridLayout hands spare height to any row that can
+        grow, so SizePolicy.Maximum stopped the boxes stretching but not the
+        rows -- hence the explicit setRowStretch(row, 0). And the trailing
+        "push content to top" addStretch() calls inside the vertical container
+        layouts were correct while the boxes had fixed heights, but once the
+        boxes hug their content they simply re-reserve the space the fixed
+        heights used to. Only scroll_layout keeps a stretch.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        assert "main_grid_layout.setRowStretch(_row, 0)" in source
+
+        orientation = {}
+        for line in source.splitlines():
+            m = re.search(r"(\w+)\s*=\s*QtWidgets\.(QVBoxLayout|QHBoxLayout)", line)
+            if m:
+                orientation[m.group(1)] = m.group(2)
+        vertical_stretches = [
+            m.group(1)
+            for line in source.splitlines()
+            if (m := re.match(r"\s*(\w+)\.addStretch\(", line))
+            and orientation.get(m.group(1)) == "QVBoxLayout"
+        ]
+        assert vertical_stretches == ["scroll_layout"], vertical_stretches
 
     def test_ex_search_containers_hug_content_not_fixed_height(self):
         """ROI/Subject/Electrode/Current/Leadfield containers no longer reserve dead space.

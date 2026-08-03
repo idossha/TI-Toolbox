@@ -996,6 +996,12 @@ class ExSearchTab(QtWidgets.QWidget):
         # Main grid layout for organized component placement
         main_grid_layout = QtWidgets.QGridLayout()
         main_grid_layout.setSpacing(15)  # Add spacing between components
+        # A QGridLayout hands leftover height to any row that can grow, so the
+        # SizePolicy.Maximum on each group box stops the boxes stretching but
+        # not the rows holding them. Pin every content row to its natural
+        # height and let the trailing scroll_layout stretch take the slack.
+        for _row in range(3):
+            main_grid_layout.setRowStretch(_row, 0)
 
         # ============================================================
         # ROW 0, COLUMN 0: Subject Selection
@@ -1025,9 +1031,6 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_button_layout.addWidget(self.list_subjects_btn)
         subject_button_layout.addWidget(self.clear_subject_selection_btn)
         subject_layout.addLayout(subject_button_layout)
-
-        # Add stretch to push content to top
-        subject_layout.addStretch()
 
         # Add subject container to grid - Row 0, Column 0
         main_grid_layout.addWidget(subject_container, 0, 0)
@@ -1588,9 +1591,6 @@ class ExSearchTab(QtWidgets.QWidget):
         channel_limit_layout.addStretch()
         current_layout.addLayout(channel_limit_layout)
 
-        # Add stretch to push content to top
-        current_layout.addStretch()
-
         self.current_config_stack.addWidget(panel)
 
     def _build_mti_current_panel(self):
@@ -1659,7 +1659,6 @@ class ExSearchTab(QtWidgets.QWidget):
         symmetric_layout.addStretch()
         layout.addLayout(symmetric_layout)
 
-        layout.addStretch()
         self.current_config_stack.addWidget(panel)
 
     def _current_search_mode(self):
