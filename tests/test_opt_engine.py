@@ -197,6 +197,199 @@ class TestFindRoiElements:
 
 
 # ---------------------------------------------------------------------------
+# ExSearchEngine._is_nifti_roi
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestIsNiftiRoi:
+    def test_csv_path_is_not_nifti(self):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        assert ExSearchEngine._is_nifti_roi("/rois/target.csv") is False
+
+    @pytest.mark.parametrize(
+        "path", ["/atlas/mask.nii", "/atlas/mask.nii.gz", "/atlas/aseg.mgz"]
+    )
+    def test_nifti_and_mgz_paths_are_nifti(self, path):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        assert ExSearchEngine._is_nifti_roi(path) is True
+
+    def test_case_insensitive(self):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        assert ExSearchEngine._is_nifti_roi("/ATLAS/MASK.NII.GZ") is True
+
+    def test_label_tuple_is_always_nifti(self):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        assert ExSearchEngine._is_nifti_roi(("/atlas/aseg.mgz", 17)) is True
+
+
+# ---------------------------------------------------------------------------
+# ExSearchEngine._nifti_roi_mask
+# ---------------------------------------------------------------------------
+
+
+def _fake_nifti(data, affine=None):
+    """Build a MagicMock standing in for a nibabel image object."""
+    img = MagicMock()
+    img.get_fdata.return_value = data
+    img.affine = np.eye(4) if affine is None else affine
+    return img
+
+
+@pytest.mark.unit
+class TestNiftiRoiMask:
+    def test_whole_mask_selects_nonzero_voxels(self):
+        import nibabel as nib
+
+        engine = _make_engine()
+        data = np.zeros((10, 10, 10))
+        data[5, 5, 5] = 1
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        baricenters = np.array([[5.0, 5.0, 5.0], [0.0, 0.0, 0.0], [9.0, 9.0, 9.0]])
+        mask = engine._nifti_roi_mask("/mask.nii.gz", baricenters)
+
+        np.testing.assert_array_equal(mask, [True, False, False])
+        nib.load.assert_called_once_with("/mask.nii.gz")
+
+    def test_atlas_label_selects_only_that_label(self):
+        """data == label must exclude other nonzero labels in the same atlas."""
+        import nibabel as nib
+
+        engine = _make_engine()
+        data = np.zeros((10, 10, 10))
+        data[2, 2, 2] = 17  # target label
+        data[3, 3, 3] = 53  # a different, non-target label
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        baricenters = np.array([[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [0.0, 0.0, 0.0]])
+        mask = engine._nifti_roi_mask(("/atlas.mgz", 17), baricenters)
+
+        np.testing.assert_array_equal(mask, [True, False, False])
+
+    def test_out_of_bounds_voxels_excluded(self):
+        import nibabel as nib
+
+        engine = _make_engine()
+        data = np.ones((5, 5, 5))
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        baricenters = np.array([[2.0, 2.0, 2.0], [100.0, 100.0, 100.0]])
+        mask = engine._nifti_roi_mask("/mask.nii.gz", baricenters)
+
+        np.testing.assert_array_equal(mask, [True, False])
+
+    def test_squeezes_4d_mask(self):
+        import nibabel as nib
+
+        engine = _make_engine()
+        data = np.zeros((4, 4, 4, 1))
+        data[1, 1, 1, 0] = 1
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        baricenters = np.array([[1.0, 1.0, 1.0]])
+        mask = engine._nifti_roi_mask("/mask.nii.gz", baricenters)
+
+        np.testing.assert_array_equal(mask, [True])
+
+    def test_rejects_non_3d_mask(self):
+        import nibabel as nib
+
+        engine = _make_engine()
+        data = np.zeros((4, 4))  # invalid: not 3D and not squeezable-4D
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        with pytest.raises(ValueError, match="3D"):
+            engine._nifti_roi_mask("/mask.nii.gz", np.array([[0.0, 0.0, 0.0]]))
+
+
+# ---------------------------------------------------------------------------
+# ExSearchEngine -- mixed CSV + NIfTI/atlas ROI lists
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMixedRoiList:
+    def test_load_roi_coordinates_skips_nifti_entries(self, tmp_path):
+        csv_path = tmp_path / "center.csv"
+        with open(csv_path, "w", newline="") as f:
+            csv.writer(f).writerow([1.0, 2.0, 3.0])
+
+        engine = _make_engine()
+        engine.roi_file = [str(csv_path), "/atlas.mgz", ("/atlas2.mgz", 17)]
+        engine._load_roi_coordinates()
+
+        assert engine.roi_centers == [[1.0, 2.0, 3.0]]
+        assert engine.roi_coords == [1.0, 2.0, 3.0]
+
+    def test_load_roi_coordinates_all_nifti_yields_no_centers(self):
+        engine = _make_engine()
+        engine.roi_file = ["/atlas.mgz", ("/atlas2.mgz", 5)]
+        engine._load_roi_coordinates()
+
+        assert engine.roi_centers == []
+        assert engine.roi_coords is None
+
+    def test_mixed_csv_and_mask_union(self, tmp_path):
+        """One CSV sphere + one NIfTI mask, unioned into a single ROI."""
+        import nibabel as nib
+
+        csv_path = tmp_path / "center.csv"
+        with open(csv_path, "w", newline="") as f:
+            csv.writer(f).writerow([0.0, 0.0, 0.0])
+
+        data = np.zeros((10, 10, 10))
+        data[9, 9, 9] = 1  # far from the CSV sphere -- only reachable via the mask
+        nib.load = MagicMock(return_value=_fake_nifti(data))
+
+        engine = _make_engine()
+        engine.roi_file = [str(csv_path), "/mask.nii.gz"]
+        engine._load_roi_coordinates()
+
+        centers = np.array(
+            [
+                [0.0, 0.0, 0.0],  # inside CSV sphere
+                [9.0, 9.0, 9.0],  # inside mask only
+                [50.0, 50.0, 50.0],  # outside both
+            ]
+        )
+        volumes = np.array([1.0, 1.0, 1.0])
+        mesh = MagicMock()
+        mesh.elements_baricenters.return_value = MagicMock(value=centers)
+        mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
+        engine.mesh = mesh
+
+        engine._find_roi_elements(roi_radius=3.0)
+
+        assert set(engine.roi_indices.tolist()) == {0, 1}
+
+    def test_pure_spherical_path_unaffected_by_mask_support(self):
+        """Regression guard: a plain CSV-only roi_file behaves exactly as before."""
+        engine = _make_engine()
+        engine.roi_coords = [0.0, 0.0, 0.0]
+
+        centers = np.array(
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [5.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        )
+        volumes = np.array([1.0, 2.0, 3.0, 4.0])
+        mesh = MagicMock()
+        mesh.elements_baricenters.return_value = MagicMock(value=centers)
+        mesh.elements_volumes_and_areas.return_value = MagicMock(value=volumes)
+        engine.mesh = mesh
+
+        engine._find_roi_elements(roi_radius=3.0)
+
+        assert len(engine.roi_indices) == 2
+        assert 0 in engine.roi_indices
+        assert 1 in engine.roi_indices
+        np.testing.assert_array_equal(engine.roi_volumes, [1.0, 2.0])
+
+
+# ---------------------------------------------------------------------------
 # ExSearchEngine._find_gm_elements
 # ---------------------------------------------------------------------------
 

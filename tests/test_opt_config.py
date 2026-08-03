@@ -24,6 +24,7 @@ from tit.opt.config import (
     ExResult,
     FlexConfig,
     FlexResult,
+    MExConfig,
 )
 
 # Convenience aliases for nested types
@@ -511,6 +512,166 @@ class TestExConfigValidation:
                 electrodes=ExConfig.PoolElectrodes(electrodes=["E1"]),
                 channel_limit=-0.5,
             )
+
+
+# ---------------------------------------------------------------------------
+# ExConfig / MExConfig -- volumetric atlas ROI + MNI coordinate space
+# ---------------------------------------------------------------------------
+
+
+def _pool_electrodes(n: int):
+    return [f"E{i}" for i in range(n)]
+
+
+@pytest.mark.unit
+class TestExConfigAtlasRoiAndCoordinateSpace:
+    def _cfg(self, **overrides):
+        defaults = dict(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="region",
+            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+        )
+        defaults.update(overrides)
+        return ExConfig(**defaults)
+
+    def test_defaults_unchanged(self):
+        cfg = self._cfg()
+        assert cfg.roi_atlas is None
+        assert cfg.roi_coordinate_space == "subject"
+
+    def test_roi_atlas_dict_converted_to_dataclass(self):
+        cfg = self._cfg(
+            roi_atlas=[
+                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+                {"atlas_path": "/mask.nii.gz"},
+            ]
+        )
+        assert all(isinstance(a, ExConfig.AtlasROI) for a in cfg.roi_atlas)
+        assert cfg.roi_atlas[0].atlas_path == "/atlas/aseg.mgz"
+        assert cfg.roi_atlas[0].label == 17
+        assert cfg.roi_atlas[1].label is None
+
+    def test_roi_atlas_accepts_dataclass_instances(self):
+        target = ExConfig.AtlasROI(atlas_path="/atlas.nii.gz", label=53)
+        cfg = self._cfg(roi_atlas=[target])
+        assert cfg.roi_atlas == [target]
+
+    def test_coordinate_space_accepts_mni_case_insensitive(self):
+        cfg = self._cfg(roi_coordinate_space="MNI")
+        assert cfg.roi_coordinate_space == "mni"
+
+    def test_coordinate_space_rejects_invalid_value(self):
+        with pytest.raises(ValueError, match="roi_coordinate_space"):
+            self._cfg(roi_coordinate_space="mri")
+
+    def test_empty_roi_names_allowed_for_atlas_only_roi(self):
+        # An explicit empty list (not None) means "no spherical centers".
+        cfg = self._cfg(
+            roi_names=[],
+            roi_atlas=[{"atlas_path": "/atlas.nii.gz", "label": 1}],
+        )
+        assert cfg.roi_names == []
+
+
+@pytest.mark.unit
+class TestMExConfigAtlasRoiAndCoordinateSpace:
+    def _cfg(self, **overrides):
+        defaults = dict(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="region",
+            electrodes=MExConfig.PoolElectrodes(electrodes=_pool_electrodes(8)),
+        )
+        defaults.update(overrides)
+        return MExConfig(**defaults)
+
+    def test_defaults_unchanged(self):
+        cfg = self._cfg()
+        assert cfg.roi_atlas is None
+        assert cfg.roi_coordinate_space == "subject"
+
+    def test_roi_atlas_dict_converted_to_dataclass(self):
+        cfg = self._cfg(roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 53}])
+        assert isinstance(cfg.roi_atlas[0], MExConfig.AtlasROI)
+        assert cfg.roi_atlas[0].label == 53
+
+    def test_coordinate_space_accepts_mni_case_insensitive(self):
+        cfg = self._cfg(roi_coordinate_space="Mni")
+        assert cfg.roi_coordinate_space == "mni"
+
+    def test_coordinate_space_rejects_invalid_value(self):
+        with pytest.raises(ValueError, match="roi_coordinate_space"):
+            self._cfg(roi_coordinate_space="mri")
+
+
+@pytest.mark.unit
+class TestAtlasRoiConfigIORoundtrip:
+    """config_io round trip for the new roi_atlas / roi_coordinate_space fields."""
+
+    def test_ex_config_roundtrip(self, tmp_path):
+        from tit.config_io import read_config_json, write_config_json
+
+        config = ExConfig(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="region",
+            electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+            roi_atlas=[
+                ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
+                ExConfig.AtlasROI(atlas_path="/mask.nii.gz"),
+            ],
+            roi_coordinate_space="mni",
+        )
+        path = write_config_json(config, prefix="ex_atlas_test")
+        try:
+            data = read_config_json(path)
+            assert data["roi_atlas"] == [
+                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+                {"atlas_path": "/mask.nii.gz", "label": None},
+            ]
+            assert data["roi_coordinate_space"] == "mni"
+
+            data.pop("project_dir")
+            rebuilt = ExConfig(
+                electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
+                **{k: v for k, v in data.items() if k != "electrodes"},
+            )
+            assert rebuilt.roi_atlas == config.roi_atlas
+            assert rebuilt.roi_coordinate_space == "mni"
+        finally:
+            import os
+
+            os.unlink(path)
+
+    def test_mex_config_roundtrip(self, tmp_path):
+        from tit.config_io import read_config_json, write_config_json
+
+        config = MExConfig(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="region",
+            electrodes=MExConfig.PoolElectrodes(electrodes=_pool_electrodes(8)),
+            roi_atlas=[MExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=53)],
+            roi_coordinate_space="mni",
+        )
+        path = write_config_json(config, prefix="mex_atlas_test")
+        try:
+            data = read_config_json(path)
+            assert data["roi_atlas"] == [{"atlas_path": "/atlas/aseg.mgz", "label": 53}]
+            assert data["roi_coordinate_space"] == "mni"
+
+            data.pop("project_dir")
+            rebuilt = MExConfig(
+                electrodes=MExConfig.PoolElectrodes(electrodes=_pool_electrodes(8)),
+                **{k: v for k, v in data.items() if k != "electrodes"},
+            )
+            assert rebuilt.roi_atlas == config.roi_atlas
+            assert rebuilt.roi_coordinate_space == "mni"
+        finally:
+            import os
+
+            os.unlink(path)
 
 
 # ---------------------------------------------------------------------------

@@ -31,7 +31,7 @@ class ExSearchEngine:
     def __init__(
         self,
         leadfield_hdf: str,
-        roi_file: str | list[str],
+        roi_file: str | tuple[str, int] | list[str | tuple[str, int]],
         roi_name: str,
         logger: logging.Logger,
     ):
@@ -53,7 +53,7 @@ class ExSearchEngine:
     # ── Initialization ────────────────────────────────────────────────────
 
     def initialize(self, roi_radius: float = 3.0) -> None:
-        """Load leadfield, parse ROI CSV, find ROI + GM elements."""
+        """Load leadfield, resolve the ROI (CSV/mask/atlas), find ROI + GM elements."""
         self._load_leadfield()
         self._load_roi_coordinates()
         self._find_roi_elements(roi_radius)
@@ -65,22 +65,48 @@ class ExSearchEngine:
         self.leadfield, self.mesh, self.idx_lf = TI.load_leadfield(self.leadfield_hdf)
         self.logger.info(f"Loaded in {time.time() - start:.1f}s")
 
-    def _load_roi_coordinates(self) -> None:
-        """Read ROI center(s) from one or more simple CSVs (one row: x,y,z).
+    def _roi_entries(self) -> list:
+        """Normalize ``roi_file`` to a list of entries.
 
-        A single ``roi_file`` (str) yields one center; a list yields one
-        center per file (combined/union mode).  ``roi_coords`` always
-        mirrors the first center for backward compatibility.
+        Each entry is a CSV path (spherical center), a NIfTI/MGZ path
+        (mask, ``value > 0``), or a ``(path, label)`` pair (one atlas
+        label, ``value == label``).
         """
-        files = self.roi_file if isinstance(self.roi_file, list) else [self.roi_file]
-        self.roi_centers = [self._read_center(f) for f in files]
-        self.roi_coords = self.roi_centers[0]
+        return self.roi_file if isinstance(self.roi_file, list) else [self.roi_file]
+
+    @staticmethod
+    def _is_nifti_roi(entry) -> bool:
+        """True if *entry* selects a volumetric mask rather than a CSV center.
+
+        A ``(path, label)`` pair always names a labelled atlas region. A
+        bare path names a mask when it has a NIfTI or FreeSurfer MGZ
+        extension (``.nii``, ``.nii.gz``, ``.mgz``) -- the extensions used
+        by every atlas :class:`tit.atlas.voxel.VoxelAtlasManager` discovers.
+        """
+        if isinstance(entry, (tuple, list)):
+            return True
+        name = str(entry).lower()
+        return name.endswith((".nii", ".nii.gz", ".mgz"))
+
+    def _load_roi_coordinates(self) -> None:
+        """Read spherical ROI center(s) from the CSV entries in ``roi_file``.
+
+        NIfTI/MGZ mask and atlas-label entries are skipped here and
+        resolved directly by :meth:`_find_roi_elements`.  ``roi_coords``
+        mirrors the first CSV center for backward compatibility, and is
+        ``None`` when every entry is a mask.
+        """
+        csv_files = [e for e in self._roi_entries() if not self._is_nifti_roi(e)]
+        self.roi_centers = [self._read_center(f) for f in csv_files]
+        self.roi_coords = self.roi_centers[0] if self.roi_centers else None
         if len(self.roi_centers) == 1:
             self.logger.info(f"ROI coords: {self.roi_coords}")
-        else:
+        elif self.roi_centers:
             self.logger.info(
                 f"ROI centers ({len(self.roi_centers)}): {self.roi_centers}"
             )
+        else:
+            self.logger.info("No spherical ROI centers (mask-only ROI)")
 
     def _read_center(self, path: str) -> list[float]:
         """Return the first valid ``[x, y, z]`` triple from an ROI CSV."""
@@ -93,19 +119,64 @@ class ExSearchEngine:
                     return coords[:3]
         raise ValueError(f"No valid coordinates in {path}")
 
-    def _find_roi_elements(self, roi_radius: float) -> None:
-        """Find mesh elements whose barycenters fall within any ROI sphere.
+    def _nifti_roi_mask(self, entry, baricenters: np.ndarray) -> np.ndarray:
+        """Boolean mask selecting elements inside one NIfTI/MGZ ROI source.
 
-        For a combined target the per-center spherical masks are OR-folded
-        into one region (single-center is the N=1 case).
+        *entry* is either a mask path (elements where ``value > 0``) or a
+        ``(atlas_path, label)`` pair selecting one atlas label
+        (``value == label``).
+        """
+        import nibabel as nib
+
+        path, label = entry if isinstance(entry, (tuple, list)) else (entry, None)
+        self.logger.info(
+            f"Finding ROI elements from {'atlas label ' + str(label) if label is not None else 'mask'}: {path}"
+        )
+
+        img = nib.load(path)
+        data = np.asanyarray(img.get_fdata())
+        if data.ndim == 4:
+            data = np.squeeze(data)
+        if data.ndim != 3:
+            raise ValueError(f"Expected a 3D ROI mask, got shape {data.shape}")
+        mask_data = data == label if label is not None else data > 0
+
+        homogeneous = np.hstack([baricenters, np.ones((len(baricenters), 1))])
+        vox = (homogeneous @ np.linalg.inv(img.affine).T)[:, :3]
+        vox = np.rint(vox).astype(int)
+
+        shape = np.asarray(mask_data.shape[:3])
+        in_bounds = np.all((vox >= 0) & (vox < shape), axis=1)
+        mask = np.zeros(len(baricenters), dtype=bool)
+        valid_vox = vox[in_bounds]
+        if len(valid_vox):
+            mask[in_bounds] = mask_data[
+                valid_vox[:, 0], valid_vox[:, 1], valid_vox[:, 2]
+            ]
+        return mask
+
+    def _find_roi_elements(self, roi_radius: float) -> None:
+        """Find mesh elements that fall within the target ROI.
+
+        Combines spherical centers (``value`` within *roi_radius* of a
+        center) and volumetric masks (whole NIfTI/MGZ masks, or
+        ``(path, label)`` atlas-label selections) -- every source in
+        ``roi_file`` is OR-folded into one region (a single spherical
+        center is the N=1 case).
         """
         self.logger.info(f"Finding ROI elements (radius={roi_radius}mm)...")
         baricenters = self.mesh.elements_baricenters().value
         roi_centers = self.roi_centers if self.roi_centers else [self.roi_coords]
         mask = np.zeros(baricenters.shape[0], dtype=bool)
         for c in roi_centers:
+            if c is None:
+                continue
             center = np.asarray(c, dtype=float)
             mask |= np.sum((baricenters - center) ** 2, axis=1) <= roi_radius**2
+
+        for entry in self._roi_entries():
+            if self._is_nifti_roi(entry):
+                mask |= self._nifti_roi_mask(entry, baricenters)
 
         volumes = self.mesh.elements_volumes_and_areas().value
         if volumes.ndim > 1:

@@ -7,6 +7,7 @@ import logging
 import os
 import time
 
+
 from tit.opt.config import ExConfig, ExResult
 from tit.paths import get_path_manager
 from tit.logger import add_file_handler
@@ -14,6 +15,7 @@ from tit.logger import add_file_handler
 from .engine import ExSearchEngine
 from .logic import generate_current_ratios
 from .results import process_and_save
+from .roi import atlas_roi_entries, mni_roi_files_to_subject_space
 
 
 def run_ex_search(config: ExConfig) -> ExResult:
@@ -46,10 +48,21 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
-    roi_names = config.roi_names or [config.roi_name]
-    roi_files = [os.path.join(pm.rois(config.subject_id), name) for name in roi_names]
+    roi_names = config.roi_names if config.roi_names is not None else [config.roi_name]
+    roi_dir = pm.rois(config.subject_id)
+    if roi_names and config.roi_coordinate_space == "mni":
+        roi_files = mni_roi_files_to_subject_space(
+            roi_names, roi_dir, pm.m2m(config.subject_id), output_dir, logger
+        )
+    else:
+        roi_files = [os.path.join(roi_dir, name) for name in roi_names]
     if len(roi_files) > 1:
         logger.info(f"Combining {len(roi_files)} ROIs into one target: {roi_names}")
+
+    atlas_entries = atlas_roi_entries(config)
+    if atlas_entries:
+        logger.info(f"Adding {len(atlas_entries)} atlas ROI target(s)")
+        roi_files = roi_files + atlas_entries
 
     if isinstance(config.electrodes, ExConfig.PoolElectrodes):
         pool = config.electrodes.electrodes

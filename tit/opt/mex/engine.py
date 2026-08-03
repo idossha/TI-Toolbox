@@ -25,7 +25,7 @@ class MExSearchEngine(ExSearchEngine):
     def __init__(
         self,
         leadfield_hdf: str,
-        roi_file: str,
+        roi_file: str | tuple[str, int] | list[str | tuple[str, int]],
         roi_name: str,
         logger: logging.Logger,
         channels: list[tuple[list[int], list[int]]] | None = None,
