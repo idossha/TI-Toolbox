@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-"""Build the public atlas-browser data assets from resources/atlas/.
+"""Build the public atlas-browser data assets from resources/atlas/ and the
+bundled SimNIBS example subject (ernie).
 
 Writes, deterministically and idempotently:
-  - docs/assets/atlas/mni152_t1_1mm.nii.gz   (background template, uint8, 5-bit quantised)
-  - docs/assets/atlas/cit168.nii.gz          (resampled onto the template grid, order=0)
-  - docs/assets/atlas/morel.nii.gz           (resampled onto the template grid, order=0)
-  - docs/assets/atlas/glasser.nii.gz         (resampled onto the template grid, order=0)
-  - docs/assets/atlas/massp.nii.gz           (resampled onto the template grid, order=0)
-  - docs/_data/atlases.json                  (per-atlas metadata + per-label rows)
+  - docs/assets/atlas/mni152_t1_1mm.nii.gz   (MNI template, uint8, 5-bit quantised)
+  - docs/assets/atlas/cit168.nii.gz          (resampled onto the MNI template grid, order=0)
+  - docs/assets/atlas/morel.nii.gz           (resampled onto the MNI template grid, order=0)
+  - docs/assets/atlas/glasser.nii.gz         (resampled onto the MNI template grid, order=0)
+  - docs/assets/atlas/massp.nii.gz           (resampled onto the MNI template grid, order=0)
+  - docs/assets/atlas/ernie_t1.nii.gz        (ernie subject T1, uint8, 5-bit quantised)
+  - docs/assets/atlas/ernie_charm.nii.gz     (resampled onto the ernie T1 grid, order=0)
+  - docs/assets/atlas/ernie_dkt.nii.gz       (resampled onto the ernie T1 grid, order=0)
+  - docs/assets/atlas/ernie_a2009s.nii.gz    (resampled onto the ernie T1 grid, order=0)
+  - docs/assets/atlas/ernie_massp.nii.gz     (resampled onto the ernie T1 grid, order=0)
+  - docs/_data/atlases.json                  (per-space, per-atlas metadata + per-label rows)
 
-All four label volumes are nearest-neighbour resampled (nibabel.processing.
-resample_from_to, order=0) onto the exact voxel grid of the shipped
-MNI152_T1_1mm.nii.gz template, so a browser can overlay any of them on the
-template with a single shared affine. Morel already ships on that grid; the
-resample is still applied to it for a uniform code path (a no-op there).
+Every label volume is nearest-neighbour resampled (nibabel.processing.
+resample_from_to, order=0) onto the exact voxel grid of that space's
+template -- MNI152_T1_1mm.nii.gz for the four MNI atlases, the ernie
+example subject's own T1.nii.gz for the four subject atlases -- so a
+browser can overlay any atlas on its matching template with a single
+shared affine. Morel already ships on the MNI template grid, and CHARM /
+subject-space MASSP already ship on the ernie T1 grid; the resample is
+still applied to them for a uniform code path (a no-op there).
 
 Two known data defects in resources/atlas/ are handled explicitly, not
 silently patched into the source files:
@@ -31,6 +40,16 @@ silently patched into the source files:
     in the repo, so a deterministic placeholder color is synthesized for it
     and flagged in the printed report.
 
+The four subject atlases come from the ernie example subject's own
+derivatives, read directly from a local dataset (not checked into this
+repo) -- override the two directories below via the TI_ATLAS_SUBJECT_M2M
+and TI_ATLAS_SUBJECT_FS_MRI environment variables if your dataset lives
+somewhere else. Subject-space row centroids are in the subject's own
+scanner/world coordinates, not MNI; the JSON field is still named
+"centroid_mni" (kept uniform for the viewer code), but each subject
+atlas's "native_space" string says explicitly that these are subject-space
+world-mm coordinates.
+
 Run with the host python3 (numpy, scipy, nibabel -- no SimNIBS/nilearn
 needed). Not wired into CI: assets are generated offline and committed.
 
@@ -42,6 +61,7 @@ from __future__ import annotations
 import colorsys
 import gzip
 import json
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -55,7 +75,24 @@ OUT_ASSET_DIR = REPO_ROOT / "docs" / "assets" / "atlas"
 OUT_DATA_DIR = REPO_ROOT / "docs" / "_data"
 OUT_JSON = OUT_DATA_DIR / "atlases.json"
 
+# Local dataset directories for the bundled SimNIBS example subject (ernie).
+# Not part of this repo -- override via env vars if your dataset lives
+# elsewhere; defaults match the dev machine this script was written on.
+SUBJECT_M2M_DIR = Path(
+    os.environ.get(
+        "TI_ATLAS_SUBJECT_M2M",
+        "/Users/idohaber/datasets/000/derivatives/SimNIBS/sub-ernie/m2m_ernie",
+    )
+)
+SUBJECT_FS_MRI_DIR = Path(
+    os.environ.get(
+        "TI_ATLAS_SUBJECT_FS_MRI",
+        "/Users/idohaber/datasets/000/derivatives/freesurfer/sub-ernie/mri",
+    )
+)
+
 TEMPLATE_FILE = "MNI152_T1_1mm.nii.gz"
+SUBJECT_TEMPLATE_FILE = SUBJECT_M2M_DIR / "T1.nii.gz"
 TEMPLATE_QUANT_BITS = 5
 TEMPLATE_PERCENTILES = (1.0, 99.0)  # over voxels > 0, matches the measured prototype
 
@@ -64,8 +101,8 @@ ATLASES = [
     dict(
         key="cit168",
         display_name="CIT168 Subcortical Atlas",
-        filename="CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
-        lut="CIT168_labeling_MNI152NLin2009cAsym_LUT.txt",
+        src_path=ATLAS_DIR / "CIT168_labeling_MNI152NLin2009cAsym.nii.gz",
+        lut_path=ATLAS_DIR / "CIT168_labeling_MNI152NLin2009cAsym_LUT.txt",
         out_filename="cit168.nii.gz",
         native_space="MNI152NLin2009cAsym (per source NeuroVault metadata)",
         out_dtype=np.uint8,
@@ -81,8 +118,8 @@ ATLASES = [
     dict(
         key="morel",
         display_name="Morel Thalamus Atlas",
-        filename="MorelMNI152_labeling_1mm.nii.gz",
-        lut="MorelMNI152_labeling_1mm_LUT.txt",
+        src_path=ATLAS_DIR / "MorelMNI152_labeling_1mm.nii.gz",
+        lut_path=ATLAS_DIR / "MorelMNI152_labeling_1mm_LUT.txt",
         out_filename="morel.nii.gz",
         native_space="MNI152, FSL-aligned 182x218x182 1mm grid (same grid as the shipped template)",
         out_dtype=np.uint16,
@@ -100,8 +137,8 @@ ATLASES = [
     dict(
         key="glasser",
         display_name="Glasser HCP-MMP1.0 Atlas",
-        filename="MNI_Glasser_HCP_v1.0.nii.gz",
-        lut="MNI_Glasser_HCP_v1.0.txt",
+        src_path=ATLAS_DIR / "MNI_Glasser_HCP_v1.0.nii.gz",
+        lut_path=ATLAS_DIR / "MNI_Glasser_HCP_v1.0.txt",
         out_filename="glasser.nii.gz",
         native_space="FreeSurfer-conformed 256x256x256 1mm grid (not the MNI152 182x218x182 grid)",
         out_dtype=np.uint16,
@@ -118,8 +155,8 @@ ATLASES = [
     dict(
         key="massp",
         display_name="MASSP Subcortical Parcellation",
-        filename="massp2021-parcellation_decade-18to40.nii.gz",
-        lut="massp2021_labels.txt",
+        src_path=ATLAS_DIR / "massp2021-parcellation_decade-18to40.nii.gz",
+        lut_path=ATLAS_DIR / "massp2021_labels.txt",
         out_filename="massp.nii.gz",
         native_space="ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm (per NIfTI descrip field)",
         out_dtype=np.uint8,
@@ -129,6 +166,77 @@ ATLASES = [
             "(massp2021-parcellation_decade-18to40.nii.gz). No literature reference, DOI, or "
             "license is recorded anywhere in this repository for this atlas; "
             "resources/atlas/README.md documents only its filenames and a usage caveat."
+        ),
+    ),
+]
+
+# Subject-space atlases for the bundled SimNIBS example subject (ernie).
+# Resampled onto the ernie T1 grid (see SUBJECT_TEMPLATE_FILE), not the MNI
+# template grid. Row centroids are therefore in ernie's own scanner/world
+# coordinates, not MNI -- each entry's native_space string says so.
+SUBJECT_ATLASES = [
+    dict(
+        key="charm",
+        display_name="CHARM tissue labeling",
+        src_path=SUBJECT_M2M_DIR / "segmentation" / "labeling.nii.gz",
+        lut_path=SUBJECT_M2M_DIR / "segmentation" / "labeling_LUT.txt",
+        out_filename="ernie_charm.nii.gz",
+        native_space="ernie subject space (world mm)",
+        out_dtype=np.uint16,
+        expected_label_count=56,
+        provenance=(
+            "CHARM tissue labeling, produced by SimNIBS `charm` for the bundled ernie "
+            "example subject (derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/"
+            "labeling.nii.gz). Labels and colors from the sidecar labeling_LUT.txt."
+        ),
+    ),
+    dict(
+        key="dkt",
+        display_name="Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)",
+        src_path=SUBJECT_FS_MRI_DIR / "aparc.DKTatlas+aseg.mgz",
+        lut_path=ATLAS_DIR / "FreeSurferColorLUT.txt",
+        out_filename="ernie_dkt.nii.gz",
+        native_space="ernie subject space (world mm)",
+        out_dtype=np.uint16,
+        expected_label_count=102,
+        provenance=(
+            "Desikan-Killiany-Tourville cortical parcellation plus subcortical "
+            "segmentation, produced by FreeSurfer `recon-all` for the bundled ernie "
+            "example subject (derivatives/freesurfer/sub-ernie/mri/"
+            "aparc.DKTatlas+aseg.mgz). Labels and colors from "
+            "resources/atlas/FreeSurferColorLUT.txt."
+        ),
+    ),
+    dict(
+        key="a2009s",
+        display_name="Destrieux (aparc.a2009s+aseg)",
+        src_path=SUBJECT_FS_MRI_DIR / "aparc.a2009s+aseg.mgz",
+        lut_path=ATLAS_DIR / "FreeSurferColorLUT.txt",
+        out_filename="ernie_a2009s.nii.gz",
+        native_space="ernie subject space (world mm)",
+        out_dtype=np.uint16,
+        expected_label_count=188,
+        provenance=(
+            "Destrieux cortical parcellation plus subcortical segmentation, produced by "
+            "FreeSurfer `recon-all` for the bundled ernie example subject "
+            "(derivatives/freesurfer/sub-ernie/mri/aparc.a2009s+aseg.mgz). Labels and "
+            "colors from resources/atlas/FreeSurferColorLUT.txt."
+        ),
+    ),
+    dict(
+        key="massp",
+        display_name="MASSP subcortical (subject space)",
+        src_path=SUBJECT_M2M_DIR / "segmentation" / "massp2021_subject.nii.gz",
+        lut_path=ATLAS_DIR / "massp2021_labels.txt",
+        out_filename="ernie_massp.nii.gz",
+        native_space="ernie subject space (world mm)",
+        out_dtype=np.uint8,
+        expected_label_count=31,
+        provenance=(
+            "MASSP subcortical parcellation, warped from MNI into the bundled ernie "
+            "example subject's native space by SimNIBS `charm` (derivatives/SimNIBS/"
+            "sub-ernie/m2m_ernie/segmentation/massp2021_subject.nii.gz). Labels and "
+            "colors from resources/atlas/massp2021_labels.txt."
         ),
     ),
 ]
@@ -249,19 +357,24 @@ def build_template(tpl_img: nib.Nifti1Image, out_path: Path) -> int:
     return _write_gz_nifti(out_img, out_path)
 
 
-def build_atlas(spec: dict, tpl_img: nib.Nifti1Image, atlas_dir: Path, out_dir: Path) -> dict:
-    src_img = nib.load(atlas_dir / spec["filename"])
+def build_atlas(spec: dict, tpl_img: nib.Nifti1Image, out_dir: Path) -> dict:
+    src_img = nib.load(spec["src_path"])
     resampled = resample_from_to(src_img, (tpl_img.shape, tpl_img.affine), order=0)
     data = np.rint(np.nan_to_num(np.asanyarray(resampled.dataobj))).astype(np.int64)
     data[data < 0] = 0
 
     if spec["key"] == "glasser":
-        label_table = _glasser_label_table(atlas_dir)
+        label_table = _glasser_label_table(ATLAS_DIR)
     else:
-        label_table = _load_lut(atlas_dir / spec["lut"])
+        label_table = _load_lut(spec["lut_path"])
 
     present_ids = sorted(int(i) for i in np.unique(data) if i > 0)
-    voxel_vol = float(np.prod(np.abs(np.diag(tpl_img.affine)[:3])))
+    # Voxel volume from the determinant of the 3x3 direction block, NOT from
+    # its diagonal. ernie's T1 is PSR-oriented, so its affine is a permutation
+    # matrix with zeros on the diagonal and a diagonal product of 0, which
+    # silently zeroed every subject-space volume. The determinant is correct
+    # for any orientation, including oblique acquisitions.
+    voxel_vol = float(abs(np.linalg.det(tpl_img.affine[:3, :3])))
 
     rows = []
     unresolved: list[int] = []
@@ -283,6 +396,7 @@ def build_atlas(spec: dict, tpl_img: nib.Nifti1Image, atlas_dir: Path, out_dir: 
         rows.append(
             {
                 "id": label_id,
+                "index": len(rows) + 1,
                 "name": name,
                 "r": int(rgb[0]),
                 "g": int(rgb[1]),
@@ -293,7 +407,26 @@ def build_atlas(spec: dict, tpl_img: nib.Nifti1Image, atlas_dir: Path, out_dir: 
             }
         )
 
-    out_dtype = spec["out_dtype"]
+    # Remap the published volume to compact 1..N indices, ordered by original
+    # label id. NiiVue's label colormap is uploaded as a texture whose width is
+    # the HIGHEST label index, so a sparse scheme costs far more than it looks:
+    # Destrieux tops out at 12175, needing a 12176-wide texture, and
+    # MAX_TEXTURE_SIZE is only 8192 on some drivers (measured on SwiftShader).
+    # It then fails silently — the overlay simply never appears, and whether it
+    # does depends on the viewer's GPU. Compacting caps every LUT at N+1
+    # entries (188 for the worst atlas here) and shrinks the volumes too.
+    #
+    # These display volumes therefore do NOT carry the original label values.
+    # Each row records both: "id" is the true atlas label, "index" is the value
+    # in the published volume. The shipped atlases in resources/atlas/ are
+    # untouched.
+    remap = np.zeros(int(data.max()) + 1, dtype=np.int64)
+    for row in rows:
+        remap[row["id"]] = row["index"]
+    data = remap[data]
+
+    n_labels = len(rows)
+    out_dtype = np.uint8 if n_labels <= 255 else np.uint16
     out_img = nib.Nifti1Image(data.astype(out_dtype), tpl_img.affine)
     out_img.set_data_dtype(out_dtype)
     qform_code = int(tpl_img.header["qform_code"])
@@ -314,35 +447,36 @@ def build_atlas(spec: dict, tpl_img: nib.Nifti1Image, atlas_dir: Path, out_dir: 
     }
 
 
-def main() -> int:
-    if not ATLAS_DIR.is_dir():
-        print(f"ERROR: atlas source directory not found: {ATLAS_DIR}")
-        return 2
+def build_space(
+    space_key: str,
+    template_src: Path,
+    template_out_name: str,
+    atlas_specs: list[dict],
+    out_dir: Path,
+) -> tuple[Path, list[tuple[Path, int]], dict[str, dict]]:
+    """Build one space's template plus all of its atlases.
 
-    OUT_ASSET_DIR.mkdir(parents=True, exist_ok=True)
-    OUT_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    tpl_img = nib.load(ATLAS_DIR / TEMPLATE_FILE)
+    Returns the template's output path (for later disk-based verification),
+    this space's byte-report rows, and this space's atlases.json sub-dict
+    (keyed by atlas key).
+    """
+    tpl_img = nib.load(template_src)
 
     report_rows: list[tuple[Path, int]] = []
-
-    tpl_out = OUT_ASSET_DIR / "mni152_t1_1mm.nii.gz"
+    tpl_out = out_dir / template_out_name
     report_rows.append((tpl_out, build_template(tpl_img, tpl_out)))
 
     atlases_json: dict[str, dict] = {}
-    all_ok = True
 
-    print("Label-count verification (computed from the written, resampled volumes)")
+    print(f"[{space_key}] build report (label counts computed while writing)")
     print("-" * 72)
-    for spec in ATLASES:
-        result = build_atlas(spec, tpl_img, ATLAS_DIR, OUT_ASSET_DIR)
-        report_rows.append((OUT_ASSET_DIR / spec["out_filename"], result["bytes_written"]))
+    for spec in atlas_specs:
+        result = build_atlas(spec, tpl_img, out_dir)
+        report_rows.append((out_dir / spec["out_filename"], result["bytes_written"]))
 
         expected = spec["expected_label_count"]
         actual = result["n_labels"]
         status = "OK" if actual == expected else "MISMATCH"
-        if actual != expected:
-            all_ok = False
         print(f"  {spec['key']:10s} {actual:4d} labels (expected {expected:4d})  [{status}]")
         if result["unresolved_ids"]:
             print(
@@ -359,12 +493,121 @@ def main() -> int:
             "provenance": spec["provenance"],
             "rows": result["rows"],
         }
+    print()
+
+    return tpl_out, report_rows, atlases_json
+
+
+def verify_written_outputs(
+    space_key: str, tpl_out: Path, atlas_specs: list[dict], out_dir: Path
+) -> list[str]:
+    """Re-load every written file from disk (not the in-memory build arrays)
+    and check label counts, shape, and affine against that space's own
+    written template. Returns human-readable problem strings; empty means
+    everything checked out.
+    """
+    problems: list[str] = []
+    tpl_img = nib.load(tpl_out)
+
+    print(f"[{space_key}] verification (re-loaded from the written files on disk)")
+    print("-" * 72)
+    for spec in atlas_specs:
+        img = nib.load(out_dir / spec["out_filename"])
+        shape_ok = img.shape == tpl_img.shape
+        affine_ok = bool(np.allclose(img.affine, tpl_img.affine, atol=1e-4))
+        data = np.asanyarray(img.dataobj)
+        actual = int(len(np.unique(data[data > 0])))
+        expected = spec["expected_label_count"]
+        count_ok = actual == expected
+        # The published volumes are compacted to 1..N, so the highest value
+        # must equal the label count. If it does not, the LUT texture would be
+        # sized by a sparse maximum and can blow past MAX_TEXTURE_SIZE, which
+        # makes the overlay vanish on some GPUs and not others.
+        max_idx = int(data.max())
+        compact_ok = max_idx == actual
+        status = "OK" if (shape_ok and affine_ok and count_ok and compact_ok) else "MISMATCH"
+        print(
+            f"  {spec['key']:10s} {actual:4d} labels (expected {expected:4d})  "
+            f"max_index={max_idx} compact={compact_ok} "
+            f"shape={img.shape} affine_ok={affine_ok}  [{status}]"
+        )
+        if not compact_ok:
+            problems.append(
+                f"[{space_key}] {spec['key']}: volume not compacted "
+                f"(max index {max_idx}, {actual} labels)"
+            )
+        if not shape_ok:
+            problems.append(
+                f"{space_key}/{spec['key']}: written shape {img.shape} != "
+                f"template shape {tpl_img.shape}"
+            )
+        if not affine_ok:
+            problems.append(f"{space_key}/{spec['key']}: written affine != template affine")
+        if not count_ok:
+            problems.append(
+                f"{space_key}/{spec['key']}: {actual} labels in the written file "
+                f"(expected {expected})"
+            )
+    print()
+    return problems
+
+
+def main() -> int:
+    if not ATLAS_DIR.is_dir():
+        print(f"ERROR: atlas source directory not found: {ATLAS_DIR}")
+        return 2
+    if not SUBJECT_M2M_DIR.is_dir():
+        print(f"ERROR: subject m2m directory not found: {SUBJECT_M2M_DIR}")
+        return 2
+    if not SUBJECT_FS_MRI_DIR.is_dir():
+        print(f"ERROR: subject FreeSurfer mri directory not found: {SUBJECT_FS_MRI_DIR}")
+        return 2
+
+    OUT_ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    report_rows: list[tuple[Path, int]] = []
+
+    mni_tpl_out, mni_report_rows, mni_atlases_json = build_space(
+        "mni", ATLAS_DIR / TEMPLATE_FILE, "mni152_t1_1mm.nii.gz", ATLASES, OUT_ASSET_DIR
+    )
+    report_rows += mni_report_rows
+
+    subj_tpl_out, subj_report_rows, subj_atlases_json = build_space(
+        "subject", SUBJECT_TEMPLATE_FILE, "ernie_t1.nii.gz", SUBJECT_ATLASES, OUT_ASSET_DIR
+    )
+    report_rows += subj_report_rows
+
+    atlases_json = {
+        "mni": {
+            "template": {
+                "filename": "mni152_t1_1mm.nii.gz",
+                "label": "MNI152 T1 1mm",
+                "note": (
+                    "MNI152 T1-weighted 1mm template, requantised to 5-bit (32 grayscale "
+                    "levels) for the browser; source resources/atlas/MNI152_T1_1mm.nii.gz."
+                ),
+            },
+            "atlases": mni_atlases_json,
+        },
+        "subject": {
+            "template": {
+                "filename": "ernie_t1.nii.gz",
+                "label": "ernie T1 (subject space)",
+                "note": (
+                    "T1-weighted anatomical image for the SimNIBS example subject ernie, "
+                    "requantised to 5-bit (32 grayscale levels) for the browser; source "
+                    "derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz."
+                ),
+            },
+            "atlases": subj_atlases_json,
+        },
+    }
 
     json_bytes = json.dumps(atlases_json, separators=(",", ":")).encode("utf-8")
     OUT_JSON.write_bytes(json_bytes)
     report_rows.append((OUT_JSON, len(json_bytes)))
 
-    print()
     print("Byte report")
     print("-" * 72)
     total = 0
@@ -374,14 +617,18 @@ def main() -> int:
         total += size
     print("-" * 72)
     print(f"  {'TOTAL':50s} {total:10,d} B  ({total / 1e6:6.3f} MB)")
+    print()
 
-    if not all_ok:
-        print()
-        print("FAILED: one or more atlases did not match their expected label count.")
+    problems = verify_written_outputs("mni", mni_tpl_out, ATLASES, OUT_ASSET_DIR)
+    problems += verify_written_outputs("subject", subj_tpl_out, SUBJECT_ATLASES, OUT_ASSET_DIR)
+
+    if problems:
+        print("FAILED: one or more written outputs did not match expectations.")
+        for problem in problems:
+            print(f"  - {problem}")
         return 1
 
-    print()
-    print("OK: all label counts matched their expected values.")
+    print("OK: all label counts, shapes, and affines matched their expected values.")
     return 0
 
 
