@@ -12,6 +12,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Diffusion Processing](diffusion-processing)** - QSIPrep/QSIRecon integration for DTI-based anisotropic simulations
 - **[Flex Search](flex-search)** - TI optimization pipeline based on differential evolutionary algorithm
 - **[Ex Search](ex-search)** - TI optimization pipeline based on leadfield matrices
+- **[Multipolar TI (mTI)](mti)** - Multi-channel TI simulation with 4+ electrode pairs and multipolar exhaustive search (mex-search)
 - **[Simulator](simulator)** - Simulator with flexible parameter input and anisotropic support
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
@@ -21,6 +22,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
+- **[Brain Atlases](atlases)** - The four MNI-space atlases shipped with TI-Toolbox
 - **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
 - **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head
 - **[Electrode Mapping](electrode-mapping)** - Optimal electrode position mapping to EEG nets
