@@ -26,6 +26,7 @@ import csv
 import json
 import os
 import re
+from dataclasses import fields as dataclass_fields
 from typing import Any
 
 
@@ -34,8 +35,11 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
 
     Parameters
     ----------
-    config : ExConfig
-        Exhaustive-search configuration dataclass.
+    config : ExConfig or MExConfig
+        Exhaustive-search (2-pair) or multipolar exhaustive-search (4-pair)
+        configuration dataclass.  The current-parameter fields differ
+        between the two (``total_current``/``current_step``/``channel_limit``
+        vs. a flat ``current_mA``), so both are recorded when present.
     n_combinations : int
         Total number of montage combinations evaluated.
     output_dir : str
@@ -54,10 +58,8 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
     else:
         electrode_mode = "bucket"
         electrode_info = {
-            "e1_plus": config.electrodes.e1_plus,
-            "e1_minus": config.electrodes.e1_minus,
-            "e2_plus": config.electrodes.e2_plus,
-            "e2_minus": config.electrodes.e2_minus,
+            f.name: getattr(config.electrodes, f.name)
+            for f in dataclass_fields(config.electrodes)
         }
 
     run_info = {
@@ -67,12 +69,15 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
         "leadfield_hdf": config.leadfield_hdf,
         "electrode_mode": electrode_mode,
         "electrodes": electrode_info,
-        "total_current_mA": config.total_current,
-        "current_step_mA": config.current_step,
-        "channel_limit_mA": config.channel_limit,
         "n_combinations": n_combinations,
         "run_name": config.run_name,
     }
+    if hasattr(config, "total_current"):
+        run_info["total_current_mA"] = config.total_current
+        run_info["current_step_mA"] = config.current_step
+        run_info["channel_limit_mA"] = config.channel_limit
+    if hasattr(config, "current_mA"):
+        run_info["current_mA"] = config.current_mA
 
     path = os.path.join(output_dir, "run_config.json")
     with open(path, "w") as f:

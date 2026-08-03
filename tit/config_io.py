@@ -33,7 +33,7 @@ from dataclasses import asdict, fields, is_dataclass
 from enum import Enum
 from typing import Any
 
-from tit.opt.config import ExConfig, FlexConfig
+from tit.opt.config import ExConfig, FlexConfig, MExConfig
 from tit.sim.config import Montage
 
 # Mapping from class to discriminator string.
@@ -46,6 +46,8 @@ _TYPE_DISCRIMINATED: dict[type, str] = {
     FlexConfig.SubcorticalROI: "SubcorticalROI",
     ExConfig.PoolElectrodes: "PoolElectrodes",
     ExConfig.BucketElectrodes: "BucketElectrodes",
+    MExConfig.PoolElectrodes: "PoolElectrodes",
+    MExConfig.BucketElectrodes: "BucketElectrodes",
     Montage: "Montage",
 }
 
