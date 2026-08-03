@@ -47,20 +47,25 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info("Output: %s", output_dir)
 
+    # Mirrors tit/opt/ex/ex.py. roi_names=[] means "no spherical centers",
+    # which is how an atlas-only target is expressed -- roi_name is then just
+    # the naming label and no CSV is read.
+    roi_names = config.roi_names if config.roi_names is not None else [config.roi_name]
     roi_dir = pm.rois(config.subject_id)
-    if config.roi_coordinate_space == "mni":
-        [roi_file] = mni_roi_files_to_subject_space(
-            [config.roi_name], roi_dir, pm.m2m(config.subject_id), output_dir, logger
+    if roi_names and config.roi_coordinate_space == "mni":
+        roi_files = mni_roi_files_to_subject_space(
+            roi_names, roi_dir, pm.m2m(config.subject_id), output_dir, logger
         )
     else:
-        roi_file = os.path.join(roi_dir, config.roi_name)
+        roi_files = [os.path.join(roi_dir, name) for name in roi_names]
+    if len(roi_files) > 1:
+        logger.info("Combining %d ROIs into one target: %s", len(roi_files), roi_names)
 
     atlas_entries = atlas_roi_entries(config)
     if atlas_entries:
         logger.info("Adding %d atlas ROI target(s)", len(atlas_entries))
-        roi_target = [roi_file] + atlas_entries
-    else:
-        roi_target = roi_file
+        roi_files = roi_files + atlas_entries
+    roi_target = roi_files
 
     if isinstance(config.electrodes, MExConfig.PoolElectrodes):
         buckets_or_pool = config.electrodes.electrodes

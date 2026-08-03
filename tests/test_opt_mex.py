@@ -639,10 +639,85 @@ class TestRunMExSearchAtlasAndMni:
     @patch("tit.opt.mex.mex.MExSearchEngine")
     @patch("tit.opt.mex.mex.add_file_handler")
     @patch("tit.opt.mex.mex.get_path_manager")
+    def test_atlas_only_target_reads_no_sphere_csv(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        """roi_names=[] must drop the sphere CSV, leaving an atlas-only target.
+
+        This is what lets the GUI offer Atlas ROI in mTI mode. Previously mex.py
+        built the sphere path from roi_name unconditionally, so a multipolar run
+        always needed a spherical ROI; roi_name is now only a naming label when
+        roi_names is empty, and no CSV is opened.
+        """
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {"m1": {}}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        config = _mex_pool_config(
+            roi_name="Left-Hippocampus",
+            roi_names=[],
+            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 17}],
+        )
+        run_m_ex_search(config)
+
+        roi_arg = mock_engine_cls.call_args[0][1]
+        assert roi_arg == [("/atlas/aseg.mgz", 17)]
+        # the label still names the run, it just is not a file to read
+        assert mock_engine_cls.call_args[0][2] == "Left-Hippocampus.csv"
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
+    def test_atlas_only_target_skips_the_mni_transform(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        """With no sphere centers there is nothing to transform.
+
+        Guards the ``if roi_names and ...`` condition: dropping the roi_names
+        half would send an empty list through simnibs.mni2subject_coords.
+        """
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {"m1": {}}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        config = _mex_pool_config(
+            roi_names=[],
+            roi_coordinate_space="mni",
+            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 17}],
+        )
+        with patch("simnibs.mni2subject_coords") as mock_transform:
+            run_m_ex_search(config)
+
+        mock_transform.assert_not_called()
+        assert mock_engine_cls.call_args[0][1] == [("/atlas/aseg.mgz", 17)]
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
     def test_no_roi_atlas_passes_bare_roi_file_string(
         self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
     ):
-        """Regression guard: default config keeps the pre-existing bare-string call."""
+        """A default (spherical) config passes exactly one ROI target.
+
+        mex.py used to hand the engine a bare string here and a list only when
+        atlas entries existed. It now always passes a list, mirroring
+        tit/opt/ex/ex.py -- ``ExSearchEngine`` (which ``MExSearchEngine``
+        extends) accepts either, and one shape means one code path.
+        """
         pm = self._pm(tmp_path)
         mock_gpm.return_value = pm
 
@@ -656,7 +731,7 @@ class TestRunMExSearchAtlasAndMni:
         run_m_ex_search(_mex_pool_config())
 
         roi_arg = mock_engine_cls.call_args[0][1]
-        assert roi_arg == os.path.join(str(tmp_path / "rois"), "motor.csv")
+        assert roi_arg == [os.path.join(str(tmp_path / "rois"), "motor.csv")]
 
     @patch("tit.opt.mex.mex.process_and_save")
     @patch("tit.opt.mex.mex.MExSearchEngine")
@@ -691,7 +766,7 @@ class TestRunMExSearchAtlasAndMni:
         mock_transform.assert_called_once()
         assert mock_transform.call_args[0][1] == str(tmp_path / "m2m_001")
 
-        roi_arg = mock_engine_cls.call_args[0][1]
+        [roi_arg] = mock_engine_cls.call_args[0][1]
         assert roi_arg != str(rois_dir / "motor.csv")
         with open(roi_arg) as f:
             row = next(csv.reader(f))

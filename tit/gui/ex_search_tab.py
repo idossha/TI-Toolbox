@@ -126,13 +126,6 @@ COORD_SPACE_HELP = (
     "are always read directly from the subject's own segmentation."
 )
 
-ATLAS_ROI_HELP = (
-    "Volumetric (subcortical) atlas region(s) used as the search target "
-    "when ROI Type is set to Atlas.\n\n"
-    "Atlas targets are always read in the subject's own space, regardless "
-    "of the Coordinate Space setting on the Sphere page."
-)
-
 #: ROI-mechanism modes for the ROI Selection box: sphere (ROI CSVs, radius,
 #: coordinate space) or atlas (volumetric ROIPickerWidget). These are
 #: alternatives, not companions -- see ExConfig.roi_names ("an explicit
@@ -147,12 +140,16 @@ ROI_MODE_HELP = (
     "Sphere: one or more spherical ROIs (from ROI CSVs), sized by ROI "
     "Radius, in either Subject or MNI coordinate space. This is the "
     "default and the only path in common use.\n\n"
-    "Atlas: a volumetric (subcortical) atlas region instead of any "
-    "spherical ROI. Always read in the subject's own space.\n\n"
-    "mTI (4-pair) search always requires a Sphere ROI regardless of this "
-    "toggle -- the multipolar backend has no atlas-only equivalent to "
-    "ExConfig's roi_names=[] escape hatch."
+    "Atlas: one or more volumetric (subcortical) atlas regions instead of "
+    "any spherical ROI, unioned into a single target. Always read in the "
+    "subject's own space, regardless of the Coordinate Space setting on the "
+    "Sphere page.\n\n"
+    "Both work with either search mode (TI and mTI)."
 )
+
+#: Height reserved for the atlas region chips so the column does not shift as
+#: regions are added or removed -- roughly two rows of chips.
+ATLAS_CHIPS_RESERVED_HEIGHT = 56
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
@@ -1123,9 +1120,10 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         # Sphere ROI(s) and Atlas ROI are alternatives, not companions --
         # a ROI Type toggle drives a QStackedWidget with one page per
-        # mechanism (same idiom as electrode_stack above). The group hugs
-        # whichever page is showing (Maximum) instead of reserving room for
-        # both; see _resize_roi_mode_stack.
+        # mechanism (same idiom as electrode_stack above). Unlike the
+        # electrode stack this one keeps its default "tallest page" height so
+        # switching ROI Type does not shift everything below it; see
+        # _on_roi_mode_changed.
         roi_container = QtWidgets.QGroupBox("ROI Selection")
         roi_container.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
@@ -1241,12 +1239,6 @@ class ExSearchTab(QtWidgets.QWidget):
         atlas_layout.setContentsMargins(0, 0, 0, 0)
         atlas_layout.setSpacing(8)
 
-        atlas_header_layout = QtWidgets.QHBoxLayout()
-        atlas_header_layout.addWidget(QtWidgets.QLabel("Atlas ROI:"))
-        atlas_header_layout.addWidget(HelpIcon(ATLAS_ROI_HELP, title="Atlas ROI"))
-        atlas_header_layout.addStretch()
-        atlas_layout.addLayout(atlas_header_layout)
-
         self.atlas_roi_picker = ROIPickerWidget(
             enable_spherical=False,
             enable_atlas=False,
@@ -1268,6 +1260,14 @@ class ExSearchTab(QtWidgets.QWidget):
         self.atlas_roi_picker.volume_subject_radio.setChecked(True)
         self.atlas_roi_picker.volume_subject_radio.setVisible(False)
         self.atlas_roi_picker.volume_mni_radio.setVisible(False)
+        # RegionChipsWidget is a flow layout with a 24px minimum, so it grows
+        # as regions are added and would push the column down on every "List
+        # Regions". Reserve two rows up front: the space is there whether or
+        # not chips occupy it, so adding and removing regions is visually
+        # stable.
+        self.atlas_roi_picker.subcortical_chips.setMinimumHeight(
+            ATLAS_CHIPS_RESERVED_HEIGHT
+        )
         atlas_layout.addWidget(self.atlas_roi_picker)
 
         self.roi_mode_stack.addWidget(atlas_page)
@@ -1703,11 +1703,37 @@ class ExSearchTab(QtWidgets.QWidget):
             names.append(name)
         return names
 
+    def _mti_roi_targets(self):
+        """Return ``(display_names, csv_names)`` for one mTI run.
+
+        In Sphere mode these are the selected ROI list entries, one run each.
+        In Atlas mode there is no ROI CSV to select, so the union of chosen
+        atlas regions becomes a single synthetic target named by
+        :meth:`atlas_only_roi_label` -- the same convention the TI path uses.
+        The name is only a label: ``roi_names=[]`` tells the backend to read no
+        sphere CSV at all.
+        """
+        if self._current_roi_mode() == ROI_MODE_ATLAS:
+            region_keys = list(self.atlas_roi_picker.subcortical_chips.keys())
+            label = self.atlas_only_roi_label(region_keys)
+            return region_keys, [f"{label}.csv"]
+        display = [
+            item.text().split(":")[0].strip() for item in self.roi_list.selectedItems()
+        ]
+        return display, self._selected_roi_csv_names()
+
     def _on_roi_mode_changed(self):
-        """Switch the ROI Selection box between its Sphere and Atlas pages."""
+        """Switch the ROI Selection box between its Sphere and Atlas pages.
+
+        Deliberately does NOT resize the stack. A QStackedWidget reserves the
+        maximum height over its pages, which is what keeps everything below the
+        ROI box still while the user flips between Sphere and Atlas -- sizing
+        to the current page instead made the whole column jump. The cost is
+        some slack on the shorter page, which is the right trade here: the
+        Atlas page needs room for region chips to appear anyway.
+        """
         is_atlas = self._current_roi_mode() == ROI_MODE_ATLAS
         self.roi_mode_stack.setCurrentIndex(1 if is_atlas else 0)
-        self._resize_roi_mode_stack()
 
     def _size_stack_to_current(self, stack):
         """Size a ``QStackedWidget`` to its current page, not to the largest.
@@ -1744,10 +1770,6 @@ class ExSearchTab(QtWidgets.QWidget):
         stack.adjustSize()
         self.updateGeometry()
 
-    def _resize_roi_mode_stack(self):
-        """Size ``roi_mode_stack`` to whichever ROI page is showing."""
-        self._size_stack_to_current(self.roi_mode_stack)
-
     def _on_search_mode_changed(self):
         """Swap electrode/current panels and toggle mode-specific controls."""
         is_mti = self._current_search_mode() == SEARCH_MODE_MTI
@@ -1764,28 +1786,16 @@ class ExSearchTab(QtWidgets.QWidget):
             "mTI Configuration" if is_mti else "Current Configuration"
         )
 
-        # MExConfig has no ROI-union equivalent to ExConfig.roi_names, so
-        # Combine ROIs only applies in TI mode.
+        # Combine ROIs stays TI-only: the mTI run path processes selected
+        # spherical ROIs one at a time and never builds a union, even though
+        # MExConfig.roi_names could now express one.
         self.combine_rois_cb.setEnabled(not is_mti)
         if is_mti:
             self.combine_rois_cb.setChecked(False)
 
-        # Atlas-only targeting is TI-only. tit/opt/ex/ex.py honours
-        # roi_names=[] and reads no sphere file, but tit/opt/mex/mex.py builds
-        # roi_file from config.roi_name unconditionally, so a multipolar run
-        # always needs a spherical ROI. Offering Atlas here would take the
-        # selection and then fail validation asking for a sphere, so the choice
-        # is disabled rather than left to mislead.
-        self.roi_mode_atlas_radio.setEnabled(not is_mti)
-        self.roi_mode_atlas_radio.setToolTip(
-            "Atlas-only targeting is not available for mTI: a multipolar run "
-            "still requires a spherical ROI."
-            if is_mti
-            else ""
-        )
-        if is_mti and self.roi_mode_atlas_radio.isChecked():
-            self.roi_mode_sphere_radio.setChecked(True)
-
+        # Atlas targeting works in both modes: MExConfig now carries roi_names
+        # like ExConfig, and tit/opt/mex/mex.py honours roi_names=[] by reading
+        # no sphere CSV, so the ROI Type choice is free in mTI too.
         self.run_btn.setText("Run mTI Search" if is_mti else "Run Ex-Search")
         self.stop_btn.setText("Stop mTI Search" if is_mti else "Stop Ex-Search")
 
@@ -2190,15 +2200,10 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_status("Please select a leadfield for simulation", error=True)
             return False
 
-        # ROI validation branches on ROI Type (Sphere/Atlas). mTI always needs
-        # a Sphere ROI regardless of the toggle: MExConfig has no roi_names=[]
-        # atlas-only escape hatch -- tit/opt/mex/mex.py builds roi_file from
-        # config.roi_name unconditionally and always merges it into
-        # roi_target, so the backend has no way to run without one.
-        if (
-            self._current_search_mode() == SEARCH_MODE_MTI
-            or self._current_roi_mode() == ROI_MODE_SPHERE
-        ):
+        # ROI validation branches on ROI Type alone -- both search modes now
+        # honour either mechanism, since MExConfig carries roi_names like
+        # ExConfig and tit/opt/mex/mex.py reads no sphere CSV when it is empty.
+        if self._current_roi_mode() == ROI_MODE_SPHERE:
             # Check if ROIs are selected
             if self.roi_list.count() == 0:
                 self.update_status("Please add at least one ROI", error=True)
@@ -2478,9 +2483,9 @@ class ExSearchTab(QtWidgets.QWidget):
         Mirrors the TI flow in ``run_optimization`` above: same
         subject/leadfield/ROI plumbing, confirmation dialog, and per-ROI
         pipeline via ``run_roi_pipeline``. mTI always searches bucketed
-        (there is no all-combinations page) and ``MExConfig`` has no
-        ROI-union equivalent to ``ExConfig.roi_names``, so ROIs are always
-        processed separately here (no Combine ROIs path).
+        (there is no all-combinations page), and selected spherical ROIs are
+        processed separately rather than unioned -- the Combine ROIs checkbox
+        stays TI-only. Atlas targeting works here as it does for TI.
         """
         subject_id = self.subject_combo.currentText()
         project_dir = self.pm.project_dir
@@ -2490,8 +2495,8 @@ class ExSearchTab(QtWidgets.QWidget):
         self.mex_buckets = self._current_mti_buckets()
         self.use_all_combinations = False
 
-        selected_rois = self.roi_list.selectedItems()
-        roi_names = [item.text().split(":")[0].strip() for item in selected_rois]
+        roi_names, selected_roi_names = self._mti_roi_targets()
+        is_atlas_only = self._current_roi_mode() == ROI_MODE_ATLAS
 
         bucket_counts = ", ".join(
             f"{MEX_BUCKET_LABELS[key]}: {len(values)}"
@@ -2508,8 +2513,11 @@ class ExSearchTab(QtWidgets.QWidget):
             f"Current per Pair: {self.mex_current_spinbox.value():.1f} mA\n"
             f"Carrier Wiring: {self.mex_channels_combo.currentText()}\n"
             f"Search Space: up to {n_combos_upper:,} eight-electrode combinations\n"
-            f"ROIs: {', '.join(roi_names)}\n"
-            f"Total ROIs: {len(roi_names)}"
+            + (
+                f"Atlas ROI: {', '.join(roi_names)}"
+                if is_atlas_only
+                else f"ROIs: {', '.join(roi_names)}\n" f"Total ROIs: {len(roi_names)}"
+            )
         )
         if self.mex_symmetric_bucket_cb.isChecked():
             details += (
@@ -2528,9 +2536,11 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create m_ex_search directory if it doesn't exist
         os.makedirs(mex_search_dir, exist_ok=True)
 
-        selected_roi_names = self._selected_roi_csv_names()
         if self.debug_mode:
-            self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
+            if is_atlas_only:
+                self.update_output(f"Atlas-only ROI target: {', '.join(roi_names)}")
+            else:
+                self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
 
         # Set up environment variables
         env = os.environ.copy()
@@ -2649,6 +2659,7 @@ class ExSearchTab(QtWidgets.QWidget):
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
+            roi_names=self.roi_names_for_mode(mode, None),
             roi_atlas=self.roi_atlas_for_mode(mode, self._current_roi_atlas_entries()),
             roi_coordinate_space=self.coordinate_space_value(
                 self.coord_space_mni.isChecked()
