@@ -127,12 +127,31 @@ COORD_SPACE_HELP = (
 )
 
 ATLAS_ROI_HELP = (
-    "Adds a volumetric (subcortical) atlas region as an additional search "
-    "target, unioned together with the spherical ROI(s) selected above -- "
-    "the field is evaluated over their combined coverage. Optional; leave "
-    "empty to use only the spherical ROI(s) above.\n\n"
+    "Volumetric (subcortical) atlas region(s) used as the search target "
+    "when ROI Type is set to Atlas.\n\n"
     "Atlas targets are always read in the subject's own space, regardless "
-    "of the Coordinate Space setting above."
+    "of the Coordinate Space setting on the Sphere page."
+)
+
+#: ROI-mechanism modes for the ROI Selection box: sphere (ROI CSVs, radius,
+#: coordinate space) or atlas (volumetric ROIPickerWidget). These are
+#: alternatives, not companions -- see ExConfig.roi_names ("an explicit
+#: empty list means 'no spherical centers at all' -- useful for a purely
+#: atlas-driven ROI") and ExConfig.roi_atlas in tit/opt/config.py.
+ROI_MODE_SPHERE = "sphere"
+ROI_MODE_ATLAS = "atlas"
+
+ROI_MODE_HELP = (
+    "Choose how the search target is defined -- the two mechanisms are "
+    "alternatives, not companions:\n\n"
+    "Sphere: one or more spherical ROIs (from ROI CSVs), sized by ROI "
+    "Radius, in either Subject or MNI coordinate space. This is the "
+    "default and the only path in common use.\n\n"
+    "Atlas: a volumetric (subcortical) atlas region instead of any "
+    "spherical ROI. Always read in the subject's own space.\n\n"
+    "mTI (4-pair) search always requires a Sphere ROI regardless of this "
+    "toggle -- the multipolar backend has no atlas-only equivalent to "
+    "ExConfig's roi_names=[] escape hatch."
 )
 
 
@@ -421,6 +440,51 @@ class ExSearchTab(QtWidgets.QWidget):
         atlas_path = picker.volume_atlas_combo.currentData()
         region_keys = list(picker.subcortical_chips.keys())
         return self.build_roi_atlas_entries(atlas_path, region_keys)
+
+    @staticmethod
+    def roi_names_for_mode(mode: str, roi_names: list[str] | None) -> list[str] | None:
+        """Map the ROI mode toggle to ``ExConfig.roi_names``.
+
+        Atlas mode means the target is atlas-only: an *explicit* empty
+        list, which ``ExConfig`` treats as "no spherical centers at all"
+        (see its docstring) rather than ``None`` (which falls back to the
+        single ``roi_name``). Sphere mode passes the caller's ROI names
+        through unchanged -- today's only real path.
+        """
+        return [] if mode == ROI_MODE_ATLAS else roi_names
+
+    @staticmethod
+    def roi_atlas_for_mode(
+        mode: str, roi_atlas_entries: list[dict] | None
+    ) -> list[dict] | None:
+        """Map the ROI mode toggle to ``roi_atlas`` for ExConfig/MExConfig.
+
+        Sphere mode disables the atlas path entirely (``None``) so the two
+        ROI mechanisms behave as alternatives rather than silently
+        combining. Atlas mode passes the picker's current entries through
+        unchanged.
+        """
+        return roi_atlas_entries if mode == ROI_MODE_ATLAS else None
+
+    @staticmethod
+    def atlas_only_roi_label(region_keys: list[str]) -> str:
+        """Synthetic ``ExConfig.roi_name`` label for atlas-only mode.
+
+        ``roi_name`` is always required -- it is the metric-key prefix and
+        (with the net name) the output-directory label -- even when there
+        are no spherical centers at all (``roi_names=[]``). Atlas mode has
+        no ROI CSV to name itself after, so build a stable label from the
+        selected atlas region keys instead.
+        """
+        if not region_keys:
+            return "atlas_roi"
+        return "atlas_" + "_".join(str(key) for key in region_keys)
+
+    def _current_roi_mode(self) -> str:
+        """Return the active ROI mechanism: ``ROI_MODE_SPHERE`` or ``ROI_MODE_ATLAS``."""
+        return (
+            ROI_MODE_ATLAS if self.roi_mode_atlas_radio.isChecked() else ROI_MODE_SPHERE
+        )
 
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
@@ -937,7 +1001,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 0, COLUMN 0: Subject Selection
         # ============================================================
         subject_container = QtWidgets.QGroupBox("Subject Selection")
-        subject_container.setFixedHeight(180)  # Match electrode selection height
+        subject_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
         subject_layout.setContentsMargins(10, 10, 10, 10)
         subject_layout.setSpacing(8)
@@ -970,9 +1036,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 0, COLUMN 1: Electrode Selection
         # ============================================================
         electrode_container = QtWidgets.QGroupBox("Electrode Selection")
-        electrode_container.setFixedHeight(
-            220
-        )  # Fixed height for balance (+search-mode row)
+        electrode_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         electrode_main_layout = QtWidgets.QVBoxLayout(electrode_container)
         electrode_main_layout.setContentsMargins(10, 10, 10, 10)
         electrode_main_layout.setSpacing(8)
@@ -1041,23 +1107,47 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         # ROW 1, COLUMN 0: ROI Selection
         # ============================================================
+        # Sphere ROI(s) and Atlas ROI are alternatives, not companions --
+        # a ROI Type toggle drives a QStackedWidget with one page per
+        # mechanism (same idiom as electrode_stack above). The group hugs
+        # whichever page is showing (Maximum) instead of reserving room for
+        # both; see _resize_roi_mode_stack.
         roi_container = QtWidgets.QGroupBox("ROI Selection")
-        roi_container.setFixedHeight(
-            220 + 68 + 90
-        )  # Fixed height for balance (includes radius + combine + atlas controls).
-        # The +90 accounts for the subcortical ROIPickerWidget page (atlas-space
-        # toggle + tissue combo + atlas combo/buttons + chips), taller than the
-        # single combo+chips row it replaced. Not verified visually -- no
-        # display available in this environment; re-check in a running GUI.
+        roi_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         roi_layout = QtWidgets.QVBoxLayout(roi_container)
         roi_layout.setContentsMargins(10, 10, 10, 10)
         roi_layout.setSpacing(8)
+
+        roi_mode_layout = QtWidgets.QHBoxLayout()
+        roi_mode_layout.addWidget(QtWidgets.QLabel("ROI Type:"))
+        self.roi_mode_sphere_radio = QtWidgets.QRadioButton("Sphere")
+        self.roi_mode_atlas_radio = QtWidgets.QRadioButton("Atlas")
+        self.roi_mode_sphere_radio.setChecked(True)  # Default: today's only real path
+        roi_mode_group = QtWidgets.QButtonGroup(self)
+        roi_mode_group.addButton(self.roi_mode_sphere_radio)
+        roi_mode_group.addButton(self.roi_mode_atlas_radio)
+        roi_mode_layout.addWidget(self.roi_mode_sphere_radio)
+        roi_mode_layout.addWidget(self.roi_mode_atlas_radio)
+        roi_mode_layout.addWidget(HelpIcon(ROI_MODE_HELP, title="ROI Type"))
+        roi_mode_layout.addStretch()
+        roi_layout.addLayout(roi_mode_layout)
+
+        self.roi_mode_stack = QtWidgets.QStackedWidget()
+        roi_layout.addWidget(self.roi_mode_stack)
+
+        # ---- Sphere page (index 0) ----
+        sphere_page = QtWidgets.QWidget()
+        sphere_layout = QtWidgets.QVBoxLayout(sphere_page)
+        sphere_layout.setContentsMargins(0, 0, 0, 0)
+        sphere_layout.setSpacing(8)
 
         # List widget for ROI selection
         self.roi_list = QtWidgets.QListWidget()
         self.roi_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.roi_list.setFixedHeight(80)  # Adjusted to fit within ROI container
-        roi_layout.addWidget(self.roi_list)
+        sphere_layout.addWidget(self.roi_list)
 
         # ROI control buttons
         roi_button_layout = QtWidgets.QHBoxLayout()
@@ -1074,7 +1164,7 @@ class ExSearchTab(QtWidgets.QWidget):
         roi_button_layout.addWidget(self.add_roi_btn)
         roi_button_layout.addWidget(self.remove_roi_btn)
         roi_button_layout.addWidget(self.list_rois_btn)
-        roi_layout.addLayout(roi_button_layout)
+        sphere_layout.addLayout(roi_button_layout)
 
         # ROI radius parameter
         radius_layout = QtWidgets.QHBoxLayout()
@@ -1091,7 +1181,7 @@ class ExSearchTab(QtWidgets.QWidget):
         radius_layout.addWidget(radius_label)
         radius_layout.addWidget(self.roi_radius_spinbox)
         radius_layout.addStretch()
-        roi_layout.addLayout(radius_layout)
+        sphere_layout.addLayout(radius_layout)
 
         # Combine selected ROIs into a single (unioned) target
         combine_tooltip = (
@@ -1107,7 +1197,7 @@ class ExSearchTab(QtWidgets.QWidget):
         combine_layout.addWidget(self.combine_rois_cb)
         combine_layout.addWidget(HelpIcon(combine_tooltip, title="Combine ROIs"))
         combine_layout.addStretch()
-        roi_layout.addLayout(combine_layout)
+        sphere_layout.addLayout(combine_layout)
 
         # Coordinate space toggle (governs the spherical ROI centers only).
         space_layout = QtWidgets.QHBoxLayout()
@@ -1122,19 +1212,26 @@ class ExSearchTab(QtWidgets.QWidget):
         space_layout.addWidget(self.coord_space_mni)
         space_layout.addWidget(HelpIcon(COORD_SPACE_HELP, title="Coordinate Space"))
         space_layout.addStretch()
-        roi_layout.addLayout(space_layout)
+        sphere_layout.addLayout(space_layout)
 
-        # Atlas ROI: optional subcortical (volumetric atlas) target(s), unioned
-        # with the spherical ROI(s) selected above. Shares the same
-        # ROIPickerWidget component flex-search uses, minus the cortical mode
-        # (ex-search has no surface-annotation ROI concept) -- this also gives
-        # it the same region-listing behavior (no synchronous FreeSurfer
-        # mri_segstats call on the UI thread; see ROIPickerWidget/VoxelAtlasManager).
+        self.roi_mode_stack.addWidget(sphere_page)
+
+        # ---- Atlas page (index 1) ----
+        # Shares the same ROIPickerWidget component flex-search uses, minus
+        # the cortical mode (ex-search has no surface-annotation ROI
+        # concept) -- this also gives it the same region-listing behavior
+        # (no synchronous FreeSurfer mri_segstats call on the UI thread; see
+        # ROIPickerWidget/VoxelAtlasManager).
+        atlas_page = QtWidgets.QWidget()
+        atlas_layout = QtWidgets.QVBoxLayout(atlas_page)
+        atlas_layout.setContentsMargins(0, 0, 0, 0)
+        atlas_layout.setSpacing(8)
+
         atlas_header_layout = QtWidgets.QHBoxLayout()
-        atlas_header_layout.addWidget(QtWidgets.QLabel("Atlas ROI (optional):"))
+        atlas_header_layout.addWidget(QtWidgets.QLabel("Atlas ROI:"))
         atlas_header_layout.addWidget(HelpIcon(ATLAS_ROI_HELP, title="Atlas ROI"))
         atlas_header_layout.addStretch()
-        roi_layout.addLayout(atlas_header_layout)
+        atlas_layout.addLayout(atlas_header_layout)
 
         self.atlas_roi_picker = ROIPickerWidget(
             enable_spherical=False,
@@ -1157,7 +1254,14 @@ class ExSearchTab(QtWidgets.QWidget):
         self.atlas_roi_picker.volume_subject_radio.setChecked(True)
         self.atlas_roi_picker.volume_subject_radio.setVisible(False)
         self.atlas_roi_picker.volume_mni_radio.setVisible(False)
-        roi_layout.addWidget(self.atlas_roi_picker)
+        atlas_layout.addWidget(self.atlas_roi_picker)
+
+        self.roi_mode_stack.addWidget(atlas_page)
+
+        self.roi_mode_sphere_radio.toggled.connect(
+            lambda _v: self._on_roi_mode_changed()
+        )
+        self._on_roi_mode_changed()  # Initialize to correct (sphere) page
 
         # Add ROI container to grid - Row 1, Column 0
         main_grid_layout.addWidget(roi_container, 1, 0)
@@ -1166,9 +1270,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 1, COLUMN 1: Current Configuration
         # ============================================================
         self.current_container = QtWidgets.QGroupBox("Current Configuration")
-        self.current_container.setFixedHeight(
-            220
-        )  # Match ROI selection height (+mTI page)
+        self.current_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         current_layout = QtWidgets.QVBoxLayout(self.current_container)
         current_layout.setContentsMargins(10, 10, 10, 10)
         current_layout.setSpacing(8)
@@ -1187,7 +1291,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 2, COLUMN 0-1: Leadfield Management (spanning both columns)
         # ============================================================
         leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
-        leadfield_container.setFixedHeight(240)  # Fixed height for balance
+        leadfield_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum
+        )
         leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
         leadfield_layout.setContentsMargins(10, 10, 10, 10)
         leadfield_layout.setSpacing(8)
@@ -1245,6 +1351,11 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Add grid layout to scroll layout
         scroll_layout.addLayout(main_grid_layout)
+
+        # Trailing stretch absorbs the vertical slack freed by dropping the
+        # container setFixedHeight calls above (groups now hug their content
+        # via SizePolicy.Maximum instead of reserving dead space).
+        scroll_layout.addStretch(1)
 
         # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
@@ -1577,6 +1688,38 @@ class ExSearchTab(QtWidgets.QWidget):
             names.append(name)
         return names
 
+    def _on_roi_mode_changed(self):
+        """Switch the ROI Selection box between its Sphere and Atlas pages."""
+        is_atlas = self._current_roi_mode() == ROI_MODE_ATLAS
+        self.roi_mode_stack.setCurrentIndex(1 if is_atlas else 0)
+        self._resize_roi_mode_stack()
+
+    def _resize_roi_mode_stack(self):
+        """Size ``roi_mode_stack`` to its current page instead of the tallest.
+
+        Mirrors ``ROIPickerWidget._resize_stack_to_current``: collapse the
+        non-active page's vertical size policy to ``Ignored`` so the stack
+        (and the surrounding ``roi_container``, set to ``Maximum``) hugs
+        whichever page is showing instead of reserving room for both.
+        """
+        current = self.roi_mode_stack.currentWidget()
+        for i in range(self.roi_mode_stack.count()):
+            page = self.roi_mode_stack.widget(i)
+            if page is None:
+                continue
+            policy = page.sizePolicy()
+            policy.setVerticalPolicy(
+                QtWidgets.QSizePolicy.Preferred
+                if page is current
+                else QtWidgets.QSizePolicy.Ignored
+            )
+            page.setSizePolicy(policy)
+        if current is not None:
+            current.adjustSize()
+        self.roi_mode_stack.updateGeometry()
+        self.roi_mode_stack.adjustSize()
+        self.updateGeometry()
+
     def _on_search_mode_changed(self):
         """Swap electrode/current panels and toggle mode-specific controls."""
         is_mti = self._current_search_mode() == SEARCH_MODE_MTI
@@ -1598,6 +1741,22 @@ class ExSearchTab(QtWidgets.QWidget):
         self.combine_rois_cb.setEnabled(not is_mti)
         if is_mti:
             self.combine_rois_cb.setChecked(False)
+
+        # Atlas-only targeting is TI-only. tit/opt/ex/ex.py honours
+        # roi_names=[] and reads no sphere file, but tit/opt/mex/mex.py builds
+        # roi_file from config.roi_name unconditionally, so a multipolar run
+        # always needs a spherical ROI. Offering Atlas here would take the
+        # selection and then fail validation asking for a sphere, so the choice
+        # is disabled rather than left to mislead.
+        self.roi_mode_atlas_radio.setEnabled(not is_mti)
+        self.roi_mode_atlas_radio.setToolTip(
+            "Atlas-only targeting is not available for mTI: a multipolar run "
+            "still requires a spherical ROI."
+            if is_mti
+            else ""
+        )
+        if is_mti and self.roi_mode_atlas_radio.isChecked():
+            self.roi_mode_sphere_radio.setChecked(True)
 
         self.run_btn.setText("Run mTI Search" if is_mti else "Run Ex-Search")
         self.stop_btn.setText("Stop mTI Search" if is_mti else "Stop Ex-Search")
@@ -2000,17 +2159,31 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_status("Please select a leadfield for simulation", error=True)
             return False
 
-        # Check if ROIs are selected
-        if self.roi_list.count() == 0:
-            self.update_status("Please add at least one ROI", error=True)
-            return False
+        # ROI validation branches on ROI Type (Sphere/Atlas). mTI always needs
+        # a Sphere ROI regardless of the toggle: MExConfig has no roi_names=[]
+        # atlas-only escape hatch -- tit/opt/mex/mex.py builds roi_file from
+        # config.roi_name unconditionally and always merges it into
+        # roi_target, so the backend has no way to run without one.
+        if (
+            self._current_search_mode() == SEARCH_MODE_MTI
+            or self._current_roi_mode() == ROI_MODE_SPHERE
+        ):
+            # Check if ROIs are selected
+            if self.roi_list.count() == 0:
+                self.update_status("Please add at least one ROI", error=True)
+                return False
 
-        # Check if at least one ROI is selected
-        selected_rois = self.roi_list.selectedItems()
-        if not selected_rois:
-            self.update_status(
-                "Please select at least one ROI from the list", error=True
-            )
+            # Check if at least one ROI is selected
+            selected_rois = self.roi_list.selectedItems()
+            if not selected_rois:
+                self.update_status(
+                    "Please select at least one ROI from the list", error=True
+                )
+                return False
+        elif not self._current_roi_atlas_entries():
+            # TI + Atlas mode: Sphere ROI is optional, but an atlas target
+            # is required in its place.
+            self.update_status("Please select at least one atlas region", error=True)
             return False
 
         # mTI validates its own eight electrode buckets; the TI
@@ -2111,6 +2284,69 @@ class ExSearchTab(QtWidgets.QWidget):
             e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
             e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
             self.use_all_combinations = False
+
+        # ROI Type: Sphere is today's only real path and stays byte-for-byte
+        # identical below. Atlas mode has no ROI CSV selection at all, so it
+        # takes its own early-return branch instead of threading empty
+        # sphere state through the combine-ROI machinery below.
+        is_atlas_only = self._current_roi_mode() == ROI_MODE_ATLAS
+        if is_atlas_only:
+            atlas_region_keys = list(self.atlas_roi_picker.subcortical_chips.keys())
+            roi_label = self.atlas_only_roi_label(atlas_region_keys)
+
+            if self.use_all_combinations:
+                mode_str = "All-Combinations Mode"
+                electrode_info = f"Electrode Pool: {', '.join(e1_plus[:8])}{'...' if len(e1_plus) > 8 else ''}\n"
+                electrode_info += f"Total Electrodes: {len(e1_plus)}"
+            else:
+                mode_str = "Bucketed Mode"
+                electrode_info = (
+                    f"E1+: {len(e1_plus)} electrodes, E1-: {len(e1_minus)}\n"
+                    f"E2+: {len(e2_plus)} electrodes, E2-: {len(e2_minus)}"
+                )
+
+            details = (
+                f"Subject: {subject_id}\n"
+                f"Mode: {mode_str}\n"
+                f"{electrode_info}\n"
+                f"Atlas ROI: {', '.join(atlas_region_keys)}"
+            )
+
+            if not ConfirmationDialog.confirm(
+                self,
+                title="Confirm Ex-Search Optimization",
+                message="Are you sure you want to start the ex-search optimization?",
+                details=details,
+            ):
+                return
+
+            os.makedirs(ex_search_dir, exist_ok=True)
+
+            selected_roi_names = [f"{roi_label}.csv"]
+            if self.debug_mode:
+                self.update_output(
+                    f"Atlas-only ROI target: {', '.join(atlas_region_keys)}"
+                )
+
+            env = os.environ.copy()
+            env["SUBJECTS_DIR"] = project_dir
+
+            self.disable_controls()
+            self.update_status(f"Running optimization for subject {subject_id}...")
+
+            self._combine_rois = False
+            self._combined_roi_names = []
+            self.roi_processing_queue = selected_roi_names.copy()
+            self.current_roi_index = 0
+            self._exsearch_had_errors = False
+            self.e1_plus = e1_plus
+            self.e1_minus = e1_minus
+            self.e2_plus = e2_plus
+            self.e2_minus = e2_minus
+
+            self.log_exsearch_start(subject_id, len(selected_roi_names))
+            self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+            return
 
         # Show confirmation dialog with mode and electrode information
         selected_rois = self.roi_list.selectedItems()
@@ -2312,12 +2548,13 @@ class ExSearchTab(QtWidgets.QWidget):
                 e2_minus=list(self.e2_minus),
             )
 
+        mode = self._current_roi_mode()
         return ExConfig(
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
-            roi_names=roi_names,
-            roi_atlas=self._current_roi_atlas_entries(),
+            roi_names=self.roi_names_for_mode(mode, roi_names),
+            roi_atlas=self.roi_atlas_for_mode(mode, self._current_roi_atlas_entries()),
             roi_coordinate_space=self.coordinate_space_value(
                 self.coord_space_mni.isChecked()
             ),
@@ -2376,11 +2613,12 @@ class ExSearchTab(QtWidgets.QWidget):
             MExConfig instance ready for serialization.
         """
         electrodes = MExConfig.BucketElectrodes(**self.mex_buckets)
+        mode = self._current_roi_mode()
         return MExConfig(
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
-            roi_atlas=self._current_roi_atlas_entries(),
+            roi_atlas=self.roi_atlas_for_mode(mode, self._current_roi_atlas_entries()),
             roi_coordinate_space=self.coordinate_space_value(
                 self.coord_space_mni.isChecked()
             ),
@@ -2450,43 +2688,65 @@ class ExSearchTab(QtWidgets.QWidget):
         # Get ROI coordinates
         pm = self.pm
         roi_dir = pm.rois(subject_id)
+        # Atlas-only mode (TI search mode + ROI_MODE_ATLAS) has no sphere ROI
+        # CSV at all -- see the early-return branch in run_optimization -- so
+        # there is nothing on disk to read coordinates from.
+        is_atlas_only = (
+            self._current_search_mode() != SEARCH_MODE_MTI
+            and self._current_roi_mode() == ROI_MODE_ATLAS
+        )
         if self._combine_rois:
             # Combined target: the queue holds one synthetic entry; read coords
             # from the first real ROI for logging while the backend unions all
             # selected ROI spheres (roi_names).
             roi_names_for_config = list(self._combined_roi_names)
             coord_source = self._combined_roi_names[0]
+        elif is_atlas_only:
+            roi_names_for_config = []
+            coord_source = None
         else:
             roi_names_for_config = None
             coord_source = current_roi
-        roi_file = os.path.join(roi_dir, coord_source)
 
-        try:
-            with open(roi_file, "r") as f:
-                coordinates = f.readline().strip()
-            x, y, z = [float(coord.strip()) for coord in coordinates.split(",")]
+        if is_atlas_only:
+            # No spherical center to read -- coordinates are display-only and
+            # unused by the backend when roi_names=[] (atlas-only target).
+            x = y = z = 0.0
             if self.debug_mode:
-                self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
-                self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug")
-        except (OSError, ValueError) as e:
-            if self._combine_rois:
-                # In combined mode these coords are display-only (the backend
-                # unions all selected roi_names itself), so a bad display-source
-                # read must NOT abort the whole union run.
                 self.update_output(
-                    f"Warning: could not read coords from {coord_source} "
-                    f"for logging: {str(e)}",
-                    "warning",
+                    "[DEBUG] Atlas-only ROI target -- no spherical coordinates",
+                    "debug",
                 )
-                x = y = z = 0.0
-            else:
-                self.update_output(
-                    f"Error reading ROI file {current_roi}: {str(e)}", "error"
-                )
-                # Move to next ROI
-                self.current_roi_index += 1
-                self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
-                return
+        else:
+            roi_file = os.path.join(roi_dir, coord_source)
+            try:
+                with open(roi_file, "r") as f:
+                    coordinates = f.readline().strip()
+                x, y, z = [float(coord.strip()) for coord in coordinates.split(",")]
+                if self.debug_mode:
+                    self.update_output(f"[DEBUG] ROI file: {roi_file}", "debug")
+                    self.update_output(
+                        f"[DEBUG] Parsed ROI coords: {(x, y, z)}", "debug"
+                    )
+            except (OSError, ValueError) as e:
+                if self._combine_rois:
+                    # In combined mode these coords are display-only (the backend
+                    # unions all selected roi_names itself), so a bad display-source
+                    # read must NOT abort the whole union run.
+                    self.update_output(
+                        f"Warning: could not read coords from {coord_source} "
+                        f"for logging: {str(e)}",
+                        "warning",
+                    )
+                    x = y = z = 0.0
+                else:
+                    self.update_output(
+                        f"Error reading ROI file {current_roi}: {str(e)}", "error"
+                    )
+                    # Move to next ROI
+                    self.current_roi_index += 1
+                    self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+                    return
 
         # Build the backend config dataclass from UI state: TI -> ExConfig via
         # tit.opt.ex, mTI -> MExConfig via tit.opt.mex (see search_backend_for_mode).
@@ -2938,6 +3198,8 @@ class ExSearchTab(QtWidgets.QWidget):
     def disable_controls(self):
         """Disable controls during optimization or leadfield generation."""
         self.subject_combo.setEnabled(False)
+        self.roi_mode_sphere_radio.setEnabled(False)
+        self.roi_mode_atlas_radio.setEnabled(False)
         self.roi_list.setEnabled(False)
         self.roi_radius_spinbox.setEnabled(False)
         self.e1_plus_input.setEnabled(False)
@@ -2983,6 +3245,8 @@ class ExSearchTab(QtWidgets.QWidget):
     def enable_controls(self):
         """Enable controls after optimization."""
         self.subject_combo.setEnabled(True)
+        self.roi_mode_sphere_radio.setEnabled(True)
+        self.roi_mode_atlas_radio.setEnabled(True)
         self.roi_list.setEnabled(True)
         self.roi_radius_spinbox.setEnabled(True)
         self.e1_plus_input.setEnabled(True)
