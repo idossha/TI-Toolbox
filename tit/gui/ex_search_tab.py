@@ -993,20 +993,27 @@ class ExSearchTab(QtWidgets.QWidget):
         scroll_layout.setContentsMargins(10, 10, 10, 10)
         scroll_layout.setSpacing(10)
 
-        # Main grid layout for organized component placement
-        main_grid_layout = QtWidgets.QGridLayout()
-        main_grid_layout.setSpacing(15)  # Add spacing between components
-        # A QGridLayout hands leftover height to any row that can grow, so the
-        # SizePolicy.Maximum on each group box stops the boxes stretching but
-        # not the rows holding them. Pin every content row to its natural
-        # height and let the trailing scroll_layout stretch take the slack.
-        # A QGridLayout spreads spare height across its rows -- and when no row
-        # has a stretch factor it spreads it *equally*, so pinning them all to
-        # zero achieves nothing. Give a trailing spacer row the stretch instead,
-        # and top-align each box in its cell; without the alignment a box that
-        # will not grow (SizePolicy.Maximum) just floats in the middle of an
-        # oversized cell, which is what left the gaps above Subject Selection.
-        main_grid_layout.setRowStretch(3, 1)
+        # Two independent columns, NOT a QGridLayout.
+        #
+        # A grid forces the cells in a row to share that row's height, so a
+        # short box paired with a tall one is stuck in an oversized cell no
+        # matter how it is aligned or how little it wants to grow. Subject
+        # Selection sat beside the much taller Electrode Selection and ROI
+        # Selection beside the much shorter Current Configuration, which is
+        # exactly where the two dead gaps appeared. Top-aligning the boxes
+        # moved them within their cells but could not shrink the rows.
+        #
+        # Independent QVBoxLayouts have no shared row heights, so each column
+        # packs its boxes against the one above it and any leftover height
+        # falls to the trailing scroll_layout stretch. Leadfield Management
+        # spans the full width, so it goes below the columns rather than in
+        # them.
+        columns_layout = QtWidgets.QHBoxLayout()
+        columns_layout.setSpacing(15)
+        left_column = QtWidgets.QVBoxLayout()
+        left_column.setSpacing(15)
+        right_column = QtWidgets.QVBoxLayout()
+        right_column.setSpacing(15)
 
         # ============================================================
         # ROW 0, COLUMN 0: Subject Selection
@@ -1037,8 +1044,7 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_button_layout.addWidget(self.clear_subject_selection_btn)
         subject_layout.addLayout(subject_button_layout)
 
-        # Add subject container to grid - Row 0, Column 0
-        main_grid_layout.addWidget(subject_container, 0, 0, QtCore.Qt.AlignTop)
+        left_column.addWidget(subject_container)
 
         # ============================================================
         # ROW 0, COLUMN 1: Electrode Selection
@@ -1110,7 +1116,7 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
         # Add electrode container to grid - Row 0, Column 1
-        main_grid_layout.addWidget(electrode_container, 0, 1, QtCore.Qt.AlignTop)
+        right_column.addWidget(electrode_container)
 
         # ============================================================
         # ROW 1, COLUMN 0: ROI Selection
@@ -1272,7 +1278,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self._on_roi_mode_changed()  # Initialize to correct (sphere) page
 
         # Add ROI container to grid - Row 1, Column 0
-        main_grid_layout.addWidget(roi_container, 1, 0, QtCore.Qt.AlignTop)
+        left_column.addWidget(roi_container)
 
         # ============================================================
         # ROW 1, COLUMN 1: Current Configuration
@@ -1293,7 +1299,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self._build_mti_current_panel()
 
         # Add current container to grid - Row 1, Column 1
-        main_grid_layout.addWidget(self.current_container, 1, 1, QtCore.Qt.AlignTop)
+        right_column.addWidget(self.current_container)
 
         # ============================================================
         # ROW 2, COLUMN 0-1: Leadfield Management (spanning both columns)
@@ -1355,10 +1361,14 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
         # Add leadfield container to grid - Row 2, Column 0-1 (spanning both columns)
-        main_grid_layout.addWidget(leadfield_container, 2, 0, 1, 2, QtCore.Qt.AlignTop)
+        # Both columns end where their content ends; the shorter one simply
+        # stops. Adding a stretch here would re-introduce the reserved space.
+        columns_layout.addLayout(left_column)
+        columns_layout.addLayout(right_column)
 
         # Add grid layout to scroll layout
-        scroll_layout.addLayout(main_grid_layout)
+        scroll_layout.addLayout(columns_layout)
+        scroll_layout.addWidget(leadfield_container)
 
         # Trailing stretch absorbs the vertical slack freed by dropping the
         # container setFixedHeight calls above (groups now hug their content
