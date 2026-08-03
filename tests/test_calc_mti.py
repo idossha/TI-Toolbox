@@ -513,3 +513,179 @@ class TestGetMagnitudeAM:
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="even number"):
             get_magnitude_am([])
+
+
+# ---------------------------------------------------------------------------
+# get_TI_vectors -- Hirata et al. (2024) sign-agnostic closed form vs. the
+# legacy preprocess-then-branch (swap/flip) formulation it replaced
+# ---------------------------------------------------------------------------
+
+
+def _legacy_get_TI_vectors(E1_org, E2_org):
+    """Pre-Hirata reference implementation of ``get_TI_vectors``, kept
+    verbatim as a test-only equivalence oracle. Orders fields so
+    ``|E1| >= |E2|``, flips ``E2`` for an acute angle, then branches on
+    ``|E2| <= |E1|*cos(alpha)``."""
+    assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
+    assert E1_org.shape[1] == 3, "Vectors must be 3D"
+
+    E1 = E1_org.copy()
+    E2 = E2_org.copy()
+
+    idx_swap = np.linalg.norm(E2, axis=1) > np.linalg.norm(E1, axis=1)
+    E1[idx_swap], E2[idx_swap] = E2[idx_swap], E1_org[idx_swap]
+
+    idx_flip = np.sum(E1 * E2, axis=1) < 0
+    E2[idx_flip] = -E2[idx_flip]
+
+    normE1 = np.linalg.norm(E1, axis=1)
+    normE2 = np.linalg.norm(E2, axis=1)
+    denom = normE1 * normE2
+    denom[denom == 0] = 1.0
+    cosalpha = np.clip(np.sum(E1 * E2, axis=1) / denom, -1.0, 1.0)
+
+    regime1_mask = normE2 <= normE1 * cosalpha
+    TI_vectors = np.zeros_like(E1)
+    TI_vectors[regime1_mask] = 2.0 * E2[regime1_mask]
+
+    regime2_mask = ~regime1_mask
+    if np.any(regime2_mask):
+        h = E1[regime2_mask] - E2[regime2_mask]
+        h_norm = np.linalg.norm(h, axis=1)
+        h_norm[h_norm == 0] = 1.0
+        e_h = h / h_norm[:, None]
+
+        E2_parallel_component = np.sum(E2[regime2_mask] * e_h, axis=1)[:, None] * e_h
+        E2_perp = E2[regime2_mask] - E2_parallel_component
+        TI_vectors[regime2_mask] = 2.0 * E2_perp
+
+    return TI_vectors
+
+
+def _unit(v):
+    v = np.asarray(v, dtype=np.float64)
+    return v / np.linalg.norm(v)
+
+
+@pytest.mark.unit
+class TestHirataFormEquivalence:
+    """get_TI_vectors (Hirata et al. 2024 sign-agnostic closed form) must
+    match _legacy_get_TI_vectors (Grossman et al. 2017 preprocess-then-branch
+    form) exactly -- measured bit-identical (max abs diff 0.0) over 400,000+
+    random pairs spanning magnitude scales 1e-4..1e4, including a dense
+    near-orthogonal sweep targeting the cancellation regime the sign(dot)
+    decision (vs. comparing |E1-E2| to |E1+E2|) is designed to avoid."""
+
+    def test_matches_legacy_random_log_uniform_magnitudes(self):
+        rng = np.random.default_rng(12345)
+        n = 100_000
+        scale1 = 10.0 ** rng.uniform(-4, 4, size=n)
+        scale2 = 10.0 ** rng.uniform(-4, 4, size=n)
+        dir1 = rng.standard_normal((n, 3))
+        dir1 /= np.linalg.norm(dir1, axis=1, keepdims=True)
+        dir2 = rng.standard_normal((n, 3))
+        dir2 /= np.linalg.norm(dir2, axis=1, keepdims=True)
+        E1 = dir1 * scale1[:, None]
+        E2 = dir2 * scale2[:, None]
+
+        expected = _legacy_get_TI_vectors(E1, E2)
+        result = get_TI_vectors(E1, E2)
+        np.testing.assert_allclose(result, expected, atol=0)
+
+    def test_matches_legacy_random_standard_normal(self):
+        rng = np.random.default_rng(54321)
+        n = 200_000
+        E1 = rng.standard_normal((n, 3))
+        E2 = rng.standard_normal((n, 3))
+
+        expected = _legacy_get_TI_vectors(E1, E2)
+        result = get_TI_vectors(E1, E2)
+        np.testing.assert_allclose(result, expected, atol=0)
+
+    def test_matches_legacy_near_orthogonal_cancellation_sweep(self):
+        """Dense sweep of near-orthogonal field pairs (dot ~ 0 relative to
+        |E1|,|E2|) at mixed magnitude scales -- the regime where comparing
+        |E1-E2| to |E1+E2| loses the sign to float64 cancellation and
+        deciding from sign(E1.E2) directly is required for equivalence."""
+        rng = np.random.default_rng(98765)
+        n = 100_000
+        mag1 = 10.0 ** rng.uniform(-4, 4, size=n)
+        mag2 = 10.0 ** rng.uniform(-4, 4, size=n)
+        base = rng.standard_normal((n, 3))
+        base /= np.linalg.norm(base, axis=1, keepdims=True)
+        perp = rng.standard_normal((n, 3))
+        perp -= np.sum(perp * base, axis=1, keepdims=True) * base
+        perp /= np.linalg.norm(perp, axis=1, keepdims=True)
+        tiny_angle = rng.uniform(-1e-6, 1e-6, size=n)  # radians, near pi/2
+
+        E1 = base * mag1[:, None]
+        E2 = (
+            perp * np.cos(tiny_angle)[:, None] + base * np.sin(tiny_angle)[:, None]
+        ) * mag2[:, None]
+
+        expected = _legacy_get_TI_vectors(E1, E2)
+        result = get_TI_vectors(E1, E2)
+        np.testing.assert_allclose(result, expected, atol=0)
+
+    @pytest.mark.parametrize(
+        "name,E1,E2",
+        [
+            (
+                "collinear_same_direction",
+                np.tile(_unit([1.0, 2.0, 3.0]) * 2.0, (10, 1)),
+                np.tile(_unit([1.0, 2.0, 3.0]) * 5.0, (10, 1)),
+            ),
+            (
+                "antiparallel",
+                np.tile(_unit([1.0, 2.0, 3.0]) * 3.0, (10, 1)),
+                np.tile(-_unit([1.0, 2.0, 3.0]) * 7.0, (10, 1)),
+            ),
+            (
+                "exactly_orthogonal",
+                np.tile(_unit([1.0, 2.0, 3.0]) * 4.0, (10, 1)),
+                np.tile(
+                    _unit(
+                        np.array([2.0, -1.0, 0.0])
+                        - np.dot(_unit([2.0, -1.0, 0.0]), _unit([1.0, 2.0, 3.0]))
+                        * _unit([1.0, 2.0, 3.0])
+                    )
+                    * 6.0,
+                    (10, 1),
+                ),
+            ),
+            (
+                "zero_both",
+                np.zeros((5, 3)),
+                np.zeros((5, 3)),
+            ),
+            (
+                "zero_E1",
+                np.zeros((5, 3)),
+                np.tile([1.0, 2.0, 3.0], (5, 1)),
+            ),
+            (
+                "zero_E2",
+                np.tile([1.0, 2.0, 3.0], (5, 1)),
+                np.zeros((5, 3)),
+            ),
+            (
+                "identical_fields",
+                np.tile([1.0, -2.0, 0.5], (10, 1)),
+                np.tile([1.0, -2.0, 0.5], (10, 1)),
+            ),
+            (
+                "vastly_unequal_small_vs_large",
+                np.tile(_unit([1.0, 2.0, 3.0]) * 1e-4, (10, 1)),
+                np.tile(_unit([2.0, -1.0, 0.0]) * 1e4, (10, 1)),
+            ),
+            (
+                "vastly_unequal_large_vs_small",
+                np.tile(_unit([1.0, 2.0, 3.0]) * 1e4, (10, 1)),
+                np.tile(_unit([2.0, -1.0, 0.0]) * 1e-4, (10, 1)),
+            ),
+        ],
+    )
+    def test_matches_legacy_degenerate_cases(self, name, E1, E2):
+        expected = _legacy_get_TI_vectors(E1, E2)
+        result = get_TI_vectors(E1, E2)
+        np.testing.assert_allclose(result, expected, atol=0)

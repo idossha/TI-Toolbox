@@ -37,10 +37,13 @@ import numpy as np
 def get_TI_vectors(E1_org, E2_org):
     """Compute the TI modulation-amplitude vectors for two electric fields.
 
-    Grossman et al. (2017) closed form: after ordering fields ``|E1| >=
-    |E2|`` and flipping ``E2`` for an acute angle, ``TI = 2*E2`` when
-    ``|E2| <= |E1|*cos(alpha)`` (parallel regime), else ``TI = 2 *`` the
-    component of ``E2`` perpendicular to ``E1 - E2`` (oblique regime).
+    Sign-agnostic closed form (Hirata et al. 2024), equivalent to the
+    original Grossman et al. (2017) preprocess-then-branch formulation but
+    needs no magnitude-ordering swap or acute-angle sign flip of the
+    inputs: ``TI = 2*min(|E1|,|E2|)`` (as a vector, sign-corrected) when
+    ``min(|E1|,|E2|) <= sqrt(|E1.E2|)``, else ``TI = 2 *`` that same
+    sign-corrected vector's component perpendicular to ``h``, whichever of
+    ``E1-E2``/``E1+E2`` has the smaller norm.
 
     Parameters
     ----------
@@ -55,43 +58,56 @@ def get_TI_vectors(E1_org, E2_org):
     References
     ----------
     Grossman, N. et al. (2017). Cell, 169(6), 1029-1041.
+    Hirata, A. et al. (2024). Computers in Biology and Medicine, 178, 108697.
     """
     assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
     assert E1_org.shape[1] == 3, "Vectors must be 3D"
 
-    E1 = E1_org.copy()
-    E2 = E2_org.copy()
-
-    # Order fields so |E1| >= |E2|.
-    idx_swap = np.linalg.norm(E2, axis=1) > np.linalg.norm(E1, axis=1)
-    E1[idx_swap], E2[idx_swap] = E2[idx_swap], E1_org[idx_swap]
-
-    # Flip E2 for an acute angle between the two fields.
-    idx_flip = np.sum(E1 * E2, axis=1) < 0
-    E2[idx_flip] = -E2[idx_flip]
+    E1 = E1_org
+    E2 = E2_org
 
     normE1 = np.linalg.norm(E1, axis=1)
     normE2 = np.linalg.norm(E2, axis=1)
-    denom = normE1 * normE2
-    denom[denom == 0] = 1.0
-    cosalpha = np.clip(np.sum(E1 * E2, axis=1) / denom, -1.0, 1.0)
+    dot = np.sum(E1 * E2, axis=1)
 
-    # Regime 1 (parallel): |E2| <= |E1|*cos(alpha) -> TI = 2*E2.
-    regime1_mask = normE2 <= normE1 * cosalpha
+    min_norm = np.minimum(normE1, normE2)
+    regime1_mask = min_norm <= np.sqrt(np.abs(dot))
+
+    # The smaller-magnitude field, sign-corrected for an acute angle; ties
+    # go to E2, matching the strict '>' swap convention of the original
+    # preprocess-then-branch form.
+    use_E1_as_small = normE1 < normE2
+    Es_raw = np.where(use_E1_as_small[:, None], E1, E2)
+    sign = np.where(dot < 0, -1.0, 1.0)
+    Es = sign[:, None] * Es_raw
+
     TI_vectors = np.zeros_like(E1)
-    TI_vectors[regime1_mask] = 2.0 * E2[regime1_mask]
+    TI_vectors[regime1_mask] = 2.0 * Es[regime1_mask]
 
-    # Regime 2 (oblique): TI = 2 * (E2 perpendicular to h = E1 - E2).
+    # Regime 2 (oblique): TI = 2 * (Es perpendicular to h), h = whichever
+    # of (E1-E2), (E1+E2) has the smaller norm.
     regime2_mask = ~regime1_mask
     if np.any(regime2_mask):
-        h = E1[regime2_mask] - E2[regime2_mask]
+        a2 = E1[regime2_mask]
+        b2 = E2[regime2_mask]
+        dot2 = dot[regime2_mask]
+        h_minus = a2 - b2
+        h_plus = a2 + b2
+        # Decide from sign(dot) directly rather than comparing the two
+        # norms: |E1-E2|^2 - |E1+E2|^2 == -4*dot, so the sign is exact,
+        # while for near-orthogonal fields (dot tiny relative to |E1|,
+        # |E2|) the two norms round to the same float64 and the
+        # comparison loses the sign to cancellation.
+        use_minus = dot2 >= 0
+        h = np.where(use_minus[:, None], h_minus, h_plus)
         h_norm = np.linalg.norm(h, axis=1)
-        h_norm[h_norm == 0] = 1.0
-        e_h = h / h_norm[:, None]
+        h_norm_safe = np.where(h_norm == 0, 1.0, h_norm)
+        e_h = h / h_norm_safe[:, None]
 
-        E2_parallel_component = np.sum(E2[regime2_mask] * e_h, axis=1)[:, None] * e_h
-        E2_perp = E2[regime2_mask] - E2_parallel_component
-        TI_vectors[regime2_mask] = 2.0 * E2_perp
+        Es_r2 = Es[regime2_mask]
+        Es_parallel_component = np.sum(Es_r2 * e_h, axis=1)[:, None] * e_h
+        Es_perp = Es_r2 - Es_parallel_component
+        TI_vectors[regime2_mask] = 2.0 * Es_perp
 
     return TI_vectors
 

@@ -186,6 +186,33 @@ the test image.
 
 ---
 
+## Numeric Correctness: Container Results Are Authoritative
+
+Host-side test runs (`pytest tests/ -q` on your local machine, outside Docker)
+mock `simnibs` and several other heavy dependencies (see `tests/conftest.py`).
+`numpy` is real on the host, so pure-Python/numpy math (e.g. `tit/calc.py`
+vector algebra) is exercised faithfully — but anything that goes through
+`simnibs.utils.TI_utils` or another mocked module only proves that the code
+*calls* the right functions with the right arguments, not that SimNIBS
+*returns* the numeric values the code assumes.
+
+For code paths that matter numerically (TI/mTI field math, optimization
+engines, anything touching `TI.get_field`/`TI.get_maxTI`/etc.), treat host
+results as a fast correctness-of-wiring signal only. Container results
+(`./tests/test.sh`, real SimNIBS) are authoritative — that's where real
+SimNIBS numerics actually run.
+
+**Known gap:** the CI test image (`idossha/ti-toolbox-test`, installer-based
+SimNIBS 4.6.0, used by `./tests/test.sh` and CircleCI) and the production
+image (`idossha/simnibs:v2.4.0`, built from `Dockerfile.simnibs`) are
+different builds. They have not been formally verified to produce identical
+numeric results for every code path — both currently pass the full suite,
+but no automated check compares their outputs bit-for-bit. If you're
+debugging a numeric discrepancy that only shows up for one image, this is a
+place to look.
+
+---
+
 ## CI/CD (CircleCI)
 
 ### Automatic Testing
