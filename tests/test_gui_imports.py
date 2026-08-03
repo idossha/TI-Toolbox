@@ -23,6 +23,26 @@ def _all_py_sources() -> list[Path]:
     return sorted(GUI_ROOT.rglob("*.py"))
 
 
+def _mock_simnibs_ti_utils() -> None:
+    """Install minimal ``simnibs.utils.TI_utils`` stand-ins.
+
+    ``tit.gui.ex_search_tab`` imports ``tit.opt.ex.engine.ExSearchEngine``,
+    which does ``from simnibs.utils import TI_utils as TI`` at module level.
+    conftest.py's global mock hierarchy doesn't cover that specific
+    submodule, so tests that import ``tit.gui.ex_search_tab`` need this
+    stand-in first (real SimNIBS is unavailable outside Docker).
+    """
+    simnibs_mod = sys.modules.setdefault("simnibs", types.ModuleType("simnibs"))
+    utils_mod = sys.modules.setdefault(
+        "simnibs.utils", types.ModuleType("simnibs.utils")
+    )
+    ti_utils_mod = sys.modules.setdefault(
+        "simnibs.utils.TI_utils", types.ModuleType("simnibs.utils.TI_utils")
+    )
+    setattr(simnibs_mod, "utils", utils_mod)
+    setattr(utils_mod, "TI_utils", ti_utils_mod)
+
+
 # ============================================================================
 # Source-code hygiene checks (no Qt import needed)
 # ============================================================================
@@ -89,16 +109,7 @@ class TestGuiImports:
     def test_ex_search_config_writer_includes_project_dir(self):
         """GUI Ex-Search JSON includes project_dir required by backend CLI."""
         pytest.importorskip("PyQt5")
-
-        simnibs_mod = sys.modules.setdefault("simnibs", types.ModuleType("simnibs"))
-        utils_mod = sys.modules.setdefault(
-            "simnibs.utils", types.ModuleType("simnibs.utils")
-        )
-        ti_utils_mod = sys.modules.setdefault(
-            "simnibs.utils.TI_utils", types.ModuleType("simnibs.utils.TI_utils")
-        )
-        setattr(simnibs_mod, "utils", utils_mod)
-        setattr(utils_mod, "TI_utils", ti_utils_mod)
+        _mock_simnibs_ti_utils()
 
         from tit.gui.ex_search_tab import ExSearchTab
         from tit.opt.config import ExConfig
@@ -124,3 +135,16 @@ class TestGuiImports:
 
         assert data["project_dir"] == "/project"
         assert data["electrodes"]["_type"] == "BucketElectrodes"
+
+    @pytest.mark.unit
+    def test_ex_search_tab_compiles(self):
+        """tit/gui/ex_search_tab.py is syntactically valid Python.
+
+        Unlike the other tests in this class, this one needs no PyQt5 (or
+        any other import) at all -- py_compile only parses/compiles to
+        bytecode, it never executes module-level code -- so it actually
+        runs (not skips) on hosts without PyQt5 installed.
+        """
+        import py_compile
+
+        py_compile.compile(str(GUI_ROOT / "ex_search_tab.py"), doraise=True)

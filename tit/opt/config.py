@@ -950,3 +950,39 @@ class MExResult:
     n_combinations: int
     results_csv: str | None = None
     config_json: str | None = None
+
+
+#: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
+SEARCH_MODE_TI = "TI"
+SEARCH_MODE_MTI = "mTI"
+
+#: Carrier wiring for a four-pair montage, as (label, ``channels`` value).
+#: Four pairs can be two independent TI channels -- consecutive pairing, the
+#: default -- or four pairs sharing two carriers, where same-carrier fields
+#: superpose before the envelope is taken (Lee et al. 2022). The two give
+#: materially different fields, so it is a real choice rather than a detail.
+MTI_CHANNEL_ARCHITECTURES = [
+    ("Two independent channels", None),
+    ("Four pairs, two carriers", [([0, 2], [1, 3])]),
+]
+
+
+def search_backend_for_mode(mode):
+    """Return ``(module path, config class)`` for an exhaustive-search mode.
+
+    Args:
+        mode: :data:`SEARCH_MODE_TI` or :data:`SEARCH_MODE_MTI`.
+
+    Returns:
+        ``(module_path, config_class)``; *module_path* is passed to
+        ``simnibs_python -m <module_path>`` and *config_class* is the
+        dataclass to build for that mode.
+
+    Raises:
+        ValueError: If *mode* is not a known search mode.
+    """
+    if mode == SEARCH_MODE_TI:
+        return "tit.opt.ex", ExConfig
+    if mode == SEARCH_MODE_MTI:
+        return "tit.opt.mex", MExConfig
+    raise ValueError(f"Unknown search mode: {mode!r}")
