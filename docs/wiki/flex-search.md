@@ -19,7 +19,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 **Core capabilities:**
 - **Optimization Goals** (`OptGoal` enum): `mean`, `max`, `focality` (threshold-based ROC), or `focality_tf` (threshold-free focality)
 - **Post-processing Methods** (`FieldPostproc` enum): `max_TI`, `dir_TI_normal`, or `dir_TI_tangential`
-- **ROI Definition** (`ROISpec`): `SphericalROI`, `AtlasROI`, or `SubcorticalROI` dataclasses
+- **ROI Definition**: `FlexConfig.SphericalROI`, `FlexConfig.AtlasROI`, or `FlexConfig.SubcorticalROI` dataclasses -- see [Defining the ROI](#defining-the-roi) below
 - **Anisotropy Support**: Four conductivity models (`scalar`, `vn`, `dir`, `mc`) with configurable max ratio and conductivity
 - **Multi-start Optimization**: Run multiple optimization iterations and automatically select the best result
 - **Structured Output**: Every run writes a `flex_meta.json` manifest for downstream consumption
@@ -32,17 +32,94 @@ Flex Search uses differential evolution optimization to determine the best elect
 The interface provides comprehensive controls for:
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
 - **Electrode Parameters**: Radius and current settings
-- **ROI Definition**: Multiple methods for defining target regions
+- **ROI Definition**: A shared ROI picker with three modes -- Cortical, Subcortical, and Spherical -- used for both the ROI and the optional non-ROI; see [Defining the ROI](#defining-the-roi) below
 - **Stability Options**: Iteration limits, population size, and CPU utilization
 - **Mapping Options**: EEG net electrode mapping capabilities
 
+### Defining the ROI
+
+The ROI picker (`ROIPickerWidget`, `tit/gui/components/roi_picker.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with three modes:
+
+- **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and "List Regions" opens a finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
+- **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. "List Regions" adds selections as removable chips keyed by integer label id.
+- **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table (X/Y/Z in -150 to 150 mm, radius 1 to 50 mm, default 10.0 mm), Add Sphere / Duplicate Selected / Remove Selected buttons, and a "View T1 in Freeview" button (relabeled "View MNI Template" in MNI mode) to look up coordinates. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
+
+Whichever mode is used, the picker serializes to one of three dataclasses nested under `FlexConfig`. Every field on all three accepts either a single value or a list -- a list unions several regions into one combined target: N spheres, cross-hemisphere cortical labels (e.g. `lh.insula` + `rh.insula`), or e.g. subcortical labels `17` and `53` for both hippocampi at once.
+
+**`FlexConfig.SphericalROI`**
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `x`, `y`, `z` | `float \| list[float]` | required | Center coordinate(s) in mm; must be non-empty and of equal length |
+| `radius` | `float \| list[float]` | `10.0` | Scalar (shared by every sphere) or one radius per center |
+| `use_mni` | `bool` | `False` | Coordinates are in MNI space; SimNIBS transforms them to subject space during ROI setup |
+| `volumetric` | `bool` | `False` | Evaluate on volume tetrahedra instead of the cortical surface |
+| `tissues` | `str` | `"GM"` | `"GM"`, `"WM"`, or `"both"` -- only used when `volumetric=True` |
+
+`volumetric=False` is the default, which evaluates the sphere on the cortical **central surface**, not a volume. For a deep target -- amygdala, hippocampus, thalamus -- this is an easy and consequential mistake: the sphere still picks up whatever surface vertices fall inside its radius, which for a subcortical center is the overlying cortex, not the target structure. Set `volumetric=True` for any target that is not on the cortical ribbon.
+
+**`FlexConfig.AtlasROI`**
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `atlas_path` | `str \| list[str]` | required | Path(s) to `.annot` file(s); a scalar broadcasts to the number of labels |
+| `label` | `int \| list[int]` | required | `.annot` label index/indices; must be non-empty |
+| `hemisphere` | `str \| list[str]` | `"lh"` | `"lh"` or `"rh"`, one per label |
+
+Always evaluated on the cortical central surface -- `AtlasROI` has no `tissues` field. Because each label carries its own hemisphere and atlas path, a single `AtlasROI` can combine `lh.insula` and `rh.insula` (or regions from different atlases) into one union.
+
+**`FlexConfig.SubcorticalROI`**
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `atlas_path` | `str \| list[str]` | required | Path(s) to volumetric atlas NIfTI file(s); a scalar broadcasts to the number of labels |
+| `label` | `int \| list[int]` | required | Integer label index/indices; must be non-empty |
+| `tissues` | `str` | `"GM"` | `"GM"`, `"WM"`, or `"both"` -- applies to the whole union |
+| `atlas_space` | `str` | `"subject"` | `"subject"` or `"mni"` -- applies to the whole union |
+
+`atlas_space="mni"` targets one of the four bundled MNI atlases (see [Atlases]({{ site.baseurl }}/wiki/atlases/)) instead of a subject-specific segmentation; SimNIBS transforms the selected label into subject space during ROI setup. A single `tissues` and `atlas_space` apply to every label in the union, and every atlas path is verified to exist before the run starts.
+
+#### Python Example: Volumetric Union
+
+```python
+from tit.opt import FlexConfig, run_flex_search
+
+config = FlexConfig(
+    subject_id="101",
+    goal="mean",
+    postproc="max_TI",
+    current_mA=2.0,
+    electrode=FlexConfig.ElectrodeConfig(),
+    roi=FlexConfig.SubcorticalROI(
+        atlas_path="/path/to/m2m_101/segmentation/aparc.DKTatlas+aseg.mgz",
+        label=[17, 53],       # left + right hippocampus, unioned
+        tissues="GM",
+        atlas_space="subject",
+    ),
+)
+
+result = run_flex_search(config)
+```
+
+For a deep spherical target, `volumetric=True` must be set explicitly, or the sphere silently falls back to the cortical-surface default described above:
+
+```python
+roi = FlexConfig.SphericalROI(
+    x=-25.0, y=-10.0, z=-20.0,
+    radius=8.0,
+    use_mni=True,
+    volumetric=True,   # required for subcortical targets -- see note above
+    tissues="GM",
+)
+```
+
 ## Mean TI Field Optimization Demonstration
 
-We demonstrate the effectiveness of flex-search by optimizing electrode positions for the same target ROI using different post-processing methods. The target was the left insula (region 35 of the DK40 atlas) with the goal of maximizing the mean TI field.
+We demonstrate the effectiveness of flex-search by optimizing electrode positions for the same target ROI using different post-processing methods. The target was the left insula (`lh.insula` in the DK40 atlas) with the goal of maximizing the mean TI field.
 
 ### Optimization Setup
 - **Subject**: 102
-- **Target ROI**: Left insula (DK40 atlas, region 35)
+- **Target ROI**: Left insula (`lh.insula`, DK40 atlas) -- picked by name via the cortical ROI picker; the `.annot` label index is resolved internally, not entered by the user
 - **Goal**: Maximize mean field in ROI
 - **Electrode**: 4mm radius, 8mA current
 
@@ -74,7 +151,7 @@ The focality optimization goal is a multi-objective function balancing ROI targe
 
 ### Non-ROI Definition Methods
 - **Everything Else**: Uses the complement of the ROI (everything outside the target region)
-- **Specific Region**: Define a custom non-ROI using the same methods as ROI definition (spherical, atlas, subcortical)
+- **Specific Region**: Define a custom non-ROI using the same ROI picker (spherical, atlas, subcortical). Three constraints apply that are not obvious from the UI: the non-ROI picker is forced onto the **same mode** as the ROI picker -- switching the ROI's mode switches the non-ROI's mode with it; the non-ROI's spherical page has no Subject/MNI toggle, so non-ROI spheres are always **subject-space** even when the ROI itself is defined in MNI space; and the non-ROI's own tissue selection is **ignored** -- for volumetric spheres and subcortical atlases the non-ROI always inherits the ROI's tissue compartment(s), not whatever its own Tissue control shows
 
 ### Focality Thresholds - Critical for Optimization Success
 
@@ -88,7 +165,7 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 
 - **Single Threshold**: Binary classification where field must be below threshold in non-ROI and above threshold in ROI
 - **Dual Thresholds**: Independent thresholds for each region, allowing asymmetric optimization constraints
-- **Dynamic Adaptation**: Thresholds automatically adjust based on field distribution characteristics during optimization
+- **Derived Thresholds**: `thresholds` always takes explicit numeric values -- there is no in-loop adaptation. `"dynamic"`/`"auto"` are placeholders meaning "do not set a threshold; let SimNIBS use its own static default," and the ROC-based objective path raises an error if no explicit numeric threshold is available. The workable pattern is an offline two-pass procedure: run a `mean` TI<sub>max</sub> pass first, then derive the ROI/non-ROI thresholds from its field distribution and feed them into a `focality` run, as described below.
 
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
 
@@ -116,9 +193,11 @@ The ROC goal's result depends entirely on a threshold that the user has to choos
 
 `focality_tf` has no such failure mode. It is a continuous ratio, so it always ranks one candidate above another and always hands the optimizer a usable landscape, whatever the depth of the target.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_objective-comparison.png" alt="Optimization goal comparison" style="width: 80%; max-width: 700px;">
+That does not make it failure-proof, though -- a scale-free ratio objective trades one failure mode for a different one. Because it scores separation, not dose, it can rate a candidate highly for being cleanly separated from the non-ROI even when almost no field reached the target at all. In the mini-study below, a threshold-free direct-AUC run scored AUC 0.931 on just 0.047 V/m of on-target field, and `focality_tf` itself bottomed out at 0.084 V/m in its worst cell. Always read a focality or AUC score next to the ROI-mean field it was computed on.
 
-**Focality versus on-target intensity for each optimization goal, measured across subjects and deep targets.** In our tests all threshold-free objectives outperformed both ROC threshold settings on focality (AUC), and the ROC goal failed outright at targets where its thresholds were jointly infeasible. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand.
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_summary.png" alt="Optimization goal comparison across a 75-run focality mini-study" style="width: 100%; max-width: 900px;">
+
+**Summary across all 75 flex-search runs (5 subjects x 3 deep atlas targets x 5 optimization goals): mean AUC per goal, the focality-vs-on-target-strength tradeoff for every run, and each goal's worst-case AUC and worst-case ROI field strength.** On average across the 15 subject-target cells, the threshold-free objectives outperformed both ROC threshold settings on focality (AUC); `focality_tf` (the shipped goal, `w = 0`) beat both ROC arms in 13 of 15 cells (86.7%), losing only at sub-101 and sub-103 L-hippocampus -- the one target where the aggressive threshold pair (0.4/0.2 V/m) turned out to be feasible. That same aggressive ROC goal failed outright where its threshold pair was jointly infeasible at depth: it scored below chance (AUC < 0.5) in 5 of its 15 cells, and collapsed to near-zero on-target field -- a separate, dose-based criterion -- in 6. `focality_tf` had no failures under either criterion. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand. See [What the Objectives Do in Practice](#what-the-objectives-do-in-practice) below for the full mini-study behind this figure.
 
 ### When to Use Which
 
@@ -129,8 +208,66 @@ The ROC goal's result depends entirely on a threshold that the user has to choos
 | **Behavior at deep targets** | Can degenerate to a flat landscape if the thresholds are jointly infeasible | Stays graded; always ranks candidates |
 | **Intensity trade-off** | Implicit in the threshold choice | Explicit via `intensity_weight` |
 | **Use when** | You have a threshold you can defend and that the target can actually reach -- e.g. derived from a prior mean TI<sub>max</sub> pass | You do not want to commit to a threshold up front, or the target is deep enough that feasibility is in doubt |
+| **Worst case over 15 subject-target cells**\* | Min AUC 0.282; min ROI mean 0.015 V/m | Min AUC 0.783; min ROI mean 0.084 V/m |
+| **Dose guarantee** | Not guaranteed -- always check ROI mean | Not guaranteed -- always check ROI mean |
+
+\* From the mini-study below; the `focality` column here is specifically the aggressive `thresholds=0.4,0.2` V/m arm -- a different threshold choice will perform differently.
 
 Both goals use the same ROI and non-ROI setup, so switching between them requires no change to the region definitions. One restriction applies only to `focality_tf`: it cannot be run with `detailed_results=True` (see [Detailed Results](#detailed-results)).
+
+## What the Objectives Do in Practice
+
+The figure and claims above come from a mini-study run to check the goal comparison beyond a single demonstration: 5 subjects (101, 102, 103, 106, 107) x 3 deep FreeSurfer atlas targets (L-hippocampus, label 17; R-thalamus, label 49; L-insula, label 1035, all from `aparc.DKTatlas+aseg`; ROI = the gray-matter elements inside the label) x 5 optimization goals = 75 flex-search runs. Every run used SimNIBS's default differential-evolution budget (`popsize=13`, `maxiter=1000`, `tol=0.1`), 2 mA per channel, two electrode pairs, 8 mm circular electrodes with 4 mm gel, free-direction `max_TI` post-processing, and a single DE seed per cell (no multi-start).
+
+### Caveats
+
+Read every number in this section with these in mind:
+
+- **n = 5 subjects, descriptive only.** No inferential statistics were run -- no p-values, no confidence intervals, no multiple-comparison correction.
+- **One DE seed per cell.** Run-to-run optimizer variability was not characterized, so differences of roughly 0.02-0.05 AUC are within plausible seed noise. The 0.899 vs. 0.889 AUC gap between direct AUC and `focality_tf` in the table below is *not* a demonstrated real difference on that basis alone.
+- **Direct-AUC's lead is partly definitional.** AUC is both its optimization objective and the evaluation metric used to score all five goals here, so treat its AUC column as a ceiling reference, not an independent win.
+- **The non-ROI is all other gray matter, not the whole brain.** The study used `SubcorticalROI(tissues="GM")`, and SimNIBS's `everything_else` non-ROI inherits that tissue restriction -- white matter and CSF were never part of the non-ROI in any run.
+- **Statistics are volume-weighted**, computed on the final-electrode FEM meshes rather than the optimizer's mid-search arrays. This changes how the summary statistics are computed, not which tissue is included, and the ranking of the five goals is unchanged versus unweighted means.
+- **Three deep targets only** -- hippocampus, thalamus, insula. Nothing here speaks to superficial cortical targets, where the ROC thresholds are far more likely to be jointly feasible.
+- **AUC is scale-free.** It measures separation, not dose. Never read an AUC value without the ROI-mean field next to it.
+
+### Pooled results (n = 15 subject-target cells per goal)
+
+| Goal | AUC | ROI mean (V/m) | non-ROI mean (V/m) | Focality ratio | Off-target vol >=0.2 V/m (%) | tf score |
+|---|---|---|---|---|---|---|
+| `focality` (ROC 0.2/0.1 V/m) | 0.787 ± 0.084 | 0.230 ± 0.018 | 0.143 ± 0.039 | 1.713 ± 0.460 | 21.2 ± 11.2 | 0.706 ± 0.194 |
+| `focality` (ROC 0.4/0.2 V/m) | 0.675 ± 0.239 | 0.272 ± 0.208 | 0.152 ± 0.093 | 1.497 ± 0.627 | 24.0 ± 20.1 | 0.686 ± 0.254 |
+| threshold-free: direct AUC | 0.899 ± 0.046 | 0.212 ± 0.122 | 0.119 ± 0.069 | 1.815 ± 0.268 | 15.2 ± 21.2 | 1.037 ± 0.096 |
+| **`focality_tf` (w = 0) -- shipped** | **0.889 ± 0.056** | **0.276 ± 0.124** | 0.159 ± 0.075 | 1.776 ± 0.255 | 27.8 ± 29.0 | 1.051 ± 0.088 |
+| threshold-free: intensity-weighted | 0.828 ± 0.066 | 0.481 ± 0.083 | 0.301 ± 0.053 | 1.632 ± 0.356 | 74.7 ± 16.4 | 0.846 ± 0.093 |
+
+**Correction: the "intensity-weighted" row above is not `intensity_weight = 1.0`.** That study arm maximized `mean(E_ROI)^2 / mean(E_non-ROI)` -- a **mean** in the denominator. The shipped `focality_tf` at `w = 1.0` computes `mean(E_ROI)^(1+w) / p95(E_non-ROI)` -- a **95th-percentile** denominator (see [The Intensity Weight](#the-intensity-weight) above and `threshold_free_focality` in `tit/opt/flex/objectives.py`). Do not read the row above as "what `intensity_weight = 1.0` gives" in the shipped code; no `w > 0` run of the actual shipped objective was included in this study.
+
+### Reliability
+
+`focality` (ROC 0.4/0.2 V/m) has a pooled AUC standard deviation of ±0.239 -- four to five times either threshold-free ranking goal's (±0.046 for direct AUC, ±0.056 for `focality_tf`). The aggressive ROC goal is not uniformly bad, it is unreliable: its outcome depends heavily on whether its fixed thresholds happen to be feasible for the subject and target at hand.
+
+### Failures
+
+Five of the 75 runs (6.7%) scored AUC below 0.5 -- worse than chance separation -- and all five are the aggressive `focality` (ROC 0.4/0.2 V/m) goal: 3 at R-thalamus, 2 at L-insula, 0 at L-hippocampus. Neither threshold-free goal (direct AUC, `focality_tf`) had a single run below chance.
+
+A separate, dose-based flag counts runs whose ROI mean fell below one third of that target's median ROI mean across all goals and subjects -- catching cases where the AUC looks acceptable but almost no field reached the target. By goal: `focality` (ROC 0.4/0.2 V/m) = 6, threshold-free direct AUC = 1, `focality` (ROC 0.2/0.1 V/m) = 0, `focality_tf` (w = 0) = 0, threshold-free intensity-weighted = 0. Neither criterion alone catches everything: sub-106 R-thalamus under ROC 0.4/0.2 scored AUC 0.760 (above chance) while delivering only 0.048 V/m on target -- caught by the dose flag but not by the below-chance criterion.
+
+### Depth dependence
+
+The aggressive `focality` (ROC 0.4/0.2 V/m) goal performs best, among its own three targets, at L-hippocampus (AUC 0.908 ± 0.013, ROI mean 0.447 ± 0.037 V/m -- the second-highest ROI mean of any goal at that target) and worst at R-thalamus (AUC 0.541 ± 0.177) and L-insula (AUC 0.576 ± 0.258). The same 0.4/0.2 V/m threshold pair happens to be feasible at hippocampus depth and infeasible at the other two -- and the goal gives the user no warning about which case they are in before the run finishes.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_roc.png" alt="Group ROC curves for each deep target across all five optimization goals" style="width: 100%; max-width: 900px;">
+
+**Group ROC curves of the TI envelope (target gray matter vs. the other gray matter) for each of the three deep targets, comparing all five optimization goals by mean AUC over the 5 subjects; the shaded band shows ±1 SD across subjects for the shipped `focality_tf` (w = 0) arm only.** AUC drops sharply for the ROC threshold goals at R-thalamus and L-insula, while the threshold-free goals (direct AUC, `focality_tf`, intensity-weighted) stay high across all three targets.
+
+### Worst case
+
+The shipped goal's worst run across all 15 cells, AUC 0.783, essentially matches the milder ROC goal's *average* (0.787 ± 0.084). The aggressive ROC goal's worst run drops to AUC 0.282 (sub-103, L-insula); the lowest on-target field reached by that same goal anywhere in the study is 0.015 V/m (sub-107, R-thalamus) -- two separate worst-case runs, not necessarily the same one.
+
+<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_dist.png" alt="Pooled TI envelope field distributions by target and goal" style="width: 100%; max-width: 900px;">
+
+**Pooled, volume-weighted TI envelope field-strength distributions (target gray matter vs. the other gray matter), element samples pooled over the 5 subjects, shown as a 3-target x 5-goal grid with the group ROI/non-ROI mean ratio annotated in each panel.** At R-thalamus, the ROC 0.4/0.2 goal's ROI/non-ROI ratio inverts -- the pooled group ratio annotated in the figure is 0.97, and the per-subject mean for that cell is 0.975 +/- 0.267 -- meaning the off-target gray matter received, on average, slightly more field than the target. This is consistent with the near-zero on-target fields shown in the summary figure above.
 
 ## Current-Ratio Optimization
 
@@ -142,13 +279,27 @@ Holding the *total* fixed means the *per-channel* current necessarily moves. Ove
 
 The grid always contains the balanced 1:1 split -- `ratio_levels` is rounded up to the next odd number so the midpoint of the sweep is the exact even split. Enabling the ratio search therefore cannot return a worse solution than the equal-current montage it would otherwise have used.
 
+That guarantee is about the *objective value* only. It is not a guarantee about the *delivered field*: under a focality-only objective with a tight off-target bound, the optimizer can pick an extreme split simply to turn the whole field down, since a weaker envelope is an easy way to satisfy a hard cap on off-target field. Measured on sub-101 L-hippocampus at a fixed 4 mA total, holding electrode positions fixed and varying only the split: 1:3 gives 0.185 V/m on target (focality ratio 1.64, attenuated); 2:2 gives 0.361 V/m (focality ratio 1.92, best on both); 3:1 gives 0.196 V/m (focality ratio 1.16, attenuated). Focality peaks near 1:1 in this example and drops off toward both extremes -- the extreme splits attenuate the whole field rather than sharpening it.
+
 ### Why the Split Matters
 
-The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is `2 * min(|E1|, |E2|)`. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Published TI montages essentially never have their optimum at 1:1, so leaving the split fixed gives up a free axis of the search space.
+The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is `2 * min(|E1|, |E2|)`. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Because the FEM is linear, a per-channel rescale is enough to evaluate any split without a new solve (Lee et al. 2022). Published TI optima are rarely the 1:1 split that flex-search fixes by default (Lee et al. 2020; Inoue et al. 2025, n = 60), so leaving the split fixed gives up a free axis of the search space.
 
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
 
-**How the two-channel current split scales and steers the TI envelope.** Because the envelope is bounded by the weaker channel, an unequal split trades peak amplitude against the position of the interference locus.
+**How the two-channel current split scales and steers the TI envelope.** Because the envelope is bounded by the weaker channel, an unequal split trades peak amplitude against the position of the interference locus. This particular montage was itself optimized at 1:1, so 1:1 is near-optimal for it by construction -- post-hoc ratio tuning on top of an already-1:1-optimized placement gains only about +0.8% here. The payoff from a free ratio comes from searching it *jointly* with electrode placement (below), which can reach placements a 1:1-constrained search would never consider in the first place.
+
+### Calibrating the Off-Target Bound
+
+The trap described above only bites when a focality objective's off-target bound is tight enough to be binding well away from the 1:1 split. The fix is to calibrate the bound against what the target can actually achieve rather than picking a number in isolation: sweep the bound across the field's achievable range and check whether the optimizer's chosen split still moves as a result. On a single subject (101), the achievable off-target RMS field ranged:
+
+| Target | Achievable off-target RMS (V/m) | Sensible bound sweep |
+|---|---|---|
+| L-hippocampus | 0.065 - 0.316 | 0.05 ... 0.38 |
+| R-thalamus | 0.041 - 0.353 | 0.03 ... 0.42 |
+| L-insula | 0.152 - 0.436 | 0.12 ... 0.52 |
+
+These ranges are from a single subject and from a reduced-budget sweep (`maxiter=4`, `popsize=6`, well under the SimNIBS default of `maxiter=1000`, `popsize=13`), so the front they trace is under-converged. Treat them as a starting point for calibrating a bound on a new subject, not as a target's true achievable range.
 
 ### Searched Jointly, Not Afterwards
 
