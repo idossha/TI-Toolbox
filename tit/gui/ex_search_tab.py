@@ -37,6 +37,10 @@ from tit.gui.components.console import (
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.help_icon import HelpIcon
+from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
+from tit.gui.components.region_chips import RegionChipsWidget
+from tit.atlas import MNI_ATLAS_DIR, VoxelAtlasManager
+from tit.atlas.voxel import parse_region_label
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
@@ -112,6 +116,27 @@ MTI_SYMMETRY_HELP = (
     "midline.\n"
     "- Cross pairs: additionally requires pair 1 <-> 3 and pair 2 <-> 4 to "
     "mirror each other."
+)
+
+COORD_SPACE_HELP = (
+    "Space of the ROI center coordinates used for the spherical ROI(s) "
+    "selected above.\n\n"
+    "Subject Space (default): coordinates are already in this subject's "
+    "native RAS space.\n\n"
+    "MNI Space: coordinates are treated as MNI152 and transformed to each "
+    "subject's native space before the search runs.\n\n"
+    "This does not affect any Atlas ROI target below -- atlas/mask targets "
+    "are always read directly from the subject's own segmentation."
+)
+
+ATLAS_ROI_HELP = (
+    "Adds a volumetric atlas region (or a whole mask file) as an additional "
+    "search target, unioned together with the spherical ROI(s) selected "
+    "above -- the field is evaluated over their combined coverage.\n\n"
+    "Region: only the voxels equal to the chosen atlas label are included. "
+    "Whole File: every nonzero voxel in the file is included (binary mask).\n\n"
+    "Atlas targets are always read in the subject's own space, regardless "
+    "of the Coordinate Space setting above."
 )
 
 
@@ -356,6 +381,47 @@ class ExSearchTab(QtWidgets.QWidget):
     """
 
     ex_search_completed = QtCore.pyqtSignal()
+
+    # ------------------------------------------------------------------
+    # Pure helpers (atlas ROI / coordinate space) -- no Qt state, kept
+    # testable without instantiating any widget. See ExConfig.AtlasROI /
+    # ExConfig.roi_coordinate_space in tit/opt/config.py.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def coordinate_space_value(is_mni: bool) -> str:
+        """Map the Subject/MNI radio state to ``ExConfig.roi_coordinate_space``."""
+        return "mni" if is_mni else "subject"
+
+    @staticmethod
+    def atlas_roi_chip_key(atlas_path: str, label: int | None) -> str:
+        """Build the opaque chip key encoding an atlas ROI selection.
+
+        Uses a control character as separator (never valid in a filesystem
+        path or an integer) so the key round-trips exactly through
+        :meth:`atlas_roi_from_chip_key`.
+        """
+        return f"{atlas_path}\x1f{'' if label is None else label}"
+
+    @staticmethod
+    def atlas_roi_from_chip_key(key: str) -> tuple[str, int | None]:
+        """Inverse of :meth:`atlas_roi_chip_key`."""
+        atlas_path, _, label_str = key.partition("\x1f")
+        return atlas_path, (int(label_str) if label_str else None)
+
+    @classmethod
+    def build_roi_atlas_entries(cls, chip_keys: list[str]) -> list[dict]:
+        """Map selected atlas-ROI chip keys to ``ExConfig.AtlasROI``-shaped dicts.
+
+        ``ExConfig``/``MExConfig`` accept a plain dict for each entry (see
+        their ``__post_init__``), so callers can hand this straight to
+        ``roi_atlas=`` without importing the dataclass here.
+        """
+        entries = []
+        for key in chip_keys:
+            atlas_path, label = cls.atlas_roi_from_chip_key(key)
+            entries.append({"atlas_path": atlas_path, "label": label})
+        return entries
 
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
@@ -978,8 +1044,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         roi_container = QtWidgets.QGroupBox("ROI Selection")
         roi_container.setFixedHeight(
-            220
-        )  # Fixed height for balance (includes radius + combine controls)
+            220 + 68
+        )  # Fixed height for balance (includes radius + combine + atlas controls)
         roi_layout = QtWidgets.QVBoxLayout(roi_container)
         roi_layout.setContentsMargins(10, 10, 10, 10)
         roi_layout.setSpacing(8)
@@ -1039,6 +1105,57 @@ class ExSearchTab(QtWidgets.QWidget):
         combine_layout.addWidget(HelpIcon(combine_tooltip, title="Combine ROIs"))
         combine_layout.addStretch()
         roi_layout.addLayout(combine_layout)
+
+        # Coordinate space toggle (governs the spherical ROI centers only).
+        space_layout = QtWidgets.QHBoxLayout()
+        space_layout.addWidget(QtWidgets.QLabel("Coordinate Space:"))
+        self.coord_space_subject = QtWidgets.QRadioButton("Subject Space")
+        self.coord_space_mni = QtWidgets.QRadioButton("MNI Space")
+        self.coord_space_subject.setChecked(True)
+        space_group = QtWidgets.QButtonGroup(self)
+        space_group.addButton(self.coord_space_subject)
+        space_group.addButton(self.coord_space_mni)
+        space_layout.addWidget(self.coord_space_subject)
+        space_layout.addWidget(self.coord_space_mni)
+        space_layout.addWidget(HelpIcon(COORD_SPACE_HELP, title="Coordinate Space"))
+        space_layout.addStretch()
+        roi_layout.addLayout(space_layout)
+
+        # Atlas ROI: optional volumetric atlas/mask target(s), unioned with
+        # the spherical ROI(s) selected above.
+        atlas_layout = QtWidgets.QHBoxLayout()
+        atlas_layout.addWidget(QtWidgets.QLabel("Atlas ROI:"))
+        self.atlas_roi_combo = QtWidgets.QComboBox()
+        self.atlas_roi_combo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        atlas_layout.addWidget(self.atlas_roi_combo)
+        self.refresh_atlas_roi_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_atlas_roi_btn.clicked.connect(self._refresh_atlas_roi_combo)
+        atlas_layout.addWidget(self.refresh_atlas_roi_btn)
+        self.add_atlas_region_btn = QtWidgets.QPushButton("Add Region…")
+        self.add_atlas_region_btn.setToolTip(
+            "Browse and select one or more labeled regions from the chosen atlas."
+        )
+        self.add_atlas_region_btn.clicked.connect(self._on_add_atlas_region)
+        atlas_layout.addWidget(self.add_atlas_region_btn)
+        self.add_atlas_whole_btn = QtWidgets.QPushButton("Add Whole File")
+        self.add_atlas_whole_btn.setToolTip(
+            "Use every nonzero voxel in the selected file as a binary mask."
+        )
+        self.add_atlas_whole_btn.clicked.connect(self._on_add_atlas_whole_file)
+        atlas_layout.addWidget(self.add_atlas_whole_btn)
+        atlas_layout.addWidget(HelpIcon(ATLAS_ROI_HELP, title="Atlas ROI"))
+        roi_layout.addLayout(atlas_layout)
+
+        self.atlas_roi_chips = RegionChipsWidget(
+            placeholder="No atlas ROI targets — optional"
+        )
+        self.atlas_roi_chips.setToolTip(
+            "Selected atlas ROI target(s), unioned with the spherical ROI(s) "
+            "above. Press ✕ on a chip to remove it."
+        )
+        roi_layout.addWidget(self.atlas_roi_chips)
 
         # Add ROI container to grid - Row 1, Column 0
         main_grid_layout.addWidget(roi_container, 1, 0)
@@ -1801,6 +1918,137 @@ class ExSearchTab(QtWidgets.QWidget):
         except OSError as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
 
+    def _current_voxel_atlas_manager(self) -> VoxelAtlasManager | None:
+        """Build a VoxelAtlasManager for the currently selected subject.
+
+        Returns ``None`` when no subject is selected or its m2m directory
+        cannot be resolved, so callers can no-op gracefully.
+        """
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
+            return None
+        pm = self.pm
+        m2m_dir = pm.m2m(subject_id)
+        if not m2m_dir:
+            return None
+        seg_dir = os.path.join(m2m_dir, "segmentation")
+        return VoxelAtlasManager(
+            freesurfer_mri_dir=pm.freesurfer_mri(subject_id), seg_dir=seg_dir
+        )
+
+    def _refresh_atlas_roi_combo(self):
+        """Discover volumetric atlas/mask files for the selected subject.
+
+        Cheap discovery only (file listing) -- does not shell out to
+        FreeSurfer. Region listing (``list_regions``) only happens lazily,
+        when the user clicks "Add Region…".
+        """
+        self.atlas_roi_combo.clear()
+        mgr = self._current_voxel_atlas_manager()
+        if mgr is None:
+            return
+        try:
+            atlases = mgr.list_atlases()
+        except OSError:
+            return
+        # Also offer the bundled MNI atlases (mirrors flex-search's
+        # subcortical picker); these are read-only reference files, always
+        # subject-independent, and unaffected by the coordinate-space toggle.
+        try:
+            atlases = list(atlases) + [
+                (os.path.basename(p), p)
+                for p in VoxelAtlasManager.detect_mni_atlases(MNI_ATLAS_DIR)
+            ]
+        except OSError:
+            pass
+        for display_name, path in atlases:
+            self.atlas_roi_combo.addItem(display_name, path)
+
+    def _on_add_atlas_whole_file(self):
+        """Add the currently selected atlas/mask file as a whole-file (label=None) target."""
+        atlas_path = self.atlas_roi_combo.currentData()
+        if not atlas_path:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Atlas Selected",
+                "Select an atlas or mask file first (use Refresh to discover files).",
+            )
+            return
+        atlas_path = str(atlas_path)
+        display = self.atlas_roi_combo.currentText()
+        key = self.atlas_roi_chip_key(atlas_path, None)
+        self.atlas_roi_chips.add_item(key=key, display=f"{display}: whole file")
+
+    def _on_add_atlas_region(self):
+        """Browse regions in the selected atlas and add chosen ones as targets.
+
+        ``list_regions`` shells out to FreeSurfer's ``mri_segstats`` (and
+        caches a label file next to the atlas), so it is only invoked here,
+        on explicit user action -- never at tab load or on subject change.
+        Failures (e.g. FreeSurfer unavailable) are reported and swallowed
+        rather than raised.
+        """
+        atlas_path = self.atlas_roi_combo.currentData()
+        if not atlas_path:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Atlas Selected",
+                "Select an atlas or mask file first (use Refresh to discover files).",
+            )
+            return
+        atlas_path = str(atlas_path)
+        display = self.atlas_roi_combo.currentText()
+
+        try:
+            mgr = VoxelAtlasManager()
+            region_strings = mgr.list_regions(atlas_path)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Could Not List Regions",
+                f"Could not list regions for '{display}'. This atlas may not "
+                f"be a labeled segmentation, or FreeSurfer (mri_segstats) may "
+                f"not be available.\n\nDetails: {e}",
+            )
+            return
+
+        entries = []
+        for region_str in region_strings:
+            try:
+                label = parse_region_label(region_str)
+            except ValueError:
+                continue
+            name = region_str.rsplit(" (ID:", 1)[0].strip()
+            entries.append((label, name, None))
+
+        if not entries:
+            QtWidgets.QMessageBox.warning(
+                self, "No Regions Found", f"No labeled regions found in '{display}'."
+            )
+            return
+
+        preselected = [
+            str(label)
+            for key in self.atlas_roi_chips.keys()
+            for path, label in [self.atlas_roi_from_chip_key(key)]
+            if path == atlas_path and label is not None
+        ]
+
+        dlg = AtlasRegionFinderDialog(
+            self,
+            f"Atlas Regions - {display}",
+            entries,
+            return_field="id",
+            multi=True,
+            preselected=preselected,
+        )
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            for label, name in zip(dlg.selected_ids(), dlg.selected_names()):
+                key = self.atlas_roi_chip_key(atlas_path, label)
+                self.atlas_roi_chips.add_item(
+                    key=key, display=f"{display}: {name} (ID: {label})"
+                )
+
     def show_add_roi_dialog(self):
         """Show dialog for adding a new ROI."""
         dialog = AddROIDialog(self)
@@ -1854,6 +2102,19 @@ class ExSearchTab(QtWidgets.QWidget):
         if not all(pattern.match(e) for e in electrodes):
             return None
         return electrodes
+
+    def _confirm_mni_coordinate_space(self) -> bool:
+        """Ask the user to confirm before running with MNI-space ROI centers."""
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "MNI Coordinates",
+            "You have selected MNI space for the ROI coordinate space.\n\n"
+            "The selected ROI(s)' coordinates will be treated as MNI space "
+            "and automatically transformed to this subject's native space.\n\n"
+            "Do you want to continue?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
+        return reply == QtWidgets.QMessageBox.Yes
 
     def validate_inputs(self):
         """Validate all input fields before running optimization."""
@@ -1935,6 +2196,12 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_optimization(self):
         """Run the ex-search optimization for selected subjects."""
         if not self.validate_inputs():
+            return
+
+        if (
+            self.coord_space_mni.isChecked()
+            and not self._confirm_mni_coordinate_space()
+        ):
             return
 
         if self._current_search_mode() == SEARCH_MODE_MTI:
@@ -2179,6 +2446,10 @@ class ExSearchTab(QtWidgets.QWidget):
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
             roi_names=roi_names,
+            roi_atlas=self.build_roi_atlas_entries(self.atlas_roi_chips.keys()) or None,
+            roi_coordinate_space=self.coordinate_space_value(
+                self.coord_space_mni.isChecked()
+            ),
             electrodes=electrodes,
             total_current=self.total_current_spinbox.value(),
             current_step=self.current_step_spinbox.value(),
@@ -2238,6 +2509,10 @@ class ExSearchTab(QtWidgets.QWidget):
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
+            roi_atlas=self.build_roi_atlas_entries(self.atlas_roi_chips.keys()) or None,
+            roi_coordinate_space=self.coordinate_space_value(
+                self.coord_space_mni.isChecked()
+            ),
             electrodes=electrodes,
             current_mA=self.mex_current_spinbox.value(),
             channels=self.mex_channels_combo.currentData(),
@@ -2881,6 +3156,7 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle subject selection changes."""
         self.refresh_leadfields()
         self.update_roi_list()
+        self._refresh_atlas_roi_combo()
 
 
 class AddROIDialog(QtWidgets.QDialog):
