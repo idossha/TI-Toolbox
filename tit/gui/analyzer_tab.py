@@ -628,10 +628,20 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_group.addButton(self.space_mesh)
         self.space_group.addButton(self.space_voxel)
 
+        # Tissue sits on this row, right-aligned, rather than on one of its own:
+        # four stacked rows left the right-hand half of the box empty. See the
+        # note below on why it stays always-visible.
+        tissue_label = QtWidgets.QLabel("Tissue:")
+        tissue_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        )
+
         space_layout.addWidget(self.space_label)
         space_layout.addWidget(self.space_mesh)
         space_layout.addWidget(self.space_voxel)
-        space_layout.addStretch()  # Keep stretch to push radio buttons to left
+        space_layout.addStretch()  # push the tissue pair to the right edge
+        space_layout.addWidget(tissue_label)
+        space_layout.addWidget(self.tissue_combo)
         analysis_params_layout.addLayout(space_layout)
 
         # Type selection row - moved up so it sits right after Space and drives
@@ -654,40 +664,27 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.type_group.addButton(self.type_spherical)
         self.type_group.addButton(self.type_cortical)
 
-        type_layout.addWidget(self.type_label)
-        type_layout.addWidget(self.type_spherical)
-        type_layout.addWidget(self.type_cortical)
-        type_layout.addStretch()  # Keep stretch to push radio buttons to left
-        analysis_params_layout.addLayout(type_layout)
-
-        # Tissue type row (applies to voxel space; enable/disable handled in
-        # update_atlas_visibility). Kept always-visible here — NOT inside
-        # cortical_group — so it stays reachable in Voxel+Spherical mode, where it
-        # still affects output (field-file GM/WM selection and voxel tissue mask).
-        tissue_layout = QtWidgets.QHBoxLayout()
-        tissue_layout.setSpacing(10)
-        tissue_label = QtWidgets.QLabel("Tissue:")
-        tissue_label.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
-        )
-        tissue_layout.addWidget(tissue_label)
-        tissue_layout.addWidget(self.tissue_combo)
-        tissue_layout.addStretch()
-        analysis_params_layout.addLayout(tissue_layout)
-
-        # Field row - which output quantity to analyze (functional metrics
-        # like TI_max, or safety metrics like hf_peak/hf_sar). Always
-        # available in both Mesh and Voxel space.
-        field_layout = QtWidgets.QHBoxLayout()
-        field_layout.setSpacing(10)
+        # Field shares this row, right-aligned under Tissue: which output
+        # quantity to analyze (functional metrics like TI_max, or safety
+        # metrics like hf_peak/hf_sar). Available in both Mesh and Voxel space.
         field_label = QtWidgets.QLabel("Field:")
         field_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
-        field_layout.addWidget(field_label)
-        field_layout.addWidget(self.field_combo)
-        field_layout.addStretch()
-        analysis_params_layout.addLayout(field_layout)
+
+        type_layout.addWidget(self.type_label)
+        type_layout.addWidget(self.type_spherical)
+        type_layout.addWidget(self.type_cortical)
+        type_layout.addStretch()  # push the field pair to the right edge
+        type_layout.addWidget(field_label)
+        type_layout.addWidget(self.field_combo)
+        analysis_params_layout.addLayout(type_layout)
+
+        # Tissue (paired with Space above) applies to voxel space; its
+        # enable/disable is handled in update_atlas_visibility. It stays
+        # always-visible — NOT inside cortical_group — so it remains reachable
+        # in Voxel+Spherical mode, where it still affects output (field-file
+        # GM/WM selection and the voxel tissue mask).
 
         # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
 
