@@ -297,6 +297,29 @@
     }
   }
 
+  /**
+   * Last-resort visible failure. If nothing wired up, the canvases would just
+   * sit there black and the page would look broken with no explanation - which
+   * is exactly what a stale cached copy of this script does against newer
+   * markup. Surface it instead of failing silently.
+   */
+  function reportDead(reason) {
+    var boxes = document.querySelectorAll('.atlas-viewer');
+    for (var i = 0; i < boxes.length; i++) {
+      boxes[i].style.display = 'none';
+    }
+    var notes = document.querySelectorAll('.atlas-no-webgl');
+    for (var j = 0; j < notes.length; j++) {
+      notes[j].style.display = '';
+      var p = notes[j].querySelector('p');
+      if (p) {
+        p.innerHTML = '<strong>Viewer could not start.</strong> ' + reason +
+          ' Try a hard refresh (Cmd/Ctrl + Shift + R). The label tables below ' +
+          'remain fully searchable.';
+      }
+    }
+  }
+
   function init() {
     var viewers = {};
     var boxes = document.querySelectorAll('.atlas-viewer[data-space]');
@@ -305,6 +328,11 @@
       if (atlasData[space]) {
         viewers[space] = new Viewer(space, boxes[i]);
       }
+    }
+    if (!Object.keys(viewers).length) {
+      reportDead('The page markup and this script are out of step, most likely ' +
+        'because an older copy of the script is cached.');
+      return;
     }
     wireFilters();
     wireRowClicks(viewers);

@@ -345,7 +345,12 @@ They are not in the viewer above because they label surface vertices rather than
 
 <script type="application/json" id="atlas-data">{{ site.data.atlases | jsonify }}</script>
 <script src="{{ '/assets/js/niivue.min.js' | relative_url }}"></script>
-<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}"></script>
+<!-- ?v= is a cache buster. This page's element ids changed when the browser
+     gained a second viewer, and an older cached copy of atlas-browser.js
+     silently does nothing against the new markup (it looks for ids that no
+     longer exist), leaving both canvases black. Bump v whenever the markup
+     contract or the script changes. -->
+<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=2"></script>
 
 <style>
 .atlas-viewer {
