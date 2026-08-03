@@ -403,9 +403,11 @@ class TestGuiImports:
         body = body.split("\n    def ", 1)[0]
         for col, stretch in ((0, 0), (1, 1), (2, 0), (3, 1)):
             assert f"layout.setColumnStretch({col}, {stretch})" in body
-        # labels hug their text and sit against the box
-        assert "QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred" in body
-        assert "QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter" in body
+        # Uniform label width, left-aligned: lines up the "E" glyphs AND the
+        # inputs. Right-aligning lines up the colons instead, which leaves the
+        # E's ragged because "E1+:" is wider than "E1-:".
+        assert "label.setFixedWidth(MTI_BUCKET_LABEL_WIDTH)" in body
+        assert "QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter" in body
         # and the inputs carry the width requirement, not the panel
         assert "setMinimumWidth(MTI_BUCKET_INPUT_MIN_WIDTH)" in body
 

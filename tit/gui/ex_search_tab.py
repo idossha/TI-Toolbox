@@ -155,6 +155,11 @@ ATLAS_CHIPS_RESERVED_HEIGHT = 56
 #: names ("Fp1, T7"). The grid's column stretch grows them beyond this.
 MTI_BUCKET_INPUT_MIN_WIDTH = 130
 
+#: Width of an mTI electrode bucket label. Uniform across all eight so the
+#: left-aligned "E" glyphs line up and every input starts at the same x --
+#: wide enough for the longest ("E1+:").
+MTI_BUCKET_LABEL_WIDTH = 40
+
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
     """
@@ -1556,13 +1561,15 @@ class ExSearchTab(QtWidgets.QWidget):
 
         left_keys = ["e1_plus", "e1_minus", "e2_plus", "e2_minus"]
         right_keys = ["e3_plus", "e3_minus", "e4_plus", "e4_minus"]
-        label_align = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        # Left-aligned in a uniform-width column, so the "E" glyphs line up in a
+        # column and the inputs still start at the same x. Right-aligning
+        # instead lines up the colons, which leaves the E's ragged because
+        # "E1+:" is wider than "E1-:".
+        label_align = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
         for row, (lkey, rkey) in enumerate(zip(left_keys, right_keys)):
             for col, key in ((0, lkey), (2, rkey)):
                 label = QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[key]}:")
-                label.setSizePolicy(
-                    QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
-                )
+                label.setFixedWidth(MTI_BUCKET_LABEL_WIDTH)
                 layout.addWidget(label, row, col, label_align)
                 layout.addWidget(self.mti_bucket_inputs[key], row, col + 1)
 
