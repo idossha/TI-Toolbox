@@ -53,6 +53,8 @@ See Also
 tit.paths : Uses many of these constants for BIDS path resolution.
 """
 
+from dataclasses import dataclass
+
 # ============================================================================
 # DIRECTORY NAMES
 # ============================================================================
@@ -152,8 +154,147 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
-FIELD_HF_PEAK = "hf_peak"  # peak carrier field max(|E1+E2|,|E1-E2|) (Cassarà 2025)
-FIELD_HF_SAR = "hf_sar"  # carrier heating driver |E1|^2+|E2|^2 (∝ SAR)
+FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
+FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
+# vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
+FIELD_HF_SAR = "hf_sar"  # carrier heating driver, sum_i |E_i|^2 (∝ SAR)
+
+# Field "kind" classification used by FieldSpec below.
+FIELD_KIND_FUNCTIONAL = "functional"  # stimulation metrics
+FIELD_KIND_SAFETY = "safety"  # carrier-exposure / safety metrics
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """Metadata for one output field quantity (mesh/NIfTI field name).
+
+    Attributes
+    ----------
+    name : str
+        Exact on-disk / in-mesh field name (matches a ``FIELD_*`` constant).
+    label : str
+        Short label for UI widgets (checkboxes, combo boxes).
+    kind : str
+        ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.
+    units : str
+        Physical units of the field values.
+    description : str
+        One-line tooltip text.
+    """
+
+    name: str
+    label: str
+    kind: str
+    units: str
+    description: str
+
+
+#: Single source of truth for the six output field quantities. Order here
+#: is the canonical display order used by GUI widgets built from this
+#: registry (``get_field_names()`` preserves it).
+FIELD_REGISTRY: tuple[FieldSpec, ...] = (
+    FieldSpec(
+        name=FIELD_TI_MAX,
+        label=FIELD_TI_MAX,
+        kind=FIELD_KIND_FUNCTIONAL,
+        units="V/m",
+        description=(
+            "Modulation depth (peak-to-trough envelope), maximum over direction."
+        ),
+    ),
+    FieldSpec(
+        name=FIELD_MTI_MAX,
+        label=FIELD_MTI_MAX,
+        kind=FIELD_KIND_FUNCTIONAL,
+        units="V/m",
+        description=(
+            "Modulation depth (peak-to-trough envelope), maximum over direction "
+            "(4-pair/mTI mesh spelling)."
+        ),
+    ),
+    FieldSpec(
+        name=FIELD_TI_NORMAL,
+        label=FIELD_TI_NORMAL,
+        kind=FIELD_KIND_FUNCTIONAL,
+        units="V/m",
+        description="Modulation depth along the cortical surface normal.",
+    ),
+    FieldSpec(
+        name=FIELD_TI_AVG,
+        label=FIELD_TI_AVG,
+        kind=FIELD_KIND_FUNCTIONAL,
+        units="V/m",
+        description="Modulation depth (peak-to-trough envelope), averaged over direction.",
+    ),
+    FieldSpec(
+        name=FIELD_HF_PEAK,
+        label=FIELD_HF_PEAK,
+        kind=FIELD_KIND_SAFETY,
+        units="V/m",
+        description=(
+            "Worst-case instantaneous carrier field (peak-to-zero). "
+            "Safety metric, Cassarà et al. 2025."
+        ),
+    ),
+    FieldSpec(
+        name=FIELD_HF_SAR,
+        label=FIELD_HF_SAR,
+        kind=FIELD_KIND_SAFETY,
+        units="(V/m)^2",
+        description="Carrier heating driver, proportional to SAR. Safety metric.",
+    ),
+)
+
+
+def get_field_names(kind: str | None = None) -> tuple[str, ...]:
+    """Return registered field names in registry order.
+
+    Parameters
+    ----------
+    kind : str, optional
+        If given, restrict to ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.
+    """
+    if kind is None:
+        return tuple(spec.name for spec in FIELD_REGISTRY)
+    return tuple(spec.name for spec in FIELD_REGISTRY if spec.kind == kind)
+
+
+def get_fields_by_kind(kind: str) -> tuple[FieldSpec, ...]:
+    """Return all :class:`FieldSpec` entries with the given ``kind``."""
+    return tuple(spec for spec in FIELD_REGISTRY if spec.kind == kind)
+
+
+def get_field_spec(name: str) -> FieldSpec:
+    """Look up a :class:`FieldSpec` by its exact field name.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not in :data:`FIELD_REGISTRY`.
+    """
+    for spec in FIELD_REGISTRY:
+        if spec.name == name:
+            return spec
+    raise KeyError(f"Unknown field name: {name!r}")
+
+
+#: Field names valid on the fsaverage surface: every registered field except
+#: ``FIELD_MTI_MAX`` ("TI_Max") and ``FIELD_TI_AVG`` ("TI_avg"). The
+#: central-surface pipeline always emits ``TI_max`` regardless of whether the
+#: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: field; ``TI_avg`` has no central-surface overlay to project (it is only
+#: written as a volume field), so it is excluded too rather than added to
+#: :mod:`tit.source.fsaverage` sight-unseen. Derived here (rather than in
+#: each consumer) so :mod:`tit.source.config` and :mod:`tit.stats.config`
+#: cannot drift apart. Lives in this leaf module because importing
+#: ``tit.source.config`` would execute ``tit/source/__init__.py`` and pull in
+#: ``mne`` via ``tit.source.forward``.
+FSAVG_FIELD_NAMES: tuple[str, ...] = tuple(
+    spec.name
+    for spec in FIELD_REGISTRY
+    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG)
+)
+
 
 # fsaverage total node counts (both hemispheres) per subdivision factor.
 # ico5/6/7 surfaces: 10242/40962/163842 vertices per hemisphere, doubled.

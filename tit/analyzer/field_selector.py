@@ -27,6 +27,7 @@ def select_field_file(
     simulation: str,
     space: str,
     tissue_type: str = "GM",
+    field: str | None = None,
 ) -> tuple[Path, str]:
     """Return the field file path and SimNIBS field name.
 
@@ -43,6 +44,12 @@ def select_field_file(
         ``"mesh"`` or ``"voxel"``.
     tissue_type : str, optional
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
+    field : str or None, optional
+        Field name from ``constants.FIELD_REGISTRY`` (e.g. ``"hf_peak"``).
+        Default ``None`` resolves ``TI_max`` (TI) or ``TI_Max`` (mTI).
+        ``"TI_max"``/``"TI_Max"`` are treated as aliases for the same
+        quantity; the on-disk spelling is always chosen by the detected
+        simulation type, regardless of which alias is passed.
 
     Returns
     -------
@@ -56,20 +63,29 @@ def select_field_file(
     FileNotFoundError
         If the expected field file does not exist.
     ValueError
-        If *space* is not ``"mesh"`` or ``"voxel"``.
+        If *space* is not ``"mesh"``/``"voxel"``, or *field* is unknown.
 
     See Also
     --------
     Analyzer : Consumes the resolved path to load and analyze fields.
     """
+    if field is not None:
+        try:
+            const.get_field_spec(field)
+        except KeyError as exc:
+            valid = ", ".join(const.get_field_names())
+            raise ValueError(
+                f"Unknown field: {field!r}. Valid fields: {valid}."
+            ) from exc
+
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))
     is_mti = (sim_dir / "mTI" / "mesh").is_dir()
 
     if space == "mesh":
-        return _select_mesh(sim_dir, simulation, is_mti)
+        return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
-        return _select_voxel(sim_dir, is_mti, tissue_type)
+        return _select_voxel(sim_dir, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
 
 
@@ -78,14 +94,46 @@ def select_field_file(
 # ---------------------------------------------------------------------------
 
 
-def _select_mesh(sim_dir: Path, simulation: str, is_mti: bool) -> tuple[Path, str]:
+def _canonical_field_name(field_name: str, is_mti: bool) -> str:
+    """Resolve the TI_max/TI_Max alias pair to the on-disk spelling.
+
+    ``TI_max`` and ``TI_Max`` are the same quantity (modulation depth) — the
+    2-pair TI mesh and the 4-pair/mTI mesh just spell it differently. Callers
+    (e.g. the GUI) should not need to know which spelling a given simulation
+    used; only *is_mti* decides it.
+    """
+    if field_name in (const.FIELD_TI_MAX, const.FIELD_MTI_MAX):
+        return const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX
+    return field_name
+
+
+def _select_mesh(
+    sim_dir: Path, simulation: str, is_mti: bool, field: str | None
+) -> tuple[Path, str]:
     """Resolve a mesh (.msh) field file."""
+    field_name = (
+        field
+        if field is not None
+        else (const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX)
+    )
+    field_name = _canonical_field_name(field_name, is_mti)
+
+    # TI_normal lives in a separate mesh (written by _calculate_ti_normal),
+    # not the main TI/mTI output mesh.
+    if field_name == const.FIELD_TI_NORMAL:
+        normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
+        if not normal_path.exists():
+            raise FileNotFoundError(
+                f"TI_normal mesh not found: {normal_path}. TI_normal is only "
+                "computed for standard 2-pair TI simulations."
+            )
+        logger.debug("Selected mesh field file: %s (field=%s)", normal_path, field_name)
+        return normal_path, field_name
+
     if is_mti:
         mesh_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI.msh"
-        field_name = const.FIELD_MTI_MAX
     else:
         mesh_path = sim_dir / "TI" / "mesh" / f"{simulation}_TI.msh"
-        field_name = const.FIELD_TI_MAX
 
     if not mesh_path.exists():
         high_freq = sim_dir / "high_Frequency"
@@ -105,11 +153,18 @@ def _select_mesh(sim_dir: Path, simulation: str, is_mti: bool) -> tuple[Path, st
     return mesh_path, field_name
 
 
-def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, str]:
+def _select_voxel(
+    sim_dir: Path, is_mti: bool, tissue_type: str, field: str | None
+) -> tuple[Path, str]:
     """Resolve a voxel (.nii.gz) field file."""
     subdir = "mTI" if is_mti else "TI"
     nifti_dir = sim_dir / subdir / "niftis"
-    field_name = const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX
+    field_name = (
+        field
+        if field is not None
+        else (const.FIELD_MTI_MAX if is_mti else const.FIELD_TI_MAX)
+    )
+    field_name = _canonical_field_name(field_name, is_mti)
 
     if not nifti_dir.is_dir():
         high_freq = sim_dir / "high_Frequency"
@@ -138,29 +193,42 @@ def _select_voxel(sim_dir: Path, is_mti: bool, tissue_type: str) -> tuple[Path, 
             f"Unsupported tissue_type: {tissue_type!r} (expected 'GM', 'WM', or 'both')"
         )
 
+    # An explicit field additionally requires the field name in the filename
+    # (SimNIBS appends "_{field}" to the output prefix), so distinct fields
+    # sharing a mesh (e.g. TI_max, hf_peak, hf_sar) aren't conflated. With no
+    # explicit field, matching is unchanged from prior behavior.
+    field_suffixes = (f"_{field_name}.nii.gz", f"_{field_name}.nii")
+
+    def _field_matches(name: str) -> bool:
+        return field is None or name.endswith(field_suffixes)
+
     preferred_prefix = prefix_map[tissue]
     if preferred_prefix is None:
         # Prefer subject-space, full-field files (no tissue prefix, no MNI tag).
-        for nii in niftis:
-            name = nii.name
-            if not name.startswith(("grey_", "white_")) and "_MNI" not in name:
-                logger.debug(
-                    "Selected voxel field file: %s (field=%s, tissue=%s)",
-                    nii,
-                    field_name,
-                    tissue,
-                )
-                return nii, field_name
+        candidates = (
+            nii
+            for nii in niftis
+            if not nii.name.startswith(("grey_", "white_")) and "_MNI" not in nii.name
+        )
     else:
-        for nii in niftis:
-            name = nii.name
-            if name.startswith(preferred_prefix) and "_MNI" not in name:
-                logger.debug(
-                    "Selected voxel field file: %s (field=%s, tissue=%s)",
-                    nii,
-                    field_name,
-                    tissue,
-                )
-                return nii, field_name
+        candidates = (
+            nii
+            for nii in niftis
+            if nii.name.startswith(preferred_prefix) and "_MNI" not in nii.name
+        )
 
+    for nii in candidates:
+        if _field_matches(nii.name):
+            logger.debug(
+                "Selected voxel field file: %s (field=%s, tissue=%s)",
+                nii,
+                field_name,
+                tissue,
+            )
+            return nii, field_name
+
+    if field is not None:
+        raise FileNotFoundError(
+            f"No {tissue_type} NIfTI file found for field {field_name!r} in {nifti_dir}"
+        )
     raise FileNotFoundError(f"No {tissue_type} NIfTI file found in {nifti_dir}")

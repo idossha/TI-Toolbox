@@ -336,7 +336,7 @@ class TestGetNTIVectors:
     def test_four_fields_matches_get_mTI_vectors(self, random_fields):
         fs = random_fields(4)
         result = get_nTI_vectors(fs)
-        expected = get_mTI_vectors(fs[0], fs[1], fs[2], fs[3])
+        expected = get_mTI_vectors(fs)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_six_fields_shape(self, random_fields):

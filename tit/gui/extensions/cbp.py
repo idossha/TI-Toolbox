@@ -21,6 +21,7 @@ EXTENSION_DESCRIPTION = (
 
 from tit.paths import get_path_manager
 from tit import constants as const
+from tit.source.config import VALID_FSAVG_FIELDS
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
@@ -389,7 +390,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
         self.config_layout.addWidget(QtWidgets.QLabel("Surface Field:"), row, 2)
         self.fsavg_field_combo = QtWidgets.QComboBox()
-        self.fsavg_field_combo.addItems(["TI_max", "TI_normal", "hf_peak", "hf_sar"])
+        self.fsavg_field_combo.addItems(list(VALID_FSAVG_FIELDS))
         self.fsavg_field_combo.setToolTip(
             "Which fsaverage field to analyze (ignored when Space is MNI)."
         )

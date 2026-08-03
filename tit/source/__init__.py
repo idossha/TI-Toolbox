@@ -6,7 +6,7 @@ common cortical grid:
 * :func:`prepare_forward` -- build an MNE-compatible EEG forward solution
   (leadfield + source space + fsaverage morph) from a SimNIBS head model.
 * :func:`project_fields_to_fsaverage` -- project existing simulation field
-  outputs (TI_max, TI_normal, |E|) onto an fsaverage template.
+  outputs (TI_max, TI_normal, hf_peak, hf_sar) onto an fsaverage template.
 
 Both run under the SimNIBS interpreter::
 

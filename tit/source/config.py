@@ -7,7 +7,7 @@ Defines the two typed configs consumed by :mod:`tit.source`:
   forward solution (leadfield, source space, fsaverage morph) from an existing
   SimNIBS head model.
 * :class:`FsavgMapConfig` -- parameters for projecting existing simulation field
-  outputs (TI_max, TI_normal, |E|) onto an fsaverage template.
+  outputs (TI_max, TI_normal, hf_peak, hf_sar) onto an fsaverage template.
 
 See Also
 --------
@@ -19,12 +19,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from tit.constants import FSAVG_FIELD_NAMES
+
 #: Field quantities that :func:`tit.source.fsaverage.project_fields_to_fsaverage`
 #: knows how to compute on the subject central surface before morphing.
 #:
 #: ``hf_peak`` = ``max(|E1+E2|, |E1-E2|)`` is the peak carrier field and ``hf_sar``
 #: = ``|E1|^2 + |E2|^2`` the heating driver (Cassarà 2025); see :mod:`tit.fields`.
-VALID_FSAVG_FIELDS: tuple[str, ...] = ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+#:
+#: Sourced from :data:`tit.constants.FSAVG_FIELD_NAMES` (the single source of
+#: truth, shared with :mod:`tit.stats.config`), which is the field registry
+#: minus ``FIELD_MTI_MAX`` ("TI_Max", the 4-pair/mTI mesh spelling): the
+#: central-surface pipeline only ever emits ``TI_max``, regardless of whether
+#: the simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: field to project. Reproduces the exact historical tuple
+#: ``("TI_max", "TI_normal", "hf_peak", "hf_sar")``.
+VALID_FSAVG_FIELDS: tuple[str, ...] = FSAVG_FIELD_NAMES
 
 #: fsaverage subdivision factors accepted by SimNIBS ``prepare_eeg_forward`` and
 #: ``cross_subject_map`` (5 -> 10242, 6 -> 40962, 7 -> 163842 nodes per hemi).

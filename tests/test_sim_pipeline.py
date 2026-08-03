@@ -10,12 +10,14 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from tit import constants as const
 from tit.sim.config import (
     SimulationConfig,
     SimulationMode,
@@ -31,6 +33,20 @@ import tit.sim.utils as _utils_mod
 # ============================================================================
 # Helpers
 # ============================================================================
+
+
+def _mock_mesh_efields(mock_mesh_io, n_elements=8):
+    """Give a mocked ``mesh_io`` realistic ``(N, 3)`` E-field values.
+
+    The field metrics in :mod:`tit.fields` validate input shape, so a bare
+    ``MagicMock`` (which ``np.asarray`` flattens to an empty array) is not a
+    usable stand-in for an E-field.
+    """
+    value = np.zeros((n_elements, 3), dtype=float)
+    mesh = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+    mesh.field.__getitem__.return_value.value = value
+    mock_mesh_io.read_msh.return_value.field.__getitem__.return_value.value = value
+    return value
 
 
 def _make_sim_config(**overrides):
@@ -54,12 +70,13 @@ def _make_ti_montage(name="test_ti"):
     )
 
 
-def _make_mti_montage(name="test_mti"):
+def _make_mti_montage(name="test_mti", channels=None):
     return Montage(
         name=name,
         mode=Montage.Mode.NET,
         electrode_pairs=[("E1", "E2"), ("E3", "E4"), ("E5", "E6"), ("E7", "E8")],
         eeg_net="GSN-256.csv",
+        channels=channels,
     )
 
 
@@ -110,13 +127,14 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_ti_mod, "TI"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
 
             dirs = {
                 "montage_dir": "/fake/sim/test_ti",
@@ -145,6 +163,60 @@ class TestTISimulation:
             assert result["status"] == "completed"
             assert "output_mesh" in result
 
+    def test_run_writes_ti_avg_field(self):
+        """TI_avg (tit.calc.get_TI_avg) must be written as a volume field
+        on the TI output mesh alongside TI_max, hf_peak, and hf_sar."""
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "subprocess"),
+            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_ti_mod, "transform_dirs_to_nifti"),
+            patch.object(_ti_mod, "start_t1_to_mni"),
+            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_ti_mod, "safe_move"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "glob"),
+            patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
+            # Identity deepcopy so the mesh mock written to (mout) is the
+            # same tracked object read from mesh_io.read_msh, letting the
+            # add_element_field assertion below see every field written.
+            mock_deepcopy.side_effect = lambda obj: obj
+
+            mock_setup_dirs.return_value = {
+                "montage_dir": "/fake/sim/test_ti",
+                "hf_dir": "/fake/sim/test_ti/high_Frequency",
+                "hf_mesh": "/fake/sim/test_ti/high_Frequency/mesh",
+                "hf_niftis": "/fake/sim/test_ti/high_Frequency/niftis",
+                "hf_analysis": "/fake/sim/test_ti/high_Frequency/analysis",
+                "ti_mesh": "/fake/sim/test_ti/TI/mesh",
+                "ti_niftis": "/fake/sim/test_ti/TI/niftis",
+                "ti_surfaces": "/fake/sim/test_ti/TI/mesh/surfaces",
+                "ti_surface_overlays": "/fake/sim/test_ti/TI/surface_overlays",
+                "ti_montage_imgs": "/fake/sim/test_ti/TI/montage_imgs",
+                "documentation": "/fake/sim/test_ti/documentation",
+            }
+
+            sim = _ti_mod.TISimulation(
+                _make_sim_config(), _make_ti_montage(), MagicMock()
+            )
+            sim.run("/fake/sim_dir")
+
+            mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+            written_field_names = [
+                call.args[1] for call in mout.add_element_field.call_args_list
+            ]
+            assert const.FIELD_TI_AVG in written_field_names
+
     def test_run_calls_setup_and_simnibs(self):
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
@@ -158,13 +230,14 @@ class TestTISimulation:
             patch.object(_ti_mod, "start_t1_to_mni"),
             patch.object(_ti_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
-            patch.object(_ti_mod, "mesh_io"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_ti_mod, "TI"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
             mock_setup_dirs.return_value = {
                 "montage_dir": "/fake",
                 "hf_dir": "/fake/hf",
@@ -228,15 +301,21 @@ class TestMTISimulation:
             patch.object(_mti_mod, "start_t1_to_mni"),
             patch.object(_mti_mod, "finish_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
-            patch.object(_mti_mod, "mesh_io"),
+            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_nTI_vectors") as mock_get_nti,
+            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
             patch.object(_mti_mod, "glob"),
+            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            e_field_value = _mock_mesh_efields(mock_mesh_io)
+            # Identity deepcopy so the mesh mocks written to (mout) are the
+            # same tracked objects read from mesh_io.read_msh, letting the
+            # add_element_field assertions below see every field written.
+            mock_deepcopy.side_effect = lambda obj: obj
 
             dirs = {
                 "montage_dir": "/fake/sim/test_mti",
@@ -259,7 +338,7 @@ class TestMTISimulation:
 
             import numpy as np
 
-            mock_get_nti.return_value = np.zeros((10, 3))
+            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_ti.return_value = np.zeros((10, 3))
 
             config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
@@ -278,6 +357,150 @@ class TestMTISimulation:
                 "/fake/sim/test_mti", SimulationMode.MTI
             )
             mock_run_simnibs.assert_called_once()
+
+            # D3: the true K-pair envelope replaces the deprecated
+            # recursive binary-tree get_nTI_vectors combination.
+            mock_get_mti.assert_called_once()
+
+            # D2 regression guard: hf_peak/hf_sar safety metrics must be
+            # written onto the mTI output mesh unconditionally.
+            mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+            written_field_names = [
+                call.args[1] for call in mout.add_element_field.call_args_list
+            ]
+            assert const.FIELD_HF_PEAK in written_field_names
+            assert const.FIELD_HF_SAR in written_field_names
+
+            # TI_avg (tit.calc.get_TI_avg): orientation-averaged companion
+            # to TI_Max, must also be written unconditionally.
+            assert const.FIELD_TI_AVG in written_field_names
+
+    def test_montage_channels_passed_to_get_mti_and_get_ti_avg(self):
+        """Montage.channels must round-trip through construction and reach
+        both tit.calc.get_mTI_vectors and tit.calc.get_TI_avg unchanged --
+        the pre-processing pass-through this feature depends on."""
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "subprocess"),
+            patch.object(_mti_mod, "extract_fields"),
+            patch.object(_mti_mod, "transform_dirs_to_nifti"),
+            patch.object(_mti_mod, "start_t1_to_mni"),
+            patch.object(_mti_mod, "finish_t1_to_mni"),
+            patch.object(_mti_mod, "safe_move"),
+            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_mti_mod, "TI"),
+            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
+            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
+            patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
+            patch.object(_mti_mod, "glob"),
+            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti_ch"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            e_field_value = _mock_mesh_efields(mock_mesh_io)
+            mock_deepcopy.side_effect = lambda obj: obj
+
+            mock_setup_dirs.return_value = {
+                "montage_dir": "/fake/sim/test_mti_ch",
+                "hf_dir": "/fake/sim/test_mti_ch/high_Frequency",
+                "hf_mesh": "/fake/sim/test_mti_ch/high_Frequency/mesh",
+                "hf_niftis": "/fake/sim/test_mti_ch/high_Frequency/niftis",
+                "hf_analysis": "/fake/sim/test_mti_ch/high_Frequency/analysis",
+                "ti_mesh": "/fake/sim/test_mti_ch/TI/mesh",
+                "ti_niftis": "/fake/sim/test_mti_ch/TI/niftis",
+                "ti_surfaces": "/fake/sim/test_mti_ch/TI/mesh/surfaces",
+                "ti_surface_overlays": "/fake/sim/test_mti_ch/TI/surface_overlays",
+                "ti_montage_imgs": "/fake/sim/test_mti_ch/TI/montage_imgs",
+                "mti_mesh": "/fake/sim/test_mti_ch/mTI/mesh",
+                "mti_surfaces": "/fake/sim/test_mti_ch/mTI/mesh/surfaces",
+                "mti_niftis": "/fake/sim/test_mti_ch/mTI/niftis",
+                "mti_montage_imgs": "/fake/sim/test_mti_ch/mTI/montage_imgs",
+                "documentation": "/fake/sim/test_mti_ch/documentation",
+            }
+
+            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
+            mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
+            mock_get_ti.return_value = np.zeros((10, 3))
+
+            channels = [([0, 2], [1, 3])]
+            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
+            montage = _make_mti_montage(name="test_mti_ch", channels=channels)
+            assert montage.channels == channels  # dataclass field round-trip
+
+            sim = _mti_mod.mTISimulation(config, montage, MagicMock())
+            sim.run("/fake/simulation_dir")
+
+            mock_get_mti.assert_called_once()
+            assert mock_get_mti.call_args.kwargs["channels"] == channels
+
+            mock_get_avg.assert_called_once()
+            assert mock_get_avg.call_args.kwargs["channels"] == channels
+
+    def test_montage_channels_defaults_to_none(self):
+        """A montage built without channels must pass channels=None through
+        to get_mTI_vectors/get_TI_avg -- today's positional-pairing default."""
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "subprocess"),
+            patch.object(_mti_mod, "extract_fields"),
+            patch.object(_mti_mod, "transform_dirs_to_nifti"),
+            patch.object(_mti_mod, "start_t1_to_mni"),
+            patch.object(_mti_mod, "finish_t1_to_mni"),
+            patch.object(_mti_mod, "safe_move"),
+            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_mti_mod, "TI"),
+            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
+            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
+            patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
+            patch.object(_mti_mod, "glob"),
+            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            e_field_value = _mock_mesh_efields(mock_mesh_io)
+            mock_deepcopy.side_effect = lambda obj: obj
+
+            mock_setup_dirs.return_value = {
+                "montage_dir": "/fake/sim/test_mti",
+                "hf_dir": "/fake/sim/test_mti/high_Frequency",
+                "hf_mesh": "/fake/sim/test_mti/high_Frequency/mesh",
+                "hf_niftis": "/fake/sim/test_mti/high_Frequency/niftis",
+                "hf_analysis": "/fake/sim/test_mti/high_Frequency/analysis",
+                "ti_mesh": "/fake/sim/test_mti/TI/mesh",
+                "ti_niftis": "/fake/sim/test_mti/TI/niftis",
+                "ti_surfaces": "/fake/sim/test_mti/TI/mesh/surfaces",
+                "ti_surface_overlays": "/fake/sim/test_mti/TI/surface_overlays",
+                "ti_montage_imgs": "/fake/sim/test_mti/TI/montage_imgs",
+                "mti_mesh": "/fake/sim/test_mti/mTI/mesh",
+                "mti_surfaces": "/fake/sim/test_mti/mTI/mesh/surfaces",
+                "mti_niftis": "/fake/sim/test_mti/mTI/niftis",
+                "mti_montage_imgs": "/fake/sim/test_mti/mTI/montage_imgs",
+                "documentation": "/fake/sim/test_mti/documentation",
+            }
+
+            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
+            mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
+            mock_get_ti.return_value = np.zeros((10, 3))
+
+            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
+            montage = _make_mti_montage()
+            assert montage.channels is None
+
+            sim = _mti_mod.mTISimulation(config, montage, MagicMock())
+            sim.run("/fake/simulation_dir")
+
+            assert mock_get_mti.call_args.kwargs["channels"] is None
+            assert mock_get_avg.call_args.kwargs["channels"] is None
 
 
 # ============================================================================
