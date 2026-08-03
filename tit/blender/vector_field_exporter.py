@@ -408,10 +408,16 @@ def _compute_fields(config, m1, m2, m3, m4, positions):
 
 
 def _compute_ti_normal(config, central_mesh, m1, TI):
-    """Compute TI_normal by projecting TI onto surface normals.
+    """Project the direction-maximized TI vector onto the surface normals.
+
+    Visualization only. This is **not** the ``TI_normal`` field written by
+    :mod:`tit.sim.TI`, which recomputes the envelope along the normal from
+    the raw carrier fields (SimNIBS ``TI.get_dirTI``). Projecting an
+    already-maximized vector is a different quantity and the two will not
+    agree numerically.
 
     Returns:
-        TI_normal array or None.
+        Normal-component array or None.
     """
     if not config.export_ti_normal:
         return None

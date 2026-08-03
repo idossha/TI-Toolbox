@@ -13,8 +13,14 @@ pairs (4, 6, 8, ...):
   *not* a recursive binary-tree TI-of-TI combination of the intermediate
   fields above (that approximation is deprecated; see
   :func:`tit.calc.get_nTI_vectors`).
+* Which pairs share a carrier -- and therefore beat against each other --
+  is explicit via ``montage.channels`` (:class:`tit.sim.config.Montage`),
+  passed through unchanged to :func:`get_mTI_vectors`/:func:`get_TI_avg`.
+  ``channels=None`` is the default independent-dyad architecture below;
+  it is not the only option (see :func:`tit.calc._resolve_channels`).
 
-Example with 4 pairs (A/B/C/D)::
+Example with 4 pairs (A/B/C/D), default independent-dyad grouping
+(``channels=None``, equivalent to ``[([0], [1]), ([2], [3])]``)::
 
     TI_AB = TI(E_A, E_B)                       # intermediate, inspection only
     TI_CD = TI(E_C, E_D)                       # intermediate, inspection only
@@ -65,9 +71,11 @@ class mTISimulation(BaseSimulation):
     4. Compute intermediate 2-pair TI vector fields (adjacent pairings,
        saved for inspection only).
     5. Compute final ``mTI_max`` from the verified K-pair modulation-depth
-       envelope over all N carrier fields, plus its orientation-averaged
-       companion ``TI_avg`` and the ``hf_peak``/``hf_sar`` carrier-exposure
-       safety maps.
+       envelope over all N carrier fields, grouped into carriers per
+       ``montage.channels`` (``None`` = one carrier per pair), plus its
+       orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
+       ``hf_sar`` carrier-exposure safety maps (always over all N fields,
+       regardless of ``channels``).
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -172,15 +180,18 @@ class mTISimulation(BaseSimulation):
         # carrier fields jointly (tit.calc.get_mTI_vectors) -- not a
         # recursive binary-tree TI-of-TI combination of the intermediate
         # pairwise fields saved above (that approximation is deprecated;
-        # see tit.calc.get_nTI_vectors).
-        mti_vectors = get_mTI_vectors(e_fields)
+        # see tit.calc.get_nTI_vectors). montage.channels controls which
+        # fields share a carrier (None = one carrier per pair, today's
+        # default).
+        mti_vectors = get_mTI_vectors(e_fields, channels=self.montage.channels)
         mti_field = np.linalg.norm(mti_vectors, axis=1)
         mout = deepcopy(meshes[0])
         mout.elmdata = []
         mout.add_element_field(mti_field, "TI_Max")
         # TI_avg: orientation-averaged companion to TI_Max, over all N
-        # per-pair carrier fields jointly (tit.calc.get_TI_avg).
-        mti_avg = get_TI_avg(e_fields)
+        # per-pair carrier fields jointly (tit.calc.get_TI_avg), grouped by
+        # the same montage.channels.
+        mti_avg = get_TI_avg(e_fields, channels=self.montage.channels)
         mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
         # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
         # heating driver, over all N per-pair carrier fields. Written unconditionally

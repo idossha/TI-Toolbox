@@ -96,18 +96,27 @@ def get_TI_vectors(E1_org, E2_org):
     return TI_vectors
 
 
-def get_mTI_vectors(fields, psi=None):
+def get_mTI_vectors(fields, channels=None, psi=None):
     """Compute mTI modulation-amplitude vectors for K >= 1 electrode pairs.
 
     ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape
-    ``(N, 3)``. K=1 dispatches exactly to :func:`get_TI_vectors`; K>=2
+    ``(N, 3)``, paired positionally into K channels by default. Pass
+    ``channels`` to override the grouping -- e.g. many electrode pairs
+    sharing just two carriers (Lee et al. 2022) becomes one channel of
+    summed fields. K=1 dispatches exactly to :func:`get_TI_vectors`; K>=2
     returns ``best_direction * md`` from the verified
-    :func:`_mti_modulation_depth` envelope.
+    :func:`_mti_modulation_depth` envelope. ``hf_peak``/``hf_sar``
+    (:mod:`tit.fields`) are unaffected by ``channels``: they always sum
+    over every carrier field.
 
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
+        Carrier field vectors, referenced by index from ``channels``.
+    channels : sequence of (group_a, group_b), or None
+        Per-channel index groups into ``fields`` (see
+        :func:`_resolve_channels`); ``None`` is consecutive pairing,
+        identical to today's behaviour.
     psi : array-like, shape (K,), or None
         Per-pair envelope phase offset (radians); ``None`` means
         phase-aligned pairs (``psi_k=0``), the standard case. Ignored
@@ -121,15 +130,14 @@ def get_mTI_vectors(fields, psi=None):
     Raises
     ------
     ValueError
-        Odd/short field list, mismatched shapes, or non-``(N, 3)`` arrays.
+        Invalid ``fields``, ``channels``, or ``psi``; see
+        :func:`_resolve_channels` and :func:`_validate_psi`.
 
     References
     ----------
     Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).
-    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7
-    (multipolar AM envelope, K >= 2).
     """
-    arrs = _validate_field_list(fields)
+    arrs = _resolve_channels(fields, channels)
     n_pairs = len(arrs) // 2
     _validate_psi(psi, n_pairs)
 
@@ -140,7 +148,7 @@ def get_mTI_vectors(fields, psi=None):
     return result["best_direction"] * result["md"][:, None]
 
 
-def get_TI_avg(fields, psi=None):
+def get_TI_avg(fields, channels=None, psi=None):
     """Direction-averaged modulation depth for K >= 1 electrode pairs.
 
     ``TI_max`` (:func:`get_mTI_vectors`) maximizes the envelope over
@@ -153,7 +161,10 @@ def get_TI_avg(fields, psi=None):
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
+        Carrier field vectors, referenced by index from ``channels``.
+    channels : sequence of (group_a, group_b), or None
+        Per-channel index groups into ``fields``; see
+        :func:`get_mTI_vectors` and :func:`_resolve_channels`.
     psi : array-like, shape (K,), or None
         Per-pair envelope phase offset (radians); see
         :func:`get_mTI_vectors`.
@@ -163,7 +174,7 @@ def get_TI_avg(fields, psi=None):
     np.ndarray, shape (N,)
         Modulation depth [V/m], averaged over sampled directions.
     """
-    arrs = _validate_field_list(fields)
+    arrs = _resolve_channels(fields, channels)
     n_pairs = len(arrs) // 2
     psi_arr = _validate_psi(psi, n_pairs)
     return _mti_modulation_depth_avg(arrs, psi_arr)
@@ -349,6 +360,94 @@ def _validate_psi(psi, n_pairs):
             f"shape {psi_arr.shape}"
         )
     return psi_arr
+
+
+def _resolve_channels(fields, channels):
+    """Pre-sum ``fields`` into the flat 2K-array pairing consumed downstream.
+
+    ``channels=None`` reproduces today's positional pairing exactly --
+    :func:`_validate_field_list` runs unmodified and the result is
+    returned untouched. Otherwise ``channels`` is a sequence of
+    ``(group_a, group_b)``, each group a sequence of integer indices into
+    ``fields``; per channel, ``E_a = sum(fields[i] for i in group_a)`` and
+    ``E_b = sum(fields[i] for i in group_b)`` (zeros if ``group_b`` is
+    empty -- a non-beating carrier, contributing to ``P`` but not ``Q`` in
+    :func:`_pairwise_products`), and the summed pairs are concatenated in
+    channel order. This is exact: pre-summing then pairing once is
+    algebraically identical to the coherent-sum ``P``/``Q`` the K=1 case
+    would compute pairwise (Lee et al. 2022's shared-carrier design).
+
+    Parameters
+    ----------
+    fields : sequence of array-like, each (N, 3)
+    channels : sequence of (group_a, group_b), or None
+
+    Returns
+    -------
+    list of np.ndarray, each shape (N, 3)
+
+    Raises
+    ------
+    ValueError
+        Non-``(N, 3)``/mismatched field shapes, no channels, an empty
+        ``group_a``, an out-of-range index, or an index reused across
+        groups.
+    """
+    if channels is None:
+        return _validate_field_list(fields)
+
+    arrs = [np.asarray(f, dtype=np.float64) for f in fields]
+    n = len(arrs)
+    if n == 0:
+        raise ValueError("fields must be non-empty when channels is given")
+    ref_shape = arrs[0].shape
+    if len(ref_shape) != 2 or ref_shape[1] != 3:
+        raise ValueError(f"Fields must have shape (N, 3), got {ref_shape}")
+    for i, arr in enumerate(arrs[1:], start=2):
+        if arr.shape != ref_shape:
+            raise ValueError(
+                "All fields must have identical shape; "
+                f"field 1 has {ref_shape}, field {i} has {arr.shape}"
+            )
+
+    channels = list(channels)
+    if len(channels) == 0:
+        raise ValueError("channels must contain at least one channel")
+
+    seen = set()
+    flat = []
+    for ci, (group_a, group_b) in enumerate(channels):
+        group_a = list(group_a)
+        group_b = list(group_b)
+        if len(group_a) == 0:
+            raise ValueError(f"channels[{ci}]: group_a must be non-empty")
+        for label, group in (("group_a", group_a), ("group_b", group_b)):
+            for idx in group:
+                if not (0 <= idx < n):
+                    raise ValueError(
+                        f"channels[{ci}] {label}: index {idx} out of range "
+                        f"for {n} fields"
+                    )
+                if idx in seen:
+                    raise ValueError(
+                        f"channels[{ci}] {label}: field index {idx} is "
+                        "used in more than one channel group"
+                    )
+                seen.add(idx)
+        flat.append(_sum_group(arrs, group_a, ref_shape))
+        flat.append(_sum_group(arrs, group_b, ref_shape))
+
+    return flat
+
+
+def _sum_group(arrs, indices, ref_shape):
+    """Sum ``arrs[i]`` for ``i in indices``; an empty group sums to zero."""
+    if not indices:
+        return np.zeros(ref_shape, dtype=np.float64)
+    acc = arrs[indices[0]].copy()
+    for idx in indices[1:]:
+        acc = acc + arrs[idx]
+    return acc
 
 
 def _pairwise_products(proj_fields, psi):

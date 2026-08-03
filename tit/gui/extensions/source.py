@@ -8,7 +8,7 @@ dispatched to ``simnibs_python -m tit.source`` in a background thread:
 
 * **Build forward solution** -- per-subject MNE forward/source-space/morph from
   the SimNIBS head model and a chosen EEG net.
-* **Map fields to fsaverage** -- project a simulation's TI_max / TI_normal / |E|
+* **Map fields to fsaverage** -- project a simulation's TI_max / TI_normal / hf_peak / hf_sar
   onto an fsaverage template.
 
 See Also

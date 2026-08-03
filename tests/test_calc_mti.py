@@ -293,6 +293,165 @@ class TestGetTIAvg:
 
 
 # ---------------------------------------------------------------------------
+# channels -- carrier-grouping pre-processing (get_mTI_vectors/get_TI_avg)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestChannelsBackwardCompatibility:
+    """channels=None must reproduce today's positional pairing exactly --
+    the critical regression guard."""
+
+    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
+    def test_none_is_byte_identical_to_default(self, n_pairs):
+        fields = _random_fields(2 * n_pairs, n_elements=64)
+        default = get_mTI_vectors(fields)
+        explicit_none = get_mTI_vectors(fields, channels=None)
+        diff = np.max(np.abs(default - explicit_none))
+        assert diff == 0.0
+        np.testing.assert_array_equal(default, explicit_none)
+
+    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
+    def test_avg_none_is_byte_identical_to_default(self, n_pairs):
+        fields = _random_fields(2 * n_pairs, n_elements=64)
+        default = get_TI_avg(fields)
+        explicit_none = get_TI_avg(fields, channels=None)
+        diff = np.max(np.abs(default - explicit_none))
+        assert diff == 0.0
+
+    def test_explicit_consecutive_equals_none_default(self):
+        """An explicit [([0],[1]), ([2],[3])] channel spec must equal the
+        None default exactly -- not just numerically close."""
+        fields = _random_fields(4, n_elements=64)
+        default = get_mTI_vectors(fields)
+        explicit = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [3])])
+        diff = np.max(np.abs(default - explicit))
+        assert diff == 0.0
+        np.testing.assert_array_equal(default, explicit)
+
+
+@pytest.mark.unit
+class TestChannelsLeeArchitecture:
+    """Lee et al. (2022)-style shared-carrier grouping: many pairs on two
+    carriers, envelope taken once over the pre-summed fields."""
+
+    def test_shared_carrier_matches_presummed_ti_vectors(self):
+        """channels=[([0,2],[1,3])] must equal
+        get_TI_vectors(E0+E2, E1+E3) to tight tolerance -- this is the
+        exact property that positional pairing gets wrong (measured >5%
+        error in 92% of elements for this montage)."""
+        E0, E1, E2, E3 = _random_fields(4, n_elements=300)
+        result = get_mTI_vectors([E0, E1, E2, E3], channels=[([0, 2], [1, 3])])
+        expected = get_TI_vectors(E0 + E2, E1 + E3)
+        np.testing.assert_allclose(result, expected, atol=1e-9)
+
+    def test_shared_carrier_differs_from_positional_pairing(self):
+        """The whole point of channels: positional pairing (0,1),(2,3) is
+        materially wrong for a Lee-style two-carrier montage."""
+        E0, E1, E2, E3 = _random_fields(4, n_elements=300)
+        shared = get_mTI_vectors([E0, E1, E2, E3], channels=[([0, 2], [1, 3])])
+        positional = get_mTI_vectors([E0, E1, E2, E3])
+
+        shared_mag = np.linalg.norm(shared, axis=1)
+        positional_mag = np.linalg.norm(positional, axis=1)
+        rel_diff = np.abs(shared_mag - positional_mag) / np.maximum(
+            positional_mag, 1e-8
+        )
+        assert np.mean(rel_diff > 0.05) > 0.5
+
+
+@pytest.mark.unit
+class TestChannelsNonBeatingCarrier:
+    """An empty second group models a carrier that contributes exposure
+    but does not beat against anything."""
+
+    def test_extra_carrier_strictly_reduces_envelope(self):
+        n = 200
+        E0, E1, E2 = _random_fields(3, n_elements=n)
+        base = get_mTI_vectors([E0, E1], channels=[([0], [1])])
+        with_carrier = get_mTI_vectors([E0, E1, E2], channels=[([0], [1]), ([2], [])])
+        base_mag = np.linalg.norm(base, axis=1)
+        wc_mag = np.linalg.norm(with_carrier, axis=1)
+
+        # Never larger; strictly smaller on average (a non-beating carrier
+        # adds to P but not Q, thinning the modulation depth).
+        assert np.all(wc_mag <= base_mag + 1e-9)
+        assert np.mean(wc_mag) < np.mean(base_mag)
+
+    def test_extra_carrier_matches_closed_form_thinning(self):
+        """Collinear fields: adding a same-direction non-beating carrier of
+        magnitude c to two equal-magnitude beating carriers of magnitude m
+        thins MD from 2m to 2*m^2/sqrt(m^2+c^2) (P=m^2+c^2/2, Q=m^2)."""
+        n_hat = np.array([1.0, 0.0, 0.0])
+        n = 10
+        m = 1.0
+        E0 = np.tile(m * n_hat, (n, 1))
+        E1 = np.tile(m * n_hat, (n, 1))
+
+        for c in (0.5, 0.8):
+            E2 = np.tile(c * n_hat, (n, 1))
+            with_carrier = get_mTI_vectors(
+                [E0, E1, E2], channels=[([0], [1]), ([2], [])]
+            )
+            wc_mag = np.linalg.norm(with_carrier, axis=1)
+
+            P = m * m + 0.5 * c * c
+            Q = m * m
+            expected_md = np.sqrt(2 * (P + Q)) - np.sqrt(2 * max(P - Q, 0.0))
+            # K=2 (two channels) goes through the coarse-sweep + local-refine
+            # search, not an exact closed form, so allow a small numerical
+            # margin (measured ~5e-6) rather than requiring bit-exactness.
+            np.testing.assert_allclose(wc_mag, expected_md, atol=1e-4)
+
+            base_md = 2.0 * m
+            thinning = 1.0 - expected_md / base_md
+            # Sanity: thinning grows with the non-beating carrier's size.
+            assert 0.0 < thinning < 1.0
+
+
+@pytest.mark.unit
+class TestChannelsValidation:
+    def test_out_of_range_index_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="out of range"):
+            get_mTI_vectors(fields, channels=[([0], [9])])
+
+    def test_reused_index_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="more than one channel group"):
+            get_mTI_vectors(fields, channels=[([0], [1]), ([0], [2])])
+
+    def test_empty_channel_list_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="at least one channel"):
+            get_mTI_vectors(fields, channels=[])
+
+    def test_empty_group_a_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="group_a must be non-empty"):
+            get_mTI_vectors(fields, channels=[([], [1])])
+
+    def test_empty_group_b_is_allowed(self):
+        """group_b may be empty (non-beating carrier) -- must not raise."""
+        fields = _random_fields(3, n_elements=10)
+        result = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [])])
+        assert result.shape == (10, 3)
+
+    def test_psi_length_mismatch_raises(self):
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="psi"):
+            get_mTI_vectors(
+                fields, channels=[([0], [1]), ([2], [3])], psi=[0.0]
+            )  # 2 channels, needs shape (2,)
+
+    def test_get_ti_avg_validation_matches(self):
+        """get_TI_avg shares the same channels validation contract."""
+        fields = _random_fields(4, n_elements=10)
+        with pytest.raises(ValueError, match="out of range"):
+            get_TI_avg(fields, channels=[([0], [9])])
+
+
+# ---------------------------------------------------------------------------
 # get_magnitude_am -- direction-free magnitude envelope
 # ---------------------------------------------------------------------------
 

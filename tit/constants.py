@@ -155,8 +155,9 @@ FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
 FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
 FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
-FIELD_HF_PEAK = "hf_peak"  # peak carrier field max(|E1+E2|,|E1-E2|) (Cassarà 2025)
-FIELD_HF_SAR = "hf_sar"  # carrier heating driver |E1|^2+|E2|^2 (∝ SAR)
+FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
+# vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
+FIELD_HF_SAR = "hf_sar"  # carrier heating driver, sum_i |E_i|^2 (∝ SAR)
 
 # Field "kind" classification used by FieldSpec below.
 FIELD_KIND_FUNCTIONAL = "functional"  # stimulation metrics

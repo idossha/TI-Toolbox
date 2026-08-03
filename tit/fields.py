@@ -20,6 +20,7 @@ Both are distinct from the stimulation-relevant modulation envelope
 See Also
 --------
 tit.sim.TI : Writes hf_peak / hf_sar as volume fields on the TI mesh.
+tit.sim.mTI : Writes hf_peak / hf_sar as volume fields on the mTI mesh.
 tit.source.fsaverage : Projects hf_peak / hf_sar onto fsaverage.
 """
 

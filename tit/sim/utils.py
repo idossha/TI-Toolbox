@@ -880,8 +880,9 @@ def run_simulation(
     2. Builds a SimNIBS SESSION with electrode geometry and conductivity
        settings from *config*.
     3. Runs the FEM solver to compute electric-field distributions.
-    4. Computes temporal-interference envelope fields (``TI_max``,
-       ``TI_normal``) and, for mTI, the multi-channel superposition.
+    4. Computes temporal-interference envelope fields: ``TI_max``/``TI_avg``
+       plus ``TI_normal`` (2-pair TI only), or the multi-channel
+       superposition for mTI.
     5. Writes output meshes, surface overlays, and NIfTIs to the
        BIDS-compliant simulation directory.
 

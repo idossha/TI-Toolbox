@@ -10,8 +10,9 @@ official SimNIBS TI example:
 * ``TI_max`` computed with ``TI.get_maxTI`` on cropped meshes
 * ``TI_normal`` computed on cortical surface overlays
 
-Output mesh includes per-pair E-field magnitudes and ``TI_max``,
-matching the reference visualisation layout.
+Output mesh includes ``TI_max``, ``TI_avg``, ``hf_peak`` and ``hf_sar``.
+Per-pair E-field magnitudes are not retained on it; those live on the
+``high_Frequency/`` carrier meshes.
 
 See Also
 --------
@@ -55,7 +56,8 @@ class TISimulation(BaseSimulation):
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION, run FEM.
-    4. Compute ``TI_max``/``TI_avg`` (volume) and ``TI_normal`` (surface).
+    4. Compute ``TI_max``/``TI_avg``/``hf_peak``/``hf_sar`` (volume) and
+       ``TI_normal`` (surface).
     5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also

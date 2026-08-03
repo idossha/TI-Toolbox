@@ -7,7 +7,7 @@ Defines the two typed configs consumed by :mod:`tit.source`:
   forward solution (leadfield, source space, fsaverage morph) from an existing
   SimNIBS head model.
 * :class:`FsavgMapConfig` -- parameters for projecting existing simulation field
-  outputs (TI_max, TI_normal, |E|) onto an fsaverage template.
+  outputs (TI_max, TI_normal, hf_peak, hf_sar) onto an fsaverage template.
 
 See Also
 --------
