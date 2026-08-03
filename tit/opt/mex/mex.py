@@ -3,15 +3,18 @@
 Public API: ``run_m_ex_search(config) -> MExResult``
 """
 
+import csv
 import logging
 import os
 import time
 from pathlib import Path
 
+
 from tit.logger import add_file_handler
 from tit.opt.config import MExConfig, MExResult
 from tit.opt.ex.buckets import build_electrode_mirror_map, canonical_template_coord_path
 from tit.opt.ex.results import process_and_save
+from tit.opt.ex.roi import atlas_roi_entries, mni_roi_files_to_subject_space
 from tit.paths import get_path_manager
 
 from .engine import MExSearchEngine
@@ -44,7 +47,20 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     os.makedirs(output_dir, exist_ok=True)
     logger.info("Output: %s", output_dir)
 
-    roi_file = os.path.join(pm.rois(config.subject_id), config.roi_name)
+    roi_dir = pm.rois(config.subject_id)
+    if config.roi_coordinate_space == "mni":
+        [roi_file] = mni_roi_files_to_subject_space(
+            [config.roi_name], roi_dir, pm.m2m(config.subject_id), output_dir, logger
+        )
+    else:
+        roi_file = os.path.join(roi_dir, config.roi_name)
+
+    atlas_entries = atlas_roi_entries(config)
+    if atlas_entries:
+        logger.info("Adding %d atlas ROI target(s)", len(atlas_entries))
+        roi_target = [roi_file] + atlas_entries
+    else:
+        roi_target = roi_file
 
     if isinstance(config.electrodes, MExConfig.PoolElectrodes):
         buckets_or_pool = config.electrodes.electrodes
@@ -69,7 +85,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     )
 
     engine = MExSearchEngine(
-        leadfield_path, roi_file, config.roi_name, logger, channels=config.channels
+        leadfield_path, roi_target, config.roi_name, logger, channels=config.channels
     )
     engine.initialize(roi_radius=config.roi_radius)
     results = engine.run(

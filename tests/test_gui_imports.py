@@ -137,6 +137,66 @@ class TestGuiImports:
         assert data["electrodes"]["_type"] == "BucketElectrodes"
 
     @pytest.mark.unit
+    def test_ex_search_coordinate_space_value(self):
+        """Subject/MNI radio state maps to ExConfig.roi_coordinate_space."""
+        pytest.importorskip("PyQt5")
+        from tit.gui.ex_search_tab import ExSearchTab
+
+        assert ExSearchTab.coordinate_space_value(False) == "subject"
+        assert ExSearchTab.coordinate_space_value(True) == "mni"
+
+    @pytest.mark.unit
+    def test_ex_search_atlas_roi_chip_key_roundtrip(self):
+        """Chip keys round-trip through atlas_roi_chip_key / atlas_roi_from_chip_key."""
+        pytest.importorskip("PyQt5")
+        from tit.gui.ex_search_tab import ExSearchTab
+
+        key = ExSearchTab.atlas_roi_chip_key("/atlas/aseg.mgz", 17)
+        assert ExSearchTab.atlas_roi_from_chip_key(key) == ("/atlas/aseg.mgz", 17)
+
+        # label=None -> whole file as a binary mask
+        key_whole = ExSearchTab.atlas_roi_chip_key("/atlas/mask.nii.gz", None)
+        assert ExSearchTab.atlas_roi_from_chip_key(key_whole) == (
+            "/atlas/mask.nii.gz",
+            None,
+        )
+
+    @pytest.mark.unit
+    def test_ex_search_build_roi_atlas_entries(self):
+        """Selected atlas-ROI chips become ExConfig.AtlasROI-shaped dicts."""
+        pytest.importorskip("PyQt5")
+        from tit.gui.ex_search_tab import ExSearchTab
+        from tit.opt.config import ExConfig
+
+        keys = [
+            ExSearchTab.atlas_roi_chip_key("/atlas/aseg.mgz", 17),
+            ExSearchTab.atlas_roi_chip_key("/atlas/mask.nii.gz", None),
+        ]
+        entries = ExSearchTab.build_roi_atlas_entries(keys)
+        assert entries == [
+            {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+            {"atlas_path": "/atlas/mask.nii.gz", "label": None},
+        ]
+
+        # Feeds straight into ExConfig.roi_atlas without further conversion.
+        config = ExConfig(
+            subject_id="ernie",
+            leadfield_hdf="/leadfields/ernie_leadfield_easycap.hdf5",
+            roi_name="18_Left_Amyg.csv",
+            roi_atlas=entries,
+            electrodes=ExConfig.BucketElectrodes(
+                e1_plus=["E1"],
+                e1_minus=["E2"],
+                e2_plus=["E3"],
+                e2_minus=["E4"],
+            ),
+        )
+        assert config.roi_atlas == [
+            ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
+            ExConfig.AtlasROI(atlas_path="/atlas/mask.nii.gz", label=None),
+        ]
+
+    @pytest.mark.unit
     def test_ex_search_tab_compiles(self):
         """tit/gui/ex_search_tab.py is syntactically valid Python.
 

@@ -1,9 +1,31 @@
 """Voxel (volumetric) atlas discovery and region listing."""
 
 import os
+import re
 import subprocess
 
 from tit.atlas.constants import VOXEL_ATLAS_FILES, MNI_ATLAS_FILES
+
+
+def parse_region_label(region_display: str) -> int:
+    """Extract the integer label from a :meth:`VoxelAtlasManager.list_regions`
+    entry, e.g. ``"Hippocampus (ID: 17)"`` -> ``17``.
+
+    Args:
+        region_display: A ``"RegionName (ID: N)"`` string.
+
+    Returns:
+        The integer label.
+
+    Raises:
+        ValueError: If *region_display* does not end in ``"(ID: <int>)"``.
+    """
+    match = re.search(r"\(ID:\s*(-?\d+)\)\s*$", region_display)
+    if not match:
+        raise ValueError(
+            f"Could not parse an atlas region label from {region_display!r}"
+        )
+    return int(match.group(1))
 
 
 class VoxelAtlasManager:

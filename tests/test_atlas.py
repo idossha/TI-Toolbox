@@ -140,3 +140,40 @@ class TestMeshAtlasManager:
         mgr = MeshAtlasManager(str(tmp_path))
         result = mgr.find_all_atlases("lh")
         assert "myatlas" in result
+
+
+@pytest.mark.unit
+class TestParseRegionLabel:
+    """Parsing the label out of ``VoxelAtlasManager.list_regions()`` output.
+
+    Lives here rather than in the GUI tests so it runs without PyQt5; the
+    ex-search tab imports it to turn a picked region into an AtlasROI label.
+    """
+
+    def test_parses_plain_entry(self):
+        from tit.atlas.voxel import parse_region_label
+
+        assert parse_region_label("Hippocampus (ID: 17)") == 17
+
+    def test_parses_name_containing_parentheses_and_digits(self):
+        from tit.atlas.voxel import parse_region_label
+
+        assert parse_region_label("Left-Cerebral-Cortex (area 3b) (ID: 1003)") == 1003
+
+    def test_parses_negative_and_zero_labels(self):
+        from tit.atlas.voxel import parse_region_label
+
+        assert parse_region_label("Unknown (ID: 0)") == 0
+        assert parse_region_label("Sentinel (ID: -1)") == -1
+
+    def test_tolerates_trailing_whitespace(self):
+        from tit.atlas.voxel import parse_region_label
+
+        assert parse_region_label("Amygdala (ID: 18)   ") == 18
+
+    def test_rejects_unparseable(self):
+        from tit.atlas.voxel import parse_region_label
+
+        for bad in ("Hippocampus", "Hippocampus (17)", "Hippocampus (ID: x)", ""):
+            with pytest.raises(ValueError, match="Could not parse"):
+                parse_region_label(bad)

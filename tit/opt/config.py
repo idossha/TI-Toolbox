@@ -643,8 +643,19 @@ class ExConfig:
         Optional list of ROI CSV filenames to **union** into a single
         target.  When provided (combined mode), the spherical masks of
         every listed ROI are OR-folded into one region.  ``None``
-        (default) keeps single-ROI behavior driven by *roi_name*.  Each
-        entry gets the ``".csv"`` suffix appended if missing.
+        (default) keeps single-ROI behavior driven by *roi_name*.  An
+        explicit empty list means "no spherical centers at all" -- useful
+        for a purely atlas-driven ROI (*roi_atlas* only).  Each entry gets
+        the ``".csv"`` suffix appended if missing.
+    roi_atlas : list of AtlasROI or None
+        Volumetric atlas or mask ROI(s) to union with the spherical
+        centers from *roi_name*/*roi_names*.  ``None`` (default) keeps
+        the existing spherical-only behavior.
+    roi_coordinate_space : str
+        Space of the *roi_name*/*roi_names* CSV centers -- ``"subject"``
+        (default) or ``"mni"``.  MNI centers are transformed to subject
+        space with ``simnibs.mni2subject_coords`` before the search runs.
+        Does not affect *roi_atlas*, which is always subject space.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -666,13 +677,34 @@ class ExConfig:
     ------
     ValueError
         If *current_step*, *total_current*, or *channel_limit* are
-        non-positive.
+        non-positive, or if *roi_coordinate_space* is not ``"subject"``
+        or ``"mni"``.
 
     See Also
     --------
     ExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.
     tit.opt.ex.ex.run_ex_search : Consumes this config.
     """
+
+    # ── Nested ROI types ─────────────────────────────────────────────────
+    @dataclass
+    class AtlasROI:
+        """Volumetric atlas or mask ROI, unioned with the spherical center(s).
+
+        Attributes
+        ----------
+        atlas_path : str
+            Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+            ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+            :class:`tit.atlas.voxel.VoxelAtlasManager`.
+        label : int or None
+            Integer label to select within the atlas (elements are
+            included where the voxel value equals *label*).  ``None``
+            treats the whole file as a binary mask (voxel value ``> 0``).
+        """
+
+        atlas_path: str
+        label: int | None = None
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -722,6 +754,8 @@ class ExConfig:
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
     roi_names: list[str] | None = None
+    roi_atlas: list[AtlasROI] | None = None
+    roi_coordinate_space: Literal["subject", "mni"] = "subject"
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
@@ -738,6 +772,17 @@ class ExConfig:
             self.roi_names = [
                 n if n.endswith(".csv") else f"{n}.csv" for n in self.roi_names
             ]
+        if self.roi_atlas is not None:
+            self.roi_atlas = [
+                a if isinstance(a, ExConfig.AtlasROI) else ExConfig.AtlasROI(**a)
+                for a in self.roi_atlas
+            ]
+        self.roi_coordinate_space = str(self.roi_coordinate_space).strip().lower()
+        if self.roi_coordinate_space not in ("subject", "mni"):
+            raise ValueError(
+                "roi_coordinate_space must be 'subject' or 'mni' (was "
+                f"{self.roi_coordinate_space!r})"
+            )
 
         # Validation
         if self.current_step <= 0:
@@ -820,6 +865,15 @@ class MExConfig:
         expressed.
     roi_radius : float
         Spherical ROI radius in mm for the target region.
+    roi_atlas : list of AtlasROI or None
+        Volumetric atlas or mask ROI(s) to union with the spherical center
+        from *roi_name*.  ``None`` (default) keeps the existing
+        spherical-only behavior.
+    roi_coordinate_space : str
+        Space of the *roi_name* CSV center -- ``"subject"`` (default) or
+        ``"mni"``.  An MNI center is transformed to subject space with
+        ``simnibs.mni2subject_coords`` before the search runs.  Does not
+        affect *roi_atlas*, which is always subject space.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
     symmetric_bucket : bool
@@ -838,8 +892,9 @@ class MExConfig:
     ------
     ValueError
         If *current_mA* is non-positive, if *symmetric_bucket* is set
-        with pool electrodes, or if *symmetry_pairing* is not one of
-        ``"within_pairs"``/``"cross_pairs"``.
+        with pool electrodes, if *symmetry_pairing* is not one of
+        ``"within_pairs"``/``"cross_pairs"``, or if *roi_coordinate_space*
+        is not ``"subject"`` or ``"mni"``.
 
     See Also
     --------
@@ -847,6 +902,26 @@ class MExConfig:
     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
     tit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.
     """
+
+    # ── Nested ROI types ─────────────────────────────────────────────────
+    @dataclass
+    class AtlasROI:
+        """Volumetric atlas or mask ROI, unioned with the spherical center.
+
+        Attributes
+        ----------
+        atlas_path : str
+            Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+            ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+            :class:`tit.atlas.voxel.VoxelAtlasManager`.
+        label : int or None
+            Integer label to select within the atlas (elements are
+            included where the voxel value equals *label*).  ``None``
+            treats the whole file as a binary mask (voxel value ``> 0``).
+        """
+
+        atlas_path: str
+        label: int | None = None
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -892,6 +967,8 @@ class MExConfig:
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
+    roi_atlas: list[AtlasROI] | None = None
+    roi_coordinate_space: Literal["subject", "mni"] = "subject"
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
@@ -909,6 +986,17 @@ class MExConfig:
                 self.electrodes = MExConfig.BucketElectrodes(**self.electrodes)
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
+        if self.roi_atlas is not None:
+            self.roi_atlas = [
+                a if isinstance(a, MExConfig.AtlasROI) else MExConfig.AtlasROI(**a)
+                for a in self.roi_atlas
+            ]
+        self.roi_coordinate_space = str(self.roi_coordinate_space).strip().lower()
+        if self.roi_coordinate_space not in ("subject", "mni"):
+            raise ValueError(
+                "roi_coordinate_space must be 'subject' or 'mni' (was "
+                f"{self.roi_coordinate_space!r})"
+            )
 
         if self.current_mA <= 0:
             raise ValueError("current_mA must be positive")

@@ -1,10 +1,12 @@
 """Tests for tit/opt/ex/ex.py -- run_ex_search orchestrator."""
 
+import csv
 import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 project_root = Path(__file__).resolve().parent.parent
@@ -374,3 +376,157 @@ class TestEngineUnion:
 
         assert set(engine.roi_indices.tolist()) == {0, 1}
         np.testing.assert_array_equal(engine.roi_volumes, [1.0, 2.0])
+
+
+# ---------------------------------------------------------------------------
+# run_ex_search -- volumetric atlas ROI targets
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestRunExSearchAtlasRoi:
+    def _pm(self, tmp_path):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        return pm
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_atlas_targets_appended_to_roi_files(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {"m1": {}}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        config = _make_ex_config(
+            roi_atlas=[
+                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+                {"atlas_path": "/mask.nii.gz"},
+            ]
+        )
+        run_ex_search(config)
+
+        roi_files = mock_engine_cls.call_args[0][1]
+        assert roi_files == [
+            os.path.join(str(tmp_path / "rois"), "motor.csv"),
+            ("/atlas/aseg.mgz", 17),
+            "/mask.nii.gz",
+        ]
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_no_roi_atlas_leaves_roi_files_unchanged(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        run_ex_search(_make_ex_config())
+
+        roi_files = mock_engine_cls.call_args[0][1]
+        assert roi_files == [os.path.join(str(tmp_path / "rois"), "motor.csv")]
+
+
+# ---------------------------------------------------------------------------
+# run_ex_search -- MNI coordinate space
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestRunExSearchMniSpace:
+    def _pm(self, tmp_path):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        pm.m2m.return_value = str(tmp_path / "m2m_001")
+        return pm
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_mni_space_transforms_and_writes_subject_space_csv(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        rois_dir = tmp_path / "rois"
+        rois_dir.mkdir()
+        with open(rois_dir / "motor.csv", "w", newline="") as f:
+            csv.writer(f).writerow([10.0, 20.0, 30.0])
+
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        config = _make_ex_config(roi_coordinate_space="mni")
+
+        with patch(
+            "simnibs.mni2subject_coords",
+            return_value=np.array([[1.0, 2.0, 3.0]]),
+        ) as mock_transform:
+            run_ex_search(config)
+
+        mock_transform.assert_called_once()
+        call_args = mock_transform.call_args[0]
+        np.testing.assert_array_equal(call_args[0], np.array([[10.0, 20.0, 30.0]]))
+        assert call_args[1] == str(tmp_path / "m2m_001")
+
+        roi_files = mock_engine_cls.call_args[0][1]
+        assert len(roi_files) == 1
+        subject_space_csv = roi_files[0]
+        assert subject_space_csv != str(rois_dir / "motor.csv")
+        with open(subject_space_csv) as f:
+            row = next(csv.reader(f))
+        assert [float(v) for v in row] == pytest.approx([1.0, 2.0, 3.0])
+
+    @patch("tit.opt.ex.ex.process_and_save")
+    @patch("tit.opt.ex.ex.ExSearchEngine")
+    @patch("tit.opt.ex.ex.add_file_handler")
+    @patch("tit.opt.ex.ex.get_path_manager")
+    def test_subject_space_does_not_call_transform(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.ex.ex import run_ex_search
+
+        config = _make_ex_config()  # default roi_coordinate_space="subject"
+
+        with patch("simnibs.mni2subject_coords") as mock_transform:
+            run_ex_search(config)
+
+        mock_transform.assert_not_called()
+        roi_files = mock_engine_cls.call_args[0][1]
+        assert roi_files == [os.path.join(str(tmp_path / "rois"), "motor.csv")]

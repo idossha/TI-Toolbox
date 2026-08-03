@@ -6,12 +6,13 @@ config_io, the engine's ROI metric computation, and the carrier-grouping
 (``channels``) behavior that replaces the rejected recursive mTI dispatch.
 """
 
+import csv
 import json
 import math
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -576,3 +577,144 @@ class TestComputeMtiField:
         assert result["TestROI_TImax_ROI"] == 0.0
         assert result["TestROI_TImean_ROI"] == 0.0
         assert result["TestROI_n_elements"] == 0
+
+
+# ---------------------------------------------------------------------------
+# run_m_ex_search -- volumetric atlas ROI + MNI coordinate space
+# ---------------------------------------------------------------------------
+
+
+def _mex_pool_config(**overrides):
+    from tit.opt.config import MExConfig
+
+    defaults = dict(
+        subject_id="001",
+        leadfield_hdf="net_leadfield.hdf5",
+        roi_name="motor.csv",
+        electrodes=MExConfig.PoolElectrodes(electrodes=[f"E{i}" for i in range(1, 9)]),
+    )
+    defaults.update(overrides)
+    return MExConfig(**defaults)
+
+
+@pytest.mark.unit
+class TestRunMExSearchAtlasAndMni:
+    def _pm(self, tmp_path):
+        pm = MagicMock()
+        pm.logs.return_value = str(tmp_path / "logs")
+        pm.m_ex_search_run.return_value = str(tmp_path / "output")
+        pm.rois.return_value = str(tmp_path / "rois")
+        pm.m2m.return_value = str(tmp_path / "m2m_001")
+        return pm
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
+    def test_atlas_targets_build_a_roi_list(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {"m1": {}}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        config = _mex_pool_config(
+            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 53}]
+        )
+        run_m_ex_search(config)
+
+        roi_arg = mock_engine_cls.call_args[0][1]
+        assert roi_arg == [
+            os.path.join(str(tmp_path / "rois"), "motor.csv"),
+            ("/atlas/aseg.mgz", 53),
+        ]
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
+    def test_no_roi_atlas_passes_bare_roi_file_string(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        """Regression guard: default config keeps the pre-existing bare-string call."""
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        run_m_ex_search(_mex_pool_config())
+
+        roi_arg = mock_engine_cls.call_args[0][1]
+        assert roi_arg == os.path.join(str(tmp_path / "rois"), "motor.csv")
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
+    def test_mni_space_transforms_roi_center(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        rois_dir = tmp_path / "rois"
+        rois_dir.mkdir()
+        with open(rois_dir / "motor.csv", "w", newline="") as f:
+            csv.writer(f).writerow([5.0, 6.0, 7.0])
+
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        config = _mex_pool_config(roi_coordinate_space="mni")
+
+        with patch(
+            "simnibs.mni2subject_coords",
+            return_value=np.array([[9.0, 8.0, 7.0]]),
+        ) as mock_transform:
+            run_m_ex_search(config)
+
+        mock_transform.assert_called_once()
+        assert mock_transform.call_args[0][1] == str(tmp_path / "m2m_001")
+
+        roi_arg = mock_engine_cls.call_args[0][1]
+        assert roi_arg != str(rois_dir / "motor.csv")
+        with open(roi_arg) as f:
+            row = next(csv.reader(f))
+        assert [float(v) for v in row] == pytest.approx([9.0, 8.0, 7.0])
+
+    @patch("tit.opt.mex.mex.process_and_save")
+    @patch("tit.opt.mex.mex.MExSearchEngine")
+    @patch("tit.opt.mex.mex.add_file_handler")
+    @patch("tit.opt.mex.mex.get_path_manager")
+    def test_subject_space_does_not_call_transform(
+        self, mock_gpm, mock_afh, mock_engine_cls, mock_save, tmp_path
+    ):
+        pm = self._pm(tmp_path)
+        mock_gpm.return_value = pm
+
+        engine = MagicMock()
+        mock_engine_cls.return_value = engine
+        engine.run.return_value = {}
+        mock_save.return_value = {"config_json_path": "/j", "csv_path": "/c"}
+
+        from tit.opt.mex.mex import run_m_ex_search
+
+        with patch("simnibs.mni2subject_coords") as mock_transform:
+            run_m_ex_search(_mex_pool_config())
+
+        mock_transform.assert_not_called()
