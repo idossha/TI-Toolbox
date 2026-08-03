@@ -37,10 +37,7 @@ from tit.gui.components.console import (
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.help_icon import HelpIcon
-from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
-from tit.gui.components.region_chips import RegionChipsWidget
-from tit.atlas import MNI_ATLAS_DIR, VoxelAtlasManager
-from tit.atlas.voxel import parse_region_label
+from tit.gui.components.roi_picker import ROIPickerWidget
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
@@ -130,11 +127,10 @@ COORD_SPACE_HELP = (
 )
 
 ATLAS_ROI_HELP = (
-    "Adds a volumetric atlas region (or a whole mask file) as an additional "
-    "search target, unioned together with the spherical ROI(s) selected "
-    "above -- the field is evaluated over their combined coverage.\n\n"
-    "Region: only the voxels equal to the chosen atlas label are included. "
-    "Whole File: every nonzero voxel in the file is included (binary mask).\n\n"
+    "Adds a volumetric (subcortical) atlas region as an additional search "
+    "target, unioned together with the spherical ROI(s) selected above -- "
+    "the field is evaluated over their combined coverage. Optional; leave "
+    "empty to use only the spherical ROI(s) above.\n\n"
     "Atlas targets are always read in the subject's own space, regardless "
     "of the Coordinate Space setting above."
 )
@@ -394,34 +390,37 @@ class ExSearchTab(QtWidgets.QWidget):
         return "mni" if is_mni else "subject"
 
     @staticmethod
-    def atlas_roi_chip_key(atlas_path: str, label: int | None) -> str:
-        """Build the opaque chip key encoding an atlas ROI selection.
+    def build_roi_atlas_entries(
+        atlas_path: str | None, region_keys: list[str]
+    ) -> list[dict] | None:
+        """Map the subcortical ROIPickerWidget's state to ``ExConfig.AtlasROI`` dicts.
 
-        Uses a control character as separator (never valid in a filesystem
-        path or an integer) so the key round-trips exactly through
-        :meth:`atlas_roi_from_chip_key`.
+        ``ROIPickerWidget`` (subcortical mode, no "whole file" option) exposes
+        one shared volume-atlas path plus a set of integer label chips
+        (``subcortical_chips.keys()``); each selected label becomes its own
+        ``ExConfig.AtlasROI``-shaped dict sharing that atlas path, matching
+        the pre-existing per-region entry shape. ``ExConfig``/``MExConfig``
+        accept a plain dict for each entry (see their ``__post_init__``), so
+        callers can hand the result straight to ``roi_atlas=`` without
+        importing the dataclass here.
+
+        Returns ``None`` when no atlas or no region is selected -- the Atlas
+        ROI target is optional and this keeps ``roi_atlas`` unset in that
+        case (mirrors the previous "atlas ROI is optional" behavior).
         """
-        return f"{atlas_path}\x1f{'' if label is None else label}"
+        if not atlas_path:
+            return None
+        labels = [int(key) for key in region_keys if str(key).strip()]
+        if not labels:
+            return None
+        return [{"atlas_path": str(atlas_path), "label": label} for label in labels]
 
-    @staticmethod
-    def atlas_roi_from_chip_key(key: str) -> tuple[str, int | None]:
-        """Inverse of :meth:`atlas_roi_chip_key`."""
-        atlas_path, _, label_str = key.partition("\x1f")
-        return atlas_path, (int(label_str) if label_str else None)
-
-    @classmethod
-    def build_roi_atlas_entries(cls, chip_keys: list[str]) -> list[dict]:
-        """Map selected atlas-ROI chip keys to ``ExConfig.AtlasROI``-shaped dicts.
-
-        ``ExConfig``/``MExConfig`` accept a plain dict for each entry (see
-        their ``__post_init__``), so callers can hand this straight to
-        ``roi_atlas=`` without importing the dataclass here.
-        """
-        entries = []
-        for key in chip_keys:
-            atlas_path, label = cls.atlas_roi_from_chip_key(key)
-            entries.append({"atlas_path": atlas_path, "label": label})
-        return entries
+    def _current_roi_atlas_entries(self) -> list[dict] | None:
+        """Read the Atlas ROI picker's current state into ``roi_atlas`` entries."""
+        picker = self.atlas_roi_picker
+        atlas_path = picker.volume_atlas_combo.currentData()
+        region_keys = list(picker.subcortical_chips.keys())
+        return self.build_roi_atlas_entries(atlas_path, region_keys)
 
     def __init__(self, parent=None):
         super(ExSearchTab, self).__init__(parent)
@@ -1044,8 +1043,12 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         roi_container = QtWidgets.QGroupBox("ROI Selection")
         roi_container.setFixedHeight(
-            220 + 68
-        )  # Fixed height for balance (includes radius + combine + atlas controls)
+            220 + 68 + 90
+        )  # Fixed height for balance (includes radius + combine + atlas controls).
+        # The +90 accounts for the subcortical ROIPickerWidget page (atlas-space
+        # toggle + tissue combo + atlas combo/buttons + chips), taller than the
+        # single combo+chips row it replaced. Not verified visually -- no
+        # display available in this environment; re-check in a running GUI.
         roi_layout = QtWidgets.QVBoxLayout(roi_container)
         roi_layout.setContentsMargins(10, 10, 10, 10)
         roi_layout.setSpacing(8)
@@ -1121,41 +1124,40 @@ class ExSearchTab(QtWidgets.QWidget):
         space_layout.addStretch()
         roi_layout.addLayout(space_layout)
 
-        # Atlas ROI: optional volumetric atlas/mask target(s), unioned with
-        # the spherical ROI(s) selected above.
-        atlas_layout = QtWidgets.QHBoxLayout()
-        atlas_layout.addWidget(QtWidgets.QLabel("Atlas ROI:"))
-        self.atlas_roi_combo = QtWidgets.QComboBox()
-        self.atlas_roi_combo.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
-        )
-        atlas_layout.addWidget(self.atlas_roi_combo)
-        self.refresh_atlas_roi_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_atlas_roi_btn.clicked.connect(self._refresh_atlas_roi_combo)
-        atlas_layout.addWidget(self.refresh_atlas_roi_btn)
-        self.add_atlas_region_btn = QtWidgets.QPushButton("Add Region…")
-        self.add_atlas_region_btn.setToolTip(
-            "Browse and select one or more labeled regions from the chosen atlas."
-        )
-        self.add_atlas_region_btn.clicked.connect(self._on_add_atlas_region)
-        atlas_layout.addWidget(self.add_atlas_region_btn)
-        self.add_atlas_whole_btn = QtWidgets.QPushButton("Add Whole File")
-        self.add_atlas_whole_btn.setToolTip(
-            "Use every nonzero voxel in the selected file as a binary mask."
-        )
-        self.add_atlas_whole_btn.clicked.connect(self._on_add_atlas_whole_file)
-        atlas_layout.addWidget(self.add_atlas_whole_btn)
-        atlas_layout.addWidget(HelpIcon(ATLAS_ROI_HELP, title="Atlas ROI"))
-        roi_layout.addLayout(atlas_layout)
+        # Atlas ROI: optional subcortical (volumetric atlas) target(s), unioned
+        # with the spherical ROI(s) selected above. Shares the same
+        # ROIPickerWidget component flex-search uses, minus the cortical mode
+        # (ex-search has no surface-annotation ROI concept) -- this also gives
+        # it the same region-listing behavior (no synchronous FreeSurfer
+        # mri_segstats call on the UI thread; see ROIPickerWidget/VoxelAtlasManager).
+        atlas_header_layout = QtWidgets.QHBoxLayout()
+        atlas_header_layout.addWidget(QtWidgets.QLabel("Atlas ROI (optional):"))
+        atlas_header_layout.addWidget(HelpIcon(ATLAS_ROI_HELP, title="Atlas ROI"))
+        atlas_header_layout.addStretch()
+        roi_layout.addLayout(atlas_header_layout)
 
-        self.atlas_roi_chips = RegionChipsWidget(
-            placeholder="No atlas ROI targets — optional"
+        self.atlas_roi_picker = ROIPickerWidget(
+            enable_spherical=False,
+            enable_atlas=False,
+            enable_subcortical=True,
+            enable_freeview_button=False,
+            enable_mni_toggle=False,
         )
-        self.atlas_roi_chips.setToolTip(
-            "Selected atlas ROI target(s), unioned with the spherical ROI(s) "
-            "above. Press ✕ on a chip to remove it."
-        )
-        roi_layout.addWidget(self.atlas_roi_chips)
+        # Subcortical is the only enabled mode, so its radio is the sole member
+        # of the group and carries no information -- hide it rather than show a
+        # lone radio the user cannot change.
+        if self.atlas_roi_picker.radio_subcortical is not None:
+            self.atlas_roi_picker.radio_subcortical.setVisible(False)
+        # Force subject space for atlas targets. ExConfig.AtlasROI has no
+        # atlas_space field (unlike FlexConfig.SubcorticalROI), and the
+        # ex-search engine selects elements by testing barycenters against the
+        # mask directly, so an MNI atlas would be read as if it were already in
+        # subject space. Offering the choice would silently give wrong results,
+        # so the control is hidden until the backend can transform.
+        self.atlas_roi_picker.volume_subject_radio.setChecked(True)
+        self.atlas_roi_picker.volume_subject_radio.setVisible(False)
+        self.atlas_roi_picker.volume_mni_radio.setVisible(False)
+        roi_layout.addWidget(self.atlas_roi_picker)
 
         # Add ROI container to grid - Row 1, Column 0
         main_grid_layout.addWidget(roi_container, 1, 0)
@@ -1918,137 +1920,6 @@ class ExSearchTab(QtWidgets.QWidget):
         except OSError as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
 
-    def _current_voxel_atlas_manager(self) -> VoxelAtlasManager | None:
-        """Build a VoxelAtlasManager for the currently selected subject.
-
-        Returns ``None`` when no subject is selected or its m2m directory
-        cannot be resolved, so callers can no-op gracefully.
-        """
-        subject_id = self.subject_combo.currentText()
-        if not subject_id:
-            return None
-        pm = self.pm
-        m2m_dir = pm.m2m(subject_id)
-        if not m2m_dir:
-            return None
-        seg_dir = os.path.join(m2m_dir, "segmentation")
-        return VoxelAtlasManager(
-            freesurfer_mri_dir=pm.freesurfer_mri(subject_id), seg_dir=seg_dir
-        )
-
-    def _refresh_atlas_roi_combo(self):
-        """Discover volumetric atlas/mask files for the selected subject.
-
-        Cheap discovery only (file listing) -- does not shell out to
-        FreeSurfer. Region listing (``list_regions``) only happens lazily,
-        when the user clicks "Add Region…".
-        """
-        self.atlas_roi_combo.clear()
-        mgr = self._current_voxel_atlas_manager()
-        if mgr is None:
-            return
-        try:
-            atlases = mgr.list_atlases()
-        except OSError:
-            return
-        # Also offer the bundled MNI atlases (mirrors flex-search's
-        # subcortical picker); these are read-only reference files, always
-        # subject-independent, and unaffected by the coordinate-space toggle.
-        try:
-            atlases = list(atlases) + [
-                (os.path.basename(p), p)
-                for p in VoxelAtlasManager.detect_mni_atlases(MNI_ATLAS_DIR)
-            ]
-        except OSError:
-            pass
-        for display_name, path in atlases:
-            self.atlas_roi_combo.addItem(display_name, path)
-
-    def _on_add_atlas_whole_file(self):
-        """Add the currently selected atlas/mask file as a whole-file (label=None) target."""
-        atlas_path = self.atlas_roi_combo.currentData()
-        if not atlas_path:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "No Atlas Selected",
-                "Select an atlas or mask file first (use Refresh to discover files).",
-            )
-            return
-        atlas_path = str(atlas_path)
-        display = self.atlas_roi_combo.currentText()
-        key = self.atlas_roi_chip_key(atlas_path, None)
-        self.atlas_roi_chips.add_item(key=key, display=f"{display}: whole file")
-
-    def _on_add_atlas_region(self):
-        """Browse regions in the selected atlas and add chosen ones as targets.
-
-        ``list_regions`` shells out to FreeSurfer's ``mri_segstats`` (and
-        caches a label file next to the atlas), so it is only invoked here,
-        on explicit user action -- never at tab load or on subject change.
-        Failures (e.g. FreeSurfer unavailable) are reported and swallowed
-        rather than raised.
-        """
-        atlas_path = self.atlas_roi_combo.currentData()
-        if not atlas_path:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "No Atlas Selected",
-                "Select an atlas or mask file first (use Refresh to discover files).",
-            )
-            return
-        atlas_path = str(atlas_path)
-        display = self.atlas_roi_combo.currentText()
-
-        try:
-            mgr = VoxelAtlasManager()
-            region_strings = mgr.list_regions(atlas_path)
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Could Not List Regions",
-                f"Could not list regions for '{display}'. This atlas may not "
-                f"be a labeled segmentation, or FreeSurfer (mri_segstats) may "
-                f"not be available.\n\nDetails: {e}",
-            )
-            return
-
-        entries = []
-        for region_str in region_strings:
-            try:
-                label = parse_region_label(region_str)
-            except ValueError:
-                continue
-            name = region_str.rsplit(" (ID:", 1)[0].strip()
-            entries.append((label, name, None))
-
-        if not entries:
-            QtWidgets.QMessageBox.warning(
-                self, "No Regions Found", f"No labeled regions found in '{display}'."
-            )
-            return
-
-        preselected = [
-            str(label)
-            for key in self.atlas_roi_chips.keys()
-            for path, label in [self.atlas_roi_from_chip_key(key)]
-            if path == atlas_path and label is not None
-        ]
-
-        dlg = AtlasRegionFinderDialog(
-            self,
-            f"Atlas Regions - {display}",
-            entries,
-            return_field="id",
-            multi=True,
-            preselected=preselected,
-        )
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            for label, name in zip(dlg.selected_ids(), dlg.selected_names()):
-                key = self.atlas_roi_chip_key(atlas_path, label)
-                self.atlas_roi_chips.add_item(
-                    key=key, display=f"{display}: {name} (ID: {label})"
-                )
-
     def show_add_roi_dialog(self):
         """Show dialog for adding a new ROI."""
         dialog = AddROIDialog(self)
@@ -2446,7 +2317,7 @@ class ExSearchTab(QtWidgets.QWidget):
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
             roi_names=roi_names,
-            roi_atlas=self.build_roi_atlas_entries(self.atlas_roi_chips.keys()) or None,
+            roi_atlas=self._current_roi_atlas_entries(),
             roi_coordinate_space=self.coordinate_space_value(
                 self.coord_space_mni.isChecked()
             ),
@@ -2509,7 +2380,7 @@ class ExSearchTab(QtWidgets.QWidget):
             subject_id=subject_id,
             leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
-            roi_atlas=self.build_roi_atlas_entries(self.atlas_roi_chips.keys()) or None,
+            roi_atlas=self._current_roi_atlas_entries(),
             roi_coordinate_space=self.coordinate_space_value(
                 self.coord_space_mni.isChecked()
             ),
@@ -3156,7 +3027,9 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle subject selection changes."""
         self.refresh_leadfields()
         self.update_roi_list()
-        self._refresh_atlas_roi_combo()
+        subject_id = self.subject_combo.currentText()
+        if subject_id and self.pm.project_dir:
+            self.atlas_roi_picker.set_subject(subject_id, self.pm.project_dir)
 
 
 class AddROIDialog(QtWidgets.QDialog):

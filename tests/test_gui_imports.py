@@ -146,36 +146,25 @@ class TestGuiImports:
         assert ExSearchTab.coordinate_space_value(True) == "mni"
 
     @pytest.mark.unit
-    def test_ex_search_atlas_roi_chip_key_roundtrip(self):
-        """Chip keys round-trip through atlas_roi_chip_key / atlas_roi_from_chip_key."""
+    def test_ex_search_build_roi_atlas_entries_single_region(self):
+        """N=1 case: one selected subcortical region -> one AtlasROI dict."""
         pytest.importorskip("PyQt5")
         from tit.gui.ex_search_tab import ExSearchTab
 
-        key = ExSearchTab.atlas_roi_chip_key("/atlas/aseg.mgz", 17)
-        assert ExSearchTab.atlas_roi_from_chip_key(key) == ("/atlas/aseg.mgz", 17)
-
-        # label=None -> whole file as a binary mask
-        key_whole = ExSearchTab.atlas_roi_chip_key("/atlas/mask.nii.gz", None)
-        assert ExSearchTab.atlas_roi_from_chip_key(key_whole) == (
-            "/atlas/mask.nii.gz",
-            None,
-        )
+        entries = ExSearchTab.build_roi_atlas_entries("/atlas/aseg.mgz", ["17"])
+        assert entries == [{"atlas_path": "/atlas/aseg.mgz", "label": 17}]
 
     @pytest.mark.unit
-    def test_ex_search_build_roi_atlas_entries(self):
-        """Selected atlas-ROI chips become ExConfig.AtlasROI-shaped dicts."""
+    def test_ex_search_build_roi_atlas_entries_multi_region(self):
+        """Multiple selected labels from the same atlas union into one list."""
         pytest.importorskip("PyQt5")
         from tit.gui.ex_search_tab import ExSearchTab
         from tit.opt.config import ExConfig
 
-        keys = [
-            ExSearchTab.atlas_roi_chip_key("/atlas/aseg.mgz", 17),
-            ExSearchTab.atlas_roi_chip_key("/atlas/mask.nii.gz", None),
-        ]
-        entries = ExSearchTab.build_roi_atlas_entries(keys)
+        entries = ExSearchTab.build_roi_atlas_entries("/atlas/aseg.mgz", ["17", "53"])
         assert entries == [
             {"atlas_path": "/atlas/aseg.mgz", "label": 17},
-            {"atlas_path": "/atlas/mask.nii.gz", "label": None},
+            {"atlas_path": "/atlas/aseg.mgz", "label": 53},
         ]
 
         # Feeds straight into ExConfig.roi_atlas without further conversion.
@@ -193,8 +182,26 @@ class TestGuiImports:
         )
         assert config.roi_atlas == [
             ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
-            ExConfig.AtlasROI(atlas_path="/atlas/mask.nii.gz", label=None),
+            ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=53),
         ]
+
+    @pytest.mark.unit
+    def test_ex_search_build_roi_atlas_entries_empty_is_optional(self):
+        """No atlas or no region selected -> None (Atlas ROI stays optional)."""
+        pytest.importorskip("PyQt5")
+        from tit.gui.ex_search_tab import ExSearchTab
+
+        assert ExSearchTab.build_roi_atlas_entries(None, []) is None
+        assert ExSearchTab.build_roi_atlas_entries("/atlas/aseg.mgz", []) is None
+        assert ExSearchTab.build_roi_atlas_entries("", ["17"]) is None
+
+    @pytest.mark.unit
+    def test_ex_search_no_add_whole_file_reference(self):
+        """The removed 'Add Whole File' handler/button leaves no trace."""
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        assert "Add Whole File" not in source
+        assert "_on_add_atlas_whole_file" not in source
+        assert "atlas_roi_chip_key" not in source
 
     @pytest.mark.unit
     def test_ex_search_tab_compiles(self):
@@ -208,3 +215,44 @@ class TestGuiImports:
         import py_compile
 
         py_compile.compile(str(GUI_ROOT / "ex_search_tab.py"), doraise=True)
+
+    @pytest.mark.unit
+    def test_analyzer_tab_compiles(self):
+        """tit/gui/analyzer_tab.py is syntactically valid Python.
+
+        No PyQt5 needed (py_compile only compiles to bytecode, never runs
+        module-level code), so this actually runs -- not skips -- on hosts
+        without PyQt5 installed.
+        """
+        import py_compile
+
+        py_compile.compile(str(GUI_ROOT / "analyzer_tab.py"), doraise=True)
+
+    @pytest.mark.unit
+    def test_analyzer_target_groups_use_stacked_widget(self):
+        """cortical_group/spherical_group live in target_stack, not toggled visibility.
+
+        Toggling target type used to call setVisible() on both group boxes
+        directly, which reflows/resizes the right-hand column because the
+        two boxes have different natural widths. A QStackedWidget reserves
+        the size of its largest page, so the fix is checked at the source
+        level (no PyQt5 needed): update_atlas_visibility must no longer call
+        setVisible on cortical_group/spherical_group, and must instead use
+        target_stack.setCurrentWidget.
+        """
+        source = (GUI_ROOT / "analyzer_tab.py").read_text(encoding="utf-8")
+
+        assert "self.target_stack = QtWidgets.QStackedWidget()" in source
+        assert "self.target_stack.addWidget(self.cortical_group)" in source
+        assert "self.target_stack.addWidget(self.spherical_group)" in source
+
+        # Locate update_atlas_visibility and ensure it uses the stack, not
+        # setVisible(), to switch between the two target groups.
+        start = source.index("def update_atlas_visibility")
+        end = source.index("\n    def ", start + 1)
+        body = source[start:end]
+
+        assert "self.target_stack.setCurrentWidget(self.cortical_group)" in body
+        assert "self.target_stack.setCurrentWidget(self.spherical_group)" in body
+        assert "self.cortical_group.setVisible" not in body
+        assert "self.spherical_group.setVisible" not in body

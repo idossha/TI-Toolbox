@@ -25,6 +25,7 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.gui.confirmation_dialog import ConfirmationDialog
+from tit.analyzer.spheres import parse_sphere_row, parse_sphere_rows
 from tit.gui.utils import confirm_overwrite
 from tit.gui.components.console import (
     ConsoleWidget,
@@ -291,7 +292,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""
-        if hasattr(self, "coordinates_label") and hasattr(self, "coords_radius_input"):
+        if hasattr(self, "coordinates_label") and hasattr(self, "spheres_table"):
+            row_tooltip = None
             if self.coord_space_mni.isChecked():
                 self.coordinates_label.setText("MNI RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip(
@@ -300,7 +302,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.coordinates_label.setStyleSheet(
                     "color: #007ACC; font-weight: bold;"
                 )
-                self.coords_radius_input.setToolTip("x,y,z,radius in MNI space")
+                row_tooltip = "x,y,z,radius in MNI space"
 
                 if hasattr(self, "view_in_freeview_btn"):
                     self.view_in_freeview_btn.setText("View MNI Template")
@@ -311,13 +313,18 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.coordinates_label.setText("Subject RAS (x,y,z,r):")
                 self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
                 self.coordinates_label.setStyleSheet("")
-                self.coords_radius_input.setToolTip("x,y,z,radius in subject RAS space")
+                row_tooltip = "x,y,z,radius in subject RAS space"
 
                 if hasattr(self, "view_in_freeview_btn"):
                     self.view_in_freeview_btn.setText("View in Freeview")
                     self.view_in_freeview_btn.setToolTip(
                         "View T1 in Freeview to help find coordinates"
                     )
+
+            for row in range(self.spheres_table.rowCount()):
+                edit = self.spheres_table.cellWidget(row, 0)
+                if edit is not None:
+                    edit.setToolTip(row_tooltip)
 
     def get_selected_subjects(self):
         """Get selected subjects from pairs table."""
@@ -789,8 +796,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Now that region_chips exists, wire the "Clear" button created above.
         self.clear_regions_btn.clicked.connect(self.region_chips.clear)
 
-        analysis_params_layout.addWidget(self.cortical_group)
-
         # ===================== Spherical target group =====================
         self.spherical_group = QtWidgets.QGroupBox("Spherical target")
         spherical_layout = QtWidgets.QVBoxLayout(self.spherical_group)
@@ -809,21 +814,53 @@ class AnalyzerTab(QtWidgets.QWidget):
         coord_space_row.addStretch()
         spherical_layout.addLayout(coord_space_row)
 
-        # Coordinates & Radius (single input: x,y,z,r)
-        coords_row = QtWidgets.QHBoxLayout()
-        coords_row.setSpacing(10)
+        # Coordinates & Radius — one or more spheres, each a row of "x,y,z,r".
+        # A single row reproduces the classic single-sphere behavior exactly
+        # (see parse_sphere_rows / _parse_all_spheres); extra rows each run
+        # their own separate analysis (N spheres -> N analyses), following the
+        # multi-sphere table already used by the flex-search ROI picker
+        # (tit/gui/components/roi_picker.py) — recycled here as a lightweight
+        # local table (rather than embedding that widget wholesale) since the
+        # analyzer's cortical/space/tissue handling is not shared with it.
         self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z,r):")
         self.coordinates_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
-        self.coords_radius_input = QtWidgets.QLineEdit()
-        self.coords_radius_input.setPlaceholderText("x,y,z,r")
-        self.coords_radius_input.setMinimumWidth(180)
-        self.coords_radius_input.setSizePolicy(
-            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        spherical_layout.addWidget(self.coordinates_label)
+
+        self.spheres_table = QtWidgets.QTableWidget(0, 2)
+        self.spheres_table.setHorizontalHeaderLabels(["x,y,z,r", ""])
+        sph_header = self.spheres_table.horizontalHeader()
+        sph_header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        sph_header.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        self.spheres_table.setColumnWidth(1, 32)
+        self.spheres_table.verticalHeader().setVisible(False)
+        self.spheres_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.spheres_table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.spheres_table.setMinimumHeight(90)
+        self.spheres_table.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
         )
-        coords_row.addWidget(self.coordinates_label)
-        coords_row.addWidget(self.coords_radius_input)
+        self.spheres_table.setToolTip(
+            "Each row is a sphere ('x,y,z,r'). A single row behaves exactly "
+            "like the classic single-sphere analysis. Additional rows each "
+            "run as a separate analysis (one result per sphere)."
+        )
+        spherical_layout.addWidget(self.spheres_table)
+
+        sphere_btn_row = QtWidgets.QHBoxLayout()
+        sphere_btn_row.setSpacing(10)
+        self.add_sphere_btn = QtWidgets.QPushButton("Add Sphere")
+        self.add_sphere_btn.setToolTip(
+            "Add another sphere row. Each sphere runs as its own analysis."
+        )
+        self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
+        self.remove_sphere_btn = QtWidgets.QPushButton("Remove Selected")
+        self.remove_sphere_btn.setToolTip("Remove the selected sphere row(s).")
+        self.remove_sphere_btn.clicked.connect(self._remove_selected_sphere_rows)
+        sphere_btn_row.addWidget(self.add_sphere_btn)
+        sphere_btn_row.addWidget(self.remove_sphere_btn)
+        sphere_btn_row.addStretch()
 
         self.view_in_freeview_btn = QtWidgets.QPushButton("View in Freeview")
         self.view_in_freeview_btn.setToolTip(
@@ -833,15 +870,24 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.view_in_freeview_btn.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
-        coords_row.addSpacing(10)
-        coords_row.addWidget(self.view_in_freeview_btn)
-        coords_row.addStretch()
-        spherical_layout.addLayout(coords_row)
+        sphere_btn_row.addWidget(self.view_in_freeview_btn)
+        spherical_layout.addLayout(sphere_btn_row)
 
-        analysis_params_layout.addWidget(self.spherical_group)
+        # Seed one default row so the table is never empty — this is the
+        # exact single-sphere path exercised by all real-world usage today.
+        self._add_sphere_row()
 
-        # Remove the stacked widget approach - coordinates/radius are always visible
-        # Instead, we'll enable/disable them based on mode
+        # Cortical and spherical target groups are placed in a QStackedWidget
+        # rather than toggled via setVisible(). A QStackedWidget reserves the
+        # size of its largest page, so switching target type no longer
+        # reflows/resizes the right-hand column (the two group boxes have
+        # different natural widths). See update_atlas_visibility().
+        self.target_stack = QtWidgets.QStackedWidget()
+        self.target_stack.addWidget(self.cortical_group)
+        self.target_stack.addWidget(self.spherical_group)
+        analysis_params_layout.addWidget(self.target_stack)
+
+        # Coordinates/radius enable-state (not visibility) still tracks mode.
 
         # Original connections from setup_ui for space/type changes.
         # update_atlas_visibility() also drives the adaptive cortical/spherical
@@ -1177,13 +1223,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_cortical = self.type_cortical.isChecked()
         is_spherical = self.type_spherical.isChecked()
 
-        # Adaptive target-group visibility: show only the group matching the
-        # selected analysis type. Guarded for early calls before the groups
-        # are created.
-        if hasattr(self, "cortical_group"):
-            self.cortical_group.setVisible(is_cortical)
-        if hasattr(self, "spherical_group"):
-            self.spherical_group.setVisible(is_spherical)
+        # Adaptive target-group display: switch the stacked page matching the
+        # selected analysis type. Using a QStackedWidget (rather than
+        # setVisible() on each group) keeps the right-hand column's width
+        # fixed to the widest page — toggling visibility instead let the
+        # column reflow whenever the two group boxes' natural widths
+        # differed. Guarded for early calls before the stack/groups exist.
+        if hasattr(self, "target_stack"):
+            if is_cortical:
+                self.target_stack.setCurrentWidget(self.cortical_group)
+            elif is_spherical:
+                self.target_stack.setCurrentWidget(self.spherical_group)
 
         # Tissue selection only applies to voxel space
         self.tissue_combo.setEnabled(not is_mesh)
@@ -1229,8 +1279,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         coordinates_enabled = is_spherical
         if hasattr(self, "coordinates_label"):
             self.coordinates_label.setEnabled(coordinates_enabled)
-        if hasattr(self, "coords_radius_input"):
-            self.coords_radius_input.setEnabled(coordinates_enabled)
+        if hasattr(self, "spheres_table"):
+            self.spheres_table.setEnabled(coordinates_enabled)
+        if hasattr(self, "add_sphere_btn"):
+            self.add_sphere_btn.setEnabled(coordinates_enabled)
+        if hasattr(self, "remove_sphere_btn"):
+            self.remove_sphere_btn.setEnabled(coordinates_enabled)
         if hasattr(self, "view_in_freeview_btn"):
             self.view_in_freeview_btn.setEnabled(coordinates_enabled)
 
@@ -1552,47 +1606,97 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         return self.validate_analysis_parameters()
 
-    def _parse_coords_radius(self, show_warning=True):
-        """Parse 'x,y,z,r' from the single input field. Returns (x,y,z,r) or None."""
-        text = self.coords_radius_input.text().strip()
-        if not text:
-            if show_warning:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Please enter coordinates and radius as x,y,z,r."
-                )
-            return None
-        parts = [p.strip() for p in text.split(",")]
-        if len(parts) != 4:
-            if show_warning:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Enter exactly 4 values: x,y,z,r."
-                )
-            return None
+    def _add_sphere_row(self, text=""):
+        """Append a new sphere row ('x,y,z,r' line edit + delete button)."""
+        table = self.spheres_table
+        row = table.rowCount()
+        table.insertRow(row)
+
+        edit = QtWidgets.QLineEdit()
+        edit.setPlaceholderText("x,y,z,r")
+        if text:
+            edit.setText(text)
+        table.setCellWidget(row, 0, edit)
+
+        del_btn = QtWidgets.QPushButton("x")
+        del_btn.setToolTip("Remove this sphere.")
+        del_btn.setFixedWidth(28)
+        del_btn.clicked.connect(lambda: self._remove_sphere_row_widget(del_btn))
+        table.setCellWidget(row, 1, del_btn)
+        return edit
+
+    def _remove_sphere_row_widget(self, button):
+        """Remove the row containing ``button``, always keeping >= 1 row."""
+        table = self.spheres_table
+        for row in range(table.rowCount()):
+            if table.cellWidget(row, 1) is button:
+                self._remove_sphere_at(row)
+                return
+
+    def _remove_sphere_at(self, row):
+        """Remove the sphere at ``row``, always keeping at least one row."""
+        table = self.spheres_table
+        if table.rowCount() <= 1:
+            return
+        table.removeRow(row)
+
+    def _remove_selected_sphere_rows(self):
+        """Remove all currently-selected sphere rows (keeping >= 1 row)."""
+        table = self.spheres_table
+        rows = sorted({idx.row() for idx in table.selectedIndexes()}, reverse=True)
+        for row in rows:
+            self._remove_sphere_at(row)
+        if table.rowCount() == 0:
+            self._add_sphere_row()
+
+    def _get_sphere_row_texts(self):
+        """Return the raw 'x,y,z,r' text of every sphere row, in order."""
+        table = self.spheres_table
+        texts = []
+        for row in range(table.rowCount()):
+            edit = table.cellWidget(row, 0)
+            texts.append(edit.text() if edit is not None else "")
+        return texts
+
+    def _parse_all_spheres(self, show_warning=True):
+        """Parse every sphere row into ``[(x, y, z, r), ...]``.
+
+        Returns ``None`` (optionally showing a warning dialog) if any row is
+        empty or malformed. This is the multi-sphere counterpart of
+        ``_parse_coords_radius``; N rows here become N separate analyses.
+        """
         try:
-            x, y, z, r = (
-                float(parts[0]),
-                float(parts[1]),
-                float(parts[2]),
-                float(parts[3]),
-            )
-        except ValueError:
+            return parse_sphere_rows(self._get_sphere_row_texts())
+        except ValueError as exc:
             if show_warning:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "All values must be numeric: x,y,z,r."
-                )
+                QtWidgets.QMessageBox.warning(self, "Warning", str(exc))
             return None
-        if r <= 0:
-            if show_warning:
-                QtWidgets.QMessageBox.warning(
-                    self, "Warning", "Radius must be positive."
-                )
+
+    def _parse_coords_radius(self, show_warning=True):
+        """Parse the first sphere row as ``(x, y, z, r)``.
+
+        Used where a single representative sphere suffices (group-mode
+        summary text, start-of-run preview). Single-subject spherical runs
+        use ``_parse_all_spheres`` to run one analysis per sphere row.
+        """
+        spheres = self._parse_all_spheres(show_warning=show_warning)
+        if not spheres:
             return None
-        return (x, y, z, r)
+        return spheres[0]
 
     def validate_analysis_parameters(self):  # Shared parameters
         if self.type_spherical.isChecked():
-            parsed = self._parse_coords_radius()
-            if parsed is None:
+            spheres = self._parse_all_spheres()
+            if spheres is None:
+                return False
+            if self.is_group_mode and len(spheres) > 1:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Warning",
+                    "Group analysis currently supports only one sphere. "
+                    "Remove the extra sphere rows, or run single-subject "
+                    "analyses for the additional spheres.",
+                )
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
@@ -1678,22 +1782,14 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.analysis_finished(success=False)
                 return
 
-            cmd = self.build_single_analysis_command(subject_id, simulation_name)
-            if not cmd:  # build_analysis_command returns None on error
+            cmds = self.build_single_analysis_commands(subject_id, simulation_name)
+            if not cmds:  # build_single_analysis_commands returns None on error
                 self.analysis_finished(success=False)
                 return
-
-            env = os.environ.copy()
-            env["PROJECT_DIR"] = self.pm.project_dir
-            env["SUBJECT_ID"] = subject_id  # Passed to script via env
-
-            # Ensure the analyzer runs against the repo sources even when launched from the GUI.
-            # When executing `-m tit...`, Python needs the repo root on sys.path.
-            gui_app_root = os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__))
-            )  # .../tit
-            repo_root = os.path.dirname(gui_app_root)  # .../ (ti-toolbox)
-            env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
+            if len(cmds) > 1:
+                self.update_output(
+                    f"Running {len(cmds)} separate analyses (one per sphere)."
+                )
 
             # Mark thread start as early as possible to avoid race double-starts
             self._thread_started = True
@@ -1704,32 +1800,81 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 self._summary_printed = set()
 
-            # Record output dir for later summary line (guard against duplicates)
-            if not getattr(self, "_summary_started", False):
-                self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
-                # Mark started to avoid duplicated blocks
-                # Note: The analyzer process will print all the step messages via its logging functions
-                self._summary_started = True
-
-            self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
-            self.optimization_process.output_signal.connect(
-                self.update_output, QtCore.Qt.QueuedConnection
-            )
-            self.optimization_process.error_signal.connect(
-                lambda msg: self.update_output(msg, "error"),
-                QtCore.Qt.QueuedConnection,
-            )
-            self.optimization_process.process_finished.connect(
-                lambda ok, rc, sid=subject_id, sim_name=simulation_name: self.analysis_finished(
-                    subject_id=sid, simulation_name=sim_name, success=ok
-                ),
-                QtCore.Qt.QueuedConnection,
-            )
-            self._thread_started = True
-            self.optimization_process.start()
+            # Queue every remaining sphere's command; the first is started
+            # below and each subsequent one is started from
+            # _run_next_single_analysis_cmd() once the previous finishes.
+            self._single_analysis_queue = list(cmds[1:])
+            self._single_analysis_subject_id = subject_id
+            self._single_analysis_simulation_name = simulation_name
+            self._single_analysis_all_ok = True
+            self._start_single_analysis_cmd(cmds[0])
         except (OSError, ValueError, KeyError, RuntimeError) as e:
             self.update_output(f"Error preparing single analysis: {str(e)}")
             self.analysis_finished(success=False)
+
+    def _start_single_analysis_cmd(self, cmd):
+        """Start ``cmd`` (one analysis run) via ``AnalysisThread``.
+
+        Used both for the first sphere and, via ``process_finished``, for
+        each subsequent queued sphere so that N sphere rows run as N
+        sequential analyses.
+        """
+        subject_id = self._single_analysis_subject_id
+        simulation_name = self._single_analysis_simulation_name
+
+        env = os.environ.copy()
+        env["PROJECT_DIR"] = self.pm.project_dir
+        env["SUBJECT_ID"] = subject_id  # Passed to script via env
+
+        # Ensure the analyzer runs against the repo sources even when launched from the GUI.
+        # When executing `-m tit...`, Python needs the repo root on sys.path.
+        gui_app_root = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))
+        )  # .../tit
+        repo_root = os.path.dirname(gui_app_root)  # .../ (ti-toolbox)
+        env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
+
+        # Record output dir for later summary line (guard against duplicates)
+        if not getattr(self, "_summary_started", False):
+            self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
+            # Mark started to avoid duplicated blocks
+            # Note: The analyzer process will print all the step messages via its logging functions
+            self._summary_started = True
+
+        self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
+        self.optimization_process.output_signal.connect(
+            self.update_output, QtCore.Qt.QueuedConnection
+        )
+        self.optimization_process.error_signal.connect(
+            lambda msg: self.update_output(msg, "error"),
+            QtCore.Qt.QueuedConnection,
+        )
+        self.optimization_process.process_finished.connect(
+            self._on_single_analysis_cmd_finished,
+            QtCore.Qt.QueuedConnection,
+        )
+        self._thread_started = True
+        self.optimization_process.start()
+
+    def _on_single_analysis_cmd_finished(self, ok, rc):
+        """Handle one queued sphere's analysis finishing.
+
+        Starts the next queued sphere if any remain; otherwise reports the
+        combined result of all spheres via ``analysis_finished`` -- exactly
+        as before for the N=1 case (nothing queued, this fires once).
+        """
+        self._single_analysis_all_ok = self._single_analysis_all_ok and ok
+        self._thread_started = False
+        if self._single_analysis_queue:
+            next_cmd = self._single_analysis_queue.pop(0)
+            self._start_single_analysis_cmd(next_cmd)
+            return
+
+        self.analysis_finished(
+            subject_id=self._single_analysis_subject_id,
+            simulation_name=self._single_analysis_simulation_name,
+            success=self._single_analysis_all_ok,
+        )
 
     def run_group_analysis(self):
         """Run group analysis using the Analyzer API."""
@@ -1963,12 +2108,17 @@ class AnalyzerTab(QtWidgets.QWidget):
             details += f"- Field File: {mont}.msh (auto-selected)\n"
         if self.type_spherical.isChecked():
             coord_space = "MNI" if self.coord_space_mni.isChecked() else "RAS"
-            parsed = self._parse_coords_radius()
-            if parsed:
-                x, y, z, r = parsed
-                details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
+            spheres = self._parse_all_spheres(show_warning=False)
+            if spheres:
+                if len(spheres) == 1:
+                    x, y, z, r = spheres[0]
+                    details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
+                else:
+                    details += f"- Spheres ({coord_space}, {len(spheres)} separate analyses):\n"
+                    for x, y, z, r in spheres:
+                        details += f"  - ({x}, {y}, {z}), radius {r} mm\n"
             else:
-                details += f"- Coordinates: {self.coords_radius_input.text()}\n"
+                details += f"- Coordinates: {', '.join(self._get_sphere_row_texts())}\n"
             if self.coord_space_mni.isChecked():
                 details += (
                     f"- Coordinate Transformation: MNI → Subject space (automatic)\n"
@@ -2012,7 +2162,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 x, y, z, r = parsed
                 details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
             else:
-                details += f"- Coordinates: {self.coords_radius_input.text()}\n"
+                details += f"- Coordinates: {', '.join(self._get_sphere_row_texts())}\n"
             if self.coord_space_mni.isChecked():
                 details += f"- Coordinate Transformation: MNI → Subject space (automatic for each)\n"
         else:  # cortical
@@ -2170,11 +2320,13 @@ class AnalyzerTab(QtWidgets.QWidget):
             region_str = "+".join(regions) or "region"
             return f"Cortical: {atlas}.{region_str}"
         else:
-            parsed = self._parse_coords_radius()
-            if parsed:
-                x, y, z, r = parsed
-                return f"Spherical: ({x},{y},{z}) r{r}mm"
-            return f"Spherical: {self.coords_radius_input.text()}"
+            spheres = self._parse_all_spheres(show_warning=False)
+            if spheres:
+                if len(spheres) == 1:
+                    x, y, z, r = spheres[0]
+                    return f"Spherical: ({x},{y},{z}) r{r}mm"
+                return f"Spherical: {len(spheres)} spheres"
+            return f"Spherical: {', '.join(self._get_sphere_row_texts())}"
 
     def _extract_output_dir_from_cmd(self, cmd):
         try:
@@ -2207,7 +2359,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_voxel,
             self.type_spherical,
             self.type_cortical,
-            self.coords_radius_input,
+            self.spheres_table,
+            self.add_sphere_btn,
+            self.remove_sphere_btn,
             self.view_in_freeview_btn,
             self.atlas_name_combo,
             self.atlas_combo,
@@ -2233,7 +2387,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_voxel,
             self.type_spherical,
             self.type_cortical,
-            self.coords_radius_input,
+            self.spheres_table,
+            self.add_sphere_btn,
+            self.remove_sphere_btn,
             self.view_in_freeview_btn,
             # atlas_name_combo, atlas_combo, show_regions_btn, region_chips handled by update_atlas_visibility
         ]
@@ -2620,8 +2776,42 @@ class AnalyzerTab(QtWidgets.QWidget):
         subprocess.Popen(["gmsh", msh_file])
         self.update_output(f"Launched Gmsh with mesh file: {msh_file}")
 
-    def build_single_analysis_command(self, subject_id, simulation_name):
-        """Build command to run single-subject analysis using the new Analyzer API via subprocess."""
+    def build_single_analysis_commands(self, subject_id, simulation_name):
+        """Build the list of commands for a single-subject run.
+
+        Cortical analysis is unchanged: one command. Spherical analysis
+        builds one command per sphere row -- N spheres become N separate
+        analyses (N separate output dirs), each run in turn. A single sphere
+        row produces exactly the same one-command list as before.
+
+        Returns ``None`` on any error (mirrors ``build_single_analysis_command``).
+        """
+        if not self.type_spherical.isChecked():
+            cmd = self.build_single_analysis_command(subject_id, simulation_name)
+            return [cmd] if cmd else None
+
+        spheres = self._parse_all_spheres()
+        if not spheres:
+            return None
+
+        cmds = []
+        for x, y, z, r in spheres:
+            cmd = self.build_single_analysis_command(
+                subject_id, simulation_name, sphere=(x, y, z, r)
+            )
+            if not cmd:
+                return None
+            cmds.append(cmd)
+        return cmds
+
+    def build_single_analysis_command(self, subject_id, simulation_name, sphere=None):
+        """Build command to run single-subject analysis using the new Analyzer API via subprocess.
+
+        Args:
+            sphere: Optional ``(x, y, z, r)`` to use instead of parsing the
+                first sphere row -- used by ``build_single_analysis_commands``
+                to build one command per sphere for multi-sphere runs.
+        """
         try:
             project_dir = self.pm.project_dir
             if not project_dir:
@@ -2647,7 +2837,13 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Build output directory using PathManager for overwrite confirmation
             if analysis_type == "spherical":
-                x, y, z, radius_val = self._parse_coords_radius()
+                if sphere is not None:
+                    x, y, z, radius_val = sphere
+                else:
+                    parsed = self._parse_coords_radius()
+                    if parsed is None:
+                        return None
+                    x, y, z, radius_val = parsed
                 coords = [x, y, z]
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
             else:
@@ -2779,11 +2975,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         # via height-for-width, so it needs no maximum-width clamp; leaving one
         # would stop the chips from reflowing to fill the available row.
 
-        # Coordinates+radius input uses Preferred policy
-        if hasattr(self, "coords_radius_input"):
-            coords_max = max(200, min(300, int(container_width * 0.30)))
-            if self.coords_radius_input.maximumWidth() != coords_max:
-                self.coords_radius_input.setMaximumWidth(coords_max)
+        # The spheres table uses Expanding policy, so it fills the available
+        # width on its own — no dynamic max-width clamp needed (unlike the
+        # single-line input it replaced).
 
         # Buttons use Fixed policy - no dynamic adjustment needed
         # Atlas and Gmsh combo boxes use Expanding policy - they automatically fill space
