@@ -26,14 +26,21 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 **Spherical ROI Analysis**
 - Analyze field data within spherical regions of interest
 - Customizable center coordinates and radius
+- Multi-sphere table: each row (`x,y,z,r`) runs as its own separate analysis — N rows produce N independent result sets, not a union of the spheres. Group analysis supports only one sphere row and rejects extra rows with a warning.
 - Support for subject-space and MNI coordinates (automatic transformation)
 - Dual-field analysis: TI_max and TI_normal components (mesh space)
 - Statistical metrics: mean, max, min, focality, percentiles, and area-based focality
 
-**Cortical Analysis (Single Region)**
-- Analyze specific brain regions using atlas parcellation
-- Support for various atlases (DK40, HCP_MMP1, FreeSurfer)
+**Cortical Analysis (Region Union)**
+- Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
+- In mesh space, a bare region name (e.g. `cuneus`) expands to both hemispheres (`lh.cuneus` + `rh.cuneus`)
+- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz`, plus the subject's own `segmentation/labeling.nii.gz`
+- The four bundled MNI atlases (used elsewhere for subcortical ROI targeting) are not offered by the analyzer
 - Detailed regional statistics and visualizations
+
+**Tissue Selection**
+- A Tissue selector (Gray Matter / White Matter / GM + WM) applies to **voxel space only** — it is disabled and forced to GM whenever Space is set to Mesh
+- In voxel mode, the tissue choice selects which field file is loaded by filename prefix (`grey_` for GM, `white_` for WM, no prefix for GM + WM) and builds the corresponding tissue mask
 
 **Unified Mesh + Voxel Handling**
 - Single `Analyzer` class automatically dispatches to mesh or voxel implementation based on the `space` parameter
@@ -48,7 +55,7 @@ When `space="mesh"`, the `Analyzer` works with SimNIBS mesh files and provides h
 ### Features
 
 - **Surface Mesh Generation**: Automatic creation of gray matter surface meshes via `msh2cortex` (cached per instance)
-- **Atlas Integration**: Support for SimNIBS native atlases (DK40, HCP_MMP1)
+- **Atlas Integration**: Support for SimNIBS native atlases (DK40, a2009s, HCP_MMP1)
 - **Field Extraction**: Analysis of TI_max and TI_normal fields
 - **3D Visualization**: Generation of mesh files for 3D viewing
 
@@ -131,6 +138,7 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 - `normal_mean`: Average TI_normal field strength in the ROI
 - `normal_max`: Peak TI_normal field intensity in the ROI
 - `normal_focality`: TI_normal ROI mean / TI_normal GM mean
+- Absent (`None`) for mTI simulations — see [mTI Analyses](#mti-analyses) below
 
 **Percentile Metrics:**
 - `percentile_95`, `percentile_99`, `percentile_99_9`: Field value at each percentile
@@ -141,6 +149,16 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 **Size Information:**
 - `n_elements`: Number of mesh nodes or voxels in the ROI
 - `total_area_or_volume`: Total area (mesh, mm^2) or volume (voxel, mm^3) of the ROI
+
+---
+## mTI Analyses
+
+The analyzer detects an mTI (4-pair) simulation automatically — the only signal it checks is whether `{simulation}/mTI/mesh/` exists. There is no separate mode to select; the same `Analyzer` class and the same `analyze_sphere` / `analyze_cortex` calls are used for TI and mTI.
+
+- `TI_max` and `TI_Max` are treated as aliases for the same quantity — the analyzer resolves whichever spelling the detected simulation type actually wrote to disk, regardless of which alias is requested
+- `TI_normal` is not computed for mTI simulations, so it cannot be selected as a field, and `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI results
+
+See [mTI]({{ site.baseurl }}/wiki/mti/) for the full description of mTI simulation and search.
 
 ---
 ## Group Analysis
@@ -177,7 +195,8 @@ The analyzer now includes **direct Gmsh integration** for easy visualization and
 
 ### Supported Analysis Types
 
-The Gmsh integration works with all mesh-based analyses:
+The Gmsh integration works with the analyzer's two mesh-based analysis types:
 - Spherical ROI analyses with generated mesh overlays
 - Cortical region analyses with atlas-based parcellations
-- Whole head analyses with comprehensive field distributions
+
+There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.

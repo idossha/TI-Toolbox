@@ -48,7 +48,7 @@ NOTEBOOK
 
 Then open [http://localhost:8888](http://localhost:8888) in your browser. No token or password required.
 
-Select the **"SimNIBS + TI-Toolbox"** kernel (top-right of the notebook) for full autocompletion and signature help. A demo notebook is available at `notebooks/demo_ti_toolbox.ipynb`.
+Select the **"SimNIBS + TI-Toolbox"** kernel (top-right of the notebook) for full autocompletion and signature help.
 
 ### Neovim
 
@@ -152,10 +152,13 @@ config = SimulationConfig(
     electrode_dimensions=[8.0, 8.0],  # mm
     gel_thickness=4.0,            # mm
     rubber_thickness=2.0,         # mm
+    output_fields=["TI_max"],     # "TI_max", "TI_avg", "hf_peak", "hf_sar"
 )
 
 run_simulation(config)
 ```
+
+`output_fields` selects which volume-mesh fields the simulation computes and writes. It defaults to `["TI_max"]` only — `TI_avg` and the safety fields (`hf_peak`, `hf_sar`) are off unless explicitly requested.
 
 **Simulation types** (auto-detected from montage):
 - **TI** (2 electrode pairs): Standard temporal interference
@@ -178,7 +181,7 @@ from tit.opt import FlexConfig, run_flex_search
 
 config = FlexConfig(
     subject_id="101",
-    goal="mean",                  # "mean", "max", or "focality"
+    goal="mean",                  # "mean", "max", "focality", or "focality_tf"
     postproc="max_TI",            # "max_TI", "dir_TI_normal", "dir_TI_tangential"
     current_mA=2.0,
     electrode=FlexConfig.ElectrodeConfig(
@@ -203,9 +206,11 @@ print(f"Output:     {result.output_folder}")
 ```
 
 **ROI types:**
-- `FlexConfig.SphericalROI(x, y, z, radius)` — Sphere at MNI or subject coordinates
-- `FlexConfig.AtlasROI(atlas_path, label, hemisphere)` — Cortical surface region
-- `FlexConfig.SubcorticalROI(atlas_path, label, tissues)` — Volumetric subcortical region
+- `FlexConfig.SphericalROI(x, y, z, radius, use_mni, volumetric, tissues)` — Sphere at MNI or subject coordinates. `volumetric=True` evaluates on volume tetrahedra instead of the cortical surface (for deep/subcortical targets); `tissues` (`"GM"`, `"WM"`, or `"both"`) then selects which compartments are included.
+- `FlexConfig.AtlasROI(atlas_path, label, hemisphere)` — Cortical surface region from a FreeSurfer `.annot` atlas.
+- `FlexConfig.SubcorticalROI(atlas_path, label, tissues, atlas_space)` — Volumetric subcortical region from a volumetric atlas. `atlas_space` (`"subject"` or `"mni"`) is the space of the atlas file.
+
+`x`/`y`/`z`/`radius` (`SphericalROI`) and `atlas_path`/`label`/`hemisphere` (`AtlasROI`) each accept either a single value or a parallel list of values — passing lists unions multiple regions into one combined target.
 
 See also: `scripts/flex.py`
 
@@ -246,6 +251,39 @@ config = ExConfig(
 
 result = run_ex_search(config)
 ```
+
+`roi_name` is the single-ROI CSV filename (the `.csv` suffix is appended automatically if missing); it also always supplies the metric-key prefix and output-directory label, even when `roi_names`/`roi_atlas` are used. To union multiple spherical ROIs into one combined target, pass `roi_names` (a list of CSV filenames whose spheres are OR-folded together) — when given, it replaces `roi_name` for the actual centers used, so include `roi_name`'s own file in the list if you want it counted too. `roi_atlas` (a list of `ExConfig.AtlasROI(atlas_path, label)` volumetric atlas/mask ROIs) unions in further, non-spherical regions:
+
+```python
+config = ExConfig(
+    subject_id="101",
+    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
+    roi_name="L-Insula.csv",
+    roi_names=["L-Insula.csv", "R-Insula.csv"],  # union of spherical centers
+    roi_coordinate_space="subject",  # space of roi_name/roi_names centers: "subject" (default) or "mni"
+    electrodes=ExConfig.PoolElectrodes(
+        electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]
+    ),
+    total_current=2.0,
+    current_step=0.2,
+)
+
+# roi_names=[] means "no spherical centers at all" -- for a purely atlas-driven ROI
+config = ExConfig(
+    subject_id="101",
+    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
+    roi_name="L-Insula.csv",
+    roi_names=[],
+    roi_atlas=[ExConfig.AtlasROI(atlas_path="aseg.mgz", label=17)],  # label=None treats the file as a binary mask
+    electrodes=ExConfig.PoolElectrodes(
+        electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]
+    ),
+    total_current=2.0,
+    current_step=0.2,
+)
+```
+
+`roi_atlas` is always subject space, regardless of `roi_coordinate_space`.
 
 See also: `scripts/ex.py`
 
@@ -384,9 +422,12 @@ Each module can also be invoked as a subprocess accepting a JSON config file. Th
 simnibs_python -m tit.sim        config.json
 simnibs_python -m tit.opt.flex   config.json
 simnibs_python -m tit.opt.ex     config.json
+simnibs_python -m tit.opt.mex    config.json
 simnibs_python -m tit.analyzer   config.json
 simnibs_python -m tit.stats      config.json
 simnibs_python -m tit.pre        config.json
 ```
+
+`tit.opt.mex` runs multipolar (4-pair, 8-electrode) exhaustive search, consuming `MExConfig`. See [mTI]({{ site.baseurl }}/wiki/mti/) for the full workflow.
 
 Config files are generated programmatically via `tit.config_io.write_config_json()`.

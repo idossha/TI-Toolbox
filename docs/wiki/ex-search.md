@@ -15,7 +15,7 @@ The implementation uses a single `ExSearchEngine` class that owns the full pipel
 **Key Features:**
 - **True Exhaustive Search**: Evaluates all electrode combinations x current ratios
 - **Multiple EEG Nets**: Support for high-density (10:10) and 10-20 nets with automatic co-registration
-- **ROI Analysis**: Spherical ROI definition with configurable radius specification (default 3mm)
+- **ROI Analysis**: Spherical ROI definition (CSV centers, default radius 3mm) in subject or MNI coordinate space (`roi_coordinate_space`), plus volumetric atlas-region ROIs (`ExConfig.roi_atlas`) that can stand alone via an explicit empty `roi_names=[]`
 - **Current Ratio Optimization**: Systematic testing of current ratios respecting channel limits
 - **High-Performance Processing**: Memory-efficient in-memory calculations with real-time progress tracking
 - **Comprehensive Metrics**: TImax, TImean, Focality analysis with automatic visualization
@@ -48,9 +48,17 @@ All electrodes are pooled together and can be assigned to any channel position, 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
 - **Leadfield Management**: View existing leadfields, create new ones, and show electrode configurations
-- **ROI Configuration**: Add target regions with coordinates and manage multiple ROIs
+- **ROI Selection**: A ROI Type toggle picks between two alternative targeting mechanisms, not companions -- **Sphere** (default) uses one or more spherical ROI CSVs sized by ROI Radius, with a Coordinate Space toggle (Subject / MNI, MNI space asks for confirmation before the run) and a "Combine selected ROIs into one target" checkbox that unions the selected ROIs into a single search (output named by joining the ROI names with `+`); **Atlas** targets a volumetric subcortical atlas region on its own page, backed by the same ROI picker widget used elsewhere in the GUI, restricted to its subcortical mode. Choosing Atlas mode drops the spherical ROI entirely (`roi_names=[]`); choosing Sphere mode drops the atlas target entirely (`roi_atlas=None`)
 - **Electrode Setup**: Configure E1+, E1-, E2+, E2- with support for both GSN and 10-20 formats
 - **Execution Control**: Run optimization with real-time progress tracking
+
+Atlas ROI targets are always resolved in the subject's own space -- the picker has no MNI option here, because `ExConfig.AtlasROI` has no `atlas_space` field and the engine tests element barycenters against the mask directly. `roi_name` is required even in Atlas-only mode: it is the metric-key prefix and (with the net name) part of the output-directory label, so the GUI synthesizes one from the selected atlas label(s), e.g. `atlas_17` for a single region or `atlas_17_53` when more than one is selected.
+
+---
+
+## Multipolar (mTI) Mode
+
+A Search Mode combo (TI (2-pair) / mTI (4-pair)) on the tab switches the whole run from `ExConfig`/`tit.opt.ex` to `MExConfig`/`tit.opt.mex`. Both ROI Types are available in mTI mode: `MExConfig` carries `roi_names` and `roi_atlas` just as `ExConfig` does, so an mTI run can target a spherical center, a volumetric atlas region, or an atlas region alone (`roi_names=[]`, leaving `roi_name` as a naming label that is never opened). Only the Combine ROIs checkbox is disabled under mTI -- the multipolar run path processes selected spheres one at a time. See [mTI]({{ site.baseurl }}/wiki/mti/) for the full mTI optimization workflow.
 
 ---
 
@@ -122,7 +130,7 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 
 ### 5. Analysis & Visualization Pipeline
 - **Run Time**: From minutes to hours depending on leadfield size and electrode combinations
-- **Metrics Calculation**: TImax_ROI, TImean_ROI, TImean_GM, Focality (TImean_ROI/TImean_GM)
+- **Metrics Calculation**: `TImax_ROI`, `TImean_ROI`, `TImean_GM`, `Focality` (`TImean_ROI`/`TImean_GM`), and `n_elements` (ROI element count). The ROI mask itself is not restricted by tissue -- it is tested against all leadfield mesh elements, and leadfields are generated with `tissues=[1, 2]` (white + grey matter), so an ROI can include WM elements. Only the focality denominator, `TImean_GM`, is filtered to grey matter (mesh element tag `2`)
 - **Visualization**: Automatic histogram generation (TImax, TImean, Focality distributions)
 - **Output Formats**: JSON results, CSV summaries, PNG histograms
 
@@ -133,7 +141,7 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 The ex-search engine is built around a single `ExSearchEngine` class that consolidates what was previously split across multiple classes (`LeadfieldAlgorithms`, `LeadfieldProcessor`, `TIAlgorithms`, `TISimulator`). This class owns the full pipeline:
 
 1. **Leadfield loading** via SimNIBS `TI_utils`
-2. **ROI resolution** from CSV coordinates + sphere radius
+2. **ROI resolution**: OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region
 3. **GM element identification** by tissue tag
 4. **TI field computation** per montage combination
 5. **Metric extraction** (TImax, TImean, Focality)
