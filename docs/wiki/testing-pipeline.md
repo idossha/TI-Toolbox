@@ -6,7 +6,7 @@ permalink: /wiki/testing-pipeline/
 
 ## Overview
 
-The TI-Toolbox uses a two-tier testing approach: a fast unit test suite (pytest, runs anywhere) and Docker-based integration tests (CircleCI). The unit test suite was rebuilt from scratch for v2.2.4 and runs 132 tests in under 0.3 seconds without Docker or any heavy dependencies.
+The TI-Toolbox uses a two-tier testing approach: a fast unit test suite (pytest, runs anywhere) and Docker-based integration tests (CircleCI). The unit test suite was rebuilt from scratch for v2.2.4 and runs 2374 tests in about 21 seconds without Docker or any heavy dependencies.
 
 <div class="carousel-container">
   <div class="carousel-wrapper">
@@ -33,7 +33,7 @@ The TI-Toolbox uses a two-tier testing approach: a fast unit test suite (pytest,
 
 ### At a Glance
 
-- **132 tests**, completes in ~0.28 seconds
+- **2374 tests**, completes in ~21 seconds
 - Runs on any machine with Python 3.9+ -- no Docker, no SimNIBS, no GPU
 - All heavy dependencies are mocked at import time via `conftest.py`
 
@@ -42,14 +42,19 @@ The TI-Toolbox uses a two-tier testing approach: a fast unit test suite (pytest,
 The test suite must run outside Docker where SimNIBS, FreeSurfer, and scientific libraries are unavailable. `conftest.py` uses `pytest_configure()` to inject `MagicMock` modules into `sys.modules` before any `tit` imports occur.
 
 **Mocked packages:**
-- `simnibs` (including `simulation.sim_struct`, `mesh_tools.mesh_io`, `utils.transformations`)
+- `simnibs` (including `simulation.sim_struct`, `mesh_tools.mesh_io`, `utils.transformations`, `utils.file_finder`, `eeg.forward`)
+- `mne` (including `io`, `channels`, `coreg`, `transforms`, `datasets`)
 - `bpy`
-- `numpy`, `numpy.linalg`
 - `scipy` (`optimize`, `spatial`, `spatial.transform`)
 - `nibabel`, `nibabel.freesurfer`
 - `h5py`
 - `matplotlib` (`pyplot`, `backends.backend_pdf`, `lines`)
 - `pandas`
+- `joblib`
+- `nilearn` (`plotting`, `image`)
+- `trimesh`
+
+`numpy` is **not** mocked -- it is a real, lightweight dependency and is used directly in vector-math tests (e.g. `test_calc.py`).
 
 The mock hierarchy is built so that dotted imports (e.g., `from matplotlib.lines import Line2D`) resolve correctly -- child mocks are wired as attributes of their parent mocks.
 
