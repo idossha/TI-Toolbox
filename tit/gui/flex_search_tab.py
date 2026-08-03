@@ -34,10 +34,23 @@ from tit.gui.components.base_thread import BaseProcessThread
 from tit.gui.components.roi_picker import ROIPickerWidget
 from tit.gui.components.electrode_config import ElectrodeConfigWidget
 from tit.gui.components.solver_params import SolverParamsWidget
+from tit.gui.components.help_icon import HelpIcon
 
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.gui.style import FONT_HELP
+
+CURRENT_RATIO_HELP = (
+    "Searches the two-channel current split alongside electrode placement.\n\n"
+    "The total stays fixed at twice the Electrode Current, but each channel "
+    "ranges from 0.5x to 1.5x that value. At 2.0 mA a channel carries between "
+    "1.0 and 3.0 mA, 4.0 mA in total.\n\n"
+    "Set the Electrode Current so the 1.5x end is still within your intended "
+    "dose. The balanced 1:1 split is always among those searched.\n\n"
+    "Ratio levels sets how many splits are tested per candidate placement, "
+    "rounded up to the next odd number so 1:1 is always included.\n\n"
+    "Off: both channels carry the same current."
+)
 from tit.opt.config import FlexConfig
 
 # Convenience aliases for nested types
@@ -260,8 +273,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             "0 = most focal (balanced), 1 = favours on-target intensity"
         )
 
-        # Current-ratio search (applies to every goal)
-        self.current_ratio_group = QtWidgets.QGroupBox("Current Ratio Search")
+        # Current-ratio search (applies to every goal). Lives in Basic
+        # Parameters; the long explanation sits behind a help icon rather
+        # than in the main window.
         self.optimize_ratio_checkbox = QtWidgets.QCheckBox("Optimize current ratio")
         self.optimize_ratio_checkbox.setChecked(False)
         self.ratio_levels_label = QtWidgets.QLabel("Ratio levels:")
@@ -367,6 +381,20 @@ class FlexSearchTab(QtWidgets.QWidget):
             )
             basic_params_layout.addRow(label, combo)
 
+        # Current-ratio search: one compact row, explanation behind the help icon.
+        ratio_row = QtWidgets.QWidget()
+        ratio_row_layout = QtWidgets.QHBoxLayout(ratio_row)
+        ratio_row_layout.setContentsMargins(0, 0, 0, 0)
+        ratio_row_layout.addWidget(self.optimize_ratio_checkbox)
+        ratio_row_layout.addWidget(
+            HelpIcon(CURRENT_RATIO_HELP, title="Current Ratio Search")
+        )
+        ratio_row_layout.addSpacing(12)
+        ratio_row_layout.addWidget(self.ratio_levels_label)
+        ratio_row_layout.addWidget(self.ratio_levels_input)
+        ratio_row_layout.addStretch()
+        basic_params_layout.addRow(ratio_row)
+
         top_row_layout.addWidget(basic_params_group, 11, QtCore.Qt.AlignTop)
 
         # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
@@ -409,34 +437,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
         )
         right_column_layout.addWidget(self.electrode_widget)
-
-        # Current Ratio Search — a stimulation-dose parameter, so it sits with the
-        # electrode parameters rather than the solver hyper-parameters. Applies to
-        # every goal, so it stays visible regardless of the selected goal.
-        ratio_layout = QtWidgets.QVBoxLayout(self.current_ratio_group)
-        ratio_layout.addWidget(self.optimize_ratio_checkbox)
-
-        ratio_levels_row = QtWidgets.QHBoxLayout()
-        ratio_levels_row.setContentsMargins(0, 0, 0, 0)
-        ratio_levels_row.addWidget(self.ratio_levels_label)
-        ratio_levels_row.addWidget(self.ratio_levels_input)
-        ratio_levels_row.addStretch()
-        ratio_layout.addLayout(ratio_levels_row)
-
-        self.ratio_help = QtWidgets.QLabel(
-            "Jointly searches the two-channel current split alongside electrode "
-            "placement. The total stays fixed at twice the Electrode Current, "
-            "but each individual channel ranges from 0.5x to 1.5x that value: "
-            "at 2.0 mA a channel carries between 1.0 and 3.0 mA (4.0 mA total). "
-            "Set the Electrode Current so the 1.5x end is still within your "
-            "intended dose. The balanced 1:1 split is always among those "
-            "searched. Off = both channels carry the same current."
-        )
-        self.ratio_help.setStyleSheet(f"font-size: {FONT_HELP}; color: gray;")
-        self.ratio_help.setWordWrap(True)
-        ratio_layout.addWidget(self.ratio_help)
-
-        right_column_layout.addWidget(self.current_ratio_group)
 
         top_row_layout.addWidget(right_column_widget, 9)
 
