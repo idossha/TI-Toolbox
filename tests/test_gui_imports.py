@@ -389,6 +389,26 @@ class TestGuiImports:
         assert "_resize_roi_mode_stack" not in source
         assert "subcortical_chips.setMinimumHeight(" in source
 
+    def test_mti_electrode_grid_gives_spare_width_to_the_inputs(self):
+        """Label columns must not absorb spare width.
+
+        A QGridLayout with no column stretch spreads leftover width equally
+        over every column, so the label columns grew along with the input
+        columns -- that is the gap between each "E1+:" and its box, and it made
+        the panel demand more width than it needed. Stretch belongs on the
+        input columns only.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        body = source.split("def _build_mti_bucketed_panel(self):", 1)[1]
+        body = body.split("\n    def ", 1)[0]
+        for col, stretch in ((0, 0), (1, 1), (2, 0), (3, 1)):
+            assert f"layout.setColumnStretch({col}, {stretch})" in body
+        # labels hug their text and sit against the box
+        assert "QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred" in body
+        assert "QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter" in body
+        # and the inputs carry the width requirement, not the panel
+        assert "setMinimumWidth(MTI_BUCKET_INPUT_MIN_WIDTH)" in body
+
     def test_ex_search_stacks_size_to_current_page(self):
         """Every QStackedWidget in the tab must track its current page.
 

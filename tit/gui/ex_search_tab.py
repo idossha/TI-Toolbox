@@ -151,6 +151,10 @@ ROI_MODE_HELP = (
 #: regions are added or removed -- roughly two rows of chips.
 ATLAS_CHIPS_RESERVED_HEIGHT = 56
 
+#: Minimum width of an mTI electrode bucket input -- room for two electrode
+#: names ("Fp1, T7"). The grid's column stretch grows them beyond this.
+MTI_BUCKET_INPUT_MIN_WIDTH = 130
+
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
     """
@@ -1494,8 +1498,18 @@ class ExSearchTab(QtWidgets.QWidget):
         panel = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout(panel)
         layout.setContentsMargins(5, 5, 5, 5)
-        layout.setHorizontalSpacing(16)
+        # Spare width must go to the inputs, not to the label columns. With no
+        # column stretch a QGridLayout spreads it equally over all four, which
+        # widened the label columns and left a gap between each "E1+:" and its
+        # box -- and made the panel wider than it needed to be, which is what
+        # forced the horizontal scrollbar. Stretch on the input columns only,
+        # labels hugging their text and sitting against the box.
+        layout.setHorizontalSpacing(6)
         layout.setVerticalSpacing(8)
+        layout.setColumnStretch(0, 0)
+        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(2, 0)
+        layout.setColumnStretch(3, 1)
 
         self.mti_e1_plus_input = QtWidgets.QLineEdit()
         self.mti_e1_minus_input = QtWidgets.QLineEdit()
@@ -1531,6 +1545,9 @@ class ExSearchTab(QtWidgets.QWidget):
         }
         for key, field_widget in self.mti_bucket_inputs.items():
             field_widget.setFixedHeight(30)
+            # Wide enough for a couple of electrode names; the column stretch
+            # grows them from here rather than the panel demanding the width.
+            field_widget.setMinimumWidth(MTI_BUCKET_INPUT_MIN_WIDTH)
             field_widget.setPlaceholderText(placeholders[key])
             field_widget.setToolTip(
                 f"Electrodes for pair {key[1]} "
@@ -1539,11 +1556,15 @@ class ExSearchTab(QtWidgets.QWidget):
 
         left_keys = ["e1_plus", "e1_minus", "e2_plus", "e2_minus"]
         right_keys = ["e3_plus", "e3_minus", "e4_plus", "e4_minus"]
+        label_align = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
         for row, (lkey, rkey) in enumerate(zip(left_keys, right_keys)):
-            layout.addWidget(QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[lkey]}:"), row, 0)
-            layout.addWidget(self.mti_bucket_inputs[lkey], row, 1)
-            layout.addWidget(QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[rkey]}:"), row, 2)
-            layout.addWidget(self.mti_bucket_inputs[rkey], row, 3)
+            for col, key in ((0, lkey), (2, rkey)):
+                label = QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[key]}:")
+                label.setSizePolicy(
+                    QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred
+                )
+                layout.addWidget(label, row, col, label_align)
+                layout.addWidget(self.mti_bucket_inputs[key], row, col + 1)
 
         self.electrode_stack.addWidget(panel)
 
