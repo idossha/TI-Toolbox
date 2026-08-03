@@ -22,6 +22,8 @@ tit.sim.base.BaseSimulation : Uses ``SimulationConfig`` and ``Montage``
 from dataclasses import dataclass, field
 from enum import Enum
 
+from tit import constants as const
+
 
 class SimulationMode(Enum):
     """Simulation type: standard two-pair TI or multi-channel mTI.
@@ -228,11 +230,20 @@ class SimulationConfig:
     aniso_maxcond : float
         Maximum absolute conductivity clamp (S/m) for anisotropic
         tensors.
+    output_fields : list[str]
+        Which volume-mesh fields to compute and write. Logical names from
+        :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
+        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``. ``"TI_max"`` maps to
+        ``TI_Max`` (capital M) on disk for mTI meshes. Defaults to
+        ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
+        (``hf_peak``, ``hf_sar``) must be opted into.
 
     Raises
     ------
     ValueError
-        If *conductivity* is not one of the valid model names.
+        If *conductivity* is not one of the valid model names, if
+        *output_fields* contains an unknown name, or if *output_fields*
+        is empty.
 
     See Also
     --------
@@ -260,12 +271,24 @@ class SimulationConfig:
     tissues_in_niftis: str = "all"
     aniso_maxratio: float = 10.0
     aniso_maxcond: float = 2.0
+    output_fields: list[str] = field(default_factory=lambda: [const.FIELD_TI_MAX])
 
     def __post_init__(self):
         if self.conductivity not in _VALID_CONDUCTIVITIES:
             raise ValueError(
                 f"Invalid conductivity {self.conductivity!r}, "
                 f"must be one of {_VALID_CONDUCTIVITIES}"
+            )
+        invalid = sorted(set(self.output_fields) - set(const.SELECTABLE_OUTPUT_FIELDS))
+        if invalid:
+            raise ValueError(
+                f"Invalid output field(s) {invalid}, must be a subset of "
+                f"{list(const.SELECTABLE_OUTPUT_FIELDS)}"
+            )
+        if not self.output_fields:
+            raise ValueError(
+                "output_fields must not be empty; at least one output field "
+                "must be selected"
             )
 
 

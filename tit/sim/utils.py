@@ -854,8 +854,12 @@ def build_simulation_config_for_job(
     electrode_shape: str,
     electrode_dimensions: list[float],
     gel_thickness: float,
+    output_fields: list[str] | None = None,
 ) -> SimulationConfig:
     """Build the backend config for one subject/montage job."""
+    kwargs = {}
+    if output_fields is not None:
+        kwargs["output_fields"] = output_fields
     return SimulationConfig(
         subject_id=subject_id,
         montages=[montage],
@@ -864,6 +868,7 @@ def build_simulation_config_for_job(
         electrode_shape=electrode_shape,
         electrode_dimensions=electrode_dimensions,
         gel_thickness=gel_thickness,
+        **kwargs,
     )
 
 

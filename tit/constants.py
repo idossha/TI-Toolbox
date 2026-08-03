@@ -264,6 +264,15 @@ def get_fields_by_kind(kind: str) -> tuple[FieldSpec, ...]:
     return tuple(spec for spec in FIELD_REGISTRY if spec.kind == kind)
 
 
+def get_selectable_output_field_specs() -> tuple[FieldSpec, ...]:
+    """Return :class:`FieldSpec` entries for the four selectable output fields.
+
+    Order matches :data:`SELECTABLE_OUTPUT_FIELDS` (registry order). Used by
+    the GUI to build output-field checkboxes without hardcoding labels.
+    """
+    return tuple(get_field_spec(name) for name in SELECTABLE_OUTPUT_FIELDS)
+
+
 def get_field_spec(name: str) -> FieldSpec:
     """Look up a :class:`FieldSpec` by its exact field name.
 
@@ -276,6 +285,18 @@ def get_field_spec(name: str) -> FieldSpec:
         if spec.name == name:
             return spec
     raise KeyError(f"Unknown field name: {name!r}")
+
+
+#: The four volume-mesh output fields a simulation may selectively compute
+#: and write (``SimulationConfig.output_fields``). Excludes ``FIELD_MTI_MAX``
+#: (the mTI on-disk spelling of ``FIELD_TI_MAX``, not a distinct user choice)
+#: and ``FIELD_TI_NORMAL`` (a node field on a separate surface mesh, not a
+#: volume field produced by the same post-processing step).
+SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
+    spec.name
+    for spec in FIELD_REGISTRY
+    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_NORMAL)
+)
 
 
 #: Field names valid on the fsaverage surface: every registered field except

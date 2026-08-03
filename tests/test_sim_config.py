@@ -296,6 +296,35 @@ class TestSimulationConfig:
             )
             assert config.conductivity == cond
 
+    def test_default_output_fields(self):
+        config = SimulationConfig(subject_id="001", montages=[])
+        assert config.output_fields == ["TI_max"]
+
+    def test_output_fields_individually_selectable(self):
+        for name in ("TI_max", "TI_avg", "hf_peak", "hf_sar"):
+            config = SimulationConfig(
+                subject_id="001", montages=[], output_fields=[name]
+            )
+            assert config.output_fields == [name]
+
+    def test_output_fields_combination(self):
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[],
+            output_fields=["TI_max", "hf_peak", "hf_sar"],
+        )
+        assert config.output_fields == ["TI_max", "hf_peak", "hf_sar"]
+
+    def test_output_fields_unknown_name_rejected(self):
+        with pytest.raises(ValueError, match="Invalid output field"):
+            SimulationConfig(
+                subject_id="001", montages=[], output_fields=["not_a_field"]
+            )
+
+    def test_output_fields_empty_rejected(self):
+        with pytest.raises(ValueError, match="output_fields must not be empty"):
+            SimulationConfig(subject_id="001", montages=[], output_fields=[])
+
     def test_with_montages(self):
         m = Montage(
             name="test",

@@ -207,7 +207,16 @@ class TestTISimulation:
             }
 
             sim = _ti_mod.TISimulation(
-                _make_sim_config(), _make_ti_montage(), MagicMock()
+                _make_sim_config(
+                    output_fields=[
+                        const.FIELD_TI_MAX,
+                        const.FIELD_TI_AVG,
+                        const.FIELD_HF_PEAK,
+                        const.FIELD_HF_SAR,
+                    ]
+                ),
+                _make_ti_montage(),
+                MagicMock(),
             )
             sim.run("/fake/sim_dir")
 
@@ -341,7 +350,15 @@ class TestMTISimulation:
             mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_ti.return_value = np.zeros((10, 3))
 
-            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
+            config = _make_sim_config(
+                intensities=[1.0, 1.0, 1.0, 1.0],
+                output_fields=[
+                    const.FIELD_TI_MAX,
+                    const.FIELD_TI_AVG,
+                    const.FIELD_HF_PEAK,
+                    const.FIELD_HF_SAR,
+                ],
+            )
             montage = _make_mti_montage()
             logger = MagicMock()
 
@@ -363,7 +380,7 @@ class TestMTISimulation:
             mock_get_mti.assert_called_once()
 
             # D2 regression guard: hf_peak/hf_sar safety metrics must be
-            # written onto the mTI output mesh unconditionally.
+            # written onto the mTI output mesh when selected.
             mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
             written_field_names = [
                 call.args[1] for call in mout.add_element_field.call_args_list
@@ -372,7 +389,7 @@ class TestMTISimulation:
             assert const.FIELD_HF_SAR in written_field_names
 
             # TI_avg (tit.calc.get_TI_avg): orientation-averaged companion
-            # to TI_Max, must also be written unconditionally.
+            # to TI_Max, must also be written when selected.
             assert const.FIELD_TI_AVG in written_field_names
 
     def test_montage_channels_passed_to_get_mti_and_get_ti_avg(self):
@@ -428,7 +445,12 @@ class TestMTISimulation:
             mock_get_ti.return_value = np.zeros((10, 3))
 
             channels = [([0, 2], [1, 3])]
-            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
+            # opt into TI_avg: this test asserts channel pass-through to
+            # get_TI_avg, which is no longer computed by default.
+            config = _make_sim_config(
+                intensities=[1.0, 1.0, 1.0, 1.0],
+                output_fields=[const.FIELD_TI_MAX, const.FIELD_TI_AVG],
+            )
             montage = _make_mti_montage(name="test_mti_ch", channels=channels)
             assert montage.channels == channels  # dataclass field round-trip
 
@@ -492,7 +514,12 @@ class TestMTISimulation:
             mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
             mock_get_ti.return_value = np.zeros((10, 3))
 
-            config = _make_sim_config(intensities=[1.0, 1.0, 1.0, 1.0])
+            # opt into TI_avg: this test asserts channel pass-through to
+            # get_TI_avg, which is no longer computed by default.
+            config = _make_sim_config(
+                intensities=[1.0, 1.0, 1.0, 1.0],
+                output_fields=[const.FIELD_TI_MAX, const.FIELD_TI_AVG],
+            )
             montage = _make_mti_montage()
             assert montage.channels is None
 
@@ -682,3 +709,128 @@ class TestRunSimulation:
             assert len(results) == 1
             mock_ti_cls.assert_called_once()
             mock_mti_cls.assert_not_called()
+
+
+# ============================================================================
+# Output-field selection
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestOutputFieldSelection:
+    """Only the selected output fields are computed and written.
+
+    The point of gating is cost, not tidiness: TI_avg runs a direction sweep
+    (~0.5s per 200k elements), while hf_peak/hf_sar are nearly free. Skipping
+    the write but still computing would save nothing.
+    """
+
+    def _run_ti(self, output_fields):
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "subprocess"),
+            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_ti_mod, "transform_dirs_to_nifti"),
+            patch.object(_ti_mod, "start_t1_to_mni"),
+            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_ti_mod, "safe_move"),
+            patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_ti_mod, "TI"),
+            patch.object(_ti_mod, "glob"),
+            patch.object(_ti_mod, "deepcopy") as mock_deepcopy,
+            patch.object(_ti_mod, "get_TI_avg") as mock_ti_avg,
+            patch.object(_ti_mod, "hf_peak") as mock_hf_peak,
+            patch.object(_ti_mod, "hf_sar") as mock_hf_sar,
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
+            mock_deepcopy.side_effect = lambda obj: obj
+            mock_setup_dirs.return_value = {
+                k: f"/fake/{k}"
+                for k in (
+                    "montage_dir",
+                    "hf_dir",
+                    "hf_mesh",
+                    "hf_niftis",
+                    "hf_analysis",
+                    "ti_mesh",
+                    "ti_niftis",
+                    "ti_surfaces",
+                    "ti_surface_overlays",
+                    "ti_montage_imgs",
+                    "documentation",
+                )
+            }
+            sim = _ti_mod.TISimulation(
+                _make_sim_config(output_fields=output_fields),
+                _make_ti_montage(),
+                MagicMock(),
+            )
+            sim.run("/fake/simulation_dir")
+            mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
+            written = [c.args[1] for c in mout.add_element_field.call_args_list]
+            return written, mock_ti_avg, mock_hf_peak, mock_hf_sar
+
+    def test_default_writes_only_ti_max(self):
+        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti([const.FIELD_TI_MAX])
+        assert written == [const.FIELD_TI_MAX]
+
+    def test_unselected_fields_are_not_computed(self):
+        _, ti_avg, hf_peak_m, hf_sar_m = self._run_ti([const.FIELD_TI_MAX])
+        ti_avg.assert_not_called()
+        hf_peak_m.assert_not_called()
+        hf_sar_m.assert_not_called()
+
+    def test_selecting_ti_avg_computes_it(self):
+        written, ti_avg, _, _ = self._run_ti([const.FIELD_TI_MAX, const.FIELD_TI_AVG])
+        ti_avg.assert_called_once()
+        assert const.FIELD_TI_AVG in written
+
+    def test_selecting_safety_fields_computes_them(self):
+        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti(
+            [const.FIELD_HF_PEAK, const.FIELD_HF_SAR]
+        )
+        hf_peak_m.assert_called_once()
+        hf_sar_m.assert_called_once()
+        ti_avg.assert_not_called()
+        assert const.FIELD_TI_MAX not in written
+
+
+@pytest.mark.unit
+class TestOutputFieldsSurviveDeserialization:
+    """``_build_sim_config`` reads an explicit key list, so a new field is
+    dropped unless added there -- the bug that silently lost Montage.channels
+    on the GUI -> JSON -> subprocess path."""
+
+    @staticmethod
+    def _rebuild(**overrides):
+        import json as _json
+        from tit.config_io import serialize_config
+        from tit.sim.__main__ import _build_sim_config
+
+        cfg = _make_sim_config(montages=[_make_ti_montage()], **overrides)
+        return _build_sim_config(_json.loads(_json.dumps(serialize_config(cfg))))
+
+    def test_selection_survives_round_trip(self):
+        back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_SAR])
+        assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_SAR]
+
+    def test_absent_key_defaults_to_ti_max(self):
+        from tit.sim.__main__ import _build_sim_config
+
+        import json as _json
+        from tit.config_io import serialize_config
+
+        data = _json.loads(
+            _json.dumps(
+                serialize_config(_make_sim_config(montages=[_make_ti_montage()]))
+            )
+        )
+        data.pop("output_fields", None)
+        assert _build_sim_config(data).output_fields == [const.FIELD_TI_MAX]

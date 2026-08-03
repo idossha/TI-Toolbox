@@ -37,11 +37,14 @@ from tit.gui.components.console import (
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.add_montage_dialog import AddMontageDialog
 from tit.gui.components.conductivity_dialog import ConductivityEditorDialog
+from tit.gui.components.help_icon import HelpIcon
 from tit.gui.utils import strip_ansi_codes, open_file, open_directory
 from tit.gui.components.base_thread import BaseProcessThread
 from tit.paths import get_path_manager
 from tit.config_io import serialize_config
 from tit.reporting import SimulationReportGenerator
+from tit import constants as const
+from tit.constants import get_selectable_output_field_specs
 
 from tit.sim import (
     Montage,
@@ -54,6 +57,15 @@ from tit.sim.utils import (
     save_montage_data,
     ensure_montage_file,
     upsert_montage,
+)
+
+OUTPUT_FIELDS_HELP = (
+    "Which volume fields to compute and write for each simulation.\n\n"
+    "TI_max and TI_avg are stimulation (functional) metrics. hf_peak and "
+    "hf_sar are carrier-exposure safety metrics (Cassarà 2025) and are "
+    "off by default -- enable them if you need safety reporting.\n\n"
+    "TI_avg costs extra compute time (a direction sweep); hf_peak/hf_sar "
+    "are effectively free."
 )
 
 
@@ -280,6 +292,20 @@ class SimulatorTab(QtWidgets.QWidget):
         row2b.addWidget(self.thickness_input)
         row2b.addStretch()
         global_layout.addLayout(row2b)
+
+        # Row 3: Output fields
+        row3 = QtWidgets.QHBoxLayout()
+        row3.addWidget(QtWidgets.QLabel("Output Fields:"))
+        self.output_field_checkboxes = {}
+        for spec in get_selectable_output_field_specs():
+            cb = QtWidgets.QCheckBox(spec.label)
+            cb.setChecked(spec.name == const.FIELD_TI_MAX)
+            cb.setToolTip(spec.description)
+            self.output_field_checkboxes[spec.name] = cb
+            row3.addWidget(cb)
+        row3.addWidget(HelpIcon(OUTPUT_FIELDS_HELP, title="Output Fields"))
+        row3.addStretch()
+        global_layout.addLayout(row3)
 
         # ── Assemble 2-column layout ───────────────────────────────────────
         # Right panel: Montage/Flex selection on top, Global Parameters below
@@ -1320,6 +1346,18 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             dimensions = self.dimensions_input.text() or "8,8"
             thickness = self.thickness_input.text() or "4"
+            output_fields = [
+                name
+                for name, cb in self.output_field_checkboxes.items()
+                if cb.isChecked()
+            ]
+            if not output_fields:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Warning",
+                    "Select at least one output field.",
+                )
+                return
 
             # Validate numeric inputs
             try:
@@ -1418,13 +1456,10 @@ class SimulatorTab(QtWidgets.QWidget):
                             return
                 elif skip_existing:
                     skip_names = {
-                        (subject_id, mc.name)
-                        for subject_id, mc, _, _ in existing
+                        (subject_id, mc.name) for subject_id, mc, _, _ in existing
                     }
                     jobs = [
-                        job
-                        for job in jobs
-                        if (job[0], job[1].name) not in skip_names
+                        job for job in jobs if (job[0], job[1].name) not in skip_names
                     ]
                     for _, _, _, label in existing:
                         self.update_output(f"Skipping existing output: {label}")
@@ -1534,6 +1569,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     electrode_shape,
                     electrode_dims,
                     float(thickness),
+                    output_fields,
                 )
                 config_data = serialize_config(sim_config)
                 fd, config_path = tempfile.mkstemp(prefix="sim_", suffix=".json")
@@ -1655,9 +1691,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 currents_map = {name: cur for name, cur, _, _, _ in montage_list}
                 eeg_net_map = {name: net for name, _, net, _, _ in montage_list}
                 pairs_map = {name: pairs for name, _, _, pairs, _ in montage_list}
-                display_map = {
-                    name: display for name, _, _, _, display in montage_list
-                }
+                display_map = {name: display for name, _, _, _, display in montage_list}
 
                 # Generate individual report for each montage for this subject
                 for montage_name in montages_to_process:
