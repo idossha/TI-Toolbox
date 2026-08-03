@@ -1000,8 +1000,13 @@ class ExSearchTab(QtWidgets.QWidget):
         # SizePolicy.Maximum on each group box stops the boxes stretching but
         # not the rows holding them. Pin every content row to its natural
         # height and let the trailing scroll_layout stretch take the slack.
-        for _row in range(3):
-            main_grid_layout.setRowStretch(_row, 0)
+        # A QGridLayout spreads spare height across its rows -- and when no row
+        # has a stretch factor it spreads it *equally*, so pinning them all to
+        # zero achieves nothing. Give a trailing spacer row the stretch instead,
+        # and top-align each box in its cell; without the alignment a box that
+        # will not grow (SizePolicy.Maximum) just floats in the middle of an
+        # oversized cell, which is what left the gaps above Subject Selection.
+        main_grid_layout.setRowStretch(3, 1)
 
         # ============================================================
         # ROW 0, COLUMN 0: Subject Selection
@@ -1033,7 +1038,7 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_layout.addLayout(subject_button_layout)
 
         # Add subject container to grid - Row 0, Column 0
-        main_grid_layout.addWidget(subject_container, 0, 0)
+        main_grid_layout.addWidget(subject_container, 0, 0, QtCore.Qt.AlignTop)
 
         # ============================================================
         # ROW 0, COLUMN 1: Electrode Selection
@@ -1105,7 +1110,7 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
         # Add electrode container to grid - Row 0, Column 1
-        main_grid_layout.addWidget(electrode_container, 0, 1)
+        main_grid_layout.addWidget(electrode_container, 0, 1, QtCore.Qt.AlignTop)
 
         # ============================================================
         # ROW 1, COLUMN 0: ROI Selection
@@ -1267,7 +1272,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self._on_roi_mode_changed()  # Initialize to correct (sphere) page
 
         # Add ROI container to grid - Row 1, Column 0
-        main_grid_layout.addWidget(roi_container, 1, 0)
+        main_grid_layout.addWidget(roi_container, 1, 0, QtCore.Qt.AlignTop)
 
         # ============================================================
         # ROW 1, COLUMN 1: Current Configuration
@@ -1288,7 +1293,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self._build_mti_current_panel()
 
         # Add current container to grid - Row 1, Column 1
-        main_grid_layout.addWidget(self.current_container, 1, 1)
+        main_grid_layout.addWidget(self.current_container, 1, 1, QtCore.Qt.AlignTop)
 
         # ============================================================
         # ROW 2, COLUMN 0-1: Leadfield Management (spanning both columns)
@@ -1350,7 +1355,7 @@ class ExSearchTab(QtWidgets.QWidget):
         )
 
         # Add leadfield container to grid - Row 2, Column 0-1 (spanning both columns)
-        main_grid_layout.addWidget(leadfield_container, 2, 0, 1, 2)
+        main_grid_layout.addWidget(leadfield_container, 2, 0, 1, 2, QtCore.Qt.AlignTop)
 
         # Add grid layout to scroll layout
         scroll_layout.addLayout(main_grid_layout)
@@ -1465,6 +1470,7 @@ class ExSearchTab(QtWidgets.QWidget):
             self.electrode_stack.setCurrentIndex(0)  # Bucketed panel
         elif self.rb_all_combinations.isChecked():
             self.electrode_stack.setCurrentIndex(1)  # All combinations panel
+        self._size_stack_to_current(self.electrode_stack)
 
     def _build_mti_bucketed_panel(self):
         """Build the mTI bucketed-mode electrode input panel (four pairs, eight buckets).
@@ -1693,31 +1699,44 @@ class ExSearchTab(QtWidgets.QWidget):
         self.roi_mode_stack.setCurrentIndex(1 if is_atlas else 0)
         self._resize_roi_mode_stack()
 
-    def _resize_roi_mode_stack(self):
-        """Size ``roi_mode_stack`` to its current page instead of the tallest.
+    def _size_stack_to_current(self, stack):
+        """Size a ``QStackedWidget`` to its current page, not to the largest.
 
-        Mirrors ``ROIPickerWidget._resize_stack_to_current``: collapse the
-        non-active page's vertical size policy to ``Ignored`` so the stack
-        (and the surrounding ``roi_container``, set to ``Maximum``) hugs
-        whichever page is showing instead of reserving room for both.
+        A stack reserves the maximum size over all its pages on both axes.
+        Vertically that leaves dead space on the compact page; horizontally it
+        is worse -- the mTI electrode panel is a four-column grid of eight
+        inputs, roughly twice the width of the two-pair panel, so the TI view
+        was forced that wide and the inputs ran off the right edge behind a
+        horizontal scrollbar. Collapsing both axes on every non-current page
+        makes the stack track whichever page is showing.
         """
-        current = self.roi_mode_stack.currentWidget()
-        for i in range(self.roi_mode_stack.count()):
-            page = self.roi_mode_stack.widget(i)
+        current = stack.currentWidget()
+        for i in range(stack.count()):
+            page = stack.widget(i)
             if page is None:
                 continue
             policy = page.sizePolicy()
+            active = page is current
             policy.setVerticalPolicy(
                 QtWidgets.QSizePolicy.Preferred
-                if page is current
+                if active
+                else QtWidgets.QSizePolicy.Ignored
+            )
+            policy.setHorizontalPolicy(
+                QtWidgets.QSizePolicy.Preferred
+                if active
                 else QtWidgets.QSizePolicy.Ignored
             )
             page.setSizePolicy(policy)
         if current is not None:
             current.adjustSize()
-        self.roi_mode_stack.updateGeometry()
-        self.roi_mode_stack.adjustSize()
+        stack.updateGeometry()
+        stack.adjustSize()
         self.updateGeometry()
+
+    def _resize_roi_mode_stack(self):
+        """Size ``roi_mode_stack`` to whichever ROI page is showing."""
+        self._size_stack_to_current(self.roi_mode_stack)
 
     def _on_search_mode_changed(self):
         """Swap electrode/current panels and toggle mode-specific controls."""
@@ -1759,6 +1778,9 @@ class ExSearchTab(QtWidgets.QWidget):
 
         self.run_btn.setText("Run mTI Search" if is_mti else "Run Ex-Search")
         self.stop_btn.setText("Stop mTI Search" if is_mti else "Stop Ex-Search")
+
+        self._size_stack_to_current(self.electrode_stack)
+        self._size_stack_to_current(self.current_config_stack)
 
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""

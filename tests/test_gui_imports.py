@@ -358,20 +358,55 @@ class TestGuiImports:
         # and it must not leave the stack showing a page the user cannot reach
         assert "self.roi_mode_sphere_radio.setChecked(True)" in body
 
-    def test_ex_search_grid_rows_pinned_and_no_internal_vstretch(self):
-        """Leftover height must go to the trailing stretch, not between boxes.
+    def test_ex_search_stacks_size_to_current_page(self):
+        """Every QStackedWidget in the tab must track its current page.
 
-        Two things reserved vertical space after the container fixed heights
-        were dropped. A QGridLayout hands spare height to any row that can
-        grow, so SizePolicy.Maximum stopped the boxes stretching but not the
-        rows -- hence the explicit setRowStretch(row, 0). And the trailing
-        "push content to top" addStretch() calls inside the vertical container
-        layouts were correct while the boxes had fixed heights, but once the
-        boxes hug their content they simply re-reserve the space the fixed
-        heights used to. Only scroll_layout keeps a stretch.
+        A stack reserves the maximum over all pages on both axes. Vertically
+        that is dead space; horizontally it was a real defect -- the mTI
+        electrode panel is a four-column grid of eight inputs, about twice the
+        width of the two-pair panel, so the TI view was forced that wide and
+        its inputs ran off the right edge behind a horizontal scrollbar.
         """
         source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
-        assert "main_grid_layout.setRowStretch(_row, 0)" in source
+        # the helper collapses both axes, not just height
+        assert "def _size_stack_to_current(self, stack):" in source
+        assert "policy.setHorizontalPolicy(" in source
+        # and all three stacks are wired to it
+        for stack in (
+            "self.roi_mode_stack",
+            "self.electrode_stack",
+            "self.current_config_stack",
+        ):
+            assert f"self._size_stack_to_current({stack})" in source, stack
+
+    def test_ex_search_grid_rows_pinned_and_no_internal_vstretch(self):
+        """Leftover height must go to a spacer, not between or around the boxes.
+
+        Three things reserved vertical space once the container fixed heights
+        were dropped. A QGridLayout spreads spare height across its rows, and
+        when no row carries a stretch factor it spreads it *equally* -- so
+        setting every row to zero achieved nothing; the stretch belongs on a
+        trailing spacer row. A box that will not grow (SizePolicy.Maximum) then
+        floats in the middle of an oversized cell unless it is top-aligned,
+        which is what left the gap above Subject Selection. And the trailing
+        "push content to top" addStretch() calls inside the vertical container
+        layouts were right while the boxes had fixed heights, but once the boxes
+        hug their content they simply re-reserve the space the fixed heights
+        used to. Only scroll_layout keeps a stretch.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        # the stretch goes on a trailing spacer row, not on the content rows
+        assert "main_grid_layout.setRowStretch(3, 1)" in source
+        assert "setRowStretch(_row, 0)" not in source
+        # and every box is top-aligned in its cell
+        for widget in (
+            "subject_container, 0, 0",
+            "electrode_container, 0, 1",
+            "roi_container, 1, 0",
+            "self.current_container, 1, 1",
+            "leadfield_container, 2, 0, 1, 2",
+        ):
+            assert f"addWidget({widget}, QtCore.Qt.AlignTop)" in source, widget
 
         orientation = {}
         for line in source.splitlines():
