@@ -181,3 +181,35 @@ class TestValidFsavgFieldsConsumer:
     def test_valid_fsavg_fields_all_come_from_registry(self):
         registry_names = set(const.get_field_names())
         assert set(VALID_FSAVG_FIELDS).issubset(registry_names)
+
+
+@pytest.mark.unit
+class TestOutputFieldHelpText:
+    """The output-field help must define fields, not classify them."""
+
+    def test_help_gives_definition_equation_and_reference_per_field(self):
+        defs = const.OUTPUT_FIELD_DEFINITIONS
+        help_text = const.output_fields_help_text()
+
+        selectable = set(const.SELECTABLE_OUTPUT_FIELDS)
+        assert {d[0] for d in defs} == selectable
+        for name, units, definition, equation, reference in defs:
+            assert units and definition and equation and reference
+            for part in (name, units, definition, equation, reference):
+                assert part in help_text
+        assert "Equation:" in help_text
+        assert "Reference:" in help_text
+
+    def test_no_functional_versus_safety_framing_in_user_facing_text(self):
+        """Which fields bear on efficacy vs safety is debated; do not assert it.
+
+        The registry still groups fields by ``kind`` for programmatic subset
+        selection, but nothing the user reads may present that as a claim.
+        """
+        user_text = [const.output_fields_help_text()] + [
+            spec.description for spec in const.FIELD_REGISTRY
+        ]
+        for text in user_text:
+            lowered = text.lower()
+            assert "safety metric" not in lowered
+            assert "functional" not in lowered

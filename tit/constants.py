@@ -159,9 +159,14 @@ FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
 FIELD_HF_SAR = "hf_sar"  # carrier heating driver, sum_i |E_i|^2 (∝ SAR)
 
-# Field "kind" classification used by FieldSpec below.
-FIELD_KIND_FUNCTIONAL = "functional"  # stimulation metrics
-FIELD_KIND_SAFETY = "safety"  # carrier-exposure / safety metrics
+# Field "kind" classification used by FieldSpec below. This groups fields by
+# what they are computed from -- the low-frequency envelope versus the carrier
+# fields themselves -- and is used only to select subsets programmatically. It
+# is deliberately not surfaced in the UI: which of these bear on efficacy and
+# which on safety is still debated, so the interface states each field's
+# definition and lets the user decide.
+FIELD_KIND_FUNCTIONAL = "functional"  # envelope-derived
+FIELD_KIND_SAFETY = "safety"  # carrier-derived
 
 
 @dataclass(frozen=True)
@@ -199,7 +204,8 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description=(
-            "Modulation depth (peak-to-trough envelope), maximum over direction."
+            "Envelope modulation depth (peak-to-trough), maximised over "
+            "direction (Grossman et al. 2017; Hirata et al. 2024)."
         ),
     ),
     FieldSpec(
@@ -224,7 +230,10 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         label=FIELD_TI_AVG,
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
-        description="Modulation depth (peak-to-trough envelope), averaged over direction.",
+        description=(
+            "Envelope modulation depth (peak-to-trough), averaged over "
+            "sampled directions rather than maximised."
+        ),
     ),
     FieldSpec(
         name=FIELD_HF_PEAK,
@@ -232,8 +241,9 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         kind=FIELD_KIND_SAFETY,
         units="V/m",
         description=(
-            "Worst-case instantaneous carrier field (peak-to-zero). "
-            "Safety metric, Cassarà et al. 2025."
+            "Largest instantaneous magnitude of the summed carrier fields "
+            "(peak-to-zero): max over sign choices of |sum_i s_i*E_i| "
+            "(Cassarà et al. 2025, Eq. 3)."
         ),
     ),
     FieldSpec(
@@ -241,7 +251,10 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         label=FIELD_HF_SAR,
         kind=FIELD_KIND_SAFETY,
         units="(V/m)^2",
-        description="Carrier heating driver, proportional to SAR. Safety metric.",
+        description=(
+            "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not "
+            "calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)."
+        ),
     ),
 )
 
@@ -262,6 +275,77 @@ def get_field_names(kind: str | None = None) -> tuple[str, ...]:
 def get_fields_by_kind(kind: str) -> tuple[FieldSpec, ...]:
     """Return all :class:`FieldSpec` entries with the given ``kind``."""
     return tuple(spec for spec in FIELD_REGISTRY if spec.kind == kind)
+
+
+#: Definitions for the output-field help popup, as
+#: ``(name, units, definition, equation, reference)``. Equations match the
+#: implementations in :mod:`tit.calc` and :mod:`tit.fields`; ``E_i`` is the
+#: field from electrode pair *i* and ``n`` a unit direction. Kept here rather
+#: than in the GUI module so it is verifiable without PyQt5.
+OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
+    (
+        FIELD_TI_MAX,
+        "V/m",
+        "Depth of the low-frequency envelope modulation (peak-to-trough), "
+        "maximised over direction.",
+        "Two pairs: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
+        "closed form. K channels: sqrt(2)*(sqrt(P+Q) - sqrt(P-Q)), where "
+        "P = 0.5*sum_k(a_k^2 + b_k^2), Q = |sum_k a_k*b_k*exp(i*psi_k)|, "
+        "a_k = E_ka.n and b_k = E_kb.n; maximised over n.",
+        "Grossman et al. 2017, Cell 169(6):1029-1041; "
+        "Hirata et al. 2024, Comput Biol Med 178:108697.",
+    ),
+    (
+        FIELD_TI_AVG,
+        "V/m",
+        "The same envelope depth averaged over sampled directions instead of "
+        "maximised, i.e. what an arbitrarily oriented element sees on average.",
+        "Mean over a Fibonacci-sphere direction sweep of the expression above "
+        "(no local refinement, which only sharpens a single best direction).",
+        "Direction-averaged form of Grossman et al. 2017.",
+    ),
+    (
+        FIELD_HF_PEAK,
+        "V/m",
+        "Largest instantaneous magnitude the summed carrier fields can reach "
+        "(peak-to-zero, not peak-to-trough).",
+        "max over s_i in {-1,+1} of |sum_i s_i*E_i| -- exact sign enumeration "
+        "up to 8 fields, otherwise a direction sweep whose implied sign "
+        "pattern is evaluated exactly.",
+        "Cassara et al. 2025, Eq. 3.",
+    ),
+    (
+        FIELD_HF_SAR,
+        "(V/m)^2",
+        "Sum of carrier power. The carriers sit at different, incommensurate "
+        "frequencies, so their power adds rather than their amplitudes. This "
+        "is a field-domain quantity, not calibrated SAR: that is "
+        "(sigma/2*rho)*hf_sar and needs per-tissue conductivity and density.",
+        "sum_i |E_i|^2",
+        "Cassara et al. 2025.",
+    ),
+)
+
+
+def output_fields_help_text() -> str:
+    """Compose the output-field help popup text.
+
+    States each field's definition, equation and reference. Deliberately does
+    not group the fields into "functional" and "safety" -- which of them bear
+    on efficacy and which on exposure is still debated, so the popup gives the
+    definitions and leaves the interpretation to the reader.
+    """
+    body = "\n\n".join(
+        f"{name} [{units}]\n{definition}\nEquation: {equation}\n"
+        f"Reference: {reference}"
+        for name, units, definition, equation, reference in OUTPUT_FIELD_DEFINITIONS
+    )
+    return (
+        "Which volume fields to compute and write for each simulation.\n\n"
+        + body
+        + "\n\nCost: TI_avg adds a direction sweep; hf_peak and hf_sar are "
+        "effectively free alongside a field that is already being computed."
+    )
 
 
 def get_selectable_output_field_specs() -> tuple[FieldSpec, ...]:

@@ -44,7 +44,7 @@ from tit.paths import get_path_manager
 from tit.config_io import serialize_config
 from tit.reporting import SimulationReportGenerator
 from tit import constants as const
-from tit.constants import get_selectable_output_field_specs
+from tit.constants import get_selectable_output_field_specs, output_fields_help_text
 
 from tit.sim import (
     Montage,
@@ -57,15 +57,6 @@ from tit.sim.utils import (
     save_montage_data,
     ensure_montage_file,
     upsert_montage,
-)
-
-OUTPUT_FIELDS_HELP = (
-    "Which volume fields to compute and write for each simulation.\n\n"
-    "TI_max and TI_avg are stimulation (functional) metrics. hf_peak and "
-    "hf_sar are carrier-exposure safety metrics (Cassarà 2025) and are "
-    "off by default -- enable them if you need safety reporting.\n\n"
-    "TI_avg costs extra compute time (a direction sweep); hf_peak/hf_sar "
-    "are effectively free."
 )
 
 
@@ -303,7 +294,7 @@ class SimulatorTab(QtWidgets.QWidget):
             cb.setToolTip(spec.description)
             self.output_field_checkboxes[spec.name] = cb
             row3.addWidget(cb)
-        row3.addWidget(HelpIcon(OUTPUT_FIELDS_HELP, title="Output Fields"))
+        row3.addWidget(HelpIcon(output_fields_help_text(), title="Output Fields"))
         row3.addStretch()
         global_layout.addLayout(row3)
 
