@@ -673,6 +673,42 @@ class TestAtlasRoiConfigIORoundtrip:
 
             os.unlink(path)
 
+    def test_mex_config_atlas_only_roundtrip_preserves_empty_roi_names(self, tmp_path):
+        """An empty roi_names must survive the JSON hop as [] and not None.
+
+        The GUI runs mTI by writing this config to JSON and invoking
+        tit.opt.mex, and ``roi_names=[]`` is the only thing telling the backend
+        to skip the sphere CSV. If the round-trip turned it into None (or
+        dropped it), an atlas-only mTI run would try to read the naming label
+        as a file path.
+        """
+        from tit.config_io import read_config_json, write_config_json
+
+        config = MExConfig(
+            subject_id="001",
+            leadfield_hdf="/lf.hdf5",
+            roi_name="Left-Hippocampus",
+            roi_names=[],
+            electrodes=MExConfig.PoolElectrodes(electrodes=_pool_electrodes(8)),
+            roi_atlas=[MExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17)],
+        )
+        path = write_config_json(config, prefix="mex_atlas_only_test")
+        try:
+            data = read_config_json(path)
+            assert data["roi_names"] == []
+            data.pop("project_dir")
+            rebuilt = MExConfig(
+                electrodes=MExConfig.PoolElectrodes(electrodes=_pool_electrodes(8)),
+                **{k: v for k, v in data.items() if k != "electrodes"},
+            )
+            assert rebuilt.roi_names == []
+            # the label is still suffixed, it is just never opened
+            assert rebuilt.roi_name == "Left-Hippocampus.csv"
+        finally:
+            import os
+
+            os.unlink(path)
+
 
 # ---------------------------------------------------------------------------
 # ROI type defaults

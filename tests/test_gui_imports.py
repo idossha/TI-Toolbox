@@ -8,6 +8,7 @@ be imported without crashing.
 
 import json
 import os
+import re
 import sys
 import types
 from pathlib import Path
@@ -340,22 +341,126 @@ class TestGuiImports:
         py_compile.compile(str(GUI_ROOT / "analyzer_tab.py"), doraise=True)
 
     @pytest.mark.unit
-    def test_ex_search_atlas_roi_mode_is_ti_only(self):
-        """Atlas-only ROI targeting must be disabled in mTI mode.
+    def test_ex_search_atlas_roi_mode_available_in_both_search_modes(self):
+        """Atlas targeting must not be gated on the TI/mTI choice.
 
-        tit/opt/ex/ex.py honours ``roi_names=[]`` and reads no sphere file, so
-        a TI run can target an atlas alone. tit/opt/mex/mex.py builds
-        ``roi_file`` from ``config.roi_name`` unconditionally, so a multipolar
-        run always needs a spherical ROI. Leaving the Atlas choice selectable
-        under mTI would accept the selection and then fail validation asking
-        for a sphere, so the mode handler disables it and falls back to Sphere.
+        It used to be: tit/opt/mex/mex.py built the sphere path from
+        ``roi_name`` unconditionally, so a multipolar run always needed a
+        spherical ROI and the Atlas radio was disabled under mTI. MExConfig now
+        carries ``roi_names`` like ExConfig and mex.py honours the empty list,
+        so both mechanisms work in both modes.
         """
         source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
         body = source.split("def _on_search_mode_changed(self):", 1)[1]
         body = body.split("\n    def ", 1)[0]
-        assert "self.roi_mode_atlas_radio.setEnabled(not is_mti)" in body
-        # and it must not leave the stack showing a page the user cannot reach
-        assert "self.roi_mode_sphere_radio.setChecked(True)" in body
+        assert "roi_mode_atlas_radio.setEnabled" not in body
+        # and the handler must not force the user back to Sphere
+        assert "self.roi_mode_sphere_radio.setChecked(True)" not in body
+        # ROI validation branches on ROI Type alone, not on the search mode
+        validate = source.split("def validate_inputs(self):", 1)[1]
+        validate = validate.split("\n    def ", 1)[0]
+        assert "if self._current_roi_mode() == ROI_MODE_SPHERE:" in validate
+        assert (
+            "SEARCH_MODE_MTI\n            or self._current_roi_mode()" not in validate
+        )
+
+    def test_ex_search_mex_config_passes_roi_names(self):
+        """The mTI config builder must send roi_names, or atlas mode is inert.
+
+        ``roi_names=[]`` is the only thing telling mex.py to skip the sphere
+        CSV; omitting the field leaves it None and the backend falls back to
+        reading ``roi_name`` as a file that does not exist.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        body = source.split("def _build_mex_config(self", 1)[1]
+        body = body.split("\n    @", 1)[0]
+        assert "roi_names=self.roi_names_for_mode(mode, None)" in body
+
+    def test_ex_search_roi_mode_stack_keeps_a_stable_height(self):
+        """Switching ROI Type must not move anything below the ROI box.
+
+        The stack's default "tallest page" sizing is what holds the column
+        still; sizing it to the current page instead made everything below jump
+        on every Sphere/Atlas toggle. The region chips get a reserved height
+        for the same reason -- a flow layout grows as chips are added.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        assert "self._size_stack_to_current(self.roi_mode_stack)" not in source
+        assert "_resize_roi_mode_stack" not in source
+        assert "subcortical_chips.setMinimumHeight(" in source
+
+    def test_mti_electrode_grid_gives_spare_width_to_the_inputs(self):
+        """Label columns must not absorb spare width.
+
+        A QGridLayout with no column stretch spreads leftover width equally
+        over every column, so the label columns grew along with the input
+        columns -- that is the gap between each "E1+:" and its box, and it made
+        the panel demand more width than it needed. Stretch belongs on the
+        input columns only.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        body = source.split("def _build_mti_bucketed_panel(self):", 1)[1]
+        body = body.split("\n    def ", 1)[0]
+        for col, stretch in ((0, 0), (1, 1), (2, 0), (3, 1)):
+            assert f"layout.setColumnStretch({col}, {stretch})" in body
+        # Uniform label width, left-aligned: lines up the "E" glyphs AND the
+        # inputs. Right-aligning lines up the colons instead, which leaves the
+        # E's ragged because "E1+:" is wider than "E1-:".
+        assert "label.setFixedWidth(MTI_BUCKET_LABEL_WIDTH)" in body
+        assert "QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter" in body
+        # and the inputs carry the width requirement, not the panel
+        assert "setMinimumWidth(MTI_BUCKET_INPUT_MIN_WIDTH)" in body
+
+    def test_ex_search_stacks_size_to_current_page(self):
+        """Every QStackedWidget in the tab must track its current page.
+
+        A stack reserves the maximum over all pages on both axes. Vertically
+        that is dead space; horizontally it was a real defect -- the mTI
+        electrode panel is a four-column grid of eight inputs, about twice the
+        width of the two-pair panel, so the TI view was forced that wide and
+        its inputs ran off the right edge behind a horizontal scrollbar.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        # the helper collapses both axes, not just height
+        assert "def _size_stack_to_current(self, stack):" in source
+        assert "policy.setHorizontalPolicy(" in source
+        # and all three stacks are wired to it
+        # the ROI stack is deliberately excluded -- see
+        # test_ex_search_roi_mode_stack_keeps_a_stable_height
+        for stack in ("self.electrode_stack", "self.current_config_stack"):
+            assert f"self._size_stack_to_current({stack})" in source, stack
+
+    def test_ex_search_uses_independent_columns_not_a_grid(self):
+        """Paired boxes must not share a row height.
+
+        A QGridLayout makes every cell in a row as tall as the tallest box in
+        it, so a short box beside a tall one is stuck in an oversized cell no
+        matter how it is aligned or how little it wants to grow. Subject
+        Selection sat beside the taller Electrode Selection, and ROI Selection
+        beside the shorter Current Configuration -- the two dead gaps. Aligning
+        the boxes to the top of their cells moved them but could not shrink the
+        rows, so the grid is gone in favour of two independent QVBoxLayouts.
+
+        Only the trailing scroll_layout stretch may absorb slack; a stretch at
+        the end of either column would reserve the space again.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        # inner panels (e.g. the mTI electrode grid) may still use a grid --
+        # it is the top-level box placement that must not
+        assert "main_grid_layout" not in source
+        assert "left_column = QtWidgets.QVBoxLayout()" in source
+        assert "right_column = QtWidgets.QVBoxLayout()" in source
+        for widget, column in (
+            ("subject_container", "left_column"),
+            ("roi_container", "left_column"),
+            ("electrode_container", "right_column"),
+            ("self.current_container", "right_column"),
+        ):
+            assert f"{column}.addWidget({widget})" in source, widget
+        # full-width box lives below the columns, not inside one
+        assert "scroll_layout.addWidget(leadfield_container)" in source
+        assert "left_column.addStretch" not in source
+        assert "right_column.addStretch" not in source
 
     def test_ex_search_containers_hug_content_not_fixed_height(self):
         """ROI/Subject/Electrode/Current/Leadfield containers no longer reserve dead space.

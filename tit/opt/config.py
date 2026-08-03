@@ -865,6 +865,13 @@ class MExConfig:
         expressed.
     roi_radius : float
         Spherical ROI radius in mm for the target region.
+    roi_names : list of str or None
+        Optional list of ROI CSV filenames to **union** into a single
+        target.  ``None`` (default) keeps single-ROI behavior driven by
+        *roi_name*.  An explicit empty list means "no spherical centers at
+        all" -- required for a purely atlas-driven ROI (*roi_atlas* only),
+        in which case *roi_name* is only a naming label and no CSV is read.
+        Each entry gets the ``".csv"`` suffix appended if missing.
     roi_atlas : list of AtlasROI or None
         Volumetric atlas or mask ROI(s) to union with the spherical center
         from *roi_name*.  ``None`` (default) keeps the existing
@@ -967,6 +974,7 @@ class MExConfig:
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
+    roi_names: list[str] | None = None
     roi_atlas: list[AtlasROI] | None = None
     roi_coordinate_space: Literal["subject", "mni"] = "subject"
 
@@ -986,6 +994,10 @@ class MExConfig:
                 self.electrodes = MExConfig.BucketElectrodes(**self.electrodes)
         if not self.roi_name.endswith(".csv"):
             self.roi_name += ".csv"
+        if self.roi_names is not None:
+            self.roi_names = [
+                n if n.endswith(".csv") else f"{n}.csv" for n in self.roi_names
+            ]
         if self.roi_atlas is not None:
             self.roi_atlas = [
                 a if isinstance(a, MExConfig.AtlasROI) else MExConfig.AtlasROI(**a)
