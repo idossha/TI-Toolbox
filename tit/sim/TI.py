@@ -139,25 +139,38 @@ class TISimulation(BaseSimulation):
 
         ef1 = m1.field["E"]
         ef2 = m2.field["E"]
-        TImax = TI.get_maxTI(ef1.value, ef2.value)
+        selected = set(self.config.output_fields)
 
         mout = deepcopy(m1)
         mout.elmdata = []
-        mout.add_element_field(TImax, "TI_max")
-        # TI_avg: orientation-averaged companion to TI_max (tit.calc, not
-        # SimNIBS's TI.get_maxTI -- there is no direction-averaged form there).
-        TIavg = get_TI_avg([ef1.value, ef2.value])
-        mout.add_element_field(TIavg, const.FIELD_TI_AVG)
-        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
-        # heating driver. Written as volume fields so they flow to subject-/MNI-
-        # space NIfTIs alongside TI_max.
-        mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
-        mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
+        if const.FIELD_TI_MAX in selected:
+            TImax = TI.get_maxTI(ef1.value, ef2.value)
+            mout.add_element_field(TImax, const.FIELD_TI_MAX)
+        if const.FIELD_TI_AVG in selected:
+            # TI_avg: orientation-averaged companion to TI_max (tit.calc, not
+            # SimNIBS's TI.get_maxTI -- there is no direction-averaged form there).
+            TIavg = get_TI_avg([ef1.value, ef2.value])
+            mout.add_element_field(TIavg, const.FIELD_TI_AVG)
+        if const.FIELD_HF_PEAK in selected:
+            # Carrier-exposure safety map (Cassarà 2025): peak carrier field.
+            # Written as a volume field so it flows to subject-/MNI-space
+            # NIfTIs alongside TI_max.
+            mout.add_element_field(hf_peak(ef1.value, ef2.value), const.FIELD_HF_PEAK)
+        if const.FIELD_HF_SAR in selected:
+            # Carrier-exposure safety map (Cassarà 2025): heating driver.
+            mout.add_element_field(hf_sar(ef1.value, ef2.value), const.FIELD_HF_SAR)
 
+        view_field = (
+            const.FIELD_TI_MAX
+            if const.FIELD_TI_MAX in selected
+            else next(iter(selected))
+        )
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
         mesh_io.write_msh(mout, ti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields="TI_max").write_opt(ti_path)
-        self.logger.info(f"TI_max saved: {ti_path}")
+        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(
+            ti_path
+        )
+        self.logger.info(f"TI mesh saved: {ti_path}")
 
         self._calculate_ti_normal(dirs["hf_dir"], dirs["ti_mesh"], name)
 

@@ -3,6 +3,7 @@
 import json
 import sys
 
+from tit import constants as const
 from tit.paths import get_path_manager
 from tit.sim.config import Montage, SimulationConfig
 from tit.sim.utils import run_simulation
@@ -43,10 +44,21 @@ def main() -> None:
 
     get_path_manager(data.pop("project_dir"))
 
-    montages_data = data.pop("montages")
-    montages = [_build_montage(m) for m in montages_data]
+    config = _build_sim_config(data)
 
-    config = SimulationConfig(
+    results = run_simulation(config)
+    failed = [r for r in results if r.get("status") == "failed"]
+    sys.exit(1 if failed else 0)
+
+
+def _build_sim_config(data: dict) -> SimulationConfig:
+    """Rebuild a :class:`SimulationConfig` from its serialized form.
+
+    Keys are read explicitly, so a field added to the dataclass is dropped
+    here unless it is added below as well.
+    """
+    montages = [_build_montage(m) for m in data["montages"]]
+    return SimulationConfig(
         subject_id=data["subject_id"],
         montages=montages,
         conductivity=data.get("conductivity", "scalar"),
@@ -63,11 +75,8 @@ def main() -> None:
         tissues_in_niftis=data.get("tissues_in_niftis", "all"),
         aniso_maxratio=data.get("aniso_maxratio", 10.0),
         aniso_maxcond=data.get("aniso_maxcond", 2.0),
+        output_fields=data.get("output_fields", [const.FIELD_TI_MAX]),
     )
-
-    results = run_simulation(config)
-    failed = [r for r in results if r.get("status") == "failed"]
-    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

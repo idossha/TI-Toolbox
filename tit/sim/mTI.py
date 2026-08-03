@@ -183,29 +183,39 @@ class mTISimulation(BaseSimulation):
         # see tit.calc.get_nTI_vectors). montage.channels controls which
         # fields share a carrier (None = one carrier per pair, today's
         # default).
-        mti_vectors = get_mTI_vectors(e_fields, channels=self.montage.channels)
-        mti_field = np.linalg.norm(mti_vectors, axis=1)
+        selected = set(self.config.output_fields)
+
         mout = deepcopy(meshes[0])
         mout.elmdata = []
-        mout.add_element_field(mti_field, "TI_Max")
-        # TI_avg: orientation-averaged companion to TI_Max, over all N
-        # per-pair carrier fields jointly (tit.calc.get_TI_avg), grouped by
-        # the same montage.channels.
-        mti_avg = get_TI_avg(e_fields, channels=self.montage.channels)
-        mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
-        # Carrier-exposure safety maps (Cassarà 2025): peak carrier field and the
-        # heating driver, over all N per-pair carrier fields. Written unconditionally
-        # as volume fields so they flow to subject-/MNI-space NIfTIs alongside
-        # TI_Max, mirroring tit.sim.TI.TISimulation._post_process.
-        mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
-        mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
+        if const.FIELD_TI_MAX in selected:
+            mti_vectors = get_mTI_vectors(e_fields, channels=self.montage.channels)
+            mti_field = np.linalg.norm(mti_vectors, axis=1)
+            mout.add_element_field(mti_field, const.FIELD_MTI_MAX)
+        if const.FIELD_TI_AVG in selected:
+            # TI_avg: orientation-averaged companion to TI_Max, over all N
+            # per-pair carrier fields jointly (tit.calc.get_TI_avg), grouped by
+            # the same montage.channels.
+            mti_avg = get_TI_avg(e_fields, channels=self.montage.channels)
+            mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
+        if const.FIELD_HF_PEAK in selected:
+            # Carrier-exposure safety map (Cassarà 2025): peak carrier field,
+            # over all N per-pair carrier fields.
+            mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
+        if const.FIELD_HF_SAR in selected:
+            # Carrier-exposure safety map (Cassarà 2025): heating driver.
+            mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
 
+        view_field = (
+            const.FIELD_MTI_MAX
+            if const.FIELD_TI_MAX in selected
+            else next(iter(selected))
+        )
         mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
         mesh_io.write_msh(mout, mti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max").write_opt(
+        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(
             mti_path
         )
-        self.logger.info(f"mTI_max saved: {mti_path}")
+        self.logger.info(f"mTI mesh saved: {mti_path}")
 
         # TI_normal is not computed for mTI. TISimulation._calculate_ti_normal
         # uses SimNIBS's 2-field TI.get_dirTI; the N-pair analogue needs the
