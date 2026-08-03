@@ -13,11 +13,16 @@ ExConfig
     Full configuration for exhaustive (grid) search optimization.
 ExResult
     Result container for a completed exhaustive search run.
+MExConfig
+    Full configuration for multipolar (4-pair) exhaustive search.
+MExResult
+    Result container for a completed multipolar exhaustive search run.
 
 See Also
 --------
 tit.opt.flex.flex.run_flex_search : Consumes :class:`FlexConfig`.
 tit.opt.ex.ex.run_ex_search : Consumes :class:`ExConfig`.
+tit.opt.mex.mex.run_m_ex_search : Consumes :class:`MExConfig`.
 """
 
 from dataclasses import dataclass, field
@@ -773,3 +778,211 @@ class ExResult:
     n_combinations: int
     results_csv: str | None = None
     config_json: str | None = None
+
+
+# ── Multipolar exhaustive search config ──────────────────────────────────────
+
+
+@dataclass
+class MExConfig:
+    """Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.
+
+    Evaluates every valid combination of four bipolar electrode pairs from
+    a user-defined pool or bucket set, at one fixed current per pair, and
+    scores each candidate with the verified N>2 mTI envelope
+    (:func:`tit.calc.get_mTI_vectors`).
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier matching the m2m directory name.
+    leadfield_hdf : str
+        Path to the precomputed leadfield HDF5 file.
+    roi_name : str
+        ROI CSV filename (e.g. ``"target.csv"``).  The ``".csv"`` suffix
+        is appended automatically if missing.
+    electrodes : BucketElectrodes or PoolElectrodes
+        Electrode specification, either a single shared pool
+        (:class:`PoolElectrodes`) or four separate per-pair buckets
+        (:class:`BucketElectrodes`).  A plain dict is auto-converted in
+        ``__post_init__``.
+    current_mA : float
+        Current in mA delivered by each of the four pairs.
+    channels : list of (list of int, list of int), or None
+        Carrier grouping passed to :func:`tit.calc.get_mTI_vectors`.
+        ``None`` treats the four pairs as two independent TI channels
+        (equivalent to ``[([0], [1]), ([2], [3])]``); an explicit grouping
+        such as ``[([0, 2], [1, 3])]`` instead treats all four pairs as
+        one channel sharing two carriers (Lee et al. 2022).  These give
+        materially different fields, so the grouping must be chosen
+        deliberately -- the quasi-static field solve has no frequency
+        term, so this grouping is the only place carrier assignment is
+        expressed.
+    roi_radius : float
+        Spherical ROI radius in mm for the target region.
+    run_name : str or None
+        Optional name for this run.  Defaults to a datetime stamp.
+    symmetric_bucket : bool
+        When True in bucket mode, evaluate only left/right mirrored
+        electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+    symmetry_eeg_csv : str or None
+        EEG-position CSV used to derive mirrored electrode pairs.  If
+        unset, it is inferred from the leadfield's net name.
+    symmetry_pairing : str
+        Symmetry interpretation for bucket mode when *symmetric_bucket*
+        is True.  ``"within_pairs"`` mirrors each pair's plus/minus
+        electrodes independently; ``"cross_pairs"`` additionally mirrors
+        pair 1<->3 and pair 2<->4.
+
+    Raises
+    ------
+    ValueError
+        If *current_mA* is non-positive, if *symmetric_bucket* is set
+        with pool electrodes, or if *symmetry_pairing* is not one of
+        ``"within_pairs"``/``"cross_pairs"``.
+
+    See Also
+    --------
+    MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
+    tit.opt.mex.mex.run_m_ex_search : Consumes this config.
+    tit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.
+    """
+
+    # ── Nested electrode types ─────────────────────────────────────────
+    @dataclass
+    class BucketElectrodes:
+        """Separate electrode lists for each of the four bipolar pairs.
+
+        Attributes
+        ----------
+        e1_plus, e1_minus, e2_plus, e2_minus, e3_plus, e3_minus, e4_plus, e4_minus : list of str
+            Candidate electrodes for each pair's anode/cathode position.
+        """
+
+        e1_plus: list[str]
+        e1_minus: list[str]
+        e2_plus: list[str]
+        e2_minus: list[str]
+        e3_plus: list[str]
+        e3_minus: list[str]
+        e4_plus: list[str]
+        e4_minus: list[str]
+
+    @dataclass
+    class PoolElectrodes:
+        """Single electrode pool -- all eight positions draw from the same set.
+
+        Attributes
+        ----------
+        electrodes : list of str
+            List of electrode names available for any pair position.
+        """
+
+        electrodes: list[str]
+
+    # ── Required fields ────────────────────────────────────────────────
+    subject_id: str
+    leadfield_hdf: str
+    roi_name: str
+    electrodes: "MExConfig.BucketElectrodes | MExConfig.PoolElectrodes"
+
+    # ── Current and carrier grouping ────────────────────────────────────
+    current_mA: float = 2.0
+    channels: list[tuple[list[int], list[int]]] | None = None
+
+    # ── ROI ────────────────────────────────────────────────────────────
+    roi_radius: float = 3.0
+
+    # ── Output naming (defaults to datetime stamp) ─────────────────────
+    run_name: str | None = None
+
+    # ── Symmetric bucket search ─────────────────────────────────────────
+    symmetric_bucket: bool = False
+    symmetry_eeg_csv: str | None = None
+    symmetry_pairing: str = "within_pairs"
+
+    def __post_init__(self):
+        if isinstance(self.electrodes, dict):
+            if "electrodes" in self.electrodes:
+                self.electrodes = MExConfig.PoolElectrodes(**self.electrodes)
+            else:
+                self.electrodes = MExConfig.BucketElectrodes(**self.electrodes)
+        if not self.roi_name.endswith(".csv"):
+            self.roi_name += ".csv"
+
+        if self.current_mA <= 0:
+            raise ValueError("current_mA must be positive")
+        if self.symmetric_bucket and isinstance(
+            self.electrodes, MExConfig.PoolElectrodes
+        ):
+            raise ValueError("symmetric_bucket is only supported for bucket electrodes")
+        if self.symmetry_pairing not in ("within_pairs", "cross_pairs"):
+            raise ValueError("symmetry_pairing must be 'within_pairs' or 'cross_pairs'")
+
+
+@dataclass
+class MExResult:
+    """Result from a multipolar exhaustive search run.
+
+    Attributes
+    ----------
+    success : bool
+        True if the search completed without error.
+    output_dir : str
+        Absolute path to the output directory.
+    n_combinations : int
+        Total number of eight-electrode combinations evaluated.
+    results_csv : str or None
+        Path to the CSV file containing ranked results.  ``None`` if the
+        run failed before writing results.
+    config_json : str or None
+        Path to the saved configuration JSON.  ``None`` if the run failed
+        before writing config.
+
+    See Also
+    --------
+    MExConfig : Configuration consumed by :func:`~tit.opt.mex.mex.run_m_ex_search`.
+    tit.opt.mex.mex.run_m_ex_search : Returns this result.
+    """
+
+    success: bool
+    output_dir: str
+    n_combinations: int
+    results_csv: str | None = None
+    config_json: str | None = None
+
+
+#: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
+SEARCH_MODE_TI = "TI"
+SEARCH_MODE_MTI = "mTI"
+
+#: Carrier wiring for a four-pair montage, as (label, ``channels`` value).
+#: Four pairs can be two independent TI channels -- consecutive pairing, the
+#: default -- or four pairs sharing two carriers, where same-carrier fields
+#: superpose before the envelope is taken (Lee et al. 2022). The two give
+#: materially different fields, so it is a real choice rather than a detail.
+MTI_CHANNEL_ARCHITECTURES = [
+    ("Two independent channels", None),
+    ("Four pairs, two carriers", [([0, 2], [1, 3])]),
+]
+
+
+def search_backend_for_mode(mode):
+    """Return ``(module path, config class)`` for an exhaustive-search mode.
+
+    Args:
+        mode: :data:`SEARCH_MODE_TI` or :data:`SEARCH_MODE_MTI`.
+
+    Returns:
+        ``(module_path, config_class)``; *module_path* is passed to
+        ``simnibs_python -m <module_path>`` and *config_class* is the
+        dataclass to build for that mode.
+
+    Raises:
+        ValueError: If *mode* is not a known search mode.
+    """
+    if mode == SEARCH_MODE_TI:
+        return "tit.opt.ex", ExConfig
+    if mode == SEARCH_MODE_MTI:
+        return "tit.opt.mex", MExConfig
+    raise ValueError(f"Unknown search mode: {mode!r}")

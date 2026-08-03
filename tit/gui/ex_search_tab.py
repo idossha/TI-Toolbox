@@ -40,11 +40,78 @@ from tit.gui.components.help_icon import HelpIcon
 from tit.paths import get_path_manager
 from tit import logger as logging_util
 from tit.opt.ex.engine import ExSearchEngine
-from tit.opt.config import ExConfig
+from tit.opt.config import (
+    SEARCH_MODE_TI,
+    SEARCH_MODE_MTI,
+    MTI_CHANNEL_ARCHITECTURES,
+    search_backend_for_mode,
+)
+from tit.opt.config import ExConfig, MExConfig
+from tit.config_io import write_config_json
 from tit.gui.style import (
     FONT_HELP,
     FONT_MONOSPACE,
     FONT_SUBHEADING,
+)
+
+# ── TI / mTI search-mode wiring ──────────────────────────────────────────────
+#
+# One tab, one mode toggle: TI (2-pair, ExConfig, tit.opt.ex) or mTI (4-pair,
+# MExConfig, tit.opt.mex). These are module-level (not class) constants and
+# functions so the mode -> backend wiring is unit-testable without
+# instantiating any Qt widgets (PyQt5 is unavailable on some dev/CI hosts).
+
+
+#: Bucket key -> display label, shared by the mTI bucket editor and its
+#: pipeline-configuration log output.
+MEX_BUCKET_LABELS = {
+    "e1_plus": "E1+",
+    "e1_minus": "E1-",
+    "e2_plus": "E2+",
+    "e2_minus": "E2-",
+    "e3_plus": "E3+",
+    "e3_minus": "E3-",
+    "e4_plus": "E4+",
+    "e4_minus": "E4-",
+}
+
+#: Named carrier-architecture choices for ``MExConfig.channels``, shown in
+#: the mTI "Carrier Wiring" combo as (label, value) pairs. Four bipolar pairs
+#: can be wired as two independent TI channels or as one channel sharing two
+#: carriers (Lee et al. 2022) -- the two give materially different fields
+#: (differ in ~92% of mesh elements, up to 6x), so this is exposed as a
+#: deliberate named choice rather than raw index groups.
+MTI_MODE_HELP = (
+    "mTI (4-pair) mode searches four bipolar electrode pairs together and "
+    "scores each candidate with the multipolar TI envelope "
+    "(tit.calc.get_mTI_vectors), instead of the single interference "
+    "pattern TI mode gets from two pairs.\n\n"
+    "It needs eight electrode buckets (E1..E4, each +/-) instead of four, "
+    "and one current per pair instead of a total/step/limit sweep. Runs "
+    "go through tit.opt.mex (MExConfig) instead of tit.opt.ex (ExConfig)."
+)
+
+MTI_CHANNELS_HELP = (
+    "How the four current pairs are grouped into TI carriers:\n\n"
+    "Two independent channels (default): pairs 1&2 form one TI channel "
+    "and pairs 3&4 form a second, independent TI channel -- equivalent to "
+    "running two ordinary 2-pair TI searches together.\n\n"
+    "Four pairs, two carriers: all four pairs share two carriers, e.g. "
+    "pairs 1&3 vs 2&4 (Lee et al. 2022).\n\n"
+    "These two wirings are not interchangeable: they produce materially "
+    "different fields, differing in about 92% of mesh elements and up to "
+    "6x in places. Pick deliberately."
+)
+
+MTI_SYMMETRY_HELP = (
+    "When checked, only left/right mirrored electrode-pair candidates are "
+    "evaluated (mirroring derived from the selected leadfield's EEG net), "
+    "instead of the full combination of all eight buckets.\n\n"
+    "Symmetry pairing controls which pairs must mirror each other:\n"
+    "- Within each pair: each pair's own +/- electrodes mirror across the "
+    "midline.\n"
+    "- Cross pairs: additionally requires pair 1 <-> 3 and pair 2 <-> 4 to "
+    "mirror each other."
 )
 
 
@@ -524,7 +591,14 @@ class ExSearchTab(QtWidgets.QWidget):
             config_logger.info("")
             config_logger.info("Electrode Configuration:")
             config_logger.info("-" * 40)
-            if self.use_all_combinations:
+            if self._current_search_mode() == SEARCH_MODE_MTI:
+                config_logger.info(f"  Mode: mTI (4-pair, Bucketed)")
+                for key, values in getattr(self, "mex_buckets", {}).items():
+                    config_logger.info(
+                        f"  {MEX_BUCKET_LABELS[key]} electrodes ({len(values)}): "
+                        f"{', '.join(values)}"
+                    )
+            elif self.use_all_combinations:
                 config_logger.info(f"  Mode: All-Combinations (Exhaustive Search)")
                 config_logger.info(f"  Electrode Pool: {', '.join(self.e1_plus)}")
                 config_logger.info(f"  Total Electrodes: {len(self.e1_plus)}")
@@ -831,12 +905,32 @@ class ExSearchTab(QtWidgets.QWidget):
         # ROW 0, COLUMN 1: Electrode Selection
         # ============================================================
         electrode_container = QtWidgets.QGroupBox("Electrode Selection")
-        electrode_container.setFixedHeight(180)  # Fixed height for balance
+        electrode_container.setFixedHeight(
+            220
+        )  # Fixed height for balance (+search-mode row)
         electrode_main_layout = QtWidgets.QVBoxLayout(electrode_container)
         electrode_main_layout.setContentsMargins(10, 10, 10, 10)
         electrode_main_layout.setSpacing(8)
 
-        # Radio buttons for mode selection
+        # Search mode toggle: TI (2-pair, default) vs mTI (4-pair)
+        mode_layout = QtWidgets.QHBoxLayout()
+        mode_label = QtWidgets.QLabel("Search Mode:")
+        mode_label.setFixedWidth(90)
+        self.search_mode_combo = QtWidgets.QComboBox()
+        self.search_mode_combo.addItem("TI (2-pair)", SEARCH_MODE_TI)
+        self.search_mode_combo.addItem("mTI (4-pair)", SEARCH_MODE_MTI)
+        self.search_mode_combo.setToolTip(
+            "TI: standard 2-pair temporal interference. mTI: 4-pair "
+            "multipolar search scored with the N>2 mTI envelope."
+        )
+        mode_layout.addWidget(mode_label)
+        mode_layout.addWidget(self.search_mode_combo)
+        mode_layout.addWidget(HelpIcon(MTI_MODE_HELP, title="mTI Mode"))
+        mode_layout.addStretch()
+        electrode_main_layout.addLayout(mode_layout)
+
+        # Radio buttons for mode selection (TI only -- mTI is bucketed-only,
+        # see _build_mti_bucketed_panel)
         radio_layout = QtWidgets.QHBoxLayout()
         self.rb_bucketed = QtWidgets.QRadioButton("Bucketed Mode")
         self.rb_bucketed.setToolTip(
@@ -858,9 +952,10 @@ class ExSearchTab(QtWidgets.QWidget):
         self.electrode_stack = QtWidgets.QStackedWidget()
         electrode_main_layout.addWidget(self.electrode_stack)
 
-        # Build the two panels
+        # Build the panels: TI bucketed (0), TI all-combinations (1), mTI bucketed (2)
         self._build_bucketed_panel()
         self._build_all_combinations_panel()
+        self._build_mti_bucketed_panel()
 
         # Connect radio buttons to mode switching
         self.rb_bucketed.toggled.connect(lambda v: self._on_electrode_mode_changed())
@@ -868,6 +963,12 @@ class ExSearchTab(QtWidgets.QWidget):
             lambda v: self._on_electrode_mode_changed()
         )
         self._on_electrode_mode_changed()  # Initialize to correct panel
+
+        # Connect search-mode combo; the initial call to _on_search_mode_changed()
+        # happens at the end of setup_ui(), once every widget it touches exists.
+        self.search_mode_combo.currentIndexChanged.connect(
+            lambda _i: self._on_search_mode_changed()
+        )
 
         # Add electrode container to grid - Row 0, Column 1
         main_grid_layout.addWidget(electrode_container, 0, 1)
@@ -945,66 +1046,23 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         # ROW 1, COLUMN 1: Current Configuration
         # ============================================================
-        current_container = QtWidgets.QGroupBox("Current Configuration")
-        current_container.setFixedHeight(190)  # Match ROI selection height
-        current_layout = QtWidgets.QVBoxLayout(current_container)
+        self.current_container = QtWidgets.QGroupBox("Current Configuration")
+        self.current_container.setFixedHeight(
+            220
+        )  # Match ROI selection height (+mTI page)
+        current_layout = QtWidgets.QVBoxLayout(self.current_container)
         current_layout.setContentsMargins(10, 10, 10, 10)
         current_layout.setSpacing(8)
 
-        # Total current input
-        total_current_layout = QtWidgets.QHBoxLayout()
-        total_current_label = QtWidgets.QLabel("Total Current (mA):")
-        total_current_label.setFixedWidth(120)
-        self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
-        self.total_current_spinbox.setRange(0.1, 10.0)
-        self.total_current_spinbox.setValue(2.0)  # Default 2mA (per user example)
-        self.total_current_spinbox.setSingleStep(0.1)
-        self.total_current_spinbox.setDecimals(1)
-        self.total_current_spinbox.setToolTip(
-            "Total current to distribute between channels"
-        )
-        total_current_layout.addWidget(total_current_label)
-        total_current_layout.addWidget(self.total_current_spinbox)
-        total_current_layout.addStretch()
-        current_layout.addLayout(total_current_layout)
+        # Stacked widget: TI current sweep (0) vs mTI per-pair current (1)
+        self.current_config_stack = QtWidgets.QStackedWidget()
+        current_layout.addWidget(self.current_config_stack)
 
-        # Current step size input
-        current_step_layout = QtWidgets.QHBoxLayout()
-        current_step_label = QtWidgets.QLabel("Current Step (mA):")
-        current_step_label.setFixedWidth(120)
-        self.current_step_spinbox = QtWidgets.QDoubleSpinBox()
-        self.current_step_spinbox.setRange(0.01, 2.0)
-        self.current_step_spinbox.setValue(0.2)  # Default 0.2mA (per user example)
-        self.current_step_spinbox.setSingleStep(0.01)
-        self.current_step_spinbox.setDecimals(2)
-        self.current_step_spinbox.setToolTip("Step size for current ratio iterations")
-        current_step_layout.addWidget(current_step_label)
-        current_step_layout.addWidget(self.current_step_spinbox)
-        current_step_layout.addStretch()
-        current_layout.addLayout(current_step_layout)
-
-        # Channel limit input
-        channel_limit_layout = QtWidgets.QHBoxLayout()
-        channel_limit_label = QtWidgets.QLabel("Channel Limit (mA):")
-        channel_limit_label.setFixedWidth(120)
-        self.channel_limit_spinbox = QtWidgets.QDoubleSpinBox()
-        self.channel_limit_spinbox.setRange(0.1, 10.0)
-        self.channel_limit_spinbox.setValue(1.6)  # Default 1.6mA (per user example)
-        self.channel_limit_spinbox.setSingleStep(0.1)
-        self.channel_limit_spinbox.setDecimals(1)
-        self.channel_limit_spinbox.setToolTip(
-            "Maximum current per channel (must be ≤ total current)"
-        )
-        channel_limit_layout.addWidget(channel_limit_label)
-        channel_limit_layout.addWidget(self.channel_limit_spinbox)
-        channel_limit_layout.addStretch()
-        current_layout.addLayout(channel_limit_layout)
-
-        # Add stretch to push content to top
-        current_layout.addStretch()
+        self._build_ti_current_panel()
+        self._build_mti_current_panel()
 
         # Add current container to grid - Row 1, Column 1
-        main_grid_layout.addWidget(current_container, 1, 1)
+        main_grid_layout.addWidget(self.current_container, 1, 1)
 
         # ============================================================
         # ROW 2, COLUMN 0-1: Leadfield Management (spanning both columns)
@@ -1106,6 +1164,11 @@ class ExSearchTab(QtWidgets.QWidget):
         # After self.subject_combo is created and added:
         self.subject_combo.currentTextChanged.connect(self.on_subject_selection_changed)
 
+        # Initialize mode-dependent panels/controls (TI is the default mode).
+        # Deferred to the very end: it touches run_btn/stop_btn/current_container,
+        # all created above.
+        self._on_search_mode_changed()
+
     def _build_bucketed_panel(self):
         """Build the bucketed mode electrode input panel (original mode)."""
         panel = QtWidgets.QWidget()
@@ -1169,6 +1232,256 @@ class ExSearchTab(QtWidgets.QWidget):
             self.electrode_stack.setCurrentIndex(0)  # Bucketed panel
         elif self.rb_all_combinations.isChecked():
             self.electrode_stack.setCurrentIndex(1)  # All combinations panel
+
+    def _build_mti_bucketed_panel(self):
+        """Build the mTI bucketed-mode electrode input panel (four pairs, eight buckets).
+
+        mTI only supports bucketed search -- there is no all-combinations
+        page for it, since the pool-permutation search space for eight
+        electrode positions is combinatorially far larger than for TI's
+        four. These are separate widgets from the TI bucketed panel's
+        e1_plus_input/etc. (a widget cannot live in two layouts at once).
+        """
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout(panel)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setHorizontalSpacing(16)
+        layout.setVerticalSpacing(8)
+
+        self.mti_e1_plus_input = QtWidgets.QLineEdit()
+        self.mti_e1_minus_input = QtWidgets.QLineEdit()
+        self.mti_e2_plus_input = QtWidgets.QLineEdit()
+        self.mti_e2_minus_input = QtWidgets.QLineEdit()
+        self.mti_e3_plus_input = QtWidgets.QLineEdit()
+        self.mti_e3_minus_input = QtWidgets.QLineEdit()
+        self.mti_e4_plus_input = QtWidgets.QLineEdit()
+        self.mti_e4_minus_input = QtWidgets.QLineEdit()
+
+        # Keyed by MExConfig.BucketElectrodes field name so _current_mti_buckets()
+        # and _build_mex_config() can build the dataclass directly from this dict.
+        self.mti_bucket_inputs = {
+            "e1_plus": self.mti_e1_plus_input,
+            "e1_minus": self.mti_e1_minus_input,
+            "e2_plus": self.mti_e2_plus_input,
+            "e2_minus": self.mti_e2_minus_input,
+            "e3_plus": self.mti_e3_plus_input,
+            "e3_minus": self.mti_e3_minus_input,
+            "e4_plus": self.mti_e4_plus_input,
+            "e4_minus": self.mti_e4_minus_input,
+        }
+
+        placeholders = {
+            "e1_plus": "E.g., O1, F7",
+            "e1_minus": "E.g., Fp1, T7",
+            "e2_plus": "E.g., T8, P4",
+            "e2_minus": "E.g., Fz, Cz",
+            "e3_plus": "E.g., O2, F8",
+            "e3_minus": "E.g., Fp2, T7",
+            "e4_plus": "E.g., T7, P3",
+            "e4_minus": "E.g., Fz, Cz",
+        }
+        for key, field_widget in self.mti_bucket_inputs.items():
+            field_widget.setFixedHeight(30)
+            field_widget.setPlaceholderText(placeholders[key])
+            field_widget.setToolTip(
+                f"Electrodes for pair {key[1]} "
+                f"{'positive pole (anodes)' if key.endswith('plus') else 'negative pole (cathodes)'}"
+            )
+
+        left_keys = ["e1_plus", "e1_minus", "e2_plus", "e2_minus"]
+        right_keys = ["e3_plus", "e3_minus", "e4_plus", "e4_minus"]
+        for row, (lkey, rkey) in enumerate(zip(left_keys, right_keys)):
+            layout.addWidget(QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[lkey]}:"), row, 0)
+            layout.addWidget(self.mti_bucket_inputs[lkey], row, 1)
+            layout.addWidget(QtWidgets.QLabel(f"{MEX_BUCKET_LABELS[rkey]}:"), row, 2)
+            layout.addWidget(self.mti_bucket_inputs[rkey], row, 3)
+
+        self.electrode_stack.addWidget(panel)
+
+    def _build_ti_current_panel(self):
+        """Build the TI (2-pair) current-configuration page.
+
+        Exact same widgets/defaults as before this tab grew an mTI mode --
+        only moved from directly on the group box into a QStackedWidget page.
+        """
+        panel = QtWidgets.QWidget()
+        current_layout = QtWidgets.QVBoxLayout(panel)
+        current_layout.setContentsMargins(0, 0, 0, 0)
+        current_layout.setSpacing(8)
+
+        # Total current input
+        total_current_layout = QtWidgets.QHBoxLayout()
+        total_current_label = QtWidgets.QLabel("Total Current (mA):")
+        total_current_label.setFixedWidth(120)
+        self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
+        self.total_current_spinbox.setRange(0.1, 10.0)
+        self.total_current_spinbox.setValue(2.0)  # Default 2mA (per user example)
+        self.total_current_spinbox.setSingleStep(0.1)
+        self.total_current_spinbox.setDecimals(1)
+        self.total_current_spinbox.setToolTip(
+            "Total current to distribute between channels"
+        )
+        total_current_layout.addWidget(total_current_label)
+        total_current_layout.addWidget(self.total_current_spinbox)
+        total_current_layout.addStretch()
+        current_layout.addLayout(total_current_layout)
+
+        # Current step size input
+        current_step_layout = QtWidgets.QHBoxLayout()
+        current_step_label = QtWidgets.QLabel("Current Step (mA):")
+        current_step_label.setFixedWidth(120)
+        self.current_step_spinbox = QtWidgets.QDoubleSpinBox()
+        self.current_step_spinbox.setRange(0.01, 2.0)
+        self.current_step_spinbox.setValue(0.2)  # Default 0.2mA (per user example)
+        self.current_step_spinbox.setSingleStep(0.01)
+        self.current_step_spinbox.setDecimals(2)
+        self.current_step_spinbox.setToolTip("Step size for current ratio iterations")
+        current_step_layout.addWidget(current_step_label)
+        current_step_layout.addWidget(self.current_step_spinbox)
+        current_step_layout.addStretch()
+        current_layout.addLayout(current_step_layout)
+
+        # Channel limit input
+        channel_limit_layout = QtWidgets.QHBoxLayout()
+        channel_limit_label = QtWidgets.QLabel("Channel Limit (mA):")
+        channel_limit_label.setFixedWidth(120)
+        self.channel_limit_spinbox = QtWidgets.QDoubleSpinBox()
+        self.channel_limit_spinbox.setRange(0.1, 10.0)
+        self.channel_limit_spinbox.setValue(1.6)  # Default 1.6mA (per user example)
+        self.channel_limit_spinbox.setSingleStep(0.1)
+        self.channel_limit_spinbox.setDecimals(1)
+        self.channel_limit_spinbox.setToolTip(
+            "Maximum current per channel (must be ≤ total current)"
+        )
+        channel_limit_layout.addWidget(channel_limit_label)
+        channel_limit_layout.addWidget(self.channel_limit_spinbox)
+        channel_limit_layout.addStretch()
+        current_layout.addLayout(channel_limit_layout)
+
+        # Add stretch to push content to top
+        current_layout.addStretch()
+
+        self.current_config_stack.addWidget(panel)
+
+    def _build_mti_current_panel(self):
+        """Build the mTI (4-pair) current-configuration page.
+
+        One current per pair (MExConfig.current_mA) instead of TI's
+        total/step/limit sweep, plus the carrier-architecture (channels)
+        and symmetric-bucket-search controls that only apply to mTI.
+        """
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        # Pair current input
+        pair_current_layout = QtWidgets.QHBoxLayout()
+        pair_current_label = QtWidgets.QLabel("Pair Current (mA):")
+        pair_current_label.setFixedWidth(120)
+        self.mex_current_spinbox = QtWidgets.QDoubleSpinBox()
+        self.mex_current_spinbox.setRange(0.1, 10.0)
+        self.mex_current_spinbox.setValue(2.0)  # MExConfig.current_mA default
+        self.mex_current_spinbox.setSingleStep(0.1)
+        self.mex_current_spinbox.setDecimals(1)
+        self.mex_current_spinbox.setToolTip(
+            "Current delivered by each of the four bipolar electrode pairs"
+        )
+        pair_current_layout.addWidget(pair_current_label)
+        pair_current_layout.addWidget(self.mex_current_spinbox)
+        pair_current_layout.addStretch()
+        layout.addLayout(pair_current_layout)
+
+        # Carrier architecture (MExConfig.channels)
+        channels_layout = QtWidgets.QHBoxLayout()
+        channels_label = QtWidgets.QLabel("Carrier Wiring:")
+        channels_label.setFixedWidth(120)
+        self.mex_channels_combo = QtWidgets.QComboBox()
+        for label, value in MTI_CHANNEL_ARCHITECTURES:
+            self.mex_channels_combo.addItem(label, value)
+        channels_layout.addWidget(channels_label)
+        channels_layout.addWidget(self.mex_channels_combo)
+        channels_layout.addWidget(HelpIcon(MTI_CHANNELS_HELP, title="Carrier Wiring"))
+        channels_layout.addStretch()
+        layout.addLayout(channels_layout)
+
+        # Symmetric bucket search (MExConfig.symmetric_bucket / symmetry_pairing)
+        symmetric_layout = QtWidgets.QHBoxLayout()
+        self.mex_symmetric_bucket_cb = QtWidgets.QCheckBox("Force left/right symmetry")
+        self.mex_symmetric_bucket_cb.setToolTip(
+            "Only evaluate candidates whose electrode pairs mirror left/right"
+        )
+        self.mex_symmetry_pairing_combo = QtWidgets.QComboBox()
+        self.mex_symmetry_pairing_combo.addItem("Within each pair", "within_pairs")
+        self.mex_symmetry_pairing_combo.addItem(
+            "Cross pairs (E1<->E3, E2<->E4)", "cross_pairs"
+        )
+        self.mex_symmetry_pairing_combo.setEnabled(False)
+        self.mex_symmetric_bucket_cb.toggled.connect(
+            self.mex_symmetry_pairing_combo.setEnabled
+        )
+        symmetric_layout.addWidget(self.mex_symmetric_bucket_cb)
+        symmetric_layout.addWidget(
+            HelpIcon(MTI_SYMMETRY_HELP, title="Symmetric Bucket Search")
+        )
+        symmetric_layout.addSpacing(12)
+        symmetric_layout.addWidget(self.mex_symmetry_pairing_combo)
+        symmetric_layout.addStretch()
+        layout.addLayout(symmetric_layout)
+
+        layout.addStretch()
+        self.current_config_stack.addWidget(panel)
+
+    def _current_search_mode(self):
+        """Return the active search mode: SEARCH_MODE_TI or SEARCH_MODE_MTI."""
+        return self.search_mode_combo.currentData()
+
+    def _current_mti_buckets(self):
+        """Return the eight mTI bucket fields as parsed electrode-name lists.
+
+        Mirrors the TI ``parse_electrode_input`` semantics: invalid text
+        (bad characters) parses to ``None``, normalised here to ``[]`` so
+        callers can uniformly treat "invalid" and "empty" as "not filled in".
+        """
+        return {
+            key: self.parse_electrode_input(field_widget.text()) or []
+            for key, field_widget in self.mti_bucket_inputs.items()
+        }
+
+    def _selected_roi_csv_names(self):
+        """Return .csv-suffixed ROI names for the currently selected ROI list items."""
+        names = []
+        for item in self.roi_list.selectedItems():
+            name = item.text().split(":")[0].strip()
+            if not name.endswith(".csv"):
+                name += ".csv"
+            names.append(name)
+        return names
+
+    def _on_search_mode_changed(self):
+        """Swap electrode/current panels and toggle mode-specific controls."""
+        is_mti = self._current_search_mode() == SEARCH_MODE_MTI
+
+        self.rb_bucketed.setVisible(not is_mti)
+        self.rb_all_combinations.setVisible(not is_mti)
+        if is_mti:
+            self.electrode_stack.setCurrentIndex(2)  # mTI bucketed panel
+        else:
+            self._on_electrode_mode_changed()  # Restore TI bucketed/all-combos choice
+
+        self.current_config_stack.setCurrentIndex(1 if is_mti else 0)
+        self.current_container.setTitle(
+            "mTI Configuration" if is_mti else "Current Configuration"
+        )
+
+        # MExConfig has no ROI-union equivalent to ExConfig.roi_names, so
+        # Combine ROIs only applies in TI mode.
+        self.combine_rois_cb.setEnabled(not is_mti)
+        if is_mti:
+            self.combine_rois_cb.setChecked(False)
+
+        self.run_btn.setText("Run mTI Search" if is_mti else "Run Ex-Search")
+        self.stop_btn.setText("Stop mTI Search" if is_mti else "Stop Ex-Search")
 
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
@@ -1568,6 +1881,20 @@ class ExSearchTab(QtWidgets.QWidget):
             )
             return False
 
+        # mTI validates its own eight electrode buckets; the TI
+        # all-combinations / bucketed validation below doesn't apply to it
+        # (mTI has no all-combinations page).
+        if self._current_search_mode() == SEARCH_MODE_MTI:
+            buckets = self._current_mti_buckets()
+            if not all(buckets.values()):
+                self.update_status(
+                    "Please enter valid electrodes for all eight mTI bucket "
+                    "categories (E1..E4, +/-)",
+                    error=True,
+                )
+                return False
+            return True
+
         # Validate electrode inputs based on mode
         if self.rb_all_combinations.isChecked():
             # All-combinations mode: validate single electrode list
@@ -1608,6 +1935,10 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_optimization(self):
         """Run the ex-search optimization for selected subjects."""
         if not self.validate_inputs():
+            return
+
+        if self._current_search_mode() == SEARCH_MODE_MTI:
+            self._run_mti_optimization()
             return
 
         subject_id = self.subject_combo.currentText()
@@ -1736,6 +2067,86 @@ class ExSearchTab(QtWidgets.QWidget):
         # Run the pipeline for the first ROI
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
 
+    def _run_mti_optimization(self):
+        """Run the mTI (multipolar, 4-pair) exhaustive search for selected ROIs.
+
+        Mirrors the TI flow in ``run_optimization`` above: same
+        subject/leadfield/ROI plumbing, confirmation dialog, and per-ROI
+        pipeline via ``run_roi_pipeline``. mTI always searches bucketed
+        (there is no all-combinations page) and ``MExConfig`` has no
+        ROI-union equivalent to ``ExConfig.roi_names``, so ROIs are always
+        processed separately here (no Combine ROIs path).
+        """
+        subject_id = self.subject_combo.currentText()
+        project_dir = self.pm.project_dir
+        pm = self.pm
+        mex_search_dir = pm.m_ex_search(subject_id)
+
+        self.mex_buckets = self._current_mti_buckets()
+        self.use_all_combinations = False
+
+        selected_rois = self.roi_list.selectedItems()
+        roi_names = [item.text().split(":")[0].strip() for item in selected_rois]
+
+        bucket_counts = ", ".join(
+            f"{MEX_BUCKET_LABELS[key]}: {len(values)}"
+            for key, values in self.mex_buckets.items()
+        )
+        n_combos_upper = 1
+        for values in self.mex_buckets.values():
+            n_combos_upper *= len(values)
+
+        details = (
+            f"Subject: {subject_id}\n"
+            f"Mode: mTI (4-pair)\n"
+            f"{bucket_counts}\n"
+            f"Current per Pair: {self.mex_current_spinbox.value():.1f} mA\n"
+            f"Carrier Wiring: {self.mex_channels_combo.currentText()}\n"
+            f"Search Space: up to {n_combos_upper:,} eight-electrode combinations\n"
+            f"ROIs: {', '.join(roi_names)}\n"
+            f"Total ROIs: {len(roi_names)}"
+        )
+        if self.mex_symmetric_bucket_cb.isChecked():
+            details += (
+                f"\nSymmetric bucket search: "
+                f"{self.mex_symmetry_pairing_combo.currentText()}"
+            )
+
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm mTI Search",
+            message="Are you sure you want to start the mTI (multipolar) search?",
+            details=details,
+        ):
+            return
+
+        # Create m_ex_search directory if it doesn't exist
+        os.makedirs(mex_search_dir, exist_ok=True)
+
+        selected_roi_names = self._selected_roi_csv_names()
+        if self.debug_mode:
+            self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
+
+        # Set up environment variables
+        env = os.environ.copy()
+        env["SUBJECTS_DIR"] = project_dir
+
+        # Disable controls and show status
+        self.disable_controls()
+        self.update_status(f"Running mTI search for subject {subject_id}...")
+
+        self._combine_rois = False
+        self._combined_roi_names = []
+        self.roi_processing_queue = selected_roi_names.copy()
+        self.current_roi_index = 0
+        self._exsearch_had_errors = False
+
+        # Log mTI search start
+        self.log_exsearch_start(subject_id, len(selected_roi_names))
+
+        # Run the pipeline for the first ROI
+        self.run_roi_pipeline(subject_id, project_dir, mex_search_dir, env)
+
     def _build_ex_config(
         self, subject_id, roi_name, leadfield_hdf, eeg_net, roi_names=None
     ):
@@ -1803,6 +2214,55 @@ class ExSearchTab(QtWidgets.QWidget):
         with os.fdopen(fd, "w") as f:
             json.dump(data, f, indent=2)
         return path
+
+    def _build_mex_config(self, subject_id, roi_name, leadfield_hdf, eeg_net):
+        """Build an MExConfig dataclass from current UI widget values (mTI mode).
+
+        Mirrors ``_build_ex_config`` above for the multipolar (4-pair)
+        backend: same subject/leadfield/roi/run_name shape, but electrodes
+        are always bucketed (eight buckets), current is a single
+        per-pair value, and channels/symmetric_bucket/symmetry_pairing
+        replace TI's total/step/limit sweep.
+
+        Args:
+            subject_id: Subject identifier.
+            roi_name: ROI name (with or without .csv extension).
+            leadfield_hdf: Full path to the leadfield HDF5 file.
+            eeg_net: Name of the selected EEG net.
+
+        Returns:
+            MExConfig instance ready for serialization.
+        """
+        electrodes = MExConfig.BucketElectrodes(**self.mex_buckets)
+        return MExConfig(
+            subject_id=subject_id,
+            leadfield_hdf=leadfield_hdf,
+            roi_name=roi_name,
+            electrodes=electrodes,
+            current_mA=self.mex_current_spinbox.value(),
+            channels=self.mex_channels_combo.currentData(),
+            roi_radius=self.roi_radius_spinbox.value(),
+            run_name=eeg_net,
+            symmetric_bucket=self.mex_symmetric_bucket_cb.isChecked(),
+            symmetry_pairing=self.mex_symmetry_pairing_combo.currentData(),
+        )
+
+    @staticmethod
+    def _write_mex_config(config):
+        """Serialize an MExConfig to a temporary JSON file.
+
+        Unlike TI's bespoke ``_write_ex_config`` (which predates it), this
+        delegates to the shared ``tit.config_io`` helper -- MExConfig's
+        electrode union types are already registered there, and it injects
+        ``project_dir`` from the active PathManager automatically.
+
+        Args:
+            config: MExConfig dataclass instance.
+
+        Returns:
+            Path to the written JSON config file.
+        """
+        return write_config_json(config, prefix="m_ex_config")
 
     def run_roi_pipeline(self, subject_id, project_dir, ex_search_dir, env):
         """Run the ex-search pipeline for the current ROI in the queue."""
@@ -1882,14 +2342,21 @@ class ExSearchTab(QtWidgets.QWidget):
                 self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
                 return
 
-        # Build ExConfig dataclass from UI state
-        ex_config = self._build_ex_config(
-            subject_id,
-            roi_name,
-            selected_hdf5_path,
-            selected_net_name,
-            roi_names=roi_names_for_config,
-        )
+        # Build the backend config dataclass from UI state: TI -> ExConfig via
+        # tit.opt.ex, mTI -> MExConfig via tit.opt.mex (see search_backend_for_mode).
+        search_mode = self._current_search_mode()
+        if search_mode == SEARCH_MODE_MTI:
+            ex_config = self._build_mex_config(
+                subject_id, roi_name, selected_hdf5_path, selected_net_name
+            )
+        else:
+            ex_config = self._build_ex_config(
+                subject_id,
+                roi_name,
+                selected_hdf5_path,
+                selected_net_name,
+                roi_names=roi_names_for_config,
+            )
 
         # Minimal env — only pass through what downstream steps still need
         env = os.environ.copy()
@@ -1901,7 +2368,10 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
-            log_file = self.create_log_file_env("ex_search", subject_id)
+            log_process_name = (
+                "m_ex_search" if search_mode == SEARCH_MODE_MTI else "ex_search"
+            )
+            log_file = self.create_log_file_env(log_process_name, subject_id)
             if log_file:
                 env["TI_LOG_FILE"] = log_file
                 self._shared_log_file = log_file
@@ -1960,8 +2430,12 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("Step 1: Running exhaustive search...")
 
         # Serialize config to JSON and build command
-        config_path = self._write_ex_config(ex_config, project_dir)
-        cmd = ["simnibs_python", "-m", "tit.opt.ex", config_path]
+        module_path, _config_cls = search_backend_for_mode(search_mode)
+        if search_mode == SEARCH_MODE_MTI:
+            config_path = self._write_mex_config(ex_config)
+        else:
+            config_path = self._write_ex_config(ex_config, project_dir)
+        cmd = ["simnibs_python", "-m", module_path, config_path]
 
         if self.debug_mode:
             self.update_output(f"[DEBUG] Config file: {config_path}", "debug")
@@ -2199,9 +2673,16 @@ class ExSearchTab(QtWidgets.QWidget):
         # Log completion summary
         self.log_pipeline_completion()
 
+        is_mti = self._current_search_mode() == SEARCH_MODE_MTI
+
         if self._exsearch_had_errors:
             self.enable_controls()
-            self.update_status("Ex-search stopped after an error", error=True)
+            status = (
+                "mTI search stopped after an error"
+                if is_mti
+                else "Ex-search stopped after an error"
+            )
+            self.update_status(status, error=True)
             return
 
         # Log final completion with summary
@@ -2209,16 +2690,21 @@ class ExSearchTab(QtWidgets.QWidget):
         total_rois = len(self.roi_processing_queue)
         project_dir = self.pm.project_dir
         pm = self.pm
-        ex_search_dir = pm.ex_search(subject_id)
+        output_dir = pm.m_ex_search(subject_id) if is_mti else pm.ex_search(subject_id)
 
-        self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
+        self.log_exsearch_complete(subject_id, total_rois, output_dir)
 
         # Final message for debug mode
         if self.debug_mode:
             self.update_output("\nOptimization process completed!")
 
         self.enable_controls()
-        self.update_status("Ex-search optimization completed successfully")
+        status = (
+            "mTI search completed successfully"
+            if is_mti
+            else "Ex-search optimization completed successfully"
+        )
+        self.update_status(status)
         self.ex_search_completed.emit()
 
     def stop_optimization(self):
@@ -2318,6 +2804,13 @@ class ExSearchTab(QtWidgets.QWidget):
         self.total_current_spinbox.setEnabled(False)
         self.current_step_spinbox.setEnabled(False)
         self.channel_limit_spinbox.setEnabled(False)
+        self.search_mode_combo.setEnabled(False)
+        for field_widget in self.mti_bucket_inputs.values():
+            field_widget.setEnabled(False)
+        self.mex_current_spinbox.setEnabled(False)
+        self.mex_channels_combo.setEnabled(False)
+        self.mex_symmetric_bucket_cb.setEnabled(False)
+        self.mex_symmetry_pairing_combo.setEnabled(False)
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.list_subjects_btn.setEnabled(False)
@@ -2356,6 +2849,15 @@ class ExSearchTab(QtWidgets.QWidget):
         self.total_current_spinbox.setEnabled(True)
         self.current_step_spinbox.setEnabled(True)
         self.channel_limit_spinbox.setEnabled(True)
+        self.search_mode_combo.setEnabled(True)
+        for field_widget in self.mti_bucket_inputs.values():
+            field_widget.setEnabled(True)
+        self.mex_current_spinbox.setEnabled(True)
+        self.mex_channels_combo.setEnabled(True)
+        self.mex_symmetric_bucket_cb.setEnabled(True)
+        self.mex_symmetry_pairing_combo.setEnabled(
+            self.mex_symmetric_bucket_cb.isChecked()
+        )
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.list_subjects_btn.setEnabled(True)

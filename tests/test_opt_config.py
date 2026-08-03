@@ -592,3 +592,36 @@ class TestExResult:
         )
         assert result.results_csv is None
         assert result.config_json is None
+
+
+@pytest.mark.unit
+class TestSearchModeBackend:
+    """The TI/mTI mode -> backend mapping.
+
+    Lives in ``tit.opt.config`` rather than the GUI so the wiring is testable
+    without a display; PyQt5 is absent from the host test environment.
+    """
+
+    def test_ti_mode_selects_ex_backend(self):
+        from tit.opt.config import SEARCH_MODE_TI, ExConfig, search_backend_for_mode
+
+        assert search_backend_for_mode(SEARCH_MODE_TI) == ("tit.opt.ex", ExConfig)
+
+    def test_mti_mode_selects_mex_backend(self):
+        from tit.opt.config import SEARCH_MODE_MTI, MExConfig, search_backend_for_mode
+
+        assert search_backend_for_mode(SEARCH_MODE_MTI) == ("tit.opt.mex", MExConfig)
+
+    def test_unknown_mode_raises(self):
+        from tit.opt.config import search_backend_for_mode
+
+        with pytest.raises(ValueError, match="Unknown search mode"):
+            search_backend_for_mode("nope")
+
+    def test_two_carrier_architecture_maps_to_paired_channels(self):
+        """Pairs 1&3 share one carrier, 2&4 the other (Lee et al. 2022)."""
+        from tit.opt.config import MTI_CHANNEL_ARCHITECTURES
+
+        arch = dict(MTI_CHANNEL_ARCHITECTURES)
+        assert arch["Two independent channels"] is None
+        assert arch["Four pairs, two carriers"] == [([0, 2], [1, 3])]
