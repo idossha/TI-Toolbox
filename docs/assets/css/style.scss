@@ -669,7 +669,7 @@ code {
 
 .wiki-layout {
   position: relative;
-  max-width: 1050px;
+  max-width: 1110px;
   margin: 0 auto;
   padding: 0 30px;
   display: flex;
@@ -678,7 +678,7 @@ code {
 
 .wiki-sidebar {
   position: relative;
-  width: 200px;
+  width: 260px;
   flex-shrink: 0;
 }
 
@@ -786,13 +786,19 @@ code {
 }
 
 .wiki-content img {
-  width: auto !important;
+  max-width: 100% !important;
   height: auto !important;
   display: block;
   margin: 20px auto;
   border-radius: $border-radius;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   object-fit: contain;
+  cursor: zoom-in;
+  transition: opacity 0.2s ease;
+}
+
+.wiki-content img:hover {
+  opacity: 0.92;
 }
 
 .wiki-content img + img {
@@ -923,6 +929,119 @@ code {
     .image-container-natural {
       max-width: 100% !important;
     }
+  }
+}
+
+// =============================================================================
+// WIKI SUB-NAVIGATION (per-page section links)
+// =============================================================================
+
+.wiki-subnav {
+  list-style: none;
+  margin: 4px 0 12px 0;
+  padding: 0;
+
+  li {
+    margin: 2px 0;
+  }
+
+  a {
+    display: block;
+    padding: 5px 12px 5px 24px;
+    font-size: 0.85em;
+    line-height: 1.3;
+    color: #666;
+    text-decoration: none;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+
+    &:hover {
+      color: $primary-color;
+      background-color: rgba($primary-color, 0.08);
+    }
+
+    &.active-sub {
+      color: $primary-color;
+      font-weight: 600;
+      border-left-color: $primary-color;
+      background-color: rgba($primary-color, 0.08);
+    }
+  }
+}
+
+// =============================================================================
+// WIKI IMAGE LIGHTBOX
+// =============================================================================
+
+.wiki-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  background: rgba(0, 0, 0, 0.88);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease;
+  cursor: zoom-out;
+
+  &.active {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.wiki-lightbox-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: default;
+}
+
+.wiki-lightbox-content img {
+  max-width: 90vw;
+  max-height: 78vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: $border-radius;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.wiki-lightbox-caption {
+  margin-top: 16px;
+  max-width: 800px;
+  color: #f0f0f0;
+  font-size: 0.9em;
+  line-height: 1.5;
+  text-align: center;
+
+  strong {
+    color: #fff;
+  }
+}
+
+.wiki-lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 5px 10px;
+  z-index: 2001;
+
+  &:hover {
+    color: $primary-color;
   }
 }
 
