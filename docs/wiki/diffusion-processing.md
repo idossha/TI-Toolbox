@@ -96,7 +96,7 @@ The DTI extractor bridges QSIRecon output and SimNIBS expectations:
 1. **Load** — combines 6 tensor component NIfTIs into a single `(X, Y, Z, 6)` array
 2. **Align** — 3D cross-correlation between the QSIPrep T1 and SimNIBS T1 to find the translation offset (~50 mm between ACPC and SimNIBS coordinates). Pure Python — no FSL or ANTs required
 3. **Resample** — each component onto the SimNIBS T1 grid (0.5 mm isotropic, trilinear interpolation)
-4. **Pre-compensate** — rotates tensors so SimNIBS's internal `correct_FSL` produces correct world-space conductivity tensors. DSI Studio does not apply the implicit x-flip that FSL `dtifit` does, so we store `R_fix·T·R_fix^T` such that SimNIBS's `M·stored·M^T` yields the correct result
+4. **Pre-compensate** — rotates tensors so SimNIBS's internal `correct_FSL` produces correct world-space conductivity tensors. DSI Studio does not apply the implicit x-flip that FSL `dtifit` does, so we store $$R_{\text{fix}} \, T \, R_{\text{fix}}^{\mathsf{T}}$$ such that SimNIBS's $$M \, T_{\text{stored}} \, M^{\mathsf{T}}$$ yields the correct result
 
 ### Final Output
 

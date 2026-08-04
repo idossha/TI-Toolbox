@@ -39,13 +39,13 @@ The Tissue Analyzer extension provides volumetric assessment f different tissue 
 
 Volume is calculated by multiplying the number of tissue voxels by the volume of each voxel:
 
-```
-Volume (mm³) = Number of tissue voxels × Voxel volume
-```
+$$
+V_{\text{tissue}} \; [\mathrm{mm}^3] = n_{\text{voxels}} \times v_{\text{voxel}}
+$$
 
 Where:
-- **Number of tissue voxels**: Count of all voxels in the filtered tissue mask
-- **Voxel volume**: Product of voxel dimensions from the NIfTI header (`voxel_dim_x × voxel_dim_y × voxel_dim_z`)
+- **Number of tissue voxels** $$n_{\text{voxels}}$$: count of all voxels in the filtered tissue mask
+- **Voxel volume** $$v_{\text{voxel}}$$: product of the voxel dimensions from the NIfTI header, $$d_x \times d_y \times d_z$$
 
 The voxel dimensions are extracted from the NIfTI header using `header.get_zooms()[:3]`, which provides the spatial resolution in millimeters for each dimension. This ensures accurate volume measurements regardless of the scan resolution.
 
@@ -54,10 +54,8 @@ The voxel dimensions are extracted from the NIfTI header using `header.get_zooms
 
 Thickness is calculated using a 3D Euclidean distance transform:
 
-```
-1. Distance transform: Calculate distance from each tissue voxel to nearest boundary (background)
-2. Thickness = Distance × 2
-```
+1. **Distance transform**: calculate the distance $$d$$ from each tissue voxel to the nearest boundary (background).
+2. **Thickness**: $$t = 2d$$.
 
 The algorithm uses scipy's `distance_transform_edt()` with voxel spacing sampling to account for anisotropic voxel dimensions. For each voxel within the tissue mask, the distance to the nearest boundary is computed. The thickness at each point is then defined as twice this distance, representing the full thickness of the tissue structure at that location.
 

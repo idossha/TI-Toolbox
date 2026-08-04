@@ -1168,3 +1168,113 @@ code {
     font-size: 16px;
   }
 } 
+// =============================================================================
+// MATH (KaTeX)
+// =============================================================================
+// Markdown authors write `$$...$$`; kramdown emits \(...\) inline and \[...\]
+// display, which assets/js/math.js hands to KaTeX. See that file for the
+// authoring contract.
+
+// KaTeX ships at 1.21em so its x-height matches Computer Modern. Against this
+// site's body font that reads oversized, so pull inline math back toward the
+// surrounding text while keeping it a touch larger for legibility of subscripts.
+.katex {
+  font-size: 1.06em;
+}
+
+// Inline math must never force a horizontal scrollbar on the page.
+.katex-html {
+  max-width: 100%;
+}
+
+// Display equations: a quiet, centred card so a derivation reads as a distinct
+// object rather than as another paragraph.
+.katex-display {
+  margin: $spacing-lg 0;
+  padding: 18px $spacing-md;
+  background: $light-bg;
+  border-left: 3px solid $primary-color;
+  border-radius: 0 $border-radius $border-radius 0;
+
+  // Long equations scroll inside their own box instead of widening the page.
+  // `overflow-y: hidden` would clip descenders, so give the box room instead.
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 20px;
+
+  // A slim, always-styled scrollbar is the only affordance telling the reader
+  // an equation continues past the right edge.
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba($primary-color, 0.35);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba($primary-color, 0.6);
+    }
+  }
+
+  > .katex {
+    font-size: 1.15em;
+    // Cancel KaTeX's own display centring so the flex/scroll box owns layout;
+    // text-align on the parent still centres a short equation.
+    display: block;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+// A run of consecutive display equations (a derivation) should read as one
+// block, not as separate cards with a gap between each line.
+.katex-display + .katex-display {
+  margin-top: -$spacing-sm;
+}
+
+// Math inside table cells and list items stays inline-sized.
+td .katex,
+th .katex,
+li .katex {
+  font-size: 1em;
+}
+
+// Tables that carry formulas need to scroll rather than overflow the column.
+.wiki-content table,
+.page-content-inner table {
+  td,
+  th {
+    .katex-display {
+      margin: 8px 0;
+      padding: 8px 10px;
+      background: none;
+      border-left: none;
+    }
+  }
+}
+
+// KaTeX renders an unparseable expression as red source text; make that
+// obviously broken rather than subtly odd, so it gets caught in review.
+.katex-error {
+  font-family: monospace;
+  font-size: 0.9em;
+  background: rgba(192, 57, 43, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .katex-display {
+    padding: 14px 12px 16px;
+    margin: $spacing-md 0;
+
+    > .katex {
+      font-size: 1em;
+    }
+  }
+}

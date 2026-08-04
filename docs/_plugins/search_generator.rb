@@ -23,6 +23,7 @@ module Jekyll
           # Clean content for search
           clean_content = content.gsub(/<!--.*?-->/m, '') # Remove HTML comments
           clean_content = clean_content.gsub(/\{%.*?%\}/m, '') # Remove Liquid tags
+          clean_content = clean_content.gsub(/\$\$.*?\$\$/m, ' ') # Remove LaTeX math (source is noise in a snippet)
           clean_content = clean_content.gsub(/<[^>]*>/, '') # Remove HTML tags
           clean_content = clean_content.gsub(/\s+/, ' ') # Normalize whitespace
           clean_content = clean_content.strip

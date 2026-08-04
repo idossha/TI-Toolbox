@@ -135,7 +135,7 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 
 - **Single Threshold**: Binary classification where field must be below threshold in non-ROI and above threshold in ROI
 - **Dual Thresholds**: Independent thresholds for each region, allowing asymmetric optimization constraints
-- **Derived Thresholds**: `thresholds` always takes explicit numeric values -- there is no in-loop adaptation. `"dynamic"`/`"auto"` are placeholders meaning "do not set a threshold; let SimNIBS use its own static default," and the ROC-based objective path raises an error if no explicit numeric threshold is available. The workable pattern is an offline two-pass procedure: run a `mean` TI<sub>max</sub> pass first, then derive the ROI/non-ROI thresholds from its field distribution and feed them into a `focality` run, as described below.
+- **Derived Thresholds**: `thresholds` always takes explicit numeric values -- there is no in-loop adaptation. `"dynamic"`/`"auto"` are placeholders meaning "do not set a threshold; let SimNIBS use its own static default," and the ROC-based objective path raises an error if no explicit numeric threshold is available. The workable pattern is an offline two-pass procedure: run a `mean` $$\mathrm{TI}_{\max}$$ pass first, then derive the ROI/non-ROI thresholds from its field distribution and feed them into a `focality` run, as described below.
 
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
 
@@ -145,13 +145,17 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 
 The `focality_tf` goal targets the same objective as the ROC goal above -- concentrate the field in the ROI and keep it out of the non-ROI -- without asking the user to commit to a field threshold in advance. Instead of counting elements above and below a cutoff, it scores the ratio of the ROI field to the upper tail of the non-ROI field:
 
-**focality_tf** = mean(E<sub>ROI</sub>)<sup>1+w</sup> / p95(E<sub>non-ROI</sub>)
+$$
+\texttt{focality\_tf} =
+\frac{\operatorname{mean}\!\left( E_{\mathrm{ROI}} \right)^{\,1+w}}
+     {p_{95}\!\left( E_{\text{non-ROI}} \right)}
+$$
 
 Larger is better; the optimizer minimizes its negative. The denominator uses the 95th percentile rather than the mean or the maximum, so the score is driven by the hot spots that actually matter for off-target stimulation while staying insensitive to a handful of extreme elements.
 
 ### The Intensity Weight
 
-The exponent `w` is the `intensity_weight` parameter (range `[0, 1]`, default `0.0`) and controls the trade-off between focality and on-target strength:
+The exponent $$w$$ is the `intensity_weight` parameter (range $$[0, 1]$$, default `0.0`) and controls the trade-off between focality and on-target strength:
 
 - **`intensity_weight = 0.0`** -- balanced "tail" form. The ROI field enters linearly, so a montage that halves the off-target field is worth as much as one that doubles the on-target field. This is the default.
 - **`intensity_weight = 1.0`** -- intensity-first. The ROI field is squared, so the objective strongly prefers solutions that deliver field to the target even at the cost of some spread.
@@ -177,7 +181,7 @@ That does not make it failure-proof, though -- a scale-free ratio objective trad
 | **What is scored**                            | ROC separation of ROI and non-ROI elements at the chosen cutoff                                                                    | mean ROI field over the 95th percentile of the non-ROI field                                                 |
 | **Behavior at deep targets**                  | Can degenerate to a flat landscape if the thresholds are jointly infeasible                                                        | Stays graded; always ranks candidates                                                                        |
 | **Intensity trade-off**                       | Implicit in the threshold choice                                                                                                   | Explicit via `intensity_weight`                                                                              |
-| **Use when**                                  | You have a threshold you can defend and that the target can actually reach -- e.g. derived from a prior mean TI<sub>max</sub> pass | You do not want to commit to a threshold up front, or the target is deep enough that feasibility is in doubt |
+| **Use when**                                  | You have a threshold you can defend and that the target can actually reach -- e.g. derived from a prior mean $$\mathrm{TI}_{\max}$$ pass | You do not want to commit to a threshold up front, or the target is deep enough that feasibility is in doubt |
 | **Worst case over 15 subject-target cells**\* | Min AUC 0.282; min ROI mean 0.015 V/m                                                                                              | Min AUC 0.783; min ROI mean 0.084 V/m                                                                        |
 | **Dose guarantee**                            | Not guaranteed -- always check ROI mean                                                                                            | Not guaranteed -- always check ROI mean                                                                      |
 
@@ -207,7 +211,7 @@ Read every number in this section with these in mind:
 | **`focality_tf` (w = 0) -- shipped** | **0.889 ± 0.056** | **0.276 ± 0.124** | 0.159 ± 0.075      | 1.776 ± 0.255  | 27.8 ± 29.0                  | 1.051 ± 0.088 |
 | threshold-free: intensity-weighted   | 0.828 ± 0.066     | 0.481 ± 0.083     | 0.301 ± 0.053      | 1.632 ± 0.356  | 74.7 ± 16.4                  | 0.846 ± 0.093 |
 
-**Correction: the "intensity-weighted" row above is not `intensity_weight = 1.0`.** That study arm maximized `mean(E_ROI)^2 / mean(E_non-ROI)` -- a **mean** in the denominator. The shipped `focality_tf` at `w = 1.0` computes `mean(E_ROI)^(1+w) / p95(E_non-ROI)` -- a **95th-percentile** denominator (see [The Intensity Weight](#the-intensity-weight) above and `threshold_free_focality` in `tit/opt/flex/objectives.py`). Do not read the row above as "what `intensity_weight = 1.0` gives" in the shipped code; no `w > 0` run of the actual shipped objective was included in this study.
+**Correction: the "intensity-weighted" row above is not `intensity_weight = 1.0`.** That study arm maximized $$\operatorname{mean}(E_{\mathrm{ROI}})^{2} / \operatorname{mean}(E_{\text{non-ROI}})$$ -- a **mean** in the denominator. The shipped `focality_tf` at $$w = 1.0$$ computes $$\operatorname{mean}(E_{\mathrm{ROI}})^{1+w} / p_{95}(E_{\text{non-ROI}})$$ -- a **95th-percentile** denominator (see [The Intensity Weight](#the-intensity-weight) above and `threshold_free_focality` in `tit/opt/flex/objectives.py`). Do not read the row above as "what `intensity_weight = 1.0` gives" in the shipped code; no $$w > 0$$ run of the actual shipped objective was included in this study.
 
 ### Reliability
 
@@ -249,7 +253,7 @@ That guarantee is about the _objective value_ only. It is not a guarantee about 
 
 ### Why the Split Matters
 
-The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is `2 * min(|E1|, |E2|)`. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Because the FEM is linear, a per-channel rescale is enough to evaluate any split without a new solve (Lee et al. 2022). Published TI optima are rarely the 1:1 split that flex-search fixes by default (Lee et al. 2020; Inoue et al. 2025, n = 60), so leaving the split fixed gives up a free axis of the search space.
+The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is $$2 \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right)$$. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Because the FEM is linear, a per-channel rescale is enough to evaluate any split without a new solve (Lee et al. 2022). Published TI optima are rarely the 1:1 split that flex-search fixes by default (Lee et al. 2020; Inoue et al. 2025, n = 60), so leaving the split fixed gives up a free axis of the search space.
 
 <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
 

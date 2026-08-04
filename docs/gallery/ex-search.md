@@ -15,7 +15,7 @@ permalink: /gallery/ex-search/
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
-      <p>All electrode combinations to be searched through n^4 combinations.</p>
+      <p>All electrode combinations to be searched through \(n^4\) combinations.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png" alt="Ex-Search Distribution" onclick="openLightbox(this)" />

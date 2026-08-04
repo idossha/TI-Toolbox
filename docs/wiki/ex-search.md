@@ -32,12 +32,12 @@ Electrodes are pre-assigned to specific channels:
 - **E2+**: Electrodes for positive channel 2
 - **E2-**: Electrodes for negative channel 2
 
-**Combinations**: N₁ × N₂ × N₃ × N₄ (where N = electrodes per bucket)
+**Combinations**: $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$.
 
 ### Pooled Mode (New)
 All electrodes are pooled together and can be assigned to any channel position, with the constraint that each electrode is used only once per montage.
 
-**Combinations**: C(N,4) × 4! (where N = total electrodes, C = combinations)
+**Combinations**: $$\binom{N}{4} \times 4!$$, where $$N$$ is the total number of electrodes -- every 4-electrode subset in every channel assignment.
 
 **Trade-off**: Larger search space and longer compute time but with absolute certainty to find optimal solution with given electrode space.
 
@@ -122,9 +122,9 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 ```
 
 ### 4. Exhaustive Search Algorithm
-- **Electrode Combinations**: N⁴ combinations where N is electrodes per channel group
+- **Electrode Combinations**: $$N^4$$ combinations, where $$N$$ is the number of electrodes per channel group
 - **Current Ratios**: Systematic testing across user-defined current steps
-- **Total Combinations**: `electrode_combinations × current_ratios`
+- **Total Combinations**: $$N_{\text{electrode combinations}} \times N_{\text{current ratios}}$$
 - **In-Memory Processing**: No intermediate mesh files, direct field extraction
 - **Progress Tracking**: Real-time monitoring with ETA calculations
 

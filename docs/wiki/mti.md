@@ -33,33 +33,57 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
 
 ## Field Math and Critical Values
 
-The envelope for any number of coherent-beat electrode pairs reduces to two sufficient statistics of the fields' projections onto a candidate direction `n`:
+The envelope for any number of coherent-beat electrode pairs reduces to two sufficient statistics of the fields' projections onto a candidate direction $$\mathbf{n}$$. For pair $$k$$, the signed projections of its two carrier fields are
 
-```
-a_k = E_ka . n,  b_k = E_kb . n            (signed projections, pair k)
+$$
+a_k = \mathbf{E}_{ka} \cdot \mathbf{n},
+\qquad
+b_k = \mathbf{E}_{kb} \cdot \mathbf{n}
+$$
 
-P = 0.5 * sum_k (a_k^2 + b_k^2)             carrier power
-Q = | sum_k a_k * b_k * exp(i*psi_k) |      coherent phasor sum
+from which the carrier power $$P$$ and the coherent phasor sum $$Q$$ follow:
 
-MD = sqrt(2) * ( sqrt(P+Q) - sqrt(P-Q) )    modulation depth
-```
+$$
+P = \frac{1}{2} \sum_k \left( a_k^2 + b_k^2 \right),
+\qquad
+Q = \left\lvert \sum_k a_k b_k \, e^{i \psi_k} \right\rvert
+$$
 
-`psi_k` is a per-pair envelope phase offset (radians), `None` by default (all pairs phase-aligned, `psi_k=0`, the standard case). `P-Q` and `P+Q` are clamped to `>= 0` before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly five functions:
+and the modulation depth is
+
+$$
+\mathrm{MD} = \sqrt{2} \left( \sqrt{P + Q} - \sqrt{P - Q} \right)
+$$
+
+$$\psi_k$$ is a per-pair envelope phase offset (radians), `None` by default (all pairs phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly five functions:
 
 | Function | Purpose |
 |---|---|
-| `get_TI_vectors(E1, E2)` | Exact K=1 closed form (2 pairs) |
-| `get_mTI_vectors(fields, channels=None, psi=None)` | K >= 1 envelope; the verified N>2 replacement |
+| `get_TI_vectors(E1, E2)` | Exact $$K = 1$$ closed form (2 pairs) |
+| `get_mTI_vectors(fields, channels=None, psi=None)` | $$K \ge 1$$ envelope; the verified $$N > 2$$ replacement |
 | `get_TI_avg(fields, channels=None, psi=None)` | Direction-averaged modulation depth |
-| `get_magnitude_am(fields)` | Direction-free AM envelope of `‖E(t)‖` (Botzanowski et al. 2025) |
+| `get_magnitude_am(fields)` | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
 | `get_nTI_vectors(fields)` | **Deprecated.** Delegates to `get_mTI_vectors` |
 
-**`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]`, 2K arrays of shape `(N, 3)`, and returns `(N, 3)` modulation-amplitude vectors whose norm is `MD`.
+**`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]`, $$2K$$ arrays of shape `(N, 3)`, and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
 
-- **K=1** dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, sign-agnostic): when `min(|E1|,|E2|) <= sqrt(|E1.E2|)`, `MD = 2*min(|E1|,|E2|)` along the smaller field's own (sign-corrected) direction; otherwise `MD = 2*|E1 x E2| / min(|E1-E2|, |E1+E2|)`, evaluated at the component of the smaller field perpendicular to whichever of `E1-E2`/`E1+E2` has the smaller norm. No direction search is needed at K=1.
-- **K>=2** has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle `2.0/sqrt(192)` radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise `<= TI_max`.
+- **$$K = 1$$** dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, sign-agnostic):
 
-**`get_nTI_vectors` is deprecated and physically invalid for N>2.** It represents the old approach of recombining pairwise envelopes recursively -- `TI(TI(E1,E2), TI(E3,E4), ...)` -- feeding an already-modulated envelope vector back into a formula that was derived only for two carrier fields. Measured against the verified envelope on random fields, this recursive form has a signed mean error of **+38.6% (range -90% to +416%) at N=4**, and **+103% at N=8**. Calling it emits a `DeprecationWarning` and delegates to `get_mTI_vectors` -- so the deprecated call still returns the correct answer, it just should not be relied on for its own (wrong) formula going forward.
+  $$
+  \mathrm{MD} =
+  \begin{cases}
+  2 \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right)
+    & \text{if } \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right) \le \sqrt{\lvert \mathbf{E}_1 \cdot \mathbf{E}_2 \rvert} \\[8pt]
+  \dfrac{2 \lVert \mathbf{E}_1 \times \mathbf{E}_2 \rVert}
+        {\min\!\left( \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert \right)}
+    & \text{otherwise}
+  \end{cases}
+  $$
+
+  In the first case the envelope lies along the smaller field's own (sign-corrected) direction; in the second it is evaluated at the component of the smaller field perpendicular to whichever of $$\mathbf{E}_1 - \mathbf{E}_2$$ / $$\mathbf{E}_1 + \mathbf{E}_2$$ has the smaller norm. No direction search is needed at $$K = 1$$.
+- **$$K \ge 2$$** has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
+
+**`get_nTI_vectors` is deprecated and physically invalid for $$N > 2$$.** It represents the old approach of recombining pairwise envelopes recursively -- $$\mathrm{TI}\!\left( \mathrm{TI}(\mathbf{E}_1, \mathbf{E}_2), \mathrm{TI}(\mathbf{E}_3, \mathbf{E}_4), \ldots \right)$$ -- feeding an already-modulated envelope vector back into a formula that was derived only for two carrier fields. Measured against the verified envelope on random fields, this recursive form has a signed mean error of **+38.6% (range -90% to +416%) at $$N = 4$$**, and **+103% at $$N = 8$$**. Calling it emits a `DeprecationWarning` and delegates to `get_mTI_vectors` -- so the deprecated call still returns the correct answer, it just should not be relied on for its own (wrong) formula going forward.
 
 ## Carrier Wiring (Channels)
 
@@ -69,7 +93,7 @@ By default, `get_mTI_vectors`/`get_TI_avg` pair fields **positionally**: field 0
 channels = [(group_a, group_b), ...]
 ```
 
-Each channel is a `(group_a, group_b)` pair of integer indices into `fields`. Per channel, `E_a = sum(fields[i] for i in group_a)` and `E_b = sum(fields[i] for i in group_b)` (an empty `group_b` sums to zeros -- a non-beating carrier that contributes to `P` but not `Q`). The summed pairs from all channels are concatenated in channel order and fed to the same K-pair envelope. `channels=None` reproduces positional consecutive pairing byte-identically -- it is not an approximation of the explicit form, it *is* the explicit form `[([0],[1]), ([2],[3]), ...]`.
+Each channel is a `(group_a, group_b)` pair of integer indices into `fields`. Per channel, $$\mathbf{E}_a = \sum_{i \in \texttt{group\_a}} \mathbf{E}_i$$ and $$\mathbf{E}_b = \sum_{i \in \texttt{group\_b}} \mathbf{E}_i$$ (an empty `group_b` sums to zeros -- a non-beating carrier that contributes to $$P$$ but not $$Q$$). The summed pairs from all channels are concatenated in channel order and fed to the same K-pair envelope. `channels=None` reproduces positional consecutive pairing byte-identically -- it is not an approximation of the explicit form, it *is* the explicit form `[([0],[1]), ([2],[3]), ...]`.
 
 For a 4-pair montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes two named choices:
 
@@ -78,7 +102,7 @@ For a 4-pair montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes 
 | Two independent channels (default) | `None` | Pairs 1&2 form one TI channel, pairs 3&4 form a second, independent TI channel |
 | Four pairs, two carriers | `[([0, 2], [1, 3])]` | All four pairs share two carriers -- pairs 1&3 vs. 2&4 (Lee et al. 2022) |
 
-`channels=[([0, 2], [1, 3])]` is algebraically exactly `get_TI_vectors(E0+E2, E1+E3)` -- summing carriers before taking the K=1 envelope, rather than taking a 4-pair envelope over four independent carriers. The two wirings are **not** interchangeable. The toolbox's regression test on random fields (`tests/test_calc_mti.py`) asserts that they differ by more than 5% in over half of all mesh elements; the figure recorded alongside that assertion for the montage tested is about 92% of elements, and the GUI help text notes differences of up to 6x in places.
+`channels=[([0, 2], [1, 3])]` is algebraically exactly $$\mathrm{TI}\!\left( \mathbf{E}_0 + \mathbf{E}_2, \; \mathbf{E}_1 + \mathbf{E}_3 \right)$$ -- summing carriers before taking the $$K = 1$$ envelope, rather than taking a 4-pair envelope over four independent carriers. The two wirings are **not** interchangeable. The toolbox's regression test on random fields (`tests/test_calc_mti.py`) asserts that they differ by more than 5% in over half of all mesh elements; the figure recorded alongside that assertion for the montage tested is about 92% of elements, and the GUI help text notes differences of up to 6x in places.
 
 **Important:** `Montage.channels` can only be set from a `tit.sim` JSON config or directly in Python (`tit/sim/__main__.py:_build_channels`). `load_montages` never reads a `channels` value from `montage_list.json`, and `tit/gui/simulator_tab.py` never sets `Montage.channels` at all -- so **every mTI simulation launched from the GUI runs with `channels=None` (positional/independent-dyad pairing)**. The mex-search tab's "Carrier Wiring" combo (see [GUI Walkthrough](#gui-walkthrough)) is the one place in the GUI that does expose this choice, but only for mex-search candidates, not for simulator runs.
 
@@ -99,7 +123,7 @@ On disk, the mTI mesh spells the modulation-depth field `TI_Max` (capital M) -- 
 mTI supports an arbitrary even number of pairs, **capped at 26** (A-Z pair labelling); more than 26 pairs raises `ValueError`. Post-processing:
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
-2. Computes intermediate 2-pair TI vector fields for adjacent pairs (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain K=1 `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
+2. Computes intermediate 2-pair TI vector fields for adjacent pairs (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain $$K = 1$$ `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
 3. Computes the final envelope over all N carrier fields jointly via `get_mTI_vectors(e_fields, channels=montage.channels)`, written as `TI_Max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
 4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
 
@@ -120,9 +144,22 @@ Per-pair high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved
 
 Two carrier-exposure safety metrics (`tit/fields.py`, Cassarà et al. 2025) are computed directly from the N per-pair carrier E-fields, independent of the modulation-depth envelope:
 
-**`hf_peak`** (Eq. 3) is the worst-case instantaneous peak carrier field: carriers run at mutually incommensurate frequencies, so every relative phase combination occurs over time, and the true worst case is the max over sign choices, `max_s |sum_i s_i * E_i|` for `s_i in {+1,-1}`. At N=2 this is exactly `max(|E1+E2|, |E1-E2|)`. Up to `EXACT_SIGN_ENUM_MAX_FIELDS = 8` fields, this is solved by exact sign enumeration (`2^(N-1)` combinations -- 128 at N=8). Above 8 fields the combinatorics blow up (measured ~44.6s for N=12's 2048 combinations at 200k elements vs. ~2.0s at N=8), so a `4000`-direction Fibonacci-sphere sweep picks the best-sampled support direction and evaluates the exact, realizable vector sum for the sign pattern it implies. This sweep fallback is still a lower bound on the true max over all `2^(N-1)` sign combinations -- since only the sampled directions' implied patterns are tried -- and is therefore **slightly non-conservative**.
+**`hf_peak`** (Eq. 3) is the worst-case instantaneous peak carrier field: carriers run at mutually incommensurate frequencies, so every relative phase combination occurs over time, and the true worst case is the max over sign choices,
 
-**`hf_sar`** is `sum_i |E_i|^2` in `(V/m)^2` -- carriers are incoherent, so their power adds rather than their amplitudes. This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is `(sigma / 2*rho) * hf_sar`, requiring per-tissue conductivity and density that the toolbox does not apply.
+$$
+\mathrm{hf\_peak} = \max_{\mathbf{s}} \left\lVert \sum_i s_i \mathbf{E}_i \right\rVert,
+\qquad s_i \in \{ +1, -1 \}
+$$
+
+At $$N = 2$$ this is exactly $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$. Up to `EXACT_SIGN_ENUM_MAX_FIELDS = 8` fields, this is solved by exact sign enumeration ($$2^{N-1}$$ combinations -- 128 at $$N = 8$$). Above 8 fields the combinatorics blow up (measured ~44.6s for $$N = 12$$'s 2048 combinations at 200k elements vs. ~2.0s at $$N = 8$$), so a `4000`-direction Fibonacci-sphere sweep picks the best-sampled support direction and evaluates the exact, realizable vector sum for the sign pattern it implies. This sweep fallback is still a lower bound on the true max over all $$2^{N-1}$$ sign combinations -- since only the sampled directions' implied patterns are tried -- and is therefore **slightly non-conservative**.
+
+**`hf_sar`** is the incoherent sum of carrier powers, in $$(\mathrm{V/m})^2$$ -- carriers are incoherent, so their power adds rather than their amplitudes:
+
+$$
+\mathrm{hf\_sar} = \sum_i \lVert \mathbf{E}_i \rVert^2
+$$
+
+This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
 
 Both metrics always sum over **every** carrier field regardless of `channels` -- carrier exposure does not depend on how pairs are grouped into TI channels for the envelope -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
 
@@ -163,7 +200,7 @@ Optional fields and their exact defaults:
 ### Candidate enumeration
 
 - **Bucket mode** (default): the full Cartesian product of the eight buckets, keeping only tuples where all 8 electrode names are distinct (`len(set(electrodes)) == 8`).
-- **Pool mode** (`PoolElectrodes`, `all_combinations=True`): `itertools.permutations(pool, 8)`. A pool of exactly 8 electrodes yields `8! = 40,320` candidates.
+- **Pool mode** (`PoolElectrodes`, `all_combinations=True`): `itertools.permutations(pool, 8)`. A pool of exactly 8 electrodes yields $$8! = 40{,}320$$ candidates.
 - **Symmetric bucket search** (`symmetric_bucket=True`, bucket mode only): restricts candidates to those whose pairs mirror left/right, using a mirror map built from an EEG-position CSV (reflecting the x-coordinate across the midline). Two pairing schemes:
   - `within_pairs` (default): each pair's own `+`/`-` electrodes must mirror each other.
   - `cross_pairs`: additionally requires pair 1 <-> pair 3 and pair 2 <-> pair 4 to mirror.
@@ -179,7 +216,7 @@ For each candidate, the engine computes four leadfield fields via `TI.get_field(
 | `{roi}_TImax_ROI` | Max over ROI elements |
 | `{roi}_TImean_ROI` | Volume-weighted mean over ROI elements |
 | `{roi}_TImean_GM` | Volume-weighted mean over GM elements (SimNIBS tag `2`) |
-| `{roi}_Focality` | `TImean_ROI / TImean_GM` (`0.0` if the GM mean is `<= 0`) |
+| `{roi}_Focality` | `TImean_ROI` / `TImean_GM` (`0.0` if the GM mean is $$\le 0$$) |
 | `{roi}_n_elements` | ROI element count |
 | `current_ch1_mA` .. `current_ch4_mA` | All four set to the same `current_mA` |
 
@@ -256,4 +293,4 @@ The [Analyzer]({{ site.baseurl }}/wiki/analyzer/) detects an mTI simulation pure
 - Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. *Bioelectronic Medicine*, 11(1), 7.
 - Lee, S. et al. (2022). Multipair transcranial temporal interference stimulation for deep brain targeting. *Frontiers in Neuroscience*.
 
-The K>=2 envelope, the Fibonacci-sphere direction sampling, and `get_magnitude_am` were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`. The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from her branch `alba/ex-search-multipolar`.
+The $$K \ge 2$$ envelope, the Fibonacci-sphere direction sampling, and `get_magnitude_am` were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`. The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from her branch `alba/ex-search-multipolar`.

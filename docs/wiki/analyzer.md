@@ -156,12 +156,12 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 
 **Focality Area Metrics:**
 
-- `focality_50_area`, `focality_75_area`, `focality_90_area`, `focality_95_area`: Area/volume above X% of the 99.9th percentile value (in cm^2)
+- `focality_50_area`, `focality_75_area`, `focality_90_area`, `focality_95_area`: Area/volume above $$X\%$$ of the 99.9th percentile value (in $$\mathrm{cm}^2$$)
 
 **Size Information:**
 
 - `n_elements`: Number of mesh nodes or voxels in the ROI
-- `total_area_or_volume`: Total area (mesh, mm^2) or volume (voxel, mm^3) of the ROI
+- `total_area_or_volume`: Total area (mesh, $$\mathrm{mm}^2$$) or volume (voxel, $$\mathrm{mm}^3$$) of the ROI
 
 ---
 

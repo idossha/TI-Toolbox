@@ -4,6 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TI Field Metrics: Formulation, Literature, and Decisions</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" integrity="sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" integrity="sha384-cMkvdD8LoxVzGF/RPUKAcvmm49FQ0oxwDF3BGKtDXcEc+T1b2N+teh/OJfpU0jr6" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"></script>
+<script>
+  // Standalone page -- not built by Jekyll, so it carries its own KaTeX bootstrap.
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof renderMathInElement !== 'function') return;
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option'],
+      throwOnError: false,
+      errorColor: '#c0392b',
+      strict: false
+    });
+  });
+</script>
 </head>
 <body>
 <style>
@@ -100,11 +119,13 @@ code {
   padding: .08em .3em; border-radius: 2px;
 }
 .eq {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: .82rem; line-height: 1.85; white-space: pre; overflow-x: auto;
+  overflow-x: auto;
   margin: 1.2rem 0; padding: .2rem 0 .2rem 1.25rem;
   border-left: 1px solid var(--rule-strong); color: var(--ink);
 }
+.eq .katex-display { margin: .55rem 0; text-align: left; }
+.eq .katex-display > .katex { text-align: left; }
+.eq .katex { font-size: 1em; }
 
 /* ---- figures -------------------------------------------------------- */
 figure { margin: 1.9rem 0; }
@@ -212,8 +233,8 @@ th:last-child, td:last-child { padding-right: 0; }
       <tr><td><code>TI_avg</code></td><td>envelope depth, averaged over direction</td><td>functional</td><td>ours</td></tr>
       <tr><td><code>TI_normal</code></td><td>envelope depth along the cortical normal</td><td>functional</td><td>Grossman 2017 [1]</td></tr>
       <tr><td><code>hf_peak</code></td><td>worst-case instantaneous carrier field</td><td>safety</td><td>Cassar&agrave; 2025 Eq. 3 [3]</td></tr>
-      <tr><td><code>hf_sar</code></td><td><code>&Sigma;|E<sub>i</sub>|&sup2;</code>, heating driver</td><td>safety</td><td>Cassar&agrave; 2025 [3]</td></tr>
-      <tr><td><code>magnitude_am</code></td><td>envelope of <code>&#8214;E(t)&#8214;</code>, no direction search</td><td>opt-in</td><td>Botzanowski 2025 appendix [4]</td></tr>
+      <tr><td><code>hf_sar</code></td><td>\(\sum_i \lVert \mathbf{E}_i \rVert^2\), heating driver</td><td>safety</td><td>Cassar&agrave; 2025 [3]</td></tr>
+      <tr><td><code>magnitude_am</code></td><td>envelope of \(\lVert \mathbf{E}(t) \rVert\), no direction search</td><td>opt-in</td><td>Botzanowski 2025 appendix [4]</td></tr>
     </tbody>
   </table>
   </div>
@@ -228,29 +249,43 @@ th:last-child, td:last-child { padding-right: 0; }
 
 <section>
   <h2><span class="n">2</span>Two numbers generate the envelope family</h2>
-  <p>Project the per-pair fields onto a candidate direction <code>n</code>, and write
-  <code>a<sub>k</sub></code>, <code>b<sub>k</sub></code> for the signed projections of
-  pair <em>k</em>. Two quantities are sufficient:</p>
+  <p>Project the per-pair fields onto a candidate direction \(\mathbf{n}\), and write
+  \(a_k\), \(b_k\) for the signed projections of
+  pair \(k\). Two quantities are sufficient:</p>
 
-  <div class="eq">P = &frac12; &Sigma;<sub>i</sub> (E<sub>i</sub>&middot;n)&sup2;        carrier power
-Q = |&Sigma;<sub>k</sub> a<sub>k</sub> b<sub>k</sub> e^(i&psi;<sub>k</sub>)|     coherent pair coupling</div>
+  <div class="eq">
+    \[
+    P = \tfrac{1}{2} \sum_i \left( \mathbf{E}_i \cdot \mathbf{n} \right)^2
+    \quad \text{(carrier power)}
+    \]
+    \[
+    Q = \left\lvert \sum_k a_k b_k \, e^{i\psi_k} \right\rvert
+    \quad \text{(coherent pair coupling)}
+    \]
+  </div>
 
   <p>Every envelope quantity is a function of that pair:</p>
 
-  <div class="eq">modulation depth  =  &radic;2 ( &radic;(P+Q) &minus; &radic;(P&minus;Q) )
-envelope peak     =  &radic;(2(P+Q))
-RMS               =  &radic;P</div>
+  <div class="eq">
+    \[
+    \begin{aligned}
+    \text{modulation depth} &= \sqrt{2} \left( \sqrt{P+Q} - \sqrt{P-Q} \right) \\[2pt]
+    \text{envelope peak}    &= \sqrt{2(P+Q)} \\[2pt]
+    \text{RMS}              &= \sqrt{P}
+    \end{aligned}
+    \]
+  </div>
 
   <p>Three consequences decided most of the API. <strong>RMS is not a new metric</strong>
-  &mdash; <code>RMS&sup2; &equiv; P &equiv; hf_sar/2</code>, exactly; a vector RMS is
+  &mdash; \(\mathrm{RMS}^2 \equiv P \equiv \mathrm{hf\_sar}/2\), exactly; a vector RMS is
   meaningless besides, since heating is isotropic. <strong>The envelope trough is
-  free</strong> &mdash; <code>env_min = env_max &minus; depth</code> to
-  4&times;10<sup>&minus;16</sup>. <strong>The modulation index adds little</strong>
-  &mdash; <code>(max&minus;min)/(max+min)</code> correlates 0.88 with depth and is
+  free</strong> &mdash; \(\mathrm{env\_min} = \mathrm{env\_max} - \mathrm{depth}\) to
+  \(4 \times 10^{-16}\). <strong>The modulation index adds little</strong>
+  &mdash; \((\max - \min)/(\max + \min)\) correlates 0.88 with depth and is
   derivable after the fact.</p>
 
-  <p>At a single pair the depth formula collapses to <code>2&middot;min(|a|,|b|)</code>
-  &mdash; the Grossman closed form &mdash; to 5&times;10<sup>&minus;13</sup>. The general
+  <p>At a single pair the depth formula collapses to \(2\min(\lvert a \rvert, \lvert b \rvert)\)
+  &mdash; the Grossman closed form &mdash; to \(5 \times 10^{-13}\). The general
   form is not a rival theory; it is the same one, written so it survives past two
   carriers.</p>
 </section>
@@ -267,11 +302,11 @@ RMS               =  &radic;P</div>
     envelope depth maximized over direction.</caption>
     <thead><tr><th>As published</th><th>Form</th><th>What differs</th></tr></thead>
     <tbody>
-      <tr><td>Grossman 2017 [1]</td><td><code>2|E<sub>2</sub>|</code> or <code>2|E<sub>2</sub>&times;(E<sub>1</sub>&minus;E<sub>2</sub>)|/|E<sub>1</sub>&minus;E<sub>2</sub>|</code></td><td>the original; needs <code>|E<sub>1</sub>|&gt;|E<sub>2</sub>|</code> relabelling</td></tr>
-      <tr><td>Hirata 2024 [2]</td><td><code>2min{|E<sub>1</sub>|,|E<sub>2</sub>|}</code> or <code>2|E<sub>1</sub>&times;E<sub>2</sub>|/min{|E<sub>1</sub>&minus;E<sub>2</sub>|,|E<sub>1</sub>+E<sub>2</sub>|}</code></td><td>symmetric &mdash; removes the relabelling, keeps the two cases</td></tr>
-      <tr><td>Huang &amp; Parra; Meng 2025 [5]</td><td><code>2&middot;max<sub>&theta;</sub> min(|E<sub>1</sub>||cos&theta;|, |E<sub>2</sub>||cos(&theta;&minus;&beta;)|)</code></td><td>same value found by 1-D numerical search</td></tr>
+      <tr><td>Grossman 2017 [1]</td><td>\(2\lVert \mathbf{E}_2 \rVert\) or \(2\lVert \mathbf{E}_2 \times (\mathbf{E}_1 - \mathbf{E}_2) \rVert / \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert\)</td><td>the original; needs \(\lVert \mathbf{E}_1 \rVert > \lVert \mathbf{E}_2 \rVert\) relabelling</td></tr>
+      <tr><td>Hirata 2024 [2]</td><td>\(2\min\{\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert\}\) or \(2\lVert \mathbf{E}_1 \times \mathbf{E}_2 \rVert / \min\{\lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert\}\)</td><td>symmetric &mdash; removes the relabelling, keeps the two cases</td></tr>
+      <tr><td>Huang &amp; Parra; Meng 2025 [5]</td><td>\(2 \max_{\theta} \min\left( \lVert \mathbf{E}_1 \rVert \lvert \cos\theta \rvert, \; \lVert \mathbf{E}_2 \rVert \lvert \cos(\theta - \beta) \rvert \right)\)</td><td>same value found by 1-D numerical search</td></tr>
       <tr><td>Corazza 2025 [6]</td><td>closed form, formally proved equal to Grossman</td><td>proves the equivalence; adds the argmax <em>direction</em></td></tr>
-      <tr><td>Botzanowski 2025 directional [4]</td><td>the (P,Q) form above</td><td>generalizes past two pairs</td></tr>
+      <tr><td>Botzanowski 2025 directional [4]</td><td>the \((P, Q)\) form above</td><td>generalizes past two pairs</td></tr>
       <tr><td>Cassar&agrave; 2025 Eq. 2 [3]</td><td>Grossman, restated</td><td>none</td></tr>
     </tbody>
   </table>
@@ -296,7 +331,7 @@ RMS               =  &radic;P</div>
       <tr><td>direction: fixed</td><td>along an anatomical axis</td><td><code>TI_normal</code></td></tr>
       <tr><td>direction: averaged</td><td>orientation robustness</td><td><code>TI_avg</code></td></tr>
       <tr><td>direction: secondary max</td><td>a second local maximum in another direction</td><td><strong>no</strong> [6]</td></tr>
-      <tr><td>envelope of magnitude</td><td>modulation of <code>&#8214;E&#8214;</code>, not of a projection</td><td><code>magnitude_am</code></td></tr>
+      <tr><td>envelope of magnitude</td><td>modulation of \(\lVert \mathbf{E} \rVert\), not of a projection</td><td><code>magnitude_am</code></td></tr>
       <tr><td>carrier peak</td><td>instantaneous worst case</td><td><code>hf_peak</code></td></tr>
       <tr><td>carrier power</td><td>heating</td><td><code>hf_sar</code></td></tr>
       <tr><td>envelope slope</td><td>rate of change, not height</td><td><strong>no</strong> [7]</td></tr>
@@ -378,7 +413,7 @@ RMS               =  &radic;P</div>
     <caption><span class="lbl">Table 5.</span> Multipolar architectures.</caption>
     <thead><tr><th></th><th>Method</th><th>Used by</th></tr></thead>
     <tbody>
-      <tr><td><strong>A</strong></td><td>every pair assigned to <code>f<sub>1</sub></code> or <code>f<sub>2</sub></code>; sum same-frequency fields linearly, then take the envelope <em>once</em></td><td>Lee 2022 [17], up to 10 pairs; Savvateev 2025 tripole [18]</td></tr>
+      <tr><td><strong>A</strong></td><td>every pair assigned to \(f_1\) or \(f_2\); sum same-frequency fields linearly, then take the envelope <em>once</em></td><td>Lee 2022 [17], up to 10 pairs; Savvateev 2025 tripole [18]</td></tr>
       <tr><td><strong>B</strong></td><td>independent dyads, carriers separated by &ge;1 kHz</td><td>Acerbo 2023 / Botzanowski [4,&nbsp;19]</td></tr>
       <tr><td><strong>C</strong></td><td>recursive envelope-of-envelopes</td><td><em>nobody</em></td></tr>
     </tbody>
@@ -395,7 +430,7 @@ RMS               =  &radic;P</div>
     <p><span class="lbl">Open gap.</span> Our API takes a list of fields and pairs them
     positionally, which assumes architecture B. Carrier-frequency assignment is never an
     input, so a Lee-style montage &mdash; where the correct computation is
-    <code>get_TI_vectors(E<sub>1</sub>+E<sub>3</sub>, E<sub>2</sub>+E<sub>4</sub>)</code>
+    <code>get_TI_vectors</code>\(\left( \mathbf{E}_1 + \mathbf{E}_3, \; \mathbf{E}_2 + \mathbf{E}_4 \right)\)
     &mdash; would be computed as if it were four independent channels. This is a
     correctness hazard, not a documentation gap, and it is the same missing input needed
     to express a carrier-only field.</p>
@@ -405,7 +440,7 @@ RMS               =  &radic;P</div>
 <section>
   <h2><span class="n">7</span>Current ratio: separating envelope from exposure</h2>
   <p>Because the envelope is set by the <em>weaker</em> field,
-  <code>2&middot;min(|E<sub>1</sub>|,|E<sub>2</sub>|)</code>, raising only the stronger
+  \(2\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)\), raising only the stronger
   carrier leaves it untouched while raising exposure. That is exact, not approximate.</p>
 
   <figure>
@@ -419,7 +454,7 @@ RMS               =  &radic;P</div>
   <table>
     <caption><span class="lbl">Table 6.</span> Four conditions, recomputed through the
     shipped code.</caption>
-    <thead><tr><th>Condition</th><th>Envelope</th><th>hf_peak</th><th>RMS &radic;P</th><th>Mixing Q</th></tr></thead>
+    <thead><tr><th>Condition</th><th>Envelope</th><th>hf_peak</th><th>RMS \(\sqrt{P}\)</th><th>Mixing Q</th></tr></thead>
     <tbody>
       <tr><td>2/2 mA</td><td class="num">0.400</td><td class="num">0.400</td><td class="num">0.200</td><td class="num">0.040</td></tr>
       <tr><td>2/8 mA</td><td class="num">0.400</td><td class="num">1.000</td><td class="num">0.583</td><td class="num">0.160</td></tr>
@@ -439,7 +474,7 @@ RMS               =  &radic;P</div>
 
   <div class="note">
     <p><span class="lbl">Caveat.</span> These ratios are injected currents. Holding
-    <code>min(|E<sub>1</sub>|,|E<sub>2</sub>|)</code> fixed <em>at the target</em> means
+    \(\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)\) fixed <em>at the target</em> means
     solving for the currents that do so through the lead field &mdash; 5:8 at the scalp
     does not give 5:8 in the thalamus. The toolbox can compute this per subject, and
     should, before conditions are fixed.</p>
@@ -480,7 +515,12 @@ RMS               =  &radic;P</div>
   </figure>
 
   <p>Adding carrier power at fixed coupling strictly reduces the envelope, since</p>
-  <div class="eq">&part;(depth)/&part;P  =  (&radic;2/2) [ 1/&radic;(P+Q) &minus; 1/&radic;(P&minus;Q) ]  &lt;  0</div>
+  <div class="eq">
+    \[
+    \frac{\partial (\text{depth})}{\partial P}
+    = \frac{\sqrt{2}}{2} \left[ \frac{1}{\sqrt{P+Q}} - \frac{1}{\sqrt{P-Q}} \right] < 0
+    \]
+  </div>
   <p>Because <code>get_mTI_vectors</code> is built on the (P,Q) form, <strong>the shipped
   <code>TI_max</code> already predicts thinning</strong>. That is a scientific position
   embedded in the implementation, not a neutral calculation, and it should be stated
@@ -497,7 +537,7 @@ RMS               =  &radic;P</div>
     <thead><tr><th>Candidate</th><th>Verdict</th><th>Reason</th></tr></thead>
     <tbody>
       <tr><td>RMS / mean-square</td><td class="v">Redundant</td><td>identically <code>hf_sar/2</code></td></tr>
-      <tr><td>Modulation index <code>1&minus;min/max</code></td><td class="v">Redundant</td><td>0.88 correlated with depth; derivable</td></tr>
+      <tr><td>Modulation index \(1 - \min/\max\)</td><td class="v">Redundant</td><td>0.88 correlated with depth; derivable</td></tr>
       <tr><td>Envelope minimum</td><td class="v">Redundant</td><td>free from the two stored fields</td></tr>
       <tr><td>Huang&ndash;Parra / Meng iterative max&ndash;min</td><td class="v">Redundant</td><td>the same value our closed form returns</td></tr>
       <tr><td>Botzanowski directional AM</td><td class="v">Redundant</td><td>algebraically our <code>TI_max</code></td></tr>
