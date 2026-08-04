@@ -17,6 +17,7 @@ tit.opt.flex.builder : SimNIBS object construction used internally.
 
 import logging
 import os
+import re
 import shutil
 import time
 from pathlib import Path
@@ -197,6 +198,23 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
             shutil.copytree(src, dst)
         else:
             shutil.copy2(src, dst)
+
+    # -- Clean up the "Goal:" line in summary.txt --
+    # For callable goals (e.g. focality_tf), SimNIBS logs repr(opt.goal),
+    # which prints the raw closure object instead of a readable label.
+    summary_path = os.path.join(base_folder, "summary.txt")
+    if os.path.isfile(summary_path):
+        with open(summary_path, "r") as f:
+            summary_text = f.read()
+        summary_text = re.sub(
+            r"^Goal:(\s*).*$",
+            lambda m: f"Goal:{m.group(1)}{config.goal.value}",
+            summary_text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        with open(summary_path, "w") as f:
+            f.write(summary_text)
 
     # -- Cleanup temp subdirs --
     for folder in folders:
