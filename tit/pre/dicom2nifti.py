@@ -251,6 +251,17 @@ def _copy_sidecars(
     for suffix in suffixes:
         sidecar = source.with_name(f"{stem}{suffix}")
         if not sidecar.exists():
+            if modality == "dwi":
+                # Silence here would surface an hour into QSIPrep as an opaque
+                # DSI Studio error. The sidecar has to share the NIfTI's stem:
+                # an FSL-style `bvals`/`bvecs` pair beside `dwi.nii.gz` is not
+                # matched, and neither is a differently named series.
+                logger.warning(
+                    f"No {stem}{suffix} beside {source.name}, so no "
+                    f"{bids_name}{suffix} was written. QSIPrep cannot preprocess "
+                    "a DWI without its gradient table, and the table must carry "
+                    "the same basename as the NIfTI."
+                )
             continue
         shutil.copyfile(sidecar, output_dir / f"{bids_name}{suffix}")
         logger.info(f"Copied {sidecar.name} -> {bids_name}{suffix}")
@@ -289,7 +300,9 @@ def _reject_existing_output(output_dir: Path, bids_name: str) -> None:
             )
 
 
-def _check_dcm2niix_outputs(output_dir: Path, bids_name: str, logger) -> bool:
+def _check_dcm2niix_outputs(
+    output_dir: Path, bids_name: str, modality: str, logger
+) -> bool:
     """Confirm dcm2niix produced the expected NIfTI and flag extra series."""
     produced = sorted(path.name for path in output_dir.glob(f"{bids_name}*"))
     expected = f"{bids_name}.nii.gz"
@@ -311,6 +324,28 @@ def _check_dcm2niix_outputs(output_dir: Path, bids_name: str, logger) -> bool:
             f"and _Eq_1 (resliced). Only {expected} is used downstream — if one "
             f"of the others is the volume you want, rename it by hand."
         )
+
+    # A gradient table is written only for a series dcm2niix recognises as
+    # diffusion-weighted. Its absence means the series that won the plain BIDS
+    # name is not the diffusion acquisition -- typically a derived ADC or
+    # TRACEW map, with the real series pushed onto one of the `extra` names
+    # above. Left alone this surfaces an hour into QSIPrep as a DSI Studio
+    # "cannot find bval/bvec file".
+    if modality == "dwi":
+        missing = [
+            suffix
+            for suffix in (".bval", ".bvec")
+            if f"{bids_name}{suffix}" not in produced
+        ]
+        if missing:
+            logger.warning(
+                f"dcm2niix wrote {expected} but no {', '.join(missing)}. The "
+                f"series that became {expected} is not diffusion-weighted "
+                f"(derived ADC/TRACEW/FA maps carry no gradient table). QSIPrep "
+                f"will reject this subject — check the other converted series "
+                f"and rename the diffusion one to {bids_name}."
+            )
+
     logger.info(f"Created {expected}")
     return True
 
@@ -319,6 +354,7 @@ def _run_dcm2niix(
     input_dir: Path,
     output_dir: Path,
     bids_name: str,
+    modality: str,
     logger,
     runner: CommandRunner | None,
 ) -> bool:
@@ -352,7 +388,7 @@ def _run_dcm2niix(
         logger.warning(f"dcm2niix failed for {bids_name} (exit code {exit_code})")
         return False
 
-    return _check_dcm2niix_outputs(output_dir, bids_name, logger)
+    return _check_dcm2niix_outputs(output_dir, bids_name, modality, logger)
 
 
 def _ingest_modality(
@@ -376,7 +412,9 @@ def _ingest_modality(
     if dicom_files:
         logger.info(f"Found {len(dicom_files)} DICOM file(s) under {modality_dir}")
         _reject_existing_output(output_dir, bids_name)
-        return _run_dcm2niix(modality_dir, output_dir, bids_name, logger, runner)
+        return _run_dcm2niix(
+            modality_dir, output_dir, bids_name, modality, logger, runner
+        )
 
     nifti_files = _find_files(modality_dir, _NIFTI_SUFFIXES)
     if nifti_files:
