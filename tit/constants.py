@@ -698,6 +698,17 @@ QSI_DEFAULT_MEMORY_GB = 32
 QSI_DEFAULT_OMP_THREADS = min(max((os.cpu_count() or 2) - 1, 1), 8)
 QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
 
+# QSI DWI validation. The b=0 cutoff matches QSIPrep's own --b0-threshold
+# default, and six directions is the algebraic minimum for a diffusion tensor.
+QSI_B0_THRESHOLD = 100.0
+QSI_MIN_DWI_DIRECTIONS = 6
+
+# Written into a DWI sidecar that has no TotalReadoutTime and nothing to derive
+# one from. Only used when the subject has no fieldmap and a single
+# phase-encoding direction, where the value is a scale factor that cancels;
+# 0.05 s is the conventional FSL stand-in for that case.
+QSI_FALLBACK_TOTAL_READOUT_TIME = 0.05
+
 # QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
 

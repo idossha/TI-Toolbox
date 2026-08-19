@@ -227,13 +227,9 @@ def test_missing_dwi_input_detected_for_qsiprep(tmp_path):
     assert "requires BIDS DWI data" in problems[0].message
 
 
-def test_missing_t1_input_detected_for_qsiprep(tmp_path):
+def test_missing_t1_input_detected_for_qsiprep(tmp_path, write_dwi):
     """QSIPrep needs a T1w; without one it fails deep in the workflow."""
-    dwi_dir = tmp_path / "sub-001" / "dwi"
-    dwi_dir.mkdir(parents=True)
-    (dwi_dir / "sub-001_dir-RL_dwi.nii.gz").touch()
-    (dwi_dir / "sub-001_dir-RL_dwi.bval").touch()
-    (dwi_dir / "sub-001_dir-RL_dwi.bvec").touch()
+    write_dwi(tmp_path / "sub-001" / "dwi", stem="sub-001_dir-RL_dwi")
 
     problems = find_missing_preprocessing_inputs(
         str(tmp_path),
@@ -246,16 +242,12 @@ def test_missing_t1_input_detected_for_qsiprep(tmp_path):
     assert "requires a BIDS T1w image" in problems[0].message
 
 
-def test_present_dwi_input_allows_qsiprep(tmp_path):
+def test_present_dwi_input_allows_qsiprep(tmp_path, write_dwi):
     """DWI files may carry extra BIDS entities like dir-RL."""
     anat_dir = tmp_path / "sub-001" / "anat"
     anat_dir.mkdir(parents=True)
     (anat_dir / "sub-001_T1w.nii.gz").touch()
-    dwi_dir = tmp_path / "sub-001" / "dwi"
-    dwi_dir.mkdir(parents=True)
-    (dwi_dir / "sub-001_dir-RL_dwi.nii.gz").touch()
-    (dwi_dir / "sub-001_dir-RL_dwi.bval").touch()
-    (dwi_dir / "sub-001_dir-RL_dwi.bvec").touch()
+    write_dwi(tmp_path / "sub-001" / "dwi", stem="sub-001_dir-RL_dwi")
 
     problems = find_missing_preprocessing_inputs(
         str(tmp_path),

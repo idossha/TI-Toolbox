@@ -1,12 +1,15 @@
 """Tests for tit.pre.qsi.utils — QSI utility functions."""
 
+import json
 import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 
+from tit import constants as const
 from tit.pre.qsi.utils import (
+    ensure_total_readout_time,
     _get_total_mem_bytes_from_proc,
     _parse_cpuset,
     _read_first_line,
@@ -154,15 +157,180 @@ class TestValidateBidsDwi:
         assert valid is False
         assert "bvec" in msg
 
-    def test_valid(self, tmp_path):
-        dwi = tmp_path / "sub-001" / "dwi"
-        dwi.mkdir(parents=True)
-        (dwi / "sub-001_dwi.nii.gz").touch()
-        (dwi / "sub-001_dwi.bval").touch()
-        (dwi / "sub-001_dwi.bvec").touch()
+    def test_valid(self, tmp_path, write_dwi):
+        write_dwi(tmp_path / "sub-001" / "dwi")
         valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
         assert valid is True
         assert msg is None
+
+    def test_empty_bval_rejected(self, tmp_path, write_dwi):
+        """An empty gradient table is what DSI Studio reports as 'cannot find'."""
+        dwi = write_dwi(tmp_path / "sub-001" / "dwi").parent
+        (dwi / "sub-001_dwi.bval").write_text("", encoding="utf-8")
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is False
+        assert "empty" in msg
+
+    def test_bval_naming_mismatch_rejected(self, tmp_path, write_dwi):
+        """A .bval for a *different* series must not satisfy the check."""
+        dwi = write_dwi(tmp_path / "sub-001" / "dwi").parent
+        (dwi / "sub-001_dwi.bval").rename(dwi / "sub-001_dwia.bval")
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is False
+        assert "sub-001_dwi.bval" in msg
+        assert "sub-001_dwia.bval" in msg
+
+    def test_volume_count_mismatch_rejected(self, tmp_path, write_dwi):
+        """The gradient table of a *different* series is the P077 failure mode."""
+        dwi = write_dwi(tmp_path / "sub-001" / "dwi", n_directions=6, n_b0=1).parent
+        # A consistent table, but for a 30-volume series rather than this 7.
+        other = write_dwi(dwi, stem="other_dwi", n_directions=29, n_b0=1)
+        for suffix in (".bval", ".bvec"):
+            (dwi / f"other_dwi{suffix}").replace(dwi / f"sub-001_dwi{suffix}")
+        other.unlink()
+        (dwi / "other_dwi.json").unlink()
+
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is False
+        assert "7 volume(s)" in msg and "30 b-value(s)" in msg
+
+    def test_all_b0_series_rejected(self, tmp_path, write_dwi):
+        """sub-P077's actual data: a 2-volume clinical scan with no b>0 volume.
+
+        QSIPrep ingested this happily and died 90 minutes later. No tensor is
+        possible from it, so it must be rejected before the container starts.
+        """
+        write_dwi(tmp_path / "sub-001" / "dwi", n_directions=0, n_b0=2)
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is False
+        assert "0 distinct" in msg
+        assert "2 volume(s) total" in msg
+
+    def test_too_few_directions_rejected(self, tmp_path, write_dwi):
+        """A derived map or an RPE b=0 block cannot yield a tensor."""
+        write_dwi(tmp_path / "sub-001" / "dwi", n_directions=3, n_b0=1)
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is False
+        assert "3 distinct" in msg
+
+    def test_transposed_bvec_accepted(self, tmp_path, write_dwi):
+        dwi = write_dwi(tmp_path / "sub-001" / "dwi").parent
+        rows = (dwi / "sub-001_dwi.bvec").read_text().split("\n")
+        columns = [row.split() for row in rows if row.strip()]
+        (dwi / "sub-001_dwi.bvec").write_text(
+            "\n".join(" ".join(vector) for vector in zip(*columns)) + "\n",
+            encoding="utf-8",
+        )
+        valid, msg = validate_bids_dwi(str(tmp_path), "001", MagicMock())
+        assert valid is True, msg
+
+    def test_short_series_warns_but_passes(self, tmp_path, write_dwi):
+        logger = MagicMock()
+        write_dwi(tmp_path / "sub-001" / "dwi", n_directions=6, n_b0=1)
+        valid, _ = validate_bids_dwi(str(tmp_path), "001", logger)
+        assert valid is True
+        assert any("only 7 volumes" in str(c) for c in logger.warning.call_args_list)
+
+
+class TestEnsureTotalReadoutTime:
+    """Tests for ensure_total_readout_time.
+
+    QSIPrep's read_nifti_sidecar has a literal ``if trt is None: pass`` and
+    then formats the value into an FSL acqp line, so a sidecar without
+    TotalReadoutTime kills the run with a TypeError an hour in.
+    """
+
+    def _sidecar(self, tmp_path):
+        return tmp_path / "sub-001" / "dwi" / "sub-001_dwi.json"
+
+    def test_existing_value_left_alone(self, tmp_path, write_dwi):
+        write_dwi(tmp_path / "sub-001" / "dwi")
+        before = self._sidecar(tmp_path).read_text()
+        ok, msg = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is True and msg is None
+        assert self._sidecar(tmp_path).read_text() == before
+
+    def test_derived_from_estimated_total_readout_time(self, tmp_path, write_dwi):
+        write_dwi(
+            tmp_path / "sub-001" / "dwi",
+            sidecar={
+                "PhaseEncodingDirection": "j-",
+                "EstimatedTotalReadoutTime": 0.0321,
+            },
+        )
+        ok, _ = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is True
+        assert json.loads(self._sidecar(tmp_path).read_text())[
+            "TotalReadoutTime"
+        ] == pytest.approx(0.0321)
+
+    def test_derived_from_echo_spacing(self, tmp_path, write_dwi):
+        write_dwi(
+            tmp_path / "sub-001" / "dwi",
+            sidecar={
+                "PhaseEncodingDirection": "j-",
+                "EffectiveEchoSpacing": 0.0005,
+                "ReconMatrixPE": 101,
+            },
+        )
+        ok, _ = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is True
+        assert json.loads(self._sidecar(tmp_path).read_text())[
+            "TotalReadoutTime"
+        ] == pytest.approx(0.05)
+
+    def test_placeholder_when_value_cannot_matter(self, tmp_path, write_dwi):
+        """No fieldmap and one PE direction: the readout time cancels."""
+        logger = MagicMock()
+        write_dwi(
+            tmp_path / "sub-001" / "dwi",
+            sidecar={"PhaseEncodingDirection": "j-"},
+        )
+        ok, _ = ensure_total_readout_time(str(tmp_path), "001", logger=logger)
+        assert ok is True
+        assert json.loads(self._sidecar(tmp_path).read_text())[
+            "TotalReadoutTime"
+        ] == pytest.approx(const.QSI_FALLBACK_TOTAL_READOUT_TIME)
+        assert logger.warning.called
+
+    def test_no_placeholder_when_fieldmap_present(self, tmp_path, write_dwi):
+        """With a fieldmap the value biases distortion correction, so refuse."""
+        write_dwi(
+            tmp_path / "sub-001" / "dwi",
+            sidecar={"PhaseEncodingDirection": "j-"},
+        )
+        fmap = tmp_path / "sub-001" / "fmap"
+        fmap.mkdir(parents=True)
+        (fmap / "sub-001_epi.nii.gz").touch()
+
+        ok, msg = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is False
+        assert "TotalReadoutTime" in msg
+
+    def test_missing_phase_encoding_direction_rejected(self, tmp_path, write_dwi):
+        write_dwi(tmp_path / "sub-001" / "dwi", sidecar={"EchoTime": 0.1})
+        ok, msg = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is False
+        assert "PhaseEncodingDirection" in msg
+
+    def test_missing_sidecar_rejected(self, tmp_path, write_dwi):
+        write_dwi(tmp_path / "sub-001" / "dwi")
+        self._sidecar(tmp_path).unlink()
+        ok, msg = ensure_total_readout_time(str(tmp_path), "001", logger=MagicMock())
+        assert ok is False
+        assert "sidecar" in msg
+
+    def test_repair_disabled_reports_instead_of_writing(self, tmp_path, write_dwi):
+        write_dwi(
+            tmp_path / "sub-001" / "dwi",
+            sidecar={"PhaseEncodingDirection": "j-"},
+        )
+        ok, msg = ensure_total_readout_time(
+            str(tmp_path), "001", logger=MagicMock(), repair=False
+        )
+        assert ok is False
+        assert "TotalReadoutTime" in msg
+        assert "TotalReadoutTime" not in json.loads(self._sidecar(tmp_path).read_text())
 
 
 class TestValidateQsiprepOutput:

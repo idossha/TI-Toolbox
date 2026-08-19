@@ -8,15 +8,24 @@ This module provides path resolution, validation, and helper functions
 for the QSI Docker-out-of-Docker integration.
 """
 
+import gzip
+import json
 import logging
 import math
 import os
 import shutil
+import struct
 import subprocess
 from pathlib import Path
 
 from tit import constants as const
 from tit.paths import get_path_manager
+
+_NIFTI1_HEADER_SIZE = 348
+_NIFTI2_HEADER_SIZE = 540
+
+# QSIPrep warns below this and assumes the series is a reverse-phase-encode scan.
+_SHORT_DWI_VOLUMES = 16
 
 
 def resolve_host_project_path(container_path: str) -> str:
@@ -208,11 +217,208 @@ def validate_dood_environment(
     return True, None
 
 
+def nifti_stem(path: Path) -> str:
+    """Return *path*'s name without its ``.nii`` or ``.nii.gz`` extension."""
+    name = path.name
+    for suffix in (".nii.gz", ".nii"):
+        if name.lower().endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
+def read_nifti_dims(path: Path) -> tuple[int, ...] | None:
+    """Return the 8-element ``dim`` field of a NIfTI header, or ``None``.
+
+    Parsed from the raw header rather than through nibabel so that a
+    validation pass costs one 540-byte read instead of opening the image,
+    and so it stays available in environments without nibabel. Both
+    NIfTI-1 (``dim`` is ``int16[8]`` at offset 40) and NIfTI-2 (``int64[8]``
+    at offset 16) are recognised, in either byte order.
+    """
+    try:
+        opener = gzip.open if path.name.lower().endswith(".gz") else open
+        with opener(path, "rb") as handle:  # type: ignore[operator]
+            header = handle.read(_NIFTI2_HEADER_SIZE)
+    except (OSError, EOFError, gzip.BadGzipFile):
+        return None
+
+    if len(header) < 80:
+        return None
+
+    for endian in ("<", ">"):
+        (sizeof_hdr,) = struct.unpack(endian + "i", header[:4])
+        if sizeof_hdr == _NIFTI1_HEADER_SIZE:
+            return struct.unpack(endian + "8h", header[40:56])
+        if sizeof_hdr == _NIFTI2_HEADER_SIZE:
+            return struct.unpack(endian + "8q", header[16:80])
+    return None
+
+
+def _nifti_volume_count(path: Path) -> int | None:
+    """Return the number of volumes in a NIfTI file, or ``None`` if unreadable."""
+    dims = read_nifti_dims(path)
+    if dims is None or dims[0] < 1:
+        return None
+    return int(dims[4]) if dims[0] >= 4 else 1
+
+
+def _read_numeric_rows(path: Path) -> list[list[float]] | None:
+    """Return the whitespace-separated numbers in *path*, one list per line.
+
+    ``str.split()`` treats ``\\r`` as whitespace, so a file written with
+    Windows line endings parses the same as a Unix one. ``None`` means the
+    file held a token that is not a number.
+    """
+    rows: list[list[float]] = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                tokens = line.split()
+                if not tokens:
+                    continue
+                rows.append([float(token) for token in tokens])
+    except (OSError, ValueError):
+        return None
+    return rows
+
+
+def _find_gradient_file(dwi_file: Path, suffix: str, project_dir: Path) -> Path | None:
+    """Locate the ``.bval``/``.bvec`` that belongs to *dwi_file*.
+
+    The sibling with the identical stem is what every tool in the stack
+    expects, so it wins. BIDS inheritance also lets the file sit higher in
+    the tree, so the subject and dataset roots are searched as a fallback --
+    rejecting an inherited-but-valid dataset would be worse than the delay
+    of a late failure.
+    """
+    stem = nifti_stem(dwi_file)
+    sibling = dwi_file.with_name(f"{stem}{suffix}")
+    if sibling.is_file():
+        return sibling
+
+    for parent in (dwi_file.parent.parent, project_dir):
+        for name in (f"{stem}{suffix}", f"dwi{suffix}"):
+            candidate = parent / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def _describe_gradient_mismatch(dwi_file: Path, suffix: str) -> str:
+    """Explain which gradient files exist beside *dwi_file*, for an error message."""
+    present = sorted(p.name for p in dwi_file.parent.glob(f"*{suffix}"))
+    if not present:
+        return f"no {suffix} file exists anywhere in {dwi_file.parent}"
+    return f"{dwi_file.parent} contains {', '.join(present)} instead"
+
+
+def _validate_gradient_table(
+    dwi_file: Path, project_dir: Path, logger: logging.Logger
+) -> str | None:
+    """Return an error message for *dwi_file*'s gradient table, or ``None``.
+
+    Every check here mirrors one that would otherwise surface as an opaque
+    failure deep inside QSIPrep -- DSI Studio reports a mismatched or
+    unparseable table as ``cannot find bval/bvec file`` after the run has
+    already spent an hour on the anatomical workflow.
+    """
+    stem = nifti_stem(dwi_file)
+
+    bval_file = _find_gradient_file(dwi_file, ".bval", project_dir)
+    if bval_file is None:
+        return (
+            f"{dwi_file.name} has no matching {stem}.bval "
+            f"({_describe_gradient_mismatch(dwi_file, '.bval')}). "
+            "A DWI series and its gradient table must share one basename."
+        )
+    bvec_file = _find_gradient_file(dwi_file, ".bvec", project_dir)
+    if bvec_file is None:
+        return (
+            f"{dwi_file.name} has no matching {stem}.bvec "
+            f"({_describe_gradient_mismatch(dwi_file, '.bvec')}). "
+            "A DWI series and its gradient table must share one basename."
+        )
+
+    bval_rows = _read_numeric_rows(bval_file)
+    if bval_rows is None:
+        return f"{bval_file} is not readable as a list of b-values."
+    bvals = [value for row in bval_rows for value in row]
+    if not bvals:
+        return f"{bval_file} is empty; it must hold one b-value per volume."
+
+    bvec_rows = _read_numeric_rows(bvec_file)
+    if bvec_rows is None:
+        return f"{bvec_file} is not readable as a list of gradient directions."
+    if not bvec_rows:
+        return f"{bvec_file} is empty; it must hold one direction per volume."
+
+    # FSL writes 3 rows of N; a transposed N-by-3 table is common enough to accept.
+    if len(bvec_rows) == 3 and len({len(row) for row in bvec_rows}) == 1:
+        vectors = list(zip(*bvec_rows))
+    elif all(len(row) == 3 for row in bvec_rows):
+        vectors = [tuple(row) for row in bvec_rows]
+    else:
+        return (
+            f"{bvec_file} is not a gradient table: expected 3 rows of N values "
+            f"(or N rows of 3), found {len(bvec_rows)} rows of "
+            f"{sorted({len(row) for row in bvec_rows})}."
+        )
+
+    if len(vectors) != len(bvals):
+        return (
+            f"{bval_file.name} lists {len(bvals)} b-values but "
+            f"{bvec_file.name} lists {len(vectors)} directions. "
+            "They must describe the same volumes."
+        )
+
+    n_volumes = _nifti_volume_count(dwi_file)
+    if n_volumes is None:
+        return f"{dwi_file} is not a readable NIfTI file."
+    if n_volumes != len(bvals):
+        return (
+            f"{dwi_file.name} has {n_volumes} volume(s) but "
+            f"{bval_file.name} lists {len(bvals)} b-value(s). "
+            "The gradient table belongs to a different series -- this usually "
+            "means more than one DWI series was converted into the same "
+            "folder and the wrong one kept the BIDS name."
+        )
+
+    weighted = [
+        vector for vector, b in zip(vectors, bvals) if b > const.QSI_B0_THRESHOLD
+    ]
+    directions = {tuple(round(component, 3) for component in v) for v in weighted}
+    if len(directions) < const.QSI_MIN_DWI_DIRECTIONS:
+        return (
+            f"{dwi_file.name} has only {len(directions)} distinct "
+            f"diffusion-weighted direction(s) above b={const.QSI_B0_THRESHOLD:g} "
+            f"({len(bvals)} volume(s) total). Fitting a diffusion tensor needs at "
+            f"least {const.QSI_MIN_DWI_DIRECTIONS}. This is usually a derived "
+            "series (ADC, FA, TRACEW) or a reverse-phase-encode b=0 block rather "
+            "than the diffusion acquisition."
+        )
+
+    if n_volumes < _SHORT_DWI_VOLUMES:
+        logger.warning(
+            f"{dwi_file.name} has only {n_volumes} volumes. QSIPrep treats a "
+            "series this short as a reverse-phase-encode scan; check that this "
+            "is really the diffusion acquisition."
+        )
+    logger.debug(
+        f"{dwi_file.name}: {n_volumes} volumes, {len(directions)} directions, "
+        f"b-values up to {max(bvals):g}"
+    )
+    return None
+
+
 def validate_bids_dwi(
     project_dir: str, subject_id: str, logger: logging.Logger
 ) -> tuple[bool, str | None]:
     """
-    Validate that DWI data exists for a subject in BIDS format.
+    Validate that usable DWI data exists for a subject in BIDS format.
+
+    Checks that every ``*_dwi.nii*`` under the subject's ``dwi/`` folder has a
+    gradient table that matches it: same basename, parseable, one b-value and
+    one direction per volume, and enough distinct directions to fit a tensor.
 
     Parameters
     ----------
@@ -227,27 +433,177 @@ def validate_bids_dwi(
     -------
     tuple[bool, str | None]
         (is_valid, error_message). If valid, error_message is None.
+
+    See Also
+    --------
+    ensure_total_readout_time : The sidecar metadata QSIPrep needs alongside this.
     """
     dwi_dir = Path(get_path_manager(project_dir).bids_dwi(subject_id))
 
     if not dwi_dir.exists():
         return False, f"DWI directory not found: {dwi_dir}"
 
-    # Look for DWI NIfTI files
-    dwi_files = list(dwi_dir.glob("*_dwi.nii*"))
+    dwi_files = sorted(
+        path for path in dwi_dir.glob("*_dwi.nii*") if not path.name.startswith(".")
+    )
     if not dwi_files:
         return False, f"No DWI NIfTI files found in {dwi_dir}"
 
-    # Check for bval and bvec files
-    bval_files = list(dwi_dir.glob("*.bval"))
-    bvec_files = list(dwi_dir.glob("*.bvec"))
-
-    if not bval_files:
-        return False, f"No .bval files found in {dwi_dir}"
-    if not bvec_files:
-        return False, f"No .bvec files found in {dwi_dir}"
+    for dwi_file in dwi_files:
+        error = _validate_gradient_table(dwi_file, Path(project_dir), logger)
+        if error:
+            return False, error
 
     logger.debug(f"Found valid DWI data for sub-{subject_id}")
+    return True, None
+
+
+def _subject_has_fieldmaps(project_dir: str, subject_id: str) -> bool:
+    """Return ``True`` when the subject has any ``fmap/`` image."""
+    subject_dir = Path(get_path_manager(project_dir).bids_subject(subject_id))
+    return any(subject_dir.glob("**/fmap/*.nii*"))
+
+
+def _derive_total_readout_time(metadata: dict) -> tuple[float | None, str]:
+    """Derive TotalReadoutTime from other sidecar fields.
+
+    Returns ``(value, provenance)``; *value* is ``None`` when the sidecar
+    carries nothing to derive it from.
+    """
+    estimated = metadata.get("EstimatedTotalReadoutTime")
+    if isinstance(estimated, (int, float)) and estimated > 0:
+        return float(estimated), "EstimatedTotalReadoutTime"
+
+    echo_spacing = metadata.get("EffectiveEchoSpacing")
+    recon_pe = metadata.get("ReconMatrixPE") or metadata.get("AcquisitionMatrixPE")
+    if (
+        isinstance(echo_spacing, (int, float))
+        and echo_spacing > 0
+        and isinstance(recon_pe, (int, float))
+        and recon_pe > 1
+    ):
+        return (
+            float(echo_spacing) * (int(recon_pe) - 1),
+            "EffectiveEchoSpacing x (ReconMatrixPE - 1)",
+        )
+
+    return None, ""
+
+
+def ensure_total_readout_time(
+    project_dir: str,
+    subject_id: str,
+    *,
+    logger: logging.Logger,
+    repair: bool = True,
+) -> tuple[bool, str | None]:
+    """Make sure every DWI sidecar carries the metadata QSIPrep dereferences.
+
+    QSIPrep formats ``TotalReadoutTime`` into an FSL ``acqp`` line for *every*
+    run, including ones with no fieldmap and no TOPUP, and its sidecar reader
+    has no fallback when the key is absent -- the run dies with
+    ``TypeError: must be real number, not NoneType`` only after the anatomical
+    workflow has finished, an hour in.
+
+    A missing value is derived from ``EstimatedTotalReadoutTime`` or from
+    ``EffectiveEchoSpacing`` and the phase-encode matrix size when the sidecar
+    carries them. Failing that, and only when the subject has no fieldmap and
+    a single phase-encoding direction, a conventional placeholder is written:
+    in that configuration no susceptibility correction is estimated, so the
+    readout time is a common scale factor that cancels. Anything else is
+    reported rather than guessed, because a wrong readout time does bias
+    distortion correction once a fieldmap is present.
+
+    Parameters
+    ----------
+    project_dir : str
+        Path to the BIDS project root.
+    subject_id : str
+        Subject identifier (without 'sub-' prefix).
+    logger : logging.Logger
+        Logger for status messages.
+    repair : bool, optional
+        Write the derived value back into the sidecar. When *False* a missing
+        value is reported as an error instead. Default: True.
+
+    Returns
+    -------
+    tuple[bool, str | None]
+        (is_ok, error_message). If ok, error_message is None.
+    """
+    dwi_dir = Path(get_path_manager(project_dir).bids_dwi(subject_id))
+    dwi_files = sorted(
+        path for path in dwi_dir.glob("*_dwi.nii*") if not path.name.startswith(".")
+    )
+
+    has_fieldmaps = _subject_has_fieldmaps(project_dir, subject_id)
+    pe_directions: set[str] = set()
+    pending: list[tuple[Path, dict]] = []
+
+    for dwi_file in dwi_files:
+        stem = nifti_stem(dwi_file)
+        sidecar = dwi_file.with_name(f"{stem}.json")
+        if not sidecar.is_file():
+            return False, (
+                f"{dwi_file.name} has no {stem}.json sidecar. QSIPrep reads "
+                "PhaseEncodingDirection and TotalReadoutTime from it."
+            )
+        try:
+            with open(sidecar, "r", encoding="utf-8") as handle:
+                metadata = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return False, f"{sidecar} could not be read as JSON: {exc}"
+
+        pe_dir = metadata.get("PhaseEncodingDirection")
+        if not pe_dir:
+            return False, (
+                f"{sidecar.name} has no PhaseEncodingDirection. QSIPrep needs it "
+                "to build the eddy acquisition parameters and cannot run without it."
+            )
+        pe_directions.add(pe_dir)
+
+        readout = metadata.get("TotalReadoutTime")
+        if isinstance(readout, (int, float)) and readout > 0:
+            continue
+        pending.append((sidecar, metadata))
+
+    for sidecar, metadata in pending:
+        value, provenance = _derive_total_readout_time(metadata)
+        if value is None:
+            if has_fieldmaps or len(pe_directions) > 1:
+                return False, (
+                    f"{sidecar.name} has no TotalReadoutTime and nothing to derive "
+                    "it from (EstimatedTotalReadoutTime, or EffectiveEchoSpacing "
+                    "with ReconMatrixPE). This subject has fieldmaps or more than "
+                    "one phase-encoding direction, so the value affects distortion "
+                    "correction and must come from the acquisition -- add it to "
+                    "the sidecar before rerunning."
+                )
+            value = const.QSI_FALLBACK_TOTAL_READOUT_TIME
+            provenance = (
+                "placeholder (no fieldmap and a single phase-encoding "
+                "direction, so the value cancels)"
+            )
+
+        if not repair:
+            return False, (
+                f"{sidecar.name} has no TotalReadoutTime. QSIPrep will fail on it. "
+                f"Derivable value: {value:g} s from {provenance}."
+            )
+
+        metadata["TotalReadoutTime"] = value
+        try:
+            with open(sidecar, "w", encoding="utf-8") as handle:
+                json.dump(metadata, handle, indent=2, sort_keys=True)
+                handle.write("\n")
+        except OSError as exc:
+            return False, f"Could not write TotalReadoutTime into {sidecar}: {exc}"
+
+        logger.warning(
+            f"Added TotalReadoutTime={value:g}s to {sidecar.name} "
+            f"[{provenance}]. QSIPrep cannot run without this field."
+        )
+
     return True, None
 
 
