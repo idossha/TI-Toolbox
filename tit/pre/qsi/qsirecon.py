@@ -116,15 +116,22 @@ def run_qsirecon(
         # No mkdir here — Docker's `-v` creates host directories automatically.
         # Creating them from SimNIBS fails on Docker Desktop due to phantom
         # bind-mount entries left by previous sibling containers.
-        subject_output_dir = Path(
-            get_path_manager(project_dir).qsirecon_subject(subject_id)
-        )
-        # Docker `-v` can leave an empty directory behind; only a non-empty
-        # one is a real output.
-        if subject_output_dir.exists() and any(subject_output_dir.iterdir()):
+        # QSIRecon 26 writes its reconstructions under
+        # <out>/derivatives/qsirecon-<suffix>/sub-<id>/ and reserves
+        # <out>/sub-<id>/ for logs and figures. Guarding on the latter would
+        # block every rerun after the first attempt, including one that
+        # crashed and produced nothing but a log.
+        recon_root = Path(get_path_manager(project_dir).qsirecon()) / "derivatives"
+        existing = [
+            candidate
+            for candidate in recon_root.glob(f"qsirecon-*/sub-{subject_id}")
+            if any(candidate.iterdir())
+        ]
+        if existing:
             raise PreprocessError(
-                f"QSIRecon output already exists at {subject_output_dir}. "
-                "Remove the directory manually before rerunning."
+                "QSIRecon output already exists at "
+                f"{', '.join(str(path) for path in sorted(existing))}. "
+                "Remove those directories manually before rerunning."
             )
 
         # Build configuration

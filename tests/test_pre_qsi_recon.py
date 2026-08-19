@@ -47,7 +47,14 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     def test_existing_output_raises(self, mock_validate, tmp_path):
         """Raises like the other steps when real output already exists."""
-        out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
+        out = (
+            tmp_path
+            / "derivatives"
+            / "qsirecon"
+            / "derivatives"
+            / "qsirecon-DSIStudio"
+            / "sub-001"
+        )
         out.mkdir(parents=True)
         (out / "result.txt").touch()
 
@@ -61,11 +68,40 @@ class TestRunQsirecon:
     @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
     @patch(f"{MODULE}.DockerCommandBuilder")
     @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    def test_log_only_output_does_not_block_rerun(
+        self, mock_validate, mock_builder, mock_pull, tmp_path
+    ):
+        """QSIRecon writes logs to sub-<id>/ even when it crashes.
+
+        Treating those as output blocked every retry after a failed run.
+        """
+        logs = tmp_path / "derivatives" / "qsirecon" / "sub-001" / "log"
+        logs.mkdir(parents=True)
+        (logs / "crash-20260803.txt").touch()
+        mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
+
+        runner = MagicMock()
+        runner.run.return_value = 0
+
+        run_qsirecon(str(tmp_path), "001", logger=MagicMock(), runner=runner)
+
+        runner.run.assert_called_once()
+
+    @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
+    @patch(f"{MODULE}.DockerCommandBuilder")
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
     def test_existing_empty_output_dir_is_ignored(
         self, mock_validate, mock_builder, mock_pull, tmp_path
     ):
         """An empty subject dir (e.g. left by a Docker mount) is not an output."""
-        out = tmp_path / "derivatives" / "qsirecon" / "sub-001"
+        out = (
+            tmp_path
+            / "derivatives"
+            / "qsirecon"
+            / "derivatives"
+            / "qsirecon-DSIStudio"
+            / "sub-001"
+        )
         out.mkdir(parents=True)
         mock_builder.return_value.build_qsirecon_cmd.return_value = ["docker", "run"]
 
