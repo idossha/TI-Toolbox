@@ -53,6 +53,7 @@ See Also
 tit.paths : Uses many of these constants for BIDS path resolution.
 """
 
+import os
 from dataclasses import dataclass
 
 # ============================================================================
@@ -690,7 +691,11 @@ QSI_DEFAULT_ATLASES = ["4S156Parcels", "AAL116"]
 # QSI default resource settings
 QSI_DEFAULT_CPUS = 8
 QSI_DEFAULT_MEMORY_GB = 32
-QSI_DEFAULT_OMP_THREADS = 1
+# Threads per process, mirroring QSIPrep's own default of min(nprocs - 1, 8).
+# This was pinned at 1, which left every ANTs registration single-threaded --
+# one subject's anatomical normalization took 72 minutes on a 24-core host.
+# The cap is QSIPrep's: ANTs stops scaling well past 8 threads.
+QSI_DEFAULT_OMP_THREADS = min(max((os.cpu_count() or 2) - 1, 1), 8)
 QSI_DEFAULT_OUTPUT_RESOLUTION = 2.0
 
 # QSI environment variables

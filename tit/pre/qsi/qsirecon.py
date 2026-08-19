@@ -71,7 +71,8 @@ def run_qsirecon(
     memory_gb : int | None, optional
         Memory limit in GB. None = inherit from current container.
     omp_threads : int, optional
-        Number of OpenMP threads. Default: 1.
+        Threads per process. Default: ``constants.QSI_DEFAULT_OMP_THREADS``
+        (min(cpu_count - 1, 8), matching QSIPrep's own default).
     image_tag : str, optional
         QSIRecon Docker image tag. Default from ``constants.QSI_QSIRECON_IMAGE_TAG``.
     skip_odf_reports : bool, optional
