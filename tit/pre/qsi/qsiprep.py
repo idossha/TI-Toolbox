@@ -19,22 +19,57 @@ from tit.pre.utils import CommandRunner, PreprocessError
 from .config import QSIPrepConfig, ResourceConfig
 from .docker_builder import DockerCommandBuilder, DockerBuildError
 from .utils import (
+    ensure_total_readout_time,
     pull_image_if_needed,
     validate_dood_environment,
     validate_bids_dwi,
     validate_qsiprep_output,
 )
 
+# A nipype crashfile leads with the node name and ends with the exception that
+# actually stopped the run; the middle is the nipype call stack, which says
+# nothing about the cause.
+_CRASH_TAIL_LINES = 12
 
-def _format_qsiprep_failure(returncode: int, runner: CommandRunner) -> str:
+
+def _report_crashfiles(output_dir: Path, logger: logging.Logger) -> int:
+    """Log the tail of every nipype crashfile QSIPrep wrote. Returns the count.
+
+    QSIPrep reports node failures only as a path to a crashfile inside the
+    output directory, so the container's stdout ends with a summary that names
+    no cause. Without this the user has to go find the files by hand.
+    """
+    crashfiles = sorted(output_dir.glob("**/crash-*.txt"))
+    for crashfile in crashfiles:
+        try:
+            lines = crashfile.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            logger.error(f"Could not read crashfile {crashfile}: {exc}")
+            continue
+        node = lines[0] if lines else crashfile.name
+        tail = "\n    ".join(
+            line for line in lines[-_CRASH_TAIL_LINES:] if line.strip()
+        )
+        logger.error(f"QSIPrep node crash -- {node}\n    {tail}")
+    return len(crashfiles)
+
+
+def _format_qsiprep_failure(
+    returncode: int, runner: CommandRunner, crash_count: int = 0
+) -> str:
+    crash_note = (
+        f" {crash_count} node crashfile(s) were logged above." if crash_count else ""
+    )
     lines = getattr(runner, "last_output_lines", []) or []
     if not lines:
         return (
-            f"QSIPrep failed with exit code {returncode}. "
+            f"QSIPrep failed with exit code {returncode}.{crash_note} "
             "No container output was captured; check the preprocessing log for details."
         )
     tail = " | ".join(lines[-5:])
-    return f"QSIPrep failed with exit code {returncode}. Last output: {tail}"
+    return (
+        f"QSIPrep failed with exit code {returncode}.{crash_note} Last output: {tail}"
+    )
 
 
 def run_qsiprep(
@@ -100,10 +135,18 @@ def run_qsiprep(
         if not ok:
             raise PreprocessError(f"QSI Docker preflight failed: {preflight_error}")
 
-        # Validate DWI data exists
+        # Validate DWI data exists. This runs before the container starts
+        # because QSIPrep surfaces a bad gradient table or an incomplete
+        # sidecar only after the anatomical workflow has finished, an hour in.
         is_valid, error_msg = validate_bids_dwi(project_dir, subject_id, logger)
         if not is_valid:
             raise PreprocessError(f"DWI validation failed: {error_msg}")
+
+        is_valid, error_msg = ensure_total_readout_time(
+            project_dir, subject_id, logger=logger
+        )
+        if not is_valid:
+            raise PreprocessError(f"DWI sidecar validation failed: {error_msg}")
 
         pm = get_path_manager(project_dir)
         output_dir = Path(pm.qsiprep_subject(subject_id))
@@ -112,7 +155,11 @@ def run_qsiprep(
         if output_dir.exists() and any(output_dir.iterdir()):
             raise PreprocessError(
                 f"QSIPrep output already exists at {output_dir}. "
-                "Remove the directory manually before rerunning."
+                "Remove the directory manually before rerunning. The working "
+                f"directory at {Path(pm.derivatives()) / '.qsiprep_work'} is kept "
+                "on purpose: QSIPrep reuses the nodes that already finished, so "
+                "a rerun after a failure skips the anatomical workflow. Delete "
+                "it too only if you want to start from scratch."
             )
 
         # Create output directories
@@ -159,7 +206,10 @@ def run_qsiprep(
         returncode = runner.run(cmd, logger=logger)
 
         if returncode != 0:
-            raise PreprocessError(_format_qsiprep_failure(returncode, runner))
+            crash_count = _report_crashfiles(output_dir, logger)
+            raise PreprocessError(
+                _format_qsiprep_failure(returncode, runner, crash_count)
+            )
 
         # Validate output
         is_valid, error_msg = validate_qsiprep_output(project_dir, subject_id)
