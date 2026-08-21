@@ -1075,3 +1075,72 @@ class TestMeshListAnnotRegions:
         result = mgr.list_annot_regions("/any/path.annot")
 
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# voxel.py — custom masks in m2m_{subject}/masks/
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestVoxelAtlasManagerCustomMasks:
+    """Discovery of user-supplied label volumes in the subject masks/ dir."""
+
+    def _mgr(self, masks_dir):
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        return VoxelAtlasManager(masks_dir=str(masks_dir))
+
+    def test_no_masks_dir_configured(self):
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        assert VoxelAtlasManager().list_custom_masks() == []
+
+    def test_missing_masks_dir_is_not_an_error(self, tmp_path):
+        assert self._mgr(tmp_path / "masks").list_custom_masks() == []
+
+    def test_discovers_supported_extensions(self, tmp_path):
+        masks = tmp_path / "masks"
+        masks.mkdir()
+        for name in ("a.nii.gz", "b.nii", "c.mgz"):
+            (masks / name).touch()
+
+        results = self._mgr(masks).list_custom_masks()
+
+        assert [name for name, _ in results] == [
+            "masks/a.nii.gz",
+            "masks/b.nii",
+            "masks/c.mgz",
+        ]
+        assert results[0][1] == os.path.join(str(masks), "a.nii.gz")
+
+    def test_ignores_other_files_and_subdirectories(self, tmp_path):
+        masks = tmp_path / "masks"
+        masks.mkdir()
+        (masks / "notes.txt").touch()
+        (masks / "roi_LUT.txt").touch()
+        (masks / "nested.nii.gz").mkdir()
+        (masks / "roi.nii.gz").touch()
+
+        results = self._mgr(masks).list_custom_masks()
+
+        assert [name for name, _ in results] == ["masks/roi.nii.gz"]
+
+    def test_masks_appear_in_list_atlases(self, tmp_path):
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        seg_dir = tmp_path / "seg"
+        seg_dir.mkdir()
+        (seg_dir / "labeling.nii.gz").touch()
+        masks = tmp_path / "masks"
+        masks.mkdir()
+        (masks / "subfield.nii.gz").touch()
+
+        results = VoxelAtlasManager(
+            seg_dir=str(seg_dir), masks_dir=str(masks)
+        ).list_atlases()
+
+        assert [name for name, _ in results] == [
+            "labeling.nii.gz",
+            "masks/subfield.nii.gz",
+        ]

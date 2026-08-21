@@ -127,6 +127,25 @@ Discovered from FreeSurfer's `mri/` directory:
 | `rh.hippoAmygLabels-T1.v22.mgz` | rh | Right hippocampal/amygdala subfields |
 | `ThalamicNuclei.v13.T1.mgz` | both | Thalamic nuclei segmentation |
 
+### Custom Masks
+
+Any integer label volume placed in the subject's mask directory is discovered
+automatically and offered alongside the curated atlases — no whitelist entry and
+no conversion required:
+
+```
+derivatives/SimNIBS/sub-<id>/m2m_<id>/masks/*.nii.gz | *.nii | *.mgz
+```
+
+Custom entries appear in the ROI pickers prefixed with `masks/`. Requirements:
+
+- The volume must be an **integer label map** in the subject space `m2m_<id>`
+  was built from (same geometry as `T1.nii.gz`). A binary mask is label `1`.
+- Region names come from the volume's own label values. Drop a
+  `<mask-stem>_LUT.txt` colour table next to the mask to name them; otherwise
+  labels are listed by id (using the standard FreeSurfer names where the id
+  matches).
+
 ### MNI-Space Atlases
 
 Available from the container resources directory (`/ti-toolbox/resources/atlas`):

@@ -213,6 +213,10 @@ class TestSubjectLevelPaths:
         p, root = pm
         assert p.rois("001").endswith("m2m_001/ROIs")
 
+    def test_masks(self, pm):
+        p, root = pm
+        assert p.masks("001").endswith("m2m_001/masks")
+
     def test_t1(self, pm):
         p, root = pm
         assert p.t1("001").endswith("m2m_001/T1.nii.gz")
