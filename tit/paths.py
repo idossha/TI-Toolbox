@@ -291,6 +291,15 @@ class PathManager:
         """Path to the ROI directory for *sid*."""
         return os.path.join(self.m2m(sid), "ROIs")
 
+    def masks(self, sid: str) -> str:
+        """Path to the user-supplied custom mask directory for *sid*.
+
+        Any integer label volume placed here (``*.nii.gz``/``*.nii``/``*.mgz``,
+        in the subject space ``m2m_{sid}`` was built from) is auto-discovered as
+        a targetable volume atlas by the optimiser ROI pickers.
+        """
+        return os.path.join(self.m2m(sid), "masks")
+
     def t1(self, sid: str) -> str:
         """Path to the T1-weighted NIfTI image for *sid*."""
         return os.path.join(self.m2m(sid), "T1.nii.gz")

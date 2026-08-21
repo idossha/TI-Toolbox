@@ -19,6 +19,10 @@ VOXEL_ATLASES = {
 # Flat list for callers that only need filenames.
 VOXEL_ATLAS_FILES = list(VOXEL_ATLASES)
 
+# Custom per-subject masks live in m2m_{subject}/masks/. Any integer label
+# volume with one of these extensions is auto-discovered as a targetable atlas.
+MASK_EXTENSIONS = (".nii.gz", ".nii", ".mgz")
+
 MNI_ATLAS_DIR = "/ti-toolbox/resources/atlas"
 
 MNI_TEMPLATE = "MNI152_T1_1mm.nii.gz"

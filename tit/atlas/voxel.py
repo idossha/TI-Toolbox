@@ -4,7 +4,11 @@ import os
 import re
 import subprocess
 
-from tit.atlas.constants import VOXEL_ATLAS_FILES, MNI_ATLAS_FILES
+from tit.atlas.constants import (
+    VOXEL_ATLAS_FILES,
+    MNI_ATLAS_FILES,
+    MASK_EXTENSIONS,
+)
 
 
 def parse_region_label(region_display: str) -> int:
@@ -37,18 +41,26 @@ class VoxelAtlasManager:
     Args:
         freesurfer_mri_dir: Path to FreeSurfer mri/ directory.
         seg_dir: Path to m2m_{subject}/segmentation/ directory.
+        masks_dir: Path to m2m_{subject}/masks/, holding user-supplied custom
+            label volumes.  Optional; most subjects have no such directory.
     """
 
-    def __init__(self, freesurfer_mri_dir: str = "", seg_dir: str = "") -> None:
+    def __init__(
+        self,
+        freesurfer_mri_dir: str = "",
+        seg_dir: str = "",
+        masks_dir: str = "",
+    ) -> None:
         self.freesurfer_mri_dir = freesurfer_mri_dir
         self.seg_dir = seg_dir
+        self.masks_dir = masks_dir
 
     def list_atlases(self) -> list[tuple[str, str]]:
         """Discover available voxel atlas files for a subject.
 
-        Checks FreeSurfer mri/ for VOXEL_ATLAS_FILES and segmentation/
-        for labeling.nii.gz.  Used by analyzer tab, flex subcortical tab,
-        and NIfTI viewer.
+        Checks FreeSurfer mri/ for VOXEL_ATLAS_FILES, segmentation/ for
+        labeling.nii.gz, and masks/ for any user-supplied label volume.
+        Used by analyzer tab, flex subcortical tab, and NIfTI viewer.
 
         Returns:
             List of (display_name, full_path) tuples.
@@ -66,7 +78,32 @@ class VoxelAtlasManager:
             if os.path.isfile(labeling):
                 results.append(("labeling.nii.gz", labeling))
 
+        results.extend(self.list_custom_masks())
+
         return results
+
+    def list_custom_masks(self) -> list[tuple[str, str]]:
+        """Discover user-supplied label volumes in the subject's masks/ dir.
+
+        Any ``*.nii.gz``/``*.nii``/``*.mgz`` file dropped into
+        ``m2m_{subject}/masks/`` is offered for targeting.  Display names are
+        prefixed with ``masks/`` so custom entries are distinguishable from the
+        curated FreeSurfer atlases.  A missing directory yields no entries.
+
+        Returns:
+            Sorted list of (display_name, full_path) tuples.
+        """
+        if not self.masks_dir or not os.path.isdir(self.masks_dir):
+            return []
+
+        found: list[tuple[str, str]] = []
+        for name in sorted(os.listdir(self.masks_dir)):
+            if not name.lower().endswith(MASK_EXTENSIONS):
+                continue
+            path = os.path.join(self.masks_dir, name)
+            if os.path.isfile(path):
+                found.append((f"masks/{name}", path))
+        return found
 
     def list_regions(self, atlas_path: str) -> list[str]:
         """List regions in a voxel atlas using mri_segstats.
