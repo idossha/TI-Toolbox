@@ -1170,6 +1170,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 voxel_mgr = VoxelAtlasManager(
                     freesurfer_mri_dir=pm.freesurfer_mri(self._subject_id),
                     seg_dir=seg_dir,
+                    masks_dir=pm.masks(self._subject_id),
                 )
                 atlases = voxel_mgr.list_atlases()
         except Exception:
@@ -1357,8 +1358,20 @@ class ROIPickerWidget(QtWidgets.QWidget):
                     key=str(region_id), display=f"{name} · {region_id}"
                 )
 
+    @staticmethod
+    def _is_custom_mask(atlas_path: str) -> bool:
+        """True for a user-supplied volume in ``m2m_{subject}/masks/``."""
+        return Path(atlas_path).parent.name == "masks"
+
     def _find_volume_lut(self, atlas_path: str) -> Path | None:
         atlas = Path(atlas_path)
+        if self._is_custom_mask(atlas_path):
+            # A custom mask may ship its own colour table; otherwise labels are
+            # read from the volume itself (see _resolve_volume_label_entries).
+            lut_path = atlas.with_name(
+                f"{self._strip_nifti_suffix(atlas.name)}_LUT.txt"
+            )
+            return lut_path if lut_path.is_file() else None
         if self._selected_volume_atlas_space() == "subject":
             if atlas.name == "labeling.nii.gz":
                 lut_path = atlas.with_name("labeling_LUT.txt")
@@ -1410,13 +1423,19 @@ class ROIPickerWidget(QtWidgets.QWidget):
         import nibabel as nib
 
         lut = self._load_freesurfer_lut()
-        if not lut:
+        if not lut and not self._is_custom_mask(atlas_path):
             return []
 
         img = nib.load(atlas_path)
         # Label maps carry identity scaling, so np.asarray(dataobj) returns the
         # native integer labels; int() below normalises regardless.
         present = np.unique(np.asarray(img.dataobj))
+
+        # A custom mask uses its author's own numbering, which need not match
+        # the FreeSurfer colour table, so unknown ids are kept under a generic
+        # name rather than dropped.  Curated FreeSurfer atlases keep the
+        # existing behaviour of listing only ids the colour table knows.
+        keep_unknown = self._is_custom_mask(atlas_path)
 
         entries: list[tuple[int, str, tuple[str, str, str] | None]] = []
         for value in present:
@@ -1425,7 +1444,9 @@ class ROIPickerWidget(QtWidgets.QWidget):
                 continue
             info = lut.get(label_id)
             if info is None:
-                continue
+                if not keep_unknown:
+                    continue
+                info = (f"Label {label_id}", None)
             name, rgb = info
             entries.append((label_id, name, rgb))
         return entries
