@@ -31,6 +31,14 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
       </div>
     </div>
 
+  </div>
+</div>
+
+### Past Contributors
+
+<div class="contributors-section">
+  <div class="contributor-grid">
+
     <!-- Aksel Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
