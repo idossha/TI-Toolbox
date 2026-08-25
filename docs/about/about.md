@@ -78,14 +78,14 @@ We extend our gratitude to the developers and contributors of the tools integrat
 
 <style>
 .contributors-section {
-  margin: 2rem 0;
+  margin: 1rem 0 2rem;
 }
 
 .contributor-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 2rem;
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 420px));
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
 .contributor-card {
