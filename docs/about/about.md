@@ -4,7 +4,23 @@ title: About
 permalink: /about/
 ---
 
-The Temporal Interference Toolbox started as a side project in early 2024 and matured to be a toolbox that allows both inexperience and experience users simulate TI fields from standardized and personalized imaging data.
+The Temporal Interference Toolbox (TI-Toolbox) started as a side project in early 2024 and has since matured into an end-to-end platform for temporal interference (TI) stimulation research. It lets both newcomers and experienced modelers go from raw imaging data to simulated, optimized, and analyzed TI fields, using either standardized head models or fully personalized ones built from a participant's own MRI.
+
+### What it does
+
+The toolbox covers the full modeling pipeline in one place:
+
+- **Preprocessing** — DICOM/NIfTI ingestion, cortical reconstruction, head-model generation, and optional diffusion processing for anisotropic conductivity.
+- **Simulation** — finite-element modeling of two-pair TI and multi-pair (mTI) montages, producing volumetric and surface field maps.
+- **Optimization** — evolutionary (flex) and exhaustive electrode searches that target cortical, subcortical, spherical, or custom regions of interest.
+- **Analysis and statistics** — ROI extraction, focality and safety metrics, group-level comparisons, and permutation testing.
+- **Reporting and visualization** — HTML reports, 3D renders, and fsaverage/MNI projections for cross-subject comparison.
+
+Everything ships inside Docker containers, with a desktop launcher and a GUI, so a full research stack runs identically on macOS, Linux, and Windows without manual environment setup.
+
+### Philosophy
+
+TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox) and follows the [BIDS](https://bids.neuroimaging.io/) standard for data organization, so outputs are reproducible and interoperable with the wider neuroimaging ecosystem. We aim for defaults that are safe and sensible for common studies while keeping every parameter accessible to power users. Bug reports, feature requests, and contributions are welcome through the issue tracker.
 
 ### Contributors
 
@@ -63,7 +79,7 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
 
 ## Acknowledgments
 
-We extend our gratitude to the developers and contributors of the tools integrated into the TI-Toolbox. 
+TI-Toolbox stands on the shoulders of many open-source projects. We extend our gratitude to the developers and contributors of the tools it integrates, and we ask that users cite the underlying tools (in particular SimNIBS and FreeSurfer) alongside TI-Toolbox in publications.
 
 - [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
 - [**Electron**](https://electronjs.org): A framework for building cross-platform desktop applications using web technologies.
@@ -73,6 +89,9 @@ We extend our gratitude to the developers and contributors of the tools integrat
 - [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data.
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
 - [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
+- [**QSIPrep**](https://qsiprep.readthedocs.io/) / [**QSIRecon**](https://qsirecon.readthedocs.io/): Preprocessing and reconstruction pipelines for diffusion MRI, used to derive anisotropic conductivity tensors.
+- [**Blender**](https://www.blender.org/): An open-source 3D creation suite, used for rendering head models, electrodes, and field distributions.
+- **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), [PyQt5](https://www.riverbankcomputing.com/software/pyqt/), and [Jupyter](https://jupyter.org/).
 
 
 
