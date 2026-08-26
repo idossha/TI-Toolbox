@@ -11,7 +11,8 @@ The TI-Toolbox Extension System provides a modular framework for adding new tool
 ```
 tit/gui/
 ├── extensions.py              # Main extension interface
-├── settings_menu.py           # Settings menu with Extensions option
+├── settings_menu.py           # Settings menu + top-right Extensions button
+├── extensions_config.py       # Persists enabled/disabled tab state (extensions.json)
 └── extensions/                # Extension directory
     ├── *.py                   # Individual extension files
     └── ...
@@ -27,6 +28,10 @@ def load_extensions(self):
     for extension_file in sorted(extension_files):
         # Load and display extension
 ```
+
+Each extension is shown as a card with a **Launch** button (opens it in its own window) and, when the module sets `allow_tab_integration = True`, an **Add Tab / Remove Tab** button that embeds it as a tab of the main window. The tab state is remembered between sessions in `extensions.json`.
+
+Shipped extensions: `Permutation Analysis` (`cbp.py`), `Electrode Placement`, `NIfTI Group Averaging`, `Nilearn Visuals`, `Quick Notes`, `Source`, `Subject Info Viewer`, `3D Visual Exporter`.
 
 ## Extension Metadata
 
@@ -128,7 +133,7 @@ Extensions are distributed as single Python files. To install:
 1. Download the extension `.py` file
 2. Place it in `tit/gui/extensions/` directory
 3. Restart TI-Toolbox or refresh extensions
-4. Access via **Settings → Extensions**
+4. Access via the **Extensions** button in the top-right toolbar (also available from the Settings menu)
 
 ### Developing Extensions
 

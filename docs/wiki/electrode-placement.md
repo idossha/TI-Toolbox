@@ -20,7 +20,7 @@ The Electrode Placement extension provides an interactive 3D tool for freely pla
 
 ### Getting Started
 
-1. **Launch Extension**: Settings → Extensions → "Electrode Placement"
+1. **Launch Extension**: Extensions button → "Electrode Placement"
 2. **Select Subject**: Choose from available subjects in your project directory
 3. **Load Surface**: The extension automatically loads the head mesh from the subject's m2m directory
 4. **Optional: Load EEG Cap**: Import reference electrode positions from CSV files
@@ -60,7 +60,7 @@ EEG,78.9,-45.2,38.1,C3
 - Comma or tab-separated values
 - Columns: electrode_type, X, Y, Z, electrode_name
 - Coordinates in millimeters (SimNIBS coordinate system)
-- No header row required
+- A header row is optional (detected automatically)
 
 ### Export Configuration JSON
 
@@ -89,7 +89,7 @@ Electrode configurations are exported in a structured JSON format:
 
 ```
 m2m_{subject_id}/
-├── subject.msh              # Head mesh file (loaded automatically)
+├── {subject_id}.msh         # Head mesh file (loaded automatically)
 └── stim_configs/
     └── electrode_config.json # Exported configurations
 ```

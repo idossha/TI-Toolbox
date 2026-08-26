@@ -99,6 +99,8 @@ Configure subjects based on the selected analysis mode:
 - **Cluster Threshold**: p-value for initial cluster formation (default: 0.05)
 - **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
+- **Permutations**: `n_permutations` (default: 1000); `n_jobs` (default: -1, all cores)
+- **Group labels**: `group1_name` / `group2_name` (defaults `Responders` / `Non-Responders`)
 
 #### Correlation Mode
 - **Correlation Type**: Pearson (parametric) or Spearman (non-parametric)
@@ -107,11 +109,14 @@ Configure subjects based on the selected analysis mode:
 - **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
 
+#### Analysis Space
+Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"` (surface-based, using the per-simulation fsaverage projections; `fsaverage_field` default `TI_max`, `fsaverage_spacing` default 5).
+
 ## Workflow Examples
 
 ### Classification Analysis: Responder vs Non-Responder
 
-1. **Launch Extension**: Settings → Extensions → "Cluster-Based Permutation Testing"
+1. **Launch Extension**: Extensions button → "Permutation Analysis"
 2. **Select Mode**: Choose "Classification" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Responder
@@ -125,7 +130,7 @@ Configure subjects based on the selected analysis mode:
 
 ### Correlation Analysis: Dose-Response Relationship
 
-1. **Launch Extension**: Settings → Extensions → "Cluster-Based Permutation Testing"
+1. **Launch Extension**: Extensions button → "Permutation Analysis"
 2. **Select Mode**: Choose "Correlation" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Effect Size: 0.85
@@ -174,12 +179,12 @@ correlation/hippocampus_effect_size_correlation/
 └── config.json                             # Analysis configuration
 ```
 
-**Classification Findings:**
+**Example classification findings (illustrative):**
 - Significant cluster in left hippocampus (p = 0.008, 1,245 voxels)
 - Significant cluster in right hippocampus (p = 0.012, 987 voxels)
 - Trend-level cluster in left entorhinal cortex (p = 0.067, 615 voxels)
 
-**Correlation Findings:**
+**Example correlation findings (illustrative):**
 - Significant cluster in left hippocampus (r = 0.72, p = 0.003, 1,156 voxels)
 - Significant cluster in right hippocampus (r = 0.68, p = 0.007, 892 voxels)
 - Dose-response relationship between E-field strength and clinical improvement

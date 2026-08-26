@@ -21,7 +21,7 @@ The Quick Notes extension provides a simple note-taking tool for documenting obs
 Each note follows a consistent structure:
 
 ```
-[2024-11-01 14:30:45 EST]
+[2026-08-01 14:30:45 EST]
 This is my observation about the hippocampal stimulation results.
 The field strength appears optimal at 2.3 V/m for this electrode configuration.
 
@@ -32,7 +32,7 @@ The field strength appears optimal at 2.3 V/m for this electrode configuration.
 
 ### Basic Note-Taking
 
-1. **Launch Extension**: Settings → Extensions → "Quick Notes"
+1. **Launch Extension**: Extensions button → "Quick Notes"
 2. **Compose Note**: Type observations in the input area
 3. **Add Note**: Click "Add Note" to timestamp and save
 4. **Review History**: Scroll through previous notes in the display area
@@ -46,7 +46,7 @@ Notes are saved following BIDS derivatives structure:
 ```
 project_dir/
 └── derivatives/
-    └── tit/
+    └── ti-toolbox/
         └── notes.txt
 ```
 
@@ -57,25 +57,24 @@ This ensures notes are:
 
 ### Timestamp Format
 
-Notes use ISO 8601 format with timezone information:
+Notes use a human-readable local timestamp with the timezone abbreviation:
 
 ```
 YYYY-MM-DD HH:MM:SS TZ
 ```
 
 **Examples:**
-- `2024-11-01 14:30:45 EST` (Eastern Standard Time)
-- `2024-11-01 19:30:45 UTC` (Coordinated Universal Time)
-- `2024-11-01 11:30:45 PST` (Pacific Standard Time)
+- `2026-08-01 14:30:45 EST` (Eastern Standard Time)
+- `2026-08-01 19:30:45 UTC` (Coordinated Universal Time)
+- `2026-08-01 11:30:45 PST` (Pacific Standard Time)
 
 ### Timezone Handling
 
 The extension automatically detects the host system's timezone:
 
 ```python
-# Automatic timezone detection
-tz_name = os.environ.get('TZ', 'UTC')
-# Falls back gracefully for systems without timezone info
+tz_name = os.environ.get("TZ", "UTC")            # set by the loader from the host clock
+zone = tz_name if "/" in tz_name else _ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
 ```
 
 ## Troubleshooting

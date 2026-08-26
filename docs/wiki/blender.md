@@ -201,8 +201,6 @@ This can be incoporated into other visualization to produce images and animation
 
 The **Stop** button terminates the active subprocess if you need to cancel a long export.
 
-```
-
 ## Python API
 
 The blender module exposes typed dataclass configs and runner functions for programmatic use:
@@ -212,18 +210,20 @@ from tit.blender import (
     RegionConfig,
     VectorConfig,
     MontageConfig,
+    MontageResult,
     run_regions,
     run_vectors,
     run_montage,
 )
 
 # Example: export cortical regions as PLY
+# Paths (mesh, m2m, output dir) are resolved from the project via PathManager
 config = RegionConfig(
-    mesh="/data/.../central.msh",
-    m2m_dir="/data/.../m2m_001",
-    output_dir="/data/.../visual_exports",
+    subject_id="001",
+    simulation_name="HIPP_L",
     format=RegionConfig.Format.PLY,
     atlas="DK40",
+    surface="central",        # central | pial | white
     field_name="TI_max",
 )
 run_regions(config)

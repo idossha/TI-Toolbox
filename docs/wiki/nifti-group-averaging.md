@@ -10,7 +10,7 @@ The NIfTI Group Averaging extension provides comprehensive tools for computing g
 
 ### Basic Group Analysis
 
-1. **Launch Extension**: Settings → Extensions → "NIfTI Group Averaging"
+1. **Launch Extension**: Extensions button → "NIfTI Group Averaging"
 2. **Configure Subjects**:
    - Subject 001: Simulation "stim_A", Group "Treatment"
    - Subject 002: Simulation "stim_A", Group "Treatment"

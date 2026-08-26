@@ -44,7 +44,7 @@ Configure which subjects and simulations to include in the group average:
 
 ### Basic Group Visualization
 
-1. **Launch Extension**: Settings → Extensions → "Nilearn Visuals"
+1. **Launch Extension**: Extensions button → "Nilearn Visuals"
 2. **Configure Subjects**: Add subject-simulation pairs for averaging
 3. **Set Parameters**:
    - Output directory: `hippocampus_stimulation`
@@ -91,7 +91,7 @@ hippocampus_stimulation/
 - **harvard_oxford_sub**: Harvard-Oxford subcortical atlas (9 regions)
 - **harvard_oxford**: Full Harvard-Oxford cortical + subcortical atlas (48+ regions)
 - **aal**: Automated Anatomical Labeling atlas (116 regions)
-- **schaefer_2018**: Schaefer cortical parcellation (100-1000 regions)
+- **schaefer_2018**: Schaefer cortical parcellation (100 regions)
 
 ## Example Results
 

@@ -4,7 +4,7 @@ title: Tissue Analyzer
 permalink: /wiki/tissue-analyzer/
 ---
 
-The Tissue Analyzer extension provides volumetric assessment f different tissue types from segmented NIfTI data. This tool supports analysis of cerebrospinal fluid (CSF), bone, and skin tissues with automated volume and thickness calculations.
+Tissue analysis is part of the pre-processing pipeline (`tit.pre.tissue_analyzer`, enabled with the *Tissue Analysis* option of the Pre-Processing tab). It provides volumetric assessment of different tissue types from the CHARM segmentation. This tool supports analysis of cerebrospinal fluid (CSF), bone, and skin tissues with automated volume and thickness calculations.
 
 ## Key Features
 
@@ -97,7 +97,7 @@ derivatives/
     └── sub-XX/
         └── m2m_sub-XX/
             ├── segmentation/
-            │   ├── segmented.nii.gz     # Input segmentation
+            │   ├── labeling.nii.gz      # Input segmentation (CHARM output)
             │   └── labeling_LUT.txt     # Label mapping (optional)
             └── ...
 ```
@@ -105,17 +105,19 @@ derivatives/
 
 ## Usage Workflow
 
-### Command Line Usage
+### Python Usage
 
-```bash
-# Basic CSF analysis
-python tissue_analyzer.py /path/to/segmented.nii.gz -t csf
+There is no standalone command; run it through the pre-processing pipeline (`run_tissue_analysis=True` in the JSON config for `simnibs_python -m tit.pre`, or the checkbox in the GUI) or call it directly:
 
-# Bone analysis with custom output directory
-python tissue_analyzer.py /path/to/segmented.nii.gz -t bone -o bone_results
+```python
+import logging
+from tit.pre import run_tissue_analysis
 
-# Skin analysis with custom labels
-python tissue_analyzer.py /path/to/segmented.nii.gz -t skin -l 511 512
+results = run_tissue_analysis(
+    "/mnt/my_project", "ernie",
+    tissues=("bone", "csf", "skin"),   # DEFAULT_TISSUES
+    logger=logging.getLogger("tit.pre"),
+)
 ```
 
 
@@ -132,19 +134,9 @@ TISSUE_CONFIGS = {
         'tissue_color': [0, 0, 1],
         'brain_labels': [3, 42, 16]
     },
-    # ... additional tissue configurations
+    'bone': {'name': 'Bone', 'labels': [515, 516], 'padding': 30, ...},
+    'skin': {'name': 'Skin', 'labels': [511],      'padding': 35, ...},
 }
-```
-
-### Custom Label Names
-```python
-# Override or add label names manually
-custom_labels = {
-    4: "Left-Lateral-Ventricle",
-    5: "Left-Inf-Lat-Vent",
-    511: "Skin"
-}
-analyzer.set_label_names(custom_labels)
 ```
 
 
