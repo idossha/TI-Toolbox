@@ -20,7 +20,7 @@ TI-Toolbox ships a small, free plugin that teaches AI coding assistants — **Cl
 
 Under the hood it installs two things:
 
-- **Skills** — short reference documents (how TI-Toolbox runs, the Python API, the on-disk project layout, TI domain background) that the assistant reads automatically when you mention TI-Toolbox.
+- **Skills** — short reference documents (how TI-Toolbox runs, the Python API, the codebase layout, TI domain background, plus a `/troubleshoot-project` command) that the assistant reads automatically when you mention TI-Toolbox.
 - **An MCP server** — a tiny Python program (no dependencies) that gives the assistant tools such as `search_wiki`, `read_wiki_page`, `read_source_file`, `read_changelog`, and `inspect_project`.
 
 ## Install
@@ -90,7 +90,7 @@ Then reference the skill files above in your project's rules/instructions file s
 
 - All tools are read-only; there is no tool that writes, deletes, or runs anything.
 - Project inspection only lists directory and file names — it never opens imaging data.
-- Source/doc access is restricted to the public `tit/`, `docs/`, `scripts/`, `tests/` trees of the repository.
+- Source/doc access is restricted to the public `tit/`, `docs/`, `scripts/`, `tests/`, `container/`, `dev/` trees of the repository.
 - Set `TI_TOOLBOX_OFFLINE=1` to forbid network access entirely (requires a local clone).
 
 ## Troubleshooting

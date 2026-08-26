@@ -14,7 +14,7 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 
 ### Main Controls
 - **Subject Selection**: Choose from available pre-processed subjects
-- **Montage Source**: Radio buttons for montage list, flex mode, and free-hand
+- **Montage Source**: Per-job drop-down — `Montage`, `Flex-Search`, or `Freehand`
 - **Simulation Mode**: Unipolar/multipolar selection with current inputs
 - **EEG Net**: Dropdown selection of available electrode configurations
 
@@ -82,8 +82,8 @@ Mode that allows exploration of untraditional montages
 - **Montage Compatibility**: Works with unipolar montage collections
 
 ### Multipolar Mode
-- **Configuration**: Multiple active electrodes (up to 4 channels)
-- **Current Settings**: Four current inputs for complex stimulation patterns
+- **Configuration**: Any even number of electrode pairs, 4 or more (capped at 26, labelled A–Z)
+- **Current Settings**: One current input per pair (see [Multipolar TI]({{ site.baseurl }}/wiki/mti/))
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
 
@@ -140,7 +140,7 @@ derivatives/SimNIBS/sub-{id}/m2m_{id}/
 └── DTI_coregT1_tensor.nii.gz    # 4D tensor (X, Y, Z, 6)
 ```
 
-For complete DTI processing instructions, see the [Diffusion Processing](diffusion-processing.md) documentation.
+For complete DTI processing instructions, see the [Diffusion Processing]({{ site.baseurl }}/wiki/diffusion-processing/) documentation.
 
 #### DTI Eigen Vectors Visualization
 

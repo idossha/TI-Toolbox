@@ -127,7 +127,7 @@ See also: `scripts/preprocess.py`
 ```python
 from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
 
-# Option A: Load montages from the project's montage.json
+# Option A: Load montages from the project's `montage_list.json`
 montages = load_montages(
     montage_names=["L_Insula"],
     eeg_net="GSN-HydroCel-185.csv",

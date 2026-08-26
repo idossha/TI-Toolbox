@@ -23,7 +23,7 @@ Gmsh is used to visualize tetrahedral mesh files (.msh) generated during finite 
 5. **Launch Gmsh**: Click the **"Launch Gmsh"** button
 
 The system will automatically:
-- Locate the appropriate .msh file in your project's `Analyses/Mesh/` directory
+- Locate the .msh file under `derivatives/SimNIBS/sub-{ID}/Simulations/{sim}/Analyses/Mesh/{analysis}/`
 - Launch Gmsh with the correct file path
 - Display the mesh with electric field data
 
@@ -120,17 +120,17 @@ For simulations with saved electrode coordinates in `documentation/config.json`,
 ## File Formats and Locations
 
 ### Mesh Files (.msh)
-- **Location**: `project_dir/subjects/sub-{ID}/simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
+- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
 - **Content**: Tetrahedral mesh with embedded field data
 - **Visualizer**: Gmsh
 
 ### NIfTI Files (.nii/.nii.gz)
-- **Location**: `project_dir/subjects/sub-{ID}/simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
+- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
 - **Content**: Volumetric data in standard neuroimaging format
 - **Visualizer**: Freeview
 
 ### Electrode Overlay Files (.nii/.nii.gz + .lut)
-- **Location**: `project_dir/subjects/sub-{ID}/simulations/{sim_name}/{TI|mTI}/montage_imgs/electrode_overlay_subject.nii.gz`
+- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/{TI|mTI}/montage_imgs/electrode_overlay_subject.nii.gz`
 - **Content**: Channel-labeled electrode placement mask plus a Freeview LUT
 - **Visualizer**: Freeview
 
@@ -147,8 +147,8 @@ For users who prefer command-line access or need to integrate visualization into
 gmsh path/to/your/mesh.msh
 
 # Examples with typical TI-Toolbox paths:
-gmsh subjects/sub-01/simulations/my_simulation/Analyses/Mesh/E-field/ernie_montage_TI.msh
-gmsh subjects/sub-02/simulations/flex_search/Analyses/Mesh/ROI_analysis/sphere_ROI.msh
+gmsh derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/mesh/L_Insula_TI.msh
+gmsh derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/insula_roi/L_Insula_TI_insula_roi.msh
 ```
 
 ### Freeview CLI
@@ -161,8 +161,8 @@ freeview path/to/your/file.nii.gz
 freeview anatomical.nii.gz field_overlay.nii.gz:colormap=heat:opacity=0.7 atlas.nii.gz:lut=atlas_labels.txt
 
 # Examples with typical TI-Toolbox paths:
-freeview subjects/sub-01/simulations/my_simulation/Analyses/Voxel/E-field/E.nii.gz:colormap=plasma:opacity=0.8
-freeview subjects/sub-01/m2m_sub-01/T1.nii.gz subjects/sub-01/simulations/my_simulation/Analyses/Voxel/E-field/E.nii.gz:colormap=heat:opacity=0.7:percentile=1
+freeview derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/niftis/L_Insula_TI_subject_TI_max.nii.gz:colormap=plasma:opacity=0.8
+freeview derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/niftis/L_Insula_TI_subject_TI_max.nii.gz:colormap=heat:opacity=0.7:percentile=1
 ```
 
 **Note**: Freeview supports advanced options like colormaps, opacity, thresholds, and atlas overlays. Use `:colormap=heat`, `:opacity=0.7`, `:percentile=1`, etc.
@@ -195,8 +195,8 @@ Both visualizers are designed to work seamlessly with the TI-Toolbox analysis pi
 
 ## Gallery
 
-For visual examples of Gmsh and Freeview outputs, see the [Gmsh Freeview Gallery](/gallery/gmsh-freeview/) page.
+For visual examples of Gmsh and Freeview outputs, see the [Gmsh Freeview Gallery]({{ site.baseurl }}/gallery/gmsh-freeview/) page.
 
 ---
 
-*Note: Both Gmsh and Freeview are external applications that must be installed separately from the TI-Toolbox. The toolbox provides convenient launchers but does not include the visualization software itself.*
+*Note: Both Gmsh (bundled with SimNIBS) and Freeview (bundled with FreeSurfer) ship inside the TI-Toolbox container; the toolbox launches them for you. If you run the `tit` package outside the container you must install them yourself.*

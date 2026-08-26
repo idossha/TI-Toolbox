@@ -133,14 +133,14 @@ Once extracted, the tensor is automatically available for anisotropic simulation
 
 1. Navigate to the **Simulator** tab
 2. Select your subject
-3. Under **Conductivity Model**, select **Anisotropic**
+3. Under **Conductivity Type**, select one of the anisotropic models (`vn`, `dir` or `mc`)
 4. The simulator will detect and use `DTI_coregT1_tensor.nii.gz`
 
 ## Docker & Resources
 
 QSIPrep and QSIRecon run as **sibling Docker containers** spawned from the SimNIBS container via Docker-out-of-Docker (DooD). CPU and memory limits are inherited from the parent container.
 
-Resource requirements are highly variable depending on acquisition and hardware:
+Resource requirements vary widely with acquisition (number of directions, resolution) and hardware; expect QSIPrep to take one to several hours per subject and to need 16 GB+ of RAM.
 
 ## References
 
@@ -152,5 +152,5 @@ Resource requirements are highly variable depending on acquisition and hardware:
 
 ## Related
 
-- [Pre-Processing](pre-processing.md) — Structural MRI preprocessing
-- [Simulator](simulator.md) — Running TI simulations with anisotropic conductivity
+- [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) — Structural MRI preprocessing
+- [Simulator]({{ site.baseurl }}/wiki/simulator/) — Running TI simulations with anisotropic conductivity

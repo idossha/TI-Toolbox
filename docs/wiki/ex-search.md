@@ -70,7 +70,7 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 <div class="image-row">
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
-    <em>EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
+    <em>EEG 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
   </div>
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_GSN256_net.png" alt="GSN 256 Network">
@@ -100,12 +100,16 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 ### 1. EEG Net Selection
 ```
 [INFO] Scanning available EEG nets for subject 101...
-  1. EGI10-10_Cutini_2011.csv
-  2. EGI10-10_UI_Jurak_2007.csv
-  3. EGI10-20_Okamoto_2004.csv
-  4. GSN-HydroCel-185.csv        # Default selection
-  5. GSN-HydroCel-256.csv
-  6. easycap_BC_TMS64_X21.csv
+  1. BioSemi-64-10-10.csv
+  2. BioSemi-128-A1.csv
+  3. BioSemi-256-A1.csv
+  4. EEG10-10_Cutini_2011.csv
+  5. EEG10-10_UI_Jurak_2007.csv
+  6. EEG10-20_Okamoto_2004.csv
+  7. GSN-HydroCel-128.csv
+  8. GSN-HydroCel-185.csv        # Default selection
+  9. GSN-HydroCel-256.csv
+ 10. easycap_BC_TMS64_X21.csv
 ```
 
 ### 2. Leadfield Management
@@ -116,6 +120,7 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 ### 3. Current Ratio Optimization
 The optimization systematically tests current ratios respecting channel limits:
 ```
+Example (non-default; defaults are total_current=2.0 mA, current_step=0.5 mA, no channel_limit):
 For total_current=2.0mA, step=0.2mA, limit=1.6mA:
   (1.6, 0.4), (1.4, 0.6), (1.2, 0.8), (1.0, 1.0),
   (0.8, 1.2), (0.6, 1.4), (0.4, 1.6)

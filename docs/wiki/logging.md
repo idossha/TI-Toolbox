@@ -8,11 +8,12 @@ The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. On imp
 
 ## Architecture
 
-The logging module exposes three public functions:
+The logging module exposes four public functions:
 
 | Function | Purpose |
 |----------|---------|
-| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers (called automatically on import) |
+| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers itself (called automatically on import) |
+| `add_stream_handler(logger_name, level)` | Attach a stdout `StreamHandler` (called on import for `tit` at INFO) |
 | `add_file_handler(log_file)` | Attach a `FileHandler` to a named logger |
 | `get_file_only_logger(name, log_file)` | Return a standalone logger that writes only to a file |
 
@@ -77,7 +78,7 @@ Fields: timestamp, level, logger name, message.
 
 ### GUI (`tit/gui/`)
 
-The GUI uses a custom `_QtHandler(logging.Handler)` that bridges log records to a Qt signal. This feeds log messages into the console widget of each tab without any terminal output.
+The GUI uses `QtLogHandler` (`tit/gui/components/qt_log_handler.py`), a `logging.Handler` that bridges log records to a Qt signal. This feeds log messages into the console widget of each tab.
 
 ### `__main__.py` Subprocess Entry Points
 
@@ -105,11 +106,11 @@ Previous versions (~v2.2.3 and earlier) had ~750 lines of custom logging infrast
 
 - `get_logger()` factory function (deleted)
 - `configure_external_loggers()` for SimNIBS integration
-- Dual console + file output by default
+- File output by default (files are now opt-in via `add_file_handler`)
 - `TI_LOG_FILE`, `PROJECT_DIR`, `SUBJECT_ID` environment variables
 - Debug toggles in the GUI
 
-All of this has been replaced by the three functions described above. There are no environment variables and no debug toggles.
+All of this has been replaced by the four functions described above. There are no environment variables and no debug toggles.
 
 ## Best Practices
 

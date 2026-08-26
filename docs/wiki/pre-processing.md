@@ -29,12 +29,14 @@ project_root/
 └── sourcedata/
     └── sub-{subject_id}/
         ├── T1w/
-        │   ├── dicom/          # Raw T1w .dcm/.dicom files (recursive)
-        │   └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T1w DICOM archives
-        └── T2w/
-            ├── dicom/          # Raw T2w .dcm/.dicom files (recursive)
-            └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T2w DICOM archives
+        │   ├── dicom/          # Raw T1w .dcm/.dicom files (searched recursively)
+        │   └── *.zip|*.tar|*.tar.gz|*.tgz  # Optional T1w DICOM archives (extracted to extracted_archives/)
+        ├── T2w/                # Optional, same layout
+        ├── ct/                 # Optional CT (→ anat/sub-{id}_ct.nii.gz, a local non-BIDS extension)
+        └── dwi/                # Optional diffusion DICOMs (→ dwi/ with .bval/.bvec)
 ```
+
+Each modality folder is searched recursively, so DICOM files placed directly in `T1w/` also work; the `dicom/` subfolder is the recommended layout. Converted files are named `sub-{id}_T1w.nii.gz`, `sub-{id}_T2w.nii.gz`, etc.
 
 ### Data Requirements
 
@@ -141,6 +143,7 @@ derivatives/
 | `create_m2m` | Include SimNIBS head model creation (also runs `subject_atlas` for `.annot` files) | Optional |
 | `run_recon` | Run FreeSurfer reconstruction | Optional |
 | `parallel_recon` | Enable ThreadPoolExecutor multi-subject recon-all mode (multiple subjects, 1 core each) | Optional |
+| `parallel_cores` | Maximum number of subjects processed simultaneously when `parallel_recon` is on | Optional |
 | `run_tissue_analysis` | Run tissue segmentation analysis | Optional |
 | `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker | Optional |
 | `run_qsirecon` | Run QSIRecon reconstruction via Docker | Optional |
@@ -207,8 +210,8 @@ project_root/
 │       └── T2w/dicom/
 ├── sub-101/                        # BIDS data
 │   └── anat/
-│       ├── anat-T1w_acq-MPRAGE.nii.gz
-│       └── anat-T2w_acq-CUBE.nii.gz
+│       ├── sub-101_T1w.nii.gz
+│       └── sub-101_T2w.nii.gz
 └── derivatives/                    # Processed outputs
     ├── SimNIBS/                    # SimNIBS outputs
     │   └── sub-101/
@@ -236,8 +239,8 @@ derivatives/ti-toolbox/logs/sub-{subject_id}/
 #### Successful Processing
 ```
 [2025-06-25 13:45:23] [recon-all] [INFO] Starting FreeSurfer recon-all for subject: sub-101
-[2025-06-25 13:45:24] [recon-all] [INFO] Found T1 image: /mnt/study/sub-101/anat/anat-T1w_acq-MPRAGE.nii.gz
-[2025-06-25 13:45:24] [recon-all] [INFO] Found T2 image: /mnt/study/sub-101/anat/anat-T2w_acq-CUBE.nii.gz
+[2025-06-25 13:45:24] [recon-all] [INFO] Found T1 image: /mnt/study/sub-101/anat/sub-101_T1w.nii.gz
+[2025-06-25 13:45:24] [recon-all] [INFO] Found T2 image: /mnt/study/sub-101/anat/sub-101_T2w.nii.gz
 [2025-06-25 13:45:24] [recon-all] [INFO] T2 image will be used for improved pial surface reconstruction
 [2025-06-25 15:23:45] [recon-all] [INFO] Verification results: Essential files found: 9/9
 [2025-06-25 15:23:45] [recon-all] [INFO] FreeSurfer completion verification PASSED
@@ -279,7 +282,7 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 
 For anisotropic conductivity simulations, diffusion-weighted imaging (DWI) data can be processed using the integrated QSIPrep/QSIRecon pipeline. This produces DTI tensors that account for white matter fiber orientation in field calculations.
 
-See the [Diffusion Processing](diffusion-processing.md) documentation for:
+See the [Diffusion Processing]({{ site.baseurl }}/wiki/diffusion-processing/) documentation for:
 - QSIPrep preprocessing of raw DWI data
 - QSIRecon tensor reconstruction
 - DTI extraction for SimNIBS integration 
