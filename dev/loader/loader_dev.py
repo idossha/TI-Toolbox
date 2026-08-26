@@ -161,6 +161,10 @@ def update_project_status(project_dir: Path) -> None:
 
 
 def initialize_project_structure(project_dir: Path) -> None:
+    # The loader runs with the host's plain python3, where ``tit`` is not
+    # installed; import it from the checkout this script lives in.
+    if str(TOOLBOX_ROOT) not in sys.path:
+        sys.path.insert(0, str(TOOLBOX_ROOT))
     from tit.project_init import initializer
 
     initializer.initialize_project_structure(project_dir)
