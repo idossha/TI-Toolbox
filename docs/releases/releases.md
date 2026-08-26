@@ -31,15 +31,19 @@ permalink: /releases/
 **Desktop App (latest):**
 [macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.4.0.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-2.4.0.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.4.0_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:latest`
+- Docker Image: `docker pull idossha/simnibs:v2.4.0`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
+### v2.3.2
+
+**Release Date**: June 11, 2026
+
 #### Additions
 
 - New Source tool (extension): build MNE EEG forward solutions and project TI fields onto the fsaverage template.
@@ -51,18 +55,22 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 
 #### Download Links
 
-**Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.2.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.2-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.2.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.2.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-2.3.2.deb)
+**Desktop App (v2.3.2):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox.Setup.2.3.2.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/ti-toolbox_2.3.2_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:latest`
+- Docker Image: `docker pull idossha/simnibs:v2.3.2`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
+### v2.3.1
+
+**Release Date**: May 8, 2026
+
 #### Fixes & Maintenance
 
 ##### Flex-search and Simulation Workflow
@@ -101,16 +109,16 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 
 #### Download Links
 
-**Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.1.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.1-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.3.1.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.3.1.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.3.1_amd64.deb)
+**Desktop App (v2.3.1):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox.Setup.2.3.1.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/ti-toolbox_2.3.1_amd64.deb)
 
 **Other:**
 
-- Docker Image: `docker pull idossha/simnibs:latest`
+- Docker Image: `docker pull idossha/simnibs:v2.3.1`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
@@ -122,7 +130,7 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 If you encounter issues with any release:
 
 1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
-2. Review the [Troubleshooting]({{ site.baseurl }}/installation/#troubleshooting) section
+2. Review the [Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/) section
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 5. Join the [TI-Toolbox Discord server](https://discord.gg/KKdjJk8f)

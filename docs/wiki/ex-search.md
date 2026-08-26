@@ -80,18 +80,21 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 ---
 
-**Example Results:**
+**Example Results** (`final_output.csv`, top 5 of 108 candidates by `Composite_Index`; sub-ernie, EEG10-10 Jurak leadfield, 5 mm spherical ROI at MNI (−38, 5, 0), total 2 mA in 0.5 mA steps, TI-Toolbox v2.4.0):
 
-| Montage | TImax_ROI | TImean_ROI | TImean_GM | Focality |
-|---------|------------|------------|-----------|----------|
-| Fp1_Pz <> C3_C4 | 0.1748 | 0.1418 | 0.1595 | 0.8892 |
-| Fp1_Pz <> C3_F4 | 0.2321 | 0.1480 | 0.1723 | 0.8587 |
-| Fp1_Pz <> C3_P4 | 0.1632 | 0.1150 | 0.1637 | 0.7025 |
-| Fp1_Pz <> F3_C4 | 0.1884 | 0.1558 | 0.1803 | 0.8643 |
+| Montage | Current_Ch1_mA | Current_Ch2_mA | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+|---------|---------------|---------------|-----------|------------|-----------|----------|-----------------|
+| F7_TP7 <> F5_CP3 | 1.0 | 1.0 | 0.3477 | 0.2173 | 0.1029 | 2.1115 | 0.4589 |
+| F7_P7 <> F5_CP3 | 1.0 | 1.0 | 0.3540 | 0.2288 | 0.1161 | 1.9712 | 0.4510 |
+| F7_P7 <> F5_P5 | 1.0 | 1.0 | 0.4015 | 0.2443 | 0.1323 | 1.8458 | 0.4509 |
+| FT7_P7 <> F5_CP3 | 1.0 | 1.0 | 0.3304 | 0.2083 | 0.0994 | 2.0947 | 0.4363 |
+| FT7_P7 <> FC5_CP3 | 1.0 | 1.0 | 0.3453 | 0.1979 | 0.0908 | 2.1800 | 0.4315 |
 
-
+`Focality = TImean_ROI / TImean_GM` and `Composite_Index = TImean_ROI × Focality`. The `Montage` column in the CSV also carries the current split as a suffix (e.g. `F7_TP7 <> F5_CP3_I1-1.0mA_I2-1.0mA`).
 
 ![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png)
+
+*`montage_distributions.png` from the same run: TImax, TImean and focality across all 108 evaluated montages.*
 
 ---
 
