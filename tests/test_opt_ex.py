@@ -530,3 +530,66 @@ class TestRunExSearchMniSpace:
         mock_transform.assert_not_called()
         roi_files = mock_engine_cls.call_args[0][1]
         assert roi_files == [os.path.join(str(tmp_path / "rois"), "motor.csv")]
+
+
+# ---------------------------------------------------------------------------
+# tit.opt.ex.roi.read_roi_center -- shared CSV centre reader
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestReadRoiCenter:
+    def test_skips_header_row(self, tmp_path):
+        from tit.opt.ex.roi import read_roi_center
+
+        path = tmp_path / "roi.csv"
+        path.write_text("x,y,z\n10,20,30\n")
+        assert read_roi_center(str(path)) == [10.0, 20.0, 30.0]
+
+    def test_skips_blank_lines_and_extra_columns(self, tmp_path):
+        from tit.opt.ex.roi import read_roi_center
+
+        path = tmp_path / "roi.csv"
+        path.write_text("\n1.5, -2.5, 3.5, 99\n")
+        assert read_roi_center(str(path)) == [1.5, -2.5, 3.5]
+
+    def test_raises_without_numeric_triple(self, tmp_path):
+        from tit.opt.ex.roi import read_roi_center
+
+        path = tmp_path / "roi.csv"
+        path.write_text("x,y,z\n1,2\n")
+        with pytest.raises(ValueError, match="No valid coordinates"):
+            read_roi_center(str(path))
+
+    def test_engine_read_center_uses_the_shared_reader(self, tmp_path):
+        from tit.opt.ex.engine import ExSearchEngine
+
+        path = tmp_path / "roi.csv"
+        path.write_text("x,y,z\n4,5,6\n")
+        engine = ExSearchEngine.__new__(ExSearchEngine)
+        assert engine._read_center(str(path)) == [4.0, 5.0, 6.0]
+
+    def test_mni_transform_accepts_header_row(self, tmp_path):
+        """MNI CSVs with a header resolve exactly like the engine's reader."""
+        from tit.opt.ex.roi import mni_roi_files_to_subject_space
+
+        roi_dir = tmp_path / "rois"
+        roi_dir.mkdir()
+        (roi_dir / "motor.csv").write_text("x,y,z\n10,20,30\n")
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        with patch(
+            "simnibs.mni2subject_coords",
+            return_value=np.array([[1.0, 2.0, 3.0]]),
+        ) as mock_transform:
+            files = mni_roi_files_to_subject_space(
+                ["motor.csv"], str(roi_dir), "/m2m", str(out_dir), MagicMock()
+            )
+
+        np.testing.assert_array_equal(
+            mock_transform.call_args[0][0], np.array([[10.0, 20.0, 30.0]])
+        )
+        with open(files[0]) as f:
+            row = next(csv.reader(f))
+        assert [float(v) for v in row] == pytest.approx([1.0, 2.0, 3.0])

@@ -777,6 +777,11 @@ class ExConfig:
                 a if isinstance(a, ExConfig.AtlasROI) else ExConfig.AtlasROI(**a)
                 for a in self.roi_atlas
             ]
+        if self.roi_names == [] and not self.roi_atlas:
+            raise ValueError(
+                "roi_names=[] means 'no spherical centers', which requires at "
+                "least one roi_atlas target; otherwise the ROI is empty"
+            )
         self.roi_coordinate_space = str(self.roi_coordinate_space).strip().lower()
         if self.roi_coordinate_space not in ("subject", "mni"):
             raise ValueError(
@@ -1003,6 +1008,11 @@ class MExConfig:
                 a if isinstance(a, MExConfig.AtlasROI) else MExConfig.AtlasROI(**a)
                 for a in self.roi_atlas
             ]
+        if self.roi_names == [] and not self.roi_atlas:
+            raise ValueError(
+                "roi_names=[] means 'no spherical centers', which requires at "
+                "least one roi_atlas target; otherwise the ROI is empty"
+            )
         self.roi_coordinate_space = str(self.roi_coordinate_space).strip().lower()
         if self.roi_coordinate_space not in ("subject", "mni"):
             raise ValueError(

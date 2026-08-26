@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
+from .roi import read_roi_center
 from .logic import (
     count_combinations,
     generate_current_ratios,
@@ -110,14 +111,7 @@ class ExSearchEngine:
 
     def _read_center(self, path: str) -> list[float]:
         """Return the first valid ``[x, y, z]`` triple from an ROI CSV."""
-        with open(path) as f:
-            for row in csv.reader(f):
-                if not row:
-                    continue
-                coords = [float(v.strip()) for v in row if v.strip()]
-                if len(coords) >= 3:
-                    return coords[:3]
-        raise ValueError(f"No valid coordinates in {path}")
+        return read_roi_center(path)
 
     def _nifti_roi_mask(self, entry, baricenters: np.ndarray) -> np.ndarray:
         """Boolean mask selecting elements inside one NIfTI/MGZ ROI source.

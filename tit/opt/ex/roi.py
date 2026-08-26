@@ -17,6 +17,30 @@ from pathlib import Path
 import numpy as np
 
 
+def read_roi_center(path: str) -> list[float]:
+    """Return the first ``[x, y, z]`` triple in an ROI CSV.
+
+    Rows that are empty or not fully numeric (a header such as ``x,y,z``)
+    are skipped, so a CSV with a header row resolves the same as one
+    without.
+
+    Raises
+    ------
+    ValueError
+        No row holds at least three numeric values.
+    """
+    with open(path) as f:
+        for row in csv.reader(f):
+            values = [v.strip() for v in row if v.strip()]
+            try:
+                coords = [float(v) for v in values]
+            except ValueError:
+                continue
+            if len(coords) >= 3:
+                return coords[:3]
+    raise ValueError(f"No valid coordinates in {path}")
+
+
 def mni_roi_files_to_subject_space(
     roi_names: list[str], roi_dir: str, m2m_path: str, output_dir: str, logger
 ) -> list[str]:
@@ -48,9 +72,7 @@ def mni_roi_files_to_subject_space(
 
     subject_files = []
     for name in roi_names:
-        with open(os.path.join(roi_dir, name)) as f:
-            row = next(csv.reader(f))
-        coords = [float(v.strip()) for v in row if v.strip()][:3]
+        coords = read_roi_center(os.path.join(roi_dir, name))
         arr = np.atleast_2d(mni2subject_coords(np.array([coords]), str(m2m_path)))
         dst = os.path.join(output_dir, f"{Path(name).stem}_subject_space.csv")
         with open(dst, "w", newline="") as f:

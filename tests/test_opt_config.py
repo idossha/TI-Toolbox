@@ -573,6 +573,14 @@ class TestExConfigAtlasRoiAndCoordinateSpace:
         )
         assert cfg.roi_names == []
 
+    def test_empty_roi_names_without_atlas_is_rejected(self):
+        # roi_names=[] + no roi_atlas would be an empty ROI (every montage
+        # scores 0), so it must fail at config time, not after the search.
+        with pytest.raises(ValueError, match="roi_names=\\[\\]"):
+            self._cfg(roi_names=[])
+        with pytest.raises(ValueError, match="roi_atlas"):
+            self._cfg(roi_names=[], roi_atlas=[])
+
 
 @pytest.mark.unit
 class TestMExConfigAtlasRoiAndCoordinateSpace:
@@ -603,6 +611,14 @@ class TestMExConfigAtlasRoiAndCoordinateSpace:
     def test_coordinate_space_rejects_invalid_value(self):
         with pytest.raises(ValueError, match="roi_coordinate_space"):
             self._cfg(roi_coordinate_space="mri")
+
+    def test_empty_roi_names_without_atlas_is_rejected(self):
+        with pytest.raises(ValueError, match="roi_atlas"):
+            self._cfg(roi_names=[])
+        cfg = self._cfg(
+            roi_names=[], roi_atlas=[{"atlas_path": "/atlas.nii.gz", "label": 1}]
+        )
+        assert cfg.roi_names == []
 
 
 @pytest.mark.unit
