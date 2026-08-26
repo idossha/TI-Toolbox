@@ -3,10 +3,7 @@ layout: home
 ---
 
 <section class="hero">
-  <div class="hero__inner">
-    <img class="hero__icon" src="{{ site.baseurl }}/assets/imgs/icon.png" alt="TI Toolbox Icon">
-    <p class="hero__tagline">A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
-  </div>
+  <p class="hero__tagline">A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
 </section>
 
 <div class="home-grid">
@@ -30,8 +27,8 @@ python3 loader.py
 ```
 </li>
 <li markdown="1">
-**Set up your BIDS project directory**
-- Use our example dataset to get familiar with the software or organize your data in BIDS format.<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/`
+**Set up your project directory**
+- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away, or organize your own data in BIDS format:<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/`
 </li>
 <li markdown="1">
 **Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
