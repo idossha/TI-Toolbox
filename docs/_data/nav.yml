@@ -13,13 +13,14 @@ installation:
     - group: Additional Guides
     - { title: Bash/CLI Usage, url: /installation/bash-cli/ }
     - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
-    - { title: Troubleshooting, url: /installation/troubleshooting/ }
+    - { title: Troubleshooting, url: /wiki/troubleshooting/ }
 
 wiki:
   title: Wiki Guides
   items:
     - { title: Overview, url: /wiki/ }
     - { title: Video Tutorials, url: /wiki/video-tutorials/ }
+    - { title: Troubleshooting Archive, url: /wiki/troubleshooting/ }
     - group: Core Functionality
     - { title: Pre-Processing, url: /wiki/pre-processing/ }
     - { title: Diffusion Processing, url: /wiki/diffusion-processing/ }

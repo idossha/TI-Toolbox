@@ -52,4 +52,4 @@ See [`agent-plugin/README.md`](agent-plugin/README.md) for Codex and other clien
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
-Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/KKdjJk8f), or [email](mailto:ihaber@wisc.edu).
+Known problems and verified fixes are collected in the [Troubleshooting Archive](https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/) — check it first. Otherwise contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/KKdjJk8f), or [email](mailto:ihaber@wisc.edu).

@@ -150,6 +150,8 @@ The GUI runs inside Docker with X11 forwarding:
 
 ## Common Pitfalls
 
+The maintainer-verified list of known problems, causes and fixes is `docs/wiki/troubleshooting.md` (published at https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/). Consult it before diagnosing a user-reported error, and add an entry there when a new one is confirmed.
+
 1. **PathManager initialization** - Must be initialized before use
 2. **Docker context** - Most heavy computation happens in containers
 3. **X11 forwarding** - GUI requires proper display setup

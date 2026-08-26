@@ -4,7 +4,7 @@ title: Wiki
 permalink: /wiki/
 ---
 
-Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation for all aspects of the toolbox. Check out our [Video Tutorials](video-tutorials) for step-by-step visual guides.
+Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation for all aspects of the toolbox. Check out our [Video Tutorials](video-tutorials) for step-by-step visual guides. Something broken? Start at the **[Troubleshooting Archive](troubleshooting)** — the maintainer-verified list of known problems and fixes.
 
 
 ### Core Functionality
