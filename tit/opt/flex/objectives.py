@@ -358,6 +358,19 @@ def _balanced_first(
     return sorted(splits, key=lambda split: abs(split[0] - split[1]))
 
 
+def _scale_to_channel_current(values: Sequence[float], target_A: float) -> float:
+    """Factor that makes the positive entries of *values* sum to *target_A*.
+
+    A channel's injected current is the sum of its positive per-electrode
+    currents; the summed magnitude halved is the fallback for unsigned arrays.
+    """
+    floats = [float(value) for value in values]
+    injected = sum(value for value in floats if value > 0.0)
+    if injected <= 0.0:
+        injected = sum(abs(value) for value in floats) / 2.0
+    return target_A / max(injected, 1e-12)
+
+
 def _apply_current_split(opt, split: tuple[float, float]) -> None:
     """Rescale each channel's electrodes so the channel injects the *split*.
 
@@ -370,8 +383,19 @@ def _apply_current_split(opt, split: tuple[float, float]) -> None:
     current, with the load shared across its electrodes as SimNIBS arranged it.
 
     Currents are scaled rather than overwritten, so the sign pattern and array
-    structure SimNIBS built are preserved -- including ``_current_channel``,
-    used when Dirichlet correction is active.
+    structure SimNIBS built are preserved.  The FEM never reads
+    ``ElectrodeArrayPair.current`` after ``_prepare()``: ``onlinefem.set_rhs``
+    assembles the right-hand side from each ``Electrode``'s ``node_current`` /
+    ``ele_current`` and the Dirichlet loop from the pair's ``_node_current`` and
+    ``_current_channel``, all of which ``get_nodes_electrode`` rebuilds from
+    ``ele_current_init`` via ``compile_node_arrays()``.  So the per-electrode
+    currents (and their ``_init`` values, which SimNIBS resets to on a
+    non-converged Dirichlet loop) are scaled too and the node arrays recompiled.
+
+    Every quantity is scaled from its *own* injected sum to the target, so the
+    call is idempotent: SimNIBS invokes ``get_nodes_electrode`` twice with the
+    optimum (once after the search, once inside the final ``update_field``),
+    and a second application must not compound the first.
     """
     electrodes = getattr(opt, "electrode", None) or []
     for channel, current_mA in enumerate(split):
@@ -381,28 +405,46 @@ def _apply_current_split(opt, split: tuple[float, float]) -> None:
         existing = getattr(electrode, "current", None)
         if existing is None or len(existing) == 0:
             continue
-        values = [float(value) for value in existing]
-        # The channel current is what the anodes inject in total; fall back to
-        # the summed magnitude if the array is stored without signs.
-        injected = sum(value for value in values if value > 0.0)
-        if injected <= 0.0:
-            injected = sum(abs(value) for value in values) / 2.0
-        reference = max(injected, 1e-12)
-        scale = (float(current_mA) / 1000.0) / reference
-        electrode.current = [value * scale for value in values]
-        per_channel = getattr(electrode, "_current_channel", None)
-        if per_channel is not None:
-            electrode._current_channel = [float(v) * scale for v in per_channel]
+        target_A = float(current_mA) / 1000.0
+        scale = _scale_to_channel_current(existing, target_A)
+        electrode.current = [float(value) * scale for value in existing]
+        for attr in ("_current_channel", "_current_total", "_current_mean"):
+            value = getattr(electrode, attr, None)
+            if value is not None:
+                setattr(electrode, attr, np.multiply(value, scale))
+
+        # Per-electrode currents are what the FEM actually reads.
+        cells = [
+            ele
+            for array in getattr(electrode, "_electrode_arrays", None) or []
+            for ele in getattr(array, "electrodes", None) or []
+        ]
+        for attr in ("ele_current", "ele_current_init"):
+            values = [getattr(ele, attr, None) for ele in cells]
+            if not values or any(value is None for value in values):
+                continue
+            ele_scale = _scale_to_channel_current(
+                [float(np.sum(value)) for value in values], target_A
+            )
+            for ele, value in zip(cells, values):
+                # The ``ele_current`` setter re-derives ``node_current``.
+                setattr(ele, attr, value * ele_scale)
+        compile_node_arrays = getattr(electrode, "compile_node_arrays", None)
+        if cells and callable(compile_node_arrays):
+            compile_node_arrays()
 
 
 def _install_split_applier(opt, state: dict) -> None:
     """Apply the winning current split before SimNIBS's final simulation.
 
-    SimNIBS calls :meth:`get_nodes_electrode` once with ``electrode_pos_opt``
-    after the search converges and immediately before it rebuilds the electrodes
-    for the final simulation.  Hooking that one call is the only point at which
-    the currents can be changed without perturbing the search itself, because
-    every earlier call happens while candidates are still being scored.
+    SimNIBS calls :meth:`get_nodes_electrode` with ``electrode_pos_opt`` after
+    the search converges, and again from the final ``update_field``.  Hooking
+    those calls is the only point at which the currents can be changed without
+    perturbing the search itself, because every earlier call happens while
+    candidates are still being scored.  The split is applied *after* the
+    original runs, because the original resets every ``ele_current`` from
+    ``ele_current_init`` (or the current estimator) and recompiles the node
+    arrays -- anything applied before it would be overwritten.
     """
     original = opt.get_nodes_electrode
 

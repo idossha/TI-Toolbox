@@ -823,6 +823,170 @@ class TestApplyCurrentSplit:
         objectives._apply_current_split(opt, (3.0, 1.0))
 
 
+class _FakeElectrode:
+    """Mimics ``simnibs...electrode_layout.Electrode``'s current plumbing.
+
+    The ``ele_current`` setter re-derives ``node_current`` from the node areas,
+    exactly as SimNIBS does; ``ele_current_init`` is what ``get_nodes_electrode``
+    resets ``ele_current`` to before every FEM update.
+    """
+
+    def __init__(self, ele_current, node_area):
+        self.node_area = np.asarray(node_area, dtype=float)
+        self.node_area_total = float(self.node_area.sum())
+        self.n_nodes = len(self.node_area)
+        self.ele_current_init = ele_current
+        self.ele_current = ele_current
+
+    @property
+    def ele_current(self):
+        return self._ele_current
+
+    @ele_current.setter
+    def ele_current(self, value):
+        self._ele_current = value
+        self._node_current = value * self.node_area / self.node_area_total
+
+    @property
+    def node_current(self):
+        return self._node_current
+
+
+class _FakeArrayPair:
+    """Mimics an ``ElectrodeArrayPair`` after ``_prepare()``.
+
+    ``current`` / ``_current_channel`` / ``_current_total`` / ``_current_mean``
+    are the pair-level bookkeeping; the FEM reads the per-electrode
+    ``ele_current`` / ``node_current`` and the compiled ``_node_current``.
+    """
+
+    def __init__(self, per_pole=1, c_A=0.002):
+        share = c_A / per_pole
+        self.current = np.array([share] * per_pole + [-share] * per_pole)
+        self._current_total = c_A
+        self._current_mean = np.array([share, -share])
+        self._current_channel = np.array([c_A, -c_A])
+        self._electrode_arrays = [
+            SimpleNamespace(
+                electrodes=[
+                    _FakeElectrode(sign * share, node_area=[1.0, 3.0])
+                    for _ in range(per_pole)
+                ]
+            )
+            for sign in (1.0, -1.0)
+        ]
+        self.compiled = 0
+        self.compile_node_arrays()
+
+    def compile_node_arrays(self):
+        self.compiled += 1
+        self._node_current = np.hstack(
+            [
+                ele.node_current
+                for array in self._electrode_arrays
+                for ele in array.electrodes
+            ]
+        )
+
+    def reset_from_init(self):
+        # What SimNIBS's get_nodes_electrode does before every FEM update.
+        for array in self._electrode_arrays:
+            for ele in array.electrodes:
+                ele.ele_current = ele.ele_current_init
+        self.compile_node_arrays()
+
+    def injected_ele_A(self):
+        return sum(
+            float(np.sum(ele.ele_current))
+            for array in self._electrode_arrays
+            for ele in array.electrodes
+            if np.sum(ele.ele_current) > 0
+        )
+
+
+@pytest.mark.unit
+class TestApplyCurrentSplitReachesTheFEM:
+    """The split must land on what ``onlinefem`` actually reads.
+
+    After ``_prepare()`` the FEM never looks at ``ElectrodeArrayPair.current``:
+    ``set_rhs`` gathers each ``Electrode``'s ``node_current`` / ``ele_current``
+    and the Dirichlet loop reads the pair's compiled ``_node_current`` and
+    ``_current_channel``.  ``get_nodes_electrode`` rebuilds those from
+    ``ele_current_init``, so all of them have to move together.
+    """
+
+    @pytest.mark.parametrize("per_pole", [1, 2])
+    def test_per_electrode_currents_are_scaled(self, per_pole):
+        pairs = [_FakeArrayPair(per_pole), _FakeArrayPair(per_pole)]
+        objectives._apply_current_split(SimpleNamespace(electrode=pairs), (3.0, 1.0))
+        assert pairs[0].injected_ele_A() == pytest.approx(0.003)
+        assert pairs[1].injected_ele_A() == pytest.approx(0.001)
+        for pair, expected in zip(pairs, (0.003, 0.001)):
+            for array, sign in zip(pair._electrode_arrays, (1.0, -1.0)):
+                for ele in array.electrodes:
+                    assert ele.ele_current == pytest.approx(sign * expected / per_pole)
+                    assert ele.ele_current_init == pytest.approx(
+                        sign * expected / per_pole
+                    )
+                    assert ele.node_current == pytest.approx(
+                        sign * expected / per_pole * np.array([0.25, 0.75])
+                    )
+
+    def test_node_arrays_are_recompiled(self):
+        pair = _FakeArrayPair()
+        before = pair.compiled
+        objectives._apply_current_split(SimpleNamespace(electrode=[pair]), (3.0, 1.0))
+        assert pair.compiled == before + 1
+        assert pair._node_current == pytest.approx(
+            np.array([0.003 * 0.25, 0.003 * 0.75, -0.003 * 0.25, -0.003 * 0.75])
+        )
+
+    def test_pair_level_bookkeeping_stays_consistent(self):
+        pair = _FakeArrayPair()
+        objectives._apply_current_split(SimpleNamespace(electrode=[pair]), (3.0, 1.0))
+        assert list(pair.current) == pytest.approx([0.003, -0.003])
+        assert list(pair._current_channel) == pytest.approx([0.003, -0.003])
+        assert pair._current_total == pytest.approx(0.003)
+        assert list(pair._current_mean) == pytest.approx([0.003, -0.003])
+        # Dirichlet path: channel total equals the compiled node current sum.
+        anodes = pair._node_current[pair._node_current > 0]
+        assert anodes.sum() == pytest.approx(pair._current_channel[0])
+
+    def test_survives_simnibs_reset_from_init(self):
+        # get_nodes_electrode resets ele_current from ele_current_init before
+        # the final update_field, so the init values must carry the split.
+        pair = _FakeArrayPair()
+        objectives._apply_current_split(SimpleNamespace(electrode=[pair]), (3.0, 1.0))
+        pair.reset_from_init()
+        assert pair.injected_ele_A() == pytest.approx(0.003)
+
+    def test_is_idempotent_across_the_two_final_calls(self):
+        # SimNIBS calls get_nodes_electrode(electrode_pos_opt) twice (once after
+        # the search, once inside update_field); applying twice must not
+        # compound.
+        pair = _FakeArrayPair()
+        opt = SimpleNamespace(electrode=[pair])
+        objectives._apply_current_split(opt, (3.0, 1.0))
+        pair.reset_from_init()
+        objectives._apply_current_split(opt, (3.0, 1.0))
+        assert pair.injected_ele_A() == pytest.approx(0.003)
+        assert list(pair.current) == pytest.approx([0.003, -0.003])
+        assert list(pair._current_channel) == pytest.approx([0.003, -0.003])
+
+    def test_rescales_estimator_overwritten_currents(self):
+        # With a current estimator, get_nodes_electrode overwrites ele_current
+        # with unscaled estimates; the applier must bring them back to the
+        # split rather than trusting the already-scaled pair-level `.current`.
+        pair = _FakeArrayPair()
+        opt = SimpleNamespace(electrode=[pair])
+        objectives._apply_current_split(opt, (3.0, 1.0))
+        for array, sign in zip(pair._electrode_arrays, (1.0, -1.0)):
+            for ele in array.electrodes:
+                ele.ele_current = sign * 0.002
+        objectives._apply_current_split(opt, (3.0, 1.0))
+        assert pair.injected_ele_A() == pytest.approx(0.003)
+
+
 # ---------------------------------------------------------------------------
 # _install_split_applier
 # ---------------------------------------------------------------------------
