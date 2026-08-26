@@ -35,7 +35,7 @@ Common properties:
 
 Below is a complete simulation report generated with TI-Toolbox v2.4.0 for `sub-ernie` of the bundled example dataset (montage `E034–E020` / `E095–E070`, GSN-HydroCel-185, 1 mA per channel, MNI export enabled):
 
-<iframe src="{{ site.baseurl }}/assets/other/simulation_report_20260826_221102.html" 
+<iframe src="{{ site.baseurl }}/assets/other/simulation_report_20260826_223702.html" 
         width="100%" 
         height="800px" 
         style="border: 1px solid #ddd; border-radius: 8px;">
@@ -127,7 +127,7 @@ derivatives/ti-toolbox/reports/
 ├── dataset_description.json
 ├── sub-ernie/
 │   ├── pre_processing_report_20260505_193859.html
-│   ├── simulation_report_20260826_221102.html
+│   ├── simulation_report_20260826_223702.html
 │   └── flex_search_report_20260730_041200.html
 └── sub-101/
     └── ...

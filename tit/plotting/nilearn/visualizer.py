@@ -819,9 +819,11 @@ class NilearnVisualizer:
         nifti_path : str
             Path to a NIfTI file.
         title : str, optional
-            Title text for the viewer.
+            Title text drawn inside the viewer canvas.  Pass an empty
+            string to omit it (e.g. when the surrounding report already
+            shows a heading).
         min_cutoff : float, optional
-            Lower display threshold in V/m.
+            Lower display threshold in V/m; also the colourbar minimum.
         max_cutoff : float or None, optional
             Upper display threshold.  Defaults to the 99.9th percentile.
         cmap : str, optional
@@ -845,13 +847,17 @@ class NilearnVisualizer:
             if max_cutoff is None:
                 max_cutoff = float(np.percentile(data_nonzero, 99.9))
 
+            # vmin == threshold: the colourbar spans exactly the visible
+            # range instead of 0..vmax with an unexplained grey band.
             v = view_img(
                 stat_map_img=img,
                 threshold=min_cutoff,
+                vmin=min_cutoff,
                 vmax=max_cutoff,
                 cmap=cmap,
                 symmetric_cmap=False,
-                title=title,
+                title=title or None,
+                width_view=1100,
             )
             return v._repr_html_()
         except Exception:

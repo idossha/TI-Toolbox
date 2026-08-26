@@ -279,20 +279,22 @@ body {
 
 .interactive-volume-viewer {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
     width: 100%;
     margin: var(--spacing-lg) auto;
 }
 
-.interactive-volume-viewer > *,
-.interactive-volume-viewer iframe,
-.interactive-volume-viewer .plotly-graph-div {
+.interactive-volume-viewer iframe {
     width: min(100%, 1200px) !important;
     max-width: 1200px !important;
-    min-height: 720px;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    min-height: 560px;
+    border: none;
+    margin: 0 auto !important;
+}
+
+.interactive-volume-viewer .viewer-scale-note {
+    width: min(100%, 1200px);
 }
 
 /* Table Reportlet */
@@ -337,48 +339,32 @@ body {
 .file-tree-wrapper {
     background: var(--bg-light);
     border-radius: var(--border-radius);
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
 }
 
-.file-tree,
-.file-tree ul {
-    list-style: none;
+.file-tree-title {
+    font-weight: 600;
+    color: var(--primary-gradient-start);
     margin: var(--spacing-xs) 0;
-    padding-left: var(--spacing-lg);
-    border-left: 1px solid var(--border-color);
 }
 
 .file-tree {
-    border-left: none;
-    padding-left: 0;
-}
-
-.file-tree li {
-    margin: var(--spacing-xs) 0;
-}
-
-.file-tree-label {
-    font-weight: 600;
-    color: var(--text-color);
-}
-
-.file-tree-root {
-    color: var(--primary-gradient-start);
-}
-
-.file-tree-folder::before {
-    content: "▸ ";
-    color: var(--text-muted);
-}
-
-.file-tree-file {
+    margin: 0 0 var(--spacing-sm) 0;
+    padding: 0;
+    background: none;
+    border: none;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 0.88rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-color);
+    white-space: pre;
+    overflow-x: auto;
 }
 
-.file-tree-file::before {
-    content: "• ";
+.viewer-scale-note {
+    font-size: 0.88rem;
     color: var(--text-muted);
+    margin: var(--spacing-xs) 0 0 0;
 }
 
 /* Text Reportlet */

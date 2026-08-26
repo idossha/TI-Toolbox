@@ -2607,7 +2607,7 @@ class TestSimulationReportGenerator:
         assert "ellipse 8x8 mm electrodes" in content
         assert "TI_max and TI_normal" in content
         assert "file-tree-wrapper" in content
-        assert "file-tree-file" in content
+        assert "grey_BU_eg2_TI_max_MNI.nii.gz" in content
         assert "Output File</th>" not in content
         assert "&quot;name&quot;: &quot;BU_eg2&quot;" in content
         assert not list(tmp_path.glob("*_METHODS.md"))

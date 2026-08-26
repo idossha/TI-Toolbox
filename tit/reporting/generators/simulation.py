@@ -866,11 +866,11 @@ class SimulationReportGenerator(BaseReportGenerator):
         }
 
     def _output_file_tree_html(self) -> str:
-        """Render recorded output files as a nested HTML tree."""
-        roots = []
+        """Render recorded output files as a compact monospace directory tree."""
+        blocks = []
         for result in self.simulation_results.values():
-            output_files = result.get("output_files")
-            if not output_files:
+            paths = self._flatten_output_paths(result.get("output_files"))
+            if not paths:
                 continue
             label_parts = [
                 str(part)
@@ -878,56 +878,64 @@ class SimulationReportGenerator(BaseReportGenerator):
                 if part
             ]
             root_label = " / ".join(label_parts) or "Simulation Outputs"
-            roots.append(
-                "<li>"
-                f"<span class='file-tree-label file-tree-root'>{escape(root_label)}</span>"
-                f"{self._render_output_tree(output_files)}"
-                "</li>"
+            tree = self._build_path_trie(paths)
+            root_path, tree = self._collapse_common_prefix(tree)
+            lines = [root_path or "/"]
+            lines.extend(self._trie_lines(tree))
+            blocks.append(
+                f"<div class='file-tree-title'>{escape(root_label)}</div>"
+                f"<pre class='file-tree'>{escape(chr(10).join(lines))}</pre>"
             )
-        if not roots:
+        if not blocks:
             return ""
-        return f"<div class='file-tree-wrapper'><ul class='file-tree'>{''.join(roots)}</ul></div>"
+        return f"<div class='file-tree-wrapper'>{''.join(blocks)}</div>"
 
     @classmethod
-    def _render_output_tree(cls, value: Any) -> str:
-        """Render nested output file metadata as a tree list."""
+    def _flatten_output_paths(cls, value: Any) -> list[str]:
+        """Collect every path string from nested output-file metadata."""
         if isinstance(value, dict):
-            items = []
-            for key, child in value.items():
-                items.append(
-                    "<li>"
-                    f"<span class='file-tree-label file-tree-folder'>{escape(str(key))}</span>"
-                    f"{cls._render_output_tree(child)}"
-                    "</li>"
-                )
-            return f"<ul>{''.join(items)}</ul>" if items else ""
+            return [p for child in value.values() for p in cls._flatten_output_paths(child)]
         if isinstance(value, (list, tuple, set)):
-            items = []
-            for child in value:
-                if isinstance(child, (dict, list, tuple, set)):
-                    items.append(f"<li>{cls._render_output_tree(child)}</li>")
-                else:
-                    items.append(cls._render_output_path(child))
-            return f"<ul>{''.join(items)}</ul>" if items else ""
-        return f"<ul>{cls._render_output_path(value)}</ul>"
+            return [p for child in value for p in cls._flatten_output_paths(child)]
+        if value is None or value == "":
+            return []
+        return [str(value)]
 
     @staticmethod
-    def _render_output_path(value: Any) -> str:
-        """Render a file path as nested path components."""
-        text = str(value)
-        parts = [part for part in text.replace("\\", "/").split("/") if part]
-        if len(parts) <= 1:
-            return f"<li><span class='file-tree-file'>{escape(text)}</span></li>"
+    def _build_path_trie(paths: list[str]) -> dict:
+        """Merge path strings into a nested dict keyed by path component."""
+        trie: dict = {}
+        for text in sorted(set(paths)):
+            node = trie
+            for part in [p for p in text.replace("\\", "/").split("/") if p]:
+                node = node.setdefault(part, {})
+        return trie
 
-        html = f"<li><span class='file-tree-label file-tree-folder'>{escape(parts[0])}</span>"
-        for part in parts[1:-1]:
-            html += f"<ul><li><span class='file-tree-label file-tree-folder'>{escape(part)}</span>"
-        html += (
-            f"<ul><li><span class='file-tree-file'>{escape(parts[-1])}</span></li></ul>"
-        )
-        html += "</li></ul>" * (len(parts) - 2)
-        html += "</li>"
-        return html
+    @staticmethod
+    def _collapse_common_prefix(trie: dict) -> tuple[str, dict]:
+        """Fold single-child chains at the root into one absolute prefix."""
+        prefix: list[str] = []
+        node = trie
+        while len(node) == 1:
+            (name, child), = node.items()
+            if not child:
+                break
+            prefix.append(name)
+            node = child
+        return ("/" + "/".join(prefix)) if prefix else "", node
+
+    @classmethod
+    def _trie_lines(cls, node: dict, indent: str = "") -> list[str]:
+        """Render a path trie with box-drawing connectors (dirs first)."""
+        lines: list[str] = []
+        names = sorted(node, key=lambda n: (not node[n], n.lower()))
+        for i, name in enumerate(names):
+            last = i == len(names) - 1
+            child = node[name]
+            lines.append(f"{indent}{'└── ' if last else '├── '}{name}{'/' if child else ''}")
+            if child:
+                lines.extend(cls._trie_lines(child, indent + ("    " if last else "│   ")))
+        return lines
 
     def _build_parameters_section(self) -> None:
         """Build the parameters section."""
@@ -1337,16 +1345,25 @@ class SimulationReportGenerator(BaseReportGenerator):
 
                 vol_html = NilearnVisualizer.interactive_volume_to_html(
                     nifti_path,
-                    title=f"{name} — {tissue_label}",
+                    title="",
                     min_cutoff=lo,
                     max_cutoff=hi,
                 )
                 if vol_html:
+                    scale_note = (
+                        "<p class='viewer-scale-note'>"
+                        f"<strong>Colour scale:</strong> {lo:.3f}\u2013{hi:.3f} V/m "
+                        f"(95th\u201399.9th percentile of non-zero {tissue_label.lower()} "
+                        f"voxels). Voxels below {lo:.3f} V/m are hidden; voxels above "
+                        f"{hi:.3f} V/m saturate to white. Click a slice to move the "
+                        "crosshair."
+                        "</p>"
+                    )
                     section.add_reportlet(
                         TextReportlet(
                             content=(
                                 "<div class='interactive-volume-viewer'>"
-                                f"{vol_html}"
+                                f"{vol_html}{scale_note}"
                                 "</div>"
                             ),
                             title=f"{name} — {tissue_label} Interactive Volume",
