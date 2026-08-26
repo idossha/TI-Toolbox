@@ -860,3 +860,85 @@ class TestVisualizeVoxel:
 
         mock_overlay.assert_called_once()
         mock_hist.assert_called_once()
+
+
+class TestFieldPlumbing:
+    """The GUI's ``field`` config key must reach select_field_file."""
+
+    def test_analyzer_passes_field_to_select_field_file(self):
+        with (
+            patch(
+                "tit.analyzer.analyzer.select_field_file",
+                return_value=(Path("/fake/sim/montage1_TI.msh"), "hf_peak"),
+            ) as mock_select,
+            patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
+            patch("tit.analyzer.analyzer.add_file_handler"),
+        ):
+            pm = mock_gpm.return_value
+            pm.logs.return_value = "/tmp/logs"
+            a = Analyzer("001", "sim1", "mesh", field="hf_peak")
+
+        assert mock_select.call_args.kwargs["field"] == "hf_peak"
+        assert a.field_name == "hf_peak"
+
+    def test_analyzer_default_field_is_none(self):
+        with (
+            patch(
+                "tit.analyzer.analyzer.select_field_file",
+                return_value=(Path("/fake/sim/montage1_TI.msh"), "TI_max"),
+            ) as mock_select,
+            patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
+            patch("tit.analyzer.analyzer.add_file_handler"),
+        ):
+            mock_gpm.return_value.logs.return_value = "/tmp/logs"
+            Analyzer("001", "sim1", "mesh")
+
+        assert mock_select.call_args.kwargs["field"] is None
+
+    def test_run_single_forwards_field(self):
+        from tit.analyzer.__main__ import _run_single
+
+        data = {
+            "subject_id": "001",
+            "simulation": "montage1",
+            "space": "voxel",
+            "analysis_type": "spherical",
+            "center": [0, 0, 0],
+            "radius": 5,
+            "field": "TI_avg",
+        }
+        with patch("tit.analyzer.Analyzer") as MockAnalyzer:
+            _run_single(data)
+
+        assert MockAnalyzer.call_args.kwargs["field"] == "TI_avg"
+
+    def test_run_single_without_field_defaults_none(self):
+        from tit.analyzer.__main__ import _run_single
+
+        data = {
+            "subject_id": "001",
+            "simulation": "montage1",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "V1",
+        }
+        with patch("tit.analyzer.Analyzer") as MockAnalyzer:
+            _run_single(data)
+
+        assert MockAnalyzer.call_args.kwargs["field"] is None
+
+    def test_run_group_forwards_field(self):
+        from tit.analyzer.__main__ import _run_group
+
+        data = {
+            "subject_ids": ["001", "002"],
+            "simulation": "montage1",
+            "analysis_type": "cortical",
+            "atlas": "DK40",
+            "region": "V1",
+            "field": "hf_peak",
+        }
+        with patch("tit.analyzer.run_group_analysis") as mock_group:
+            _run_group(data)
+
+        assert mock_group.call_args.kwargs["field"] == "hf_peak"

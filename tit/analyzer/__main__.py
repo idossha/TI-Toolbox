@@ -64,6 +64,7 @@ def _run_group(data: dict) -> None:
         region=data.get("regions") or data.get("region"),
         visualize=data.get("visualize", True),
         output_dir=data.get("output_dir"),
+        field=data.get("field"),
     )
 
 
@@ -87,6 +88,7 @@ def _run_single(data: dict) -> None:
         space=data.get("space", "mesh"),
         tissue_type=data.get("tissue_type", "GM"),
         output_dir=data.get("output_dir"),
+        field=data.get("field"),
     )
 
     if analysis_type == "spherical":

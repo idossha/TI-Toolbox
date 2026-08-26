@@ -87,6 +87,7 @@ def run_group_analysis(
     region: str | list[str] | None = None,
     visualize: bool = False,
     output_dir: str | Path | None = None,
+    field: str | None = None,
 ) -> GroupResult:
     """Run the same ROI analysis across multiple subjects and summarise.
 
@@ -122,6 +123,9 @@ def run_group_analysis(
         Generate per-subject visualization artifacts. Default ``False``.
     output_dir : str, pathlib.Path, or None, optional
         Override output directory. If ``None``, derived from PathManager.
+    field : str or None, optional
+        Field to analyze (``constants.FIELD_REGISTRY`` name). Default
+        ``None`` resolves the TI_max/mTI_max envelope per subject.
 
     Returns
     -------
@@ -175,7 +179,9 @@ def run_group_analysis(
         results: dict[str, AnalysisResult] = {}
         for sid in subject_ids:
             logger.info("Analyzing subject %s", sid)
-            results[sid] = analyze_fn(Analyzer(sid, simulation, space, tissue_type))
+            results[sid] = analyze_fn(
+                Analyzer(sid, simulation, space, tissue_type, field=field)
+            )
 
         df = _build_summary_df(results)
         csv_path = out / "group_summary.csv"

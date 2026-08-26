@@ -157,6 +157,10 @@ class Analyzer:
         mesh analyses always use the GM cortical surface. Default ``"GM"``.
     output_dir : str or None, optional
         Override output directory. If ``None``, derived from PathManager.
+    field : str or None, optional
+        Field to analyze, from ``constants.FIELD_REGISTRY`` (e.g.
+        ``"hf_peak"``, ``"TI_normal"``). Default ``None`` resolves the
+        TI_max/mTI_max envelope. See :func:`select_field_file`.
 
     Attributes
     ----------
@@ -199,6 +203,7 @@ class Analyzer:
         space: str = "mesh",
         tissue_type: str = "GM",
         output_dir: str | None = None,
+        field: str | None = None,
     ) -> None:
         self.subject_id = subject_id
         self.simulation = simulation
@@ -212,6 +217,7 @@ class Analyzer:
             simulation,
             space,
             tissue_type=self.tissue_type,
+            field=field,
         )
         self.field_path = field_path
         self.field_name = field_name
@@ -229,11 +235,12 @@ class Analyzer:
         self._log_handler = add_file_handler(log_file)
 
         logger.info(
-            "Analyzer initialised: subject=%s sim=%s space=%s tissue=%s",
+            "Analyzer initialised: subject=%s sim=%s space=%s tissue=%s field=%s",
             subject_id,
             simulation,
             space,
             self.tissue_type,
+            field_name,
         )
 
         # Cached lazily

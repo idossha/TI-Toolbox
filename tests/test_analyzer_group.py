@@ -418,3 +418,63 @@ class TestNumericCols:
             "Normal_Focality",
         }
         assert set(_NUMERIC_COLS) == expected
+
+
+class TestRunGroupAnalysisField:
+    """``field`` is forwarded to every per-subject Analyzer."""
+
+    @pytest.mark.unit
+    @patch("tit.analyzer.group._generate_comparison_plot")
+    @patch("tit.analyzer.group._build_summary_df")
+    @patch("tit.analyzer.group.Analyzer")
+    @patch("tit.analyzer.group.add_file_handler")
+    @patch("tit.analyzer.group._resolve_output_dir")
+    def test_field_forwarded_to_analyzer(
+        self,
+        mock_resolve,
+        mock_add_fh,
+        mock_analyzer_cls,
+        mock_build_df,
+        mock_plot,
+        tmp_path,
+    ):
+        mock_resolve.return_value = tmp_path
+        mock_analyzer_cls.return_value.analyze_sphere.return_value = _make_result()
+        mock_plot.return_value = None
+
+        run_group_analysis(
+            subject_ids=["001", "002"],
+            simulation="sim1",
+            center=(0.0, 0.0, 0.0),
+            radius=5.0,
+            field="hf_peak",
+        )
+
+        assert mock_analyzer_cls.call_count == 2
+        for c in mock_analyzer_cls.call_args_list:
+            assert c.kwargs["field"] == "hf_peak"
+
+    @pytest.mark.unit
+    @patch("tit.analyzer.group._generate_comparison_plot")
+    @patch("tit.analyzer.group._build_summary_df")
+    @patch("tit.analyzer.group.Analyzer")
+    @patch("tit.analyzer.group.add_file_handler")
+    @patch("tit.analyzer.group._resolve_output_dir")
+    def test_field_defaults_to_none(
+        self,
+        mock_resolve,
+        mock_add_fh,
+        mock_analyzer_cls,
+        mock_build_df,
+        mock_plot,
+        tmp_path,
+    ):
+        mock_resolve.return_value = tmp_path
+        mock_analyzer_cls.return_value.analyze_sphere.return_value = _make_result()
+        mock_plot.return_value = None
+
+        run_group_analysis(
+            subject_ids=["001"], simulation="sim1", center=(0.0, 0.0, 0.0), radius=5.0
+        )
+
+        assert mock_analyzer_cls.call_args.kwargs["field"] is None

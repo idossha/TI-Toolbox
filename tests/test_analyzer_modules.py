@@ -110,7 +110,7 @@ class TestSelectFieldFileMTI:
             path, field_name = select_field_file("001", "montage2", "mesh")
 
         assert path == mesh_file
-        assert field_name == "TI_Max"
+        assert field_name == "mTI_max"
 
     @pytest.mark.unit
     def test_voxel_mti_detected(self, tmp_path):
@@ -126,7 +126,7 @@ class TestSelectFieldFileMTI:
             path, field_name = select_field_file("001", "montage2", "voxel")
 
         assert path == nii
-        assert field_name == "TI_Max"
+        assert field_name == "mTI_max"
 
 
 class TestSelectFieldFileErrors:
@@ -390,7 +390,7 @@ class TestSelectFieldFileExplicitField:
     @pytest.mark.unit
     def test_ti_max_alias_resolves_to_mti_max_on_mesh(self, tmp_path):
         """Requesting the "TI_max" spelling on an mTI simulation must resolve
-        to the on-disk "TI_Max" spelling (GUI always sends "TI_max" as its
+        to the on-disk "mTI_max" spelling (GUI always sends "TI_max" as its
         default field, regardless of TI vs mTI)."""
         sim_dir = tmp_path / "sim"
         (sim_dir / "mTI" / "mesh").mkdir(parents=True)
@@ -404,7 +404,7 @@ class TestSelectFieldFileExplicitField:
             )
 
         assert path == mesh_file
-        assert field_name == "TI_Max"
+        assert field_name == "mTI_max"
 
     @pytest.mark.unit
     def test_ti_max_alias_resolves_to_mti_max_on_voxel(self, tmp_path):
@@ -412,7 +412,7 @@ class TestSelectFieldFileExplicitField:
         (sim_dir / "mTI" / "mesh").mkdir(parents=True)
         nifti_dir = sim_dir / "mTI" / "niftis"
         nifti_dir.mkdir(parents=True)
-        nii = nifti_dir / "grey_montage2_mTI_subject_TI_Max.nii.gz"
+        nii = nifti_dir / "grey_montage2_mTI_subject_mTI_max.nii.gz"
         nii.touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
@@ -422,11 +422,11 @@ class TestSelectFieldFileExplicitField:
             )
 
         assert path == nii
-        assert field_name == "TI_Max"
+        assert field_name == "mTI_max"
 
     @pytest.mark.unit
     def test_mti_max_alias_resolves_to_ti_max_on_mesh(self, tmp_path):
-        """The reverse alias direction: requesting "TI_Max" on a plain TI
+        """The reverse alias direction: requesting "mTI_max" on a plain TI
         simulation resolves to the on-disk "TI_max" spelling."""
         sim_dir = tmp_path / "sim"
         mesh_dir = sim_dir / "TI" / "mesh"
@@ -437,7 +437,7 @@ class TestSelectFieldFileExplicitField:
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
             path, field_name = select_field_file(
-                "001", "montage1", "mesh", field="TI_Max"
+                "001", "montage1", "mesh", field="mTI_max"
             )
 
         assert path == mesh_file
@@ -837,3 +837,87 @@ class TestSaveResultsCsv:
         with open(result) as fh:
             rows = list(csv.reader(fh))
         assert len(rows) == 1
+
+
+class TestSelectVoxelDefaultField:
+    """field=None must resolve the TI_max envelope, not the first sorted file.
+
+    mesh2nii writes ``{base}_subject_{field}.nii.gz``; ``_TI_avg`` sorts
+    before ``_TI_max``, so a bare sorted listing silently picked TI_avg while
+    reporting TI_max.
+    """
+
+    @pytest.mark.unit
+    def test_default_skips_ti_avg_and_picks_ti_max(self, tmp_path):
+        sim_dir = tmp_path / "sim"
+        nifti_dir = sim_dir / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_montage1_TI_subject_TI_avg.nii.gz").touch()
+        (nifti_dir / "grey_montage1_TI_subject_TI_max.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            path, field_name = select_field_file("001", "montage1", "voxel")
+
+        assert path.name == "grey_montage1_TI_subject_TI_max.nii.gz"
+        assert field_name == "TI_max"
+
+    @pytest.mark.unit
+    def test_default_mti_picks_ti_Max(self, tmp_path):
+        sim_dir = tmp_path / "sim"
+        (sim_dir / "mTI" / "mesh").mkdir(parents=True)
+        nifti_dir = sim_dir / "mTI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_montage2_mTI_subject_mTI_max.nii.gz").touch()
+        (nifti_dir / "grey_montage2_mTI_subject_TI_avg.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            path, field_name = select_field_file("001", "montage2", "voxel")
+
+        assert path.name == "grey_montage2_mTI_subject_mTI_max.nii.gz"
+        assert field_name == "mTI_max"
+
+    @pytest.mark.unit
+    def test_default_falls_back_to_unsuffixed_legacy_file(self, tmp_path):
+        """Older simulations wrote a single NIfTI without a field suffix."""
+        sim_dir = tmp_path / "sim"
+        nifti_dir = sim_dir / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_montage1_TI_subject.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            path, field_name = select_field_file("001", "montage1", "voxel")
+
+        assert path.name == "grey_montage1_TI_subject.nii.gz"
+        assert field_name == "TI_max"
+
+    @pytest.mark.unit
+    def test_explicit_ti_avg_selects_ti_avg(self, tmp_path):
+        sim_dir = tmp_path / "sim"
+        nifti_dir = sim_dir / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_montage1_TI_subject_TI_avg.nii.gz").touch()
+        (nifti_dir / "grey_montage1_TI_subject_TI_max.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            path, field_name = select_field_file(
+                "001", "montage1", "voxel", field="TI_avg"
+            )
+
+        assert path.name == "grey_montage1_TI_subject_TI_avg.nii.gz"
+        assert field_name == "TI_avg"
+
+    @pytest.mark.unit
+    def test_ti_normal_in_voxel_space_raises_clear_error(self, tmp_path):
+        sim_dir = tmp_path / "sim"
+        nifti_dir = sim_dir / "TI" / "niftis"
+        nifti_dir.mkdir(parents=True)
+        (nifti_dir / "grey_montage1_TI_subject_TI_max.nii.gz").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            with pytest.raises(ValueError, match="TI_normal.*mesh"):
+                select_field_file("001", "montage1", "voxel", field="TI_normal")

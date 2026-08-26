@@ -46,8 +46,8 @@ def select_field_file(
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
     field : str or None, optional
         Field name from ``constants.FIELD_REGISTRY`` (e.g. ``"hf_peak"``).
-        Default ``None`` resolves ``TI_max`` (TI) or ``TI_Max`` (mTI).
-        ``"TI_max"``/``"TI_Max"`` are treated as aliases for the same
+        Default ``None`` resolves ``TI_max`` (TI) or ``mTI_max`` (mTI).
+        ``"TI_max"``/``"mTI_max"`` are treated as aliases for the same
         quantity; the on-disk spelling is always chosen by the detected
         simulation type, regardless of which alias is passed.
 
@@ -63,7 +63,8 @@ def select_field_file(
     FileNotFoundError
         If the expected field file does not exist.
     ValueError
-        If *space* is not ``"mesh"``/``"voxel"``, or *field* is unknown.
+        If *space* is not ``"mesh"``/``"voxel"``, *field* is unknown, or
+        ``TI_normal`` is requested in voxel space (it has no NIfTI export).
 
     See Also
     --------
@@ -95,10 +96,10 @@ def select_field_file(
 
 
 def _canonical_field_name(field_name: str, is_mti: bool) -> str:
-    """Resolve the TI_max/TI_Max alias pair to the on-disk spelling.
+    """Resolve the TI_max/mTI_max alias pair to the on-disk spelling.
 
-    ``TI_max`` and ``TI_Max`` are the same quantity (modulation depth) — the
-    2-pair TI mesh and the 4-pair/mTI mesh just spell it differently. Callers
+    ``TI_max`` and ``mTI_max`` are the same quantity (modulation depth) — the
+    2-pair TI mesh and the 4-pair/mTI mesh just name it differently. Callers
     (e.g. the GUI) should not need to know which spelling a given simulation
     used; only *is_mti* decides it.
     """
@@ -166,6 +167,12 @@ def _select_voxel(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
+    if field_name == const.FIELD_TI_NORMAL:
+        raise ValueError(
+            "TI_normal is a surface (mesh) field and is not exported to NIfTI; "
+            "select space='mesh' to analyze it."
+        )
+
     if not nifti_dir.is_dir():
         high_freq = sim_dir / "high_Frequency"
         hint = ""
@@ -193,14 +200,15 @@ def _select_voxel(
             f"Unsupported tissue_type: {tissue_type!r} (expected 'GM', 'WM', or 'both')"
         )
 
-    # An explicit field additionally requires the field name in the filename
-    # (SimNIBS appends "_{field}" to the output prefix), so distinct fields
-    # sharing a mesh (e.g. TI_max, hf_peak, hf_sar) aren't conflated. With no
-    # explicit field, matching is unchanged from prior behavior.
+    # The field name must appear as the filename suffix (mesh2nii writes
+    # "{base}_{field}.nii.gz"), so distinct fields sharing a mesh (TI_max,
+    # TI_avg, hf_peak, ...) aren't conflated. This applies to the implicit
+    # default too: without it, a sorted listing would pick "_TI_avg" ahead of
+    # "_TI_max" and silently analyze the wrong field under the TI_max label.
     field_suffixes = (f"_{field_name}.nii.gz", f"_{field_name}.nii")
 
     def _field_matches(name: str) -> bool:
-        return field is None or name.endswith(field_suffixes)
+        return name.endswith(field_suffixes)
 
     preferred_prefix = prefix_map[tissue]
     if preferred_prefix is None:
@@ -217,6 +225,7 @@ def _select_voxel(
             if nii.name.startswith(preferred_prefix) and "_MNI" not in nii.name
         )
 
+    candidates = list(candidates)
     for nii in candidates:
         if _field_matches(nii.name):
             logger.debug(
@@ -231,4 +240,14 @@ def _select_voxel(
         raise FileNotFoundError(
             f"No {tissue_type} NIfTI file found for field {field_name!r} in {nifti_dir}"
         )
+    # Legacy fallback for the implicit default only: older simulations wrote
+    # a single NIfTI without a field suffix, so take the first candidate.
+    if candidates:
+        logger.debug(
+            "No %s-suffixed NIfTI in %s; falling back to %s",
+            field_name,
+            nifti_dir,
+            candidates[0],
+        )
+        return candidates[0], field_name
     raise FileNotFoundError(f"No {tissue_type} NIfTI file found in {nifti_dir}")
