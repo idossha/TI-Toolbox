@@ -537,3 +537,43 @@ class TestGuiImports:
         assert "self.target_stack.setCurrentWidget(self.spherical_group)" in body
         assert "self.cortical_group.setVisible" not in body
         assert "self.spherical_group.setVisible" not in body
+
+
+class TestAnalyzerTabStopAndMasks:
+    """stop_analysis drains the sphere queue; voxel atlas managers see masks/."""
+
+    @pytest.mark.unit
+    def test_stop_analysis_clears_single_analysis_queue(self):
+        """Stopping must not let _on_single_analysis_cmd_finished launch the
+        next queued sphere."""
+        pytest.importorskip("PyQt5")
+        from unittest.mock import MagicMock
+
+        from tit.gui.analyzer_tab import AnalyzerTab
+
+        tab = MagicMock()
+        tab.optimization_process.isRunning.return_value = True
+        tab.optimization_process.terminate_process.return_value = True
+        tab._single_analysis_queue = [["cmd2"], ["cmd3"]]
+        tab._single_analysis_all_ok = True
+
+        AnalyzerTab.stop_analysis(tab)
+
+        assert tab._single_analysis_queue == []
+        assert tab._single_analysis_all_ok is False
+
+    @pytest.mark.unit
+    def test_stop_analysis_clears_queue_in_source(self):
+        """Source-level guard that runs on hosts without PyQt5."""
+        src = (GUI_ROOT / "analyzer_tab.py").read_text(encoding="utf-8")
+        body = src.split("def stop_analysis(self):", 1)[1].split("\n    def ", 1)[0]
+        assert "self._single_analysis_queue = []" in body
+
+    @pytest.mark.unit
+    def test_voxel_atlas_managers_receive_masks_dir(self):
+        """analyzer_tab and nifti_viewer_tab must pass masks_dir so custom
+        masks in m2m_<id>/masks/ are discoverable (as roi_picker already does)."""
+        for name in ("analyzer_tab.py", "nifti_viewer_tab.py"):
+            src = (GUI_ROOT / name).read_text(encoding="utf-8")
+            ctor = src.split("VoxelAtlasManager(", 1)[1][:400]
+            assert "masks_dir=self.pm.masks(subject_id)" in ctor, name

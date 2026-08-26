@@ -182,7 +182,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # functional/safety boundary; default selection is TI_max (registry
         # order), preserving today's implicit field choice.
         #
-        # FIELD_MTI_MAX ("TI_Max") is skipped: it and FIELD_TI_MAX ("TI_max")
+        # FIELD_MTI_MAX ("mTI_max") is skipped: it and FIELD_TI_MAX ("TI_max")
         # are the same quantity (modulation depth) under the 4-pair/mTI vs.
         # 2-pair mesh spelling. Listing both would force the user to guess
         # which spelling their simulation used; field_selector already
@@ -1020,6 +1020,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         mgr = VoxelAtlasManager(
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=self.pm.segmentation(subject_id),
+            masks_dir=self.pm.masks(subject_id),
         )
         results = mgr.list_atlases()
         if not results:
@@ -2264,6 +2265,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             and self.optimization_process.isRunning()
         ):
             self.update_output("Attempting to stop analysis...")
+            # Drop any queued spheres so _on_single_analysis_cmd_finished
+            # doesn't launch the next one after this thread terminates.
+            self._single_analysis_queue = []
+            self._single_analysis_all_ok = False
             if (
                 self.optimization_process.terminate_process()
             ):  # This sets self.terminated in thread

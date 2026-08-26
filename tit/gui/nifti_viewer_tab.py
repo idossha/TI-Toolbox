@@ -74,6 +74,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         mgr = VoxelAtlasManager(
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=str(os.path.join(m2m_dir, "segmentation")) if m2m_dir else "",
+            masks_dir=self.pm.masks(subject_id) if m2m_dir else "",
         )
         return mgr.list_atlases()
 
@@ -175,9 +176,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.create_electrode_overlay_btn = QtWidgets.QPushButton(
             "Create Electrode Overlay"
         )
-        self.create_electrode_overlay_btn.clicked.connect(
-            self.create_electrode_overlay
-        )
+        self.create_electrode_overlay_btn.clicked.connect(self.create_electrode_overlay)
         electrode_controls.addWidget(self.create_electrode_overlay_btn)
 
         self.electrode_overlay_status = QtWidgets.QLabel("Not checked")
@@ -620,9 +619,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(
                 self,
                 "Warning",
-                "Cannot create electrode overlay; missing "
-                + ", ".join(missing)
-                + ".",
+                "Cannot create electrode overlay; missing " + ", ".join(missing) + ".",
             )
             self.update_electrode_overlay_controls()
             return
@@ -946,9 +943,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
                 if "_MNI" not in basename:
                     continue
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
+                # "TI_max" also matches the mTI spelling "mTI_max".
+                if "TI_max" not in basename or "TDCS" in basename:
                     continue
                 if "grey_" not in basename:
                     continue
@@ -1045,9 +1041,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
 
-                if (
-                    "TI_max" not in basename and "TI_Max" not in basename
-                ) or "TDCS" in basename:
+                # "TI_max" also matches the mTI spelling "mTI_max".
+                if "TI_max" not in basename or "TDCS" in basename:
                     continue
                 if is_mni_space != ("_MNI" in basename):
                     continue
