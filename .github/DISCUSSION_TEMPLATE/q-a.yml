@@ -1,0 +1,51 @@
+title: "[Q&A] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before posting, search the **[Troubleshooting Archive](https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/)** for your error text — most known problems already have a verified fix there.
+  - type: input
+    id: version
+    attributes:
+      label: TI-Toolbox version
+      placeholder: "v2.4.0 (Help → About, or `docker images`)"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      placeholder: "macOS 15.6 / Windows 11 / Ubuntu 22.04 (+ Docker Desktop version)"
+    validations:
+      required: true
+  - type: dropdown
+    id: entry
+    attributes:
+      label: How did you launch the toolbox?
+      options:
+        - Desktop app
+        - python3 loader.py
+        - Other (explain below)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What were you doing?
+      description: The tab / command / step, and the input data (e.g. DICOM T1w, ernie example).
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Exact error text
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log excerpt
+      description: The relevant part of `<project>/derivatives/ti-toolbox/logs/` or `docker logs simnibs_container`.
+      render: shell

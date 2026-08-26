@@ -605,6 +605,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "docs": SITE_BASE,
         "wiki": f"{SITE_BASE}/wiki/",
         "api_reference": f"{SITE_BASE}/api/",
+        "troubleshooting": f"{SITE_BASE}/wiki/troubleshooting/  (read_wiki_page('troubleshooting') -- verified archive of known errors and fixes; check it first for any error)",
         "repo": f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}",
         "runtime": "Everything runs inside the Docker container idossha/simnibs (SimNIBS 4.x, Python 3.11). "
         "Use `simnibs_python`, not the host python. Project mounted at /mnt/<project>/.",
@@ -632,7 +633,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "config": "code/ti-toolbox/config/*.json (montage_list.json etc.)",
         },
         "source_status": _source_label(),
-        "tools_hint": "Use search_wiki/read_wiki_page for how-to questions, "
+        "tools_hint": "For any error message read_wiki_page('troubleshooting') first. Use search_wiki/read_wiki_page for how-to questions, "
         "read_source_file/find_symbol for API details, inspect_project for a user's data.",
     }
 

@@ -6,6 +6,8 @@ argument-hint: [project-root] [subject-id]
 
 # Troubleshoot a TI-Toolbox project
 
+Before anything else, `read_wiki_page("troubleshooting")` — the verified archive of known problems. Match the user's error text against it first; only investigate further when nothing matches. If you find a new, confirmed cause, tell the user to report it in GitHub Discussions (Q&A) so it can be added.
+
 Arguments: `$ARGUMENTS` = `<project-root> [subject-id]`. If no project root is
 given, ask for it (inside the container it is `/mnt/<project>`; on the host it is
 the folder the desktop app was pointed at).
