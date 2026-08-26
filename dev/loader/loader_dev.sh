@@ -42,6 +42,7 @@ check_docker_available() {
 
 load_default_paths() {
   if [[ -f "$DEFAULT_PATHS_FILE" ]]; then
+    # shellcheck source=/dev/null
     source "$DEFAULT_PATHS_FILE"
   fi
 }
@@ -72,7 +73,7 @@ get_directory_path() {
   local input_path
 
   while true; do
-    if [[ -n "${!current_var}" ]]; then
+    if [[ -n "${!current_var:-}" ]]; then
       echo "Current $label: ${!current_var}"
       echo "Press Enter to use this directory or enter a new path:"
       read -e -r input_path
@@ -86,9 +87,9 @@ get_directory_path() {
 
     # Expand a leading ~ since read/[[ -d ]] does not do this automatically.
     input_path="${input_path/#\~/$HOME}"
-    eval "$current_var=\"$input_path\""
+    printf -v "$current_var" '%s' "$input_path"
 
-    if [[ -d "${!current_var}" ]]; then
+    if [[ -d "${!current_var:-}" ]]; then
       break
     else
       echo "Invalid directory. Please provide a valid path."
@@ -185,7 +186,7 @@ get_user_config_dir() {
 get_freesurfer_volume_name() {
   local tag
   tag=$(grep -E '^[[:space:]]*image:[[:space:]]*[^[:space:]]*ti-toolbox_freesurfer:' "$DOCKER_COMPOSE_FILE" \
-    | sed -E 's/^[[:space:]]*image:[[:space:]]*[^[:space:]]*ti-toolbox_freesurfer:([^[:space:]]+)[[:space:]]*$/\1/')
+    | sed -E 's/^[[:space:]]*image:[[:space:]]*[^[:space:]]*ti-toolbox_freesurfer:([^[:space:]]+)[[:space:]]*$/\1/' || true)
   if [[ -n "$tag" ]]; then
     echo "${FREESURFER_VOLUME_PREFIX}_${tag}"
   fi
@@ -220,7 +221,7 @@ ensure_images_pulled() {
   local image
   while IFS= read -r image; do
     if [ -n "$image" ]; then
-      if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image}$"; then
+      if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -qxF "$image"; then
         images_needed+=("$image")
       fi
     fi
@@ -347,7 +348,8 @@ run_docker_compose() {
   run_project_init_in_container "$PROJECT_DIR_NAME"
 
   echo "Attaching to the simnibs_container..."
-  docker exec -ti simnibs_container bash
+  # A non-zero exit from the interactive shell must not skip the teardown below.
+  docker exec -ti simnibs_container bash || true
 
   docker compose -f "$DOCKER_COMPOSE_FILE" down
 
@@ -395,11 +397,12 @@ main() {
   export PROJECT_DIR_NAME
   export DEV_CODEBASE_DIR
   export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"
-  export TZ="$(get_host_timezone)"
-  export TIT_USER_CONFIG="$(get_user_config_dir)"
-  export TIT_HOST_OS="$(echo "$OS_TYPE" | tr '[:upper:]' '[:lower:]')"
-  export TIT_HOST_OS_VERSION="$(uname -r)"
-  export TIT_HOST_ARCH="$(uname -m)"
+  TZ="$(get_host_timezone)"
+  TIT_USER_CONFIG="$(get_user_config_dir)"
+  TIT_HOST_OS="$(echo "$OS_TYPE" | tr '[:upper:]' '[:lower:]')"
+  TIT_HOST_OS_VERSION="$(uname -r)"
+  TIT_HOST_ARCH="$(uname -m)"
+  export TZ TIT_USER_CONFIG TIT_HOST_OS TIT_HOST_OS_VERSION TIT_HOST_ARCH
 
   if [[ "$OS_TYPE" == "Darwin" ]]; then
     # macOS needs these settings for OpenGL to work in Docker.
