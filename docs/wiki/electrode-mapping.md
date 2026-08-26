@@ -12,26 +12,27 @@ The `map_electrodes.py` tool maps optimized electrode positions to the nearest a
 
 ## Usage
 
-### Basic Usage
+`tit/tools/map_electrodes.py` is a library module (no command-line entry point). The Simulator tab calls it automatically when a flex-search result is simulated with the **Flex-Search** montage source and mapping to an EEG net is selected. The same four functions can be used from a script:
 
-```bash
-simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json
+```python
+import os
+from tit.tools.map_electrodes import (
+    load_electrode_positions_json,
+    read_csv_positions,
+    map_electrodes_to_net,
+    save_mapping_result,
+    log_mapping_summary,
+)
+
+opt_pos, ch_arr_idx = load_electrode_positions_json("flex-search/<run>/electrode_positions.json")
+net_pos, net_labels = read_csv_positions("m2m_ernie/eeg_positions/GSN-HydroCel-185.csv")
+result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
+save_mapping_result(result, "electrode_mapping.json",
+                    eeg_net_name="GSN-HydroCel-185.csv")
+log_mapping_summary(result)    # per-electrode distances, via the tit.tools logger
 ```
 
-### With Verbose Output
-
-```bash
-simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json -v
-```
-
-**Note:** This tool requires `simnibs_python` (SimNIBS's bundled Python environment). If running outside Docker, ensure SimNIBS is properly installed and in your PATH.
-
-## Arguments
-
-- `-i, --input`: Path to `electrode_positions.json` file containing optimized positions (required)
-- `-n, --net`: Path to EEG net CSV file containing electrode positions (required)
-- `-o, --output`: Output path for mapping result JSON file (default: `electrode_mapping.json`)
-- `-v, --verbose`: Print detailed mapping summary
+`save_mapping_result` needs an explicit output path; the `eeg_net` key only appears in the JSON when `eeg_net_name` is given.
 
 ## Input Format
 
@@ -98,13 +99,13 @@ The tool generates a JSON file with the following structure:
 ## Features
 
 - **Optimal Assignment**: Uses the Hungarian algorithm to find the globally optimal mapping that minimizes total distance
-- **Detailed Reporting**: With `-v` flag, provides detailed summary including per-electrode distances
+- **Detailed Reporting**: `log_mapping_summary()` logs a per-electrode distance summary
 - **Flexible Input**: Supports multiple CSV formats commonly used in neuroimaging
 - **Error Handling**: Validates input files and provides clear error messages
 
 ## Integration with TI-Toolbox
 
-This tool is automatically called by the flex-search optimization when the "Run simulation with mapped electrodes" option is enabled in the GUI. It can also be used standalone for post-hoc analysis or custom workflows.
+This module is called by the Simulator tab when a flex-search result is simulated with electrodes mapped onto an EEG net (`tit/gui/simulator_tab.py`). It can also be used standalone for post-hoc analysis or custom workflows.
 
 ## EEG Net Density Impact on Optimization Performance
 

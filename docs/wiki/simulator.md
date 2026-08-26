@@ -22,6 +22,7 @@ The simulator GUI provides intuitive controls for all simulation parameters:
 - **Conductivity Model**: Four anisotropy types (`scalar`, `vn`, `dir`, `mc`) with configurable bounds
 - **Current Configuration**: Individual per-pair electrode current settings
 - **Batch Processing**: Multiple subject simulation queues
+- **Output Fields**: Checkboxes for `TI_max` (default), `TI_avg`, `hf_peak` and `hf_sar`; at least one must be selected
 
 ### Output Management
 - **Real-time Logging**: Simulation progress and status updates
@@ -173,6 +174,22 @@ For additional details on DTI processing theory, see the [SimNIBS dwi2cond docum
 - **Automatic Conversion**: Built-in coordinate transformation utilities
 - **ROI Mapping**: Support for both subject and MNI coordinate inputs
 - **Visualization**: Compatible with both coordinate systems for analysis
+
+## Output Layout and CLI
+
+```
+derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
+├── documentation/config.json            # provenance snapshot used by the report
+├── high_Frequency/{mesh,niftis,analysis} # per-channel SimNIBS outputs
+├── TI/                                   # standard TI (2 pairs)
+│   ├── mesh/{montage}_TI.msh, grey_*.msh, white_*.msh
+│   ├── niftis/{montage}_TI_subject_TI_max.nii.gz (+ _MNI_ when MNI export is on)
+│   ├── montage_imgs/{montage}_highlighted_visualization.png
+│   └── surface_overlays/
+└── mTI/                                  # multipolar TI (4+ pairs)
+```
+
+The GUI writes a JSON config and runs `simnibs_python -m tit.sim config.json`; the same command works from a shell (see [Scripting]({{ site.baseurl }}/wiki/scripting/) for the `SimulationConfig` fields).
 
 ## Report generation
 
