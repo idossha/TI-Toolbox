@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ "/assets/css/style.css" | relative_url }}">
+  <link rel="stylesheet" href="{{ "/assets/css/style.css" | relative_url }}?v={{ site.time | date: '%s' }}">
   {%- feed_meta -%}
 
   <!-- KaTeX math rendering.
@@ -16,9 +16,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" integrity="sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" integrity="sha384-cMkvdD8LoxVzGF/RPUKAcvmm49FQ0oxwDF3BGKtDXcEc+T1b2N+teh/OJfpU0jr6" crossorigin="anonymous"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"></script>
-  <script defer src="{{ "/assets/js/math.js" | relative_url }}"></script>
-  <script src="{{ "/assets/js/carousel.js" | relative_url }}"></script>
-  <script src="{{ "/assets/js/search/header.js" | relative_url }}"></script>
+  <script defer src="{{ "/assets/js/math.js" | relative_url }}?v={{ site.time | date: '%s' }}"></script>
+  <script src="{{ "/assets/js/carousel.js" | relative_url }}?v={{ site.time | date: '%s' }}"></script>
+  <script src="{{ "/assets/js/search/header.js" | relative_url }}?v={{ site.time | date: '%s' }}"></script>
 
   {%- comment -%}
     Google Analytics - Enabled by default, disabled only when ENABLE_ANALYTICS=false is set
