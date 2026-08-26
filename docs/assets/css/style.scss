@@ -531,33 +531,33 @@ table {
     radial-gradient(1200px 400px at 10% -20%, var(--color-primary-soft), transparent 60%),
     linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
   border-bottom: 1px solid var(--color-border-soft);
-  padding: 56px var(--gutter) 48px;
+  padding: clamp(16px, 2.5vh, 32px) var(--gutter);
 }
 
 .hero__inner {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 28px;
 }
 
 .hero__icon {
-  width: 96px;
-  height: 96px;
+  width: clamp(64px, 8vh, 88px);
+  height: clamp(64px, 8vh, 88px);
   flex-shrink: 0;
-  border-radius: 20px;
+  border-radius: 18px;
   box-shadow: var(--shadow-md);
 }
 
 .hero h1 {
-  font-size: clamp(1.9rem, 3vw, 2.6rem);
-  margin: 0 0 0.35em;
+  font-size: clamp(1.7rem, 2.6vw, 2.3rem);
+  margin: 0 0 0.3em;
 }
 
 .hero__tagline {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   color: var(--color-text-muted);
-  max-width: 62ch;
-  margin: 0 0 1.2em;
+  max-width: 70ch;
+  margin: 0 0 1em;
 }
 
 .hero__actions {
@@ -570,10 +570,10 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 8px 16px;
   border-radius: var(--radius);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.925rem;
   border: 1px solid transparent;
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
   &:hover { text-decoration: none; transform: translateY(-1px); }
@@ -583,10 +583,11 @@ table {
 
 .home-grid {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--content-gap);
-  padding: 44px var(--gutter) 0;
+  padding: clamp(16px, 3vh, 32px) var(--gutter) 0;
   align-items: start;
+  font-size: 0.95rem;
 }
 
 .home-section__title {
@@ -595,7 +596,7 @@ table {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  margin: 0 0 14px;
+  margin: 0 0 10px;
 }
 
 .quickstart {
@@ -605,7 +606,7 @@ table {
   margin: 0;
   > li {
     position: relative;
-    padding: 0 0 22px 46px;
+    padding: 0 0 10px 42px;
     margin: 0;
     &::before {
       counter-increment: step;
@@ -613,8 +614,8 @@ table {
       position: absolute;
       left: 0;
       top: 0;
-      width: 30px;
-      height: 30px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       background: var(--color-primary);
       color: #fff;
@@ -627,17 +628,18 @@ table {
     &::after {
       content: "";
       position: absolute;
-      left: 14.5px;
-      top: 34px;
+      left: 12.5px;
+      top: 30px;
       bottom: 4px;
       width: 1px;
       background: var(--color-border);
     }
     &:last-child { padding-bottom: 0; &::after { display: none; } }
   }
-  p { margin: 0 0 0.5em; }
-  ul { margin: 0.4em 0 0.6em; }
-  pre { margin: 0.6em 0 0; }
+  p { margin: 0 0 0.4em; }
+  ul { margin: 0.3em 0 0.4em; }
+  li { margin: 0.1em 0; }
+  pre { margin: 0.4em 0 0; padding: 8px 14px; }
 }
 
 // -----------------------------------------------------------------------------
@@ -659,7 +661,7 @@ table {
 .carousel-images {
   position: relative;
   width: 100%;
-  min-height: 380px;
+  height: clamp(240px, calc(100vh - 440px), 560px);
   overflow: hidden;
 }
 
@@ -668,12 +670,14 @@ table {
   text-align: center;
   width: 100%;
   padding: 8px 0;
+  height: 100%;
   &.active { display: flex; flex-direction: column; align-items: center; }
   img {
     max-width: 100%;
-    max-height: 420px;
+    flex: 1 1 auto;
+    min-height: 0;
     width: auto;
-    height: auto;
+    height: 100%;
     object-fit: contain;
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
@@ -996,7 +1000,6 @@ td .katex-display, th .katex-display {
   .hero { padding: 36px var(--gutter) 32px; }
   .hero__inner { flex-direction: column; align-items: flex-start; gap: 20px; }
   .hero__icon { width: 72px; height: 72px; border-radius: 16px; }
-  .carousel-images { min-height: 280px; }
-  .carousel-slide img { max-height: 300px; }
+  .carousel-images { height: 280px; }
   .site-footer__meta { margin-left: 0; }
 }
