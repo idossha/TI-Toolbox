@@ -89,6 +89,20 @@ class TestBuildQsiprepCmd:
         idx = cmd.index("--memory")
         assert cmd[idx + 1] == "16g"
 
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(2, 32))
+    def test_omp_threads_clamped_to_nthreads(self, mock_resources, builder):
+        # Default omp_threads comes from the raw host cpu count; nthreads is
+        # cgroup-aware. A CPU-limited container must not emit omp > nthreads.
+        config = QSIPrepConfig(
+            subject_id="001", resources=ResourceConfig(omp_threads=8)
+        )
+        cmd = builder.build_qsiprep_cmd(config)
+
+        assert cmd[cmd.index("--nthreads") + 1] == "2"
+        assert int(cmd[cmd.index("--omp-nthreads") + 1]) <= 2
+        assert "OMP_NUM_THREADS=2" in cmd
+        assert "OMP_NUM_THREADS=8" not in cmd
+
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_inherited_resources(self, mock_resources, builder):
         """Uses inherited resources when not specified."""
@@ -175,6 +189,17 @@ class TestBuildQsiprepCmd:
 
 class TestBuildQsireconCmd:
     """Tests for build_qsirecon_cmd."""
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(2, 32))
+    def test_omp_threads_clamped_to_nthreads(self, mock_resources, builder):
+        config = QSIReconConfig(
+            subject_id="001", resources=ResourceConfig(omp_threads=8)
+        )
+        cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
+
+        assert cmd[cmd.index("--nthreads") + 1] == "2"
+        assert int(cmd[cmd.index("--omp-nthreads") + 1]) <= 2
+        assert "OMP_NUM_THREADS=2" in cmd
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_basic_command(self, mock_resources, builder):

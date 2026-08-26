@@ -158,6 +158,9 @@ class DockerCommandBuilder:
             if config.resources.memory_gb is not None
             else inherited_mem_gb
         )
+        # omp_threads defaults from the raw host CPU count; nthreads is
+        # cgroup-aware, so clamp to avoid --omp-nthreads > --nthreads.
+        effective_omp = min(config.resources.omp_threads, effective_cpus)
 
         # Build base docker run command
         cmd = [
@@ -181,7 +184,7 @@ class DockerCommandBuilder:
         )
 
         # Environment variables
-        cmd.extend(["-e", f"OMP_NUM_THREADS={config.resources.omp_threads}"])
+        cmd.extend(["-e", f"OMP_NUM_THREADS={effective_omp}"])
         if self._host_license_path:
             cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
@@ -215,7 +218,7 @@ class DockerCommandBuilder:
         cmd.extend(["--output-resolution", str(config.output_resolution)])
         cmd.extend(["-w", self.paths.work_dir])
         cmd.extend(["--nthreads", str(effective_cpus)])
-        cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
+        cmd.extend(["--omp-nthreads", str(effective_omp)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
         if self._host_license_path:
@@ -257,6 +260,9 @@ class DockerCommandBuilder:
             if config.resources.memory_gb is not None
             else inherited_mem_gb
         )
+        # omp_threads defaults from the raw host CPU count; nthreads is
+        # cgroup-aware, so clamp to avoid --omp-nthreads > --nthreads.
+        effective_omp = min(config.resources.omp_threads, effective_cpus)
 
         cmd = [
             "docker",
@@ -280,7 +286,7 @@ class DockerCommandBuilder:
             ]
         )
 
-        cmd.extend(["-e", f"OMP_NUM_THREADS={config.resources.omp_threads}"])
+        cmd.extend(["-e", f"OMP_NUM_THREADS={effective_omp}"])
         if self._host_license_path:
             cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
@@ -322,7 +328,7 @@ class DockerCommandBuilder:
         cmd.extend(["--input-type", "qsiprep"])
         cmd.extend(["-w", self.paths.work_dir])
         cmd.extend(["--nthreads", str(effective_cpus)])
-        cmd.extend(["--omp-nthreads", str(config.resources.omp_threads)])
+        cmd.extend(["--omp-nthreads", str(effective_omp)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
         if self._host_license_path:
