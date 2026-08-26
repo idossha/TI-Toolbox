@@ -431,3 +431,9 @@ simnibs_python -m tit.pre        config.json
 `tit.opt.mex` runs multipolar (4-pair, 8-electrode) exhaustive search, consuming `MExConfig`. See [mTI]({{ site.baseurl }}/wiki/mti/) for the full workflow.
 
 Config files are generated programmatically via `tit.config_io.write_config_json()`.
+
+## AI Coding Agents
+
+Full guide: [AI Assistant]({{ site.baseurl }}/wiki/ai-assistant/).
+
+If you write scripts with an AI assistant (Claude Code, Codex, Cursor, ...), install the [TI-Toolbox agent plugin](https://github.com/idossha/TI-Toolbox/tree/main/agent-plugin). It gives the assistant this wiki, the `tit` source and a read-only view of your project directory through an MCP server, so it stops guessing API fields. In Claude Code: `/plugin marketplace add idossha/TI-Toolbox` then `/plugin install ti-toolbox@ti-toolbox`.

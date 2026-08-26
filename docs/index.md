@@ -28,6 +28,7 @@ layout: home
    ```
   3. **Set up your BIDS project directory**
    - Use our example dataset to get familiar with the software or organize your data in BIDS format.<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` 
+  4. **Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
 
 <div class="carousel-container">
   <div class="carousel-wrapper">

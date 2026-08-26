@@ -49,6 +49,19 @@ apptainer build ti-toolbox.sif apptainer.def
 
 <br>
 
+## Optional: AI Assistant Plugin
+
+If you use an AI coding assistant, install the TI-Toolbox plugin so it can answer questions from the wiki, write correct scripts, and inspect your project folder. In Claude Code:
+
+```text
+/plugin marketplace add idossha/TI-Toolbox
+/plugin install ti-toolbox@ti-toolbox
+```
+
+Codex, Cursor and other MCP clients: see the **[AI Assistant guide]({{ site.baseurl }}/wiki/ai-assistant/)**.
+
+<br>
+
 ---
 
 ## Supported Operating Systems

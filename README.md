@@ -21,6 +21,17 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 
 > **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
 
+## AI coding agents
+
+An installable plugin under [`agent-plugin/`](agent-plugin/) teaches Claude Code, Codex and any MCP client the toolbox (wiki, Python API, project layout) and ships a read-only MCP server that can inspect your project directory. In Claude Code:
+
+```text
+/plugin marketplace add idossha/TI-Toolbox
+/plugin install ti-toolbox@ti-toolbox
+```
+
+See [`agent-plugin/README.md`](agent-plugin/README.md) for Codex and other clients.
+
 ## How to Cite
 
 If you use TI-Toolbox in your research, please cite the journal article:

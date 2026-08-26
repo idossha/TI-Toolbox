@@ -18,6 +18,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 - **[GUI](gui)** - Main graphical interface of TI-Toolbox
 - **[Scripting](scripting)** - CLI commands, JSON config entry points, and Python scripting API
+- **[AI Assistant](ai-assistant)** - Plugin that teaches Claude Code, Codex, Cursor and other MCP clients how to use TI-Toolbox
 
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results
@@ -41,6 +42,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
 - **[Python Environment](python_env)** - Managing the SimNIBS Python environment and dependencies
 - **[Desktop App](desktop-app)** - Electron-based launcher architecture and workflow
+- **[Agent Plugin Internals](agent-plugin)** - Skills, MCP server architecture, and tests behind the AI assistant integration
 - **[API Reference](../api/)** - Complete Python API documentation (auto-generated from docstrings)
 
 ## Support
