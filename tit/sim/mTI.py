@@ -192,7 +192,7 @@ class mTISimulation(BaseSimulation):
             mti_field = np.linalg.norm(mti_vectors, axis=1)
             mout.add_element_field(mti_field, const.FIELD_MTI_MAX)
         if const.FIELD_TI_AVG in selected:
-            # TI_avg: orientation-averaged companion to TI_Max, over all N
+            # TI_avg: orientation-averaged companion to mTI_max, over all N
             # per-pair carrier fields jointly (tit.calc.get_TI_avg), grouped by
             # the same montage.channels.
             mti_avg = get_TI_avg(e_fields, channels=self.montage.channels)

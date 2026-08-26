@@ -153,7 +153,7 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 
 # Field names (SimNIBS convention)
 FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
-FIELD_MTI_MAX = "TI_Max"  # mTI field name in 4-pair simulation meshes
+FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4-pair simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
 FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
@@ -385,7 +385,7 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 
 
 #: Field names valid on the fsaverage surface: every registered field except
-#: ``FIELD_MTI_MAX`` ("TI_Max") and ``FIELD_TI_AVG`` ("TI_avg"). The
+#: ``FIELD_MTI_MAX`` ("mTI_max") and ``FIELD_TI_AVG`` ("TI_avg"). The
 #: central-surface pipeline always emits ``TI_max`` regardless of whether the
 #: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
 #: field; ``TI_avg`` has no central-surface overlay to project (it is only

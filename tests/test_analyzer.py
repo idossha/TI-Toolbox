@@ -124,7 +124,7 @@ class TestFieldSelector:
         path, field_name = select_field_file("001", "montage1", "mesh")
 
         assert path == mesh_file
-        assert field_name == "TI_Max"
+        assert field_name == "mTI_max"
 
     @patch("tit.analyzer.field_selector.get_path_manager")
     def test_missing_mesh_mentions_postprocessing_when_high_frequency_exists(

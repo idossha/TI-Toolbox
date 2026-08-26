@@ -169,7 +169,7 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 
 The analyzer detects an mTI (4-pair) simulation automatically — the only signal it checks is whether `{simulation}/mTI/mesh/` exists. There is no separate mode to select; the same `Analyzer` class and the same `analyze_sphere` / `analyze_cortex` calls are used for TI and mTI.
 
-- `TI_max` and `TI_Max` are treated as aliases for the same quantity — the analyzer resolves whichever spelling the detected simulation type actually wrote to disk, regardless of which alias is requested
+- `TI_max` and `mTI_max` are treated as aliases for the same quantity — the analyzer resolves whichever spelling the detected simulation type actually wrote to disk, regardless of which alias is requested
 - `TI_normal` is not computed for mTI simulations, so it cannot be selected as a field, and `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI results
 
 See [mTI]({{ site.baseurl }}/wiki/mti/) for the full description of mTI simulation and search.

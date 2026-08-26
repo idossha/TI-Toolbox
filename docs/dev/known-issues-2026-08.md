@@ -31,7 +31,7 @@ default field)
   parameter at all. It calls
   `select_field_file(subject_id, simulation, space, tissue_type=self.tissue_type)`
   with no `field=` argument, so it always resolves the default field
-  (`TI_max`/`TI_Max`).
+  (`TI_max`/`mTI_max`).
 - `tit/analyzer/group.py:77-90` — `run_group_analysis()` also has no `field`
   parameter.
 - By contrast, `tit/analyzer/field_selector.py:25-30` shows
@@ -43,7 +43,7 @@ default field)
 **Reproduction**: In the Analyzer tab, change the Field dropdown from its
 default entry to any other field (e.g. a high-frequency metric), run a
 single-subject or group analysis. The resulting analysis is computed on the
-default field (`TI_max`/`TI_Max`) regardless of what was selected in the
+default field (`TI_max`/`mTI_max`) regardless of what was selected in the
 dropdown — no error, no warning, silently wrong field.
 
 **Suggested fix**: Small plumbing fix.

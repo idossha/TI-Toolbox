@@ -120,7 +120,7 @@ After simulation, TI-Toolbox produces several derived field types:
 |-------|-------------|
 | **TI_max** | Maximum TI envelope magnitude — scalar field on volume elements (TI mode) |
 | **TI_normal** | TI field component normal to cortical surface — node field on surface overlay (TI mode) |
-| **TI_Max** | Maximum mTI envelope magnitude — scalar field on volume elements (mTI mode) |
+| **mTI_max** | Maximum mTI envelope magnitude — scalar field on volume elements (mTI mode) |
 | **TI_vectors** | Intermediate pairwise TI vector fields for each adjacent pair (mTI mode) |
 
 Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).

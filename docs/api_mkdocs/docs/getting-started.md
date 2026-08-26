@@ -324,7 +324,7 @@ All paths are managed by `PathManager`, which enforces a BIDS-compliant director
 ### Field Types
 - **TI_max**: Maximum TI envelope magnitude (2-pair simulations)
 - **TI_normal**: TI field component normal to the cortical surface
-- **TI_Max**: Multi-channel TI maximum envelope (4-pair mTI simulations, from binary-tree combination)
+- **mTI_max**: Multi-channel TI maximum envelope (4-pair mTI simulations, from binary-tree combination)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

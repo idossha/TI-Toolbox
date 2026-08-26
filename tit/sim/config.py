@@ -234,7 +234,7 @@ class SimulationConfig:
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
         ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``. ``"TI_max"`` maps to
-        ``TI_Max`` (capital M) on disk for mTI meshes. Defaults to
+        ``mTI_max`` on disk for mTI meshes. Defaults to
         ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
         (``hf_peak``, ``hf_sar``) must be opted into.
 

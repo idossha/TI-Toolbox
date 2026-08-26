@@ -55,24 +55,48 @@ class TestFieldRegistryCompleteness:
 
 
 @pytest.mark.unit
-class TestFieldSpecCasingPreserved:
-    """TI_max (2-pair) vs TI_Max (4-pair/mTI) casing is load-bearing; must survive."""
+class TestFieldSpecNamingPreserved:
+    """TI_max (2-pair, unipolar) vs mTI_max (4-pair, multipolar) naming is
+    load-bearing on disk; must survive."""
 
     def test_ti_max_and_mti_max_are_distinct_strings(self):
         assert const.FIELD_TI_MAX == "TI_max"
-        assert const.FIELD_MTI_MAX == "TI_Max"
+        assert const.FIELD_MTI_MAX == "mTI_max"
         assert const.FIELD_TI_MAX != const.FIELD_MTI_MAX
-        assert const.FIELD_TI_MAX.lower() == const.FIELD_MTI_MAX.lower()
 
-    def test_registry_preserves_casing_for_both_spellings(self):
+    def test_unipolar_is_never_uppercase_max(self):
+        assert const.FIELD_TI_MAX != "TI_MAX"
+        assert const.FIELD_MTI_MAX != "TI_Max"
+
+    def test_registry_contains_both_names(self):
         names = {spec.name for spec in const.FIELD_REGISTRY}
         assert "TI_max" in names
-        assert "TI_Max" in names
+        assert "mTI_max" in names
+
+    def test_field_selector_resolves_mti_default_to_mti_max(self, tmp_path):
+        """A default (None) field request on an mTI simulation must resolve to
+        FIELD_MTI_MAX == "mTI_max"; a "TI_max" request on the same sim aliases
+        to it too."""
+        from unittest.mock import patch
+
+        from tit.analyzer.field_selector import select_field_file
+
+        sim_dir = tmp_path / "Simulations" / "montage2"
+        (sim_dir / "mTI" / "mesh").mkdir(parents=True)
+        (sim_dir / "mTI" / "mesh" / "montage2_mTI.msh").touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            _, default_name = select_field_file("001", "montage2", "mesh")
+            _, alias_name = select_field_file("001", "montage2", "mesh", field="TI_max")
+
+        assert default_name == const.FIELD_MTI_MAX == "mTI_max"
+        assert alias_name == "mTI_max"
 
     def test_field_name_values_unchanged(self):
         """Pin the exact literal values so no future edit silently renames a field."""
         assert const.FIELD_TI_MAX == "TI_max"
-        assert const.FIELD_MTI_MAX == "TI_Max"
+        assert const.FIELD_MTI_MAX == "mTI_max"
         assert const.FIELD_TI_NORMAL == "TI_normal"
         assert const.FIELD_TI_AVG == "TI_avg"
         assert const.FIELD_HF_PEAK == "hf_peak"
@@ -86,7 +110,7 @@ class TestFieldRegistryLookupHelpers:
         assert names == tuple(spec.name for spec in const.FIELD_REGISTRY)
         assert names == (
             "TI_max",
-            "TI_Max",
+            "mTI_max",
             "TI_normal",
             "TI_avg",
             "hf_peak",
@@ -96,7 +120,7 @@ class TestFieldRegistryLookupHelpers:
     def test_get_field_names_filters_by_kind(self):
         functional = const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL)
         safety = const.get_field_names(kind=const.FIELD_KIND_SAFETY)
-        assert set(functional) == {"TI_max", "TI_Max", "TI_normal", "TI_avg"}
+        assert set(functional) == {"TI_max", "mTI_max", "TI_normal", "TI_avg"}
         assert set(safety) == {"hf_peak", "hf_sar"}
         # Partition: every field is exactly one kind.
         assert set(functional) | set(safety) == set(const.get_field_names())
@@ -136,7 +160,7 @@ class TestSafetyFieldsGuard:
 
     def test_functional_fields_are_exactly_the_ti_fields(self):
         functional_names = set(const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL))
-        assert functional_names == {"TI_max", "TI_Max", "TI_normal", "TI_avg"}
+        assert functional_names == {"TI_max", "mTI_max", "TI_normal", "TI_avg"}
 
 
 @pytest.mark.unit
@@ -170,7 +194,7 @@ class TestValidFsavgFieldsConsumer:
 
     def test_valid_fsavg_fields_excludes_mti_spelling(self):
         """fsaverage projection only ever emits TI_max (see tit.source.fsaverage);
-        the 4-pair mesh spelling TI_Max must not appear."""
+        the 4-pair mesh spelling mTI_max must not appear."""
         assert const.FIELD_MTI_MAX not in VALID_FSAVG_FIELDS
 
     def test_valid_fsavg_fields_excludes_ti_avg(self):

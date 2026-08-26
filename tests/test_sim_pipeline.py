@@ -389,7 +389,7 @@ class TestMTISimulation:
             assert const.FIELD_HF_SAR in written_field_names
 
             # TI_avg (tit.calc.get_TI_avg): orientation-averaged companion
-            # to TI_Max, must also be written when selected.
+            # to mTI_max, must also be written when selected.
             assert const.FIELD_TI_AVG in written_field_names
 
     def test_montage_channels_passed_to_get_mti_and_get_ti_avg(self):

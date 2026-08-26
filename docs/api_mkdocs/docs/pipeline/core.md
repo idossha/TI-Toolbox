@@ -178,7 +178,7 @@ All hardcoded values live in `tit.constants`. Key categories:
 | **File names** | `FILE_MONTAGE_LIST`, `FILE_T1`, `FILE_EGI_TEMPLATE` |
 | **File extensions** | `EXT_NIFTI` (`.nii.gz`), `EXT_MESH` (`.msh`), `EXT_CSV` |
 | **BIDS prefixes** | `PREFIX_SUBJECT` (`sub-`), `PREFIX_SESSION` (`ses-`) |
-| **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`TI_Max`), `FIELD_TI_NORMAL` (`TI_normal`) |
+| **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`mTI_max`), `FIELD_TI_NORMAL` (`TI_normal`) |
 | **Tissue tags** | `GM_TISSUE_TAG` (2), `WM_TISSUE_TAG` (1), `BRAIN_TISSUE_TAG_RANGES` |
 | **Conductivities** | `CONDUCTIVITY_GRAY_MATTER` (0.275 S/m), `CONDUCTIVITY_WHITE_MATTER` (0.126 S/m), 12 tissues total |
 | **Tissue properties** | `TISSUE_PROPERTIES` — list of dicts with number, name, conductivity, and reference |

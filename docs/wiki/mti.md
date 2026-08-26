@@ -114,7 +114,7 @@ For a 4-pair montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes 
 
 **Output fields.** `SimulationConfig.output_fields` gates which volume-mesh fields are computed and written -- it defaults to `["TI_max"]` **only**. `TI_avg` and the safety fields (`hf_peak`, `hf_sar`) must be opted into; the four selectable names are exactly `("TI_max", "TI_avg", "hf_peak", "hf_sar")` (`const.SELECTABLE_OUTPUT_FIELDS`). The gating skips the *computation*, not just the write -- unrequested fields are never evaluated. In the GUI (shared by TI and mTI), output fields are checkboxes with only `TI_max` pre-checked; submitting with none checked is rejected with "Select at least one output field."
 
-On disk, the mTI mesh spells the modulation-depth field `TI_Max` (capital M) -- the same quantity `TI_max` names on a 2-pair TI mesh, just a different on-disk name for the 4-pair case.
+On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same quantity `TI_max` names on a 2-pair TI mesh, just a different on-disk name for the 4-pair case.
 
 **TI_normal is not computed for mTI.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; the N-pair analogue would need the coherent K-pair envelope evaluated at a *fixed* direction (the surface normal) rather than maximized over direction, and while `tit.calc` has that primitive internally, it is only exposed as a private helper today -- exposing it publicly, and updating `tit/analyzer/field_selector.py` (which resolves the normal mesh under `TI/mesh/` unconditionally), is deferred.
 
@@ -124,13 +124,13 @@ mTI supports an arbitrary even number of pairs, **capped at 26** (A-Z pair label
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
 2. Computes intermediate 2-pair TI vector fields for adjacent pairs (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain $$K = 1$$ `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
-3. Computes the final envelope over all N carrier fields jointly via `get_mTI_vectors(e_fields, channels=montage.channels)`, written as `TI_Max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
+3. Computes the final envelope over all N carrier fields jointly via `get_mTI_vectors(e_fields, channels=montage.channels)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
 4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
 
 Output layout, under `derivatives/SimNIBS/sub-{id}/Simulations/{montage}/`:
 
 ```
-mTI/mesh/{montage}_mTI.msh          # TI_Max / TI_avg / hf_peak / hf_sar (selected)
+mTI/mesh/{montage}_mTI.msh          # mTI_max / TI_avg / hf_peak / hf_sar (selected)
 mTI/mesh/grey_{montage}_mTI.msh     # GM crop
 mTI/mesh/white_{montage}_mTI.msh    # WM crop
 mTI/mesh/surfaces/                  # central cortical surface (msh2cortex)
@@ -282,7 +282,7 @@ Validation before an mTI run requires all eight bucket fields to be non-empty ("
 
 The [Analyzer]({{ site.baseurl }}/wiki/analyzer/) detects an mTI simulation purely from the presence of `{simulation}/mTI/mesh/` on disk -- there is no separate analyzer mode to select, and the same `Analyzer` class handles both TI and mTI.
 
-- `TI_max` and `TI_Max` are treated as aliases for the same quantity: whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote (`TI_Max` for mTI, `TI_max` for TI).
+- `TI_max` and `mTI_max` are treated as aliases for the same quantity: whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote (`mTI_max` for mTI, `TI_max` for TI).
 - `TI_normal` is **unavailable for mTI**: requesting it raises `FileNotFoundError` ("TI_normal is only computed for standard 2-pair TI simulations"), since mTI never writes a normal-component mesh (see [Simulator Behavior for mTI](#simulator-behavior-for-mti)). Consequently `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI analysis results.
 
 ## References and Attribution
