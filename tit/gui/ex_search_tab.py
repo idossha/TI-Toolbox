@@ -2758,13 +2758,11 @@ class ExSearchTab(QtWidgets.QWidget):
         # Get ROI coordinates
         pm = self.pm
         roi_dir = pm.rois(subject_id)
-        # Atlas-only mode (TI search mode + ROI_MODE_ATLAS) has no sphere ROI
-        # CSV at all -- see the early-return branch in run_optimization -- so
-        # there is nothing on disk to read coordinates from.
-        is_atlas_only = (
-            self._current_search_mode() != SEARCH_MODE_MTI
-            and self._current_roi_mode() == ROI_MODE_ATLAS
-        )
+        # Atlas-only mode has no sphere ROI CSV at all -- see the early-return
+        # branch in run_optimization (TI) and _mti_roi_targets (mTI), both of
+        # which queue a synthetic label -- so there is nothing on disk to read
+        # coordinates from, in either search mode.
+        is_atlas_only = self._current_roi_mode() == ROI_MODE_ATLAS
         if self._combine_rois:
             # Combined target: the queue holds one synthetic entry; read coords
             # from the first real ROI for logging while the backend unions all
@@ -2810,6 +2808,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     )
                     x = y = z = 0.0
                 else:
+                    self._exsearch_had_errors = True
                     self.update_output(
                         f"Error reading ROI file {current_roi}: {str(e)}", "error"
                     )

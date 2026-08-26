@@ -376,6 +376,29 @@ class TestGuiImports:
         body = body.split("\n    @", 1)[0]
         assert "roi_names=self.roi_names_for_mode(mode, None)" in body
 
+    @pytest.mark.unit
+    def test_ex_search_roi_pipeline_honours_atlas_mode_in_both_search_modes(self):
+        """mTI + Atlas must not try to open the synthetic ``atlas_<labels>.csv``.
+
+        ``_mti_roi_targets`` queues a label-only name in Atlas mode; if
+        ``run_roi_pipeline`` gated its atlas-only branch on the TI search
+        mode, the mTI run fell into the CSV-reading branch, logged "Error
+        reading ROI file", and completed with zero runs.
+        """
+        source = (GUI_ROOT / "ex_search_tab.py").read_text(encoding="utf-8")
+        body = source.split("def run_roi_pipeline(self", 1)[1]
+        body = body.split("\n    def ", 1)[0]
+        assert "is_atlas_only = self._current_roi_mode() == ROI_MODE_ATLAS" in body
+        assert "SEARCH_MODE_MTI\n            and self._current_roi_mode()" not in body
+        # A failed sphere-CSV read must be recorded so pipeline_completed()
+        # cannot report success after skipping every ROI.
+        error_branch = body.split("Error reading ROI file", 1)[0]
+        assert error_branch.rstrip().endswith(
+            "self._exsearch_had_errors = True\n"
+            "                    self.update_output(\n"
+            '                        f"'
+        )
+
     def test_ex_search_roi_mode_stack_keeps_a_stable_height(self):
         """Switching ROI Type must not move anything below the ROI box.
 
