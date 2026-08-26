@@ -5,15 +5,7 @@ layout: home
 <section class="hero">
   <div class="hero__inner">
     <img class="hero__icon" src="{{ site.baseurl }}/assets/imgs/icon.png" alt="TI Toolbox Icon">
-    <div>
-      <h1>Temporal Interference Toolbox</h1>
-      <p class="hero__tagline">A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
-      <div class="hero__actions">
-        <a class="btn btn--primary" href="{{ site.baseurl }}/installation/">Get started</a>
-        <a class="btn btn--secondary" href="{{ site.baseurl }}/wiki/">Read the wiki</a>
-        <a class="btn btn--secondary" href="https://github.com/idossha/TI-Toolbox" target="_blank" rel="noopener">GitHub</a>
-      </div>
-    </div>
+    <p class="hero__tagline">A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
   </div>
 </section>
 

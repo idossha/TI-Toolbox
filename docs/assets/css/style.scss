@@ -319,6 +319,7 @@ table {
 
 .site-footer {
   margin-top: 64px;
+  .layout-home & { margin-top: 24px; }
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   font-size: 0.9rem;
@@ -531,20 +532,20 @@ table {
     radial-gradient(1200px 400px at 10% -20%, var(--color-primary-soft), transparent 60%),
     linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
   border-bottom: 1px solid var(--color-border-soft);
-  padding: clamp(16px, 2.5vh, 32px) var(--gutter);
+  padding: 14px var(--gutter);
 }
 
 .hero__inner {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 16px;
 }
 
 .hero__icon {
-  width: clamp(64px, 8vh, 88px);
-  height: clamp(64px, 8vh, 88px);
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 18px;
+  border-radius: 10px;
   box-shadow: var(--shadow-md);
 }
 
@@ -554,10 +555,9 @@ table {
 }
 
 .hero__tagline {
-  font-size: 1.05rem;
-  color: var(--color-text-muted);
-  max-width: 70ch;
-  margin: 0 0 1em;
+  font-size: 1rem;
+  color: var(--color-text);
+  margin: 0;
 }
 
 .hero__actions {
@@ -661,7 +661,7 @@ table {
 .carousel-images {
   position: relative;
   width: 100%;
-  height: clamp(240px, calc(100vh - 440px), 560px);
+  height: clamp(220px, calc(100vh - 380px), 640px);
   overflow: hidden;
 }
 
@@ -997,9 +997,7 @@ td .katex-display, th .katex-display {
   .site-nav__tools { justify-content: space-between; }
   .site-search, .site-search:focus-within { width: 100%; flex: 1; }
 
-  .hero { padding: 36px var(--gutter) 32px; }
-  .hero__inner { flex-direction: column; align-items: flex-start; gap: 20px; }
-  .hero__icon { width: 72px; height: 72px; border-radius: 16px; }
+  .hero__inner { align-items: flex-start; }
   .carousel-images { height: 280px; }
   .site-footer__meta { margin-left: 0; }
 }
