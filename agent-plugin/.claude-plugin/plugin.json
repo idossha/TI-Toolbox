@@ -1,0 +1,13 @@
+{
+  "name": "ti-toolbox",
+  "displayName": "TI-Toolbox",
+  "version": "0.1.0",
+  "description": "Teaches coding agents the Temporal Interference Toolbox: wiki, Python API, project layout, TI domain knowledge, plus an MCP server that reads the docs/source and inspects your project directory.",
+  "author": { "name": "Ido Haber", "email": "ihaber@wisc.edu", "url": "https://github.com/idossha/TI-Toolbox" },
+  "homepage": "https://idossha.github.io/TI-Toolbox/",
+  "repository": "https://github.com/idossha/TI-Toolbox",
+  "license": "GPL-3.0",
+  "keywords": ["temporal-interference", "neurostimulation", "simnibs", "tes", "neuroscience"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

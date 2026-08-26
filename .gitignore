@@ -73,3 +73,4 @@ dev/telemetry/dashboard/*.json
 dev/telemetry/dashboard/.env
 !dev/telemetry/dashboard/.env.example
 
+.playwright-mcp/

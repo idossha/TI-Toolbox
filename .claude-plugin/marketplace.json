@@ -1,0 +1,16 @@
+{
+  "name": "ti-toolbox",
+  "owner": { "name": "Ido Haber", "email": "ihaber@wisc.edu" },
+  "metadata": {
+    "description": "Plugins for the Temporal Interference Toolbox (TI-Toolbox)."
+  },
+  "plugins": [
+    {
+      "name": "ti-toolbox",
+      "source": "./agent-plugin",
+      "description": "TI-Toolbox knowledge for coding agents: skills (usage, scripting API, domain, codebase) + MCP server (wiki/source reader, project inspector).",
+      "category": "science",
+      "keywords": ["temporal-interference", "simnibs", "neurostimulation"]
+    }
+  ]
+}
