@@ -10,10 +10,10 @@ Download the pre-built desktop application for your platform from the **[Latest 
 
 | Platform | Download |
 |----------|----------|
-| **macOS (Intel)** | `TI-Toolbox-{version}-x64.dmg` |
+| **macOS (Intel)** | `TI-Toolbox-{version}.dmg` |
 | **macOS (Apple Silicon)** | `TI-Toolbox-{version}-arm64.dmg` |
-| **Windows** | `TI-Toolbox-Setup-{version}.exe` |
-| **Linux** | `TI-Toolbox-{version}.AppImage` or `.deb` |
+| **Windows** | `TI-Toolbox.Setup.{version}.exe` |
+| **Linux** | `TI-Toolbox-{version}.AppImage` or `ti-toolbox_{version}_amd64.deb` |
 
 Simply download, install, and launch — the app handles Docker management for you.
 
@@ -71,10 +71,10 @@ Codex, Cursor and other MCP clients: see the **[AI Assistant guide]({{ site.base
 | **Windows** | ✅ Full Support | ✅ Active Testing | Via WSL2 + Ubuntu |
 | **Linux (Ubuntu)** | ✅ Full Support | ✅ Active Testing | Primary development platform |
 | **macOS (Apple Silicon)** | ✅ Full Support | ✅ Active Testing | Native ARM64 support |
-| **macOS (Intel)** | ✅ Full Support | ⚠️ Stopped Testing | May work but no longer tested |
+| **macOS (Intel)** | ✅ Built each release | ⚠️ Not actively tested | Intel `.dmg` is still published |
 
 ### Known Issues
-- **Latest macOS version 26 (Tahoe)**: Potential compatibility issues with some graphical components
+- **macOS 26 (Tahoe)**: Potential compatibility issues with Gmsh and FreeView (X11/OpenGL)
 
 
 ---

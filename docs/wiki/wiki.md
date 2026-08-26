@@ -30,13 +30,13 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 
 ### Extensions
 - **[Extension System](extension)** - Modular plugin architecture and development guide
-- **[Blender Integration](blender)** - Modular plugin architecture and development guide
+- **[Blender Integration](blender)** - 3D Visual Exporter: PLY/GLB/Blender exports of regions, vectors and montages
 - **[Free Electrode Placement](electrode-placement)** - Interactive 3D electrode positioning on head surfaces
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
-- **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis
+- **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis (the *Permutation Analysis* extension)
 - **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
-- **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin
+- **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin (part of pre-processing)
 
 ### Development & Testing
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration

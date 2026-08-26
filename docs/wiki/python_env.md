@@ -17,13 +17,13 @@ The TI-Toolbox operates within a containerized environment that includes SimNIBS
 
 ### Key Points
 
-- **Containerized Setup**: The environment is defined in `container/blueprint/Dockerfile.simnibs`, which installs SimNIBS v4.6.0 and additional Python packages (meshio, nilearn, PyOpenGL-accelerate, trimesh, seaborn) required for TI-Toolbox functionality.
+- **Containerized Setup**: The environment is defined in `container/blueprint/Dockerfile.simnibs`, which installs SimNIBS v4.6.0 and additional Python packages required for TI-Toolbox functionality: meshio, nilearn, PyOpenGL-accelerate, trimesh, seaborn, scikit-image, numpy-stl, click, bpy (Blender 5), psutil, python-lsp-server, jupyterlab-lsp and `mne~=1.5`. The mne pin keeps numpy at 1.26.x — installing anything that upgrades numpy to 2.x breaks SimNIBS in this container.
 
 - **Script executions**: All python scripts should be executed using the `simnibs_python script.py`.
 
 ### Import Patterns
 
-As of v2.2.4, the `tit.core` sub-package has been dissolved. Modules that used to live under `tit.core` are now top-level within the `tit` package:
+Since v2.2.4 the `tit.core` sub-package no longer exists. Modules that used to live under `tit.core` are now top-level within the `tit` package:
 
 | Old import (removed) | New import |
 |----------------------|------------|
@@ -50,6 +50,7 @@ from tit.analyzer import Analyzer, run_group_analysis
 
 # Statistics
 from tit.stats import run_group_comparison, GroupComparisonConfig
+from tit.stats import run_correlation, CorrelationConfig
 
 # Preprocessing
 from tit.pre import run_pipeline
@@ -66,8 +67,11 @@ simnibs_python -m tit.sim        config.json
 simnibs_python -m tit.analyzer   config.json
 simnibs_python -m tit.opt.flex   config.json
 simnibs_python -m tit.opt.ex     config.json
+simnibs_python -m tit.opt.mex    config.json
 simnibs_python -m tit.stats      config.json
 simnibs_python -m tit.pre        config.json
+simnibs_python -m tit.source     config.json
+simnibs_python -m tit.blender    config.json
 ```
 
 Config files are generated programmatically via `tit.config_io.write_config_json()`. See the [Scripting page]({{ site.baseurl }}/wiki/scripting/) for details.

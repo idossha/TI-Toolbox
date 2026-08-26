@@ -31,12 +31,13 @@ The user interface layer built with HTML, CSS, and JavaScript:
 
 #### **Main Process** (Backend)
 The Node.js backend that orchestrates all system operations:
-- `main.js` - Application entry point and window management
-- `docker-manager.js` - Docker lifecycle control and API integration
-- `env.js` - Environment setup (DISPLAY, timezone, xhost permissions)
-- `project-service.js` - BIDS project validation and initialization
-- `config-store.js` - User preferences persistence
-- `logger.js` - Structured logging with electron-log
+- `src/main.js` - Application entry point and window management
+- `src/backend/docker-manager.js` - Docker lifecycle control and API integration
+- `src/backend/env.js` - Environment setup (DISPLAY, timezone, xhost permissions)
+- `src/backend/project-service.js` - BIDS project validation and initialization
+- `src/backend/config-store.js` - User preferences persistence
+- `src/backend/logger.js` - Structured logging with electron-log
+- `src/backend/execa.js` - Subprocess helper
 
 **Communication:** The renderer and main processes communicate via Electron's IPC (Inter-Process Communication) mechanism, enabling secure and efficient message passing.
 
@@ -133,7 +134,7 @@ npm start
 - X Server (platform-specific: XQuartz, VcXsrv, or native)
 
 **Development:**
-- Node.js 18+
+- Node.js 20+ (required by electron-builder 26; Electron 28)
 - npm 9+
 
 ## Security
@@ -144,9 +145,9 @@ npm start
 
 ## Performance
 
-- **Startup Time:** ~3 seconds for container initialization
-- **Memory Usage:** ~200MB (app) + Docker containers
-- **Disk Space:** ~50MB (app) + ~5GB (Docker images)
+- **Startup Time:** a few seconds once the images are pulled; the first launch downloads the two images (~18GB, ~85GB unpacked)
+- **Memory Usage:** small for the app itself; the containers need the RAM allocated to Docker (32GB+ recommended)
+- **Disk Space:** ~85GB for the two unpacked Docker images plus the FreeSurfer data volume
 
 ## Troubleshooting
 
@@ -163,7 +164,7 @@ Check that your user has access to the Docker daemon (usually requires membershi
 
 ## See Also
 
-- [Installation Guide](../installation/installation.md)
-- [Quick Start](../../package/QUICK_START.md)
-- [Architecture Details](../../package/ARCHITECTURE.md)
+- [Installation Guide]({{ site.baseurl }}/installation/)
+- [Quick Start](https://github.com/idossha/TI-toolbox/blob/main/package/QUICK_START.md)
+- [Architecture Details](https://github.com/idossha/TI-toolbox/blob/main/package/ARCHITECTURE.md)
 

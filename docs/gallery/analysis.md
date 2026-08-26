@@ -30,11 +30,11 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <h3>Field Analysis & Visualization in voxel space (Freesurfer Integration)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="TInorm field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="TImax field in ROI (Right Hippocampus), montage A" onclick="openLightbox(this)" />
       <p>Montage A: TImax field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_2.png" alt="TInormal field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_2.png" alt="TImax field in ROI (Right Hippocampus), montage B" onclick="openLightbox(this)" />
       <p>Montage B: TImax field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
   </div>

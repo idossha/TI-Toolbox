@@ -105,7 +105,7 @@ apptainer exec \
 
 ## CLI Aliases Inside Container
 
-Interactive sessions have these aliases pre-defined:
+Interactive **Apptainer** sessions have these aliases pre-defined (the Docker image defines only `GUI` and `NOTEBOOK`; see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)):
 
 | Alias | Command |
 |-------|---------|
@@ -139,6 +139,6 @@ srun --ntasks=1 cat ~/.freesurfer/license.txt
 For QSIPrep/QSIRecon (not included in TI-Toolbox image):
 
 ```bash
-apptainer build qsiprep.sif docker://pennbbl/qsiprep:latest
+apptainer build qsiprep.sif docker://pennlinc/qsiprep:26.0.0
 apptainer run --bind /data:/data qsiprep.sif /data/input /data/output participant
 ```

@@ -32,7 +32,7 @@ Download the pre-built desktop application for your Linux distribution from the 
 | Format | Download |
 |--------|----------|
 | **AppImage** | `TI-Toolbox-{version}.AppImage` |
-| **Debian/Ubuntu** | `TI-Toolbox-{version}.deb` |
+| **Debian/Ubuntu** | `ti-toolbox_{version}_amd64.deb` |
 
 Simply download and run the AppImage, or install the .deb package — the app handles Docker management for you.
 
@@ -40,7 +40,7 @@ Simply download and run the AppImage, or install the .deb package — the app ha
 
 ## Option 2: Command Line
 
-## Setup Steps
+### Setup Steps
 
 ### Step 1: Download Required Files
 
@@ -63,7 +63,9 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    python3 loader.py
    ```
-6. **First run will download Docker images (~30GB)** - this may take 30+ minutes
+5. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
+
+The loader runs `xhost +local:` so the container can open windows on your X display.
 
 ## Distribution-Specific Notes
 

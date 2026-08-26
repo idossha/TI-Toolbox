@@ -39,11 +39,11 @@ permalink: /gallery/UI/
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/UI/UI_cbpt.png" alt="CBPT UI" onclick="openLightbox(this)" />
-      <p>CBPT (Computational Brain Phantom Toolkit) interface for phantom-based simulations.</p>
+      <p>Permutation Analysis (cluster-based permutation testing) interface for group-level statistics.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/UI/UI_extension.png" alt="Extension UI" onclick="openLightbox(this)" />
-      <p>Extension manager interface for toolbox customization and plugin management.</p>
+      <p>Extensions window for launching extensions or adding them as tabs of the main window.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/UI/UI_nifti_group_avg.png" alt="NIfTI Group Average UI" onclick="openLightbox(this)" />

@@ -13,7 +13,7 @@ Linux: Install [Docker Engine](https://docs.docker.com/engine/install/) using yo
 Post-Installation Configuration:
 - Open Docker Desktop settings
 - Go to "Resources" 
-- Allocate at least **32GB RAM** (recommended)
+- Allocate at least **32GB RAM** (64GB+ recommended for recon-all and large leadfields)
 - Ensure you have at sufficient free disk space
 
 ![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation/docker_resource.png){:style="max-width: 350px;"}
@@ -22,9 +22,7 @@ Post-Installation Configuration:
 
 **2. X Server** Optional, if GUI is desired.
 
-**macOS:** Install **[XQuartz 2.7.7](https://www.xquartz.org/releases/archive.html)**
-
-⚠️ **Important**: XQuartz version 2.7.7 is required for proper OpenGL functionality. Higher versions may cause OpenGL rendering issues.
+**macOS:** Install **[XQuartz](https://www.xquartz.org/)** and enable *Allow connections from network clients* (the loader does this on first launch). If Gmsh/FreeView show OpenGL rendering problems on a recent XQuartz, the older 2.7.7 release from the [archive](https://www.xquartz.org/releases/archive.html) is a known-good fallback.
 
 **Setup Steps:**
 1. Download and install XQuartz 2.7.7
@@ -34,7 +32,7 @@ Post-Installation Configuration:
 
 **Windows**: Install **[VcXsrv](https://sourceforge.net/projects/vcxsrv/)**
 
-⚠️ **Do not use Xming** - it has compatibility issues with the TI Toolbox.
+Start it in *Multiple windows* mode with *Disable access control* checked. VcXsrv is the tested server; Xming is not recommended.
 
 **Configuration:**
 1. Launch XLaunch from the Start Menu
@@ -54,8 +52,9 @@ xhost +local:docker
 ## System Requirements
 
 ### Minimum Requirements
-- **RAM**: 32GB minimum (recommended for full functionality)
-- **Storage**: At least 30GB free space for Docker images
+- **RAM**: 32GB minimum, 64GB+ recommended
+- **Storage**: the two Docker images (`idossha/simnibs`, `idossha/ti-toolbox_freesurfer`) are ~18GB to download and ~85GB once unpacked, plus the FreeSurfer data volume and your project outputs — plan for 100GB+ free
+- **Docker Desktop** 4.0+ (or Docker Engine with Compose v2 on Linux); port 8888 free if you use JupyterLab
 - **Administrative privileges**: Required for initial setup
 
 

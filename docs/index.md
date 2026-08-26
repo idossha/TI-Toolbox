@@ -23,8 +23,9 @@ Download the two files below to a designated directory.
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
 ```bash
-python3 loader.py
+python3 loader.py            # or: python3 loader.py --project-dir /path/to/project
 ```
+The loader starts the containers and drops you into a shell inside `simnibs_container`; type `GUI` to open the graphical interface (see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)).
 </li>
 <li markdown="1">
 **Set up your project directory**

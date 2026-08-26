@@ -29,8 +29,12 @@ permalink: /installation/windows/
 3. **Restart Docker Desktop** after enabling integration
 
 ### X Server for GUI
-Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/) for GUI display:
-- Download and install VcXsrv
+Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/) for GUI display and start it (XLaunch) with:
+- **Multiple windows** mode
+- **Disable access control** checked
+- Windows Firewall allowing connections to VcXsrv
+
+The loader pauses until you confirm the X server is configured.
 
 ## Option 1: Desktop App
 
@@ -38,15 +42,13 @@ Download the pre-built desktop application for Windows from the **[Latest Releas
 
 | Platform | Download |
 |----------|----------|
-| **Windows** | `TI-Toolbox-Setup-{version}.exe` |
+| **Windows** | `TI-Toolbox.Setup.{version}.exe` |
 
 Simply download and run the installer — the app handles Docker management and WSL2 setup for you.
 
 <br>
 
 ## Option 2: Command Line
-
----
 
 ## Setup Steps
 
@@ -71,7 +73,7 @@ Download these files to your **Windows filesystem**:
    ```bash
    python3 loader.py
    ```
-6. **First run will download Docker images (~30GB)** - this may take 30+ minutes
+5. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
 
 ## File Mounting Considerations
 
@@ -99,5 +101,5 @@ Download these files to your **Windows filesystem**:
 
 **Next Steps**:
 - [Dependencies](../dependencies/) - If you need to revisit dependency setup
-- [Troubleshooting](../troubleshooting/) - For common issues and solutions
+- [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) - For common issues and solutions
 - [Quick Start](../) - Return to main installation guide 
