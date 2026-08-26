@@ -50,6 +50,8 @@ Then open [http://localhost:8888](http://localhost:8888) in your browser. No tok
 
 Select the **"SimNIBS + TI-Toolbox"** kernel (top-right of the notebook) for full autocompletion and signature help.
 
+A fully executed example, with outputs and a downloadable `.ipynb`, is on the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
+
 ### Neovim
 
 The container ships with Neovim pre-configured with LSP autocompletion, signature help, hover docs, and go-to-definition for `tit` and `simnibs` code.

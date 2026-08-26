@@ -19,7 +19,7 @@ permalink: /gallery/ex-search/
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png" alt="Ex-Search Distribution" onclick="openLightbox(this)" />
-      <p>Distribution analysis of exhaustive search optimization results.</p>
+      <p>Distribution of TImax, TImean and focality over the 108 candidates of a sub-ernie run (v2.4.0).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network" onclick="openLightbox(this)" />
@@ -35,7 +35,7 @@ permalink: /gallery/ex-search/
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/intensity_vs_focality_scatter.png" alt="Intensity vs Focality" onclick="openLightbox(this)" />
-      <p>Scatter plot analysis of field intensity versus focality metrics.</p>
+      <p>ROI intensity versus focality for the same run, coloured by Composite_Index.</p>
     </div>
   </div>
 </div>

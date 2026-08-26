@@ -96,6 +96,10 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 *`montage_distributions.png` from the same run: TImax, TImean and focality across all 108 evaluated montages.*
 
+![Ex-Search Intensity vs Focality]({{ site.baseurl }}/assets/imgs/ex-search/intensity_vs_focality_scatter.png)
+
+*`intensity_vs_focality_scatter.png`: every candidate plotted as ROI mean intensity against focality, coloured by `Composite_Index`. The 1.0/1.0 mA splits form the high-intensity cluster on the right; unequal splits trade intensity for little focality gain.*
+
 ---
 
 ## Pipeline Workflow

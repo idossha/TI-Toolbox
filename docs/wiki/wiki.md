@@ -18,6 +18,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 - **[GUI](gui)** - Main graphical interface of TI-Toolbox
 - **[Scripting](scripting)** - CLI commands, JSON config entry points, and Python scripting API
+- **[Example Notebook](example-notebook)** - Executed Jupyter walkthrough of the Python API on Dataset 000, with real outputs and a downloadable `.ipynb`
 - **[AI Assistant](ai-assistant)** - Plugin that teaches Claude Code, Codex, Cursor and other MCP clients how to use TI-Toolbox
 
 ### Embedded Tools

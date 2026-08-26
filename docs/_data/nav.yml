@@ -32,6 +32,7 @@ wiki:
     - { title: Visualizers, url: /wiki/visualizers/ }
     - { title: GUI, url: /wiki/gui/ }
     - { title: Scripting, url: /wiki/scripting/ }
+    - { title: Example Notebook, url: /wiki/example-notebook/ }
     - { title: AI Assistant, url: /wiki/ai-assistant/ }
     - group: Embedded Tools
     - { title: Reports, url: /wiki/reports/ }
