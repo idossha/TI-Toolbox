@@ -28,7 +28,7 @@ python3 loader.py
 </li>
 <li markdown="1">
 **Set up your project directory**
-- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away, or organize your own data in BIDS format:<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/`
+- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away.
 </li>
 <li markdown="1">
 **Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
