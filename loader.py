@@ -327,6 +327,22 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
     subprocess.run(cmd, check=False)
 
 
+def wait_for_container(name: str, timeout_s: int = 30) -> bool:
+    """Poll until *name* reports State.Running, or give up after *timeout_s*."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        probe = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        if probe.returncode == 0 and probe.stdout.strip() == "true":
+            return True
+        time.sleep(1)
+    return False
+
+
 def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     freesurfer_volume = get_freesurfer_volume_name()
 
@@ -357,33 +373,31 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     ensure_images_pulled(env)
 
     print("Starting services...")
-    run(
+    up = subprocess.run(
         ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "up", "--build", "-d"],
         env=env,
         check=False,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
+    if up.returncode != 0:
+        # Show the real compose error (port in use, platform mismatch, bad
+        # mount, ...) instead of only the generic message below.
+        print(up.stdout.strip())
 
     print("Waiting for services to initialize...")
-    time.sleep(3)
-
-    if (
-        subprocess.run(
-            ["docker", "ps", "--format", "{{.Names}}"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ).stdout.find("simnibs_container")
-        == -1
-    ):
+    if not wait_for_container("simnibs_container", timeout_s=30):
         print(
             "Error: simnibs service is not running. Please check your docker-compose.yml and container logs."
         )
-        run(
-            ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "logs"],
-            env=env,
+        print(f"Host: {platform.system()} {platform.machine()} (images are linux/amd64)")
+        subprocess.run(
+            ["docker", "ps", "-a", "--filter", "name=simnibs_container",
+             "--format", "table {{.Names}}\t{{.Status}}\t{{.Image}}"],
             check=False,
         )
+        subprocess.run(["docker", "logs", "--tail", "50", "simnibs_container"], check=False)
         sys.exit(1)
 
     print("Initializing project (inside container)...")
