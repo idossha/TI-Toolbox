@@ -1,0 +1,97 @@
+# Section sidebars. Each top-level key is a nav name referenced by a layout
+# (`nav: wiki` in _layouts/wiki.html). Items render in order; `group` starts a
+# labelled subsection. Add a page here and it shows up in the sidebar.
+installation:
+  title: Installation
+  items:
+    - { title: Quick Start, url: /installation/ }
+    - { title: Dependencies, url: /installation/dependencies/ }
+    - group: Platform Guides
+    - { title: Windows, url: /installation/windows/ }
+    - { title: macOS, url: /installation/macos/ }
+    - { title: Linux, url: /installation/linux/ }
+    - group: Additional Guides
+    - { title: Bash/CLI Usage, url: /installation/bash-cli/ }
+    - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
+    - { title: Troubleshooting, url: /installation/troubleshooting/ }
+
+wiki:
+  title: Wiki Guides
+  items:
+    - { title: Overview, url: /wiki/ }
+    - { title: Video Tutorials, url: /wiki/video-tutorials/ }
+    - group: Core Functionality
+    - { title: Pre-Processing, url: /wiki/pre-processing/ }
+    - { title: Diffusion Processing, url: /wiki/diffusion-processing/ }
+    - { title: Flex Search, url: /wiki/flex-search/ }
+    - { title: Ex Search, url: /wiki/ex-search/ }
+    - { title: Multipolar TI (mTI), url: /wiki/mti/ }
+    - { title: Simulator, url: /wiki/simulator/ }
+    - { title: Analyzer, url: /wiki/analyzer/ }
+    - { title: Visualizers, url: /wiki/visualizers/ }
+    - { title: GUI, url: /wiki/gui/ }
+    - { title: Scripting, url: /wiki/scripting/ }
+    - { title: AI Assistant, url: /wiki/ai-assistant/ }
+    - group: Embedded Tools
+    - { title: Reports, url: /wiki/reports/ }
+    - { title: Logging, url: /wiki/logging/ }
+    - { title: Brain Atlases, url: /wiki/atlases/ }
+    - { title: Atlas Resampling, url: /wiki/atlas-resampling/ }
+    - { title: Montage Visualizer, url: /wiki/montage_visualizer/ }
+    - { title: Electrode Mapping, url: /wiki/electrode-mapping/ }
+    - group: Extensions
+    - { title: Extension System, url: /wiki/extension/ }
+    - { title: Tissue Analyzer, url: /wiki/tissue-analyzer/ }
+    - { title: Blender Integration, url: /wiki/blender/ }
+    - { title: Cluster-Based Permutation Testing, url: /wiki/cluster-permutation-testing/ }
+    - { title: Free Electrode Placement, url: /wiki/electrode-placement/ }
+    - { title: Quick Notes, url: /wiki/quick-notes/ }
+    - { title: NIfTI Group Averaging, url: /wiki/nifti-group-averaging/ }
+    - { title: Nilearn Visuals, url: /wiki/nilearn-visuals/ }
+    - group: Development & Testing
+    - { title: Testing Pipeline, url: /wiki/testing-pipeline/ }
+    - { title: Python Environment, url: /wiki/python_env/ }
+    - { title: Desktop Application, url: /wiki/desktop-app/ }
+    - { title: Agent Plugin Internals, url: /wiki/agent-plugin/ }
+    - { title: API Reference, url: /api/, external: true }
+
+releases:
+  title: Releases
+  items:
+    - { title: Latest (v2.4.0), url: /releases/ }
+    - { title: Changelog, url: /releases/changelog/ }
+    - group: Version History
+    - { title: v2.4.0, url: /releases/v2.4.0/ }
+    - { title: v2.3.2, url: /releases/v2.3.2/ }
+    - { title: v2.3.1, url: /releases/v2.3.1/ }
+    - { title: v2.3.0, url: /releases/v2.3.0/ }
+    - { title: v2.2.4, url: /releases/v2.2.4/ }
+    - { title: v2.2.3, url: /releases/v2.2.3/ }
+    - { title: v2.2.2, url: /releases/v2.2.2/ }
+    - { title: v2.2.1, url: /releases/v2.2.1/ }
+    - { title: v2.2.0, url: /releases/v2.2.0/ }
+    - { title: v2.1.3, url: /releases/v2.1.3/ }
+    - { title: v2.1.2, url: /releases/v2.1.2/ }
+    - { title: v2.1.1, url: /releases/v2.1.1/ }
+    - { title: v2.1.0, url: /releases/v2.1.0/ }
+    - { title: v2.0.5, url: /releases/v2.0.5/ }
+    - { title: v2.0.4, url: /releases/v2.0.4/ }
+    - { title: v2.0.3, url: /releases/v2.0.3/ }
+    - { title: v2.0.2, url: /releases/v2.0.2/ }
+    - { title: v2.0.1, url: /releases/v2.0.1/ }
+    - { title: v2.0.0, url: /releases/v2.0.0/ }
+
+gallery:
+  title: Gallery
+  items:
+    - { title: Overview, url: /gallery/ }
+    - { title: Pre-Processing, url: /gallery/pre-processing/ }
+    - { title: Flex-Search, url: /gallery/flex-search/ }
+    - { title: Ex-Search, url: /gallery/ex-search/ }
+    - { title: Simulations, url: /gallery/simulations/ }
+    - { title: Analysis, url: /gallery/analysis/ }
+    - { title: Blender, url: /gallery/blender/ }
+    - { title: Statistics, url: /gallery/statistics/ }
+    - { title: Nilearn, url: /gallery/nilearn/ }
+    - { title: Gmsh Freeview, url: /gallery/gmsh-freeview/ }
+    - { title: User Interface, url: /gallery/UI/ }

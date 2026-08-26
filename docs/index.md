@@ -2,34 +2,42 @@
 layout: home
 ---
 
-<div class="hero" style="display: flex; align-items: center; gap: 2rem;">
-  <img src="{{ site.baseurl }}/assets/imgs/icon.png" alt="TI Toolbox Icon" style="width:80px;height:80px;flex-shrink:0;">
-  <div>
-    <h1>Temporal Interference Toolbox</h1>
-    <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
-  </div>
-</div>
+<section class="hero">
+  <p class="hero__tagline">A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
+</section>
 
-<div class="features">
-  <!-- ... existing code ... -->
-</div>
+<div class="home-grid">
+<section>
+<p class="home-section__title">Quick start</p>
+<ol class="quickstart" markdown="1">
+<li markdown="1">
+**Install Dependencies** Docker required for running the toolbox environment and optional X11 server.
+</li>
+<li markdown="1">
+**Install TI-Toolbox:**<br>
+A. Desktop Executable:
+Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
+B. CLI Entry:
+Download the two files below to a designated directory.
+- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
+```bash
+python3 loader.py
+```
+</li>
+<li markdown="1">
+**Set up your project directory**
+- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away.
+</li>
+<li markdown="1">
+**Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
+</li>
+</ol>
+</section>
 
-1. **Install Dependencies** Docker required for running the toolbox environment and optional X11 server.
-2. **Install TI-Toolbox:**<br>
-  A. Desktop Executable:
-   Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
-  B. CLI Entry:
-    Download the two files below to a designated directory.
-   - **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
-   - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
-   ```bash
-   python3 loader.py
-   ```
-  3. **Set up your BIDS project directory**
-   - Use our example dataset to get familiar with the software or organize your data in BIDS format.<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` 
-  4. **Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
-
+<section>
+<p class="home-section__title">Highlights</p>
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
@@ -75,7 +83,5 @@ layout: home
     </div>
   </div>
 </div>
-
-
-
-
+</section>
+</div>
