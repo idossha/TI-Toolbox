@@ -1,0 +1,30 @@
+{%- comment -%}
+  Three-column documentation layout: section sidebar / article / on-this-page.
+  Usage: {% include docs.html nav="wiki" %} — the key selects a _data/nav.yml section.
+{%- endcomment -%}
+{%- assign nav = site.data.nav[include.nav] -%}
+<div class="docs">
+  <button class="docs__sidebar-toggle" type="button" aria-expanded="false" aria-controls="docs-sidebar">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    {{ nav.title | default: "Contents" }}
+  </button>
+
+  <aside class="docs__sidebar" id="docs-sidebar">
+    {%- include sidebar.html nav=nav -%}
+  </aside>
+
+  <article class="docs__article wiki-content">
+    <div class="wiki-content-inner">
+      <h1 class="docs__title">{{ page.title | escape }}</h1>
+      {{ content }}
+    </div>
+  </article>
+
+  <aside class="docs__toc" id="docs-toc" aria-label="On this page">
+    <p class="docs__toc-title">On this page</p>
+    <ul class="docs__toc-list"></ul>
+  </aside>
+</div>
+
+<script src="{{ '/assets/js/wiki-lightbox.js' | relative_url }}"></script>
+<script src="{{ '/assets/js/toc.js' | relative_url }}"></script>

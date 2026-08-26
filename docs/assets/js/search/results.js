@@ -3,6 +3,8 @@
  * Handles search functionality on the dedicated search results page
  */
 
+const BASE_URL = document.documentElement.getAttribute('data-baseurl') || '';
+
 // Global search data
 let searchData = [];
 
@@ -83,10 +85,10 @@ function displayResults(results, query) {
     const contentPreview = result.content.substring(0, 250);
     const highlightedContent = highlightText(contentPreview, query);
 
-    // Construct proper URL - prepend /TI-Toolbox if not already there
+    // Prefix the site base URL (empty for local preview, /TI-Toolbox on GitHub Pages)
     let resultUrl = result.url;
-    if (!resultUrl.startsWith('http') && !resultUrl.startsWith('/TI-Toolbox')) {
-      resultUrl = '/TI-Toolbox' + resultUrl;
+    if (!resultUrl.startsWith('http') && !resultUrl.startsWith(BASE_URL)) {
+      resultUrl = BASE_URL + resultUrl;
     }
 
     return `
@@ -120,7 +122,7 @@ function displayNoResults() {
  */
 function navigateToSearch(query) {
   if (query) {
-    window.location.href = `/TI-Toolbox/search/?q=${encodeURIComponent(query)}`;
+    window.location.href = `${BASE_URL}/search/?q=${encodeURIComponent(query)}`;
   }
 }
 
@@ -137,7 +139,7 @@ function initSearchPage() {
   }
 
   // Load search data
-  fetch('/TI-Toolbox/search/search.json')
+  fetch(`${BASE_URL}/search/search.json`)
     .then(response => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

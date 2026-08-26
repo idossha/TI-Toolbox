@@ -1,0 +1,17 @@
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <div class="site-footer__brand">
+      <img src="{{ '/assets/imgs/icon.png' | relative_url }}" alt="" width="22" height="22">
+      <span>{{ site.title | escape }}</span>
+    </div>
+    <ul class="site-footer__links">
+      <li><a href="{{ '/installation/' | relative_url }}">Installation</a></li>
+      <li><a href="{{ '/wiki/' | relative_url }}">Wiki</a></li>
+      <li><a href="{{ '/api/' | relative_url }}">API</a></li>
+      <li><a href="{{ '/releases/' | relative_url }}">Releases</a></li>
+      <li><a href="{{ '/about/' | relative_url }}">About</a></li>
+      <li><a href="https://github.com/idossha/TI-Toolbox" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <p class="site-footer__meta">Maintained by {{ site.author }} · <a href="mailto:{{ site.email }}">{{ site.email }}</a></p>
+  </div>
+</footer>

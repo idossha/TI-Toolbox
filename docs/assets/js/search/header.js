@@ -12,7 +12,8 @@
    */
   function navigateToSearch(query) {
     if (query) {
-      window.location.href = `/TI-Toolbox/search/?q=${encodeURIComponent(query)}`;
+      const base = document.documentElement.getAttribute('data-baseurl') || '';
+      window.location.href = `${base}/search/?q=${encodeURIComponent(query)}`;
     }
   }
 
