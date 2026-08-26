@@ -53,22 +53,137 @@ class TestGenerateMultipolarCombinations:
         combos = list(generate_multipolar_combinations(buckets, all_combinations=False))
         assert combos == [("A", "B", "C", "D", "E", "F", "G", "X")]
 
-    def test_pool_mode_generates_permutations(self):
+    def test_pool_mode_count_matches_enumeration_and_closed_form(self):
+        """Pool mode yields one montage per mTI symmetry class, counted analytically.
+
+        With two independent channels the score is invariant under a group
+        of order 64 (8 slot automorphisms x 8 group-flip patterns), so
+        P(n, 8) / 64 canonical montages remain.
+        """
         from tit.opt.mex.logic import (
             count_multipolar_combinations,
             generate_multipolar_combinations,
         )
 
-        pool = [f"E{i}" for i in range(1, 9)]
+        pool = [f"E{i}" for i in range(1, 10)]
         count = count_multipolar_combinations(pool, all_combinations=True)
-        assert count == math.factorial(8)
-
+        assert count == math.perm(9, 8) // 64
         combos = list(generate_multipolar_combinations(pool, all_combinations=True))
         assert len(combos) == count
-        # Every candidate uses each pool electrode exactly once.
+        assert len(set(combos)) == count
         for combo in combos[:50]:
             assert len(combo) == 8
-            assert set(combo) == set(pool)
+            assert len(set(combo)) == 8
+            assert set(combo) <= set(pool)
+
+    @pytest.mark.parametrize(
+        "channels, group_order",
+        [
+            (None, 64),
+            ([([0, 2], [1, 3])], 32),
+            ([([0], [1, 2]), ([3], [])], 16),
+            ([([0, 1, 2, 3], [])], 48),
+        ],
+    )
+    def test_pool_mode_is_a_transversal_of_the_symmetry_classes(
+        self, channels, group_order
+    ):
+        """No two enumerated montages are equivalent, and every class is hit.
+
+        The symmetry group is built independently here from the envelope
+        math in ``tit.calc`` (``Q = |sum_k a_k*b_k|`` over beating channels,
+        ``psi=0``): slot automorphisms of the channel structure, and
+        group-wise polarity flips whose per-channel product sign agrees.
+        """
+        from itertools import permutations, product
+
+        from tit.opt.mex.logic import (
+            _normalize_channels,
+            _slot_automorphisms,
+            count_multipolar_combinations,
+            generate_multipolar_combinations,
+        )
+
+        norm = _normalize_channels(channels)
+        autos = _slot_automorphisms(norm)
+        groups = [g for a, b in norm for g in (a, b) if g]
+        signs = []
+        for bits in product((1, -1), repeat=len(groups)):
+            gs = dict(zip(groups, bits))
+            products = {gs[a] * gs[b] for a, b in norm if a and b}
+            if len(products) <= 1:
+                signs.append({slot: gs[g] for g in groups for slot in g})
+        assert len(autos) * len(signs) == group_order
+
+        def canon(montage):
+            pairs = [montage[2 * k : 2 * k + 2] for k in range(4)]
+            images = []
+            for perm in autos:
+                for sg in signs:
+                    placed = [None] * 4
+                    for slot, pair in enumerate(pairs):
+                        placed[perm[slot]] = pair[::-1] if sg[slot] < 0 else pair
+                    images.append(tuple(e for pair in placed for e in pair))
+            return min(images)
+
+        pool = [f"E{i}" for i in range(8)]
+        combos = list(
+            generate_multipolar_combinations(
+                pool, all_combinations=True, channels=channels
+            )
+        )
+        classes = [canon(c) for c in combos]
+        assert len(set(classes)) == len(classes), "duplicate symmetry class"
+        assert set(classes) == {canon(p) for p in permutations(pool, 8)}
+        assert len(combos) == math.factorial(8) // group_order
+        assert count_multipolar_combinations(
+            pool, all_combinations=True, channels=channels
+        ) == len(combos)
+
+    def test_pool_mode_polarity_flip_inside_a_beating_channel_is_kept(self):
+        """A lone flip within a beating channel is a pi phase shift, not a symmetry."""
+        from tit.opt.mex.logic import generate_multipolar_combinations
+
+        pool = [f"E{i}" for i in range(8)]
+        combos = set(generate_multipolar_combinations(pool, all_combinations=True))
+        aligned = ("E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7")
+        shifted = ("E0", "E1", "E2", "E3", "E4", "E5", "E7", "E6")
+        assert aligned in combos
+        assert shifted in combos
+        # Flipping slot 1 instead of slot 3 is the same class as ``shifted``
+        # (Q = |a0*b0 - a1*b1| either way), and flipping both pairs of a
+        # channel is the same class as ``aligned`` -- neither is re-emitted.
+        assert ("E0", "E1", "E3", "E2", "E4", "E5", "E6", "E7") not in combos
+        assert ("E1", "E0", "E3", "E2", "E4", "E5", "E6", "E7") not in combos
+
+    def test_pool_mode_rejects_channels_missing_a_slot(self):
+        from tit.opt.mex.logic import count_multipolar_combinations
+
+        with pytest.raises(ValueError, match="four pair slots"):
+            count_multipolar_combinations(
+                [f"E{i}" for i in range(8)],
+                all_combinations=True,
+                channels=[([0], [1]), ([2], [])],
+            )
+
+    def test_bucket_mode_count_still_walks_the_generator(self):
+        from tit.opt.mex.logic import (
+            count_multipolar_combinations,
+            generate_multipolar_combinations,
+        )
+
+        buckets = {
+            "e1_plus": ["A", "B"],
+            "e1_minus": ["C"],
+            "e2_plus": ["D"],
+            "e2_minus": ["E"],
+            "e3_plus": ["F"],
+            "e3_minus": ["G"],
+            "e4_plus": ["H"],
+            "e4_minus": ["A", "I"],
+        }
+        combos = list(generate_multipolar_combinations(buckets))
+        assert count_multipolar_combinations(buckets) == len(combos) == 3
 
     def test_symmetric_within_pairs_collapses_cartesian_to_linear(self):
         """|e1+| x |e1-| candidates collapse to ~|e1+| under symmetric mode."""
@@ -492,6 +607,37 @@ def _setup_engine_fields(engine):
 
 @pytest.mark.unit
 class TestMExSearchEngineInit:
+    def test_run_forwards_channels_to_pool_enumeration(self, tmp_path):
+        from tit.opt.mex.engine import MExSearchEngine
+
+        channels = [([0, 2], [1, 3])]
+        engine = MExSearchEngine.__new__(MExSearchEngine)
+        engine.channels = channels
+        engine.logger = MagicMock()
+        engine.roi_name = "roi"
+        engine.compute_mti_field = MagicMock(
+            return_value={
+                "roi_TImax_ROI": 0.0,
+                "roi_TImean_ROI": 0.0,
+                "roi_Focality": 0.0,
+            }
+        )
+        engine._log_progress_estimate = MagicMock()
+        pool = [f"E{i}" for i in range(8)]
+        with (
+            patch("tit.opt.mex.engine.signal"),
+            patch(
+                "tit.opt.mex.engine.count_multipolar_combinations", return_value=1
+            ) as mock_count,
+            patch(
+                "tit.opt.mex.engine.generate_multipolar_combinations",
+                return_value=iter([tuple(pool)]),
+            ) as mock_gen,
+        ):
+            engine.run(pool, True, str(tmp_path), current_mA=1.0)
+        assert mock_count.call_args.kwargs["channels"] == channels
+        assert mock_gen.call_args.kwargs["channels"] == channels
+
     def test_stores_channels(self):
         engine = _make_mex_engine(channels=[([0, 2], [1, 3])])
         assert engine.channels == [([0, 2], [1, 3])]

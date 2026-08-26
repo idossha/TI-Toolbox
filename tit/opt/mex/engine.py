@@ -101,6 +101,7 @@ class MExSearchEngine(ExSearchEngine):
             all_combinations=all_combinations,
             symmetry_mirror_map=symmetry_mirror_map,
             symmetry_pairing=symmetry_pairing,
+            channels=self.channels,
         )
         self.logger.info("%s", "\n" + "=" * 60)
         mode = "All Combinations" if all_combinations else "Bucketed"
@@ -121,6 +122,7 @@ class MExSearchEngine(ExSearchEngine):
                 all_combinations=all_combinations,
                 symmetry_mirror_map=symmetry_mirror_map,
                 symmetry_pairing=symmetry_pairing,
+                channels=self.channels,
             ),
             1,
         ):
