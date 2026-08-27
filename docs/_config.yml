@@ -31,9 +31,6 @@ kramdown:
 # Google Analytics (enabled by default, disabled only when ENABLE_ANALYTICS=false is set)
 google_analytics: G-YMJPLLDT3Q
 
-# Hosted JupyterHub (deploy/jupyterhub). Leave empty to hide the "Run it in your browser" button.
-jupyterhub_url: ""
-
 # Exclude files
 exclude:
   - Gemfile
