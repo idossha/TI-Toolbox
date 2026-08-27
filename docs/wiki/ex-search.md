@@ -80,25 +80,25 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 ---
 
-**Example Results** (`final_output.csv`, top 5 of 4,375 evaluations by `Composite_Index`; sub-ernie, EEG10-10 Jurak leadfield, 5 mm spherical ROI at MNI (−38, 5, 0), TI-Toolbox v2.4.0). Bucket search with 5 candidate electrodes per position (5⁴ = 625 electrode combinations) × 7 current splits (2 mA total, 0.25 mA step). Each montage's two unit-current channel fields are computed once and rescaled per split, candidates are spread over worker processes (`n_jobs`, default all cores − 1), and the closed-form TI maximum is evaluated on ROI ∪ grey matter only — the 4,375 evaluations take ~3 min on 12 cores (plus ~20 s to load the leadfield):
+**Example Results** (`final_output.csv`, top 5 of 16,807 evaluations by `Composite_Index`; sub-ernie, EEG10-10 Jurak leadfield, 5 mm spherical ROI at MNI (−38, 5, 0), TI-Toolbox v2.4.0). Bucket search with 7 candidate electrodes per position (7⁴ = 2,401 electrode combinations) × 7 current splits (2 mA total, 0.25 mA step). Each montage's two unit-current channel fields are computed once and rescaled per split, candidates are spread over worker processes (`n_jobs`, default all cores − 1), and the closed-form TI maximum is evaluated on ROI ∪ grey matter only — the 16,807 evaluations took 13.6 min on 12 cores (0.05 s each):
 
 | Montage | Current_Ch1_mA | Current_Ch2_mA | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
 |---------|---------------|---------------|-----------|------------|-----------|----------|-----------------|
-| F7_CP5 <> AF7_P3 | 1.0 | 1.0 | 0.3961 | 0.2346 | 0.1256 | 1.8683 | 0.4382 |
-| F7_TP7 <> AF7_CP3 | 1.0 | 1.0 | 0.3477 | 0.2148 | 0.1065 | 2.0165 | 0.4331 |
-| F7_TP7 <> AF7_P3 | 1.0 | 1.0 | 0.3477 | 0.2174 | 0.1097 | 1.9823 | 0.4310 |
-| F7_TP7 <> AF7_PO7 | 1.0 | 1.0 | 0.3477 | 0.2174 | 0.1101 | 1.9745 | 0.4293 |
-| F7_CP5 <> AF7_PO7 | 1.0 | 1.0 | 0.3606 | 0.2277 | 0.1209 | 1.8840 | 0.4290 |
+| F7_TP9 <> F3_P1 | 1.0 | 1.0 | 0.3561 | 0.2066 | 0.0959 | 2.1553 | 0.4454 |
+| F7_TP9 <> F3_PO3 | 1.0 | 1.0 | 0.3766 | 0.2103 | 0.1024 | 2.0545 | 0.4320 |
+| FT7_TP9 <> FC3_P1 | 1.0 | 1.0 | 0.3637 | 0.1819 | 0.0771 | 2.3585 | 0.4291 |
+| F7_TP7 <> F3_P3 | 1.0 | 1.0 | 0.3451 | 0.2109 | 0.1050 | 2.0091 | 0.4237 |
+| F7_TP9 <> F3_O1 | 1.0 | 1.0 | 0.3766 | 0.2103 | 0.1047 | 2.0092 | 0.4225 |
 
 `Focality = TImean_ROI / TImean_GM` and `Composite_Index = TImean_ROI × Focality`. The `Montage` column in the CSV also carries the current split as a suffix (e.g. `F7_CP5 <> AF7_P3_I1-1.0mA_I2-1.0mA`). Currents are written with one decimal, so a 0.25 mA step appears as 0.2/0.8/1.2/1.8 in the CSV.
 
 ![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png)
 
-*`montage_distributions.png` from the same run: TImax, TImean and focality across all 4,375 evaluations.*
+*`montage_distributions.png` from the same run: TImax, TImean and focality across all 16,807 evaluations.*
 
 ![Ex-Search Intensity vs Focality]({{ site.baseurl }}/assets/imgs/ex-search/intensity_vs_focality_scatter.png)
 
-*`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean intensity against focality, coloured by `Composite_Index`. With thousands of candidates the Pareto front emerges along the upper-right edge — no montage improves intensity without giving up focality beyond it. Equal 1.0/1.0 mA splits populate the high-intensity end; strongly unequal splits (0.2/1.8) collapse to the low-intensity cluster on the left.*
+*`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean intensity against focality, coloured by `Composite_Index`. With ~17k candidates the Pareto front emerges along the upper-right edge — no montage improves intensity without giving up focality beyond it. Equal 1.0/1.0 mA splits populate the high-intensity end; strongly unequal splits (0.2/1.8) collapse to the low-intensity cluster on the left.*
 
 ---
 
