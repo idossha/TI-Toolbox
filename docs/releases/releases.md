@@ -29,8 +29,19 @@ permalink: /releases/
 - Flex-search summary.txt no longer prints a raw Python function repr on the Goal line.
 - QSIPrep/QSIRecon fixes — the root BIDS dataset description is always created, a missing T1w is reported up front, QSIRecon's log directory is no longer mistaken for existing output, and a converted DWI arriving without its gradient table now warns instead of failing silently.
 - DICOM import — a converted DWI missing its gradient table is now caught and reported.
+- Atlas resampling in the analyzer — atlases and tissue masks are now matched to the field on shape **and** affine and resampled nearest-neighbour, replacing a shape-only check and an interpolating `mri_convert` call that also required FreeSurfer binaries absent from the simulation container. See the note below.
 - Docs — corrected stale ROI, tissue, atlas, CLI and testing-pipeline claims across the wiki, scripting, ex-search and analyzer pages; fixed release download links and a blank atlas viewer for cached scripts.
 - Dev loader — `loader_dev.sh` rewritten as a working Python-free bash loader after regressions.
+
+#### Note: atlas resampling in the analyzer
+
+The analyzer's grid check compared shape only, so an atlas with matching dimensions but a different affine could pass through untouched and produce statistics for the wrong tissue, silently. Resampling also used `mri_convert --reslice_like`, whose default trilinear interpolation blends discrete region ids into ids that belong to no region. The check now compares the affine too, resampling is nearest-neighbour, and neither step needs FreeSurfer binaries that the simulation container does not ship.
+
+<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_v250_old_vs_new.png">
+  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_v250_old_vs_new.png" alt="Old versus new atlas resampling in v2.5.0" style="width: 100%; max-width: 950px;">
+</a>
+
+**This is a robustness fix, not a result-changing one.** Interpolation order only matters when the atlas and field lattices do not coincide, which for the 1 mm FreeSurfer parcellations, the thalamic nuclei and every MNI atlas they do — old and new are bit-identical there. The one exception is the 0.333 mm hippocampal and amygdala subfields, shown above: even in that worst case the reported **field changes by ~0.5%** (mean −0.6%, max −1.2%) while the ROI *volume* changes by −42%, because trilinear erodes the region's boundary. Field statistics from earlier versions stand; ROI voxel counts and volumes from a hippocampal or amygdala subfield ROI are worth regenerating. Details on the [Brain Atlases]({{ site.baseurl }}/wiki/atlases/#atlas-resampling) page.
 
 #### Download Links
 
