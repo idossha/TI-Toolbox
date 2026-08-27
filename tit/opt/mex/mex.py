@@ -12,12 +12,13 @@ from pathlib import Path
 
 from tit.logger import add_file_handler
 from tit.opt.config import MExConfig, MExResult
-from tit.opt.ex.buckets import build_electrode_mirror_map, canonical_template_coord_path
 from tit.opt.ex.results import process_and_save
 from tit.opt.ex.roi import atlas_roi_entries, mni_roi_files_to_subject_space
+from tit.opt.ex.symmetry import build_symmetry_mirror_map
 from tit.paths import get_path_manager
 
 from .engine import MExSearchEngine
+from .logic import count_multipolar_combinations, explain_zero_multipolar_combinations
 
 
 def run_m_ex_search(config: MExConfig) -> MExResult:
@@ -44,6 +45,47 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
 
     run_name = config.run_name or time.strftime("%Y%m%d_%H%M%S")
     output_dir = pm.m_ex_search_run(config.subject_id, run_name)
+
+    if isinstance(config.electrodes, MExConfig.PoolElectrodes):
+        buckets_or_pool = config.electrodes.electrodes
+        all_combinations = True
+        symmetry_mirror_map = None
+    else:
+        buckets_or_pool = {
+            "e1_plus": config.electrodes.e1_plus,
+            "e1_minus": config.electrodes.e1_minus,
+            "e2_plus": config.electrodes.e2_plus,
+            "e2_minus": config.electrodes.e2_minus,
+            "e3_plus": config.electrodes.e3_plus,
+            "e3_minus": config.electrodes.e3_minus,
+            "e4_plus": config.electrodes.e4_plus,
+            "e4_minus": config.electrodes.e4_minus,
+        }
+        all_combinations = False
+        symmetry_mirror_map = build_symmetry_mirror_map(config, pm, logger)
+
+    # Enumeration is cheap and independent of the leadfield: fail before
+    # loading it (and before creating the run directory) when there is
+    # nothing to evaluate.
+    n_candidates = count_multipolar_combinations(
+        buckets_or_pool,
+        all_combinations=all_combinations,
+        symmetry_mirror_map=symmetry_mirror_map,
+        symmetry_pairing=config.symmetry_pairing,
+        channels=config.channels,
+    )
+    if n_candidates == 0:
+        reason = explain_zero_multipolar_combinations(
+            buckets_or_pool,
+            all_combinations=all_combinations,
+            symmetry_mirror_map=symmetry_mirror_map,
+            symmetry_pairing=config.symmetry_pairing,
+        )
+        raise ValueError(
+            f"m-ex-search has no candidate montages to evaluate: {reason}"
+        )
+    logger.info("Candidate montages: %d", n_candidates)
+
     os.makedirs(output_dir, exist_ok=True)
     logger.info("Output: %s", output_dir)
 
@@ -66,24 +108,6 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         logger.info("Adding %d atlas ROI target(s)", len(atlas_entries))
         roi_files = roi_files + atlas_entries
     roi_target = roi_files
-
-    if isinstance(config.electrodes, MExConfig.PoolElectrodes):
-        buckets_or_pool = config.electrodes.electrodes
-        all_combinations = True
-        symmetry_mirror_map = None
-    else:
-        buckets_or_pool = {
-            "e1_plus": config.electrodes.e1_plus,
-            "e1_minus": config.electrodes.e1_minus,
-            "e2_plus": config.electrodes.e2_plus,
-            "e2_minus": config.electrodes.e2_minus,
-            "e3_plus": config.electrodes.e3_plus,
-            "e3_minus": config.electrodes.e3_minus,
-            "e4_plus": config.electrodes.e4_plus,
-            "e4_minus": config.electrodes.e4_minus,
-        }
-        all_combinations = False
-        symmetry_mirror_map = _build_symmetry_mirror_map(config, pm, logger)
 
     leadfield_path = os.path.join(
         pm.leadfields(config.subject_id), config.leadfield_hdf
@@ -114,37 +138,3 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         results_csv=output_info.get("csv_path"),
         config_json=output_info.get("config_json_path"),
     )
-
-
-def _infer_symmetry_eeg_csv(config: MExConfig, pm) -> Path | None:
-    """Guess the EEG-position CSV for symmetric bucket mode from the leadfield name."""
-    stem = Path(config.leadfield_hdf).name.removesuffix(".hdf5")
-    # Leadfields are named ``{subject}_leadfield_{net}``; fall back to the
-    # bare stem for files that do not follow that convention.
-    _, sep, net_name = stem.partition("_leadfield_")
-    if not sep:
-        net_name = stem.removesuffix("_leadfield")
-    if not net_name:
-        return None
-    canonical = canonical_template_coord_path(net_name)
-    if canonical is not None:
-        return canonical
-    candidate = Path(pm.eeg_positions(config.subject_id)) / f"{net_name}.csv"
-    return candidate if candidate.is_file() else None
-
-
-def _build_symmetry_mirror_map(config: MExConfig, pm, logger) -> dict[str, str] | None:
-    if not config.symmetric_bucket:
-        return None
-
-    eeg_csv = Path(config.symmetry_eeg_csv) if config.symmetry_eeg_csv else None
-    if eeg_csv is None or not eeg_csv.is_file():
-        eeg_csv = _infer_symmetry_eeg_csv(config, pm)
-    if eeg_csv is None or not eeg_csv.is_file():
-        raise ValueError(
-            "symmetric_bucket requires a valid symmetry_eeg_csv or an inferable "
-            "EEG-position CSV from the selected leadfield."
-        )
-
-    logger.info("Symmetric bucket mode: using EEG mirror map from %s", eeg_csv)
-    return build_electrode_mirror_map(eeg_csv)

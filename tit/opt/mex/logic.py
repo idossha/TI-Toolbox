@@ -7,6 +7,14 @@ Albantakis's branch ``alba/ex-search-multipolar`` as-is.
 from itertools import combinations, permutations, product
 from math import comb
 
+from tit.opt.ex.symmetry import (
+    SYMMETRY_PAIRING_CROSS_PAIRS,
+    SYMMETRY_PAIRING_WITHIN_PAIRS,
+    SYMMETRY_PAIRINGS,
+    format_mirror_map,
+    symmetric_pair_options as _symmetric_pair_options,
+)
+
 MEX_BUCKET_KEYS = (
     "e1_plus",
     "e1_minus",
@@ -18,12 +26,15 @@ MEX_BUCKET_KEYS = (
     "e4_minus",
 )
 
-SYMMETRY_PAIRING_WITHIN_PAIRS = "within_pairs"
-SYMMETRY_PAIRING_CROSS_PAIRS = "cross_pairs"
-SYMMETRY_PAIRINGS = {
-    SYMMETRY_PAIRING_WITHIN_PAIRS,
-    SYMMETRY_PAIRING_CROSS_PAIRS,
-}
+_CROSS_PAIR_CHECKS = (
+    ("e1_plus", "e3_plus"),
+    ("e1_minus", "e3_minus"),
+    ("e2_plus", "e4_plus"),
+    ("e2_minus", "e4_minus"),
+)
+_WITHIN_PAIR_CHECKS = tuple(
+    (f"e{idx}_plus", f"e{idx}_minus") for idx in range(1, 5)
+)
 
 
 def _valid_multipolar_tuple(electrodes):
@@ -31,15 +42,41 @@ def _valid_multipolar_tuple(electrodes):
     return len(electrodes) == 8 and len(set(electrodes)) == 8
 
 
-def _symmetric_pair_options(plus_bucket, minus_bucket, mirror_map):
-    minus_set = set(minus_bucket)
-    seen = set()
-    for plus in plus_bucket:
-        minus = mirror_map.get(plus)
-        pair = (plus, minus)
-        if minus in minus_set and plus != minus and pair not in seen:
-            seen.add(pair)
-            yield pair
+def explain_zero_multipolar_combinations(
+    buckets_or_pool,
+    all_combinations=False,
+    symmetry_mirror_map=None,
+    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
+):
+    """Return a human-readable reason why the enumeration yields no candidate."""
+    if all_combinations:
+        n = len(dict.fromkeys(buckets_or_pool))
+        return f"pool mode needs at least 8 distinct electrodes, got {n}"
+    buckets = buckets_or_pool
+    empty = [key for key in MEX_BUCKET_KEYS if not buckets.get(key)]
+    if empty:
+        return f"empty electrode bucket(s): {', '.join(empty)}"
+    if symmetry_mirror_map is not None:
+        mm = symmetry_mirror_map
+        if symmetry_pairing == SYMMETRY_PAIRING_CROSS_PAIRS:
+            checks = _CROSS_PAIR_CHECKS
+            what = "cross_pairs: pairs 3/4 must mirror pairs 1/2"
+        else:
+            checks = _WITHIN_PAIR_CHECKS
+            what = "within_pairs: each pair's minus electrode must mirror its plus"
+        for src, dst in checks:
+            if not list(_symmetric_pair_options(buckets[src], buckets[dst], mm)):
+                return (
+                    f"symmetric_bucket={symmetry_pairing}: no electrode in {src} "
+                    f"has its mirror in {dst} ({what}; mirror map: "
+                    f"{format_mirror_map(buckets[src], mm)}; {dst}: "
+                    f"{', '.join(buckets[dst])})"
+                )
+        return (
+            f"symmetric_bucket={symmetry_pairing}: every mirrored montage "
+            "reuses an electrode (the eight electrodes must be distinct)"
+        )
+    return "every bucket product reuses an electrode (the eight electrodes must be distinct)"
 
 
 def _within_pair_symmetry_combinations(buckets, mirror_map):

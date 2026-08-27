@@ -13,9 +13,14 @@ from tit.paths import get_path_manager
 from tit.logger import add_file_handler
 
 from .engine import ExSearchEngine
-from .logic import generate_current_ratios
+from .logic import (
+    count_combinations,
+    explain_zero_combinations,
+    generate_current_ratios,
+)
 from .results import process_and_save
 from .roi import atlas_roi_entries, mni_roi_files_to_subject_space
+from .symmetry import build_symmetry_mirror_map
 
 
 def run_ex_search(config: ExConfig) -> ExResult:
@@ -45,6 +50,48 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
 
     run_name = config.run_name or time.strftime("%Y%m%d_%H%M%S")
     output_dir = pm.ex_search_run(config.subject_id, run_name)
+
+    if isinstance(config.electrodes, ExConfig.PoolElectrodes):
+        pool = config.electrodes.electrodes
+        e1_plus = e1_minus = e2_plus = e2_minus = pool
+        all_combinations = True
+        symmetry_mirror_map = None
+    else:
+        e1_plus = config.electrodes.e1_plus
+        e1_minus = config.electrodes.e1_minus
+        e2_plus = config.electrodes.e2_plus
+        e2_minus = config.electrodes.e2_minus
+        all_combinations = False
+        symmetry_mirror_map = build_symmetry_mirror_map(config, pm, logger)
+
+    ratios = generate_current_ratios(
+        config.total_current,
+        config.current_step,
+        config.channel_limit or config.total_current - config.current_step,
+    )
+    logger.info(f"Generated {len(ratios)} current ratio combinations")
+
+    # Enumeration is cheap and independent of the leadfield: fail before
+    # loading it (and before creating the run directory) when there is
+    # nothing to evaluate.
+    enumeration = (
+        e1_plus,
+        e1_minus,
+        e2_plus,
+        e2_minus,
+        ratios,
+        all_combinations,
+        symmetry_mirror_map,
+        config.symmetry_pairing,
+    )
+    n_candidates = count_combinations(*enumeration)
+    if n_candidates == 0:
+        raise ValueError(
+            "ex-search has no candidate montages to evaluate: "
+            f"{explain_zero_combinations(*enumeration)}"
+        )
+    logger.info(f"Candidate montage x ratio combinations: {n_candidates}")
+
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Output: {output_dir}")
 
@@ -64,31 +111,12 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         logger.info(f"Adding {len(atlas_entries)} atlas ROI target(s)")
         roi_files = roi_files + atlas_entries
 
-    if isinstance(config.electrodes, ExConfig.PoolElectrodes):
-        pool = config.electrodes.electrodes
-        e1_plus = e1_minus = e2_plus = e2_minus = pool
-        all_combinations = True
-    else:
-        e1_plus = config.electrodes.e1_plus
-        e1_minus = config.electrodes.e1_minus
-        e2_plus = config.electrodes.e2_plus
-        e2_minus = config.electrodes.e2_minus
-        all_combinations = False
-
     leadfield_path = os.path.join(
         pm.leadfields(config.subject_id), config.leadfield_hdf
     )
 
     engine = ExSearchEngine(leadfield_path, roi_files, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)
-
-    ratios = generate_current_ratios(
-        config.total_current,
-        config.current_step,
-        config.channel_limit or config.total_current - config.current_step,
-    )
-
-    logger.info(f"Generated {len(ratios)} current ratio combinations")
 
     results = engine.run(
         e1_plus,
@@ -99,6 +127,8 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         all_combinations,
         output_dir,
         n_jobs=config.n_jobs,
+        symmetry_mirror_map=symmetry_mirror_map,
+        symmetry_pairing=config.symmetry_pairing,
     )
 
     output_info = process_and_save(results, config, output_dir, logger)

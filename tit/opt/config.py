@@ -676,13 +676,25 @@ class ExConfig:
         Worker processes evaluating candidates in parallel.  ``-1``
         (default) uses all cores minus one; ``1`` evaluates in-process.
         Results and CSV ordering do not depend on it.
+    symmetric_bucket : bool
+        When True in bucket mode, evaluate only left/right mirrored
+        montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+    symmetry_eeg_csv : str or None
+        EEG-position CSV used to derive mirrored electrode pairs.  If
+        unset, it is inferred from the leadfield's net name.
+    symmetry_pairing : str
+        Symmetry interpretation when *symmetric_bucket* is True.
+        ``"within_pairs"``: each pair's minus electrode is the mirror of
+        its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
+        mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
 
     Raises
     ------
     ValueError
         If *current_step*, *total_current*, or *channel_limit* are
-        non-positive, or if *roi_coordinate_space* is not ``"subject"``
-        or ``"mni"``.
+        non-positive, if *symmetric_bucket* is set with pool electrodes,
+        if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
+        or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
 
     See Also
     --------
@@ -767,6 +779,11 @@ class ExConfig:
     # ── Parallelism ────────────────────────────────────────────────────
     n_jobs: int = -1
 
+    # ── Symmetric bucket search ─────────────────────────────────────────
+    symmetric_bucket: bool = False
+    symmetry_eeg_csv: str | None = None
+    symmetry_pairing: str = "within_pairs"
+
     def __post_init__(self):
         if isinstance(self.electrodes, dict):
             if "electrodes" in self.electrodes:
@@ -803,6 +820,12 @@ class ExConfig:
             raise ValueError("total_current must be positive")
         if self.channel_limit is not None and self.channel_limit <= 0:
             raise ValueError("channel_limit must be positive")
+        if self.symmetric_bucket and isinstance(
+            self.electrodes, ExConfig.PoolElectrodes
+        ):
+            raise ValueError("symmetric_bucket is only supported for bucket electrodes")
+        if self.symmetry_pairing not in ("within_pairs", "cross_pairs"):
+            raise ValueError("symmetry_pairing must be 'within_pairs' or 'cross_pairs'")
 
 
 @dataclass

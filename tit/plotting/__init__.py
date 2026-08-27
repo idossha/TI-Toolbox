@@ -15,7 +15,12 @@ from .stats import (
     plot_cluster_size_mass_correlation,
     plot_permutation_null_distribution,
 )
-from .ti_metrics import plot_intensity_vs_focality, plot_montage_distributions
+from .ti_metrics import (
+    plot_electrode_score_heatmap,
+    plot_intensity_vs_focality,
+    plot_montage_distributions,
+    plot_montage_score_map,
+)
 
 __all__ = [
     "SaveFigOptions",
@@ -27,4 +32,6 @@ __all__ = [
     "plot_cluster_size_mass_correlation",
     "plot_montage_distributions",
     "plot_intensity_vs_focality",
+    "plot_montage_score_map",
+    "plot_electrode_score_heatmap",
 ]

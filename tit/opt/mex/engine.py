@@ -155,6 +155,7 @@ class MExSearchEngine(ExSearchEngine):
                     eta / 60,
                 )
 
+            data["electrodes"] = tuple(electrodes)
             results[key] = data
             self.logger.info(
                 "  Max=%.4f Mean=%.4f Foc=%.4f",

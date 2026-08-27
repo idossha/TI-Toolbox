@@ -944,39 +944,44 @@ class TestRunMExSearchAtlasAndMni:
 class TestInferSymmetryEegCsv:
     """Leadfields are named ``{subject}_leadfield_{net}.hdf5``."""
 
-    def _config(self, leadfield_name):
-        from tit.opt.config import MExConfig
-
-        return MExConfig(
-            subject_id="ernie",
-            leadfield_hdf=f"/lf/{leadfield_name}",
-            roi_name="roi.csv",
-            electrodes=MExConfig.PoolElectrodes(electrodes=[f"E{i}" for i in range(8)]),
-        )
-
     def test_net_name_is_taken_after_the_leadfield_marker(self, tmp_path, monkeypatch):
-        from tit.opt.mex import mex as mex_mod
+        from tit.opt.ex import symmetry
 
         eeg_dir = tmp_path / "eeg_positions"
         eeg_dir.mkdir()
         csv = eeg_dir / "EEG10-10_UI_Jurak_2007.csv"
         csv.write_text("Electrode,0,0,0,Cz\n")
-        monkeypatch.setattr(mex_mod, "canonical_template_coord_path", lambda name: None)
+        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
 
-        class PM:
-            def eeg_positions(self, sid):
-                return str(eeg_dir)
-
-        cfg = self._config("ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5")
-        assert mex_mod._infer_symmetry_eeg_csv(cfg, PM()) == csv
+        assert (
+            symmetry.infer_symmetry_eeg_csv(
+                "/lf/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5", eeg_dir
+            )
+            == csv
+        )
 
     def test_unknown_naming_returns_none(self, tmp_path, monkeypatch):
-        from tit.opt.mex import mex as mex_mod
+        from tit.opt.ex import symmetry
 
-        monkeypatch.setattr(mex_mod, "canonical_template_coord_path", lambda name: None)
+        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
+        assert symmetry.infer_symmetry_eeg_csv("/lf/weird.hdf5", tmp_path) is None
+
+    def test_explicit_symmetry_eeg_csv_wins(self, tmp_path):
+        from tit.opt.config import MExConfig
+        from tit.opt.ex.symmetry import resolve_eeg_positions_csv
+
+        csv = tmp_path / "custom.csv"
+        csv.write_text("Electrode,0,0,0,Cz\n")
+        cfg = MExConfig(
+            subject_id="ernie",
+            leadfield_hdf="/lf/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+            roi_name="roi.csv",
+            electrodes=MExConfig.PoolElectrodes(electrodes=[f"E{i}" for i in range(8)]),
+            symmetry_eeg_csv=str(csv),
+        )
 
         class PM:
             def eeg_positions(self, sid):
-                return str(tmp_path)
+                return str(tmp_path / "missing")
 
-        assert mex_mod._infer_symmetry_eeg_csv(self._config("weird.hdf5"), PM()) is None
+        assert resolve_eeg_positions_csv(cfg, PM()) == csv

@@ -52,7 +52,15 @@ def main() -> None:
     electrodes = _build_electrodes(data.pop("electrodes"))
     channels = _build_channels(data.pop("channels", None))
     config = MExConfig(electrodes=electrodes, channels=channels, **data)
-    result = run_m_ex_search(config)
+    try:
+        result = run_m_ex_search(config)
+    except ValueError as exc:
+        # Configuration errors (e.g. an enumeration with zero candidates)
+        # are reported plainly so the GUI console shows the reason.
+        import logging
+
+        logging.getLogger("tit.opt.m_ex_search").error("ERROR: %s", exc)
+        sys.exit(1)
     sys.exit(0 if result.success else 1)
 
 

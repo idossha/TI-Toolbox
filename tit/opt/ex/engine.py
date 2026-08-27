@@ -300,12 +300,16 @@ class ExSearchEngine:
         all_combinations: bool,
         output_dir: str,
         n_jobs: int = 1,
+        symmetry_mirror_map: dict[str, str] | None = None,
+        symmetry_pairing: str = "within_pairs",
     ) -> dict[str, dict[str, float]]:
         """Run the full simulation loop. Returns {mesh_key: metrics}.
 
         Candidates are evaluated in enumeration order, one electrode
         montage (all its current splits) per task, on ``n_jobs`` forked
         workers (``n_jobs < 1``: all cores minus one; ``1``: in-process).
+        A *symmetry_mirror_map* (bucket mode) restricts the enumeration to
+        left/right mirrored montages (see :mod:`tit.opt.ex.symmetry`).
         """
         stop = False
 
@@ -317,7 +321,14 @@ class ExSearchEngine:
         signal.signal(signal.SIGTERM, _on_signal)
 
         total = count_combinations(
-            e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+            e1_plus,
+            e1_minus,
+            e2_plus,
+            e2_minus,
+            current_ratios,
+            all_combinations,
+            symmetry_mirror_map,
+            symmetry_pairing,
         )
         n_jobs = resolve_n_jobs(n_jobs)
         self._log_config_summary(
@@ -329,6 +340,7 @@ class ExSearchEngine:
             all_combinations,
             total,
             n_jobs,
+            symmetry_pairing if symmetry_mirror_map is not None else None,
         )
 
         results: dict[str, dict[str, float]] = {}
@@ -337,7 +349,13 @@ class ExSearchEngine:
 
         montages = list(
             _electrode_combinations(
-                e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+                e1_plus,
+                e1_minus,
+                e2_plus,
+                e2_minus,
+                all_combinations,
+                symmetry_mirror_map,
+                symmetry_pairing,
             )
         )
         evaluations = evaluate_ordered(
@@ -365,6 +383,7 @@ class ExSearchEngine:
                     f"  {100 * i / total:.1f}% | {rate:.2f}/s | ETA {eta / 60:.1f}min"
                 )
 
+                data["electrodes"] = (ep1, em1, ep2, em2)
                 results[key] = data
                 self.logger.info(
                     f"  {(time.time() - montage_start) / len(ratios):.2f}s | "
@@ -398,9 +417,12 @@ class ExSearchEngine:
         all_combinations,
         total,
         n_jobs=1,
+        symmetry_pairing=None,
     ) -> None:
         self.logger.info(f"\n{'=' * 60}")
         mode = "All Combinations" if all_combinations else "Bucketed"
+        if symmetry_pairing:
+            mode += f", left/right symmetric ({symmetry_pairing})"
         self.logger.info(f"TI Exhaustive Search ({mode})")
         self.logger.info(f"Total combinations: {total}")
         self.logger.info(f"Current ratios: {len(current_ratios)}")

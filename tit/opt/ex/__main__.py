@@ -44,7 +44,15 @@ def main() -> None:
 
     electrodes = _build_electrodes(data.pop("electrodes"))
     config = ExConfig(electrodes=electrodes, **data)
-    result = run_ex_search(config)
+    try:
+        result = run_ex_search(config)
+    except ValueError as exc:
+        # Configuration errors (e.g. an enumeration with zero candidates)
+        # are reported plainly so the GUI console shows the reason.
+        import logging
+
+        logging.getLogger("tit.opt.ex_search").error("ERROR: %s", exc)
+        sys.exit(1)
     sys.exit(0 if result.success else 1)
 
 
