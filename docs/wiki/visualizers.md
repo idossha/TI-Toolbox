@@ -9,6 +9,7 @@ The TI-Toolbox provides integrated visualization tools for examining simulation 
 ## Gmsh Mesh Visualizer
 
 Gmsh is used to visualize tetrahedral mesh files (.msh) generated during finite element simulations. It provides 3D visualization of:
+
 - Mesh geometry and tetrahedral elements
 - Electric field distributions on mesh surfaces
 - Tissue boundaries and material interfaces
@@ -23,22 +24,22 @@ Gmsh is used to visualize tetrahedral mesh files (.msh) generated during finite 
 5. **Launch Gmsh**: Click the **"Launch Gmsh"** button
 
 The system will automatically:
+
 - Locate the .msh file under `derivatives/SimNIBS/sub-{ID}/Simulations/{sim}/Analyses/Mesh/{analysis}/`
 - Launch Gmsh with the correct file path
 - Display the mesh with electric field data
 
-![Gmsh Launching]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_launching.png)
-*Gmsh launching with mesh visualization*
+![Gmsh Launching]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*launching.png)
+\_Gmsh launching with mesh visualization*
 
 ### Gmsh Interface and Tools
 
 Gmsh provides several menu options for enhanced visualization:
-![Gmsh Tools Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_tools_menu.png)
-*Gmsh tools menu. Useful for clipping mesh, changing visibility of elements and manipulating general options.*
+![Gmsh Tools Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*tools_menu.png)
+\_Gmsh tools menu. Useful for clipping mesh, changing visibility of elements and manipulating general options.*
 
-![Gmsh Options Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_options_menu.png)
-*Gmsh options menu for view controls. Useful for changing color schemes, visualization cutoffs, mesh settings and more*
-
+![Gmsh Options Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*options_menu.png)
+\_Gmsh options menu for view controls. Useful for changing color schemes, visualization cutoffs, mesh settings and more*
 
 ### Gmsh Tips
 
@@ -48,14 +49,16 @@ Gmsh provides several menu options for enhanced visualization:
 - **Export**: Gmsh allows exporting images and animations for reports
 
 For more information please visit the following resources:
-* [SimNIBS Gmsh Explanation](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html)
-* [Gmsh Website](https://gmsh.info/)
+
+- [SimNIBS Gmsh Explanation](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html)
+- [Gmsh Website](https://gmsh.info/)
 
 ---
 
 ## Freeview NIfTI Visualizer
 
 Freeview is used to visualize volumetric NIfTI files (.nii/.nii.gz) and provides comprehensive brain imaging capabilities including:
+
 - Anatomical MRI visualization
 - Electric field overlays on brain anatomy
 - Atlas-based region of interest (ROI) visualization
@@ -84,14 +87,14 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
    - **Electrode Overlay**: Create or load the selected simulation's electrode-placement label mask
 5. **Launch Freeview**: Click **"Launch Freeview"**
 
-![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview_menu.png)
-*Freeview menu showing overlay controls and atlas options*
+![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview*menu.png)
+\_Freeview menu showing overlay controls and atlas options*
 
-![Freeview Example]({{ site.baseurl }}/assets/imgs/visualizers/freeview_example.png)
-*Freeview displaying E-field overlay on anatomical MRI*
+![Freeview Example]({{ site.baseurl }}/assets/imgs/visualizers/freeview*example.png)
+\_Freeview displaying E-field overlay on anatomical MRI*
 
-![MRI ROI with Field]({{ site.baseurl }}/assets/imgs/visualizers/visualizer_MRI_ROI_field.png)
-*MRI ROI with field data overlay*
+![MRI ROI with Field]({{ site.baseurl }}/assets/imgs/visualizers/visualizer*MRI_ROI_field.png)
+\_MRI ROI with field data overlay*
 
 ### Freeview Tips
 
@@ -106,7 +109,7 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
 
 ### Electrode Placement NIfTI Overlay
 
-For simulations with saved electrode coordinates in `documentation/config.json`, the NIfTI Viewer can create a single binary label-mask NIfTI that shows where electrodes were placed on the subject anatomy. The overlay is loaded automatically when it already exists for the selected simulation.
+The NIfTI Viewer can create a single binary label-mask NIfTI that shows where electrodes were placed on the subject anatomy. The overlay is loaded automatically when it already exists for the selected simulation.
 
 - **UI location**: Single Subject mode, under the atlas controls in the Subject Configuration box.
 - **Create/refresh**: Click **Create Electrode Overlay** or **Refresh Electrode Overlay**.
@@ -120,16 +123,19 @@ For simulations with saved electrode coordinates in `documentation/config.json`,
 ## File Formats and Locations
 
 ### Mesh Files (.msh)
+
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
 - **Content**: Tetrahedral mesh with embedded field data
 - **Visualizer**: Gmsh
 
 ### NIfTI Files (.nii/.nii.gz)
+
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
 - **Content**: Volumetric data in standard neuroimaging format
 - **Visualizer**: Freeview
 
 ### Electrode Overlay Files (.nii/.nii.gz + .lut)
+
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/{TI|mTI}/montage_imgs/electrode_overlay_subject.nii.gz`
 - **Content**: Channel-labeled electrode placement mask plus a Freeview LUT
 - **Visualizer**: Freeview
@@ -174,12 +180,14 @@ freeview derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz derivatives/SimNIBS/s
 ### Gmsh Issues
 
 **No mesh files found**
+
 - Ensure the analysis has been run and completed
 - Check that the analysis output includes mesh visualization files
 
 ### Freeview Issues
 
 **Empty or incorrect visualization**
+
 - Check that NIfTI files exist in the expected location
 - Verify analysis parameters and thresholds are appropriate
 - Ensure atlas files are available if using atlas overlays
@@ -193,10 +201,6 @@ Both visualizers are designed to work seamlessly with the TI-Toolbox analysis pi
 3. **Visualize Results**: Launch appropriate visualizer based on data type (mesh vs. voxel)
 4. **Iterate**: Use visualization insights to refine simulation parameters
 
-## Gallery
-
-For visual examples of Gmsh and Freeview outputs, see the [Gmsh Freeview Gallery]({{ site.baseurl }}/gallery/gmsh-freeview/) page.
-
 ---
 
-*Note: Both Gmsh (bundled with SimNIBS) and Freeview (bundled with FreeSurfer) ship inside the TI-Toolbox container; the toolbox launches them for you. If you run the `tit` package outside the container you must install them yourself.*
+_Note: Both Gmsh (bundled with SimNIBS) and Freeview (bundled with FreeSurfer) ship inside the TI-Toolbox container; the toolbox launches them for you. If you run the `tit` package outside the container you must install them yourself._
