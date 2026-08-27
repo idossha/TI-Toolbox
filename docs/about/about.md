@@ -47,6 +47,25 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
       </div>
     </div>
 
+    <!-- Larissa Albantakis Profile -->
+    <div class="contributor-card">
+      <div class="contributor-avatar">
+        <img src="{{ site.baseurl }}/assets/imgs/about/larissa_profile.jpg" alt="Larissa Albantakis" 
+             onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
+      </div>
+      <div class="contributor-info">
+        <h3>Larissa Albantakis</h3>
+        <p class="contributor-role">Core Contributor</p>
+        <p class="contributor-description">
+          Assistant Professor of Psychiatry. Contributed the multipolar TI (mTI) field math and multipolar exhaustive search, the generalized electrode-bucket loader and symmetric search, subject-space ROI masks from MNI templates, and the ex/mex-search electrode-map visualizations.<br>
+        </p>
+        <div class="contributor-links">
+          <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
+          <a href="https://github.com/Albantakis" target="_blank">🔗 GitHub</a>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
