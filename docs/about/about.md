@@ -43,9 +43,9 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <ul class="contributor-list">
           <li>Project coordination and release management</li>
           <li>System architecture: pipeline design, containerization, and the BIDS-based data model</li>
-          <li>Full-stack development across the simulation, optimization, analysis, and statistics stacks</li>
+          <li>Full-stack development</li>
           <li>Desktop application, GUI, and cross-platform packaging</li>
-          <li>Documentation, testing infrastructure, and maintenance across the complete code</li>
+          <li>Documentation and maintenance across the complete code</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:ihaber@wisc.edu" target="_blank">📧 Email</a>
