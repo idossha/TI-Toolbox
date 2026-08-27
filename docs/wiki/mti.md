@@ -235,6 +235,32 @@ mex-search reuses ex-search's output pipeline, writing exactly four files to `de
 
 The candidate key/name format is `TI_field_{e1a}_{e1b}_and_{e2a}_{e2b}_and_{e3a}_{e3b}_and_{e4a}_{e4b}_I-{current_mA:.1f}mA.msh` -- no mesh file is actually written; it is only a label. Progress is logged per candidate plus a coarse estimate every 500 candidates, since bucketed 4-pair searches can reach hundreds of thousands of combinations. SIGINT/SIGTERM sets a stop flag that breaks after the current candidate, and partial results are still written.
 
+### Example run (sub-ernie, v2.4.0)
+
+Two bucket searches over the same 16 candidates (2 × 1 × 2 × 1 × 1 × 2 × 1 × 2 electrodes for `e1_plus` … `e4_minus`, Jurak 10-10 leadfield, 5 mm ROI at MNI (−38, 5, 0), `current_mA = 1.0`), differing only in `channels`:
+
+| Wiring (`channels`) | Best montage (by `Composite_Index`) | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+|---|---|---|---|---|---|---|
+| Two independent channels (`null`) | F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.4769 | 0.3074 | 0.1571 | 1.9573 | 0.6017 |
+| Four pairs, two carriers (`[[[0,2],[1,3]]]`) | F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.6962 | 0.4438 | 0.2498 | 1.7767 | 0.7885 |
+
+The ranking is the same under both wirings here, but the absolute envelope differs by ~1.45× — this is why `channels` must be chosen deliberately (see [Carrier Wiring](#carrier-wiring-channels)).
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search intensity vs focality, independent channels">
+    <em>Independent channels</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search intensity vs focality, two carriers">
+    <em>Four pairs, two carriers</em>
+  </div>
+</div>
+
+*`intensity_vs_focality_scatter.png` for both runs.*
+
+**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope took ~57 s on this leadfield (vs ~0.4 s per 2-pair ex-search candidate), so keep buckets small: 16 candidates ≈ 15 min, 256 ≈ 4 h. There is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
+
 ### Running it
 
 ```
