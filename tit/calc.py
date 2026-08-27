@@ -29,6 +29,7 @@ attribution, not reimplemented. ``get_magnitude_am`` is likewise ported
 from that branch's ``_botzanowski_magnitude_am_components``.
 """
 
+import os
 import warnings
 
 import numpy as np
@@ -907,6 +908,27 @@ def _mti_modulation_depth_avg(arrs, psi, num_directions=192, chunk_size=16384):
     return avg_md
 
 
+def _fused_sweep_kernel():
+    """The numba sweep+refine kernel (:mod:`tit._mti_kernel`), or ``None``.
+
+    ``None`` -- meaning "use the chunked NumPy path" -- when numba is not
+    importable or the environment variable ``TIT_MTI_KERNEL`` is set to
+    ``"numpy"`` (any other value, or unset, prefers numba). The kernel
+    reproduces the NumPy algorithm step for step, so the two paths agree
+    to round-off; the override exists for A/B testing and as an escape
+    hatch.
+    """
+    if os.environ.get("TIT_MTI_KERNEL", "").strip().lower() == "numpy":
+        return None
+    try:
+        from tit import _mti_kernel
+    except Exception:  # noqa: BLE001 - any failure means "no kernel"
+        return None
+    if not _mti_kernel.HAVE_NUMBA:
+        return None
+    return _mti_kernel.sweep_refine
+
+
 def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     """Chunked Fibonacci-sphere direction sweep -- returns best-direction
     md/carrier_power/best_direction per element. When ``refine`` is True,
@@ -915,6 +937,23 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     coarse-sweep-only result."""
     directions = _fibonacci_sphere(num_directions)
     n_vox = arrs[0].shape[0]
+
+    kernel = _fused_sweep_kernel()
+    if kernel is not None and n_vox > 0:
+        n_seeds = min(_REFINE_N_SEEDS, directions.shape[0])
+        min_cos = np.cos(np.radians(_REFINE_MIN_SEED_ANGLE_DEG))
+        too_close = (directions @ directions.T) > min_cos
+        half_angle = 2.0 / np.sqrt(num_directions)
+        patch_weights = np.stack(
+            [
+                _patch_weights(half_angle * _REFINE_SHRINK**r, _REFINE_PATCH_SIZE)
+                for r in range(_REFINE_N_ROUNDS)
+            ]
+        )
+        md, carrier_power, best_direction = kernel(
+            arrs, psi, directions, too_close, patch_weights, n_seeds, refine
+        )
+        return {"md": md, "carrier_power": carrier_power, "best_direction": best_direction}
 
     md = np.zeros(n_vox, dtype=np.float64)
     carrier_power = np.zeros(n_vox, dtype=np.float64)
