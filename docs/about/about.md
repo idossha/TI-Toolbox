@@ -37,9 +37,16 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <h3>Ido Haber</h3>
         <p class="contributor-role">Lead Developer & Project Founder</p>
         <p class="contributor-description">
-          PhD Research Assistant and software developer specializing in computational neurostimulation. 
-          Developed the idea and architecture for the TI-Toolbox.<br>
+          PhD Research Assistant and software developer specializing in computational neurostimulation.
+          Developed the idea and architecture for the TI-Toolbox.
         </p>
+        <ul class="contributor-list">
+          <li>Project coordination and release management</li>
+          <li>System architecture: pipeline design, containerization, and the BIDS-based data model</li>
+          <li>Full-stack development across the simulation, optimization, analysis, and statistics stacks</li>
+          <li>Desktop application, GUI, and cross-platform packaging</li>
+          <li>Documentation, testing infrastructure, and maintenance across the complete code</li>
+        </ul>
         <div class="contributor-links">
           <a href="mailto:ihaber@wisc.edu" target="_blank">📧 Email</a>
           <a href="https://github.com/idossha" target="_blank">🔗 GitHub</a>
