@@ -1,0 +1,2 @@
+# One GitHub login per line. Lines starting with # are ignored.
+# Admins from ADMIN_USERS in .env are always allowed.

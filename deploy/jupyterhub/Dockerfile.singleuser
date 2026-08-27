@@ -1,0 +1,24 @@
+# Per-user server image for the TI-Toolbox JupyterHub.
+# Build context is the REPO ROOT (see docker-compose.yml): the image is the
+# published TI-Toolbox container plus (a) the jupyterhub client packages and
+# (b) this checkout's `tit` package and example notebook, so the hub always
+# runs the code that matches the docs. Rebuild on every release / checkout.
+ARG TIT_IMAGE=idossha/simnibs:v2.4.0
+FROM ${TIT_IMAGE}
+
+ARG JUPYTERHUB_VERSION=5.5.1
+RUN simnibs_python -m pip install --no-cache-dir \
+        "jupyterhub==${JUPYTERHUB_VERSION}" \
+        "nbgitpuller==1.3.0"
+
+# Toolbox code + example notebook from this checkout
+COPY tit /ti-toolbox/tit
+COPY version.py /ti-toolbox/version.py
+COPY docs/assets/notebooks /opt/tit-hub/notebooks
+
+COPY deploy/jupyterhub/start-singleuser.sh /usr/local/bin/start-singleuser.sh
+RUN chmod +x /usr/local/bin/start-singleuser.sh
+
+# entrypoint.sh (from the base image) still runs first: it sets PYTHONPATH,
+# FreeSurfer env, and PROJECT_DIR, then exec's this.
+CMD ["/usr/local/bin/start-singleuser.sh"]

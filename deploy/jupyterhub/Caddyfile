@@ -1,0 +1,3 @@
+{$HUB_DOMAIN} {
+    reverse_proxy jupyterhub:8000
+}

@@ -74,3 +74,4 @@ dev/telemetry/dashboard/.env
 !dev/telemetry/dashboard/.env.example
 
 .playwright-mcp/
+deploy/jupyterhub/.env

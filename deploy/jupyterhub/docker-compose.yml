@@ -1,0 +1,59 @@
+# Hosted TI-Toolbox JupyterHub. See README.md.
+#   cp .env.example .env   # fill in
+#   docker compose build && docker compose up -d
+services:
+  jupyterhub:
+    build:
+      context: .
+      dockerfile: Dockerfile.hub
+    image: ti-toolbox-hub:latest
+    container_name: ti-toolbox-hub
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DOCKER_NETWORK: tit-hub
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # DockerSpawner talks to the host daemon
+      - hub_data:/srv/jupyterhub/data
+      - ./allowed_users.txt:/srv/jupyterhub/allowed_users.txt:ro
+    ports:
+      - "${HUB_BIND:-127.0.0.1:8000}:8000"
+    networks:
+      - tit-hub
+
+  # Reverse proxy with automatic HTTPS. Requires HUB_DOMAIN to resolve to this host.
+  # Comment out (and set HUB_BIND=0.0.0.0:8000) if you terminate TLS elsewhere.
+  caddy:
+    image: caddy:2
+    container_name: ti-toolbox-caddy
+    restart: unless-stopped
+    profiles: ["tls"]
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - tit-hub
+
+  # Build target only (never runs as a compose service): the per-user image.
+  singleuser:
+    platform: linux/amd64        # the TI image is amd64-only (emulated on Apple Silicon)
+    build:
+      context: ../..                       # repo root: copies tit/ and the example notebook in
+      dockerfile: deploy/jupyterhub/Dockerfile.singleuser
+      args:
+        TIT_IMAGE: ${TIT_IMAGE:-idossha/simnibs:v2.4.0}
+    image: ti-toolbox-singleuser:latest
+    profiles: ["build-only"]
+    command: ["true"]
+
+networks:
+  tit-hub:
+    name: tit-hub
+
+volumes:
+  hub_data:
+  caddy_data:
