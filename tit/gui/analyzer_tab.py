@@ -844,7 +844,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.spheres_table.setToolTip(
             "Each row is a sphere ('x,y,z,r'). A single row behaves exactly "
             "like the classic single-sphere analysis. Additional rows each "
-            "run as a separate analysis (one result per sphere)."
+            "run as a separate analysis (one result per sphere), unless "
+            "'Combine selected spheres into one ROI' is checked."
         )
         spherical_layout.addWidget(self.spheres_table)
 
@@ -852,7 +853,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         sphere_btn_row.setSpacing(10)
         self.add_sphere_btn = QtWidgets.QPushButton("Add Sphere")
         self.add_sphere_btn.setToolTip(
-            "Add another sphere row. Each sphere runs as its own analysis."
+            "Add another sphere row. Each sphere runs as its own analysis "
+            "unless the spheres are combined into one ROI."
         )
         self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
         self.remove_sphere_btn = QtWidgets.QPushButton("Remove Selected")
@@ -872,6 +874,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         sphere_btn_row.addWidget(self.view_in_freeview_btn)
         spherical_layout.addLayout(sphere_btn_row)
+
+        self.combine_spheres_checkbox = QtWidgets.QCheckBox(
+            "Combine selected spheres into one ROI"
+        )
+        self.combine_spheres_checkbox.setToolTip(
+            "Union every sphere row into a single ROI and run one analysis, "
+            "instead of one analysis per sphere. Overlapping spheres are not "
+            "double-counted."
+        )
+        self.combine_spheres_checkbox.setChecked(False)
+        spherical_layout.addWidget(self.combine_spheres_checkbox)
 
         # Seed one default row so the table is never empty — this is the
         # exact single-sphere path exercised by all real-world usage today.
@@ -1286,6 +1299,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.add_sphere_btn.setEnabled(coordinates_enabled)
         if hasattr(self, "remove_sphere_btn"):
             self.remove_sphere_btn.setEnabled(coordinates_enabled)
+        if hasattr(self, "combine_spheres_checkbox"):
+            self.combine_spheres_checkbox.setEnabled(coordinates_enabled)
         if hasattr(self, "view_in_freeview_btn"):
             self.view_in_freeview_btn.setEnabled(coordinates_enabled)
 
@@ -1685,18 +1700,27 @@ class AnalyzerTab(QtWidgets.QWidget):
             return None
         return spheres[0]
 
+    def _combine_spheres(self):
+        """Whether the sphere rows should be unioned into a single ROI."""
+        return (
+            hasattr(self, "combine_spheres_checkbox")
+            and self.combine_spheres_checkbox.isChecked()
+        )
+
     def validate_analysis_parameters(self):  # Shared parameters
         if self.type_spherical.isChecked():
             spheres = self._parse_all_spheres()
             if spheres is None:
                 return False
-            if self.is_group_mode and len(spheres) > 1:
+            if self.is_group_mode and len(spheres) > 1 and not self._combine_spheres():
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Warning",
-                    "Group analysis currently supports only one sphere. "
-                    "Remove the extra sphere rows, or run single-subject "
-                    "analyses for the additional spheres.",
+                    "Group analysis runs one ROI across all subjects. Check "
+                    "'Combine selected spheres into one ROI' to analyze the "
+                    "spheres as a single ROI, remove the extra sphere rows, "
+                    "or run single-subject analyses for the additional "
+                    "spheres.",
                 )
                 return False
         elif self.type_cortical.isChecked():
@@ -1996,7 +2020,11 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Build analysis-specific kwargs for the script
             if analysis_type == "spherical":
-                x, y, z, radius = self._parse_coords_radius()
+                all_spheres = self._parse_all_spheres()
+                if not all_spheres:
+                    return None
+                union_spheres = all_spheres if self._combine_spheres() else None
+                x, y, z, radius = all_spheres[0]
                 coords = [x, y, z]
                 coord_space = "MNI" if self.coord_space_mni.isChecked() else "subject"
 
@@ -2063,6 +2091,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 config["center"] = [coords[0], coords[1], coords[2]]
                 config["radius"] = radius
                 config["coordinate_space"] = coord_space
+                if union_spheres and len(union_spheres) > 1:
+                    config["spheres"] = [list(sp) for sp in union_spheres]
             else:  # cortical
                 config["atlas"] = atlas_name
                 if len(regions) == 1:
@@ -2114,6 +2144,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                 if len(spheres) == 1:
                     x, y, z, r = spheres[0]
                     details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
+                elif self._combine_spheres():
+                    details += (
+                        f"- Spheres ({coord_space}, {len(spheres)} combined "
+                        f"into one ROI):\n"
+                    )
+                    for x, y, z, r in spheres:
+                        details += f"  - ({x}, {y}, {z}), radius {r} mm\n"
                 else:
                     details += f"- Spheres ({coord_space}, {len(spheres)} separate analyses):\n"
                     for x, y, z, r in spheres:
@@ -2158,9 +2195,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         details += "\n- Shared Analysis Parameters:\n"
         if self.type_spherical.isChecked():
             coord_space = "MNI" if self.coord_space_mni.isChecked() else "Subject RAS"
-            parsed = self._parse_coords_radius()
-            if parsed:
-                x, y, z, r = parsed
+            group_spheres = self._parse_all_spheres(show_warning=False)
+            if group_spheres and len(group_spheres) > 1 and self._combine_spheres():
+                details += (
+                    f"- Spheres ({coord_space}, {len(group_spheres)} combined "
+                    f"into one ROI):\n"
+                )
+                for x, y, z, r in group_spheres:
+                    details += f"  - ({x}, {y}, {z}), radius {r} mm\n"
+            elif group_spheres:
+                x, y, z, r = group_spheres[0]
                 details += f"- Coordinates ({coord_space}): ({x}, {y}, {z})\n- Radius: {r} mm\n"
             else:
                 details += f"- Coordinates: {', '.join(self._get_sphere_row_texts())}\n"
@@ -2786,8 +2830,10 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         Cortical analysis is unchanged: one command. Spherical analysis
         builds one command per sphere row -- N spheres become N separate
-        analyses (N separate output dirs), each run in turn. A single sphere
-        row produces exactly the same one-command list as before.
+        analyses (N separate output dirs), each run in turn -- unless the
+        spheres are combined, in which case all rows are unioned into one
+        ROI and a single command is built. A single sphere row produces
+        exactly the same one-command list as before.
 
         Returns ``None`` on any error (mirrors ``build_single_analysis_command``).
         """
@@ -2799,6 +2845,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not spheres:
             return None
 
+        if len(spheres) > 1 and self._combine_spheres():
+            cmd = self.build_single_analysis_command(
+                subject_id, simulation_name, spheres=spheres
+            )
+            return [cmd] if cmd else None
+
         cmds = []
         for x, y, z, r in spheres:
             cmd = self.build_single_analysis_command(
@@ -2809,13 +2861,17 @@ class AnalyzerTab(QtWidgets.QWidget):
             cmds.append(cmd)
         return cmds
 
-    def build_single_analysis_command(self, subject_id, simulation_name, sphere=None):
+    def build_single_analysis_command(
+        self, subject_id, simulation_name, sphere=None, spheres=None
+    ):
         """Build command to run single-subject analysis using the new Analyzer API via subprocess.
 
         Args:
             sphere: Optional ``(x, y, z, r)`` to use instead of parsing the
                 first sphere row -- used by ``build_single_analysis_commands``
                 to build one command per sphere for multi-sphere runs.
+            spheres: Optional list of ``(x, y, z, r)`` unioned into a single
+                ROI (one analysis covering all of them).
         """
         try:
             project_dir = self.pm.project_dir
@@ -2842,7 +2898,9 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Build output directory using PathManager for overwrite confirmation
             if analysis_type == "spherical":
-                if sphere is not None:
+                if spheres:
+                    x, y, z, radius_val = spheres[0]
+                elif sphere is not None:
                     x, y, z, radius_val = sphere
                 else:
                     parsed = self._parse_coords_radius()
@@ -2885,6 +2943,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 coordinates=coords,
                 radius=radius_val,
                 coordinate_space=coord_space,
+                spheres=(spheres if spheres and len(spheres) > 1 else None),
                 region=("+".join(regions) if regions else None),
                 atlas_name=(atlas_name if analysis_type == "cortical" else None),
                 atlas_path=(
@@ -2921,6 +2980,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 config["center"] = [coords[0], coords[1], coords[2]]
                 config["radius"] = radius_val
                 config["coordinate_space"] = coord_space
+                if spheres and len(spheres) > 1:
+                    config["spheres"] = [list(sp) for sp in spheres]
             else:  # cortical
                 # For voxel atlas, strip extension to get atlas name for the API
                 atlas_for_api = atlas_name

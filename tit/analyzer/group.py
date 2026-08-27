@@ -83,6 +83,7 @@ def run_group_analysis(
     center: tuple[float, float, float] | None = None,
     radius: float | None = None,
     coordinate_space: str = "subject",
+    spheres=None,
     atlas: str | None = None,
     region: str | list[str] | None = None,
     visualize: bool = False,
@@ -115,6 +116,9 @@ def run_group_analysis(
         ``"spherical"``.
     coordinate_space : str, optional
         ``"subject"`` or ``"MNI"`` (spherical only). Default ``"subject"``.
+    spheres : sequence of tuple of float or None, optional
+        One ``(x, y, z, r)`` per sphere, unioned into a single ROI
+        (spherical only). Takes precedence over *center*/*radius*.
     atlas : str or None, optional
         Atlas name (cortical only).
     region : str, list of str, or None, optional
@@ -162,11 +166,19 @@ def run_group_analysis(
         )
 
         dispatch: dict[str, callable] = {
-            "spherical": lambda a: a.analyze_sphere(
-                center=center,
-                radius=radius,
-                coordinate_space=coordinate_space,
-                visualize=visualize,
+            "spherical": lambda a: (
+                a.analyze_spheres(
+                    spheres=spheres,
+                    coordinate_space=coordinate_space,
+                    visualize=visualize,
+                )
+                if spheres
+                else a.analyze_sphere(
+                    center=center,
+                    radius=radius,
+                    coordinate_space=coordinate_space,
+                    visualize=visualize,
+                )
             ),
             "cortical": lambda a: a.analyze_cortex(
                 atlas=atlas,

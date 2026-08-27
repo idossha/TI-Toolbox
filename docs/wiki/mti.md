@@ -336,10 +336,14 @@ Validation before an mTI run requires all eight bucket fields to be non-empty ("
 
 ## Analyzer Behavior for mTI
 
-The [Analyzer]({{ site.baseurl }}/wiki/analyzer/) detects an mTI simulation purely from the presence of `{simulation}/mTI/mesh/` on disk -- there is no separate analyzer mode to select, and the same `Analyzer` class handles both TI and mTI.
+The [Analyzer]({{ site.baseurl }}/wiki/analyzer/) detects an mTI simulation purely from the presence of `{simulation}/mTI/mesh/` on disk -- there is no separate analyzer mode, and the same `Analyzer` class, ROI types, and group analysis handle both TI and mTI.
 
-- `TI_max` and `mTI_max` are treated as aliases for the same quantity: whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote (`mTI_max` for mTI, `TI_max` for TI).
-- `TI_normal` is **unavailable for mTI**: requesting it raises `FileNotFoundError` ("TI_normal is only computed for standard 2-pair TI simulations"), since mTI never writes a normal-component mesh (see [Simulator Behavior for mTI](#simulator-behavior-for-mti)). Consequently `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI analysis results.
+- **Source files.** Mesh analysis reads the mTI central surface (`mTI/mesh/surfaces/{sim}_mTI_central.msh`); voxel analysis reads `mTI/niftis/` with the usual `grey_`/`white_` tissue prefix. The intermediate per-dyad envelopes an mTI run leaves in `TI/mesh/` (`TI_AB`, `TI_CD`, ...) are never analyzed -- each is only one dyad's two-pair envelope, not the multipolar result.
+- **What is being averaged.** `mTI_max` is the joint K-pair envelope from `get_mTI_vectors` (above), maximised over direction -- not a recursive TI-of-TI recombination. ROI statistics carried over from the deprecated `get_nTI_vectors` form are inflated (signed mean +38.6% at N = 4) and should be regenerated rather than compared.
+- **Carrier wiring is not recorded.** `mTI_max` depends on which pairs share a carrier, and the two 4-pair architectures differ by more than 5% in the majority of mesh elements, but the analysis output carries no record of the wiring used. Compare ROI numbers only across runs known to share one. `hf_peak`/`hf_sar` sum over all carriers regardless of wiring, so they stay comparable.
+- **Field aliasing.** `TI_max` and `mTI_max` are the same quantity; whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type wrote.
+- **Other fields.** `TI_avg`, `hf_peak`, and `hf_sar` sit on the same mTI mesh (when the run was asked to write them) and can be analyzed with the identical ROI machinery -- noting that every statistic is then in that field's own units, and `hf_sar` is in (V/m)^2.
+- **`TI_normal` is unavailable for mTI**: requesting it raises `FileNotFoundError` ("TI_normal is only computed for standard 2-pair TI simulations"), since mTI never writes a normal-component mesh (see [Simulator Behavior for mTI](#simulator-behavior-for-mti)). Consequently `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI analysis results.
 
 ## References and Attribution
 

@@ -30,7 +30,9 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 
 - Analyze field data within spherical regions of interest
 - Customizable center coordinates and radius
-- Multi-sphere table: each row (`x,y,z,r`) runs as its own separate analysis — N rows produce N independent result sets, not a union of the spheres. Group analysis supports only one sphere row and rejects extra rows with a warning.
+- Multi-sphere table: each row (`x,y,z,r`) runs as its own separate analysis by default — N rows produce N independent result sets
+- **Combine selected spheres into one ROI**: tick this and the rows are unioned into a single ROI, giving one analysis and one result set for all of them (overlapping spheres are not double-counted). The output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
+- Group analysis runs one ROI across all subjects: several sphere rows are accepted only when they are combined, otherwise extra rows are rejected with a warning
 - Support for subject-space and MNI coordinates (automatic transformation)
 - Dual-field analysis: TI_max and TI_normal components (mesh space)
 - Statistical metrics: mean, max, min, focality, percentiles, and area-based focality
@@ -47,12 +49,6 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 
 - A Tissue selector (Gray Matter / White Matter / GM + WM) applies to **voxel space only** — it is disabled and forced to GM whenever Space is set to Mesh
 - In voxel mode, the tissue choice selects which field file is loaded by filename prefix (`grey_` for GM, `white_` for WM, no prefix for GM + WM) and builds the corresponding tissue mask
-
-**Unified Mesh + Voxel Handling**
-
-- Single `Analyzer` class automatically dispatches to mesh or voxel implementation based on the `space` parameter
-- Mesh analysis: area-weighted statistics on cortical surface meshes
-- Voxel analysis: volumetric statistics on NIfTI data with FreeSurfer atlas integration
 
 ---
 
@@ -167,12 +163,48 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 
 ## mTI Analyses
 
-The analyzer detects an mTI (4-pair) simulation automatically — the only signal it checks is whether `{simulation}/mTI/mesh/` exists. There is no separate mode to select; the same `Analyzer` class and the same `analyze_sphere` / `analyze_cortex` calls are used for TI and mTI.
+The analyzer handles multipolar (mTI) simulations with the same `Analyzer` class, the same `analyze_sphere` / `analyze_cortex` / `analyze_spheres` calls, and the same ROI types — there is no mTI mode to select. The only signal it uses is whether `{simulation}/mTI/mesh/` exists on disk.
 
-- `TI_max` and `mTI_max` are treated as aliases for the same quantity — the analyzer resolves whichever spelling the detected simulation type actually wrote to disk, regardless of which alias is requested
-- `TI_normal` is not computed for mTI simulations, so it cannot be selected as a field, and `normal_mean`, `normal_max`, and `normal_focality` are always absent (`None`) from mTI results
+### What it reads
 
-See [mTI]({{ site.baseurl }}/wiki/mti/) for the full description of mTI simulation and search.
+| Space | mTI source | 2-pair TI source |
+|---|---|---|
+| Mesh | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
+| Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue) | `TI/niftis/` |
+
+An mTI run also writes the intermediate per-dyad envelopes (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. Those are **not** what the analyzer reads and are not the mTI result — each is only the two-pair envelope of one dyad.
+
+### What `mTI_max` means
+
+`mTI_max` is the joint $$K$$-pair modulation depth computed over **all** carrier fields at once by `tit.calc.get_mTI_vectors`:
+
+$$
+\mathrm{MD} = \sqrt{2}\left(\sqrt{P+Q} - \sqrt{P-Q}\right)
+$$
+
+maximised over direction, with $$P$$ and $$Q$$ the carrier power and coherent phasor sum defined on the [mTI page]({{ site.baseurl }}/wiki/mti/#field-math-and-critical-values). It is **not** a recursive TI-of-TI recombination of the pairwise envelopes. That older `get_nTI_vectors` form is deprecated and physically invalid for $$N > 2$$ — it overestimates the true envelope by a signed mean of **+38.6% at $$N = 4$$** and **+103% at $$N = 8$$** — so ROI means carried over from outputs produced by it are not comparable with current ones and should be regenerated.
+
+- `TI_max` and `mTI_max` are aliases for this same quantity. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
+- The value depends on the **carrier wiring** of the run (which pairs share a carrier — see [Carrier Wiring]({{ site.baseurl }}/wiki/mti/#carrier-wiring-channels)). The wiring is not recorded in the analysis output, and the two 4-pair architectures differ by more than 5% in most mesh elements, so compare ROI statistics only across runs you know share a wiring. Every mTI simulation launched from the GUI uses the default independent-dyad pairing.
+
+### Selecting other fields
+
+The mTI mesh carries whichever output fields the simulation was asked to write, and any of them can be picked in the Field selector and put through the identical ROI machinery:
+
+| Field | Units | Meaning for mTI |
+|---|---|---|
+| `mTI_max` / `TI_max` | V/m | Joint $$K$$-pair modulation depth, maximised over direction |
+| `TI_avg` | V/m | Same envelope averaged over the 192 sampled directions instead of maximised — element-wise no larger than `mTI_max` |
+| `hf_peak` | V/m | Peak instantaneous carrier magnitude (safety, Cassarà et al. 2025) |
+| `hf_sar` | (V/m)² | Summed carrier power, proportional to SAR (`SAR = sigma / (2 * rho) * hf_sar`) |
+
+Two consequences worth keeping in mind: a field is only analyzable if that simulation actually wrote it, and every statistic (`roi_mean`, `roi_focality`, percentiles, focality areas) is computed on the selected field in **its own** units — an `hf_sar` ROI mean is a mean power-like quantity in (V/m)², not a field strength. `hf_peak` and `hf_sar` sum over every carrier regardless of wiring, so they are comparable across architectures where `mTI_max` is not.
+
+### TI_normal
+
+`TI_normal` is not computed for mTI — no normal-component mesh is written. Requesting it raises `FileNotFoundError` ("TI_normal is only computed for standard 2-pair TI simulations"), and `normal_mean`, `normal_max`, and `normal_focality` are always `None` in mTI results.
+
+See [mTI]({{ site.baseurl }}/wiki/mti/) for the full description of mTI simulation, the envelope math, and multipolar search.
 
 ---
 
@@ -206,12 +238,3 @@ The analyzer now includes **direct Gmsh integration** for easy visualization and
 - **One-Click Launch**: Directly launch Gmsh from the GUI to inspect mesh analysis results
 - **Automatic Mesh Detection**: Automatically finds and loads mesh files (.msh) from completed analyses
 - **Subject/Simulation Selection**: Dropdown selectors for choosing specific subjects, simulations, and analysis types
-
-### Supported Analysis Types
-
-The Gmsh integration works with the analyzer's two mesh-based analysis types:
-
-- Spherical ROI analyses with generated mesh overlays
-- Cortical region analyses with atlas-based parcellations
-
-There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.

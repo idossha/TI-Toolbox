@@ -100,7 +100,9 @@ class TestAnalyzeSphereDispatch:
         a = _make_analyzer(space="mesh")
         a._sphere_mesh = MagicMock(return_value="mesh_result")
         result = a.analyze_sphere((0, 0, 0), 10.0)
-        a._sphere_mesh.assert_called_once_with((0, 0, 0), 10.0, "subject", False)
+        a._sphere_mesh.assert_called_once_with(
+            [(0, 0, 0, 10.0)], "subject", False
+        )
         assert result == "mesh_result"
 
     def test_dispatch_voxel(self):
@@ -109,7 +111,7 @@ class TestAnalyzeSphereDispatch:
         result = a.analyze_sphere(
             (1, 2, 3), 5.0, coordinate_space="MNI", visualize=True
         )
-        a._sphere_voxel.assert_called_once_with((1, 2, 3), 5.0, "MNI", True)
+        a._sphere_voxel.assert_called_once_with([(1, 2, 3, 5.0)], "MNI", True)
         assert result == "voxel_result"
 
 
@@ -156,7 +158,7 @@ class TestSphereMesh:
         fake_result = MagicMock(spec=AnalysisResult)
         a._analyze_mesh_roi = MagicMock(return_value=fake_result)
 
-        result = a._sphere_mesh((0, 0, 0), 5.0, "subject", False)
+        result = a._sphere_mesh([(0, 0, 0, 5.0)], "subject", False)
 
         assert result is fake_result
         call_args = a._analyze_mesh_roi.call_args
@@ -211,7 +213,7 @@ class TestSphereVoxel:
         a._analyze_voxel_roi = MagicMock(return_value=fake_result)
 
         with patch("nibabel.load", return_value=mock_img):
-            result = a._sphere_voxel((2, 2, 2), 1.5, "subject", False)
+            result = a._sphere_voxel([(2, 2, 2, 1.5)], "subject", False)
 
         assert result is fake_result
         a._analyze_voxel_roi.assert_called_once()
@@ -942,3 +944,78 @@ class TestFieldPlumbing:
             _run_group(data)
 
         assert mock_group.call_args.kwargs["field"] == "hf_peak"
+
+
+class TestAnalyzeSpheresUnion:
+    """analyze_spheres unions several spheres into a single ROI."""
+
+    def test_dispatch_passes_all_spheres(self):
+        a = _make_analyzer(space="mesh")
+        a._sphere_mesh = MagicMock(return_value="mesh_result")
+        result = a.analyze_spheres([(0, 0, 0, 5.0), (10, 0, 0, 5.0)])
+        a._sphere_mesh.assert_called_once_with(
+            [(0.0, 0.0, 0.0, 5.0), (10.0, 0.0, 0.0, 5.0)], "subject", False
+        )
+        assert result == "mesh_result"
+
+    def test_empty_spheres_rejected(self):
+        a = _make_analyzer(space="mesh")
+        with pytest.raises(ValueError):
+            a.analyze_spheres([])
+
+    def test_mesh_mask_is_the_union(self):
+        a = _make_analyzer(space="mesh")
+        coords = np.array(
+            [[0, 0, 0], [1, 0, 0], [100, 0, 0], [101, 0, 0], [200, 0, 0]],
+            dtype=float,
+        )
+        surface = _mock_surface(np.arange(5, dtype=float) + 1.0, node_coords=coords)
+        a._load_surface_mesh = MagicMock(return_value=surface)
+        # Identity transform: return the requested centre unchanged.
+        a._maybe_transform_coords = MagicMock(
+            side_effect=lambda c, space: np.asarray(c, dtype=float)
+        )
+        a._analyze_mesh_roi = MagicMock(return_value=MagicMock(spec=AnalysisResult))
+
+        a._sphere_mesh([(0, 0, 0, 5.0), (100, 0, 0, 5.0)], "subject", False)
+
+        mask = a._analyze_mesh_roi.call_args[0][3]
+        np.testing.assert_array_equal(mask, [True, True, True, True, False])
+        # The union is named after every sphere it covers.
+        region_name = a._analyze_mesh_roi.call_args[1]["region_name"]
+        assert region_name.count("sphere_") == 2
+
+    def test_single_sphere_keeps_classic_region_name(self):
+        assert (
+            Analyzer._sphere_region_name([(1.0, -2.0, 3.0, 5.0)])
+            == "sphere_x1.00_y-2.00_z3.00_r5.0"
+        )
+
+
+class TestMTISurfaceSelection:
+    """Mesh analysis of an mTI run loads the mTI central surface."""
+
+    def test_mti_field_path_selects_mti_surface(self):
+        a = _make_analyzer(
+            space="mesh",
+            field_path=Path("/fake/sim/montage1/mTI/mesh/montage1_mTI.msh"),
+            field_name="mTI_max",
+        )
+        assert a._is_mti is True
+        a._pm.mti_central_surface.return_value = "/fake/mti_central.msh"
+        with pytest.raises(FileNotFoundError):
+            a._load_surface_mesh()
+        a._pm.mti_central_surface.assert_called_once_with("001", "sim1")
+        a._pm.ti_central_surface.assert_not_called()
+
+    def test_ti_field_path_selects_ti_surface(self):
+        a = _make_analyzer(
+            space="mesh",
+            field_path=Path("/fake/sim/montage1/TI/mesh/montage1_TI.msh"),
+        )
+        assert a._is_mti is False
+        a._pm.ti_central_surface.return_value = "/fake/ti_central.msh"
+        with pytest.raises(FileNotFoundError):
+            a._load_surface_mesh()
+        a._pm.ti_central_surface.assert_called_once_with("001", "sim1")
+        a._pm.mti_central_surface.assert_not_called()

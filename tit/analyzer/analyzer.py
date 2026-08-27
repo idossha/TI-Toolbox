@@ -222,6 +222,8 @@ class Analyzer:
         )
         self.field_path = field_path
         self.field_name = field_name
+        # mTI outputs live under <simulation>/mTI/; TI outputs under <simulation>/TI/.
+        self._is_mti = "mTI" in Path(field_path).parts
 
         pm = get_path_manager()
         self.m2m_path = pm.m2m(subject_id)
@@ -293,7 +295,58 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            return dispatch[self.space](center, radius, coordinate_space, visualize)
+            return dispatch[self.space](
+                [(center[0], center[1], center[2], radius)],
+                coordinate_space,
+                visualize,
+            )
+
+    def analyze_spheres(
+        self,
+        spheres,
+        coordinate_space: str = "subject",
+        visualize: bool = False,
+    ) -> AnalysisResult:
+        """Analyze several spherical ROIs unioned into a single ROI.
+
+        The spheres are combined with a logical OR before any statistic is
+        computed, so the result describes one ROI covering all of them --
+        overlapping spheres are not double-counted. Passing a single sphere
+        is equivalent to :meth:`analyze_sphere`.
+
+        Parameters
+        ----------
+        spheres : sequence of tuple of float
+            One ``(x, y, z, r)`` per sphere.
+        coordinate_space : str, optional
+            ``"subject"`` (default) or ``"MNI"``, applied to every sphere.
+        visualize : bool, optional
+            Generate overlay, histogram, and CSV artifacts.
+
+        Returns
+        -------
+        AnalysisResult
+            ROI and whole-GM statistics for the combined region.
+
+        Raises
+        ------
+        ValueError
+            If *spheres* is empty.
+
+        See Also
+        --------
+        analyze_sphere : Single spherical ROI analysis.
+        """
+        from tit.telemetry import track_operation
+        from tit import constants as const
+
+        spheres = [tuple(float(v) for v in s) for s in spheres]
+        if not spheres:
+            raise ValueError("analyze_spheres requires at least one sphere.")
+
+        with track_operation(const.TELEMETRY_OP_ANALYSIS):
+            dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
+            return dispatch[self.space](spheres, coordinate_space, visualize)
 
     def analyze_cortex(
         self,
@@ -346,8 +399,7 @@ class Analyzer:
 
     def _sphere_mesh(
         self,
-        center: tuple[float, float, float],
-        radius: float,
+        spheres: list[tuple[float, float, float, float]],
         coordinate_space: str,
         visualize: bool,
     ) -> AnalysisResult:
@@ -356,21 +408,27 @@ class Analyzer:
         coords = surface.nodes.node_coord
         node_areas = self._node_areas(surface)
 
-        center_arr = self._maybe_transform_coords(center, coordinate_space)
-        mask = np.linalg.norm(coords - center_arr, axis=1) <= radius
-        region_name = (
-            f"sphere_x{center[0]:.2f}_y{center[1]:.2f}" f"_z{center[2]:.2f}_r{radius}"
-        )
+        mask = np.zeros(len(coords), dtype=bool)
+        for x, y, z, radius in spheres:
+            center_arr = self._maybe_transform_coords((x, y, z), coordinate_space)
+            mask |= np.linalg.norm(coords - center_arr, axis=1) <= radius
+
+        if len(spheres) > 1:
+            logger.info(
+                "Spherical ROI: union of %d spheres, mask=%d/%d nodes",
+                len(spheres),
+                int(mask.sum()),
+                len(mask),
+            )
 
         return self._analyze_mesh_roi(
             surface,
             values,
             node_areas,
             mask,
-            region_name=region_name,
+            region_name=self._sphere_region_name(spheres),
             analysis_type="spherical",
-            center=center,
-            radius=radius,
+            spheres=spheres,
             coordinate_space=coordinate_space,
             visualize=visualize,
         )
@@ -453,8 +511,7 @@ class Analyzer:
 
     def _sphere_voxel(
         self,
-        center: tuple[float, float, float],
-        radius: float,
+        spheres: list[tuple[float, float, float, float]],
         coordinate_space: str,
         visualize: bool,
     ) -> AnalysisResult:
@@ -465,25 +522,32 @@ class Analyzer:
         affine = img.affine
         voxel_size = np.array(img.header.get_zooms()[:3])
 
-        center_arr = self._maybe_transform_coords(center, coordinate_space)
-        voxel_center = np.dot(np.linalg.inv(affine), np.append(center_arr, 1))[:3]
-
         shape = field_arr.shape
-        x, y, z = np.ogrid[: shape[0], : shape[1], : shape[2]]
-        dist = np.sqrt(
-            ((x - voxel_center[0]) * voxel_size[0]) ** 2
-            + ((y - voxel_center[1]) * voxel_size[1]) ** 2
-            + ((z - voxel_center[2]) * voxel_size[2]) ** 2
-        )
-        sphere_mask = dist <= radius
+        gx, gy, gz = np.ogrid[: shape[0], : shape[1], : shape[2]]
+        inv_affine = np.linalg.inv(affine)
+
+        sphere_mask = np.zeros(shape[:3], dtype=bool)
+        for cx, cy, cz, radius in spheres:
+            center_arr = self._maybe_transform_coords((cx, cy, cz), coordinate_space)
+            voxel_center = np.dot(inv_affine, np.append(center_arr, 1))[:3]
+            dist = np.sqrt(
+                ((gx - voxel_center[0]) * voxel_size[0]) ** 2
+                + ((gy - voxel_center[1]) * voxel_size[1]) ** 2
+                + ((gz - voxel_center[2]) * voxel_size[2]) ** 2
+            )
+            sphere_mask |= dist <= radius
+
+        if len(spheres) > 1:
+            logger.info(
+                "Spherical ROI: union of %d spheres, mask=%d voxels",
+                len(spheres),
+                int(sphere_mask.sum()),
+            )
+
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
         analysis_mask = positive_mask & tissue_mask
         roi_mask = sphere_mask & analysis_mask
-
-        region_name = (
-            f"sphere_x{center[0]:.2f}_y{center[1]:.2f}" f"_z{center[2]:.2f}_r{radius}"
-        )
 
         return self._analyze_voxel_roi(
             field_arr,
@@ -491,10 +555,9 @@ class Analyzer:
             analysis_mask,
             affine,
             voxel_size,
-            region_name=region_name,
+            region_name=self._sphere_region_name(spheres),
             analysis_type="spherical",
-            center=center,
-            radius=radius,
+            spheres=spheres,
             coordinate_space=coordinate_space,
             visualize=visualize,
         )
@@ -651,8 +714,7 @@ class Analyzer:
                 analysis_type=analysis_type,
                 region_labels=kwargs.get("region_labels"),
                 atlas=kwargs.get("atlas"),
-                center=kwargs.get("center"),
-                radius=kwargs.get("radius"),
+                spheres=kwargs.get("spheres"),
                 coordinate_space=kwargs.get("coordinate_space"),
             )
 
@@ -724,8 +786,7 @@ class Analyzer:
                 analysis_type=analysis_type,
                 region_labels=kwargs.get("region_labels"),
                 atlas=kwargs.get("atlas"),
-                center=kwargs.get("center"),
-                radius=kwargs.get("radius"),
+                spheres=kwargs.get("spheres"),
                 coordinate_space=kwargs.get("coordinate_space"),
             )
 
@@ -744,9 +805,17 @@ class Analyzer:
 
         import simnibs
 
-        surface_path = Path(
-            self._pm.ti_central_surface(self.subject_id, self.simulation)
-        )
+        # mTI runs write their central surface under mTI/mesh/surfaces/; only
+        # 2-pair TI runs populate TI/mesh/surfaces/ (an mTI run's TI/mesh/
+        # holds the intermediate per-dyad envelopes, with no surface).
+        if self._is_mti:
+            surface_path = Path(
+                self._pm.mti_central_surface(self.subject_id, self.simulation)
+            )
+        else:
+            surface_path = Path(
+                self._pm.ti_central_surface(self.subject_id, self.simulation)
+            )
         if not surface_path.exists():
             raise FileNotFoundError(
                 f"Central surface not found at {surface_path}. Run simulation first."
@@ -881,8 +950,7 @@ class Analyzer:
         analysis_type: str = "cortical",
         region_labels: list[str] | None = None,
         atlas: str | None = None,
-        center: tuple | None = None,
-        radius: float | None = None,
+        spheres: list | None = None,
         coordinate_space: str | None = None,
     ) -> None:
         out = Path(out_dir)
@@ -910,8 +978,9 @@ class Analyzer:
                 "field_name": self.field_name,
                 "atlas": atlas,
                 "regions": region_labels,
-                "center": list(center) if center else None,
-                "radius": radius,
+                "center": list(spheres[0][:3]) if spheres else None,
+                "radius": spheres[0][3] if spheres else None,
+                "spheres": [list(sp) for sp in spheres] if spheres else None,
                 "coordinate_space": coordinate_space,
             },
         )
@@ -928,8 +997,7 @@ class Analyzer:
         analysis_type: str = "cortical",
         region_labels: list[str] | None = None,
         atlas: str | None = None,
-        center: tuple | None = None,
-        radius: float | None = None,
+        spheres: list | None = None,
         coordinate_space: str | None = None,
     ) -> None:
         out = Path(out_dir)
@@ -956,8 +1024,9 @@ class Analyzer:
                 "tissue_types": self._tissue_type_list(),
                 "atlas": atlas,
                 "regions": region_labels,
-                "center": list(center) if center else None,
-                "radius": radius,
+                "center": list(spheres[0][:3]) if spheres else None,
+                "radius": spheres[0][3] if spheres else None,
+                "spheres": [list(sp) for sp in spheres] if spheres else None,
                 "coordinate_space": coordinate_space,
             },
         )
@@ -965,6 +1034,14 @@ class Analyzer:
     # ------------------------------------------------------------------
     # Output directory resolution
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _sphere_region_name(spheres) -> str:
+        """Name a spherical ROI: one sphere keeps the classic name."""
+        parts = [
+            f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres
+        ]
+        return "+".join(parts)
 
     def _resolve_output_dir(
         self,
@@ -985,10 +1062,14 @@ class Analyzer:
         }
 
         if analysis_type == "spherical":
-            center = kwargs.get("center", (0, 0, 0))
-            pm_kwargs["coordinates"] = list(center)
-            pm_kwargs["radius"] = kwargs.get("radius", 0)
+            spheres = kwargs.get("spheres") or [
+                tuple(kwargs.get("center", (0, 0, 0))) + (kwargs.get("radius", 0),)
+            ]
+            pm_kwargs["coordinates"] = list(spheres[0][:3])
+            pm_kwargs["radius"] = spheres[0][3]
             pm_kwargs["coordinate_space"] = kwargs.get("coordinate_space", "subject")
+            if len(spheres) > 1:
+                pm_kwargs["spheres"] = spheres
         else:
             pm_kwargs["region"] = region_name
             pm_kwargs["atlas_name"] = kwargs.get("atlas")

@@ -421,6 +421,20 @@ class PathManager:
             self.simulation(sid, sim), "TI", "mesh", "surfaces", f"{sim}_TI_central.msh"
         )
 
+    def mti_central_surface(self, sid: str, sim: str) -> str:
+        """Path to the mTI central cortical surface mesh.
+
+        mTI runs write their own central surface under ``mTI/mesh/surfaces/``;
+        the ``TI/mesh/surfaces/`` copy is written only by 2-pair TI runs.
+        """
+        return os.path.join(
+            self.simulation(sid, sim),
+            "mTI",
+            "mesh",
+            "surfaces",
+            f"{sim}_mTI_central.msh",
+        )
+
     def mti_mesh_dir(self, sid: str, sim: str) -> str:
         """Path to the mTI mesh directory."""
         return os.path.join(self.simulation(sid, sim), "mTI", "mesh")
@@ -643,6 +657,37 @@ class PathManager:
         )
         return f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{float(radius)}{coord_space_suffix}"
 
+    @classmethod
+    def spherical_union_analysis_name(cls, spheres, coordinate_space: str) -> str:
+        """Build a folder name for a union of several spherical ROIs.
+
+        Parameters
+        ----------
+        spheres : sequence of tuple of float
+            One ``(x, y, z, r)`` per sphere.
+        coordinate_space : str
+            ``"MNI"`` or ``"subject"``.
+
+        Returns
+        -------
+        str
+            Folder name, e.g. ``"spheres2_x-40.00_y-20.00_z5.00_r5.0+
+            x40.00_y-20.00_z5.00_r5.0_subject"``.  Long unions are shortened
+            to the first sphere plus a hash of the rest so the name stays
+            within filesystem limits.
+        """
+        parts = [
+            f"x{float(x):.2f}_y{float(y):.2f}_z{float(z):.2f}_r{float(r)}"
+            for x, y, z, r in spheres
+        ]
+        suffix = "_MNI" if str(coordinate_space).upper() == "MNI" else "_subject"
+        body = "+".join(parts)
+        name = f"spheres{len(parts)}_{body}{suffix}"
+        if len(name) > 150:
+            digest = hashlib.sha1(body.encode()).hexdigest()[:8]
+            name = f"spheres{len(parts)}_{parts[0]}_and{len(parts) - 1}more_{digest}{suffix}"
+        return name
+
     @staticmethod
     def _atlas_name_clean(atlas_name_or_path: str) -> str:
         """Sanitise an atlas name or path into a filesystem-safe string."""
@@ -711,6 +756,7 @@ class PathManager:
         coordinates=None,
         radius=None,
         coordinate_space: str = "subject",
+        spheres=None,
         whole_head: bool = False,
         region: str | None = None,
         atlas_name: str | None = None,
@@ -738,6 +784,9 @@ class PathManager:
             ``"spherical"``).
         coordinate_space : str, optional
             ``"MNI"`` or ``"subject"``.  Default is ``"subject"``.
+        spheres : sequence of tuple of float or None, optional
+            One ``(x, y, z, r)`` per sphere when several spheres are unioned
+            into a single ROI.  Takes precedence over *coordinates*/*radius*.
         whole_head : bool, optional
             Whether cortical analysis covers the whole head.
         region : str or None, optional
@@ -766,6 +815,10 @@ class PathManager:
         base = self.analysis_dir(sid, sim, space)
         at = str(analysis_type).lower()
         if at == "spherical":
+            if spheres:
+                return os.path.join(
+                    base, self.spherical_union_analysis_name(spheres, coordinate_space)
+                )
             if not coordinates or len(coordinates) != 3 or radius is None:
                 raise ValueError(
                     "coordinates(3) and radius required for spherical analysis"

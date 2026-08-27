@@ -60,6 +60,7 @@ def _run_group(data: dict) -> None:
         center=tuple(data["center"]) if data.get("center") else None,
         radius=data.get("radius"),
         coordinate_space=data.get("coordinate_space", "subject"),
+        spheres=data.get("spheres"),
         atlas=data.get("atlas"),
         region=data.get("regions") or data.get("region"),
         visualize=data.get("visualize", True),
@@ -92,12 +93,21 @@ def _run_single(data: dict) -> None:
     )
 
     if analysis_type == "spherical":
-        analyzer.analyze_sphere(
-            center=tuple(data["center"]),
-            radius=data["radius"],
-            coordinate_space=data.get("coordinate_space", "subject"),
-            visualize=visualize,
-        )
+        # "spheres" (a list of [x, y, z, r]) unions several spheres into one
+        # ROI; "center"/"radius" remain the single-sphere form.
+        if data.get("spheres"):
+            analyzer.analyze_spheres(
+                spheres=data["spheres"],
+                coordinate_space=data.get("coordinate_space", "subject"),
+                visualize=visualize,
+            )
+        else:
+            analyzer.analyze_sphere(
+                center=tuple(data["center"]),
+                radius=data["radius"],
+                coordinate_space=data.get("coordinate_space", "subject"),
+                visualize=visualize,
+            )
     elif analysis_type == "cortical":
         region = data.get("regions") or data.get("region", "")
         analyzer.analyze_cortex(

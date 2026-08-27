@@ -81,13 +81,35 @@ def select_field_file(
 
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))
-    is_mti = (sim_dir / "mTI" / "mesh").is_dir()
+    is_mti = is_mti_simulation(subject_id, simulation)
 
     if space == "mesh":
         return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
         return _select_voxel(sim_dir, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
+
+
+def is_mti_simulation(subject_id: str, simulation: str) -> bool:
+    """Whether *simulation* is an mTI (multipolar) run.
+
+    The only signal is whether the simulation wrote an ``mTI/mesh/``
+    directory; there is no flag stored anywhere else.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+
+    Returns
+    -------
+    bool
+        ``True`` for an mTI simulation, ``False`` for 2-pair TI.
+    """
+    sim_dir = Path(get_path_manager().simulation(subject_id, simulation))
+    return (sim_dir / "mTI" / "mesh").is_dir()
 
 
 # ---------------------------------------------------------------------------
