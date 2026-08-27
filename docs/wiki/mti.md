@@ -259,7 +259,7 @@ The ranking is the same under both wirings here, but the absolute envelope diffe
 
 *`intensity_vs_focality_scatter.png` for both runs.*
 
-**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope took ~57 s on this leadfield (vs ~0.4 s per 2-pair ex-search candidate), so keep buckets small: 16 candidates ≈ 15 min, 256 ≈ 4 h. There is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
+**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like 2-pair ex-search, so it is far slower: ~13.5 s per candidate on this 1.86M-element leadfield after the envelope was restricted to ROI ∪ GM and rewritten as quadratic forms (it was ~58 s before). Keep buckets small — 16 candidates ≈ 4 min, 256 ≈ 1 h — and note there is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
 
 ### Running it
 
