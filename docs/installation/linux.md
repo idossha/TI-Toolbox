@@ -63,7 +63,7 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    python3 loader.py
    ```
-5. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
+5. **First run will download the two Docker images (~28GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
 
 The loader runs `xhost +local:` so the container can open windows on your X display.
 

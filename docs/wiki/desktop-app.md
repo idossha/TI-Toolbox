@@ -145,7 +145,7 @@ npm start
 
 ## Performance
 
-- **Startup Time:** a few seconds once the images are pulled; the first launch downloads the two images (~18GB, ~85GB unpacked)
+- **Startup Time:** a few seconds once the images are pulled; the first launch downloads the two images (~28GB, ~85GB unpacked)
 - **Memory Usage:** small for the app itself; the containers need the RAM allocated to Docker (32GB+ recommended)
 - **Disk Space:** ~85GB for the two unpacked Docker images plus the FreeSurfer data volume
 

@@ -53,7 +53,7 @@ xhost +local:docker
 
 ### Minimum Requirements
 - **RAM**: 32GB minimum, 64GB+ recommended
-- **Storage**: the two Docker images (`idossha/simnibs`, `idossha/ti-toolbox_freesurfer`) are ~18GB to download and ~85GB once unpacked, plus the FreeSurfer data volume and your project outputs — plan for 100GB+ free
+- **Storage**: the two Docker images (`idossha/simnibs`, `idossha/ti-toolbox_freesurfer`) are ~28GB to download and ~85GB once unpacked, plus the FreeSurfer data volume and your project outputs — plan for 100GB+ free
 - **Docker Desktop** 4.0+ (or Docker Engine with Compose v2 on Linux); port 8888 free if you use JupyterLab
 - **Administrative privileges**: Required for initial setup
 
