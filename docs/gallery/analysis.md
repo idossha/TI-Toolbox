@@ -68,12 +68,8 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <h3>Atlas Resampling</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_atlas_under_field.png" alt="Original atlas, not aligned" onclick="openLightbox(this)" />
-      <p>An atlas volume at its native grid, overlaid under the field &mdash; the mismatch with the field grid is visible.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_aligned_atlas_under_field.png" alt="Resampled atlas, aligned" onclick="openLightbox(this)" />
-      <p>The same atlas after resampling onto the field grid, so per-region statistics sample the correct voxels.</p>
+      <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png" alt="Voxel-level validation of atlas resampling" onclick="openLightbox(this)" />
+      <p>Voxel-level validation of the analyzer's atlas resampling on sub-ernie. Top: matching shapes with mismatched affines leave the parcellation on the wrong anatomy (13% agreement) until the affine is compared too. Bottom: on a 0.5 mm grid an interpolating order invents 3,708 region ids that exist in no lookup table (magenta); nearest-neighbour invents none.</p>
     </div>
   </div>
 </div>
