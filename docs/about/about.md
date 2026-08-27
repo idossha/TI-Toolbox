@@ -50,7 +50,7 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
     <!-- Larissa Albantakis Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
-        <img src="{{ site.baseurl }}/assets/imgs/about/larissa_profile.jpg" alt="Larissa Albantakis" 
+        <img src="{{ site.baseurl }}/assets/imgs/about/larissa_profile.jpg" alt="Larissa Albantakis"
              onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
       </div>
       <div class="contributor-info">
@@ -61,13 +61,9 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         </p>
         <ul class="contributor-list">
           <li>Multipolar TI field math: the K&ge;2 modulation envelope, Fibonacci-sphere direction sampling, and the magnitude-AM measure (2.5)</li>
-          <li>Corrected peak high-frequency field calculation (2.5)</li>
-          <li>Multipolar exhaustive search and the generalized electrode-bucket loader (2.5)</li>
-          <li>Symmetric bucket search (2.5)</li>
-          <li>Ex/mex-search electrode-map visuals: participation heatmap and montage strength/focality maps (2.5)</li>
+          <li>Peak high-frequency field calculation (2.5)</li>
+          <li>Multipolar exhaustive search and Symmetric bucket search(2.5)</li>
           <li>Subject-space ROIs from local MNI masks, incl. functional thalamus ROIs (2.5)</li>
-          <li>Subject ROI masks in the analyzer and the subcortical picker (2.5)</li>
-          <li>NIfTI viewer: ROI overlay selector, colormap and percentile defaults (2.4)</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
@@ -87,7 +83,7 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
     <!-- Aksel Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
-        <img src="{{ site.baseurl }}/assets/imgs/about/aksel_profile.png" alt="Aksel" 
+        <img src="{{ site.baseurl }}/assets/imgs/about/aksel_profile.png" alt="Aksel"
              onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
       </div>
       <div class="contributor-info">
@@ -97,14 +93,10 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distributions.
         </p>
         <ul class="contributor-list">
-          <li>Main author of the analyzer: mesh and voxel ROI extraction, spherical, cortical and whole-head modes, and its GUI tab (2.0)</li>
           <li>Analyzer visualizations: scatter plots and cortex/whole-brain overlays (2.0)</li>
-          <li>Group analyzer CLI (2.1)</li>
-          <li>Central logging utility used across every pipeline (2.0)</li>
-          <li>BIDS project layout and automatic <code>dataset_description.json</code> initialization (2.1)</li>
-          <li>Debug mode for the simulator, analyzer, pre-processing, and both searches (2.1)</li>
-          <li>Combined pre-processing report and CSF analysis (2.1)</li>
-          <li>Atlas resampling optimization and the GUI console deadlock fix (2.0)</li>
+          <li>Central logging utility(2.0)</li>
+          <li>BIDS compliance (2.1)</li>
+          <li>Atlas resampling optimization (2.0)</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
@@ -124,15 +116,13 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
 - [**Electron**](https://electronjs.org): A framework for building cross-platform desktop applications using web technologies.
 - [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/index.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
 - [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data.
-- [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.  
+- [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.
 - [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data.
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
 - [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
 - [**QSIPrep**](https://qsiprep.readthedocs.io/) / [**QSIRecon**](https://qsirecon.readthedocs.io/): Preprocessing and reconstruction pipelines for diffusion MRI, used to derive anisotropic conductivity tensors.
 - [**Blender**](https://www.blender.org/): An open-source 3D creation suite, used for rendering head models, electrodes, and field distributions.
 - **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), [PyQt5](https://www.riverbankcomputing.com/software/pyqt/), and [Jupyter](https://jupyter.org/).
-
-
 
 <style>
 .contributors-section {
@@ -249,4 +239,4 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
     height: 60px;
   }
 }
-</style> 
+</style>
