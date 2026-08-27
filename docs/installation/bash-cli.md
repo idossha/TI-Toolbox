@@ -48,31 +48,6 @@ GUI        # simnibs_python -m tit.gui.main   → the main TI-Toolbox window (ne
 NOTEBOOK   # JupyterLab on http://localhost:8888 (no token; served from /mnt)
 ```
 
-There are no other toolbox-specific shell commands. Every pipeline is a Python module that takes a JSON config as its only argument, exactly what the GUI writes before launching a job:
-
-```bash
-simnibs_python -m tit.pre       config.json   # pre-processing (dcm2niix, CHARM, recon-all)
-simnibs_python -m tit.sim       config.json   # TI / mTI simulation
-simnibs_python -m tit.opt.flex  config.json   # flex-search
-simnibs_python -m tit.opt.ex    config.json   # ex-search
-simnibs_python -m tit.opt.mex   config.json   # multipolar ex-search
-simnibs_python -m tit.analyzer  config.json   # ROI / field analysis
-simnibs_python -m tit.stats     config.json   # group statistics
-simnibs_python -m tit.source    config.json   # EEG forward model / fsaverage mapping
-simnibs_python -m tit.blender   config.json   # Blender renders
-```
-
-See the [Scripting]({{ site.baseurl }}/wiki/scripting/) page for the config formats and for calling the same functions from Python directly.
-
-### Quick check
-
-```bash
-simnibs_python -c "import tit; print(tit.__version__)"
-GUI
-```
-
-If the version prints and the GUI window appears, you are good to go.
-
 ### Attaching a second terminal
 
 The loader keeps the containers running only while its shell is open. To open another shell in parallel (for example to run a script while the GUI is up):
