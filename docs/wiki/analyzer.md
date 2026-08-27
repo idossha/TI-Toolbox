@@ -19,10 +19,10 @@ The Analyzer module provides analysis capabilities for TI simulation results, su
 
 The Analyzer module provides a single unified `Analyzer` class that handles both mesh and voxel analysis, plus a `run_group_analysis()` function for multi-subject comparison:
 
-- **Analyzer**: Unified class that dispatches spherical and cortical ROI analyses to the appropriate mesh- or voxel-based implementation, returning a typed `AnalysisResult` dataclass
-- **Group Analysis**: Batch processing for multiple subjects via `run_group_analysis()`
-
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
+  <em>The Analyzer tab: pick a subject and simulation, choose mesh or voxel analysis, and define the target as a spherical, cortical, or subcortical ROI</em>
+</div>
 
 ## Key Features
 
