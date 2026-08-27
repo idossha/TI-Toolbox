@@ -118,8 +118,12 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
 
 def _infer_symmetry_eeg_csv(config: MExConfig, pm) -> Path | None:
     """Guess the EEG-position CSV for symmetric bucket mode from the leadfield name."""
-    leadfield_name = Path(config.leadfield_hdf).name
-    net_name = leadfield_name.removesuffix(".hdf5").removesuffix("_leadfield")
+    stem = Path(config.leadfield_hdf).name.removesuffix(".hdf5")
+    # Leadfields are named ``{subject}_leadfield_{net}``; fall back to the
+    # bare stem for files that do not follow that convention.
+    _, sep, net_name = stem.partition("_leadfield_")
+    if not sep:
+        net_name = stem.removesuffix("_leadfield")
     if not net_name:
         return None
     canonical = canonical_template_coord_path(net_name)
