@@ -80,7 +80,7 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 ---
 
-**Example Results** (`final_output.csv`, top 5 of 4,375 evaluations by `Composite_Index`; sub-ernie, EEG10-10 Jurak leadfield, 5 mm spherical ROI at MNI (−38, 5, 0), TI-Toolbox v2.4.0). Bucket search with 5 candidate electrodes per position (5⁴ = 625 electrode combinations) × 7 current splits (2 mA total, 0.25 mA step):
+**Example Results** (`final_output.csv`, top 5 of 4,375 evaluations by `Composite_Index`; sub-ernie, EEG10-10 Jurak leadfield, 5 mm spherical ROI at MNI (−38, 5, 0), TI-Toolbox v2.4.0). Bucket search with 5 candidate electrodes per position (5⁴ = 625 electrode combinations) × 7 current splits (2 mA total, 0.25 mA step). Each montage's two unit-current channel fields are computed once and rescaled per split, candidates are spread over worker processes (`n_jobs`, default all cores − 1), and the closed-form TI maximum is evaluated on ROI ∪ grey matter only — the 4,375 evaluations take ~3 min on 12 cores (plus ~20 s to load the leadfield):
 
 | Montage | Current_Ch1_mA | Current_Ch2_mA | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
 |---------|---------------|---------------|-----------|------------|-----------|----------|-----------------|

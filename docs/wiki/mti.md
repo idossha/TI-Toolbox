@@ -263,7 +263,7 @@ Bucket search with two candidate electrodes per position (`e1_plus` … `e4_minu
   </div>
 </div>
 
-**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like 2-pair ex-search, so it is far slower: ~13 s per candidate on this 1.86M-element leadfield after the envelope was restricted to ROI ∪ GM and rewritten as quadratic forms (it was ~58 s before). Plan bucket sizes accordingly (256 candidates ≈ 55 min) and note there is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
+**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like 2-pair ex-search. The search is evaluated on ROI ∪ GM only by a fused numba kernel (`tit/_mti_kernel.py`, all cores) and candidates are distributed over forked worker processes (`n_jobs`, default all cores − 1): on a 12-core machine this is ~1–2 s per candidate, i.e. 256 candidates in a few minutes (the run above was made before this speed-up, at 12.9 s per candidate). The first call pays ~10 s of JIT compilation, cached afterwards. There is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
 
 ### Running it
 
@@ -271,7 +271,7 @@ Bucket search with two candidate electrodes per position (`e1_plus` … `e4_minu
 simnibs_python -m tit.opt.mex config.json
 ```
 
-JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `electrodes` (`_type`: `"BucketElectrodes"` or `"PoolElectrodes"`, plus `e1_plus`..`e4_minus` or `electrodes`), `current_mA`, `channels`, `roi_radius`, `roi_names`, `roi_atlas`, `roi_coordinate_space`, `run_name`, `symmetric_bucket`, `symmetry_eeg_csv`, `symmetry_pairing`.
+JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `electrodes` (`_type`: `"BucketElectrodes"` or `"PoolElectrodes"`, plus `e1_plus`..`e4_minus` or `electrodes`), `current_mA`, `channels`, `roi_radius`, `roi_names`, `roi_atlas`, `roi_coordinate_space`, `run_name`, `n_jobs` (worker processes, default −1 = all cores − 1), `symmetric_bucket`, `symmetry_eeg_csv`, `symmetry_pairing`.
 
 ```json
 {
