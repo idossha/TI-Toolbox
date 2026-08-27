@@ -100,6 +100,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         current_mA=config.current_mA,
         symmetry_mirror_map=symmetry_mirror_map,
         symmetry_pairing=config.symmetry_pairing,
+        n_jobs=config.n_jobs,
     )
 
     output_info = process_and_save(results, config, output_dir, logger)

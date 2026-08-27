@@ -16,10 +16,12 @@ from simnibs.utils import TI_utils as TI
 
 from .roi import read_roi_center
 from .logic import (
+    _electrode_combinations,
     count_combinations,
     generate_current_ratios,
     generate_montage_combinations,
 )
+from .parallel import evaluate_ordered, resolve_n_jobs
 
 
 class ExSearchEngine:
@@ -50,6 +52,7 @@ class ExSearchEngine:
         self.roi_volumes = None
         self.gm_indices = None
         self.gm_volumes = None
+        self._eval_subset = None
 
     # ── Initialization ────────────────────────────────────────────────────
 
@@ -59,6 +62,7 @@ class ExSearchEngine:
         self._load_roi_coordinates()
         self._find_roi_elements(roi_radius)
         self._find_gm_elements()
+        self._eval_subset = None
 
     def _load_leadfield(self) -> None:
         self.logger.info(f"Loading leadfield: {self.leadfield_hdf}")
@@ -196,6 +200,80 @@ class ExSearchEngine:
 
     # ── TI Field Computation ──────────────────────────────────────────────
 
+    def _evaluation_subset(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Elements the ROI metrics actually depend on, plus index maps.
+
+        The metrics read only ``ROI | GM``, and every envelope here is
+        element-wise, so the field is evaluated on that subset instead of
+        the whole leadfield mesh. Returns ``(subset, roi_pos, gm_pos)``
+        where ``subset`` is sorted and ``roi_pos``/``gm_pos`` index into it
+        in the same order as ``roi_indices``/``gm_indices`` (so the volume
+        weights still line up). Cached per ``(roi_indices, gm_indices)``.
+        """
+        roi = np.asarray(self.roi_indices, dtype=np.intp)
+        gm = np.asarray(self.gm_indices, dtype=np.intp)
+        cache = self._eval_subset
+        if cache is None or cache[0] is not roi or cache[1] is not gm:
+            subset = np.union1d(roi, gm)
+            roi_pos = np.searchsorted(subset, roi)
+            gm_pos = np.searchsorted(subset, gm)
+            cache = self._eval_subset = (roi, gm, subset, roi_pos, gm_pos)
+        return cache[2], cache[3], cache[4]
+
+    def _roi_metrics(self, field_roi: np.ndarray, field_gm: np.ndarray) -> dict:
+        """Volume-weighted ROI/GM metrics of an element-wise field."""
+        n_elements = int(len(field_roi))
+        if n_elements == 0:
+            roi_max = roi_mean = gm_mean = focality = 0.0
+        else:
+            roi_max = float(np.max(field_roi))
+            roi_mean = float(np.average(field_roi, weights=self.roi_volumes))
+            if len(field_gm) > 0:
+                gm_mean = float(np.average(field_gm, weights=self.gm_volumes))
+                focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
+            else:
+                gm_mean = focality = 0.0
+        return {
+            f"{self.roi_name}_TImax_ROI": roi_max,
+            f"{self.roi_name}_TImean_ROI": roi_mean,
+            f"{self.roi_name}_TImean_GM": gm_mean,
+            f"{self.roi_name}_Focality": focality,
+            f"{self.roi_name}_n_elements": n_elements,
+        }
+
+    def compute_ti_fields(
+        self,
+        e1_plus: str,
+        e1_minus: str,
+        e2_plus: str,
+        e2_minus: str,
+        current_ratios: list[tuple[float, float]],
+    ) -> list[dict[str, float]]:
+        """ROI metrics of one electrode montage at every current split.
+
+        The field is linear in the injected current, so each channel's
+        unit-current field is gathered once and scaled per split -- the
+        same ``current * (lf[a] - lf[b])`` arithmetic ``TI.get_field``
+        performs, restricted to the elements the metrics read.
+        """
+        lf = self.leadfield
+        idx = self.idx_lf
+        subset, roi_pos, gm_pos = self._evaluation_subset()
+
+        unit1 = TI.get_field([e1_plus, e1_minus, 1.0], lf, idx)[subset]
+        unit2 = TI.get_field([e2_plus, e2_minus, 1.0], lf, idx)[subset]
+
+        results = []
+        for current_ch1_mA, current_ch2_mA in current_ratios:
+            ef1 = (current_ch1_mA / 1000) * unit1
+            ef2 = (current_ch2_mA / 1000) * unit2
+            ti_max = TI.get_maxTI(ef1, ef2)
+            data = self._roi_metrics(ti_max[roi_pos], ti_max[gm_pos])
+            data["current_ch1_mA"] = current_ch1_mA
+            data["current_ch2_mA"] = current_ch2_mA
+            results.append(data)
+        return results
+
     def compute_ti_field(
         self,
         e1_plus: str,
@@ -206,41 +284,9 @@ class ExSearchEngine:
         current_ch2_mA: float,
     ) -> dict[str, float]:
         """Compute TI field for one montage and return ROI metrics."""
-        lf = self.leadfield
-        idx = self.idx_lf
-
-        ef1 = TI.get_field([e1_plus, e1_minus, current_ch1_mA / 1000], lf, idx)
-        ef2 = TI.get_field([e2_plus, e2_minus, current_ch2_mA / 1000], lf, idx)
-        ti_max_full = TI.get_maxTI(ef1, ef2)
-
-        field_roi = ti_max_full[self.roi_indices]
-        field_gm = ti_max_full[self.gm_indices]
-
-        n_elements = int(len(field_roi))
-        if n_elements == 0:
-            roi_max = 0.0
-            roi_mean = 0.0
-            gm_mean = 0.0
-            focality = 0.0
-        else:
-            roi_max = float(np.max(field_roi))
-            roi_mean = float(np.average(field_roi, weights=self.roi_volumes))
-            if len(field_gm) > 0:
-                gm_mean = float(np.average(field_gm, weights=self.gm_volumes))
-                focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
-            else:
-                gm_mean = 0.0
-                focality = 0.0
-
-        return {
-            f"{self.roi_name}_TImax_ROI": roi_max,
-            f"{self.roi_name}_TImean_ROI": roi_mean,
-            f"{self.roi_name}_TImean_GM": gm_mean,
-            f"{self.roi_name}_Focality": focality,
-            f"{self.roi_name}_n_elements": n_elements,
-            "current_ch1_mA": current_ch1_mA,
-            "current_ch2_mA": current_ch2_mA,
-        }
+        return self.compute_ti_fields(
+            e1_plus, e1_minus, e2_plus, e2_minus, [(current_ch1_mA, current_ch2_mA)]
+        )[0]
 
     # ── Simulation Loop ───────────────────────────────────────────────────
 
@@ -253,8 +299,14 @@ class ExSearchEngine:
         current_ratios: list[tuple[float, float]],
         all_combinations: bool,
         output_dir: str,
+        n_jobs: int = 1,
     ) -> dict[str, dict[str, float]]:
-        """Run the full simulation loop. Returns {mesh_key: metrics}."""
+        """Run the full simulation loop. Returns {mesh_key: metrics}.
+
+        Candidates are evaluated in enumeration order, one electrode
+        montage (all its current splits) per task, on ``n_jobs`` forked
+        workers (``n_jobs < 1``: all cores minus one; ``1``: in-process).
+        """
         stop = False
 
         def _on_signal(sig, frame):
@@ -267,6 +319,7 @@ class ExSearchEngine:
         total = count_combinations(
             e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
         )
+        n_jobs = resolve_n_jobs(n_jobs)
         self._log_config_summary(
             e1_plus,
             e1_minus,
@@ -275,43 +328,54 @@ class ExSearchEngine:
             current_ratios,
             all_combinations,
             total,
+            n_jobs,
         )
 
         results: dict[str, dict[str, float]] = {}
         start_time = time.time()
+        ratios = list(current_ratios)
 
-        for i, (ep1, em1, ep2, em2, (ch1, ch2)) in enumerate(
-            generate_montage_combinations(
-                e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
-            ),
-            1,
-        ):
+        montages = list(
+            _electrode_combinations(
+                e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+            )
+        )
+        evaluations = evaluate_ordered(
+            self,
+            "compute_ti_fields",
+            ((*montage, ratios) for montage in montages),
+            n_jobs,
+            n_tasks=len(montages),
+        )
+
+        i = 0
+        for (ep1, em1, ep2, em2), montage_results in zip(montages, evaluations):
+            montage_start = time.time()
+            for (ch1, ch2), data in zip(ratios, montage_results):
+                i += 1
+                name = f"{ep1}_{em1}_and_{ep2}_{em2}_I1-{ch1:.1f}mA_I2-{ch2:.1f}mA"
+                key = f"TI_field_{name}.msh"
+
+                elapsed = time.time() - start_time
+                rate = i / elapsed if elapsed > 0 else 0
+                eta = (total - i) / rate if rate > 0 else 0
+
+                self.logger.info(f"[{i}/{total}] {name}")
+                self.logger.info(
+                    f"  {100 * i / total:.1f}% | {rate:.2f}/s | ETA {eta / 60:.1f}min"
+                )
+
+                results[key] = data
+                self.logger.info(
+                    f"  {(time.time() - montage_start) / len(ratios):.2f}s | "
+                    f"TImax={data[f'{self.roi_name}_TImax_ROI']:.4f} "
+                    f"TImean={data[f'{self.roi_name}_TImean_ROI']:.4f} "
+                    f"Foc={data[f'{self.roi_name}_Focality']:.4f}"
+                )
             if stop:
                 self.logger.warning("Interrupted")
+                evaluations.close()
                 break
-
-            name = f"{ep1}_{em1}_and_{ep2}_{em2}_I1-{ch1:.1f}mA_I2-{ch2:.1f}mA"
-            key = f"TI_field_{name}.msh"
-
-            elapsed = time.time() - start_time
-            rate = i / elapsed if elapsed > 0 else 0
-            eta = (total - i) / rate if rate > 0 else 0
-
-            self.logger.info(f"[{i}/{total}] {name}")
-            self.logger.info(
-                f"  {100 * i / total:.1f}% | {rate:.2f}/s | ETA {eta / 60:.1f}min"
-            )
-
-            sim_start = time.time()
-            data = self.compute_ti_field(ep1, em1, ch1, ep2, em2, ch2)
-            results[key] = data
-
-            self.logger.info(
-                f"  {time.time() - sim_start:.2f}s | "
-                f"TImax={data[f'{self.roi_name}_TImax_ROI']:.4f} "
-                f"TImean={data[f'{self.roi_name}_TImean_ROI']:.4f} "
-                f"Foc={data[f'{self.roi_name}_Focality']:.4f}"
-            )
 
         if results:
             t = time.time() - start_time
@@ -333,12 +397,14 @@ class ExSearchEngine:
         current_ratios,
         all_combinations,
         total,
+        n_jobs=1,
     ) -> None:
         self.logger.info(f"\n{'=' * 60}")
         mode = "All Combinations" if all_combinations else "Bucketed"
         self.logger.info(f"TI Exhaustive Search ({mode})")
         self.logger.info(f"Total combinations: {total}")
         self.logger.info(f"Current ratios: {len(current_ratios)}")
+        self.logger.info(f"Workers: {n_jobs}")
         self.logger.info(f"{'=' * 60}\n")
 
     # ── ROI CRUD (static, for GUI) ────────────────────────────────────────

@@ -672,6 +672,10 @@ class ExConfig:
         Spherical ROI radius in mm for the target region.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    n_jobs : int
+        Worker processes evaluating candidates in parallel.  ``-1``
+        (default) uses all cores minus one; ``1`` evaluates in-process.
+        Results and CSV ordering do not depend on it.
 
     Raises
     ------
@@ -759,6 +763,9 @@ class ExConfig:
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
+
+    # ── Parallelism ────────────────────────────────────────────────────
+    n_jobs: int = -1
 
     def __post_init__(self):
         if isinstance(self.electrodes, dict):
@@ -888,6 +895,10 @@ class MExConfig:
         affect *roi_atlas*, which is always subject space.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    n_jobs : int
+        Worker processes evaluating candidates in parallel.  ``-1``
+        (default) uses all cores minus one; ``1`` evaluates in-process.
+        Results and CSV ordering do not depend on it.
     symmetric_bucket : bool
         When True in bucket mode, evaluate only left/right mirrored
         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -985,6 +996,9 @@ class MExConfig:
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
+
+    # ── Parallelism ────────────────────────────────────────────────────
+    n_jobs: int = -1
 
     # ── Symmetric bucket search ─────────────────────────────────────────
     symmetric_bucket: bool = False

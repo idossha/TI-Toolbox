@@ -3,12 +3,14 @@
 import logging
 import signal
 import time
+from collections import deque
 
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
 from tit.calc import get_mTI_vectors
 from tit.opt.ex.engine import ExSearchEngine
+from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
 
 from .logic import count_multipolar_combinations, generate_multipolar_combinations
 
@@ -32,39 +34,18 @@ class MExSearchEngine(ExSearchEngine):
     ):
         super().__init__(leadfield_hdf, roi_file, roi_name, logger)
         self.channels = channels
-        self._eval_subset = None
-
-    def initialize(self, roi_radius: float = 3.0) -> None:
-        super().initialize(roi_radius=roi_radius)
-        self._eval_subset = None
-
-    def _evaluation_subset(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Elements the ROI metrics actually depend on, plus index maps.
-
-        The K>=2 envelope (:func:`tit.calc.get_mTI_vectors`) is a per-element
-        direction search -- far costlier than the 2-pair closed form -- so it
-        is evaluated only on ``ROI | GM`` (every element the metrics read),
-        not the whole leadfield. Returns ``(subset, roi_pos, gm_pos)`` where
-        ``subset`` is sorted and ``roi_pos``/``gm_pos`` index into it in the
-        same order as ``roi_indices``/``gm_indices`` (so the volume weights
-        still line up). Cached per ``(roi_indices, gm_indices)`` pair.
-        """
-        roi = np.asarray(self.roi_indices, dtype=np.intp)
-        gm = np.asarray(self.gm_indices, dtype=np.intp)
-        cache = self._eval_subset
-        if cache is None or cache[0] is not roi or cache[1] is not gm:
-            subset = np.union1d(roi, gm)
-            roi_pos = np.searchsorted(subset, roi)
-            gm_pos = np.searchsorted(subset, gm)
-            cache = self._eval_subset = (roi, gm, subset, roi_pos, gm_pos)
-        return cache[2], cache[3], cache[4]
 
     def compute_mti_field(
         self,
         electrodes: tuple[str, str, str, str, str, str, str, str],
         current_mA: float,
     ) -> dict[str, float]:
-        """Compute one four-pair mTI candidate and return ROI metrics."""
+        """Compute one four-pair mTI candidate and return ROI metrics.
+
+        The K>=2 envelope (:func:`tit.calc.get_mTI_vectors`) is a per-element
+        direction search -- far costlier than the 2-pair closed form -- so it
+        is evaluated only on ``ROI | GM`` (:meth:`_evaluation_subset`).
+        """
         subset, roi_pos, gm_pos = self._evaluation_subset()
         fields = [
             TI.get_field(
@@ -77,32 +58,11 @@ class MExSearchEngine(ExSearchEngine):
 
         vectors = get_mTI_vectors(fields, channels=self.channels)
         metric = np.linalg.norm(vectors, axis=1)
-        field_roi = metric[roi_pos]
-        field_gm = metric[gm_pos]
 
-        n_elements = int(len(field_roi))
-        if n_elements == 0:
-            roi_max = roi_mean = gm_mean = focality = 0.0
-        else:
-            roi_max = float(np.max(field_roi))
-            roi_mean = float(np.average(field_roi, weights=self.roi_volumes))
-            if len(field_gm) > 0:
-                gm_mean = float(np.average(field_gm, weights=self.gm_volumes))
-                focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
-            else:
-                gm_mean = focality = 0.0
-
-        return {
-            f"{self.roi_name}_TImax_ROI": roi_max,
-            f"{self.roi_name}_TImean_ROI": roi_mean,
-            f"{self.roi_name}_TImean_GM": gm_mean,
-            f"{self.roi_name}_Focality": focality,
-            f"{self.roi_name}_n_elements": n_elements,
-            "current_ch1_mA": current_mA,
-            "current_ch2_mA": current_mA,
-            "current_ch3_mA": current_mA,
-            "current_ch4_mA": current_mA,
-        }
+        data = self._roi_metrics(metric[roi_pos], metric[gm_pos])
+        for ch in range(1, 5):
+            data[f"current_ch{ch}_mA"] = current_mA
+        return data
 
     def run(
         self,
@@ -112,8 +72,13 @@ class MExSearchEngine(ExSearchEngine):
         current_mA: float,
         symmetry_mirror_map: dict[str, str] | None = None,
         symmetry_pairing: str = "within_pairs",
+        n_jobs: int = 1,
     ) -> dict[str, dict[str, float]]:
-        """Run the full multipolar search loop."""
+        """Run the full multipolar search loop.
+
+        Candidates are evaluated in enumeration order on ``n_jobs`` forked
+        workers (``n_jobs < 1``: all cores minus one; ``1``: in-process).
+        """
         stop = False
 
         def _on_signal(sig, frame):
@@ -138,24 +103,38 @@ class MExSearchEngine(ExSearchEngine):
         self.logger.info("Current per pair: %.3f mA", current_mA)
         self.logger.info("Channels: %s", self.channels or "consecutive pairing")
         self.logger.info("Total combinations: %d", total)
+        n_jobs = resolve_n_jobs(n_jobs)
+        self.logger.info("Workers: %d", n_jobs)
         self.logger.info("%s", "=" * 60 + "\n")
 
         results: dict[str, dict[str, float]] = {}
         start_time = time.time()
 
-        for i, electrodes in enumerate(
-            generate_multipolar_combinations(
-                buckets_or_pool,
-                all_combinations=all_combinations,
-                symmetry_mirror_map=symmetry_mirror_map,
-                symmetry_pairing=symmetry_pairing,
-                channels=self.channels,
-            ),
-            1,
-        ):
-            if stop:
-                self.logger.warning("Interrupted")
-                break
+        candidates = generate_multipolar_combinations(
+            buckets_or_pool,
+            all_combinations=all_combinations,
+            symmetry_mirror_map=symmetry_mirror_map,
+            symmetry_pairing=symmetry_pairing,
+            channels=self.channels,
+        )
+        # Two views of one generator: the pool consumes one lazily to feed
+        # workers, the loop below pairs each result with its electrodes.
+        pending: deque[tuple] = deque()
+
+        def _feed():
+            for electrodes in candidates:
+                pending.append(electrodes)
+                yield (electrodes, current_mA)
+
+        evaluations = evaluate_ordered(
+            self, "compute_mti_field", _feed(), n_jobs, n_tasks=total
+        )
+
+        i = 0
+        for data in evaluations:
+            i += 1
+            electrodes = pending.popleft()
+            sim_start = time.time()
 
             pair_names = [
                 f"{electrodes[idx]}_{electrodes[idx + 1]}" for idx in range(0, 8, 2)
@@ -176,17 +155,18 @@ class MExSearchEngine(ExSearchEngine):
                     eta / 60,
                 )
 
-            sim_start = time.time()
-            data = self.compute_mti_field(electrodes, current_mA)
             results[key] = data
             self.logger.info(
-                "  %.2fs | Max=%.4f Mean=%.4f Foc=%.4f",
-                time.time() - sim_start,
+                "  Max=%.4f Mean=%.4f Foc=%.4f",
                 data[f"{self.roi_name}_TImax_ROI"],
                 data[f"{self.roi_name}_TImean_ROI"],
                 data[f"{self.roi_name}_Focality"],
             )
             self._log_progress_estimate(i, total, start_time)
+            if stop:
+                self.logger.warning("Interrupted")
+                evaluations.close()
+                break
 
         if results:
             elapsed = time.time() - start_time

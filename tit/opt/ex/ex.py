@@ -91,7 +91,14 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     logger.info(f"Generated {len(ratios)} current ratio combinations")
 
     results = engine.run(
-        e1_plus, e1_minus, e2_plus, e2_minus, ratios, all_combinations, output_dir
+        e1_plus,
+        e1_minus,
+        e2_plus,
+        e2_minus,
+        ratios,
+        all_combinations,
+        output_dir,
+        n_jobs=config.n_jobs,
     )
 
     output_info = process_and_save(results, config, output_dir, logger)
