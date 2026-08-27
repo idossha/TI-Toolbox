@@ -41,6 +41,33 @@ All electrodes are pooled together and can be assigned to any channel position, 
 
 **Trade-off**: Larger search space and longer compute time but with absolute certainty to find optimal solution with given electrode space.
 
+### Symmetric (Bilateral) Constraint
+Bucketed searches can be restricted to left/right-mirrored montages with `symmetric_bucket: true` (pool mode raises an error). The mirror map is read from the EEG-position CSV (`symmetry_eeg_csv`; inferred from the leadfield name `{subject}_leadfield_{net}.hdf5` when omitted). Two pairings:
+
+- `symmetry_pairing: "within_pairs"` — each pair is bilateral: `E1-` must be the mirror of `E1+` and `E2-` of `E2+` (e.g. `F7_F8 <> TP7_TP8`). Write left candidates in the `+` buckets and their mirrors in the `-` buckets.
+- `symmetry_pairing: "cross_pairs"` — pair 2 is the mirror of pair 1: `E2+ = mirror(E1+)`, `E2- = mirror(E1-)` (e.g. `F5_TP7 <> F6_TP8`).
+
+A configuration whose buckets contain no mirrored partners now fails **before the leadfield is loaded** with a message naming the bucket and the mirror map, and no run directory is created (the same applies to any search that enumerates zero candidates, e.g. empty buckets or a pool with fewer than four electrodes).
+
+Example — `within_pairs`, 7 bilateral candidates per pair × 7 current splits = 343 evaluations on sub-ernie (18 s):
+
+| Montage | Ch1 mA | Ch2 mA | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+|---|---|---|---|---|---|---|---|
+| FT7_FT8 <> TP7_TP8 | 0.8 | 1.2 | 0.4371 | 0.2290 | 0.1150 | 1.9909 | 0.4560 |
+| FT7_FT8 <> CP5_CP6 | 0.8 | 1.2 | 0.4404 | 0.2285 | 0.1145 | 1.9949 | 0.4558 |
+| F7_F8 <> TP7_TP8 | 0.8 | 1.2 | 0.3964 | 0.2021 | 0.0938 | 2.1540 | 0.4353 |
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_montage_strength_map.png" alt="Symmetric ex-search montage strength map">
+    <em>Top bilateral montages by ROI strength</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_scatter.png" alt="Symmetric ex-search intensity vs focality">
+    <em>Intensity vs focality, 343 evaluations</em>
+  </div>
+</div>
+
 ## User Interface
 
 <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
@@ -143,8 +170,19 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
 ### 5. Analysis & Visualization Pipeline
 - **Run Time**: From minutes to hours depending on leadfield size and electrode combinations
 - **Metrics Calculation**: `TImax_ROI`, `TImean_ROI`, `TImean_GM`, `Focality` (`TImean_ROI`/`TImean_GM`), and `n_elements` (ROI element count). The ROI mask itself is not restricted by tissue -- it is tested against all leadfield mesh elements, and leadfields are generated with `tissues=[1, 2]` (white + grey matter), so an ROI can include WM elements. Only the focality denominator, `TImean_GM`, is filtered to grey matter (mesh element tag `2`)
-- **Visualization**: Automatic histogram generation (TImax, TImean, Focality distributions)
-- **Output Formats**: JSON results, CSV summaries, PNG histograms
+- **Visualization**: every run writes five PNGs next to `final_output.csv` — `montage_distributions.png` (histograms), `intensity_vs_focality_scatter.png`, and three EEG-map figures: `electrode_score_heatmap.png` (electrode participation across the top-50 montages: colour = summed Composite Index, size = frequency), `montage_strength_map.png` and `montage_focality_map.png` (the top-150 montages drawn as arcs on the cap, coloured by `TImean_ROI` / `Focality`, best montage highlighted). The maps need the net's EEG-position CSV (resolved like `symmetry_eeg_csv`) and are skipped with a log line otherwise; they can be regenerated for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir> [--eeg-csv CSV]`
+- **Output Formats**: `run_config.json`, `final_output.csv`, PNG figures
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/electrode_score_heatmap.png" alt="Electrode contribution heatmap">
+    <em><code>electrode_score_heatmap.png</code> — which electrodes recur in the best montages (16,807-evaluation run)</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/montage_strength_map.png" alt="Montage strength map">
+    <em><code>montage_strength_map.png</code> — top-150 montages by ROI strength</em>
+  </div>
+</div>
 
 ## Technical Implementation
 

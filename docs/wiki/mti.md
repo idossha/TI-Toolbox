@@ -224,7 +224,7 @@ If the ROI has zero elements, all four metrics are `0.0`. ROI resolution (spheri
 
 ### Outputs
 
-mex-search reuses ex-search's output pipeline, writing exactly four files to `derivatives/SimNIBS/sub-{id}/m-ex-search/{run_name}/`:
+mex-search reuses ex-search's output pipeline, writing the following files to `derivatives/SimNIBS/sub-{id}/m-ex-search/{run_name}/`:
 
 - `run_config.json` -- subject_id, roi_name, roi_radius, leadfield_hdf, electrode_mode (`"pool"` or `"bucket"`), electrodes, n_combinations, run_name, current_mA.
 - `final_output.csv` -- one row per evaluated candidate, in **enumeration order** (not sorted). Fixed 8-column header: `Montage, Current_Ch1_mA, Current_Ch2_mA, TImax_ROI, TImean_ROI, TImean_GM, Focality, Composite_Index`, where `Composite_Index = TImean_ROI * Focality`. Currents are formatted to 1 decimal, metrics to 4. The Montage cell strips the `TI_field_`/`.msh` wrapper from the candidate key and replaces `_and_` with ` <> `.
@@ -232,6 +232,20 @@ mex-search reuses ex-search's output pipeline, writing exactly four files to `de
   Note: the engine computes `current_ch3_mA`/`current_ch4_mA` too, but the CSV header has no columns for them -- only Ch1/Ch2 currents are recorded (both ex-search and mex-search share this fixed-width CSV writer).
 - `montage_distributions.png` -- three histograms (dpi=300).
 - `intensity_vs_focality_scatter.png` (dpi=300).
+- `electrode_score_heatmap.png`, `montage_strength_map.png`, `montage_focality_map.png` -- EEG-map figures (electrode participation across the top-50 candidates; top-150 candidates drawn as four arcs each, coloured by ROI strength / focality). Written when the net's EEG-position CSV can be resolved (`symmetry_eeg_csv` or inferred from the leadfield name); regenerate for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir>`.
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_electrode_score_heatmap.png" alt="mex-search electrode contribution heatmap">
+    <em><code>electrode_score_heatmap.png</code>, 576-candidate run</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_montage_strength_map.png" alt="mex-search montage strength map">
+    <em><code>montage_strength_map.png</code>, four arcs per candidate</em>
+  </div>
+</div>
+
+A search that enumerates zero candidates (e.g. symmetric buckets without mirrored partners) fails before the leadfield is loaded, with a message naming the cause, and creates no run directory.
 
 The candidate key/name format is `TI_field_{e1a}_{e1b}_and_{e2a}_{e2b}_and_{e3a}_{e3b}_and_{e4a}_{e4b}_I-{current_mA:.1f}mA.msh` -- no mesh file is actually written; it is only a label. Progress is logged per candidate plus a coarse estimate every 500 candidates, since bucketed 4-pair searches can reach hundreds of thousands of combinations. SIGINT/SIGTERM sets a stop flag that breaks after the current candidate, and partial results are still written.
 
