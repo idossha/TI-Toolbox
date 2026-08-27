@@ -119,3 +119,189 @@ def test_ci_real_voxel_analysis_on_precomputed_nifti():
 
     result = _run_real_python(script)
     assert "results.csv" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Analyzer._resample_if_needed
+#
+# Exercised with the real nibabel/scipy stack: the resampling contract is
+# entirely about voxel-grid geometry, which the conftest MagicMocks cannot
+# express. Synthetic label volumes keep the checks independent of the
+# pre-baked dataset's particular grids.
+# ---------------------------------------------------------------------------
+
+_RESAMPLE_PREAMBLE = """
+import numpy as np
+import nibabel as nib
+from tit.analyzer.analyzer import Analyzer
+
+rng = np.random.default_rng(0)
+labels = rng.integers(0, 12, size=(16, 16, 16)).astype(np.float64)
+affine = np.diag([2.0, 2.0, 2.0, 1.0])
+img = nib.Nifti1Image(labels, affine)
+"""
+
+
+def test_resample_preserves_label_values(tmp_path):
+    """Resampling a parcellation must never invent a region id.
+
+    Nearest-neighbour is the only interpolation order with this property;
+    any blending produces values absent from the atlas and its lookup table.
+    """
+    script = _RESAMPLE_PREAMBLE + f"""
+# Half-voxel grid: target centres fall between source centres, which is
+# exactly where an interpolating order would blend neighbouring ids.
+fine = np.diag([1.0, 1.0, 1.0, 1.0])
+out = Analyzer._resample_if_needed(
+    img, labels, (32, 32, 32), fine, {str(tmp_path / 'atlas.nii.gz')!r}
+)
+assert out.shape == (32, 32, 32), out.shape
+invented = set(np.unique(out).tolist()) - set(np.unique(labels).tolist())
+assert not invented, invented
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_triggers_on_affine_mismatch_alone(tmp_path):
+    """Equal shapes with different affines must still resample.
+
+    A shape-only guard silently returns a volume sampled from different
+    anatomy, which reads downstream as a perfectly valid ROI mask.
+    """
+    script = _RESAMPLE_PREAMBLE + f"""
+shifted = affine.copy()
+shifted[:3, 3] += [0.0, 0.0, 8.0]
+out = Analyzer._resample_if_needed(
+    img, labels, labels.shape, shifted, {str(tmp_path / 'atlas.nii.gz')!r}
+)
+assert out.shape == labels.shape, out.shape
+assert not np.array_equal(out, labels), 'affine mismatch was ignored'
+
+from nibabel.processing import resample_from_to
+truth = np.asanyarray(
+    resample_from_to(img, (labels.shape, shifted), order=0).dataobj
+)
+assert np.array_equal(out, truth)
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_noop_on_identical_grid(tmp_path):
+    """A matching shape and affine must return the input untouched."""
+    script = _RESAMPLE_PREAMBLE + f"""
+out = Analyzer._resample_if_needed(
+    img, labels, labels.shape, affine, {str(tmp_path / 'atlas.nii.gz')!r}
+)
+assert out is labels
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_cache_is_grid_keyed_and_reused(tmp_path):
+    """The cache key must identify the grid, not just its shape.
+
+    Two targets sharing a shape but differing in affine must land in separate
+    cache files; a repeat request must reuse the matching one.
+    """
+    script = _RESAMPLE_PREAMBLE + f"""
+from pathlib import Path
+d = Path({str(tmp_path)!r})
+src = d / 'atlas.nii.gz'
+nib.save(img, str(src))
+
+a = np.diag([1.0, 1.0, 1.0, 1.0])
+b = a.copy(); b[:3, 3] += [0.5, 0.0, 0.0]
+
+first = Analyzer._resample_if_needed(img, labels, (32, 32, 32), a, src)
+Analyzer._resample_if_needed(img, labels, (32, 32, 32), b, src)
+cached = sorted(p.name for p in d.glob('*_resampled_*'))
+assert len(cached) == 2, cached
+
+reused = Analyzer._load_cached_resample(d / cached[0], (32, 32, 32))
+assert reused is not None
+again = Analyzer._resample_if_needed(img, labels, (32, 32, 32), a, src)
+assert np.array_equal(again, first)
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_cache_distinguishes_similarly_named_atlases(tmp_path):
+    """Atlases sharing a first dotted component must not share a cache key.
+
+    ``aparc.DKTatlas+aseg`` and ``aparc.a2009s+aseg`` both live in a subject's
+    FreeSurfer mri/ directory on the same grid; collapsing them onto one key
+    would serve one atlas's labels for the other.
+    """
+    script = _RESAMPLE_PREAMBLE + f"""
+from pathlib import Path
+d = Path({str(tmp_path)!r})
+grid = np.diag([1.0, 1.0, 1.0, 1.0])
+
+names, keys = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz'], []
+for n in names:
+    keys.append(Analyzer._resampled_name(d / n, (32, 32, 32), grid))
+assert keys[0] != keys[1], keys
+assert 'DKTatlas' in keys[0] and 'a2009s' in keys[1], keys
+
+# and the extension never survives into the key
+assert '.mgz' not in keys[0] and keys[0].endswith('.nii.gz'), keys[0]
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_cache_write_failure_is_non_fatal(tmp_path):
+    """A cache that cannot be written must degrade to in-memory, not fail.
+
+    The failure is injected rather than staged with directory permissions:
+    the container runs as root, which bypasses the mode bits entirely and
+    would leave this path silently unexercised.
+    """
+    script = _RESAMPLE_PREAMBLE + f"""
+import shutil
+from pathlib import Path
+d = Path({str(tmp_path)!r})
+src = d / 'atlas.nii.gz'
+nib.save(img, str(src))
+
+def boom(*a, **k):
+    raise OSError(30, 'Read-only file system')
+
+shutil.copy2 = boom
+out = Analyzer._resample_if_needed(
+    img, labels, (32, 32, 32), np.diag([1.0, 1.0, 1.0, 1.0]), src
+)
+assert out.shape == (32, 32, 32), out.shape
+assert not list(d.glob('*_resampled_*')), 'cache should not exist'
+
+from nibabel.processing import resample_from_to
+truth = np.asanyarray(resample_from_to(
+    img, ((32, 32, 32), np.diag([1.0, 1.0, 1.0, 1.0])), order=0).dataobj)
+assert np.array_equal(out, truth), 'in-memory result must still be correct'
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout
+
+
+def test_resample_ignores_corrupt_cache(tmp_path):
+    """A truncated cache file is a miss, not a crash."""
+    script = _RESAMPLE_PREAMBLE + f"""
+from pathlib import Path
+d = Path({str(tmp_path)!r})
+src = d / 'atlas.nii.gz'
+nib.save(img, str(src))
+grid = np.diag([1.0, 1.0, 1.0, 1.0])
+
+Analyzer._resample_if_needed(img, labels, (32, 32, 32), grid, src)
+cached = next(d.glob('*_resampled_*'))
+cached.write_bytes(b'not a nifti')
+
+out = Analyzer._resample_if_needed(img, labels, (32, 32, 32), grid, src)
+assert out.shape == (32, 32, 32)
+print('OK')
+    """
+    assert "OK" in _run_real_python(script).stdout

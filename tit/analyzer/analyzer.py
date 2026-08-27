@@ -17,6 +17,7 @@ tit.analyzer.group : Multi-subject group analysis.
 tit.analyzer.field_selector : Automatic field file resolution.
 """
 
+import hashlib
 import logging
 import subprocess
 import tempfile
@@ -1155,57 +1156,163 @@ class Analyzer:
 
     @staticmethod
     def _resample_if_needed(
-        atlas_img,
-        atlas_arr: np.ndarray,
+        src_img,
+        src_arr: np.ndarray,
         target_shape: tuple,
         target_affine: np.ndarray,
-        atlas_path: Path,
+        src_path: Path,
     ) -> np.ndarray:
-        """Resample atlas array to *target_shape* if dimensions differ.
+        """Resample a label/mask volume onto the target voxel grid.
 
-        The resampled result is saved next to *atlas_path* with a
-        shape-encoded suffix so that repeated analyses reuse the cached
-        file instead of re-running ``mri_convert``.
+        Used for both atlas parcellations and tissue masks. Both carry
+        *discrete* values -- region ids and 0/1 flags -- so resampling is
+        nearest-neighbour (``order=0``); any interpolating order would invent
+        region ids that exist in neither the source nor the lookup table.
+        Voxels falling outside the source field of view become 0 (background).
+
+        A volume is left untouched only when it already shares the target's
+        shape *and* affine. Shape alone is not sufficient: two volumes can
+        agree on shape while sampling entirely different anatomy.
+
+        The result is cached next to *src_path*, keyed by the target grid, so
+        repeated analyses on the same grid pay the cost once. Caching is
+        best-effort -- an unwritable cache location degrades to recomputing
+        in memory rather than failing the analysis.
         """
-        if atlas_arr.shape[:3] == target_shape[:3]:
-            return atlas_arr
+        import nibabel as nib
+        from nibabel.processing import resample_from_to
+
+        src_arr = np.asanyarray(src_arr)
+        target_shape = tuple(int(n) for n in target_shape[:3])
+        target_affine = np.asarray(target_affine, dtype=float)
+
+        if src_arr.shape[:3] == target_shape and np.allclose(
+            src_img.affine, target_affine, atol=1e-5
+        ):
+            return src_arr
+
+        src_path = Path(src_path)
+        cached_path = src_path.parent / Analyzer._resampled_name(
+            src_path, target_shape, target_affine
+        )
+
+        cached = Analyzer._load_cached_resample(cached_path, target_shape)
+        if cached is not None:
+            return cached
+
+        logger.info(
+            "Resampling %s: %s -> %s (nearest-neighbour)",
+            src_path.name,
+            src_arr.shape[:3],
+            target_shape,
+        )
+
+        # Rebuild the source image from the array actually passed in: the
+        # caller may have squeezed a trailing singleton axis off a 4D volume,
+        # so src_img.dataobj is not necessarily what we want to resample.
+        source = nib.Nifti1Image(src_arr, src_img.affine)
+        resampled = np.asanyarray(
+            resample_from_to(source, (target_shape, target_affine), order=0).dataobj
+        )
+
+        Analyzer._cache_resample(resampled, target_affine, cached_path)
+        return resampled
+
+    @staticmethod
+    def _resampled_name(
+        src_path: Path, target_shape: tuple, target_affine: np.ndarray
+    ) -> str:
+        """Cache filename encoding the full target grid, not just its shape.
+
+        The affine is part of the key because shape alone does not identify a
+        grid -- a cache keyed on shape would hand back a volume resampled to a
+        different anatomy whenever two grids happen to share dimensions.
+
+        The stem keeps every dotted component of the filename except the image
+        extension. Truncating at the first dot would collapse
+        ``aparc.DKTatlas+aseg`` and ``aparc.a2009s+aseg`` onto one key, so an
+        analysis of either atlas could be served the other's labels.
+        """
+        sx, sy, sz = target_shape
+        # blake2b, not sha1: this is a cache key, never a security boundary,
+        # and blake2b takes the digest length directly.
+        digest = hashlib.blake2b(
+            np.round(target_affine, 5).astype(np.float64).tobytes(), digest_size=4
+        ).hexdigest()
+        name = src_path.name
+        for ext in (".nii.gz", ".nii", ".mgz", ".mgh"):
+            if name.lower().endswith(ext):
+                name = name[: -len(ext)]
+                break
+        stem = name.replace(".", "_")
+        return f"{stem}_resampled_{sx}x{sy}x{sz}_{digest}.nii.gz"
+
+    @staticmethod
+    def _load_cached_resample(cached_path: Path, target_shape: tuple):
+        """Return the cached resample, or None if absent/unusable.
+
+        A truncated or corrupt cache file is treated as a cache miss rather
+        than an error: it is a derived artefact and is safe to regenerate.
+        """
+        cached_path = Path(cached_path)
+        if not cached_path.exists():
+            return None
 
         import nibabel as nib
 
-        atlas_path = Path(atlas_path)
-        sx, sy, sz = target_shape[:3]
-        cached_name = f"{atlas_path.stem.split('.')[0]}_resampled_{sx}x{sy}x{sz}.nii.gz"
-        cached_path = atlas_path.parent / cached_name
+        try:
+            arr = np.asanyarray(nib.load(str(cached_path)).dataobj)
+        except Exception as exc:  # noqa: BLE001 - any read failure is a miss
+            logger.warning(
+                "Ignoring unreadable resample cache %s (%s); regenerating.",
+                cached_path,
+                exc,
+            )
+            return None
 
-        if cached_path.exists():
-            logger.info("Loading cached resampled atlas: %s", cached_path)
-            return nib.load(str(cached_path)).get_fdata()
+        if arr.shape[:3] != target_shape:
+            logger.warning(
+                "Resample cache %s has shape %s, expected %s; regenerating.",
+                cached_path,
+                arr.shape[:3],
+                target_shape,
+            )
+            return None
 
-        logger.info(
-            "Resampling atlas %s -> %s (caching to %s)",
-            atlas_arr.shape[:3],
-            target_shape[:3],
-            cached_path,
-        )
+        logger.debug("Reusing cached resample: %s", cached_path)
+        return arr
 
-        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tf:
-            template_path = tf.name
+    @staticmethod
+    def _cache_resample(
+        arr: np.ndarray, affine: np.ndarray, cached_path: Path
+    ) -> None:
+        """Write the resample cache; never raise.
 
-        template_img = nib.Nifti1Image(np.zeros(target_shape[:3]), target_affine)
-        nib.save(template_img, template_path)
+        Written via a temporary directory and copied into place: nibabel's
+        gzip writer is unreliable directly on Docker bind mounts, and the copy
+        keeps a reader from ever seeing a half-written file.
+        """
+        import gzip
+        import shutil
 
-        cmd = [
-            "mri_convert",
-            "--reslice_like",
-            template_path,
-            str(atlas_path),
-            str(cached_path),
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
-        Path(template_path).unlink()
+        import nibabel as nib
 
-        resampled = nib.load(str(cached_path)).get_fdata()
-        return resampled
+        cached_path = Path(cached_path)
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp_nii = Path(tmpdir) / "resampled.nii"
+                tmp_gz = Path(tmpdir) / "resampled.nii.gz"
+                nib.save(nib.Nifti1Image(arr, affine), str(tmp_nii))
+                with open(tmp_nii, "rb") as f_in, gzip.open(str(tmp_gz), "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                shutil.copy2(str(tmp_gz), str(cached_path))
+            logger.debug("Cached resample: %s", cached_path)
+        except OSError as exc:
+            logger.warning(
+                "Could not cache resample to %s (%s); continuing in memory.",
+                cached_path,
+                exc,
+            )
 
     @staticmethod
     def _find_voxel_region_id(
