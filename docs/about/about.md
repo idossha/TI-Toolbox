@@ -57,8 +57,18 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <h3>Larissa Albantakis</h3>
         <p class="contributor-role">Core Contributor</p>
         <p class="contributor-description">
-          Assistant Professor of Psychiatry. Contributed the multipolar TI (mTI) field math and multipolar exhaustive search, the generalized electrode-bucket loader and symmetric search, subject-space ROI masks from MNI templates, and the ex/mex-search electrode-map visualizations.<br>
+          Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry.
         </p>
+        <ul class="contributor-list">
+          <li>Multipolar TI field math: the K&ge;2 modulation envelope, Fibonacci-sphere direction sampling, and the magnitude-AM measure (2.5)</li>
+          <li>Corrected peak high-frequency field calculation (2.5)</li>
+          <li>Multipolar exhaustive search and the generalized electrode-bucket loader (2.5)</li>
+          <li>Symmetric bucket search (2.5)</li>
+          <li>Ex/mex-search electrode-map visuals: participation heatmap and montage strength/focality maps (2.5)</li>
+          <li>Subject-space ROIs from local MNI masks, incl. functional thalamus ROIs (2.5)</li>
+          <li>Subject ROI masks in the analyzer and the subcortical picker (2.5)</li>
+          <li>NIfTI viewer: ROI overlay selector, colormap and percentile defaults (2.4)</li>
+        </ul>
         <div class="contributor-links">
           <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
           <a href="https://github.com/Albantakis" target="_blank">🔗 GitHub</a>
@@ -84,8 +94,18 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <h3>Aksel Jackson</h3>
         <p class="contributor-role">Core Contributor</p>
         <p class="contributor-description">
-          Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distribution. <br>
+          Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distributions.
         </p>
+        <ul class="contributor-list">
+          <li>Main author of the analyzer: mesh and voxel ROI extraction, spherical, cortical and whole-head modes, and its GUI tab (2.0)</li>
+          <li>Analyzer visualizations: scatter plots and cortex/whole-brain overlays (2.0)</li>
+          <li>Group analyzer CLI (2.1)</li>
+          <li>Central logging utility used across every pipeline (2.0)</li>
+          <li>BIDS project layout and automatic <code>dataset_description.json</code> initialization (2.1)</li>
+          <li>Debug mode for the simulator, analyzer, pre-processing, and both searches (2.1)</li>
+          <li>Combined pre-processing report and CSF analysis (2.1)</li>
+          <li>Atlas resampling optimization and the GUI console deadlock fix (2.0)</li>
+        </ul>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
           <a href="https://github.com/awjackson2" target="_blank">🔗 GitHub</a>
@@ -178,6 +198,19 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
   margin-bottom: 1rem;
   font-size: 0.95rem;
   text-align: Left;
+}
+
+.contributor-list {
+  color: #495057;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  text-align: left;
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.1rem;
+}
+
+.contributor-list li {
+  margin-bottom: 0.35rem;
 }
 
 .contributor-links {
