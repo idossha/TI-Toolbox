@@ -60,9 +60,10 @@ wiki:
 releases:
   title: Releases
   items:
-    - { title: Latest (v2.4.0), url: /releases/ }
+    - { title: Latest (v2.5.0), url: /releases/ }
     - { title: Changelog, url: /releases/changelog/ }
     - group: Version History
+    - { title: v2.5.0, url: /releases/v2.5.0/ }
     - { title: v2.4.0, url: /releases/v2.4.0/ }
     - { title: v2.3.2, url: /releases/v2.3.2/ }
     - { title: v2.3.1, url: /releases/v2.3.1/ }

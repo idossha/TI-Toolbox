@@ -120,7 +120,7 @@ def update_version(new_version):
     print(f"   • Updated main releases page (docs/releases/releases.md)")
     print(f"   • Updated changelog (docs/releases/changelog.md)")
     print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
-    print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
+    print(f"   • Updated releases nav (docs/_data/nav.yml)")
     print(f"   • Updated previous release titles")
     print(
         f"   • Updated dataset description JSON files with new SimNIBS Docker image version"
@@ -198,7 +198,7 @@ def update_releases_page(version, release_notes, release_date):
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-{version}.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-{version}.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:latest`
@@ -209,10 +209,17 @@ For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}
     with open(releases_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Replace the current latest release section
-    pattern = r"### v\d+\.\d+\.\d+ \(Latest Release\).*?(?=---|\n##|\Z)"
+    # The "Latest Release" page shows ONLY the newest release, never the
+    # full history (that's what changelog.md and the individual vX.md pages
+    # are for). Keep the front matter and the trailing "## Getting Help"
+    # section; replace everything else with just the new release section.
+    front_matter_match = re.match(r"^(---\n.*?\n---\n)", content, flags=re.DOTALL)
+    front_matter = front_matter_match.group(1) if front_matter_match else ""
 
-    new_content = re.sub(pattern, new_release_section, content, flags=re.DOTALL)
+    getting_help_match = re.search(r"(\n## Getting Help.*\Z)", content, flags=re.DOTALL)
+    getting_help = getting_help_match.group(1) if getting_help_match else ""
+
+    new_content = f"{front_matter}\n{new_release_section}\n\n---\n{getting_help}"
 
     with open(releases_file, "w", encoding="utf-8") as f:
         f.write(new_content)
@@ -238,7 +245,7 @@ def update_changelog_file(version, release_notes, release_date):
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`
@@ -306,7 +313,7 @@ sitemap: false
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-{version}.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TT-Toolbox-{version}.deb)
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`
@@ -332,37 +339,32 @@ If you encounter issues with this release:
 
 
 def update_navigation(version):
-    """Update the releases sidebar navigation in the releases layout"""
-    layout_file = "docs/_layouts/releases.html"
+    """Update the Releases sidebar nav data (docs/_data/nav.yml)"""
+    nav_file = "docs/_data/nav.yml"
 
-    with open(layout_file, "r", encoding="utf-8") as f:
+    with open(nav_file, "r", encoding="utf-8") as f:
         content = f.read()
 
     current_latest_pattern = r"Latest \(v[\d\.]+\)"
     new_latest = f"Latest (v{version})"
     content = re.sub(current_latest_pattern, new_latest, content)
 
-    # Add new version to the version history section
-    # Find the line with the first version link and add the new version before it
-    version_link = f"        <li><a href=\"{{{{ site.baseurl }}}}/releases/v{version}/\" {{% if page.url == '/releases/v{version}/' or page.url == '/TI-Toolbox/releases/v{version}/' %}}class=\"active\"{{% endif %}}>v{version}</a></li>"
-
     if f"/releases/v{version}/" in content:
-        print(f"Version v{version} already in releases sidebar")
-        return
+        print(f"Version v{version} already in releases nav")
+    else:
+        # Insert the new version right after the "Version History" group marker
+        version_line = f"    - {{ title: v{version}, url: /releases/v{version}/ }}"
+        lines = content.split("\n")
+        for i, line in enumerate(lines):
+            if "group: Version History" in line:
+                lines.insert(i + 1, version_line)
+                break
+        content = "\n".join(lines)
 
-    # Find the first version link in the history and insert new version before it
-    lines = content.split("\n")
-    for i, line in enumerate(lines):
-        if "<h4>Version History</h4>" in line:
-            # Insert the new version link after the "Version History" header
-            lines.insert(i + 1, version_link)
-            break
+    with open(nav_file, "w", encoding="utf-8") as f:
+        f.write(content)
 
-    new_content = "\n".join(lines)
-    with open(layout_file, "w", encoding="utf-8") as f:
-        f.write(new_content)
-
-    print(f"Updated releases sidebar navigation in {layout_file}")
+    print(f"Updated releases nav in {nav_file}")
 
 
 

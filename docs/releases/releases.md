@@ -18,7 +18,7 @@ permalink: /releases/
 - DWI preflight validation — gradient tables and sidecars are validated and QSIPrep node crashfiles are logged before/at container failure, catching bad DWI conversions early.
 - Interactive atlas browser and multipolar TI documentation pages on the docs site, including subject-space atlas assets and a redesigned full-width docs theme with per-page subnav and KaTeX equation rendering.
 - Claude Code / AI-assistant plugin (`agent-plugin/`) — an MCP server and marketplace listing so AI coding assistants understand the TI-Toolbox codebase, plus a maintainer-verified Troubleshooting Archive.
-- Faster ex/mex-search — candidates are evaluated on forked worker processes with a fused numba kernel for the K>=2 mTI direction search, and the mTI envelope is evaluated on ROI|GM only as quadratic forms.
+- Faster ex/mex-search — unit-current channel fields are now computed once per montage and reused across current splits, the TI/mTI envelope is evaluated on ROI∪GM only (not the whole head), and candidates run on a forked worker pool (`n_jobs`). Ex-search: 0.39 s → 0.05 s per evaluation (~8×; a 4,375-evaluation bucket search dropped from 28 min to 3 min). Mex-search: 58 s → ~1.4–2 s per candidate (~30–40×) via a fused numba kernel for the K≥2 mTI direction search.
 - Zenodo DOIs added for the archived software release.
 
 #### Fixes
@@ -46,130 +46,11 @@ permalink: /releases/
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 
-### v2.4.0
-
-**Release Date**: July 20, 2026
-
-#### Additions
-
-- **Combine multiple ROIs in optimization** — flex-search and exhaustive-search can now target the union of several same-type regions (cortical by name including cross-hemisphere, subcortical by label, or multiple spheres) through a searchable region picker with region chips.
-- **TI safety metrics (Cassarà et al. 2025)** — peak carrier field and SAR-driver maps are now written as subject- and MNI-space NIfTI volumes alongside TI_max.
-- **Surface-based group statistics** — run group comparisons and correlations directly on the fsaverage cortical surface with cluster-based permutation testing and inflated-cortex rendering; TI fields now auto-project to fsaverage after each simulation.
-- **CT and NIfTI ingestion** — preprocessing can now import head CT scans and pre-converted NIfTI files (T1w/T2w/CT/DWI), not only DICOMs.
-- **3D Visualizer subcortical field export** — export subcortical structures colored by a simulation field (PLY) using a searchable label picker.
-- **Simulator skip/replace policy** — choose to skip or overwrite existing simulation outputs instead of aborting with an error.
-- **Montage visualizer clarity** — connection arcs now show which channels interfere (TI partners), with a channel color legend.
-- **Faster simulations** — mesh-to-NIfTI conversion is parallelized, cutting end-to-end simulation time by roughly 30%.
-
-#### Fixes
-
-- **DICOM import crash** — fixed a crash on projects seeded with macOS junk (AppleDouble) files.
-- **QSIPrep preprocessing failures** — the root BIDS dataset description is now always created, and a missing T1w is reported up front instead of failing deep in the workflow.
-- **3D exporter file loss** — fixed the exporter deleting cortical region files after export.
-- **FreeSurfer data volume versioning** — the volume is now versioned by image tag so image updates correctly re-seed it.
-
-#### Download Links
-
-**Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.4.0.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.4.0_amd64.deb)
-
-**Other:**
-- Docker Image: `docker pull idossha/simnibs:v2.4.0`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-### v2.3.2
-
-**Release Date**: June 11, 2026
-
-#### Additions
-
-- New Source tool (extension): build MNE EEG forward solutions and project TI fields onto the fsaverage template.
-- Preprocessing now automatically converts DWI DICOMs to BIDS NIfTI alongside T1w/T2w.
-
-#### Fixes
-
-- FreeSurfer recon-all no longer falsely reports its output as already existing on a fresh project.
-
-#### Download Links
-
-**Desktop App (v2.3.2):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox.Setup.2.3.2.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/ti-toolbox_2.3.2_amd64.deb)
-
-**Other:**
-- Docker Image: `docker pull idossha/simnibs:v2.3.2`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-### v2.3.1
-
-**Release Date**: May 8, 2026
-
-#### Fixes & Maintenance
-
-##### Flex-search and Simulation Workflow
-
-- **Flex-search simulation identity and UI naming** — simulator-generated flex-search runs now keep a unique storage key while showing compact, readable run labels and hover metadata in the GUI, following the run-id/run-name split used by tools such as [MLflow](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.html).
-- **Flex-search valid skin region controls** — flex-search now exposes `skin_region_margin_mm`, optional landmark guarding, GUI controls, and report imagery so users can inspect and tune the valid scalp placement region used by optimization.
-
-##### Reports and Visualization
-
-- **Report and visualization follow-ups** — simulation reports use clearer missing-visualization states and simulations continue when optional montage visualization cannot be generated.
-- **Analyzer discovery improvements** — Analyzer refreshes simulation lists when shown and after simulation completion, with clearer messages when TI/mTI post-processing outputs are missing.
-
-##### NIfTI Viewer
-
-- **Electrode NIfTI overlays** — the NIfTI Viewer can create and auto-load a single label-mask overlay showing saved electrode placements from `documentation/config.json`. Labels are channel-based, use the same color order as montage PNGs, and are saved next to montage images under `TI/montage_imgs/` or `mTI/montage_imgs/` depending on simulation mode.
-
-##### GUI Reliability
-
-- **GUI lifecycle reliability** — preprocessing, simulation, flex-search, ex-search, Analyzer, and NIfTI Viewer tabs now refresh dependent outputs more consistently and avoid reporting success after failed subprocesses.
-
-##### Preprocessing and QSI
-
-- **DICOM preprocessing hardening** — DICOM discovery now searches nested `.dcm`/`.dicom` files and supports basic compressed inputs (`.zip`, `.tar`, `.tar.gz`, `.tgz`) in the documented `sourcedata/sub-{id}/{T1w,T2w}/dicom/` layout.
-- **Preprocessing existing-output handling** — the GUI now detects existing outputs before rerunning DICOM conversion, CHARM, FreeSurfer `recon-all`, QSIPrep, QSIRecon, or DTI extraction. Users can cancel, skip existing outputs, or explicitly replace them and rerun. The same policy is available to scripts through `skip_existing_outputs` and `replace_existing_outputs`.
-- **QSI Docker preflight** — QSIPrep and QSIRecon now validate Docker/DooD setup early, before starting long-running container work.
-- **QSI containers updated** — QSIPrep and QSIRecon now target PennLINC `26.0.0`, with CLI compatibility handling for QSIPrep `concat` and QSIRecon `--input-type qsiprep`.
-
-##### Telemetry and Release Operations
-
-- **Telemetry error grouping** — operation telemetry now emits a per-run `run_id` plus a stable, path-sanitized `error_fingerprint`, making recurring failures easier to group without sending tracebacks or local paths.
-- **Telemetry-driven preflight checks** — common user/environment problems are validated before telemetry-tracked work starts for simulation, flex-search, and empty preprocessing subject selections, reducing noisy error reports while preserving real exceptions.
-- **Telemetry consent persistence** — GUI telemetry consent is stored in the user-level config mount and should no longer reappear every launch once answered.
-- **Launcher telemetry normalization** — host OS and architecture values are canonicalized across the Electron launcher and `loader.py`, keeping telemetry slices consistent across entrypoints.
-- **Community link** — README and release help links now point to the active TI-Toolbox Discord server.
-- **Release-gate tests** — added Dockerfile.test-based integration checks plus a self-contained comprehensive release-gate entry point using only test-environment fixtures.
-
-#### Download Links
-
-**Desktop App (v2.3.1):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox.Setup.2.3.1.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/ti-toolbox_2.3.1_amd64.deb)
-
-**Other:**
-
-- Docker Image: `docker pull idossha/simnibs:v2.3.1`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-
 ---
 
 ## Getting Help
 
-If you encounter issues with any release:
+If you encounter issues with this release:
 
 1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
 2. Review the [Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/) section
