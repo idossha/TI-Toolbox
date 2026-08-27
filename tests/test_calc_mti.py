@@ -689,3 +689,146 @@ class TestHirataFormEquivalence:
         expected = _legacy_get_TI_vectors(E1, E2)
         result = get_TI_vectors(E1, E2)
         np.testing.assert_allclose(result, expected, atol=0)
+
+
+# ---------------------------------------------------------------------------
+# Quadratic-form sweep/refinement regression vs the projection-based original
+# ---------------------------------------------------------------------------
+#
+# ``_mti_modulation_depth_sweep`` evaluates (P, Q) as quadratic forms in
+# per-element 3x3 matrices and refines in each seed's local frame (perf
+# rewrite for m-ex-search). The reference below is the pre-rewrite
+# algorithm verbatim in spirit: explicit per-field projections onto every
+# direction, materialised patch directions, ``np.where`` seed masking. The
+# two must agree to round-off on random inputs.
+
+
+def _reference_mti_sweep(fields, psi=None, num_directions=192, refine=True):
+    from tit.calc import (
+        _REFINE_MIN_SEED_ANGLE_DEG,
+        _REFINE_N_ROUNDS,
+        _REFINE_N_SEEDS,
+        _REFINE_PATCH_SIZE,
+        _REFINE_SHRINK,
+        _fibonacci_sphere,
+    )
+
+    arrs = [np.asarray(f, dtype=np.float64) for f in fields]
+    n = arrs[0].shape[0]
+    n_pairs = len(arrs) // 2
+    directions = _fibonacci_sphere(num_directions)
+
+    def pq(proj):
+        P = 0.5 * sum(p * p for p in proj)
+        if psi is not None and np.any(np.asarray(psi) != 0.0):
+            z = sum(
+                proj[2 * k] * proj[2 * k + 1] * np.exp(1j * psi[k]) for k in range(n_pairs)
+            )
+            return P, np.abs(z)
+        return P, np.abs(sum(proj[2 * k] * proj[2 * k + 1] for k in range(n_pairs)))
+
+    def env(P, Q):
+        return np.sqrt(2.0 * np.maximum(P + Q, 0.0)) - np.sqrt(2.0 * np.maximum(P - Q, 0.0))
+
+    def patch_dirs(centers, half_angle, n_patch):
+        c = centers.reshape(-1, 3)
+        ref = np.tile(np.array([1.0, 0.0, 0.0]), (c.shape[0], 1))
+        parallel = np.abs(np.sum(c * ref, axis=1)) > 0.99
+        ref[parallel] = np.array([0.0, 1.0, 0.0])
+        u = np.cross(c, ref)
+        u_norm = np.linalg.norm(u, axis=1, keepdims=True)
+        u_norm[u_norm == 0.0] = 1.0
+        u /= u_norm
+        v = np.cross(c, u)
+        j = np.arange(n_patch, dtype=np.float64)
+        golden = np.pi * (3.0 - np.sqrt(5.0))
+        r = half_angle * np.sqrt((j + 0.5) / n_patch)
+        phi = golden * j
+        patch = (
+            c[:, None, :] * np.cos(r)[None, :, None]
+            + u[:, None, :] * (np.sin(r) * np.cos(phi))[None, :, None]
+            + v[:, None, :] * (np.sin(r) * np.sin(phi))[None, :, None]
+        )
+        return patch.reshape(*centers.shape[:-1], n_patch, 3)
+
+    P, Q = pq([a @ directions.T for a in arrs])
+    amp = env(P, Q)
+    if not refine:
+        idx = np.argmax(amp, axis=1)
+        rows = np.arange(n)
+        return amp[rows, idx], directions[idx]
+
+    n_seeds = min(_REFINE_N_SEEDS, num_directions)
+    min_cos = np.cos(np.radians(_REFINE_MIN_SEED_ANGLE_DEG))
+    remaining = amp.copy()
+    top = np.zeros((n, n_seeds), dtype=int)
+    for s in range(n_seeds):
+        idx = np.argmax(remaining, axis=1)
+        top[:, s] = idx
+        cos_to = (directions @ directions[idx].T).T
+        remaining = np.where(cos_to > min_cos, -np.inf, remaining)
+
+    best_dir = directions[top]
+    best_md = np.take_along_axis(amp, top, axis=1)
+    half_angle = 2.0 / np.sqrt(num_directions)
+    rows = np.arange(n)[:, None, None]
+    cols = np.arange(n_seeds)[None, :, None]
+    for _ in range(_REFINE_N_ROUNDS):
+        patch = patch_dirs(best_dir, half_angle, _REFINE_PATCH_SIZE)
+        Pc, Qc = pq([np.einsum("nd,nspd->nsp", a, patch) for a in arrs])
+        ampc = env(Pc, Qc)
+        idx = np.argmax(ampc, axis=2)
+        cand_md = np.take_along_axis(ampc, idx[:, :, None], axis=2)[:, :, 0]
+        cand_dir = patch[rows, cols, idx[:, :, None], :][:, :, 0, :]
+        improved = cand_md > best_md
+        best_md = np.where(improved, cand_md, best_md)
+        best_dir = np.where(improved[:, :, None], cand_dir, best_dir)
+        half_angle *= _REFINE_SHRINK
+
+    best_seed = np.argmax(best_md, axis=1)
+    return best_md[np.arange(n), best_seed], best_dir[np.arange(n), best_seed]
+
+
+@pytest.mark.unit
+class TestQuadraticFormSweepRegression:
+    @pytest.mark.parametrize("n_fields", [4, 6, 8])
+    def test_refined_envelope_matches_projection_reference(self, n_fields):
+        rng = np.random.default_rng(1234 + n_fields)
+        # Realistic magnitudes: leadfield fields are ~0.05-0.5 V/m.
+        fields = [
+            rng.standard_normal((400, 3)) * rng.uniform(0.05, 0.5)
+            for _ in range(n_fields)
+        ]
+        ref_md, ref_dir = _reference_mti_sweep(fields)
+        vec = get_mTI_vectors(fields)
+        np.testing.assert_allclose(np.linalg.norm(vec, axis=1), ref_md, rtol=0, atol=1e-9)
+        np.testing.assert_allclose(vec, ref_dir * ref_md[:, None], rtol=0, atol=1e-9)
+
+    def test_phase_offsets_match_projection_reference(self):
+        rng = np.random.default_rng(99)
+        fields = [rng.standard_normal((300, 3)) * 0.3 for _ in range(6)]
+        psi = np.array([0.0, 0.7, -2.1])
+        ref_md, _ = _reference_mti_sweep(fields, psi=psi)
+        result = _mti_modulation_depth(fields, psi=psi)
+        np.testing.assert_allclose(result["md"], ref_md, rtol=0, atol=1e-9)
+
+    def test_coarse_sweep_matches_projection_reference(self):
+        rng = np.random.default_rng(5)
+        fields = [rng.standard_normal((500, 3)) for _ in range(4)]
+        ref_md, ref_dir = _reference_mti_sweep(fields, refine=False)
+        result = _mti_modulation_depth(fields, refine=False)
+        np.testing.assert_allclose(result["md"], ref_md, rtol=0, atol=1e-9)
+        np.testing.assert_array_equal(result["best_direction"], ref_dir)
+
+    def test_ti_avg_matches_projection_reference(self):
+        from tit.calc import _fibonacci_sphere
+
+        rng = np.random.default_rng(11)
+        fields = [rng.standard_normal((200, 3)) for _ in range(4)]
+        arrs = [np.asarray(f) for f in fields]
+        dirs = _fibonacci_sphere(192)
+        proj = [a @ dirs.T for a in arrs]
+        P = 0.5 * sum(p * p for p in proj)
+        Q = np.abs(proj[0] * proj[1] + proj[2] * proj[3])
+        amp = np.sqrt(2.0 * np.maximum(P + Q, 0.0)) - np.sqrt(2.0 * np.maximum(P - Q, 0.0))
+        np.testing.assert_allclose(get_TI_avg(fields), amp.mean(axis=1), rtol=0, atol=1e-9)

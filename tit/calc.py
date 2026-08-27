@@ -478,8 +478,10 @@ def _pairwise_products(proj_fields, psi):
     n_pairs = len(proj_fields) // 2
 
     P = np.zeros_like(proj_fields[0], dtype=np.float64)
+    tmp = np.empty_like(P)  # reused scratch: same arithmetic, no temporaries
     for p in proj_fields:
-        P += p * p
+        np.multiply(p, p, out=tmp)
+        P += tmp
     P *= 0.5
 
     use_phase = psi is not None and np.any(psi != 0.0)
@@ -493,20 +495,111 @@ def _pairwise_products(proj_fields, psi):
     else:
         b_sum = np.zeros_like(P)
         for k in range(n_pairs):
-            a = proj_fields[2 * k]
-            b = proj_fields[2 * k + 1]
-            b_sum += a * b
-        Q = np.abs(b_sum)
+            np.multiply(proj_fields[2 * k], proj_fields[2 * k + 1], out=tmp)
+            b_sum += tmp
+        Q = np.abs(b_sum, out=b_sum)
 
     return P, Q
+
+
+def _quadratic_forms(arrs, psi):
+    """Per-element symmetric 3x3 matrices behind the (P, Q) envelope terms.
+
+    For a unit direction ``n``, ``P = 0.5*sum_f (E_f . n)^2 = n^T M_P n`` and
+    the coherent sum ``sum_k (E_ka . n)(E_kb . n) exp(i psi_k) = n^T M_Q n``
+    with ``M_P = 0.5*sum_f E_f E_f^T`` and ``M_Q = sum_k exp(i psi_k) *
+    sym(E_ka E_kb^T)``. Both are direction-independent, so a direction
+    sweep is two small matmuls over their packed 6-vectors
+    (:func:`_pack_symmetric`) instead of 2K projection arrays.
+
+    Returns
+    -------
+    M_P : np.ndarray, shape (N, 3, 3), float64
+    M_Q : np.ndarray, shape (N, 3, 3), float64 (``psi`` None/zero) or
+        complex128 (a phasor-weighted sum).
+    """
+    n_pairs = len(arrs) // 2
+    stacked = np.stack(arrs, axis=1)  # (N, 2K, 3)
+    M_P = np.einsum("nfa,nfb->nab", stacked, stacked)
+    M_P *= 0.5
+
+    a = stacked[:, 0::2]  # (N, K, 3)
+    b = stacked[:, 1::2]
+    use_phase = psi is not None and np.any(psi != 0.0)
+    if use_phase:
+        phasor = np.exp(1j * np.asarray(psi, dtype=np.float64))
+        M_Q = np.einsum("k,nka,nkb->nab", phasor, a, b)
+    else:
+        M_Q = np.einsum("nka,nkb->nab", a, b)
+    M_Q = 0.5 * (M_Q + M_Q.transpose(0, 2, 1))
+    return M_P, M_Q
+
+
+def _pack_symmetric(M):
+    """Pack symmetric ``(..., 3, 3)`` matrices as ``(..., 6)`` so that
+    ``n^T M n == _pack_symmetric(M) @ _direction_quadratics(n)``."""
+    return np.stack(
+        (M[..., 0, 0], M[..., 1, 1], M[..., 2, 2], M[..., 0, 1], M[..., 0, 2], M[..., 1, 2]),
+        axis=-1,
+    )
+
+
+def _pack_frame_form(basis, M):
+    """``_pack_symmetric(basis @ M @ basis^T)`` for frames ``basis``
+    ``(..., 3, 3)`` and symmetric ``M`` broadcastable to it, as explicit
+    broadcast arithmetic: entry ``(i, j)`` is ``(basis_i M) . basis_j``.
+    Batched 3x3 matmuls are per-batch loops in NumPy and lose to this.
+    """
+    T = [
+        [
+            basis[..., i, 0] * M[..., 0, c]
+            + basis[..., i, 1] * M[..., 1, c]
+            + basis[..., i, 2] * M[..., 2, c]
+            for c in range(3)
+        ]
+        for i in range(3)
+    ]
+    out = np.empty(np.broadcast_shapes(basis.shape[:-2], M.shape[:-2]) + (6,), dtype=T[0][0].dtype)
+    for k, (i, j) in enumerate(((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))):
+        out[..., k] = (
+            T[i][0] * basis[..., j, 0] + T[i][1] * basis[..., j, 1] + T[i][2] * basis[..., j, 2]
+        )
+    return out
+
+
+def _direction_quadratics(directions):
+    """``(..., 6)`` quadratic monomials ``[x^2, y^2, z^2, 2xy, 2xz, 2yz]`` of
+    ``(..., 3)`` directions; pairs with :func:`_pack_symmetric`."""
+    x, y, z = directions[..., 0], directions[..., 1], directions[..., 2]
+    return np.stack((x * x, y * y, z * z, 2.0 * x * y, 2.0 * x * z, 2.0 * y * z), axis=-1)
+
+
+def _envelope_at_quadratics(P6, Q6, D6):
+    """(amp, P) at every direction in ``D6`` (``(D, 6)``) for packed forms
+    ``P6``/``Q6`` (``(..., 6)``); both outputs are ``(..., D)``."""
+    lead = P6.shape[:-1]
+    n_dirs = D6.shape[0]
+    # One 2-D GEMM over the flattened leading axes: NumPy would otherwise
+    # dispatch a stack of small matmuls, one per leading index.
+    P = (P6.reshape(-1, 6) @ D6.T).reshape(lead + (n_dirs,))
+    Q = (Q6.reshape(-1, 6) @ D6.T).reshape(lead + (n_dirs,))
+    Q = np.abs(Q, out=Q) if np.isrealobj(Q) else np.abs(Q)
+    return _envelope_from_PQ(P, Q), P
 
 
 def _envelope_from_PQ(P, Q):
     """MD = sqrt(2) * (sqrt(P+Q) - sqrt(P-Q)), clamped against negative
     round-off inside the square roots."""
-    smin = np.maximum(P - Q, 0.0)
-    smax = np.maximum(P + Q, 0.0)
-    return np.sqrt(2.0 * smax) - np.sqrt(2.0 * smin)
+    smin = P - Q
+    np.maximum(smin, 0.0, out=smin)
+    smin *= 2.0
+    np.sqrt(smin, out=smin)
+    smax = P + Q
+    np.maximum(smax, 0.0, out=smax)
+    smax *= 2.0
+    np.sqrt(smax, out=smax)
+    smax -= smin
+    return smax
 
 
 def _k1_exact_envelope(E1, E2):
@@ -608,46 +701,54 @@ _REFINE_N_SEEDS = 6
 _REFINE_MIN_SEED_ANGLE_DEG = 25.0
 
 
-def _local_patch_directions(centers, half_angle, n_patch):
-    """Return ``n_patch`` unit directions within angular radius
-    ``half_angle`` (radians) of each row of ``centers``, an array of unit
-    vectors with an arbitrary leading batch shape ``(..., 3)``. Output has
-    shape ``(..., n_patch, 3)``.
-
-    Uses a deterministic spherical-cap parameterisation: an orthonormal
-    tangent basis ``(u, v)`` perpendicular to each center, then a
-    Fibonacci-spiral set of polar offsets bounded by ``half_angle``.
+def _local_patch_basis(centers):
+    """Orthonormal frame ``[c, u, v]`` around each unit vector in ``centers``
+    (arbitrary leading batch shape ``(..., 3)``): the center itself plus a
+    deterministic tangent basis ``(u, v)`` perpendicular to it. Output has
+    shape ``(..., 3, 3)`` with the three frame vectors as rows.
     """
     batch_shape = centers.shape[:-1]
-    c = centers.reshape(-1, 3)
+    c = np.ascontiguousarray(centers.reshape(-1, 3))
     m = c.shape[0]
+    cx, cy, cz = c[:, 0], c[:, 1], c[:, 2]
 
-    ref = np.tile(np.array([1.0, 0.0, 0.0]), (m, 1))
-    parallel = np.abs(np.sum(c * ref, axis=1)) > 0.99
+    # Reference axis: x, or y where the center is (nearly) parallel to x.
+    ref = np.zeros((m, 3), dtype=np.float64)
+    ref[:, 0] = 1.0
+    parallel = np.abs(cx) > 0.99
     if np.any(parallel):
         ref[parallel] = np.array([0.0, 1.0, 0.0])
+    rx, ry, rz = ref[:, 0], ref[:, 1], ref[:, 2]
 
-    u = np.cross(c, ref)
-    u_norm = np.linalg.norm(u, axis=1, keepdims=True)
+    basis = np.empty((m, 3, 3), dtype=np.float64)
+    basis[:, 0, :] = c
+    u = basis[:, 1, :]
+    v = basis[:, 2, :]
+    # Component-wise cross products (the multiply/subtract sequence of
+    # ``np.cross``, without its temporaries): u = c x ref, v = c x u.
+    u[:, 0] = cy * rz - cz * ry
+    u[:, 1] = cz * rx - cx * rz
+    u[:, 2] = cx * ry - cy * rx
+    u_norm = np.sqrt(u[:, 0] * u[:, 0] + u[:, 1] * u[:, 1] + u[:, 2] * u[:, 2])
     u_norm[u_norm == 0.0] = 1.0
-    u /= u_norm
-    v = np.cross(c, u)
+    u /= u_norm[:, None]
+    ux, uy, uz = u[:, 0], u[:, 1], u[:, 2]
+    v[:, 0] = cy * uz - cz * uy
+    v[:, 1] = cz * ux - cx * uz
+    v[:, 2] = cx * uy - cy * ux
+    return basis.reshape(*batch_shape, 3, 3)
 
+
+def _patch_weights(half_angle, n_patch):
+    """Frame weights ``(n_patch, 3)`` of a Fibonacci-spiral spherical cap of
+    angular radius ``half_angle`` (radians): direction ``p`` of the patch
+    around a center with frame ``[c, u, v]`` is ``w[p] @ [c, u, v]``.
+    """
     j = np.arange(n_patch, dtype=np.float64)
     golden_angle = np.pi * (3.0 - np.sqrt(5.0))
     r = half_angle * np.sqrt((j + 0.5) / n_patch)
     phi = golden_angle * j
-
-    cos_r = np.cos(r)
-    weight_u = np.sin(r) * np.cos(phi)
-    weight_v = np.sin(r) * np.sin(phi)
-
-    patch = (
-        c[:, None, :] * cos_r[None, :, None]
-        + u[:, None, :] * weight_u[None, :, None]
-        + v[:, None, :] * weight_v[None, :, None]
-    )
-    return patch.reshape(*batch_shape, n_patch, 3)
+    return np.stack((np.cos(r), np.sin(r) * np.cos(phi), np.sin(r) * np.sin(phi)), axis=1)
 
 
 def _diverse_top_m_directions(amp, directions, n_seeds, min_angle_deg):
@@ -676,25 +777,22 @@ def _diverse_top_m_directions(amp, directions, n_seeds, min_angle_deg):
     remaining = amp.copy()
     chosen_idx = np.zeros((n, n_seeds), dtype=np.int64)
 
+    # Pairwise cosines between grid directions are candidate-independent:
+    # look them up per chosen seed instead of re-multiplying per element.
+    grid_cos = directions @ directions.T  # (num_directions, num_directions)
+    too_close = grid_cos > min_cos
+
     for s in range(n_seeds):
         idx = np.argmax(remaining, axis=1)
         chosen_idx[:, s] = idx
         if s == n_seeds - 1:
             break
-        cos_to_chosen = (directions @ directions[idx].T).T  # (n, num_directions)
-        remaining = np.where(cos_to_chosen > min_cos, -np.inf, remaining)
+        np.copyto(remaining, -np.inf, where=too_close[idx])
 
     return chosen_idx
 
 
-def _refine_local_directions(
-    arrs_chunk,
-    psi,
-    directions,
-    amp,
-    P,
-    num_directions,
-):
+def _refine_local_directions(M_P, M_Q, directions, amp, P, num_directions):
     """Multi-seed local-patch refinement of a coarse Fibonacci-sweep result.
 
     Refines around ``_REFINE_N_SEEDS`` diverse coarse-sweep candidates per
@@ -702,6 +800,20 @@ def _refine_local_directions(
     result across seeds and rounds. The seed axis is a vectorised batch
     dimension throughout, so this costs a bounded multiple of a
     single-seed refinement, not a per-seed Python loop.
+
+    Each round expresses the envelope forms in the local frame of every
+    seed (``B M B^T``, :func:`_local_patch_basis`) and evaluates the patch
+    through :func:`_patch_weights` -- the patch directions are never
+    materialised, only the winning one is reconstructed.
+
+    Parameters
+    ----------
+    M_P, M_Q : np.ndarray, shape (n, 3, 3)
+        Per-element envelope forms from :func:`_quadratic_forms`.
+    directions : np.ndarray, shape (num_directions, 3)
+        Coarse sweep grid.
+    amp, P : np.ndarray, shape (n, num_directions)
+        Coarse sweep envelope and carrier power at every grid direction.
 
     Returns
     -------
@@ -720,19 +832,23 @@ def _refine_local_directions(
     best_P = np.take_along_axis(P, top_idx, axis=1)  # (n, S)
 
     half_angle = 2.0 / np.sqrt(num_directions)
-    seed_rows = np.arange(n)[:, None, None]
-    seed_cols = np.arange(n_seeds)[None, :, None]
+    seed_rows = np.arange(n)[:, None]
+    seed_cols = np.arange(n_seeds)[None, :]
+    M_P = M_P[:, None]  # (n, 1, 3, 3), broadcast over seeds
+    M_Q = M_Q[:, None]
 
     for _ in range(_REFINE_N_ROUNDS):
-        patch = _local_patch_directions(best_dir, half_angle, _REFINE_PATCH_SIZE)
-        proj = [np.einsum("nd,nspd->nsp", field, patch) for field in arrs_chunk]
-        Pc, Qc = _pairwise_products(proj, psi)  # (n, S, patch)
-        ampc = _envelope_from_PQ(Pc, Qc)  # (n, S, patch)
+        basis = _local_patch_basis(best_dir)  # (n, S, 3, 3)
+        weights = _patch_weights(half_angle, _REFINE_PATCH_SIZE)  # (patch, 3)
+        W6 = _direction_quadratics(weights)  # (patch, 6)
+        P6 = _pack_frame_form(basis, M_P)  # (n, S, 6)
+        Q6 = _pack_frame_form(basis, M_Q)
+        ampc, Pc = _envelope_at_quadratics(P6, Q6, W6)  # (n, S, patch)
 
         idx = np.argmax(ampc, axis=2)  # (n, S)
-        cand_md = np.take_along_axis(ampc, idx[:, :, None], axis=2)[:, :, 0]
-        cand_P = np.take_along_axis(Pc, idx[:, :, None], axis=2)[:, :, 0]
-        cand_dir = patch[seed_rows, seed_cols, idx[:, :, None], :][:, :, 0, :]
+        cand_md = ampc[seed_rows, seed_cols, idx]
+        cand_P = Pc[seed_rows, seed_cols, idx]
+        cand_dir = np.einsum("nsk,nskd->nsd", weights[idx], basis)
 
         improved = cand_md > best_md
         best_md = np.where(improved, cand_md, best_md)
@@ -759,10 +875,15 @@ def _sweep_envelope_chunk(arrs_chunk, psi, directions):
     Returns
     -------
     amp, P : np.ndarray, each shape (n_chunk, num_directions)
+    M_P, M_Q : np.ndarray, each shape (n_chunk, 3, 3)
+        The per-element forms (:func:`_quadratic_forms`) the sweep was
+        evaluated from, for reuse by the local refinement.
     """
-    proj = [field @ directions.T for field in arrs_chunk]
-    P, Q = _pairwise_products(proj, psi)
-    return _envelope_from_PQ(P, Q), P
+    M_P, M_Q = _quadratic_forms(arrs_chunk, psi)
+    amp, P = _envelope_at_quadratics(
+        _pack_symmetric(M_P), _pack_symmetric(M_Q), _direction_quadratics(directions)
+    )
+    return amp, P, M_P, M_Q
 
 
 def _mti_modulation_depth_avg(arrs, psi, num_directions=192, chunk_size=16384):
@@ -780,7 +901,7 @@ def _mti_modulation_depth_avg(arrs, psi, num_directions=192, chunk_size=16384):
     for start in range(0, n_vox, chunk_size):
         stop = min(start + chunk_size, n_vox)
         arrs_chunk = [field[start:stop] for field in arrs]
-        amp, _ = _sweep_envelope_chunk(arrs_chunk, psi, directions)
+        amp, _, _, _ = _sweep_envelope_chunk(arrs_chunk, psi, directions)
         avg_md[start:stop] = np.mean(amp, axis=1)
 
     return avg_md
@@ -802,11 +923,11 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     for start in range(0, n_vox, chunk_size):
         stop = min(start + chunk_size, n_vox)
         arrs_chunk = [field[start:stop] for field in arrs]
-        amp, P = _sweep_envelope_chunk(arrs_chunk, psi, directions)
+        amp, P, M_P, M_Q = _sweep_envelope_chunk(arrs_chunk, psi, directions)
 
         if refine:
             chunk_md, chunk_P, chunk_dir = _refine_local_directions(
-                arrs_chunk, psi, directions, amp, P, num_directions
+                M_P, M_Q, directions, amp, P, num_directions
             )
         else:
             idx = np.argmax(amp, axis=1)

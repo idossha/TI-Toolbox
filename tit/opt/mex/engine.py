@@ -32,6 +32,32 @@ class MExSearchEngine(ExSearchEngine):
     ):
         super().__init__(leadfield_hdf, roi_file, roi_name, logger)
         self.channels = channels
+        self._eval_subset = None
+
+    def initialize(self, roi_radius: float = 3.0) -> None:
+        super().initialize(roi_radius=roi_radius)
+        self._eval_subset = None
+
+    def _evaluation_subset(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Elements the ROI metrics actually depend on, plus index maps.
+
+        The K>=2 envelope (:func:`tit.calc.get_mTI_vectors`) is a per-element
+        direction search -- far costlier than the 2-pair closed form -- so it
+        is evaluated only on ``ROI | GM`` (every element the metrics read),
+        not the whole leadfield. Returns ``(subset, roi_pos, gm_pos)`` where
+        ``subset`` is sorted and ``roi_pos``/``gm_pos`` index into it in the
+        same order as ``roi_indices``/``gm_indices`` (so the volume weights
+        still line up). Cached per ``(roi_indices, gm_indices)`` pair.
+        """
+        roi = np.asarray(self.roi_indices, dtype=np.intp)
+        gm = np.asarray(self.gm_indices, dtype=np.intp)
+        cache = self._eval_subset
+        if cache is None or cache[0] is not roi or cache[1] is not gm:
+            subset = np.union1d(roi, gm)
+            roi_pos = np.searchsorted(subset, roi)
+            gm_pos = np.searchsorted(subset, gm)
+            cache = self._eval_subset = (roi, gm, subset, roi_pos, gm_pos)
+        return cache[2], cache[3], cache[4]
 
     def compute_mti_field(
         self,
@@ -39,19 +65,20 @@ class MExSearchEngine(ExSearchEngine):
         current_mA: float,
     ) -> dict[str, float]:
         """Compute one four-pair mTI candidate and return ROI metrics."""
+        subset, roi_pos, gm_pos = self._evaluation_subset()
         fields = [
             TI.get_field(
                 [electrodes[idx], electrodes[idx + 1], current_mA / 1000.0],
                 self.leadfield,
                 self.idx_lf,
-            )
+            )[subset]
             for idx in range(0, 8, 2)
         ]
 
         vectors = get_mTI_vectors(fields, channels=self.channels)
-        metric_full = np.linalg.norm(vectors, axis=1)
-        field_roi = metric_full[self.roi_indices]
-        field_gm = metric_full[self.gm_indices]
+        metric = np.linalg.norm(vectors, axis=1)
+        field_roi = metric[roi_pos]
+        field_gm = metric[gm_pos]
 
         n_elements = int(len(field_roi))
         if n_elements == 0:
