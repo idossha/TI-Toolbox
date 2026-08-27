@@ -250,6 +250,18 @@ Bucket search with 3·3·2·2·2·2·2·2 candidate electrodes for `e1_plus` …
 
 *`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits.*
 
+**Symmetric (bilateral) search.** With `symmetric_bucket: true` and `symmetry_pairing: "within_pairs"` only left/right-mirrored pairs are enumerated: each pair's minus electrode must be the mirror of its plus electrode (F7–F8, CP5–CP6, …), so the buckets are written as left candidates in `e{k}_plus` and their mirrors in `e{k}_minus`. The mirror map is derived from the leadfield's EEG-position CSV (`symmetry_eeg_csv`, inferred from `{subject}_leadfield_{net}.hdf5` when omitted). Five bilateral candidates per pair → 5⁴ = 625 candidates, 13.9 min (1.33 s each):
+
+| Best bilateral montages | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+|---|---|---|---|---|---|
+| F7_F8 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3910 | 0.2103 | 0.1074 | 1.9577 | 0.4117 |
+| F7_F8 <> CP5_CP6 <> F1_F2 <> P9_P10 | 0.3920 | 0.2102 | 0.1073 | 1.9584 | 0.4117 |
+| F5_F6 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3915 | 0.2085 | 0.1057 | 1.9722 | 0.4113 |
+
+![symmetric mex-search intensity vs focality]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png)
+
+*Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry; `symmetry_pairing: "cross_pairs"` additionally mirrors pair 1↔3 and 2↔4.*
+
 **Effect of carrier wiring.** Re-running a 16-candidate subset with `channels = [[[0,2],[1,3]]]` (four pairs sharing two carriers) keeps the same ranking but raises the envelope ~1.45× (best montage `F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`: TImean_ROI 0.307 → 0.444 V/m, focality 1.96 → 1.78). This is why `channels` must be chosen deliberately (see [Carrier Wiring](#carrier-wiring-channels)).
 
 <div class="image-row">
