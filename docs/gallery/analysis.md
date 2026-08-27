@@ -50,6 +50,44 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Spherical ROI Analysis</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_max.png" alt="Spherical TI_max analysis" onclick="openLightbox(this)" />
+      <p>TImax within a spherical ROI defined by centre coordinate and radius, independent of any atlas parcellation.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_normal.png" alt="Spherical TI_normal analysis" onclick="openLightbox(this)" />
+      <p>Normal component of the field in the same spherical ROI.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Atlas Resampling</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_atlas_under_field.png" alt="Original atlas, not aligned" onclick="openLightbox(this)" />
+      <p>An atlas volume at its native grid, overlaid under the field &mdash; the mismatch with the field grid is visible.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_aligned_atlas_under_field.png" alt="Resampled atlas, aligned" onclick="openLightbox(this)" />
+      <p>The same atlas after resampling onto the field grid, so per-region statistics sample the correct voxels.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Tissue Analyzer</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/tissue-analyzer/bone_combined_publication_figure.png" alt="Bone tissue analysis" onclick="openLightbox(this)" />
+      <p>Combined bone analysis figure produced by the tissue analyzer: per-tissue field statistics assembled into a publication-ready panel.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

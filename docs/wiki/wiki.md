@@ -24,8 +24,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
-- **[Brain Atlases](atlases)** - The four MNI-space atlases shipped with TI-Toolbox
-- **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
+- **[Brain Atlases](atlases)** - The MNI-space atlases shipped with TI-Toolbox, the subject-space parcellations built during pre-processing, and atlas resampling
 - **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head
 - **[Electrode Mapping](electrode-mapping)** - Optimal electrode position mapping to EEG nets
 

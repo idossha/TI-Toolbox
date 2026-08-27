@@ -280,11 +280,11 @@ Bucket search with 3·3·2·2·2·2·2·2 candidate electrodes for `e1_plus` …
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{ site.baseurl }/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search, independent channels (16 candidates)">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search, independent channels (16 candidates)">
     <em>Independent channels (16 candidates)</em>
   </div>
   <div class="image-container">
-    <img src="{ site.baseurl }/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search, two carriers (16 candidates)">
+    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search, two carriers (16 candidates)">
     <em>Four pairs, two carriers (same 16)</em>
   </div>
 </div>

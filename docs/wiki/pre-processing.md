@@ -56,8 +56,6 @@ Each modality folder is searched recursively, so DICOM files placed directly in 
 
 - **Template/MNI simulations** require a valid SimNIBS head model (`m2m`) and MNI transforms from CHARM/create_m2m. FreeSurfer `recon-all` is optional for basic simulations.
 - **Atlas-dependent cortical workflows** (surface labels, FreeSurfer-derived annotations, or analyses that explicitly read FreeSurfer outputs) require `recon-all` and the relevant atlas/annotation generation.
-- **Volume-atlas or MNI ROI workflows** depend on adequate anatomical field of view and registration quality. If CHARM reports cropped anatomy or poor registration, re-run preprocessing with full-head T1w/T2w coverage or adjust acquisition/FOV before relying on MNI/template ROIs.
-- When both CHARM/create_m2m and `recon-all` are enabled, check the GUI log/status output for the exact execution order used by your selected options.
 
 ## Processing Stages
 
@@ -128,37 +126,6 @@ derivatives/
         ├── label/         # Anatomical labels
         └── scripts/
 ```
-
-## Orchestration Script
-
-### Python Pipeline Orchestrator
-
-**Purpose:** Coordinates all pre-processing stages with flexible execution options
-
-#### Processing Options
-
-| Option | Description | Usage |
-|--------|-------------|-------|
-| `convert_dicom` | Include DICOM conversion stage | Optional |
-| `create_m2m` | Include SimNIBS head model creation (also runs `subject_atlas` for `.annot` files) | Optional |
-| `run_recon` | Run FreeSurfer reconstruction | Optional |
-| `parallel_recon` | Enable ThreadPoolExecutor multi-subject recon-all mode (multiple subjects, 1 core each) | Optional |
-| `parallel_cores` | Maximum number of subjects processed simultaneously when `parallel_recon` is on | Optional |
-| `run_tissue_analysis` | Run tissue segmentation analysis | Optional |
-| `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker | Optional |
-| `run_qsirecon` | Run QSIRecon reconstruction via Docker | Optional |
-| `extract_dti` | Extract DTI tensors for SimNIBS anisotropic conductivity | Optional |
-| `run_subcortical_segmentations` | Run thalamic nuclei and hippocampal subfield segmentations | Optional |
-| `skip_existing_outputs` | Skip selected steps when their expected output already exists | Optional |
-| `replace_existing_outputs` | Delete selected existing outputs and rerun those steps | Optional |
-
-When launching from the GUI, TI-Toolbox checks for existing outputs before
-starting the selected preprocessing steps. If DICOM, CHARM, FreeSurfer,
-QSIPrep, QSIRecon, or DTI tensor outputs already exist, the GUI asks whether
-to cancel, skip the existing outputs, or replace them and rerun. In scripts,
-leave both existing-output options disabled to fail fast, set
-`skip_existing_outputs=True` to preserve existing results, or set
-`replace_existing_outputs=True` for an intentional rerun.
 
 ## Parallelization Strategy
 

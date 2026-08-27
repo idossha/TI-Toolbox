@@ -28,6 +28,38 @@ permalink: /gallery/gmsh-freeview/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Gmsh Interface</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/gmsh_launching.png" alt="Gmsh launching" onclick="openLightbox(this)" />
+      <p>Launching Gmsh from the toolbox to display the head mesh with electric field data.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/gmsh_tools_menu.png" alt="Gmsh tools menu" onclick="openLightbox(this)" />
+      <p>The Gmsh tools menu, used for clipping the mesh and toggling element visibility.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/gmsh_options_menu.png" alt="Gmsh options menu" onclick="openLightbox(this)" />
+      <p>The Gmsh options menu for colour scales, ranges, and general display settings.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Freeview Interface</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/freeview_menu.png" alt="Freeview menu" onclick="openLightbox(this)" />
+      <p>Freeview overlay controls and atlas options before launching.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/freeview_example.png" alt="Freeview example" onclick="openLightbox(this)" />
+      <p>Freeview displaying an E-field overlay on the anatomical MRI.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

@@ -341,9 +341,30 @@ Comparing this table with the MNI one is a useful check on how far a subject's s
 
 <br>
 
+## Atlas Resampling
+
+Voxel-space ROI analysis requires the atlas and the field NIfTI to sit on the **same voxel grid**. They often do not: the field is written on the simulation's grid, while a subject-space parcellation comes off `recon-all` at whatever resolution that ran at. When `Analyzer` detects a shape mismatch it resamples the atlas onto the field grid before masking, so the two are compared voxel-for-voxel.
+
+| Original atlas (not aligned) | Resampled atlas (aligned) |
+|------------------------------|---------------------------|
+| ![Original Atlas]({{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_atlas_under_field.png) | ![Resampled Atlas]({{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_aligned_atlas_under_field.png) |
+
+The blue outline is the atlas region, the heat map is the field. On the left the outline does not follow the field data; on the right, after resampling, it does.
+
+**How it works.** The comparison is on shape alone (`atlas_arr.shape[:3] == field_arr.shape[:3]`); if they match, nothing happens. Otherwise the analyzer writes a zero-filled template at the field's shape and affine, and calls FreeSurfer's `mri_convert --reslice_like <template> <atlas> <output>`. The same routine also resamples tissue-mask NIfTIs when those mismatch. Both `.nii`/`.nii.gz` and FreeSurfer `.mgz` atlases are accepted; `.mgz` inputs come back out as NIfTI.
+
+**Caching.** The result is written next to the original atlas as `{atlas_stem}_resampled_{width}x{height}x{depth}.nii.gz` — for example `subject_dk40_resampled_512x512x512.nii.gz`. A later analysis on the same grid loads that file instead of resampling again, so the cost is paid once per (atlas, grid) pair. Original atlas files are never modified.
+
+Resampling is logged at INFO level, so a mismatch is visible in the analyzer's log rather than silent:
+
+```
+INFO | tit.analyzer | Resampling atlas (256, 256, 256) -> (512, 512, 512) (caching to .../subject_dk40_resampled_512x512x512.nii.gz)
+```
+
+<br>
+
 ## See Also
 
-- [Atlas Resampling]({{ site.baseurl }}/wiki/atlas-resampling/) — how the toolbox aligns an atlas to a subject's field data
 - [Analyzer]({{ site.baseurl }}/wiki/analyzer/) — the primary consumer of ROI/atlas selection
 - [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) — how the subject-space atlases get generated
 - Return to [Wiki]({{ site.baseurl }}/wiki/)

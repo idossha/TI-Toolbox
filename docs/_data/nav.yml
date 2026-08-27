@@ -38,7 +38,6 @@ wiki:
     - { title: Reports, url: /wiki/reports/ }
     - { title: Logging, url: /wiki/logging/ }
     - { title: Brain Atlases, url: /wiki/atlases/ }
-    - { title: Atlas Resampling, url: /wiki/atlas-resampling/ }
     - { title: Montage Visualizer, url: /wiki/montage_visualizer/ }
     - { title: Electrode Mapping, url: /wiki/electrode-mapping/ }
     - group: Extensions

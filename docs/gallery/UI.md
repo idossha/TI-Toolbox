@@ -56,6 +56,16 @@ permalink: /gallery/UI/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Electrode Placement</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/electrode-placement/freehand.png" alt="Freehand electrode placement" onclick="openLightbox(this)" />
+      <p>Freehand electrode placement, where each electrode pair receives a distinct colour for visual organization.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

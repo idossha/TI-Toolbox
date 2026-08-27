@@ -40,6 +40,64 @@ permalink: /gallery/ex-search/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>EEG Cap Result Maps</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/ex-search/electrode_score_heatmap.png" alt="Electrode contribution heatmap" onclick="openLightbox(this)" />
+      <p><code>electrode_score_heatmap.png</code>: electrode participation across the top-50 montages &mdash; colour is the summed Composite Index, marker size the frequency with which the electrode appears.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/ex-search/montage_strength_map.png" alt="Montage strength map" onclick="openLightbox(this)" />
+      <p><code>montage_strength_map.png</code>: the top-150 montages drawn as arcs on the EEG cap, coloured by <code>TImean_ROI</code>, with the best montage highlighted.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Symmetric (Hemisphere-Mirrored) Search</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_montage_strength_map.png" alt="Symmetric ex-search montage strength map" onclick="openLightbox(this)" />
+      <p>Montage strength map for a symmetric run, where every electrode is paired with its contralateral mirror &mdash; the arcs stay bilaterally balanced by construction.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_scatter.png" alt="Symmetric ex-search intensity vs focality" onclick="openLightbox(this)" />
+      <p>Intensity versus focality for the same symmetric run; the mirrored constraint shrinks the candidate set and shifts the Pareto front relative to the unconstrained search.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Multipolar Exhaustive Search (mex-search)</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_electrode_score_heatmap.png" alt="mex-search electrode contribution heatmap" onclick="openLightbox(this)" />
+      <p>Electrode contributions across the best 4-channel mTI montages, scored the same way as the 2-channel heatmap.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_montage_strength_map.png" alt="mex-search montage strength map" onclick="openLightbox(this)" />
+      <p>Top mex-search montages drawn on the cap; each montage contributes four arcs, one per channel.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_large.png" alt="mex-search intensity vs focality, 576 candidates" onclick="openLightbox(this)" />
+      <p>Intensity versus focality over 576 mex-search candidates &mdash; the largest of the example runs.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png" alt="Symmetric mex-search intensity vs focality" onclick="openLightbox(this)" />
+      <p>The same plot for a symmetric mex-search, with all four channels mirrored across the midline.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search, independent channels" onclick="openLightbox(this)" />
+      <p>A 16-candidate run with four independent carriers, one per channel.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search, two carriers" onclick="openLightbox(this)" />
+      <p>The same 16 candidates wired as two carriers shared across four channels, for comparison against the independent wiring.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

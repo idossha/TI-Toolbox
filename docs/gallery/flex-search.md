@@ -9,7 +9,7 @@ permalink: /gallery/flex-search/
 <div class="gallery-section">
   <h3>Evolutionary Electrode Optimization</h3>
   <div class="gallery-grid">
-    <div class="gallery-item">m
+    <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
       <p>Evolutionary optimization showing flexible electrode placement unbound by EEG net discretization.</p>
     </div>
@@ -56,6 +56,42 @@ permalink: /gallery/flex-search/
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" onclick="openLightbox(this)" />
       <p>Visualization of valid skin regions for electrode placement with HD-EEG electrode positions.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Optimization Goals & the Focality Study</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_summary.png" alt="Optimization goal comparison" onclick="openLightbox(this)" />
+      <p>Goal comparison across a 75-run mini-study: separation (AUC) plotted against the on-target field it was achieved on &mdash; a high ratio score on almost no field is the failure mode to watch for.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_roc.png" alt="Group ROC curves per deep target" onclick="openLightbox(this)" />
+      <p>Group ROC curves for each deep target across all five optimization goals.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_dist.png" alt="Pooled TI envelope field distributions" onclick="openLightbox(this)" />
+      <p>Pooled TI envelope field distributions by target and goal, showing where each goal puts the field it produces.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" onclick="openLightbox(this)" />
+      <p>Effect of the inter-channel current split on the TI envelope: the split both scales the envelope (the ceiling follows the weaker channel) and steers it toward that channel.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Scalp Constraints & Net Density</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" onclick="openLightbox(this)" />
+      <p>Valid-skin margins with <code>avoid_landmark_regions=True</code>: fiducial-derived ear and orbital exclusion zones stay invalid, using scalp landmarks (<code>Nz</code>, <code>LPA</code>, <code>RPA</code>) only.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="EEG net density impact on TImax" onclick="openLightbox(this)" />
+      <p>Effect of EEG net density on achievable TImax after mapping optimized positions onto a discrete net.</p>
     </div>
   </div>
 </div>
