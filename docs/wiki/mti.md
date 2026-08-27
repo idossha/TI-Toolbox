@@ -237,29 +237,33 @@ The candidate key/name format is `TI_field_{e1a}_{e1b}_and_{e2a}_{e2b}_and_{e3a}
 
 ### Example run (sub-ernie, v2.4.0)
 
-Two bucket searches over the same 16 candidates (2 × 1 × 2 × 1 × 1 × 2 × 1 × 2 electrodes for `e1_plus` … `e4_minus`, Jurak 10-10 leadfield, 5 mm ROI at MNI (−38, 5, 0), `current_mA = 1.0`), differing only in `channels`:
+Bucket search with two candidate electrodes per position (`e1_plus` … `e4_minus` → 2⁸ = 256 four-pair candidates), Jurak 10-10 leadfield, 5 mm ROI at MNI (−38, 5, 0), `current_mA = 1.0`, `channels = null` (two independent channels). Wall time 55 min (12.9 s per candidate, single process).
 
-| Wiring (`channels`) | Best montage (by `Composite_Index`) | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
-|---|---|---|---|---|---|---|
-| Two independent channels (`null`) | F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.4769 | 0.3074 | 0.1571 | 1.9573 | 0.6017 |
-| Four pairs, two carriers (`[[[0,2],[1,3]]]`) | F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.6962 | 0.4438 | 0.2498 | 1.7767 | 0.7885 |
+| Best montages (by `Composite_Index`) | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+|---|---|---|---|---|---|
+| F7_P7 <> F5_P5 <> F3_P3 <> AF7_P9 | 0.5154 | 0.3196 | 0.1769 | 1.8069 | 0.5774 |
+| F7_P7 <> F5_CP5 <> F3_P3 <> AF7_P9 | 0.4809 | 0.3061 | 0.1633 | 1.8742 | 0.5737 |
+| F7_TP7 <> F5_CP5 <> F3_P3 <> AF7_P9 | 0.4766 | 0.3006 | 0.1593 | 1.8871 | 0.5673 |
+| F7_P7 <> F5_P5 <> F3_CP3 <> F9_PO7 | 0.4684 | 0.3006 | 0.1602 | 1.8758 | 0.5638 |
 
-The ranking is the same under both wirings here, but the absolute envelope differs by ~1.45× — this is why `channels` must be chosen deliberately (see [Carrier Wiring](#carrier-wiring-channels)).
+![mex-search intensity vs focality, 256 candidates]({ site.baseurl }/assets/imgs/mti/mex_scatter_256.png)
+
+*`intensity_vs_focality_scatter.png`: the 256 candidates trace the intensity–focality trade-off; the top-right frontier is where the `Composite_Index` maximum sits.*
+
+**Effect of carrier wiring.** Re-running a 16-candidate subset with `channels = [[[0,2],[1,3]]]` (four pairs sharing two carriers) keeps the same ranking but raises the envelope ~1.45× (best montage `F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`: TImean_ROI 0.307 → 0.444 V/m, focality 1.96 → 1.78). This is why `channels` must be chosen deliberately (see [Carrier Wiring](#carrier-wiring-channels)).
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search intensity vs focality, independent channels">
-    <em>Independent channels</em>
+    <img src="{ site.baseurl }/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search, independent channels (16 candidates)">
+    <em>Independent channels (16 candidates)</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search intensity vs focality, two carriers">
-    <em>Four pairs, two carriers</em>
+    <img src="{ site.baseurl }/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search, two carriers (16 candidates)">
+    <em>Four pairs, two carriers (same 16)</em>
   </div>
 </div>
 
-*`intensity_vs_focality_scatter.png` for both runs.*
-
-**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like 2-pair ex-search, so it is far slower: ~13.5 s per candidate on this 1.86M-element leadfield after the envelope was restricted to ROI ∪ GM and rewritten as quadratic forms (it was ~58 s before). Keep buckets small — 16 candidates ≈ 4 min, 256 ≈ 1 h — and note there is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
+**Cost.** Scoring one 4-pair candidate with the verified N>2 envelope is a per-element direction search (192-direction sweep plus local refinement), not a closed form like 2-pair ex-search, so it is far slower: ~13 s per candidate on this 1.86M-element leadfield after the envelope was restricted to ROI ∪ GM and rewritten as quadratic forms (it was ~58 s before). Plan bucket sizes accordingly (256 candidates ≈ 55 min) and note there is no current-ratio sweep in mex-search; each run uses a single `current_mA`.
 
 ### Running it
 
