@@ -12,7 +12,7 @@ permalink: /installation/macos/
 
 ### X Server for GUI
 Install [XQuartz](https://www.xquartz.org/) for GUI display:
-- Download and install XQuartz from the official website
+- Download and install **XQuartz 2.7.7** (not a newer release) from the [XQuartz release archive](https://www.xquartz.org/releases/archive.html) — newer versions cause OpenGL rendering problems in Gmsh and FreeView
 - Log out and back in (or restart) after installation
 - On the first launch of a project, the loader enables *Allow connections from network clients* for you (`defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false`); restart XQuartz once afterwards
 
