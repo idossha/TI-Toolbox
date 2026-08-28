@@ -64,11 +64,11 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <h3>Larissa Albantakis</h3>
         <p class="contributor-role">Core Contributor</p>
         <p class="contributor-description">
-          Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry.
+          Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry at University of Wisconsin - Madison.
         </p>
         <ul class="contributor-list">
-          <li>Multipolar TI: field math: modulation envelope, Fibonacci-sphere direction, magnitude-AM measure (2.5)</li>
-          <li>Multipolar exhaustive search and Symmetric bucket search(2.5)</li>
+          <li>Multipolar TI field math: modulation envelope, Fibonacci-sphere direction, magnitude-AM measure (2.5)</li>
+          <li>Exhaustive search: multipolar extension, symmetric bucket constraint, montage heatmaps(2.5)</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
