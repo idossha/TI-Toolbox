@@ -67,10 +67,8 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry.
         </p>
         <ul class="contributor-list">
-          <li>Multipolar TI field math: the K&ge;2 modulation envelope, Fibonacci-sphere direction sampling, and the magnitude-AM measure (2.5)</li>
-          <li>Peak high-frequency field calculation (2.5)</li>
+          <li>Multipolar TI: field math: modulation envelope, Fibonacci-sphere direction, magnitude-AM measure (2.5)</li>
           <li>Multipolar exhaustive search and Symmetric bucket search(2.5)</li>
-          <li>Subject-space ROIs from local MNI masks, incl. functional thalamus ROIs (2.5)</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
@@ -100,10 +98,9 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
           Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distributions.
         </p>
         <ul class="contributor-list">
-          <li>Analyzer visualizations: scatter plots and cortex/whole-brain overlays (2.0)</li>
+          <li>Analyzer visualizations (2.0)</li>
           <li>Central logging utility(2.0)</li>
           <li>BIDS compliance (2.1)</li>
-          <li>Atlas resampling optimization (2.0)</li>
         </ul>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
