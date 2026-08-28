@@ -30,9 +30,9 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 
 - Analyze field data within spherical regions of interest
 - Customizable center coordinates and radius
-- Multi-sphere table: each row (`x,y,z,r`) runs as its own separate analysis by default — N rows produce N independent result sets
-- **Combine selected spheres into one ROI**: tick this and the rows are unioned into a single ROI, giving one analysis and one result set for all of them (overlapping spheres are not double-counted). The output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
-- Group analysis runs one ROI across all subjects: several sphere rows are accepted only when they are combined, otherwise extra rows are rejected with a warning
+- Multiple spheres: type `x,y,z,r` and press Enter / **Add Sphere** — each sphere becomes a removable chip. By default every sphere runs as its own separate analysis — N spheres produce N independent result sets
+- **Combine spheres into one ROI**: tick this and the spheres are unioned into a single ROI, giving one analysis and one result set for all of them (overlapping spheres are not double-counted). The output folder is named `spheres<N>_...`, and long unions are shortened to the first sphere plus a hash
+- Group analysis runs one ROI across all subjects: several spheres are accepted only when they are combined, otherwise extra spheres are rejected with a warning
 - Support for subject-space and MNI coordinates (automatic transformation)
 - Dual-field analysis: TI_max and TI_normal components (mesh space)
 - Statistical metrics: mean, max, min, focality, percentiles, and area-based focality
@@ -40,6 +40,7 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 **Cortical Analysis (Region Union)**
 
 - Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
+- **Combine regions into one ROI** (GUI, on by default): untick it to run one separate analysis per selected region instead of a union. Group analysis requires the combined form when more than one region is selected
 - In mesh space, a bare region name (e.g. `cuneus`) expands to both hemispheres (`lh.cuneus` + `rh.cuneus`)
 - Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz`, plus the subject's own `segmentation/labeling.nii.gz`
 - The four bundled MNI atlases (used elsewhere for subcortical ROI targeting) are not offered by the analyzer

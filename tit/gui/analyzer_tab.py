@@ -292,7 +292,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on space selection."""
-        if hasattr(self, "coordinates_label") and hasattr(self, "spheres_table"):
+        if hasattr(self, "coordinates_label") and hasattr(self, "sphere_edit"):
             row_tooltip = None
             if self.coord_space_mni.isChecked():
                 self.coordinates_label.setText("MNI RAS (x,y,z,r):")
@@ -321,10 +321,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                         "View T1 in Freeview to help find coordinates"
                     )
 
-            for row in range(self.spheres_table.rowCount()):
-                edit = self.spheres_table.cellWidget(row, 0)
-                if edit is not None:
-                    edit.setToolTip(row_tooltip)
+            self.sphere_edit.setToolTip(
+                f"{row_tooltip}. Press Enter or 'Add Sphere' to add it."
+            )
 
     def get_selected_subjects(self):
         """Get selected subjects from pairs table."""
@@ -786,12 +785,24 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.region_chips.setToolTip(
             "Selected regions for cortical analysis. Use 'List Regions' to add "
             "regions; each chip shows the region name and its atlas label index. "
-            "Multiple regions combine into one ROI; press ✕ on a chip to remove it."
+            "Multiple regions are combined into one ROI or analyzed separately "
+            "(see the checkbox below); press ✕ on a chip to remove it."
         )
         _chips_policy = self.region_chips.sizePolicy()
         _chips_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
         self.region_chips.setSizePolicy(_chips_policy)
         cortical_layout.addWidget(self.region_chips)
+
+        self.combine_regions_checkbox = QtWidgets.QCheckBox(
+            "Combine regions into one ROI"
+        )
+        self.combine_regions_checkbox.setToolTip(
+            "Checked: union every selected region into a single ROI and run "
+            "one analysis. Unchecked: run one analysis per region (one result "
+            "set each)."
+        )
+        self.combine_regions_checkbox.setChecked(True)
+        cortical_layout.addWidget(self.combine_regions_checkbox)
 
         # Now that region_chips exists, wire the "Clear" button created above.
         self.clear_regions_btn.clicked.connect(self.region_chips.clear)
@@ -814,69 +825,60 @@ class AnalyzerTab(QtWidgets.QWidget):
         coord_space_row.addStretch()
         spherical_layout.addLayout(coord_space_row)
 
-        # Coordinates & Radius — one or more spheres, each a row of "x,y,z,r".
-        # A single row reproduces the classic single-sphere behavior exactly
-        # (see parse_sphere_rows / _parse_all_spheres); extra rows each run
-        # their own separate analysis (N spheres -> N analyses), following the
-        # multi-sphere table already used by the flex-search ROI picker
-        # (tit/gui/components/roi_picker.py) — recycled here as a lightweight
-        # local table (rather than embedding that widget wholesale) since the
-        # analyzer's cortical/space/tissue handling is not shared with it.
+        # Spheres are entered one at a time in a single "x,y,z,r" line edit and
+        # added as removable chips (same pattern as the cortical region chips).
+        # A single sphere reproduces the classic single-sphere behavior exactly
+        # (see parse_sphere_rows / _parse_all_spheres); extra spheres each run
+        # their own separate analysis unless combined into one ROI.
         self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z,r):")
         self.coordinates_label.setSizePolicy(
             QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
         )
         spherical_layout.addWidget(self.coordinates_label)
 
-        self.spheres_table = QtWidgets.QTableWidget(0, 2)
-        self.spheres_table.setHorizontalHeaderLabels(["x,y,z,r", ""])
-        sph_header = self.spheres_table.horizontalHeader()
-        sph_header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-        sph_header.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
-        self.spheres_table.setColumnWidth(1, 32)
-        self.spheres_table.verticalHeader().setVisible(False)
-        self.spheres_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.spheres_table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.spheres_table.setMinimumHeight(90)
-        self.spheres_table.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        sphere_entry_row = QtWidgets.QHBoxLayout()
+        sphere_entry_row.setSpacing(10)
+        self.sphere_edit = QtWidgets.QLineEdit()
+        self.sphere_edit.setPlaceholderText("x,y,z,r")
+        self.sphere_edit.setToolTip(
+            "Sphere centre and radius as 'x,y,z,r'. Press Enter or 'Add Sphere' "
+            "to add it to the list below."
         )
-        self.spheres_table.setToolTip(
-            "Each row is a sphere ('x,y,z,r'). A single row behaves exactly "
-            "like the classic single-sphere analysis. Additional rows each "
-            "run as a separate analysis (one result per sphere), unless "
-            "'Combine selected spheres into one ROI' is checked."
-        )
-        spherical_layout.addWidget(self.spheres_table)
+        self.sphere_edit.returnPressed.connect(self._add_sphere_from_edit)
+        sphere_entry_row.addWidget(self.sphere_edit, 1)
 
-        sphere_btn_row = QtWidgets.QHBoxLayout()
-        sphere_btn_row.setSpacing(10)
         self.add_sphere_btn = QtWidgets.QPushButton("Add Sphere")
         self.add_sphere_btn.setToolTip(
-            "Add another sphere row. Each sphere runs as its own analysis "
-            "unless the spheres are combined into one ROI."
+            "Add the sphere from the entry field. Each sphere runs as its own "
+            "analysis unless the spheres are combined into one ROI."
         )
-        self.add_sphere_btn.clicked.connect(lambda: self._add_sphere_row())
-        self.remove_sphere_btn = QtWidgets.QPushButton("Remove Selected")
-        self.remove_sphere_btn.setToolTip("Remove the selected sphere row(s).")
-        self.remove_sphere_btn.clicked.connect(self._remove_selected_sphere_rows)
-        sphere_btn_row.addWidget(self.add_sphere_btn)
-        sphere_btn_row.addWidget(self.remove_sphere_btn)
-        sphere_btn_row.addStretch()
+        self.add_sphere_btn.clicked.connect(self._add_sphere_from_edit)
+        sphere_entry_row.addWidget(self.add_sphere_btn)
 
         self.view_in_freeview_btn = QtWidgets.QPushButton("View in Freeview")
         self.view_in_freeview_btn.setToolTip(
             "View T1 in Freeview to help find coordinates"
         )
         self.view_in_freeview_btn.clicked.connect(self.load_t1_in_freeview)
-        self.view_in_freeview_btn.setSizePolicy(
-            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed
+        sphere_entry_row.addWidget(self.view_in_freeview_btn)
+        spherical_layout.addLayout(sphere_entry_row)
+
+        self.sphere_chips = RegionChipsWidget(
+            placeholder="No spheres added — enter x,y,z,r above"
         )
-        sphere_btn_row.addWidget(self.view_in_freeview_btn)
-        spherical_layout.addLayout(sphere_btn_row)
+        self.sphere_chips.setToolTip(
+            "Added spheres. Each runs as a separate analysis unless "
+            "'Combine spheres into one ROI' is checked. Press ✕ to remove one."
+        )
+        _sph_policy = self.sphere_chips.sizePolicy()
+        _sph_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
+        self.sphere_chips.setSizePolicy(_sph_policy)
+        # Alias kept for the enable/disable bookkeeping below.
+        self.spheres_table = self.sphere_chips
+        spherical_layout.addWidget(self.sphere_chips)
 
         self.combine_spheres_checkbox = QtWidgets.QCheckBox(
-            "Combine selected spheres into one ROI"
+            "Combine spheres into one ROI"
         )
         self.combine_spheres_checkbox.setToolTip(
             "Union every sphere row into a single ROI and run one analysis, "
@@ -885,10 +887,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         self.combine_spheres_checkbox.setChecked(False)
         spherical_layout.addWidget(self.combine_spheres_checkbox)
-
-        # Seed one default row so the table is never empty — this is the
-        # exact single-sphere path exercised by all real-world usage today.
-        self._add_sphere_row()
 
         # Cortical and spherical target groups are placed in a QStackedWidget
         # rather than toggled via setVisible(). A QStackedWidget reserves the
@@ -1172,6 +1170,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         region_enabled = cortical_controls_enabled
         self.region_label.setEnabled(region_enabled)
         self.region_chips.setEnabled(region_enabled)
+        self.combine_regions_checkbox.setEnabled(region_enabled)
 
         # Update show regions button
         # Should be enabled for cortical analysis, but only if we have valid atlases
@@ -1295,10 +1294,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.coordinates_label.setEnabled(coordinates_enabled)
         if hasattr(self, "spheres_table"):
             self.spheres_table.setEnabled(coordinates_enabled)
+        if hasattr(self, "sphere_edit"):
+            self.sphere_edit.setEnabled(coordinates_enabled)
         if hasattr(self, "add_sphere_btn"):
             self.add_sphere_btn.setEnabled(coordinates_enabled)
-        if hasattr(self, "remove_sphere_btn"):
-            self.remove_sphere_btn.setEnabled(coordinates_enabled)
         if hasattr(self, "combine_spheres_checkbox"):
             self.combine_spheres_checkbox.setEnabled(coordinates_enabled)
         if hasattr(self, "view_in_freeview_btn"):
@@ -1446,6 +1445,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Disable all region/atlas controls
                 self.region_label.setEnabled(False)
                 self.region_chips.setEnabled(False)
+                self.combine_regions_checkbox.setEnabled(False)
                 self.show_regions_btn.setEnabled(False)
                 return  # Skip the centralized update, as we've set everything explicitly
 
@@ -1622,56 +1622,38 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         return self.validate_analysis_parameters()
 
-    def _add_sphere_row(self, text=""):
-        """Append a new sphere row ('x,y,z,r' line edit + delete button)."""
-        table = self.spheres_table
-        row = table.rowCount()
-        table.insertRow(row)
+    @staticmethod
+    def _sphere_key(text):
+        """Canonical chip key/display for an ``"x,y,z,r"`` string."""
+        x, y, z, r = parse_sphere_row(text)
+        return ", ".join(f"{v:g}" for v in (x, y, z, r))
 
-        edit = QtWidgets.QLineEdit()
-        edit.setPlaceholderText("x,y,z,r")
-        if text:
-            edit.setText(text)
-        table.setCellWidget(row, 0, edit)
-
-        del_btn = QtWidgets.QPushButton("x")
-        del_btn.setToolTip("Remove this sphere.")
-        del_btn.setFixedWidth(28)
-        del_btn.clicked.connect(lambda: self._remove_sphere_row_widget(del_btn))
-        table.setCellWidget(row, 1, del_btn)
-        return edit
-
-    def _remove_sphere_row_widget(self, button):
-        """Remove the row containing ``button``, always keeping >= 1 row."""
-        table = self.spheres_table
-        for row in range(table.rowCount()):
-            if table.cellWidget(row, 1) is button:
-                self._remove_sphere_at(row)
-                return
-
-    def _remove_sphere_at(self, row):
-        """Remove the sphere at ``row``, always keeping at least one row."""
-        table = self.spheres_table
-        if table.rowCount() <= 1:
+    def _add_sphere_from_edit(self):
+        """Validate the entry field and add it as a chip (clearing the field)."""
+        try:
+            key = self._sphere_key(self.sphere_edit.text())
+        except ValueError as exc:
+            QtWidgets.QMessageBox.warning(self, "Warning", str(exc))
             return
-        table.removeRow(row)
+        self.sphere_chips.add_item(key, key)
+        self.sphere_edit.clear()
 
-    def _remove_selected_sphere_rows(self):
-        """Remove all currently-selected sphere rows (keeping >= 1 row)."""
-        table = self.spheres_table
-        rows = sorted({idx.row() for idx in table.selectedIndexes()}, reverse=True)
-        for row in rows:
-            self._remove_sphere_at(row)
-        if table.rowCount() == 0:
-            self._add_sphere_row()
+    def _add_sphere_row(self, text=""):
+        """Add a sphere chip from ``text`` (kept for config loading)."""
+        if text:
+            key = self._sphere_key(text)
+            self.sphere_chips.add_item(key, key)
 
     def _get_sphere_row_texts(self):
-        """Return the raw 'x,y,z,r' text of every sphere row, in order."""
-        table = self.spheres_table
-        texts = []
-        for row in range(table.rowCount()):
-            edit = table.cellWidget(row, 0)
-            texts.append(edit.text() if edit is not None else "")
+        """Return every sphere as an ``"x,y,z,r"`` string, in order.
+
+        Added chips come first; a non-empty entry field that was never added
+        counts too, so typing one sphere and pressing Run keeps working.
+        """
+        texts = list(self.sphere_chips.keys())
+        pending = self.sphere_edit.text().strip()
+        if pending:
+            texts.append(pending)
         return texts
 
     def _parse_all_spheres(self, show_warning=True):
@@ -1700,6 +1682,13 @@ class AnalyzerTab(QtWidgets.QWidget):
             return None
         return spheres[0]
 
+    def _combine_regions(self):
+        """True when selected cortical regions are unioned into one ROI."""
+        return (
+            not hasattr(self, "combine_regions_checkbox")
+            or self.combine_regions_checkbox.isChecked()
+        )
+
     def _combine_spheres(self):
         """Whether the sphere rows should be unioned into a single ROI."""
         return (
@@ -1717,7 +1706,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self,
                     "Warning",
                     "Group analysis runs one ROI across all subjects. Check "
-                    "'Combine selected spheres into one ROI' to analyze the "
+                    "'Combine spheres into one ROI' to analyze the "
                     "spheres as a single ROI, remove the extra sphere rows, "
                     "or run single-subject analyses for the additional "
                     "spheres.",
@@ -1725,11 +1714,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return False
         elif self.type_cortical.isChecked():
             # Atlas selection for cortical is handled by validate_single/group_inputs
-            if not self.region_chips.keys():
+            regions = self.region_chips.keys()
+            if not regions:
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Warning",
                     "Please select a region for cortical analysis.",
+                )
+                return False
+            if self.is_group_mode and len(regions) > 1 and not self._combine_regions():
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Warning",
+                    "Group analysis runs one ROI across all subjects. Check "
+                    "'Combine regions into one ROI' to analyze the regions "
+                    "as a single ROI, remove the extra regions, or run "
+                    "single-subject analyses for the additional regions.",
                 )
                 return False
         return True
@@ -1812,8 +1812,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.analysis_finished(success=False)
                 return
             if len(cmds) > 1:
+                what = "sphere" if self.type_spherical.isChecked() else "region"
                 self.update_output(
-                    f"Running {len(cmds)} separate analyses (one per sphere)."
+                    f"Running {len(cmds)} separate analyses (one per {what})."
                 )
 
             # Mark thread start as early as possible to avoid race double-starts
@@ -2167,7 +2168,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n"  # Show path
             regions = self._get_regions()
-            details += f"- Region(s): {', '.join(regions)}\n"
+            if len(regions) > 1:
+                how = "combined into one ROI" if self._combine_regions() else "separate analyses"
+                details += f"- Regions ({len(regions)}, {how}): {', '.join(regions)}\n"
+            else:
+                details += f"- Region(s): {', '.join(regions)}\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -2409,13 +2414,14 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.type_spherical,
             self.type_cortical,
             self.spheres_table,
+            self.sphere_edit,
             self.add_sphere_btn,
-            self.remove_sphere_btn,
             self.view_in_freeview_btn,
             self.atlas_name_combo,
             self.atlas_combo,
             self.show_regions_btn,
             self.region_chips,
+            self.combine_regions_checkbox,
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, "setEnabled"):
@@ -2437,8 +2443,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.type_spherical,
             self.type_cortical,
             self.spheres_table,
+            self.sphere_edit,
             self.add_sphere_btn,
-            self.remove_sphere_btn,
             self.view_in_freeview_btn,
             # atlas_name_combo, atlas_combo, show_regions_btn, region_chips handled by update_atlas_visibility
         ]
@@ -2448,6 +2454,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Force enable these controls first, then let update_atlas_visibility handle proper state
         self.region_chips.setEnabled(True)
+        self.combine_regions_checkbox.setEnabled(True)
         self.region_label.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
         # Don't force enable atlas_combo - let update_atlas_visibility handle it properly
@@ -2838,6 +2845,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         Returns ``None`` on any error (mirrors ``build_single_analysis_command``).
         """
         if not self.type_spherical.isChecked():
+            regions = self._get_regions()
+            if len(regions) > 1 and not self._combine_regions():
+                cmds = []
+                for region in regions:
+                    cmd = self.build_single_analysis_command(
+                        subject_id, simulation_name, regions=[region]
+                    )
+                    if not cmd:
+                        return None
+                    cmds.append(cmd)
+                return cmds
             cmd = self.build_single_analysis_command(subject_id, simulation_name)
             return [cmd] if cmd else None
 
@@ -2862,7 +2880,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         return cmds
 
     def build_single_analysis_command(
-        self, subject_id, simulation_name, sphere=None, spheres=None
+        self, subject_id, simulation_name, sphere=None, spheres=None, regions=None
     ):
         """Build command to run single-subject analysis using the new Analyzer API via subprocess.
 
@@ -2872,6 +2890,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 to build one command per sphere for multi-sphere runs.
             spheres: Optional list of ``(x, y, z, r)`` unioned into a single
                 ROI (one analysis covering all of them).
+            regions: Optional list of region names to use instead of the
+                region chips -- used to build one command per region.
         """
         try:
             project_dir = self.pm.project_dir
@@ -2924,7 +2944,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if not atlas_name and not atlas_path:
                         return None
 
-                regions = self._get_regions()
+                regions = regions or self._get_regions()
                 if not regions:
                     self.update_output(
                         "Error: At least one region is required for cortical analysis."
