@@ -40,7 +40,7 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_3d.png" alt="mTI directional envelope surface in 3D vector space" style="width: 100%; max-width: 900px;">
-  <em>The same idea in vector space. At each mesh element the four carrier E-fields are vectors (A), and the modulation depth depends on the direction $$\hat{n}$$ it is measured along: sweeping $$\hat{n}$$ over the sphere and plotting $$r(\hat{n}) = \mathrm{MD}(\hat{n})$$ from the $$(P, Q)$$ formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_mTI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along $$\hat{n}^{*}$$ here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
+  <em>The same idea in vector space. At each mesh element the four carrier E-fields are vectors (A), and the modulation depth depends on the direction \(\hat{n}\) it is measured along: sweeping \(\hat{n}\) over the sphere and plotting \(r(\hat{n}) = \mathrm{MD}(\hat{n})\) from the \((P, Q)\) formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_mTI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along \(\hat{n}^{*}\) here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
 </div>
 
 
