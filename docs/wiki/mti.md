@@ -33,6 +33,17 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
 
 ## Field Math and Critical Values
 
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: dyad envelopes vs the joint envelope" style="width: 100%; max-width: 900px;">
+  <em>Time domain of a 4-pair (2-dyad) mTI field at one point, all projections colinear for clarity: dyad 1 carries 0.5 + 0.5 V/m, dyad 2 an unequal 0.3 + 0.7 V/m (so its beat never reaches zero). Alone, the dyads' modulation depths are 1.00 and 0.60 V/m (top, middle; <code>get_TI_vectors</code>). With all four carriers together (bottom), the two carrier bands are mutually incoherent, so the joint envelope adds their <strong>powers</strong>, not their amplitudes: <code>get_mTI_vectors</code> gives MD = 1.01 V/m. Every larger quantity in the panel is a different thing: the dotted sum of dyad envelopes (peaking at 2.00 V/m) is not a physical envelope; the deprecated TI-of-TI recombination (<code>get_nTI_vectors</code>) would report 1.20 V/m; and the worst-case instantaneous carrier peak <code>hf_peak</code> = 2.00 V/m is a safety quantity, not a modulation depth. The dashed running-RMS magnitude is the power view of the same field (its square relates to <code>hf_sar</code> = 1.08 (V/m)²; see <a href="#safety-metrics">Safety Metrics</a>). All values verified against <code>tit.calc</code>/<code>tit.fields</code> for this exact scenario.</em>
+</div>
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_3d.png" alt="mTI directional envelope surface in 3D vector space" style="width: 100%; max-width: 900px;">
+  <em>The same idea in vector space. At each mesh element the four carrier E-fields are vectors (A), and the modulation depth depends on the direction $$\hat{n}$$ it is measured along: sweeping $$\hat{n}$$ over the sphere and plotting $$r(\hat{n}) = \mathrm{MD}(\hat{n})$$ from the $$(P, Q)$$ formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_mTI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along $$\hat{n}^{*}$$ here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
+</div>
+
+
 The envelope for any number of coherent-beat electrode pairs reduces to two sufficient statistics of the fields' projections onto a candidate direction $$\mathbf{n}$$. For pair $$k$$, the signed projections of its two carrier fields are
 
 $$

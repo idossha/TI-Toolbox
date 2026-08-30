@@ -6,12 +6,42 @@ permalink: /wiki/analyzer/
 
 The Analyzer module provides analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and visualization for understanding field distributions in the brain as a whole and specific regions of interest.
 
-## Important Quantities of Interest to Recognize
+## Quantities of Interest
 
-- **A. Mean TImax (TInorm) Intensity in ROI**: Maximal modulation depth.
-- **B. Mean TImax (TInorm) Intensity in non-ROI**: Could be defined as entire cortex or a specific avoidance target.
-- **C. Focality**: Ratio between A/B
-- **D. TInormal**: Normal component of TImax with respect to fifth layer of the cortex.
+TI stimulation drives two (or more) electrode pairs at slightly different kHz frequencies. Neither carrier modulates neurons on its own; the quantity the TI community cares about is the **amplitude of the low-frequency beat** their sum produces where they overlap. Everything the analyzer reports is a spatial statistic of that one quantity, so it helps to see it once in the time domain and once in the spatial domain.
+
+### Time domain: what a single value of `TI_max` is
+
+<div style="max-width: 800px; margin: 0 auto;">
+  <video controls muted playsinline style="width: 100%;" preload="metadata">
+    <source src="{{ site.baseurl }}/assets/videos/TI_timeDomain.mp4" type="video/mp4">
+  </video>
+</div>
+<em>Two kHz carriers, each too fast to modulate neurons on its own, sum where they overlap into a field whose amplitude beats at the difference frequency. The peak-to-trough swing of that envelope is the modulation depth -- the single number <code>TI_max</code> stores at every mesh node or voxel.</em>
+
+- **`TI_max`** (V/m) -- the modulation depth of the beat envelope, maximised over direction at every mesh node or voxel. It is the default field of every simulation and of every analysis, and what "TImax" / "TInorm" mean in papers and in this toolbox's optimizers. For two pairs it is the closed form $$2\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)$$ when the fields are near-aligned, and smaller otherwise (Grossman et al. 2017; exact form on the [mTI page]({{ site.baseurl }}/wiki/mti/#field-math-and-critical-values)).
+- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is only written for standard 2-pair TI runs.
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_fig4c_ti_normal.png" alt="TI_normal as the projection of TI_max onto the surface normal" style="width: 100%; max-width: 700px;">
+  <em>At each surface node, <code>TI_normal</code> is the component of the <code>TI_max</code> envelope along the local surface normal $$\hat{n}$$: where the field runs along $$\hat{n}$$ (left) the two are nearly equal, and where it runs tangential to the cortex (right) <code>TI_normal</code> collapses even though <code>TI_max</code> is unchanged. Figure 4C from <a href="https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext">Haber et al. 2026</a>.</em>
+</div>
+
+- **`TI_avg`, `hf_peak`, `hf_sar`** -- optional extra fields (direction-averaged envelope; carrier-exposure safety metrics). They are defined and discussed on the [mTI page]({{ site.baseurl }}/wiki/mti/#safety-metrics); the analyzer treats them as any other field, each in its own units.
+
+### Spatial domain: how the analyzer summarises a field
+
+Once `TI_max` exists at every node or voxel, an analysis reduces it to a handful of spatial statistics -- intensity inside the target, intensity everywhere else, and how concentrated the hot spot is:
+
+| Quantity | `AnalysisResult` field | What it tells you |
+|---|---|---|
+| **Intensity in the ROI** | `roi_mean` (also `roi_max`, `roi_min`) | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages. |
+| **Intensity outside the ROI** | `gm_mean` (also `gm_max`) | Mean over the **entire grey matter**. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region. |
+| **Focality** | `roi_focality` | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`. |
+| **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | The three statistics above recomputed on `TI_normal` (mesh, 2-pair TI only). |
+| **Hot-spot level** | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements. |
+| **Hot-spot size** | `focality_50_area` ... `focality_95_area` | Grey-matter area ($$\mathrm{cm}^2$$; volume for voxel analysis) at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
+
+Two things trip people up: the percentile and area metrics are whole-cortex descriptors and do not depend on the ROI at all, and every statistic is computed on whichever field you selected, in that field's units -- selecting `hf_sar` gives you means of a power-like quantity in $$(\mathrm{V/m})^2$$, not a field strength.
 
 ---
 
@@ -122,7 +152,7 @@ When `space="voxel"`, the `Analyzer` handles NIfTI format files and integrates w
 
 ### AnalysisResult Fields
 
-All analysis calls return an `AnalysisResult` dataclass with the following fields:
+All analysis calls return an `AnalysisResult` dataclass with the following fields (what each quantity means is explained in [Quantities of Interest](#quantities-of-interest)):
 
 **Core Identifiers:**
 
@@ -175,31 +205,14 @@ The analyzer handles multipolar (mTI) simulations with the same `Analyzer` class
 
 An mTI run also writes the intermediate per-dyad envelopes (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. Those are **not** what the analyzer reads and are not the mTI result — each is only the two-pair envelope of one dyad.
 
-### What `mTI_max` means
+### What `mTI_max` means for the statistics
 
-`mTI_max` is the joint $$K$$-pair modulation depth computed over **all** carrier fields at once by `tit.calc.get_mTI_vectors`:
+`mTI_max` is the joint $$K$$-pair modulation depth over **all** carriers at once, maximised over direction -- the same "beat envelope" quantity as `TI_max`, just with more carriers in the sum. The math, the deprecated recursive TI-of-TI form, carrier wiring and the safety metrics are all documented on the [mTI page]({{ site.baseurl }}/wiki/mti/#field-math-and-critical-values); what matters for analysis is:
 
-$$
-\mathrm{MD} = \sqrt{2}\left(\sqrt{P+Q} - \sqrt{P-Q}\right)
-$$
-
-maximised over direction, with $$P$$ and $$Q$$ the carrier power and coherent phasor sum defined on the [mTI page]({{ site.baseurl }}/wiki/mti/#field-math-and-critical-values). It is **not** a recursive TI-of-TI recombination of the pairwise envelopes. That older `get_nTI_vectors` form is deprecated and physically invalid for $$N > 2$$ — it overestimates the true envelope by a signed mean of **+38.6% at $$N = 4$$** and **+103% at $$N = 8$$** — so ROI means carried over from outputs produced by it are not comparable with current ones and should be regenerated.
-
-- `TI_max` and `mTI_max` are aliases for this same quantity. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
-- The value depends on the **carrier wiring** of the run (which pairs share a carrier — see [Carrier Wiring]({{ site.baseurl }}/wiki/mti/#carrier-wiring-channels)). The wiring is not recorded in the analysis output, and the two 4-pair architectures differ by more than 5% in most mesh elements, so compare ROI statistics only across runs you know share a wiring. Every mTI simulation launched from the GUI uses the default independent-dyad pairing.
-
-### Selecting other fields
-
-The mTI mesh carries whichever output fields the simulation was asked to write, and any of them can be picked in the Field selector and put through the identical ROI machinery:
-
-| Field | Units | Meaning for mTI |
-|---|---|---|
-| `mTI_max` / `TI_max` | V/m | Joint $$K$$-pair modulation depth, maximised over direction |
-| `TI_avg` | V/m | Same envelope averaged over the 192 sampled directions instead of maximised — element-wise no larger than `mTI_max` |
-| `hf_peak` | V/m | Peak instantaneous carrier magnitude (safety, Cassarà et al. 2025) |
-| `hf_sar` | (V/m)² | Summed carrier power, proportional to SAR (`SAR = sigma / (2 * rho) * hf_sar`) |
-
-Two consequences worth keeping in mind: a field is only analyzable if that simulation actually wrote it, and every statistic (`roi_mean`, `roi_focality`, percentiles, focality areas) is computed on the selected field in **its own** units — an `hf_sar` ROI mean is a mean power-like quantity in (V/m)², not a field strength. `hf_peak` and `hf_sar` sum over every carrier regardless of wiring, so they are comparable across architectures where `mTI_max` is not.
+- `TI_max` and `mTI_max` are aliases. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
+- ROI statistics carried over from outputs produced by the deprecated `get_nTI_vectors` form are inflated (signed mean +38.6% at $$N = 4$$) and should be regenerated rather than compared.
+- `mTI_max` depends on the [carrier wiring]({{ site.baseurl }}/wiki/mti/#carrier-wiring-channels) of the run, and the wiring is **not recorded** in the analysis output. Compare ROI numbers only across runs known to share one. `hf_peak`/`hf_sar` sum over all carriers regardless of wiring, so they stay comparable.
+- `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them and go through the identical ROI machinery, each in its own units (see [Quantities of Interest](#quantities-of-interest)).
 
 ### TI_normal
 
