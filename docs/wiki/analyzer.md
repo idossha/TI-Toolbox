@@ -4,7 +4,9 @@ title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
 
-The Analyzer turns a finished simulation into numbers: descriptive statistics of the field inside a region of interest and across the whole brain, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` extends the same analysis across subjects and montages.
+The Analyzer is the last step of the pipeline: after a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it turns the finished simulation into numbers — descriptive statistics of the field inside a region of interest and across the whole brain, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` extends the same analysis across subjects and montages.
+
+This page is also where the toolbox's field quantities are defined once for everyone: the optimizer and simulator pages link here for what `TI_max`, `TI_normal`, `TI_avg`, `hf_peak` and `hf_sar` mean and how the envelope math works.
 
 ## Overview
 
@@ -149,7 +151,9 @@ Two things trip people up: the percentile and area metrics are whole-cortex desc
 
 ---
 
-## Key Features
+## Defining the ROI
+
+An analysis needs a target region. The same ROI picker used by the optimizers offers spherical, cortical (atlas), and subcortical definitions:
 
 **Spherical ROI Analysis**
 
