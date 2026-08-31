@@ -4,13 +4,11 @@ title: Ex-Search TI Optimization Pipeline
 permalink: /wiki/ex-search/
 ---
 
-Ex-Search is the toolbox's **exhaustive** montage optimizer: it evaluates every electrode combination (× every current split) you allow, on a precomputed leadfield, and ranks the results. Unlike [Flex-Search]({{ site.baseurl }}/wiki/flex-search/), which freely positions electrodes on the scalp with a stochastic optimizer, ex-search is restricted to the electrodes of an EEG net — but within that space it is guaranteed to find the global optimum, and each candidate costs milliseconds instead of an FEM solve. It is also the natural fallback when flex-search's valid-skin constraint rules out the positions you need.
-
-The typical workflow is: optimize a montage here (or in flex-search) → [simulate]({{ site.baseurl }}/wiki/simulator/) the winner in full → [analyze]({{ site.baseurl }}/wiki/analyzer/) the resulting field. The public API is `run_ex_search(config: ExConfig) -> ExResult`; a single `ExSearchEngine` class owns the full pipeline (leadfield loading, ROI resolution, TI field computation, simulation loop).
+Ex-Search is the toolbox's **exhaustive** montage optimizer: it evaluates every electrode combination (× every current split) you allow, on a precomputed leadfield, and ranks the results. Unlike [Flex-Search]({{ site.baseurl }}/wiki/flex-search/), which freely positions electrodes on the scalp with a stochastic optimizer, ex-search is restricted to the electrodes of an EEG net — but within that space it is guaranteed to find the global optimum, and each candidate costs milliseconds.
 
 ## Prerequisites: Leadfield and EEG Net
 
-Every ex-search runs against a leadfield matrix for one subject and one EEG net. The GUI scans for existing leadfields, validates the HDF5, and can create new ones for any supported net (leadfields are 2–20 GB; loading is memory-monitored). EEG nets are automatically co-registered during pre-processing:
+Every ex-search runs against a leadfield matrix for one subject and one EEG net. The GUI scans for existing leadfields, validates the HDF5, and can create new ones for any supported net (leadfields are 2–20 GB depending on the number of electrodes). EEG nets are automatically co-registered during pre-processing:
 
 ```
 [INFO] Scanning available EEG nets for subject 101...
@@ -37,7 +35,7 @@ Every ex-search runs against a leadfield matrix for one subject and one EEG net.
   </div>
 </div>
 
-Leadfields are generated with `tissues=[1, 2]` (white + grey matter), so ROIs may include white-matter elements; only the focality denominator is restricted to grey matter (see [Metrics](#metrics) below).
+Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
 
 ## User Interface
 
@@ -57,20 +55,16 @@ The interface provides controls for:
 
 A ROI Type toggle picks between two alternative targeting mechanisms, not companions:
 
-- **Sphere** (default) uses one or more spherical ROI CSVs (centers, default radius 3 mm, set by the ROI Radius spinbox), with a Coordinate Space toggle (Subject / MNI; MNI space asks for confirmation before the run, and MNI coordinates are transformed to the subject automatically) and a "Combine selected ROIs into one target" checkbox that unions the selected ROIs into a single search (output named by joining the ROI names with `+`).
-- **Atlas** targets a volumetric subcortical atlas region on its own page, backed by the same ROI picker widget used elsewhere in the GUI, restricted to its subcortical mode.
+- **Sphere** (default) uses one or more spherical ROI CSVs (centers, default radius 3 mm, set by the ROI Radius spinbox), with a Coordinate Space toggle (Subject / MNI. MNI coordinates are transformed to the subject automatically). The "Combine selected ROIs into one target" checkbox that unions the selected ROIs into a single search (output named by joining the ROI names with `+`).
+- **Atlas** targets a volumetric subcortical atlas region on its own page. Atlas ROI targets are always resolved in the subject's own space.
 
-Choosing Atlas mode drops the spherical ROI entirely (`roi_names=[]`); choosing Sphere mode drops the atlas target entirely (`roi_atlas=None`).
-
-Atlas ROI targets are always resolved in the subject's own space — the picker has no MNI option here, because `ExConfig.AtlasROI` has no `atlas_space` field and the engine tests element barycenters against the mask directly. `roi_name` is required even in Atlas-only mode: it is the metric-key prefix and (with the net name) part of the output-directory label, so the GUI synthesizes one from the selected atlas label(s), e.g. `atlas_17` for a single region or `atlas_17_53` when more than one is selected.
-
-Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region. The ROI mask is not restricted by tissue — it is tested against all leadfield mesh elements.
+Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region.
 
 ## Defining the Search Space
 
-### Electrode assignment: Bucketed vs. Pooled
+### Bucket Mode
 
-**Bucketed Mode** — electrodes are pre-assigned to specific channels:
+**electrodes are pre-assigned to specific channels:**
 
 - **E1+**: Electrodes for positive channel 1
 - **E1-**: Electrodes for negative channel 1
@@ -79,7 +73,9 @@ Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI
 
 **Combinations**: $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$.
 
-**Pooled Mode** — all electrodes are pooled together and can be assigned to any channel position, with the constraint that each electrode is used only once per montage.
+### Pool Mode
+
+All electrodes are pooled together and can be assigned to any channel position, with the constraint that each electrode is used only once per montage.
 
 **Combinations**: $$\binom{N}{4} \times 4!$$, where $$N$$ is the total number of electrodes — every 4-electrode subset in every channel assignment.
 
@@ -87,12 +83,10 @@ Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI
 
 ### Symmetric (Bilateral) Constraint
 
-Bucketed searches can be restricted to left/right-mirrored montages with `symmetric_bucket: true` (pool mode raises an error). The mirror map is read from the EEG-position CSV (`symmetry_eeg_csv`; inferred from the leadfield name `{subject}_leadfield_{net}.hdf5` when omitted). Two pairings:
+Bucketed searches can be restricted to left/right-mirrored montages with `symmetric_bucket: true`. The mirror map is read from the EEG-position CSV (`symmetry_eeg_csv`; inferred from the leadfield name `{subject}_leadfield_{net}.hdf5` when omitted). Two pairings:
 
 - `symmetry_pairing: "within_pairs"` — each pair is bilateral: `E1-` must be the mirror of `E1+` and `E2-` of `E2+` (e.g. `F7_F8 <> TP7_TP8`). Write left candidates in the `+` buckets and their mirrors in the `-` buckets.
 - `symmetry_pairing: "cross_pairs"` — pair 2 is the mirror of pair 1: `E2+ = mirror(E1+)`, `E2- = mirror(E1-)` (e.g. `F5_TP7 <> F6_TP8`).
-
-A configuration whose buckets contain no mirrored partners fails **before the leadfield is loaded** with a message naming the bucket and the mirror map, and no run directory is created (the same applies to any search that enumerates zero candidates, e.g. empty buckets or a pool with fewer than four electrodes).
 
 ### Current ratios
 
@@ -121,16 +115,16 @@ All computation is in-memory (no intermediate mesh files), with constant memory 
 
 ### Metrics
 
-Every evaluated candidate is scored on the closed-form 2-pair TI envelope (`TI_max`; the math lives on the [Analyzer page]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values)), evaluated on ROI ∪ grey matter only:
+Every evaluated candidate is scored on the closed-form 2-pair TI envelope (`TI_max`; the math lives on the [Analyzer page]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values)), evaluated on ROI grey matter only:
 
-| Key | Meaning |
-|---|---|
-| `TImax_ROI` | Max over ROI elements |
-| `TImean_ROI` | Volume-weighted mean over ROI elements |
-| `TImean_GM` | Volume-weighted mean over GM elements (SimNIBS tag `2`) |
-| `Focality` | `TImean_ROI / TImean_GM` |
-| `Composite_Index` | `TImean_ROI × Focality` |
-| `n_elements` | ROI element count |
+| Key               | Meaning                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `TImax_ROI`       | Max over ROI elements                                   |
+| `TImean_ROI`      | Volume-weighted mean over ROI elements                  |
+| `TImean_GM`       | Volume-weighted mean over GM elements (SimNIBS tag `2`) |
+| `Focality`        | `TImean_ROI / TImean_GM`                                |
+| `Composite_Index` | `TImean_ROI × Focality`                                 |
+| `n_elements`      | ROI element count                                       |
 
 `Focality` here has the same definition as the analyzer's `roi_focality`, so search results and post-hoc analyses are directly comparable.
 
@@ -209,40 +203,6 @@ The Ex-Search tab hosts both TI and mTI search behind a single **Search Mode** c
 - Disables the **Combine ROIs** checkbox only. Both ROI types are available: `MExConfig` carries `roi_names` and `roi_atlas` exactly as `ExConfig` does, so an mTI run can target a sphere, an atlas region, or an atlas region alone. Combining stays TI-only because the multipolar run path processes selected spheres one at a time.
 - Retitles the box "mTI Configuration" and relabels the run/stop buttons "Run mTI Search"/"Stop mTI Search".
 
-The shared **ROI Radius** spinbox (range 1.0-10.0 mm, default 3.0) applies to both modes.
-
-Validation before an mTI run requires all eight bucket fields to be non-empty ("Please enter valid electrodes for all eight mTI bucket categories (E1..E4, +/-)"), plus at least one ROI selected. The confirmation dialog reports per-bucket electrode counts, pair current, carrier wiring, an upper-bound search-space size (`Search Space: up to <product of the 8 bucket sizes> eight-electrode combinations`, before the distinctness filter), and the ROI list.
-
-### Configuration
-
-`MExConfig` required fields (no defaults):
-
-| Field | Type |
-|---|---|
-| `subject_id` | `str` |
-| `leadfield_hdf` | `str` |
-| `roi_name` | `str` |
-| `electrodes` | `MExConfig.BucketElectrodes` or `MExConfig.PoolElectrodes` |
-
-Optional fields and their exact defaults:
-
-| Field | Default |
-|---|---|
-| `current_mA` | `2.0` (mA on every pair) |
-| `channels` | `None` (positional pairing; see [Carrier Wiring]({{ site.baseurl }}/wiki/simulator/#carrier-wiring-channels)) |
-| `roi_radius` | `3.0` mm |
-| `roi_names` | `None` (single-ROI behaviour driven by `roi_name`; an explicit `[]` means no spherical centers at all, which is what a purely atlas-driven target needs) |
-| `roi_atlas` | `None` |
-| `roi_coordinate_space` | `"subject"` (or `"mni"`) |
-| `run_name` | `None` (defaults to a `%Y%m%d_%H%M%S` timestamp) |
-| `symmetric_bucket` | `False` |
-| `symmetry_eeg_csv` | `None` |
-| `symmetry_pairing` | `"within_pairs"` (or `"cross_pairs"`) |
-
-`current_mA <= 0` raises `ValueError`. `symmetric_bucket=True` with `PoolElectrodes` raises `ValueError` (symmetric search only supports bucket mode).
-
-`MExConfig.BucketElectrodes` has exactly eight `list[str]` fields, in this order: `e1_plus`, `e1_minus`, `e2_plus`, `e2_minus`, `e3_plus`, `e3_minus`, `e4_plus`, `e4_minus`. `MExConfig.PoolElectrodes` has a single field, `electrodes: list[str]`.
-
 ### Candidate enumeration
 
 - **Bucket mode** (default): the full Cartesian product of the eight buckets, keeping only tuples where all 8 electrode names are distinct (`len(set(electrodes)) == 8`).
@@ -262,9 +222,10 @@ For each candidate, the engine computes four leadfield fields via `TI.get_field(
 mex-search reuses ex-search's output pipeline, writing the same file set to `derivatives/SimNIBS/sub-{id}/m-ex-search/{run_name}/`:
 
 - `run_config.json` — subject_id, roi_name, roi_radius, leadfield_hdf, electrode_mode (`"pool"` or `"bucket"`), electrodes, n_combinations, run_name, current_mA.
-- `final_output.csv` — one row per evaluated candidate, in **enumeration order** (not sorted). Fixed 8-column header: `Montage, Current_Ch1_mA, Current_Ch2_mA, TImax_ROI, TImean_ROI, TImean_GM, Focality, Composite_Index`. Currents are formatted to 1 decimal, metrics to 4. The Montage cell strips the `TI_field_`/`.msh` wrapper from the candidate key and replaces `_and_` with ` <> `.
+- `final_output.csv` — one row per evaluated candidate, in **enumeration order** (not sorted). Fixed 8-column header: `Montage, Current_Ch1_mA, Current_Ch2_mA, TImax_ROI, TImean_ROI, TImean_GM, Focality, Composite_Index`. Currents are formatted to 1 decimal, metrics to 4. The Montage cell strips the `TI_field_`/`.msh` wrapper from the candidate key and replaces `_and_` with `<>`.
 
   Note: the engine computes `current_ch3_mA`/`current_ch4_mA` too, but the CSV header has no columns for them — only Ch1/Ch2 currents are recorded (both ex-search and mex-search share this fixed-width CSV writer).
+
 - The same five figures as 2-pair ex-search (`montage_distributions.png`, `intensity_vs_focality_scatter.png`, and the three EEG-map figures at dpi=300), with four arcs per candidate on the montage maps; regenerate for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir>`.
 
 <div class="image-row">
@@ -285,27 +246,27 @@ The candidate key/name format is `TI_field_{e1a}_{e1b}_and_{e2a}_{e2b}_and_{e3a}
 Bucket search with 3·3·2·2·2·2·2·2 candidate electrodes for `e1_plus` … `e4_minus` → **576 four-pair candidates**, Jurak 10-10 leadfield, 5 mm ROI at MNI (−38, 5, 0), `current_mA = 1.0`, `channels = null` (two independent channels). Wall time 13.0 min on 12 cores (1.35 s per candidate with the numba kernel and the worker pool).
 
 | Best montages (by `Composite_Index`) | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
-|---|---|---|---|---|---|
-| F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.4769 | 0.3074 | 0.1571 | 1.9573 | 0.6017 |
-| F7_TP7 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.4754 | 0.3009 | 0.1532 | 1.9641 | 0.5911 |
-| F7_CP5 <> F5_CP3 <> F3_P3 <> AF7_P9 | 0.4810 | 0.3043 | 0.1572 | 1.9364 | 0.5893 |
-| F7_P7 <> F5_P5 <> F3_CP1 <> F9_PO7 | 0.4699 | 0.3017 | 0.1568 | 1.9239 | 0.5804 |
+| ------------------------------------ | --------- | ---------- | --------- | -------- | --------------- |
+| F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9   | 0.4769    | 0.3074     | 0.1571    | 1.9573   | 0.6017          |
+| F7_TP7 <> F5_CP3 <> F3_P3 <> AF7_P9  | 0.4754    | 0.3009     | 0.1532    | 1.9641   | 0.5911          |
+| F7_CP5 <> F5_CP3 <> F3_P3 <> AF7_P9  | 0.4810    | 0.3043     | 0.1572    | 1.9364   | 0.5893          |
+| F7_P7 <> F5_P5 <> F3_CP1 <> F9_PO7   | 0.4699    | 0.3017     | 0.1568    | 1.9239   | 0.5804          |
 
 ![mex-search intensity vs focality, 576 candidates]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_large.png)
 
-*`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits.*
+_`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits._
 
 **Symmetric (bilateral) search.** With `symmetric_bucket: true` and `symmetry_pairing: "within_pairs"` only left/right-mirrored pairs are enumerated: each pair's minus electrode must be the mirror of its plus electrode (F7–F8, CP5–CP6, …), so the buckets are written as left candidates in `e{k}_plus` and their mirrors in `e{k}_minus`. Five bilateral candidates per pair → 5⁴ = 625 candidates, 13.9 min (1.33 s each):
 
-| Best bilateral montages | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
-|---|---|---|---|---|---|
-| F7_F8 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3910 | 0.2103 | 0.1074 | 1.9577 | 0.4117 |
-| F7_F8 <> CP5_CP6 <> F1_F2 <> P9_P10 | 0.3920 | 0.2102 | 0.1073 | 1.9584 | 0.4117 |
-| F5_F6 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3915 | 0.2085 | 0.1057 | 1.9722 | 0.4113 |
+| Best bilateral montages              | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
+| ------------------------------------ | --------- | ---------- | --------- | -------- | --------------- |
+| F7_F8 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3910    | 0.2103     | 0.1074    | 1.9577   | 0.4117          |
+| F7_F8 <> CP5_CP6 <> F1_F2 <> P9_P10  | 0.3920    | 0.2102     | 0.1073    | 1.9584   | 0.4117          |
+| F5_F6 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3915    | 0.2085     | 0.1057    | 1.9722   | 0.4113          |
 
 ![symmetric mex-search intensity vs focality]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png)
 
-*Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry; `symmetry_pairing: "cross_pairs"` additionally mirrors pair 1↔3 and 2↔4.*
+_Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry; `symmetry_pairing: "cross_pairs"` additionally mirrors pair 1↔3 and 2↔4._
 
 **Effect of carrier wiring.** Re-running a 16-candidate subset with `channels = [[[0,2],[1,3]]]` (four pairs sharing two carriers) keeps the same ranking but raises the envelope ~1.45× (best montage `F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`: TImean_ROI 0.307 → 0.444 V/m, focality 1.96 → 1.78). This is why `channels` must be chosen deliberately (see [Carrier Wiring]({{ site.baseurl }}/wiki/simulator/#carrier-wiring-channels)).
 
@@ -352,4 +313,4 @@ JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `ele
 }
 ```
 
-*The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from collaborator Larissa Albantakis's branch `alba/ex-search-multipolar`.*
+_The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from collaborator Larissa Albantakis's branch `alba/ex-search-multipolar`._
