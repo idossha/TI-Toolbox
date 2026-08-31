@@ -3,7 +3,7 @@
 Covers candidate generation (logic.py), the electrode mirror map and
 generalized bucket loader (ex/buckets.py), MExConfig round trips through
 config_io, the engine's ROI metric computation, and the carrier-grouping
-(``channels``) behavior that replaces the rejected recursive mTI dispatch.
+behavior that replaces the rejected recursive mTI dispatch.
 """
 
 import csv
@@ -524,26 +524,12 @@ class TestSaveRunConfigPolymorphism:
 
 
 # ---------------------------------------------------------------------------
-# tit.calc.get_mTI_vectors -- channels grouping changes the field (critical
-# correctness requirement: no recursive-envelope dispatch was reintroduced)
+# No recursive-envelope dispatch was reintroduced (critical correctness)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestChannelsGroupingAffectsField:
-    def test_shared_carrier_channels_differ_from_independent_pairs(self):
-        from tit.calc import get_mTI_vectors
-
-        rng = np.random.default_rng(0)
-        fields = [rng.normal(size=(20, 3)) for _ in range(4)]
-
-        independent = get_mTI_vectors(fields, channels=None)
-        shared_carrier = get_mTI_vectors(fields, channels=[([0, 2], [1, 3])])
-
-        assert independent.shape == (20, 3)
-        assert shared_carrier.shape == (20, 3)
-        assert not np.allclose(independent, shared_carrier)
-
+class TestNoRecursiveDispatch:
     def test_no_recursive_mti_dispatch_reintroduced(self):
         """MExSearchEngine must not depend on compute_mti_metric_field/MTIMetric."""
         import tit.calc as calc_mod
@@ -561,7 +547,7 @@ class TestChannelsGroupingAffectsField:
 # ---------------------------------------------------------------------------
 
 
-def _make_mex_engine(channels=None, logger=None):
+def _make_mex_engine(logger=None):
     if logger is None:
         logger = MagicMock()
     from tit.opt.mex.engine import MExSearchEngine
@@ -571,7 +557,6 @@ def _make_mex_engine(channels=None, logger=None):
         roi_file="/fake/roi.csv",
         roi_name="TestROI",
         logger=logger,
-        channels=channels,
     )
 
 
@@ -587,45 +572,9 @@ def _setup_engine_fields(engine):
 
 @pytest.mark.unit
 class TestMExSearchEngineInit:
-    def test_run_forwards_channels_to_pool_enumeration(self, tmp_path):
-        from tit.opt.mex.engine import MExSearchEngine
-
-        channels = [([0, 2], [1, 3])]
-        engine = MExSearchEngine.__new__(MExSearchEngine)
-        engine.channels = channels
-        engine.logger = MagicMock()
-        engine.roi_name = "roi"
-        engine.compute_mti_field = MagicMock(
-            return_value={
-                "roi_TImax_ROI": 0.0,
-                "roi_TImean_ROI": 0.0,
-                "roi_Focality": 0.0,
-            }
-        )
-        engine._log_progress_estimate = MagicMock()
-        pool = [f"E{i}" for i in range(8)]
-        with (
-            patch("tit.opt.mex.engine.signal"),
-            patch(
-                "tit.opt.mex.engine.count_multipolar_combinations", return_value=1
-            ) as mock_count,
-            patch(
-                "tit.opt.mex.engine.generate_multipolar_combinations",
-                return_value=iter([tuple(pool)]),
-            ) as mock_gen,
-        ):
-            engine.run(pool, True, str(tmp_path), current_mA=1.0)
-        assert mock_count.call_args.kwargs["channels"] == channels
-        assert mock_gen.call_args.kwargs["channels"] == channels
-
-    def test_stores_channels(self):
-        engine = _make_mex_engine(channels=[([0, 2], [1, 3])])
-        assert engine.channels == [([0, 2], [1, 3])]
-        assert engine.roi_name == "TestROI"
-
-    def test_defaults_to_no_channels(self):
+    def test_init_stores_roi_name(self):
         engine = _make_mex_engine()
-        assert engine.channels is None
+        assert engine.roi_name == "TestROI"
 
 
 @pytest.mark.unit
@@ -633,7 +582,7 @@ class TestComputeMtiField:
     def test_computes_expected_roi_metric_keys(self):
         import tit.opt.mex.engine as engine_mod
 
-        engine = _make_mex_engine(channels=[([0, 2], [1, 3])])
+        engine = _make_mex_engine()
         _setup_engine_fields(engine)
 
         engine_mod.TI.get_field = MagicMock(
@@ -681,8 +630,7 @@ class TestComputeMtiField:
         )
 
         call = engine_mod.get_mTI_vectors.call_args
-        assert call.kwargs["channels"] == [([0, 2], [1, 3])]
-        assert len(call.args[0]) == 4
+        assert len(call.args[0]) == 4  # four channel fields, paired positionally
 
     def test_zero_roi_elements_returns_zeros(self):
         import tit.opt.mex.engine as engine_mod

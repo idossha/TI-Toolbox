@@ -30,10 +30,8 @@ class MExSearchEngine(ExSearchEngine):
         roi_file: str | tuple[str, int] | list[str | tuple[str, int]],
         roi_name: str,
         logger: logging.Logger,
-        channels: list[tuple[list[int], list[int]]] | None = None,
     ):
         super().__init__(leadfield_hdf, roi_file, roi_name, logger)
-        self.channels = channels
 
     def compute_mti_field(
         self,
@@ -56,7 +54,7 @@ class MExSearchEngine(ExSearchEngine):
             for idx in range(0, 8, 2)
         ]
 
-        vectors = get_mTI_vectors(fields, channels=self.channels)
+        vectors = get_mTI_vectors(fields)
         metric = np.linalg.norm(vectors, axis=1)
 
         data = self._roi_metrics(metric[roi_pos], metric[gm_pos])
@@ -93,7 +91,6 @@ class MExSearchEngine(ExSearchEngine):
             all_combinations=all_combinations,
             symmetry_mirror_map=symmetry_mirror_map,
             symmetry_pairing=symmetry_pairing,
-            channels=self.channels,
         )
         self.logger.info("%s", "\n" + "=" * 60)
         mode = "All Combinations" if all_combinations else "Bucketed"
@@ -101,7 +98,6 @@ class MExSearchEngine(ExSearchEngine):
             mode += f", left/right symmetric ({symmetry_pairing})"
         self.logger.info("Multipolar Exhaustive Search (%s)", mode)
         self.logger.info("Current per pair: %.3f mA", current_mA)
-        self.logger.info("Channels: %s", self.channels or "consecutive pairing")
         self.logger.info("Total combinations: %d", total)
         n_jobs = resolve_n_jobs(n_jobs)
         self.logger.info("Workers: %d", n_jobs)
@@ -115,7 +111,6 @@ class MExSearchEngine(ExSearchEngine):
             all_combinations=all_combinations,
             symmetry_mirror_map=symmetry_mirror_map,
             symmetry_pairing=symmetry_pairing,
-            channels=self.channels,
         )
         # Two views of one generator: the pool consumes one lazily to feed
         # workers, the loop below pairs each result with its electrodes.

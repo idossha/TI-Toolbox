@@ -90,6 +90,7 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
 | `get_TI_avg(fields, psi=None)`              | Direction-averaged modulation depth                                                     |
 | `get_mTI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs mTI's `TI_normal`                   |
 | `get_magnitude_am(fields)`                  | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
+| `get_nTI_vectors(fields)`                   | **Deprecated.** Delegates to `get_mTI_vectors`                                          |
 
 **`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
 
