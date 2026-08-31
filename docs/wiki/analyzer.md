@@ -108,15 +108,13 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
 
 - **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
 
-The $$K \ge 2$$ envelope and the Fibonacci-sphere direction sampling were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`. That branch explored four mTI envelope methods; each maps onto (or is deliberately excluded from) the current three-function API, verified numerically against her implementations:
+The same modulation depth $$\mathrm{MD}(\mathbf{n}) = \sqrt{2}\left(\sqrt{P + Q} - \sqrt{P - Q}\right)$$ answers three different questions, and the three functions differ only in what they do with the direction $$\mathbf{n}$$:
 
-| `alba/mTI_testing` method | Status here |
-|---|---|
-| Directional AM (best direction / orientation average) | **Included** — identical to `get_TI_vectors` / `get_TI_avg` (agreement to $$10^{-14}$$; ours additionally refines the best direction locally and supports per-carrier phase offsets `psi`). The fixed-direction case is `get_TI_dir`. |
-| Recursive TI-of-TI | **Replaced** — physically invalid beyond one carrier; `get_TI_vectors` is the verified substitute. |
-| Magnitude AM (envelope of $$\lVert \mathbf{E}(t) \rVert$$) | **Excluded** — a different quantity from the modulation depth: it can read zero where the directional envelope is large (orthogonal channel fields), so it is not conservative, and it is not verifiably the metric of Botzanowski 2025 (the paper publishes no equation). |
-| Amplitude-summed extension (per-carrier envelopes added linearly) | **Excluded** — carriers are mutually incoherent, so their *powers* add, not their amplitudes; for four equal fields it reports 4.0 V/m where the physical envelope is $$2\sqrt{2} \approx 2.83$$ V/m. This is the dotted "sum of per-carrier envelopes" trace in the time-domain figure above. |
-| Peak HF as $$\lVert \sum_i \mathbf{E}_i \rVert$$ | **Superseded** — that form assumes all carriers peak with one sign pattern and can badly understate exposure; `hf_peak` (`tit/fields.py`) takes the true worst case over sign choices and is always $$\ge$$ it. |
+- **`get_TI_vectors`** — maximise over $$\mathbf{n}$$: the strongest modulation any neuron at that point could see, whatever its orientation. This is `TI_max` / `mTI_max`, and what the optimizers score.
+- **`get_TI_dir`** — evaluate at a *given* $$\mathbf{n}$$: the modulation seen along one specific orientation. With $$\mathbf{n}$$ set to the cortical surface normal this is `TI_normal`, the component along pyramidal-cell dendrites.
+- **`get_TI_avg`** — average over all $$\mathbf{n}$$: what a randomly-oriented neuron sees on average. This is `TI_avg`, and it is always $$\le$$ `TI_max`.
+
+Two tempting shortcuts are **not** valid and are deliberately not offered: summing the per-carrier envelopes (carriers are mutually incoherent, so their *powers* add, not their amplitudes — the dotted trace in the time-domain figure above overshoots the physical envelope) and recombining per-carrier envelopes recursively as TI-of-TI (an envelope is not a field; feeding one back into the one-carrier formula is physically invalid).
 
 ### Safety Metrics
 
