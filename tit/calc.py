@@ -141,6 +141,10 @@ def get_TI_vectors(fields, psi=None):
     References
     ----------
     Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).
+    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7 --
+    multipolar TI (K carrier bands, phase-aligned envelopes); describes the
+    square/low-pass/sqrt envelope procedure in prose (no published
+    equation), which the (P, Q) form here formalizes.
     """
     arrs = _validate_field_list(fields)
     n_pairs = len(arrs) // 2

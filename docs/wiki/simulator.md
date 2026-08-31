@@ -71,7 +71,7 @@ The TI-Toolbox automatically co-registers these EEG electrode nets to head model
 
 ### Multipolar Mode (mTI)
 
-Standard TI uses 4 electrodes forming 2 **channels** (a channel = one electrode pair driven by one current source); the two channels share one carrier — e.g. 2.000 and 2.010 kHz around a 2 kHz carrier — and their beat is the TI envelope. Multipolar temporal interference (mTI) doubles this: 8 electrodes form 4 channels, and each two channels share a carrier (e.g. channels 1 & 2 near 2 kHz, channels 3 & 4 near 4 kHz). Each carrier produces its own beat, and the beats combine into one modulation envelope (Botzanowski et al. 2025).
+Standard TI uses 4 electrodes forming 2 **channels** (a channel = one electrode pair driven by one current source); the two channels share one carrier — e.g. 2.000 and 2.010 kHz around a 2 kHz carrier — and their beat is the TI envelope. Multipolar temporal interference (mTI) doubles this: 8 electrodes form 4 channels, and each two channels share a carrier (e.g. channels 1 & 2 near 2 kHz, channels 3 & 4 near 4 kHz). Each carrier produces its own beat, and the beats — all at the same difference frequency and **phase-aligned** — combine into one modulation envelope (Botzanowski et al. 2025, who drove up to 4 carriers / 8 channels / 16 electrodes; their Supplementary Fig. 1 shows that envelopes offset in phase weaken the aggregate and cancel it entirely at 180°).
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI: montage, peak HF field, and AM field" style="width: 100%; max-width: 750px;">
