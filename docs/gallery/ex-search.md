@@ -87,14 +87,6 @@ permalink: /gallery/ex-search/
       <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png" alt="Symmetric mex-search intensity vs focality" onclick="openLightbox(this)" />
       <p>The same plot for a symmetric mex-search, with all four channels mirrored across the midline.</p>
     </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_independent.png" alt="mex-search, independent channels" onclick="openLightbox(this)" />
-      <p>A 16-candidate run with four independent carriers, one per channel.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_twocarrier.png" alt="mex-search, two carriers" onclick="openLightbox(this)" />
-      <p>The same 16 candidates wired as two carriers shared across four channels, for comparison against the independent wiring.</p>
-    </div>
   </div>
 </div>
 
