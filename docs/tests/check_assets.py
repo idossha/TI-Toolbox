@@ -21,6 +21,10 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+# The built site is served under the repo's baseurl on GitHub Pages, so
+# absolute URLs in the HTML carry this prefix while _site itself does not.
+BASEURL = "/TI-Toolbox"
+
 MEDIA_ATTR = re.compile(
     r"<(?:img|source|video|audio|embed)\b[^>]*?\b(?:src|srcset|poster)\s*=\s*[\"']([^\"']+)",
     re.IGNORECASE,
@@ -56,6 +60,8 @@ def check(site: Path) -> list[str]:
                 url = unquote(url.split("#")[0].split("?")[0])
                 if not url:
                     continue
+                if url.startswith(BASEURL + "/") or url == BASEURL:
+                    url = url[len(BASEURL):] or "/"
                 target = (
                     site / url.lstrip("/") if url.startswith("/") else page.parent / url
                 )
