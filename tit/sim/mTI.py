@@ -8,11 +8,10 @@ pairs (4, 6, 8, ...):
 * Each pair produces one HF E-field via SimNIBS TDCS.
 * Adjacent pairs are combined into intermediate 2-pair TI vector fields,
   saved for inspection only.
-* The final mTI envelope is the verified K-pair modulation-depth envelope
-  (:func:`tit.calc.get_mTI_vectors`) over all N carrier fields jointly --
-  *not* a recursive binary-tree TI-of-TI combination of the intermediate
-  fields above (that approximation is deprecated; see
-  :func:`tit.calc.get_nTI_vectors`).
+* The final mTI envelope is the verified multi-carrier modulation-depth
+  envelope (:func:`tit.calc.get_mTI_vectors`) over all N channel fields
+  jointly -- *not* a recursive TI-of-TI combination of the intermediate
+  fields above (that approximation is physically invalid).
 * Channels are paired positionally: each two consecutive channels share
   a carrier and beat against each other (A&B on the first carrier, C&D
   on the second, and so on).
@@ -171,12 +170,12 @@ class mTISimulation(BaseSimulation):
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI: verified K-pair modulation-depth envelope over all N
-        # carrier fields jointly (tit.calc.get_mTI_vectors) -- not a
-        # recursive binary-tree TI-of-TI combination of the intermediate
-        # pairwise fields saved above (that approximation is deprecated;
-        # see tit.calc.get_nTI_vectors). Channels are paired positionally:
-        # each two consecutive channels share a carrier.
+        # Final mTI: verified multi-carrier modulation-depth envelope over
+        # all N channel fields jointly (tit.calc.get_mTI_vectors) -- not a
+        # recursive TI-of-TI combination of the intermediate pairwise
+        # fields saved above (that approximation is physically invalid).
+        # Channels are paired positionally: each two consecutive channels
+        # share a carrier.
         selected = set(self.config.output_fields)
 
         mout = deepcopy(meshes[0])

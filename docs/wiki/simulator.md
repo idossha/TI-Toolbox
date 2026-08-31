@@ -128,7 +128,7 @@ On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same qu
 mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel labelling); more than 26 channels raises `ValueError`. Post-processing:
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
-2. Computes an intermediate per-carrier TI vector field for each consecutive channel pair (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain single-carrier `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
+2. Computes an intermediate per-carrier TI vector field for each consecutive channel pair (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain single-carrier `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (a recursive TI-of-TI recombination is not a valid envelope).
 3. Computes the final envelope over all N channel fields jointly via `get_mTI_vectors(e_fields)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
 4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
 

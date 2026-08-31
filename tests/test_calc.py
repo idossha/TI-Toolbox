@@ -4,7 +4,6 @@ Unit tests for tit/calc.py — TI vector math (core physics).
 
 Tests the Grossman et al. 2017 TI algorithm including:
 - get_TI_vectors: two-field temporal interference
-- get_nTI_vectors: deprecated recursive binary-tree N-field TI shim
 - get_mTI_vectors: K-pair mTI modulation-amplitude vectors
 
 See tests/test_calc_mti.py for coverage of the N>2 modulation-depth
@@ -20,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tit.calc import get_TI_vectors, get_nTI_vectors, get_mTI_vectors
+from tit.calc import get_TI_vectors, get_mTI_vectors
 
 RNG = np.random.default_rng(42)
 
@@ -343,70 +342,6 @@ class TestTIVectorsAnalytical:
         assert np.linalg.norm(result[1]) > 0
         # Element 2: |E1|=3 along y, |E2|=1 along y -> parallel regime 1
         np.testing.assert_allclose(result[2], [0.0, 2.0, 0.0], atol=1e-12)
-
-
-# ---------------------------------------------------------------------------
-# get_nTI_vectors (deprecated shim -> delegates to get_mTI_vectors)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestNTIVectors:
-    """Tests for the deprecated get_nTI_vectors shim.
-
-    Numerical equivalence with the recursive binary-tree formula it used
-    to implement is intentionally NOT tested here -- that formula was
-    measured to be physically wrong for N>2 (see get_nTI_vectors's
-    docstring and tests/test_calc_mti.py::TestRecursiveRegression). This
-    class only checks delegation, shape, and error behavior.
-    """
-
-    def test_two_fields_equals_get_ti_vectors(self):
-        E1 = RNG.standard_normal((10, 3))
-        E2 = RNG.standard_normal((10, 3))
-        with pytest.deprecated_call():
-            result = get_nTI_vectors([E1, E2])
-        expected = get_TI_vectors(E1, E2)
-        np.testing.assert_allclose(result, expected, atol=1e-12)
-
-    def test_four_fields_matches_get_mti_vectors(self):
-        fields = [RNG.standard_normal((8, 3)) for _ in range(4)]
-        with pytest.deprecated_call():
-            result = get_nTI_vectors(fields)
-        expected = get_mTI_vectors(fields)
-        np.testing.assert_allclose(result, expected, atol=1e-12)
-
-    def test_odd_number_raises(self):
-        fields = [RNG.standard_normal((3, 3)) for _ in range(3)]
-        with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors(fields)
-
-    def test_single_field_raises(self):
-        with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors([RNG.standard_normal((3, 3))])
-
-    def test_empty_raises(self):
-        with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors([])
-
-    def test_output_shape_preserved(self):
-        n_points = 20
-        fields = [RNG.standard_normal((n_points, 3)) for _ in range(4)]
-        with pytest.deprecated_call():
-            result = get_nTI_vectors(fields)
-        assert result.shape == (n_points, 3)
-
-    def test_two_fields_identical_to_direct_call(self):
-        """Sanity check: nTI with 2 fields is just get_TI_vectors."""
-        E1 = np.array([[1.0, 0.0, 0.0]])
-        E2 = np.array([[0.0, 1.0, 0.0]])
-        with pytest.deprecated_call():
-            result = get_nTI_vectors([E1, E2])
-        np.testing.assert_allclose(
-            result,
-            get_TI_vectors(E1, E2),
-            atol=1e-12,
-        )
 
 
 # ---------------------------------------------------------------------------

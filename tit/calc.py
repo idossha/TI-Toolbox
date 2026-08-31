@@ -10,8 +10,7 @@ Public API
 get_TI_vectors
     TI modulation-amplitude vectors for a single electrode pair (K=1).
 get_mTI_vectors
-    Modulation-amplitude vectors for K >= 1 electrode pairs; the
-    verified N>2 replacement for :func:`get_nTI_vectors`.
+    Modulation-amplitude vectors for K >= 1 carriers.
 get_TI_avg
     Direction-averaged modulation depth for K >= 1 electrode pairs.
 get_mTI_dir
@@ -19,9 +18,6 @@ get_mTI_dir
     (e.g. the cortical surface normal); backs mTI's ``TI_normal``.
 get_magnitude_am
     Direction-free magnitude-envelope AM, K >= 1 electrode pairs.
-get_nTI_vectors
-    Deprecated. Recursive binary-tree N-field TI; not physically valid
-    for N > 2. Delegates to :func:`get_mTI_vectors`.
 
 Attribution
 -----------
@@ -33,7 +29,6 @@ from that branch's ``_botzanowski_magnitude_am_components``.
 """
 
 import os
-import warnings
 
 import numpy as np
 
@@ -266,33 +261,6 @@ def get_magnitude_am(fields):
     env_max = np.sqrt(2.0 * np.maximum(P + Q, 0.0))
     env_min = np.sqrt(2.0 * np.maximum(P - Q, 0.0))
     return env_max - env_min
-
-
-def get_nTI_vectors(fields):
-    """Deprecated: recursive binary-tree N-field TI. Use :func:`get_mTI_vectors`.
-
-    This paired fields via ``TI(TI(E1,E2), TI(E3,E4), ...)``, feeding
-    already-modulated envelope vectors back into :func:`get_TI_vectors` --
-    a formula derived only for two carrier fields. Measured against the
-    verified :func:`_mti_modulation_depth` envelope on random fields: signed
-    mean error +38.6% (range -90% to +416%) at N=4, +103% at N=8.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-
-    Returns
-    -------
-    np.ndarray, shape (N, 3)
-    """
-    warnings.warn(
-        "get_nTI_vectors is deprecated and physically invalid for N>2 "
-        "(measured +38.6% mean error at N=4 vs. the verified envelope); "
-        "use get_mTI_vectors instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return get_mTI_vectors(fields)
 
 
 def _mti_modulation_depth(

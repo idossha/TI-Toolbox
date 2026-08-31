@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Unit tests for sim.config module and calc.get_nTI_vectors.
+Unit tests for sim.config module and calc.get_mTI_vectors.
 
 Tests configuration dataclasses for TI simulations including:
 - SimulationMode enum
@@ -8,7 +8,7 @@ Tests configuration dataclasses for TI simulations including:
 - Montage dataclass (is_xyz, simulation_mode, num_pairs)
 - SimulationConfig dataclass (flat fields, conductivity validation)
 - parse_intensities helper function
-- get_nTI_vectors for N-pair TI computation
+- get_mTI_vectors for multi-carrier TI computation
 """
 
 import sys
@@ -27,7 +27,7 @@ from tit.sim.config import (
     parse_intensities,
 )
 from tit.sim.utils import build_simulation_config_for_job
-from tit.calc import get_TI_vectors, get_mTI_vectors, get_nTI_vectors
+from tit.calc import get_TI_vectors, get_mTI_vectors
 
 
 class TestSimulationMode:
@@ -340,11 +340,11 @@ class TestSimulationConfig:
         assert config.montages[0].name == "test"
 
 
-# -- get_nTI_vectors tests --
+# -- get_mTI_vectors tests --
 
 
-class TestGetNTIVectors:
-    """Test get_nTI_vectors with various field counts."""
+class TestGetMTIVectorsFieldCounts:
+    """Test get_mTI_vectors with various field counts."""
 
     @pytest.fixture
     def random_fields(self):
@@ -358,46 +358,40 @@ class TestGetNTIVectors:
 
     def test_two_fields_matches_get_TI_vectors(self, random_fields):
         fs = random_fields(2)
-        result = get_nTI_vectors(fs)
+        result = get_mTI_vectors(fs)
         expected = get_TI_vectors(fs[0], fs[1])
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_four_fields_matches_get_mTI_vectors(self, random_fields):
-        fs = random_fields(4)
-        result = get_nTI_vectors(fs)
-        expected = get_mTI_vectors(fs)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_six_fields_shape(self, random_fields):
         fs = random_fields(6, n_elements=50)
-        result = get_nTI_vectors(fs)
+        result = get_mTI_vectors(fs)
         assert result.shape == (50, 3)
 
     def test_eight_fields_shape(self, random_fields):
         fs = random_fields(8, n_elements=50)
-        result = get_nTI_vectors(fs)
+        result = get_mTI_vectors(fs)
         assert result.shape == (50, 3)
 
     def test_odd_number_raises(self, random_fields):
         with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors(random_fields(3))
+            get_mTI_vectors(random_fields(3))
 
     def test_one_field_raises(self, random_fields):
         with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors(random_fields(1))
+            get_mTI_vectors(random_fields(1))
 
     def test_six_fields_differ_from_four(self, random_fields):
         """Extra fields (5th & 6th) must actually contribute to the result."""
         fs6 = random_fields(6, n_elements=50)
-        result_6 = get_nTI_vectors(fs6)
-        result_4 = get_nTI_vectors(fs6[:4])
+        result_6 = get_mTI_vectors(fs6)
+        result_4 = get_mTI_vectors(fs6[:4])
         assert not np.allclose(
             result_6, result_4
         ), "6-field result should differ from 4-field result"
 
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="even number"):
-            get_nTI_vectors([])
+            get_mTI_vectors([])
 
 
 class TestIntensityRoundTrip:

@@ -375,8 +375,8 @@ class TestMTISimulation:
             )
             mock_run_simnibs.assert_called_once()
 
-            # D3: the true K-pair envelope replaces the deprecated
-            # recursive binary-tree get_nTI_vectors combination.
+            # D3: the true multi-carrier envelope, not a recursive
+            # TI-of-TI recombination.
             mock_get_mti.assert_called_once()
 
             # D2 regression guard: hf_peak/hf_sar safety metrics must be

@@ -25,7 +25,6 @@ from tit.calc import (
     get_TI_avg,
     get_mTI_vectors,
     get_magnitude_am,
-    get_nTI_vectors,
     _mti_modulation_depth,
 )
 
@@ -195,26 +194,6 @@ class TestModulationDepthKGe2:
         coarse = _mti_modulation_depth(fields, refine=False)
         refined = _mti_modulation_depth(fields, refine=True)
         assert np.all(refined["md"] >= coarse["md"] - 1e-12)
-
-
-# ---------------------------------------------------------------------------
-# get_nTI_vectors -- deprecation
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestNTIDeprecation:
-    def test_emits_deprecation_warning(self):
-        E1, E2 = _random_fields(2, n_elements=10)
-        with pytest.warns(DeprecationWarning, match="deprecated"):
-            get_nTI_vectors([E1, E2])
-
-    def test_warning_survives_error_filter_context(self):
-        E1, E2 = _random_fields(2, n_elements=10)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            get_nTI_vectors([E1, E2])
-        assert any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 # ---------------------------------------------------------------------------
