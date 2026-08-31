@@ -83,18 +83,17 @@ $$
 
 $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly six functions:
 
-| Function | Purpose |
-|---|---|
-| `get_TI_vectors(E1, E2)` | Exact $$K = 1$$ closed form (one carrier, 2 channels) |
-| `get_mTI_vectors(fields, psi=None)` | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels |
-| `get_TI_avg(fields, psi=None)` | Direction-averaged modulation depth |
-| `get_mTI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs mTI's `TI_normal` |
-| `get_magnitude_am(fields)` | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
-| `get_nTI_vectors(fields)` | **Deprecated.** Delegates to `get_mTI_vectors` |
+| Function                                    | Purpose                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `get_TI_vectors(E1, E2)`                    | Exact $$K = 1$$ closed form (one carrier, 2 channels)                                   |
+| `get_mTI_vectors(fields, psi=None)`         | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels                 |
+| `get_TI_avg(fields, psi=None)`              | Direction-averaged modulation depth                                                     |
+| `get_mTI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs mTI's `TI_normal`                   |
+| `get_magnitude_am(fields)`                  | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
 
 **`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
 
-- **$$K = 1$$** (one carrier: standard TI) dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, *Computers in Biology and Medicine* 178, 108697; sign-agnostic):
+- **$$K = 1$$** (one carrier: standard TI) dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, _Computers in Biology and Medicine_ 178, 108697; sign-agnostic):
 
   $$
   \mathrm{MD} =
@@ -108,15 +107,14 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
   $$
 
   In the first case the envelope lies along the smaller field's own (sign-corrected) direction; in the second it is evaluated at the component of the smaller field perpendicular to whichever of $$\mathbf{E}_1 - \mathbf{E}_2$$ / $$\mathbf{E}_1 + \mathbf{E}_2$$ has the smaller norm. No direction search is needed at $$K = 1$$.
-- **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
 
-**`get_nTI_vectors` is deprecated and physically invalid beyond one carrier.** It represents the old approach of recombining per-carrier envelopes recursively -- $$\mathrm{TI}\!\left( \mathrm{TI}(\mathbf{E}_1, \mathbf{E}_2), \mathrm{TI}(\mathbf{E}_3, \mathbf{E}_4), \ldots \right)$$ -- feeding an already-modulated envelope vector back into a formula that was derived only for the two channel fields of a single carrier. Measured against the verified envelope on random fields, this recursive form has a signed mean error of **+38.6% (range -90% to +416%) at 4 channels**, and **+103% at 8 channels**. Calling it emits a `DeprecationWarning` and delegates to `get_mTI_vectors` -- so the deprecated call still returns the correct answer, it just should not be relied on for its own (wrong) formula going forward.
+- **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
 
 The $$K \ge 2$$ envelope, the Fibonacci-sphere direction sampling, and `get_magnitude_am` were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`.
 
 ### Safety Metrics
 
-Two carrier-exposure safety metrics (`tit/fields.py`, Cassarà et al. 2025, *Bioelectromagnetics* 46(2), doi:10.1002/bem.22542) are computed directly from the N per-channel E-fields, independent of the modulation-depth envelope:
+Two carrier-exposure safety metrics (`tit/fields.py`, Cassarà et al. 2025, _Bioelectromagnetics_ 46(2), doi:10.1002/bem.22542) are computed directly from the N per-channel E-fields, independent of the modulation-depth envelope:
 
 **`hf_peak`** (Eq. 3) is the worst-case instantaneous peak of the summed kHz field: the channels run at mutually incommensurate frequencies, so every relative phase combination occurs over time, and the true worst case is the max over sign choices,
 
@@ -141,14 +139,14 @@ Both metrics always sum over **every** channel field -- kHz exposure does not de
 
 Once `TI_max` exists at every node or voxel, an analysis reduces it to a handful of spatial statistics -- intensity inside the target, intensity everywhere else, and how concentrated the hot spot is:
 
-| Quantity | `AnalysisResult` field | What it tells you |
-|---|---|---|
-| **Intensity in the ROI** | `roi_mean` (also `roi_max`, `roi_min`) | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages. |
-| **Intensity outside the ROI** | `gm_mean` (also `gm_max`) | Mean over the **entire grey matter**. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region. |
-| **Focality** | `roi_focality` | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`. |
-| **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | The three statistics above recomputed on `TI_normal` (mesh only). |
-| **Hot-spot level** | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements. |
-| **Hot-spot size** | `focality_50_area` ... `focality_95_area` | Grey-matter area ($$\mathrm{cm}^2$$; volume for voxel analysis) at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
+| Quantity                      | `AnalysisResult` field                              | What it tells you                                                                                                                                                                                                                                     |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Intensity in the ROI**      | `roi_mean` (also `roi_max`, `roi_min`)              | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages.                                                                                                                             |
+| **Intensity outside the ROI** | `gm_mean` (also `gm_max`)                           | Mean over the **entire grey matter**. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region.                                                                                                       |
+| **Focality**                  | `roi_focality`                                      | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`.                                                                                                   |
+| **Normal component**          | `normal_mean`, `normal_max`, `normal_focality`      | The three statistics above recomputed on `TI_normal` (mesh only).                                                                                                                                                                                     |
+| **Hot-spot level**            | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements.                                                                                                     |
+| **Hot-spot size**             | `focality_50_area` ... `focality_95_area`           | Grey-matter area ($$\mathrm{cm}^2$$; volume for voxel analysis) at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
 
 Two things trip people up: the percentile and area metrics are whole-cortex descriptors and do not depend on the ROI at all, and every statistic is computed on whichever field you selected, in that field's units -- selecting `hf_sar` gives you means of a power-like quantity in $$(\mathrm{V/m})^2$$, not a field strength.
 
@@ -265,10 +263,10 @@ The analyzer handles multipolar (mTI) simulations with the same `Analyzer` class
 
 ### What it reads
 
-| Space | mTI source | Standard TI source |
-|---|---|---|
-| Mesh | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
-| Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue) | `TI/niftis/` |
+| Space | mTI source                                               | Standard TI source                      |
+| ----- | -------------------------------------------------------- | --------------------------------------- |
+| Mesh  | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
+| Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue)     | `TI/niftis/`                            |
 
 An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. Those are **not** what the analyzer reads and are not the mTI result — each is only the two-channel envelope of one carrier on its own.
 
@@ -277,7 +275,6 @@ An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`,
 `mTI_max` is the joint modulation depth over **all** $$K$$ carriers at once, maximised over direction -- the same "beat envelope" quantity as `TI_max`, just with more carriers in the sum. The math, the deprecated recursive TI-of-TI form and the safety metrics are documented under [Quantities of Interest](#envelope-math-and-critical-values) above. What matters for analysis is:
 
 - `TI_max` and `mTI_max` are aliases. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
-- ROI statistics carried over from outputs produced by the deprecated `get_nTI_vectors` form are inflated (signed mean +38.6% at 4 channels) and should be regenerated rather than compared.
 - `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them and go through the identical ROI machinery, each in its own units (see [Quantities of Interest](#quantities-of-interest)).
 
 ### TI_normal
