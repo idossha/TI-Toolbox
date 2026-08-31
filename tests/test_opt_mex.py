@@ -597,7 +597,7 @@ class TestComputeMtiField:
                 [0.25, 0.0, 0.0],
             ]
         )
-        engine_mod.get_mTI_vectors = MagicMock(return_value=metric_vectors)
+        engine_mod.get_TI_vectors = MagicMock(return_value=metric_vectors)
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=2.0)
@@ -629,7 +629,7 @@ class TestComputeMtiField:
             ["D1", "D2", 0.002], engine.leadfield, engine.idx_lf
         )
 
-        call = engine_mod.get_mTI_vectors.call_args
+        call = engine_mod.get_TI_vectors.call_args
         assert len(call.args[0]) == 4  # four channel fields, paired positionally
 
     def test_zero_roi_elements_returns_zeros(self):
@@ -643,7 +643,7 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        engine_mod.get_mTI_vectors = MagicMock(return_value=np.zeros((5, 3)))
+        engine_mod.get_TI_vectors = MagicMock(return_value=np.zeros((5, 3)))
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=1.0)

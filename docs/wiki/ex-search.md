@@ -192,7 +192,7 @@ _`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean inten
 
 ## Multipolar (mTI) Mode
 
-Set **Search Mode** to _mTI (4-pair)_ to run a multipolar exhaustive search (mex-search) instead of the standard two-channel one. `tit/opt/mex/` extends ex-search to four channels (eight electrodes), scored with the same verified `get_mTI_vectors` envelope used by the simulator — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are detected and simulated). The public API is `run_m_ex_search(config: MExConfig) -> MExResult`, re-exported from `tit.opt` alongside `run_ex_search`/`run_flex_search`.
+Set **Search Mode** to _mTI (4-pair)_ to run a multipolar exhaustive search (mex-search) instead of the standard two-channel one. `tit/opt/mex/` extends ex-search to four channels (eight electrodes), scored with the same verified `get_TI_vectors` envelope used by the simulator — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are detected and simulated). The public API is `run_m_ex_search(config: MExConfig) -> MExResult`, re-exported from `tit.opt` alongside `run_ex_search`/`run_flex_search`.
 
 ### mTI GUI
 
@@ -215,7 +215,7 @@ The Ex-Search tab hosts both TI and mTI search behind a single **Search Mode** c
 
 ### Scoring
 
-For each candidate, the engine computes four leadfield fields via `TI.get_field([e_a, e_b, current_mA/1000.0], leadfield, idx_lf)` (mA converted to A), takes `vectors = get_mTI_vectors(fields)`, and scores `np.linalg.norm(vectors, axis=1)`. Per-candidate metrics are the same as two-channel ex-search ([Metrics](#metrics) above), keyed with the ROI-name prefix (`{roi}_TImax_ROI`, `{roi}_TImean_ROI`, `{roi}_TImean_GM`, `{roi}_Focality` — `0.0` if the GM mean is $$\le 0$$ — and `{roi}_n_elements`), plus `current_ch1_mA` .. `current_ch4_mA` (all four set to the same `current_mA`). If the ROI has zero elements, all four metrics are `0.0`. ROI resolution (spherical CSV centers, NIfTI/MGZ masks, atlas label selections) is inherited wholesale from the ex-search engine.
+For each candidate, the engine computes four leadfield fields via `TI.get_field([e_a, e_b, current_mA/1000.0], leadfield, idx_lf)` (mA converted to A), takes `vectors = get_TI_vectors(fields)`, and scores `np.linalg.norm(vectors, axis=1)`. Per-candidate metrics are the same as two-channel ex-search ([Metrics](#metrics) above), keyed with the ROI-name prefix (`{roi}_TImax_ROI`, `{roi}_TImean_ROI`, `{roi}_TImean_GM`, `{roi}_Focality` — `0.0` if the GM mean is $$\le 0$$ — and `{roi}_n_elements`), plus `current_ch1_mA` .. `current_ch4_mA` (all four set to the same `current_mA`). If the ROI has zero elements, all four metrics are `0.0`. ROI resolution (spherical CSV centers, NIfTI/MGZ masks, atlas label selections) is inherited wholesale from the ex-search engine.
 
 ### Outputs
 

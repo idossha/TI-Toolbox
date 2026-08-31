@@ -121,7 +121,7 @@ The kHz-exposure safety metrics `hf_peak`/`hf_sar` always sum over every channel
 
 On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same quantity `TI_max` names on a standard TI mesh, just a different on-disk name for the multipolar case.
 
-**TI_normal is computed for mTI too.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; mTI evaluates the same $$K$$-carrier envelope at a _fixed_ direction — the cortical surface normal — via `tit.calc.get_mTI_dir` over all N channel overlays, and writes it as `{montage}_mTI_normal.msh` in `mTI/mesh/`.
+**TI_normal is computed for mTI too.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; mTI evaluates the same $$K$$-carrier envelope at a _fixed_ direction — the cortical surface normal — via `tit.calc.get_TI_dir` over all N channel overlays, and writes it as `{montage}_mTI_normal.msh` in `mTI/mesh/`.
 
 **fsaverage projection covers mTI.** `SimulationConfig.map_to_fsavg` defaults to `True` and runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
 
@@ -129,7 +129,7 @@ mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
 2. Computes an intermediate per-carrier TI vector field for each consecutive channel pair (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain single-carrier `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (a recursive TI-of-TI recombination is not a valid envelope).
-3. Computes the final envelope over all N channel fields jointly via `get_mTI_vectors(e_fields)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
+3. Computes the final envelope over all N channel fields jointly via `get_TI_vectors(e_fields)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
 4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
 
 Per-channel high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved into `high_Frequency/mesh/`, matching the A-Z channel labelling used everywhere else in the mTI output.

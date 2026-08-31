@@ -78,7 +78,7 @@ MEX_BUCKET_LABELS = {
 MTI_MODE_HELP = (
     "mTI (4-pair) mode searches four bipolar electrode pairs together and "
     "scores each candidate with the multipolar TI envelope "
-    "(tit.calc.get_mTI_vectors), instead of the single interference "
+    "(tit.calc.get_TI_vectors), instead of the single interference "
     "pattern TI mode gets from two pairs.\n\n"
     "It needs eight electrode buckets (E1..E4, each +/-) instead of four, "
     "and one current per pair instead of a total/step/limit sweep. Runs "

@@ -17,7 +17,7 @@ import trimesh
 from scipy.spatial.transform import Rotation
 
 from tit.blender.config import VectorConfig
-from tit.calc import get_TI_vectors, get_mTI_vectors
+from tit.calc import get_TI_vectors
 
 logger = logging.getLogger(__name__)
 
@@ -390,10 +390,10 @@ def _compute_fields(config, m1, m2, m3, m4, positions):
 
     # Compute TI / mTI
     if config.is_mti:
-        TI = get_mTI_vectors([E1, E2, E3, E4])
+        TI = get_TI_vectors([E1, E2, E3, E4])
         E_sum = (E1 + E2 + E3 + E4) if config.export_sum else None
     else:
-        TI = get_TI_vectors(E1, E2)
+        TI = get_TI_vectors([E1, E2])
         E_sum = (E1 + E2) if config.export_sum else None
 
     logger.info("Interpolated E fields to %d face barycenters", len(positions))

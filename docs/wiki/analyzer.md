@@ -33,7 +33,7 @@ Neither channel's kHz field modulates neurons on its own; the quantity the TI co
 </div>
 
 - **`TI_max`** (V/m) -- the modulation depth of the beat envelope, maximised over direction at every mesh node or voxel. It is the default field of every simulation and of every analysis, and what "TImax" / "TInorm" mean in papers and in this toolbox's optimizers. For one carrier (two channels) it is the closed form $$2\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)$$ when the fields are near-aligned, and smaller otherwise (Grossman et al. 2017; exact form under [Envelope Math and Critical Values](#envelope-math-and-critical-values) below).
-- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is written for both TI and mTI runs (for mTI via `get_mTI_dir`, the same envelope evaluated along the surface normal).
+- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is written for both TI and mTI runs (for mTI via `get_TI_dir`, the same envelope evaluated along the surface normal).
 - **`TI_avg`, `hf_peak`, `hf_sar`** -- optional extra fields (direction-averaged envelope; carrier-exposure safety metrics). They are defined below ([Envelope Math](#envelope-math-and-critical-values) and [Safety Metrics](#safety-metrics)); the analyzer treats them as any other field, each in its own units.
 
 <div class="image-container">
@@ -47,12 +47,12 @@ With four channels on two carriers (8 electrodes) — or more — `mTI_max` is s
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-carrier envelopes vs the joint envelope" style="width: 100%; max-width: 900px;">
-  <em>Time domain of an mTI field (4 channels, 2 carriers) at one point, all projections colinear for clarity: carrier 1's two channels carry 0.5 + 0.5 V/m, carrier 2's an unequal 0.3 + 0.7 V/m (so its beat never reaches zero). Alone, each carrier's modulation depth is 1.00 and 0.60 V/m (top, middle; <code>get_TI_vectors</code>). With all four channels together (bottom), the two carriers are mutually incoherent, so the joint envelope adds their <strong>powers</strong>, not their amplitudes: <code>get_mTI_vectors</code> gives MD = 1.01 V/m. Every larger quantity in the panel is a different thing: the dotted sum of per-carrier envelopes (peaking at 2.00 V/m) is not a physical envelope; a recursive TI-of-TI recombination would report an unphysical 1.20 V/m; and the worst-case instantaneous peak of the summed channel fields <code>hf_peak</code> = 2.00 V/m is a safety quantity, not a modulation depth. The dashed running-RMS magnitude is the power view of the same field (its square relates to <code>hf_sar</code> = 1.08 (V/m)²; see <a href="#safety-metrics">Safety Metrics</a>). All values verified against <code>tit.calc</code>/<code>tit.fields</code> for this exact scenario.</em>
+  <em>Time domain of an mTI field (4 channels, 2 carriers) at one point, all projections colinear for clarity: carrier 1's two channels carry 0.5 + 0.5 V/m, carrier 2's an unequal 0.3 + 0.7 V/m (so its beat never reaches zero). Alone, each carrier's modulation depth is 1.00 and 0.60 V/m (top, middle; <code>get_TI_vectors</code>). With all four channels together (bottom), the two carriers are mutually incoherent, so the joint envelope adds their <strong>powers</strong>, not their amplitudes: <code>get_TI_vectors</code> gives MD = 1.01 V/m. Every larger quantity in the panel is a different thing: the dotted sum of per-carrier envelopes (peaking at 2.00 V/m) is not a physical envelope; a recursive TI-of-TI recombination would report an unphysical 1.20 V/m; and the worst-case instantaneous peak of the summed channel fields <code>hf_peak</code> = 2.00 V/m is a safety quantity, not a modulation depth. The dashed running-RMS magnitude is the power view of the same field (its square relates to <code>hf_sar</code> = 1.08 (V/m)²; see <a href="#safety-metrics">Safety Metrics</a>). All values verified against <code>tit.calc</code>/<code>tit.fields</code> for this exact scenario.</em>
 </div>
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_3d.png" alt="mTI directional envelope surface in 3D vector space" style="width: 100%; max-width: 900px;">
-  <em>The same idea in vector space. At each mesh element the four channels' E-fields are vectors (A), and the modulation depth depends on the direction \(\hat{n}\) it is measured along: sweeping \(\hat{n}\) over the sphere and plotting \(r(\hat{n}) = \mathrm{MD}(\hat{n})\) from the \((P, Q)\) formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_mTI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along \(\hat{n}^{*}\) here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
+  <em>The same idea in vector space. At each mesh element the four channels' E-fields are vectors (A), and the modulation depth depends on the direction \(\hat{n}\) it is measured along: sweeping \(\hat{n}\) over the sphere and plotting \(r(\hat{n}) = \mathrm{MD}(\hat{n})\) from the \((P, Q)\) formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_TI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along \(\hat{n}^{*}\) here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
 </div>
 
 The two subsections below give the formulas behind these figures -- the $$(P, Q)$$ sufficient statistics, the exact one-carrier closed form, and the safety metrics. How montages are detected as TI vs. mTI is a simulation mechanic covered on the [Simulator page]({{ site.baseurl }}/wiki/simulator/).
@@ -81,19 +81,17 @@ $$
 \mathrm{MD} = \sqrt{2} \left( \sqrt{P + Q} - \sqrt{P - Q} \right)
 $$
 
-$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly five functions:
+$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly three functions:
 
 | Function                                    | Purpose                                                                                 |
 | ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `get_TI_vectors(E1, E2)`                    | Exact $$K = 1$$ closed form (one carrier, 2 channels)                                   |
-| `get_mTI_vectors(fields, psi=None)`         | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels                 |
+| `get_TI_vectors(fields, psi=None)`         | Modulation-amplitude vectors for $$K \ge 1$$ carriers ($$K = 1$$ exact closed form, $$K \ge 2$$ direction search) |
 | `get_TI_avg(fields, psi=None)`              | Direction-averaged modulation depth                                                     |
-| `get_mTI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs mTI's `TI_normal`                   |
-| `get_magnitude_am(fields)`                  | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
+| `get_TI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs `TI_normal` for mTI                 |
 
-**`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
+**`get_TI_vectors`** is the one envelope function; standard TI simulation, mTI simulation and mex-search all call it. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
 
-- **$$K = 1$$** (one carrier: standard TI) dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, _Computers in Biology and Medicine_ 178, 108697; sign-agnostic):
+- **$$K = 1$$** (one carrier: standard TI) is solved by an exact closed form (Hirata et al. 2024, _Computers in Biology and Medicine_ 178, 108697; sign-agnostic):
 
   $$
   \mathrm{MD} =
@@ -110,7 +108,7 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
 
 - **$$K \ge 2$$** (multiple carriers: mTI) has no closed form and is solved by a direction search: a coarse 192-point Fibonacci-sphere sweep (`num_directions=192`), followed by 3 rounds of local patch refinement around up to 6 angularly-diverse coarse-sweep seeds (`_REFINE_N_ROUNDS=3`, `_REFINE_N_SEEDS=6`, minimum seed separation `_REFINE_MIN_SEED_ANGLE_DEG=25.0`, 16 points per patch, initial half-angle $$2.0/\sqrt{192}$$ radians shrinking by `0.4` each round). Elements are processed in chunks of `16384` to bound memory. `get_TI_avg` reuses the same coarse sweep but averages the envelope over all 192 sampled directions instead of taking the per-element argmax, and skips refinement (refinement only sharpens a single best direction, which an average does not need) -- it is element-wise $$\le \mathrm{TI}_{\max}$$.
 
-The $$K \ge 2$$ envelope, the Fibonacci-sphere direction sampling, and `get_magnitude_am` were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`.
+The $$K \ge 2$$ envelope and the Fibonacci-sphere direction sampling were ported into `tit/calc.py` from collaborator Larissa Albantakis's branch `alba/mTI_testing`.
 
 ### Safety Metrics
 
@@ -279,7 +277,7 @@ An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`,
 
 ### TI_normal
 
-`TI_normal` is computed for mTI: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_mTI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The analyzer resolves that mesh when `TI_normal` is requested for an mTI run, and the `normal_*` statistics (`normal_mean`, `normal_max`, `normal_focality`) are populated the same way as for standard TI. For mTI simulations run before this support existed, the normal mesh is absent — requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`; re-run the simulation to get them.
+`TI_normal` is computed for mTI: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_TI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The analyzer resolves that mesh when `TI_normal` is requested for an mTI run, and the `normal_*` statistics (`normal_mean`, `normal_max`, `normal_focality`) are populated the same way as for standard TI. For mTI simulations run before this support existed, the normal mesh is absent — requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`; re-run the simulation to get them.
 
 ---
 

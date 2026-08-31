@@ -870,7 +870,7 @@ class MExConfig:
     Evaluates every valid combination of four bipolar electrode pairs from
     a user-defined pool or bucket set, at one fixed current per pair, and
     scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_mTI_vectors`).
+    (:func:`tit.calc.get_TI_vectors`).
 
     Attributes
     ----------
@@ -936,7 +936,7 @@ class MExConfig:
     --------
     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-    tit.calc.get_mTI_vectors : Modulation-amplitude envelope.
+    tit.calc.get_TI_vectors : Modulation-amplitude envelope.
     """
 
     # ── Nested ROI types ─────────────────────────────────────────────────

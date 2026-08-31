@@ -311,9 +311,8 @@ class TestMTISimulation:
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
-            patch.object(_mti_mod, "get_mTI_dir"),
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
+            patch.object(_mti_mod, "get_TI_dir"),
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -347,8 +346,7 @@ class TestMTISimulation:
 
             import numpy as np
 
-            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
-            mock_get_ti.return_value = np.zeros((10, 3))
+            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
 
             config = _make_sim_config(
                 intensities=[1.0, 1.0, 1.0, 1.0],
@@ -375,9 +373,9 @@ class TestMTISimulation:
             )
             mock_run_simnibs.assert_called_once()
 
-            # D3: the true multi-carrier envelope, not a recursive
-            # TI-of-TI recombination.
-            mock_get_mti.assert_called_once()
+            # D3: the final envelope is computed over all four channel
+            # fields at once, not a recursive TI-of-TI recombination.
+            assert len(mock_get_ti.call_args.args[0]) == 4
 
             # D2 regression guard: hf_peak/hf_sar safety metrics must be
             # written onto the mTI output mesh when selected.
@@ -393,7 +391,7 @@ class TestMTISimulation:
             assert const.FIELD_TI_AVG in written_field_names
 
     def test_envelope_uses_positional_channel_pairing(self):
-        """get_mTI_vectors/get_TI_avg are called with the channel fields
+        """get_TI_vectors/get_TI_avg are called with the channel fields
         alone -- pairing is positional (each two consecutive channels share
         a carrier); there is no per-montage carrier override."""
         with (
@@ -410,10 +408,9 @@ class TestMTISimulation:
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
-            patch.object(_mti_mod, "get_mTI_dir"),
-            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
+            patch.object(_mti_mod, "get_TI_dir"),
+            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -441,9 +438,8 @@ class TestMTISimulation:
                 "documentation": "/fake/sim/test_mti/documentation",
             }
 
-            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
+            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
-            mock_get_ti.return_value = np.zeros((10, 3))
 
             # opt into TI_avg so both envelope calls are exercised.
             config = _make_sim_config(
@@ -455,10 +451,11 @@ class TestMTISimulation:
             sim = _mti_mod.mTISimulation(config, montage, MagicMock())
             sim.run("/fake/simulation_dir")
 
-            mock_get_mti.assert_called_once()
-            assert "channels" not in mock_get_mti.call_args.kwargs
+            # Once per carrier for the intermediate TI_AB/TI_CD meshes (two
+            # channel fields each) plus once for the final joint envelope.
+            assert mock_get_ti.call_count == 3
+            assert len(mock_get_ti.call_args.args[0]) == 4
             mock_get_avg.assert_called_once()
-            assert "channels" not in mock_get_avg.call_args.kwargs
 
 
 # ============================================================================

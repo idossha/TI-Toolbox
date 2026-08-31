@@ -279,7 +279,7 @@ def generate_multipolar_combinations(
 
     Bucket mode is the Cartesian product of the eight buckets. Pool mode
     (``all_combinations=True``) yields one montage per class of montages
-    that ``tit.calc.get_mTI_vectors`` scores identically under the given
+    that ``tit.calc.get_TI_vectors`` scores identically under the given
     carrier ``channels`` (``None`` = two independent TI channels).
     """
     if all_combinations:

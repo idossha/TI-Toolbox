@@ -14,7 +14,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tit import calc  # noqa: E402
-from tit.calc import get_mTI_vectors  # noqa: E402
+from tit.calc import get_TI_vectors  # noqa: E402
 
 ATOL = 1e-9
 
@@ -53,12 +53,12 @@ def main():
     fields = [rng.normal(size=(300, 3)) for _ in range(8)]
     channels = [([0, 2], [1, 3]), ([4], [5, 6, 7])]
     os.environ["TIT_MTI_KERNEL"] = "numpy"
-    ref = get_mTI_vectors(fields, channels=channels)
+    ref = get_TI_vectors(fields)
     os.environ["TIT_MTI_KERNEL"] = "numba"
-    got = get_mTI_vectors(fields, channels=channels)
+    got = get_TI_vectors(fields)
     diff = float(np.max(np.abs(got - ref)))
     worst = max(worst, diff)
-    print(f"get_mTI_vectors(channels) max|diff|={diff:.3e}")
+    print(f"get_TI_vectors max|diff|={diff:.3e}")
 
     print(f"WORST {worst:.3e}")
     return 0 if worst <= ATOL else 1

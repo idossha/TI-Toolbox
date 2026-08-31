@@ -8,7 +8,7 @@ from collections import deque
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
-from tit.calc import get_mTI_vectors
+from tit.calc import get_TI_vectors
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
 
@@ -19,9 +19,9 @@ class MExSearchEngine(ExSearchEngine):
     """Exhaustive search engine for four-pair (eight-electrode) mTI montages.
 
     Scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_mTI_vectors`), not a recursive envelope-of-envelopes
+    (:func:`tit.calc.get_TI_vectors`), not a recursive envelope-of-envelopes
     dispatch -- that path is not the TI envelope for N>2 fields (see the
-    ``get_mTI_vectors`` module docstring in ``tit/calc.py``).
+    ``get_TI_vectors`` docstring in ``tit/calc.py``).
     """
 
     def __init__(
@@ -40,7 +40,7 @@ class MExSearchEngine(ExSearchEngine):
     ) -> dict[str, float]:
         """Compute one four-pair mTI candidate and return ROI metrics.
 
-        The K>=2 envelope (:func:`tit.calc.get_mTI_vectors`) is a per-element
+        The K>=2 envelope (:func:`tit.calc.get_TI_vectors`) is a per-element
         direction search -- far costlier than the 2-pair closed form -- so it
         is evaluated only on ``ROI | GM`` (:meth:`_evaluation_subset`).
         """
@@ -54,7 +54,7 @@ class MExSearchEngine(ExSearchEngine):
             for idx in range(0, 8, 2)
         ]
 
-        vectors = get_mTI_vectors(fields)
+        vectors = get_TI_vectors(fields)
         metric = np.linalg.norm(vectors, axis=1)
 
         data = self._roi_metrics(metric[roi_pos], metric[gm_pos])

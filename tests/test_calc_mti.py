@@ -2,7 +2,7 @@
 """
 Unit tests for the mTI (N>2 electrode pair) envelope in tit/calc.py.
 
-Covers get_mTI_vectors's dispatch/validation contract and the verified
+Covers get_TI_vectors's dispatch/validation contract and the verified
 _mti_modulation_depth envelope that backs it for K>=2 electrode pairs,
 including the K=1 exact-vs-sweep consistency check and a regression test
 documenting the intentional behavior change away from the old (invalid)
@@ -23,8 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 from tit.calc import (
     get_TI_vectors,
     get_TI_avg,
-    get_mTI_vectors,
-    get_magnitude_am,
+    get_TI_vectors,
     _mti_modulation_depth,
 )
 
@@ -36,7 +35,7 @@ def _random_fields(n_fields, n_elements=50, rng=RNG):
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- N=2 exact dispatch
+# get_TI_vectors -- N=2 exact dispatch
 # ---------------------------------------------------------------------------
 
 
@@ -44,8 +43,8 @@ def _random_fields(n_fields, n_elements=50, rng=RNG):
 class TestMTIVectorsN2:
     def test_matches_get_ti_vectors_exactly(self):
         E1, E2 = _random_fields(2, n_elements=500)
-        result = get_mTI_vectors([E1, E2])
-        expected = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
+        expected = get_TI_vectors([E1, E2])
         diff = np.max(np.abs(result - expected))
         assert diff == 0.0
         np.testing.assert_array_equal(result, expected)
@@ -53,13 +52,13 @@ class TestMTIVectorsN2:
     def test_psi_ignored_at_n2(self):
         """psi has no effect on a single pair (K=1 phase invariance)."""
         E1, E2 = _random_fields(2, n_elements=50)
-        result_no_psi = get_mTI_vectors([E1, E2], psi=None)
-        result_with_psi = get_mTI_vectors([E1, E2], psi=[1.7])
+        result_no_psi = get_TI_vectors([E1, E2], psi=None)
+        result_with_psi = get_TI_vectors([E1, E2], psi=[1.7])
         np.testing.assert_allclose(result_no_psi, result_with_psi, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- N=4/6/8 shapes
+# get_TI_vectors -- N=4/6/8 shapes
 # ---------------------------------------------------------------------------
 
 
@@ -69,7 +68,7 @@ class TestMTIVectorsShapes:
     def test_runs_and_returns_correct_shape(self, n_pairs):
         n_elements = 30
         fields = _random_fields(2 * n_pairs, n_elements=n_elements)
-        result = get_mTI_vectors(fields)
+        result = get_TI_vectors(fields)
         assert result.shape == (n_elements, 3)
         assert not np.any(np.isnan(result))
         assert not np.any(np.isinf(result))
@@ -78,13 +77,13 @@ class TestMTIVectorsShapes:
         n_elements = 20
         fields = _random_fields(8, n_elements=n_elements)
         psi = [0.0, 0.5, -0.5, 1.0]
-        result = get_mTI_vectors(fields, psi=psi)
+        result = get_TI_vectors(fields, psi=psi)
         assert result.shape == (n_elements, 3)
         assert not np.any(np.isnan(result))
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- input validation
+# get_TI_vectors -- input validation
 # ---------------------------------------------------------------------------
 
 
@@ -93,33 +92,33 @@ class TestMTIVectorsValidation:
     def test_odd_n_raises(self):
         fields = _random_fields(5)
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors(fields)
+            get_TI_vectors(fields)
 
     def test_n_less_than_2_raises(self):
         fields = _random_fields(1)
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors(fields)
+            get_TI_vectors(fields)
 
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors([])
+            get_TI_vectors([])
 
     def test_mismatched_shapes_raises(self):
         E1, E2 = _random_fields(2, n_elements=10)
         E3, E4 = _random_fields(2, n_elements=7)
         with pytest.raises(ValueError, match="identical shape"):
-            get_mTI_vectors([E1, E2, E3, E4])
+            get_TI_vectors([E1, E2, E3, E4])
 
     def test_wrong_last_dim_raises(self):
         bad = RNG.standard_normal((10, 2))
         ok = RNG.standard_normal((10, 3))
         with pytest.raises(ValueError, match="must have shape"):
-            get_mTI_vectors([bad, ok])
+            get_TI_vectors([bad, ok])
 
     def test_bad_psi_shape_raises(self):
         fields = _random_fields(4, n_elements=10)
         with pytest.raises(ValueError, match="psi"):
-            get_mTI_vectors(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
+            get_TI_vectors(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +134,7 @@ class TestK1ExactVsSweep:
         E1, E2 = _random_fields(2, n_elements=300)
         exact = _mti_modulation_depth([E1, E2], refine=True)
         sweep = _mti_modulation_depth([E1, E2], refine=False, num_directions=2048)
-        ti_mag = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
+        ti_mag = np.linalg.norm(get_TI_vectors([E1, E2]), axis=1)
 
         np.testing.assert_allclose(exact["md"], ti_mag, atol=1e-9)
         # A dense coarse sweep should closely approximate the exact value;
@@ -206,12 +205,12 @@ class TestModulationDepthKGe2:
 class TestRecursiveRegression:
     def test_new_result_differs_materially_from_old_recursive_formula(self):
         fields = _random_fields(4, n_elements=200)
-        new_result = get_mTI_vectors(fields)
+        new_result = get_TI_vectors(fields)
 
         # The old (removed) get_nTI_vectors algorithm: TI(TI(E1,E2), TI(E3,E4)).
-        old_ti_a = get_TI_vectors(fields[0], fields[1])
-        old_ti_b = get_TI_vectors(fields[2], fields[3])
-        old_recursive_result = get_TI_vectors(old_ti_a, old_ti_b)
+        old_ti_a = get_TI_vectors([fields[0], fields[1]])
+        old_ti_b = get_TI_vectors([fields[2], fields[3]])
+        old_recursive_result = get_TI_vectors([old_ti_a, old_ti_b])
 
         new_mag = np.linalg.norm(new_result, axis=1)
         old_mag = np.linalg.norm(old_recursive_result, axis=1)
@@ -235,10 +234,10 @@ class TestGetTIAvg:
     @pytest.mark.parametrize("n_pairs", [1, 2, 3])
     def test_avg_never_exceeds_max(self, n_pairs):
         """Key invariant: an average over directions cannot exceed the
-        direction maximum (get_mTI_vectors's norm)."""
+        direction maximum (get_TI_vectors's norm)."""
         fields = _random_fields(2 * n_pairs, n_elements=200)
         avg = get_TI_avg(fields)
-        max_mag = np.linalg.norm(get_mTI_vectors(fields), axis=1)
+        max_mag = np.linalg.norm(get_TI_vectors(fields), axis=1)
         assert np.all(avg <= max_mag + 1e-9)
 
     @pytest.mark.parametrize("n_pairs", [1, 2, 3])
@@ -269,70 +268,6 @@ class TestGetTIAvg:
         fields = _random_fields(4, n_elements=10)
         with pytest.raises(ValueError, match="psi"):
             get_TI_avg(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
-
-
-# ---------------------------------------------------------------------------
-# get_magnitude_am -- direction-free magnitude envelope
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestGetMagnitudeAM:
-    def test_k1_matches_norm_identity(self):
-        """At K=1, get_magnitude_am reduces exactly to
-        abs(|E1+E2| - |E1-E2|)."""
-        E1, E2 = _random_fields(2, n_elements=300)
-        result = get_magnitude_am([E1, E2])
-        expected = np.abs(
-            np.linalg.norm(E1 + E2, axis=1) - np.linalg.norm(E1 - E2, axis=1)
-        )
-        np.testing.assert_allclose(result, expected, atol=1e-9)
-
-    def test_k1_differs_materially_from_mti_vectors(self):
-        """get_magnitude_am is a genuinely different quantity from the
-        direction-maximized modulation depth, not a refinement of it."""
-        E1, E2 = _random_fields(2, n_elements=500)
-        mag_am = get_magnitude_am([E1, E2])
-        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
-
-        rel_diff = np.abs(mag_am - ti_mag) / np.maximum(ti_mag, 1e-8)
-        assert np.mean(rel_diff > 0.01) > 0.5
-
-    def test_collinear_fields_all_three_forms_agree(self):
-        """For collinear (same-direction) E1, E2 the magnitude-AM envelope,
-        the direction-maximized envelope, and 2*min(|E1|,|E2|) all coincide
-        -- an identity that holds only in the collinear case."""
-        n = 20
-        n_hat = np.array([1.0, 0.0, 0.0])
-        a = RNG.uniform(0.5, 3.0, size=n)
-        b = RNG.uniform(0.5, 3.0, size=n)
-        E1 = np.outer(a, n_hat)
-        E2 = np.outer(b, n_hat)
-
-        mag_am = get_magnitude_am([E1, E2])
-        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
-        expected = 2.0 * np.minimum(a, b)
-
-        np.testing.assert_allclose(mag_am, expected, atol=1e-9)
-        np.testing.assert_allclose(ti_mag, expected, atol=1e-9)
-
-    @pytest.mark.parametrize("n_fields", [2, 4, 6])
-    def test_shape_and_nonneg(self, n_fields):
-        n_elements = 30
-        fields = _random_fields(n_fields, n_elements=n_elements)
-        result = get_magnitude_am(fields)
-        assert result.shape == (n_elements,)
-        assert np.all(result >= -1e-9)  # tiny round-off only
-        assert not np.any(np.isnan(result))
-
-    def test_odd_n_raises(self):
-        fields = _random_fields(5)
-        with pytest.raises(ValueError, match="even number"):
-            get_magnitude_am(fields)
-
-    def test_empty_raises(self):
-        with pytest.raises(ValueError, match="even number"):
-            get_magnitude_am([])
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +344,7 @@ class TestHirataFormEquivalence:
         E2 = dir2 * scale2[:, None]
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     def test_matches_legacy_random_standard_normal(self):
@@ -419,7 +354,7 @@ class TestHirataFormEquivalence:
         E2 = rng.standard_normal((n, 3))
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     def test_matches_legacy_near_orthogonal_cancellation_sweep(self):
@@ -444,7 +379,7 @@ class TestHirataFormEquivalence:
         ) * mag2[:, None]
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     @pytest.mark.parametrize(
@@ -507,7 +442,7 @@ class TestHirataFormEquivalence:
     )
     def test_matches_legacy_degenerate_cases(self, name, E1, E2):
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
 
@@ -620,7 +555,7 @@ class TestQuadraticFormSweepRegression:
             for _ in range(n_fields)
         ]
         ref_md, ref_dir = _reference_mti_sweep(fields)
-        vec = get_mTI_vectors(fields)
+        vec = get_TI_vectors(fields)
         np.testing.assert_allclose(np.linalg.norm(vec, axis=1), ref_md, rtol=0, atol=1e-9)
         np.testing.assert_allclose(vec, ref_dir * ref_md[:, None], rtol=0, atol=1e-9)
 
@@ -656,40 +591,40 @@ class TestQuadraticFormSweepRegression:
 
 @pytest.mark.unit
 class TestGetMTIDir:
-    """get_mTI_dir -- the public fixed-direction envelope backing mTI's TI_normal."""
+    """get_TI_dir -- the public fixed-direction envelope backing mTI's TI_normal."""
 
     def test_matches_best_direction_envelope(self):
-        """Evaluating at get_mTI_vectors' own best directions reproduces the
+        """Evaluating at get_TI_vectors' own best directions reproduces the
         maximized modulation depth (up to refinement round-off)."""
-        from tit.calc import get_mTI_dir, _mti_modulation_depth
+        from tit.calc import get_TI_dir, _mti_modulation_depth
 
         rng = np.random.default_rng(7)
         fields = [rng.standard_normal((300, 3)) for _ in range(4)]
         best = _mti_modulation_depth(fields)
-        md = get_mTI_dir(fields, best["best_direction"])
+        md = get_TI_dir(fields, best["best_direction"])
         np.testing.assert_allclose(md, best["md"], rtol=0, atol=1e-9)
 
     def test_never_exceeds_maximized_envelope(self):
-        from tit.calc import get_mTI_dir, get_mTI_vectors
+        from tit.calc import get_TI_dir, get_TI_vectors
 
         rng = np.random.default_rng(8)
         fields = [rng.standard_normal((300, 3)) for _ in range(4)]
-        md_max = np.linalg.norm(get_mTI_vectors(fields), axis=1)
+        md_max = np.linalg.norm(get_TI_vectors(fields), axis=1)
         dirs = rng.standard_normal((300, 3))
-        assert np.all(get_mTI_dir(fields, dirs) <= md_max + 1e-6)
+        assert np.all(get_TI_dir(fields, dirs) <= md_max + 1e-6)
 
     def test_k1_colinear_along_field_axis(self):
         """One carrier, colinear equal fields, evaluated along that axis:
         MD = 2*min(|E1|,|E2|) exactly (Grossman 2017)."""
-        from tit.calc import get_mTI_dir
+        from tit.calc import get_TI_dir
 
         e = np.array([[0.5, 0.0, 0.0]])
-        md = get_mTI_dir([e, e], np.array([[1.0, 0.0, 0.0]]))
+        md = get_TI_dir([e, e], np.array([[1.0, 0.0, 0.0]]))
         np.testing.assert_allclose(md, [1.0], atol=1e-12)
 
     def test_direction_shape_mismatch_raises(self):
-        from tit.calc import get_mTI_dir
+        from tit.calc import get_TI_dir
 
         fields = [np.zeros((5, 3)) for _ in range(4)]
         with pytest.raises(ValueError, match="directions"):
-            get_mTI_dir(fields, np.zeros((4, 3)))
+            get_TI_dir(fields, np.zeros((4, 3)))

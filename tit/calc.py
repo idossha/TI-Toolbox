@@ -8,24 +8,20 @@ number of electrode pairs (mTI).
 Public API
 ----------
 get_TI_vectors
-    TI modulation-amplitude vectors for a single electrode pair (K=1).
-get_mTI_vectors
-    Modulation-amplitude vectors for K >= 1 carriers.
+    Modulation-amplitude vectors for K >= 1 carriers (K=1 exact closed
+    form; K>=2 direction search).
 get_TI_avg
-    Direction-averaged modulation depth for K >= 1 electrode pairs.
-get_mTI_dir
+    Direction-averaged modulation depth for K >= 1 carriers.
+get_TI_dir
     Modulation depth evaluated along a fixed per-element direction
-    (e.g. the cortical surface normal); backs mTI's ``TI_normal``.
-get_magnitude_am
-    Direction-free magnitude-envelope AM, K >= 1 electrode pairs.
+    (e.g. the cortical surface normal); backs ``TI_normal`` for mTI.
 
 Attribution
 -----------
 The K >= 2 envelope and the ``_fibonacci_sphere`` /
 ``_validate_field_list`` helpers originate from collaborator Larissa
 Albantakis's branch ``alba/mTI_testing`` and are ported here with
-attribution, not reimplemented. ``get_magnitude_am`` is likewise ported
-from that branch's ``_botzanowski_magnitude_am_components``.
+attribution, not reimplemented.
 """
 
 import os
@@ -33,7 +29,7 @@ import os
 import numpy as np
 
 
-def get_TI_vectors(E1_org, E2_org):
+def _get_TI_vectors_k1(E1_org, E2_org):
     """Compute the TI modulation-amplitude vectors for two electric fields.
 
     Sign-agnostic closed form (Hirata et al. 2024), equivalent to the
@@ -111,14 +107,15 @@ def get_TI_vectors(E1_org, E2_org):
     return TI_vectors
 
 
-def get_mTI_vectors(fields, psi=None):
-    """Compute mTI modulation-amplitude vectors for K >= 1 carriers.
+def get_TI_vectors(fields, psi=None):
+    """Compute TI modulation-amplitude vectors for K >= 1 carriers.
 
     ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape
     ``(N, 3)`` -- one per channel, paired positionally: each two
     consecutive fields are the two channels sharing one carrier. K=1
-    dispatches exactly to :func:`get_TI_vectors`; K>=2 returns
-    ``best_direction * md`` from the verified
+    (standard TI) is solved by an exact closed form (Grossman et al.
+    2017; Hirata et al. 2024) with no direction search; K>=2 (mTI)
+    returns ``best_direction * md`` from the verified
     :func:`_mti_modulation_depth` envelope.
 
     Parameters
@@ -150,7 +147,7 @@ def get_mTI_vectors(fields, psi=None):
     _validate_psi(psi, n_pairs)
 
     if n_pairs == 1:
-        return get_TI_vectors(arrs[0], arrs[1])
+        return _get_TI_vectors_k1(arrs[0], arrs[1])
 
     result = _mti_modulation_depth(arrs, psi=psi)
     return result["best_direction"] * result["md"][:, None]
@@ -159,7 +156,7 @@ def get_mTI_vectors(fields, psi=None):
 def get_TI_avg(fields, psi=None):
     """Direction-averaged modulation depth for K >= 1 electrode pairs.
 
-    ``TI_max`` (:func:`get_mTI_vectors`) maximizes the envelope over
+    ``TI_max`` (:func:`get_TI_vectors`) maximizes the envelope over
     direction -- a best case for a neuron aligned with the optimal axis.
     ``TI_avg`` instead averages the same coarse Fibonacci-sphere sweep
     over all sampled directions, giving what a randomly-oriented neuron
@@ -172,7 +169,7 @@ def get_TI_avg(fields, psi=None):
         Channel field vectors, consecutive fields sharing a carrier.
     psi : array-like, shape (K,), or None
         Per-carrier envelope phase offset (radians); see
-        :func:`get_mTI_vectors`.
+        :func:`get_TI_vectors`.
 
     Returns
     -------
@@ -185,15 +182,14 @@ def get_TI_avg(fields, psi=None):
     return _mti_modulation_depth_avg(arrs, psi_arr)
 
 
-def get_mTI_dir(fields, directions, psi=None):
+def get_TI_dir(fields, directions, psi=None):
     """Modulation depth along a fixed per-element direction, K >= 1.
 
     The multi-carrier analogue of SimNIBS's 2-field ``TI.get_dirTI``:
     instead of maximizing the envelope over direction
-    (:func:`get_mTI_vectors`), evaluate it at a given direction per
+    (:func:`get_TI_vectors`), evaluate it at a given direction per
     element -- typically the cortical surface normal, which yields the
-    ``TI_normal`` quantity for mTI simulations. Exact (no direction
-    search) for any K.
+    ``TI_normal`` quantity. Exact (no direction search) for any K.
 
     Parameters
     ----------
@@ -205,7 +201,7 @@ def get_mTI_dir(fields, directions, psi=None):
         unit length; zero vectors yield 0.
     psi : array-like, shape (K,), or None
         Per-carrier envelope phase offset (radians); see
-        :func:`get_mTI_vectors`.
+        :func:`get_TI_vectors`.
 
     Returns
     -------
@@ -214,53 +210,6 @@ def get_mTI_dir(fields, directions, psi=None):
     """
     result = _mti_modulation_depth(fields, psi=psi, directions=directions)
     return result["md"]
-
-
-def get_magnitude_am(fields):
-    """Direction-free amplitude-modulation envelope of ``||E(t)||``.
-
-    Not the direction-maximized modulation depth from
-    :func:`get_mTI_vectors` -- the AM envelope of the field *magnitude*
-    itself, no direction search, computed on the full 3-vectors:
-    ``P = 0.5*sum_i ||E_i||^2``, ``Q = |sum_k E_ka . E_kb|`` (3D dot
-    products per pair), result ``= sqrt(2*(P+Q)) - sqrt(2*max(P-Q, 0))``.
-    At K=1 this reduces to ``abs(|E1+E2| - |E1-E2|)``.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
-
-    Returns
-    -------
-    np.ndarray, shape (N,)
-        Magnitude-AM envelope [V/m].
-
-    See Also
-    --------
-    get_mTI_vectors : Direction-maximized modulation-amplitude vectors --
-        a different quantity from this magnitude envelope.
-
-    References
-    ----------
-    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7.
-    """
-    arrs = _validate_field_list(fields)
-    n_pairs = len(arrs) // 2
-
-    P = np.zeros(arrs[0].shape[0], dtype=np.float64)
-    for e in arrs:
-        P += np.sum(e * e, axis=1)
-    P *= 0.5
-
-    dot_sum = np.zeros(arrs[0].shape[0], dtype=np.float64)
-    for k in range(n_pairs):
-        dot_sum += np.sum(arrs[2 * k] * arrs[2 * k + 1], axis=1)
-    Q = np.abs(dot_sum)
-
-    env_max = np.sqrt(2.0 * np.maximum(P + Q, 0.0))
-    env_min = np.sqrt(2.0 * np.maximum(P - Q, 0.0))
-    return env_max - env_min
 
 
 def _mti_modulation_depth(
