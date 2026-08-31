@@ -6,10 +6,12 @@ permalink: /releases/
 
 ### v2.5.0 (Latest Release)
 
-**Release Date**: August 27, 2026
+**Release Date**: August 31, 2026
 
 #### Additions
 
+- `TI_normal` for mTI — multipolar simulations now write the normal-component envelope (`{montage}_mTI_normal.msh`) by default, computed by evaluating the multi-carrier envelope along the cortical surface normal; the analyzer's `normal_*` ROI statistics populate for mTI exactly as for standard TI.
+- fsaverage projection for mTI — `map_to_fsavg` no longer skips multipolar runs: the modulation depth is read from the mTI central surface and `hf_peak`/`hf_sar` are derived from all N channel volume meshes.
 - Multipolar exhaustive search (mex-search) — a multipolar counterpart to ex-search (`tit/opt/mex`), with a TI/mTI toggle, symmetric (bilateral) buckets, atlas-region and MNI-space ROI targeting, and a shared searchable ROI picker across ex-search and mTI.
 - Threshold-free focality goal for flex-search — a new opt-in focality objective plus an opt-in current-ratio search, replacing threshold-dependent focality scoring.
 - Selectable output fields — the simulator now writes only the fields you choose (TI_max by default) instead of a fixed set, with field definitions documented in the help popup.
@@ -21,6 +23,12 @@ permalink: /releases/
 - Faster ex/mex-search — unit-current channel fields are now computed once per montage and reused across current splits, the TI/mTI envelope is evaluated on ROI∪GM only (not the whole head), and candidates run on a forked worker pool (`n_jobs`). Ex-search: 0.39 s → 0.05 s per evaluation (~8×; a 4,375-evaluation bucket search dropped from 28 min to 3 min). Mex-search: 58 s → ~1.4–2 s per candidate (~30–40×) via a fused numba kernel for the K≥2 mTI direction search.
 - Ex/mex-search electrode-map visuals — every ex/mex-search run now writes an electrode participation heatmap and montage strength/focality maps, ported from work by [Larissa Albantakis](https://github.com/Albantakis) on her [ex-search-multipolar branch](https://github.com/Albantakis/TI-Toolbox/tree/ex-search-multipolar).
 - Zenodo DOIs added for the archived software release.
+
+#### Changes
+
+- **Breaking:** `tit.calc` consolidated to exactly three envelope functions — `get_TI_vectors(fields, psi=None)` (K ≥ 1 carriers; the K = 1 exact closed form is applied internally), `get_TI_avg(fields, psi=None)`, and `get_TI_dir(fields, directions, psi=None)`. Scripts calling `get_TI_vectors(E1, E2)` positionally must switch to `get_TI_vectors([E1, E2])`; `get_mTI_vectors` is now `get_TI_vectors`, `get_mTI_dir` is `get_TI_dir`, and the deprecated `get_nTI_vectors` shim and the unused `get_magnitude_am` were removed, as was the legacy `channels=` carrier-regrouping parameter.
+- Carrier wiring removed — mTI is always positional (each two consecutive electrodes compose a channel, each two consecutive channels compose a carrier): the mex-search "Carrier Wiring" combo, `MTI_CHANNEL_ARCHITECTURES`, and the `channels` JSON config keys are gone (old configs with the key are ignored).
+- Documentation vocabulary unified across the simulator, analyzer and ex-search pages: **electrodes → channels (2 electrodes each) → carriers (shared by 2 channels)**; TI = 4 electrodes / 2 channels / 1 carrier, mTI = 8 electrodes / 4 channels / 2 carriers.
 
 #### Fixes
 
@@ -48,7 +56,7 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 **Desktop App (latest):**
 [macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.dmg) ·
 [macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.exe) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.5.0.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.AppImage) ·
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.5.0_amd64.deb)
 
