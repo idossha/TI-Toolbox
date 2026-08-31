@@ -296,9 +296,3 @@ Group analysis supports **arbitrary combinations** of subjects and montages:
 - **Multiple subjects x Different montages**: Full factorial design comparing both subject variability and montage effects
 
 MNI coordinates are transformed to each subject's native space automatically, and every run produces cross-subject comparisons, rankings, and visualizations with consolidated logging.
-
----
-
-## Gmsh Quick Inspection
-
-The GUI's Gmsh panel launches Gmsh directly on a completed mesh analysis: pick the subject, simulation, and analysis from the dropdowns and the corresponding `.msh` is found and opened for 3D inspection.
