@@ -414,6 +414,9 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[st
         dirs["mti_surfaces"] = os.path.join(montage_dir, "mTI", "mesh", "surfaces")
         dirs["mti_niftis"] = os.path.join(montage_dir, "mTI", "niftis")
         dirs["mti_montage_imgs"] = os.path.join(montage_dir, "mTI", "montage_imgs")
+        dirs["mti_surface_overlays"] = os.path.join(
+            montage_dir, "mTI", "surface_overlays"
+        )
 
     for path in dirs.values():
         os.makedirs(path, exist_ok=True)
@@ -1026,15 +1029,9 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
     ``simnibs_python`` process right after the montage completes, so the central
     overlays it reads are already on disk.
 
-    ponytail: best-effort -- a projection failure logs a warning and never aborts
-    the simulation. mTI overlays are not yet supported, so mTI montages are
-    skipped explicitly rather than failing the carrier/central-surface lookups.
+    Best-effort -- a projection failure logs a warning and never aborts
+    the simulation. Covers both TI and mTI montages.
     """
-    if montage.simulation_mode != SimulationMode.TI:
-        logger.info(
-            "fsaverage projection: skipping %s (mTI not yet supported)", montage.name
-        )
-        return
     from tit.source.config import FsavgMapConfig
     from tit.source.fsaverage import project_subject
 

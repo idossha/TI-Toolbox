@@ -33,7 +33,7 @@ Neither channel's kHz field modulates neurons on its own; the quantity the TI co
 </div>
 
 - **`TI_max`** (V/m) -- the modulation depth of the beat envelope, maximised over direction at every mesh node or voxel. It is the default field of every simulation and of every analysis, and what "TImax" / "TInorm" mean in papers and in this toolbox's optimizers. For one carrier (two channels) it is the closed form $$2\min(\lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert)$$ when the fields are near-aligned, and smaller otherwise (Grossman et al. 2017; exact form under [Envelope Math and Critical Values](#envelope-math-and-critical-values) below).
-- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is only written for standard TI runs (4 electrodes, 2 channels).
+- **`TI_normal`** (V/m, mesh only) -- the same envelope measured along the local cortical surface normal, i.e. the component that runs along the apical dendrites of pyramidal cells. It is always $$\le$$ `TI_max`, can be much smaller where the field is tangential to the cortex (see below), and is written for both TI and mTI runs (for mTI via `get_mTI_dir`, the same envelope evaluated along the surface normal).
 - **`TI_avg`, `hf_peak`, `hf_sar`** -- optional extra fields (direction-averaged envelope; carrier-exposure safety metrics). They are defined below ([Envelope Math](#envelope-math-and-critical-values) and [Safety Metrics](#safety-metrics)); the analyzer treats them as any other field, each in its own units.
 
 <div class="image-container">
@@ -81,13 +81,14 @@ $$
 \mathrm{MD} = \sqrt{2} \left( \sqrt{P + Q} - \sqrt{P - Q} \right)
 $$
 
-$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly five functions:
+$$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (all carriers phase-aligned, $$\psi_k = 0$$, the standard case). $$P - Q$$ and $$P + Q$$ are clamped to $$\ge 0$$ before the square roots to absorb floating-point round-off. This is implemented in `tit/calc.py`, whose public API is exactly six functions:
 
 | Function | Purpose |
 |---|---|
 | `get_TI_vectors(E1, E2)` | Exact $$K = 1$$ closed form (one carrier, 2 channels) |
 | `get_mTI_vectors(fields, psi=None)` | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels |
 | `get_TI_avg(fields, psi=None)` | Direction-averaged modulation depth |
+| `get_mTI_dir(fields, directions, psi=None)` | Envelope along a fixed per-element direction; backs mTI's `TI_normal` |
 | `get_magnitude_am(fields)` | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
 | `get_nTI_vectors(fields)` | **Deprecated.** Delegates to `get_mTI_vectors` |
 
@@ -145,7 +146,7 @@ Once `TI_max` exists at every node or voxel, an analysis reduces it to a handful
 | **Intensity in the ROI** | `roi_mean` (also `roi_max`, `roi_min`) | Area/volume-weighted mean `TI_max` inside the target. The number to compare against dose thresholds and between montages. |
 | **Intensity outside the ROI** | `gm_mean` (also `gm_max`) | Mean over the **entire grey matter**. This is the analyzer's fixed non-ROI; the optimizers additionally accept a user-defined avoidance region. |
 | **Focality** | `roi_focality` | `roi_mean / gm_mean`. 1 means the target is no hotter than the average cortex; higher is more selective. Same definition as ex-search's `Focality`. |
-| **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | The three statistics above recomputed on `TI_normal` (mesh, standard TI only). |
+| **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | The three statistics above recomputed on `TI_normal` (mesh only). |
 | **Hot-spot level** | `percentile_95`, `percentile_99`, `percentile_99_9` | Field value below which 95 / 99 / 99.9 % of the grey-matter area lies. `percentile_99_9` is a robust "peak" that ignores single outlier elements. |
 | **Hot-spot size** | `focality_50_area` ... `focality_95_area` | Grey-matter area ($$\mathrm{cm}^2$$; volume for voxel analysis) at or above 50 / 75 / 90 / 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot; a large one means the field is spread out, regardless of where the ROI is. |
 
@@ -254,7 +255,7 @@ Every analysis call returns an `AnalysisResult` dataclass. Its statistics are ex
 - `field_name`, `region_name`, `space` ("mesh"/"voxel"), `analysis_type` ("spherical"/"cortical")
 - `n_elements`: mesh nodes or voxels in the ROI
 - `total_area_or_volume`: ROI area (mesh, $$\mathrm{mm}^2$$) or volume (voxel, $$\mathrm{mm}^3$$)
-- The `normal_*` fields are `None` for mTI runs -- see [mTI Analyses](#mti-analyses)
+- The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI Analyses](#mti-analyses)
 
 ---
 
@@ -281,7 +282,7 @@ An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`,
 
 ### TI_normal
 
-`TI_normal` is not computed for mTI — no normal-component mesh is written (see the [Simulator page]({{ site.baseurl }}/wiki/simulator/) for why). Requesting it raises `FileNotFoundError` ("TI_normal is only computed for standard 2-pair TI simulations"), and the `normal_*` statistics (`normal_mean`, `normal_max`, `normal_focality`) are always `None` in mTI results.
+`TI_normal` is computed for mTI: the simulator evaluates the $$K$$-carrier envelope along the cortical surface normal (`get_mTI_dir`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The analyzer resolves that mesh when `TI_normal` is requested for an mTI run, and the `normal_*` statistics (`normal_mean`, `normal_max`, `normal_focality`) are populated the same way as for standard TI. For mTI simulations run before this support existed, the normal mesh is absent — requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`; re-run the simulation to get them.
 
 ---
 

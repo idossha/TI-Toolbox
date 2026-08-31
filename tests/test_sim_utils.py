@@ -578,7 +578,7 @@ class TestRunMontageVisualization:
 
 
 class TestProjectMontageToFsaverage:
-    """``map_to_fsavg`` hook: TI projects, mTI skips, errors never abort the sim."""
+    """``map_to_fsavg`` hook: both TI and mTI project; errors never abort the sim."""
 
     def _montage(self, mode, name="M1"):
         from types import SimpleNamespace
@@ -599,19 +599,19 @@ class TestProjectMontageToFsaverage:
         )
         assert calls == [("001", "TI_sim")]
 
-    def test_mti_montage_skipped(self, monkeypatch):
+    def test_mti_montage_projects(self, monkeypatch):
         from tit.sim import utils
 
         calls = []
         monkeypatch.setattr(
             "tit.source.fsaverage.project_subject",
-            lambda *a: calls.append(a) or ("x", "ok", ""),
+            lambda sid, sim, cfg: calls.append((sid, sim)) or (sid, "ok", "done"),
         )
         config = SimulationConfig(subject_id="001", montages=[])
         utils._project_montage_to_fsaverage(
-            config, self._montage(SimulationMode.MTI), MagicMock()
+            config, self._montage(SimulationMode.MTI, "mTI_sim"), MagicMock()
         )
-        assert calls == []
+        assert calls == [("001", "mTI_sim")]
 
     def test_projection_error_is_non_fatal(self, monkeypatch):
         from tit.sim import utils

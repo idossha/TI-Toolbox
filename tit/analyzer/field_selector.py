@@ -141,14 +141,18 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by _calculate_ti_normal),
-    # not the main TI/mTI output mesh.
+    # TI_normal lives in a separate mesh (written by _calculate_ti_normal /
+    # _calculate_mti_normal), not the main TI/mTI output mesh.
     if field_name == const.FIELD_TI_NORMAL:
-        normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
+        if is_mti:
+            normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"
+        else:
+            normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
         if not normal_path.exists():
             raise FileNotFoundError(
-                f"TI_normal mesh not found: {normal_path}. TI_normal is only "
-                "computed for standard 2-pair TI simulations."
+                f"TI_normal mesh not found: {normal_path}. This simulation "
+                "predates TI_normal support for its mode; re-run it to get "
+                "the normal-component mesh."
             )
         logger.debug("Selected mesh field file: %s (field=%s)", normal_path, field_name)
         return normal_path, field_name

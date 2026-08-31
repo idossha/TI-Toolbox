@@ -121,9 +121,9 @@ The kHz-exposure safety metrics `hf_peak`/`hf_sar` always sum over every channel
 
 On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same quantity `TI_max` names on a standard TI mesh, just a different on-disk name for the multipolar case.
 
-**TI_normal is not computed for mTI.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; the multi-carrier analogue would need the $$K$$-carrier envelope evaluated at a _fixed_ direction (the surface normal) rather than maximized over direction, and while `tit.calc` has that primitive internally, it is only exposed as a private helper today -- exposing it publicly, and updating `tit/analyzer/field_selector.py` (which resolves the normal mesh under `TI/mesh/` unconditionally), is deferred.
+**TI_normal is computed for mTI too.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; mTI evaluates the same $$K$$-carrier envelope at a _fixed_ direction — the cortical surface normal — via `tit.calc.get_mTI_dir` over all N channel overlays, and writes it as `{montage}_mTI_normal.msh` in `mTI/mesh/`.
 
-**fsaverage projection is skipped for mTI.** `SimulationConfig.map_to_fsavg` defaults to `True`, but the projection step returns early for any montage whose `simulation_mode != TI`, logging "fsaverage projection: skipping %s (mTI not yet supported)".
+**fsaverage projection covers mTI.** `SimulationConfig.map_to_fsavg` defaults to `True` and runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
 
 mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel labelling); more than 26 channels raises `ValueError`. Post-processing:
 

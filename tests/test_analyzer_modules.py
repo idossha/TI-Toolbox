@@ -344,13 +344,33 @@ class TestSelectFieldFileExplicitField:
         assert field_name == "TI_normal"
 
     @pytest.mark.unit
+    def test_mti_normal_resolves_mti_mesh(self, tmp_path):
+        """For an mTI simulation, TI_normal resolves to the mTI normal mesh
+        written by _calculate_mti_normal."""
+        sim_dir = tmp_path / "Simulations" / "montage1"
+        mti_mesh_dir = sim_dir / "mTI" / "mesh"
+        mti_mesh_dir.mkdir(parents=True)
+        (mti_mesh_dir / "montage1_mTI.msh").touch()
+        normal_mesh = mti_mesh_dir / "montage1_mTI_normal.msh"
+        normal_mesh.touch()
+
+        with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
+            mock_gpm.return_value.simulation.return_value = str(sim_dir)
+            path, field_name = select_field_file(
+                "001", "montage1", "mesh", field="TI_normal"
+            )
+
+        assert path == normal_mesh
+        assert field_name == "TI_normal"
+
+    @pytest.mark.unit
     def test_ti_normal_missing_raises_file_not_found(self, tmp_path):
         sim_dir = tmp_path / "sim"
         mesh_dir = sim_dir / "TI" / "mesh"
         mesh_dir.mkdir(parents=True)
         (mesh_dir / "montage1_TI.msh").touch()
-        # No {simulation}_normal.msh written (e.g. mTI simulations never
-        # compute it).
+        # No {simulation}_normal.msh written (e.g. a run from before
+        # TI_normal support, or map_to_surf disabled).
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)

@@ -832,3 +832,44 @@ class TestQuadraticFormSweepRegression:
         Q = np.abs(proj[0] * proj[1] + proj[2] * proj[3])
         amp = np.sqrt(2.0 * np.maximum(P + Q, 0.0)) - np.sqrt(2.0 * np.maximum(P - Q, 0.0))
         np.testing.assert_allclose(get_TI_avg(fields), amp.mean(axis=1), rtol=0, atol=1e-9)
+
+
+@pytest.mark.unit
+class TestGetMTIDir:
+    """get_mTI_dir -- the public fixed-direction envelope backing mTI's TI_normal."""
+
+    def test_matches_best_direction_envelope(self):
+        """Evaluating at get_mTI_vectors' own best directions reproduces the
+        maximized modulation depth (up to refinement round-off)."""
+        from tit.calc import get_mTI_dir, _mti_modulation_depth
+
+        rng = np.random.default_rng(7)
+        fields = [rng.standard_normal((300, 3)) for _ in range(4)]
+        best = _mti_modulation_depth(fields)
+        md = get_mTI_dir(fields, best["best_direction"])
+        np.testing.assert_allclose(md, best["md"], rtol=0, atol=1e-9)
+
+    def test_never_exceeds_maximized_envelope(self):
+        from tit.calc import get_mTI_dir, get_mTI_vectors
+
+        rng = np.random.default_rng(8)
+        fields = [rng.standard_normal((300, 3)) for _ in range(4)]
+        md_max = np.linalg.norm(get_mTI_vectors(fields), axis=1)
+        dirs = rng.standard_normal((300, 3))
+        assert np.all(get_mTI_dir(fields, dirs) <= md_max + 1e-6)
+
+    def test_k1_colinear_along_field_axis(self):
+        """One carrier, colinear equal fields, evaluated along that axis:
+        MD = 2*min(|E1|,|E2|) exactly (Grossman 2017)."""
+        from tit.calc import get_mTI_dir
+
+        e = np.array([[0.5, 0.0, 0.0]])
+        md = get_mTI_dir([e, e], np.array([[1.0, 0.0, 0.0]]))
+        np.testing.assert_allclose(md, [1.0], atol=1e-12)
+
+    def test_direction_shape_mismatch_raises(self):
+        from tit.calc import get_mTI_dir
+
+        fields = [np.zeros((5, 3)) for _ in range(4)]
+        with pytest.raises(ValueError, match="directions"):
+            get_mTI_dir(fields, np.zeros((4, 3)))

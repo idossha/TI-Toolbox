@@ -59,8 +59,8 @@ def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
     return np.asarray(mesh.field[field_name].value, dtype=float).reshape(-1)
 
 
-def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
-    """Locate the two per-pair carrier VOLUME meshes for a simulation.
+def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, ...]:
+    """Locate the per-channel carrier VOLUME meshes for a simulation (N >= 2).
 
     Unlike the central-surface overlays -- which some SimNIBS builds fill with
     only ``E_normal`` -- the high-frequency volume meshes always carry the full
@@ -68,22 +68,21 @@ def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, Path]:
     """
     sim_dir = Path(pm.simulation(subject_id, sim))
 
-    def _find(pair: int) -> Path:
-        # The carrier volume mesh always lives under high_Frequency/ (directly
-        # before file organization, in mesh/ after); restrict to that subtree so
-        # no surface overlay elsewhere under the sim dir can be picked instead.
-        matches = sorted(
-            p
-            for p in sim_dir.glob(f"high_Frequency/**/*_TDCS_{pair}_*.msh")
-            if not p.name.startswith("._") and not p.name.endswith("_central.msh")
+    # The carrier volume meshes always live under high_Frequency/ (directly
+    # before file organization, in mesh/ after); restrict to that subtree so
+    # no surface overlay elsewhere under the sim dir can be picked instead.
+    # TI runs name them TDCS_1/TDCS_2; mTI renames to TDCS_A..Z on organize.
+    matches = sorted(
+        p
+        for p in sim_dir.glob("high_Frequency/**/*_TDCS_*.msh")
+        if not p.name.startswith("._") and not p.name.endswith("_central.msh")
+    )
+    if len(matches) < 2:
+        raise FileNotFoundError(
+            f"Expected at least two carrier volume meshes under {sim_dir}, "
+            f"found {len(matches)}"
         )
-        if not matches:
-            raise FileNotFoundError(
-                f"No carrier volume mesh for TDCS_{pair} under {sim_dir}"
-            )
-        return matches[0]
-
-    return _find(1), _find(2)
+    return tuple(matches)
 
 
 def _load_carrier_mesh(vol_path: Path):
@@ -117,21 +116,36 @@ def _interp_to_central(mesh, gm_th, field_name, central, hemispheres) -> np.ndar
     )
 
 
-def _ti_max_overlay(pm, subject_id: str, sim: str) -> Path:
-    path = Path(pm.ti_central_surface(subject_id, sim))
-    if not path.exists():
-        raise FileNotFoundError(f"TI central-surface overlay not found: {path}")
-    return path
+def _ti_max_overlay(pm, subject_id: str, sim: str) -> tuple[Path, str]:
+    """Central-surface overlay path and the field name it carries.
+
+    TI runs write ``TI_max`` under ``TI/mesh/surfaces``; mTI runs write the
+    same quantity as ``mTI_max`` under ``mTI/mesh/surfaces``.
+    """
+    ti_path = Path(pm.ti_central_surface(subject_id, sim))
+    if ti_path.exists():
+        return ti_path, "TI_max"
+    mti_path = Path(pm.mti_central_surface(subject_id, sim))
+    if mti_path.exists():
+        return mti_path, "mTI_max"
+    raise FileNotFoundError(
+        f"TI central-surface overlay not found: {ti_path} (nor {mti_path})"
+    )
 
 
 def _ti_normal_overlay(pm, subject_id: str, sim: str) -> Path:
-    mesh_dir = Path(pm.ti_mesh_dir(subject_id, sim))
-    candidates = sorted(
-        p for p in mesh_dir.glob("*_normal.msh") if not p.name.startswith("._")
+    for mesh_dir in (
+        Path(pm.ti_mesh_dir(subject_id, sim)),
+        Path(pm.mti_mesh_dir(subject_id, sim)),
+    ):
+        candidates = sorted(
+            p for p in mesh_dir.glob("*_normal.msh") if not p.name.startswith("._")
+        )
+        if candidates:
+            return candidates[0]
+    raise FileNotFoundError(
+        f"No TI_normal overlay (*_normal.msh) for {subject_id}/{sim}"
     )
-    if not candidates:
-        raise FileNotFoundError(f"No TI_normal overlay (*_normal.msh) in {mesh_dir}")
-    return candidates[0]
 
 
 def _morph_split(
@@ -194,10 +208,11 @@ def _compute_fields(
         except Exception as exc:  # noqa: BLE001 - per-field, keep the rest
             errors.append(f"{name}: {exc!r}")
 
-    _project(
-        "TI_max",
-        lambda: _read_surface_scalar(_ti_max_overlay(pm, subject_id, sim), "TI_max"),
-    )
+    def _ti_max_scalar() -> np.ndarray:
+        path, field_name = _ti_max_overlay(pm, subject_id, sim)
+        return _read_surface_scalar(path, field_name)
+
+    _project("TI_max", _ti_max_scalar)
     _project(
         "TI_normal",
         lambda: _read_surface_scalar(
@@ -206,20 +221,22 @@ def _compute_fields(
     )
     if "hf_peak" in cfg.fields or "hf_sar" in cfg.fields:
         try:
-            vol1, vol2 = _carrier_volume_meshes(pm, subject_id, sim)
-            m1, gm1 = _load_carrier_mesh(vol1)
-            m2, gm2 = _load_carrier_mesh(vol2)
+            vols = _carrier_volume_meshes(pm, subject_id, sim)
             # The full vector E is always present on the FEM volume mesh (unlike
             # the surface overlays, which some builds fill with only E_normal), so
-            # both carrier fields derive from it -- interpolate it once per carrier.
-            e1 = _interp_to_central(m1, gm1, "E", central, hemispheres).reshape(-1, 3)
-            e2 = _interp_to_central(m2, gm2, "E", central, hemispheres).reshape(-1, 3)
+            # every channel field derives from it -- interpolate once per channel.
+            e_fields = []
+            for vol in vols:
+                m, gm = _load_carrier_mesh(vol)
+                e_fields.append(
+                    _interp_to_central(m, gm, "E", central, hemispheres).reshape(-1, 3)
+                )
         except Exception as exc:  # noqa: BLE001 - shared carrier read; skip both
             errors.append(f"carriers: {exc!r}")
         else:
             # Cassarà 2025 safety metrics (same formulas as the volume output).
-            _project("hf_peak", lambda: hf_peak(e1, e2))
-            _project("hf_sar", lambda: hf_sar(e1, e2))
+            _project("hf_peak", lambda: hf_peak(*e_fields))
+            _project("hf_sar", lambda: hf_sar(*e_fields))
 
     if not out:
         raise ValueError(

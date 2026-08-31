@@ -41,7 +41,7 @@ from simnibs import mesh_io, sim_struct
 from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_mTI_vectors, get_TI_avg, get_TI_vectors
+from tit.calc import get_mTI_dir, get_mTI_vectors, get_TI_avg, get_TI_vectors
 from tit.fields import hf_peak, hf_sar
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
@@ -210,15 +210,7 @@ class mTISimulation(BaseSimulation):
         )
         self.logger.info(f"mTI mesh saved: {mti_path}")
 
-        # TI_normal is not computed for mTI. TISimulation._calculate_ti_normal
-        # uses SimNIBS's 2-field TI.get_dirTI; the N-pair analogue needs the
-        # coherent K-pair envelope evaluated at a fixed direction (the surface
-        # normal) rather than maximized over directions. tit.calc has that
-        # primitive but only as a private helper, so this is deferred until it
-        # exposes a public fixed-direction envelope rather than duplicating
-        # safety-adjacent math here. tit/analyzer/field_selector.py would also
-        # need updating, since it resolves the TI_normal mesh under TI/mesh/
-        # unconditionally.
+        self._calculate_mti_normal(dirs["hf_dir"], dirs["mti_mesh"], name, n_pairs)
 
         # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")
@@ -265,6 +257,47 @@ class mTISimulation(BaseSimulation):
 
         return mti_path
 
+    def _calculate_mti_normal(
+        self, hf_dir: str, output_dir: str, montage_name: str, n_pairs: int
+    ) -> None:
+        """Compute ``TI_normal`` on the cortical surface for mTI.
+
+        Mirrors ``TISimulation._calculate_ti_normal``: reads the N
+        per-channel SimNIBS central-surface overlays and evaluates the
+        multi-carrier envelope along the node normals
+        (:func:`tit.calc.get_mTI_dir`) instead of maximizing over
+        direction.
+        """
+        sid = self.config.subject_id
+        cond = self.config.conductivity
+        overlays = os.path.join(hf_dir, "subject_overlays")
+
+        cms = [
+            mesh_io.read_msh(
+                os.path.join(overlays, f"{sid}_TDCS_{i}_{cond}_central.msh")
+            )
+            for i in range(1, n_pairs + 1)
+        ]
+
+        normals = cms[0].nodes_normals().value
+        if "E" in cms[0].field:
+            e_fields = [cm.field["E"].value for cm in cms]
+        else:
+            e_fields = [
+                cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms
+            ]
+
+        ti_normal = get_mTI_dir(e_fields, normals)
+
+        mout = deepcopy(cms[0])
+        mout.nodedata = []
+        mout.add_node_field(ti_normal, "TI_normal")
+
+        normal_path = os.path.join(output_dir, f"{montage_name}_mTI_normal.msh")
+        mesh_io.write_msh(mout, normal_path)
+        mout.view(visible_fields=["TI_normal"]).write_opt(normal_path)
+        self.logger.debug(f"TI_normal saved: {normal_path}")
+
     def _save_ti_vectors(
         self, base_mesh, ti_vectors, output_dir: str, filename: str
     ) -> None:
@@ -292,6 +325,17 @@ class mTISimulation(BaseSimulation):
                 for f in glob.glob(os.path.join(hf, f"*TDCS_{i}*{ext}")):
                     new_name = os.path.basename(f).replace(f"TDCS_{i}", f"TDCS_{ltr}")
                     safe_move(f, os.path.join(dirs["hf_mesh"], new_name))
+
+        # Move surface overlays (already consumed for TI_normal, kept for
+        # inspection and fsaverage projection)
+        overlays = os.path.join(hf, "subject_overlays")
+        if os.path.isdir(overlays):
+            for fname in os.listdir(overlays):
+                safe_move(
+                    os.path.join(overlays, fname),
+                    os.path.join(dirs["mti_surface_overlays"], fname),
+                )
+            os.rmdir(overlays)
 
         safe_move(
             os.path.join(hf, "fields_summary.txt"),

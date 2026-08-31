@@ -14,6 +14,9 @@ get_mTI_vectors
     verified N>2 replacement for :func:`get_nTI_vectors`.
 get_TI_avg
     Direction-averaged modulation depth for K >= 1 electrode pairs.
+get_mTI_dir
+    Modulation depth evaluated along a fixed per-element direction
+    (e.g. the cortical surface normal); backs mTI's ``TI_normal``.
 get_magnitude_am
     Direction-free magnitude-envelope AM, K >= 1 electrode pairs.
 get_nTI_vectors
@@ -195,6 +198,37 @@ def get_TI_avg(fields, channels=None, psi=None):
     n_pairs = len(arrs) // 2
     psi_arr = _validate_psi(psi, n_pairs)
     return _mti_modulation_depth_avg(arrs, psi_arr)
+
+
+def get_mTI_dir(fields, directions, psi=None):
+    """Modulation depth along a fixed per-element direction, K >= 1.
+
+    The multi-carrier analogue of SimNIBS's 2-field ``TI.get_dirTI``:
+    instead of maximizing the envelope over direction
+    (:func:`get_mTI_vectors`), evaluate it at a given direction per
+    element -- typically the cortical surface normal, which yields the
+    ``TI_normal`` quantity for mTI simulations. Exact (no direction
+    search) for any K.
+
+    Parameters
+    ----------
+    fields : list of np.ndarray, each shape (N, 3)
+        Field vectors ordered ``[E_1a, E_1b, E_2a, E_2b, ...]``, one per
+        channel; consecutive fields are the two channels of one carrier.
+    directions : np.ndarray, shape (N, 3)
+        Per-element direction to evaluate the envelope along. Need not be
+        unit length; zero vectors yield 0.
+    psi : array-like, shape (K,), or None
+        Per-carrier envelope phase offset (radians); see
+        :func:`get_mTI_vectors`.
+
+    Returns
+    -------
+    np.ndarray, shape (N,)
+        Modulation depth [V/m] along ``directions``.
+    """
+    result = _mti_modulation_depth(fields, psi=psi, directions=directions)
+    return result["md"]
 
 
 def get_magnitude_am(fields):
