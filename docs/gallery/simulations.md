@@ -56,8 +56,8 @@ permalink: /gallery/simulations/
   <h3>Unipolar and Multipolar Montages</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/simulator/uTI_mTI.png" alt="Unipolar vs multipolar TI" onclick="openLightbox(this)" />
-      <p>Standard two-pair (unipolar) TI next to multipolar TI, which generalizes the beat pattern to four or more pairs.</p>
+      <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI" onclick="openLightbox(this)" />
+      <p>Standard two-pair (unipolar) TI next to multipolar TI, which generalizes the beat pattern to four or more pairs. Adapted from Albantakis &amp; Tononi 2026, <i>American Journal of Psychiatry</i>.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/simulator/unipolar.png" alt="Unipolar montage" onclick="openLightbox(this)" />

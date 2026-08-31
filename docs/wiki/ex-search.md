@@ -23,7 +23,9 @@ The implementation uses a single `ExSearchEngine` class that owns the full pipel
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+</div>
 
 The interface provides controls for:
 

@@ -435,7 +435,9 @@ plt.show()
 
 
     
-<img src="{{ site.baseurl }}/assets/imgs/notebook/nb_14_0.png" alt="notebook output" style="max-width: 100%;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/notebook/nb_14_0.png" alt="notebook output" style="max-width: 100%;">
+</div>
     
 
 
@@ -457,7 +459,9 @@ plt.show()
 
 
     
-<img src="{{ site.baseurl }}/assets/imgs/notebook/nb_15_0.png" alt="notebook output" style="max-width: 100%;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/notebook/nb_15_0.png" alt="notebook output" style="max-width: 100%;">
+</div>
     
 
 

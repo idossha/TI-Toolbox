@@ -8,7 +8,9 @@ The Simulator module provides temporal interference (TI) simulation capabilities
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
+</div>
 
 The simulator GUI provides intuitive controls for all simulation parameters:
 
@@ -72,9 +74,6 @@ Mode that allows exploration of untraditional montages
 ---
 
 ## Simulation Modes
-
-<img src="{{ site.baseurl }}/assets/imgs/simulator/uTI_mTI.png" alt="Unipolar TI" style="width: 80%; max-width: 300px;">
-<em>Left column unipolar (two channels) right column multipolar (four channels). Panels A,D: target and electrode montage. Panels B,E: high frequency fields. Panels C,F: modulation fields.</em>
 
 ### Unipolar Mode
 - **Configuration**: Single active electrode with dedicated return path
@@ -183,7 +182,9 @@ Per-pair high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved
 
 ## Available EEG Nets
 
-<img src="{{ site.baseurl }}/assets/imgs/simulator/eeg_nets_available.png" alt="Available EEG Nets" style="width: 100%; max-width: 800px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/simulator/eeg_nets_available.png" alt="Available EEG Nets" style="width: 100%; max-width: 800px;">
+</div>
 
 The TI-Toolbox automatically co-registers the following EEG electrode nets to head models during preprocessing. These pre-aligned nets enable seamless integration with simulation workflows, electrode optimization, and leadfield calculations.
 
@@ -236,8 +237,12 @@ For complete DTI processing instructions, see the [Diffusion Processing]({{ site
 
 #### DTI Eigen Vectors Visualization
 
-<img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" style="width: 80%; max-width: 500px;">
-<img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" style="width: 80%; max-width: 500px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" style="width: 80%; max-width: 500px;">
+</div>
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" style="width: 80%; max-width: 500px;">
+</div>
 
 <em>Gmsh visualizations showing white and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
 

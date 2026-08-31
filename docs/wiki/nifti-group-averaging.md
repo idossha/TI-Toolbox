@@ -39,7 +39,9 @@ treatment_vs_control/
 
 The group difference analysis provides visual output showing statistical comparisons between experimental groups:
 
-<img src="{{ site.baseurl }}/assets/imgs/visualizers/group_diff_nifti.png" alt="Group Difference Visualization" style="width: 80%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/visualizers/group_diff_nifti.png" alt="Group Difference Visualization" style="width: 80%; max-width: 600px;">
+</div>
 
 *Figure: group differences in electric field distributions*
 

@@ -27,7 +27,9 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_flex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_flex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+</div>
 
 The interface provides comprehensive controls for:
 
@@ -137,7 +139,9 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 - **Dual Thresholds**: Independent thresholds for each region, allowing asymmetric optimization constraints
 - **Derived Thresholds**: `thresholds` always takes explicit numeric values -- there is no in-loop adaptation. `"dynamic"`/`"auto"` are placeholders meaning "do not set a threshold; let SimNIBS use its own static default," and the ROC-based objective path raises an error if no explicit numeric threshold is available. The workable pattern is an offline two-pass procedure: run a `mean` $$\mathrm{TI}_{\max}$$ pass first, then derive the ROI/non-ROI thresholds from its field distribution and feed them into a `focality` run, as described below.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
+</div>
 
 **Focality optimization analysis**: Comparative evaluation of threshold strategies reveals critical insights: threshold selection profoundly impacts results, with relative thresholds (50% of peak) yielding 75% higher focality than fixed thresholds, while 80% thresholds reduce focality by 37%, compared to fixed thresholds (0.1V/m and 0.3V/m) highlighting the importance of threshold optimization for precise neuromodulation. Dynamic % based thresholds were derived automatically from an intial pass of mean TImax search and applied to the upper bound only. The lower bound was kept at 20% from that value. _Data regarding focality thresholds and optimization performance comes from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
 
@@ -169,7 +173,9 @@ The ROC goal's result depends entirely on a threshold that the user has to choos
 
 That does not make it failure-proof, though -- a scale-free ratio objective trades one failure mode for a different one. Because it scores separation, not dose, it can rate a candidate highly for being cleanly separated from the non-ROI even when almost no field reached the target at all. In the mini-study below, a threshold-free direct-AUC run scored AUC 0.931 on just 0.047 V/m of on-target field, and `focality_tf` itself bottomed out at 0.084 V/m in its worst cell. Always read a focality or AUC score next to the ROI-mean field it was computed on.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_summary.png" alt="Optimization goal comparison across a 75-run focality mini-study" style="width: 100%; max-width: 900px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_summary.png" alt="Optimization goal comparison across a 75-run focality mini-study" style="width: 100%; max-width: 900px;">
+</div>
 
 **Summary across all 75 flex-search runs (5 subjects x 3 deep atlas targets x 5 optimization goals): mean AUC per goal, the focality-vs-on-target-strength tradeoff for every run, and each goal's worst-case AUC and worst-case ROI field strength.** On average across the 15 subject-target cells, the threshold-free objectives outperformed both ROC threshold settings on focality (AUC); `focality_tf` (the shipped goal, `w = 0`) beat both ROC arms in 13 of 15 cells (86.7%), losing only at sub-101 and sub-103 L-hippocampus -- the one target where the aggressive threshold pair (0.4/0.2 V/m) turned out to be feasible. That same aggressive ROC goal failed outright where its threshold pair was jointly infeasible at depth: it scored below chance (AUC < 0.5) in 5 of its 15 cells, and collapsed to near-zero on-target field -- a separate, dose-based criterion -- in 6. `focality_tf` had no failures under either criterion. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand.
 
@@ -227,7 +233,9 @@ A separate, dose-based flag counts runs whose ROI mean fell below one third of t
 
 The aggressive `focality` (ROC 0.4/0.2 V/m) goal performs best, among its own three targets, at L-hippocampus (AUC 0.908 ± 0.013, ROI mean 0.447 ± 0.037 V/m -- the second-highest ROI mean of any goal at that target) and worst at R-thalamus (AUC 0.541 ± 0.177) and L-insula (AUC 0.576 ± 0.258). The same 0.4/0.2 V/m threshold pair happens to be feasible at hippocampus depth and infeasible at the other two -- and the goal gives the user no warning about which case they are in before the run finishes.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_roc.png" alt="Group ROC curves for each deep target across all five optimization goals" style="width: 100%; max-width: 900px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_roc.png" alt="Group ROC curves for each deep target across all five optimization goals" style="width: 100%; max-width: 900px;">
+</div>
 
 **Group ROC curves of the TI envelope (target gray matter vs. the other gray matter) for each of the three deep targets, comparing all five optimization goals by mean AUC over the 5 subjects; the shaded band shows ±1 SD across subjects for the shipped `focality_tf` (w = 0) arm only.** AUC drops sharply for the ROC threshold goals at R-thalamus and L-insula, while the threshold-free goals (direct AUC, `focality_tf`, intensity-weighted) stay high across all three targets.
 
@@ -235,7 +243,9 @@ The aggressive `focality` (ROC 0.4/0.2 V/m) goal performs best, among its own th
 
 The shipped goal's worst run across all 15 cells, AUC 0.783, essentially matches the milder ROC goal's _average_ (0.787 ± 0.084). The aggressive ROC goal's worst run drops to AUC 0.282 (sub-103, L-insula); the lowest on-target field reached by that same goal anywhere in the study is 0.015 V/m (sub-107, R-thalamus) -- two separate worst-case runs, not necessarily the same one.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_dist.png" alt="Pooled TI envelope field distributions by target and goal" style="width: 100%; max-width: 900px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_dist.png" alt="Pooled TI envelope field distributions by target and goal" style="width: 100%; max-width: 900px;">
+</div>
 
 **Pooled, volume-weighted TI envelope field-strength distributions (target gray matter vs. the other gray matter), element samples pooled over the 5 subjects, shown as a 3-target x 5-goal grid with the group ROI/non-ROI mean ratio annotated in each panel.** At R-thalamus, the ROC 0.4/0.2 goal's ROI/non-ROI ratio inverts -- the pooled group ratio annotated in the figure is 0.97, and the per-subject mean for that cell is 0.975 +/- 0.267 -- meaning the off-target gray matter received, on average, slightly more field than the target. This is consistent with the near-zero on-target fields shown in the summary figure above.
 
@@ -255,7 +265,9 @@ That guarantee is about the _objective value_ only. It is not a guarantee about 
 
 The TI envelope amplitude is capped by the weaker of the two channels -- for co-linear fields the modulation depth is $$2 \min\!\left( \lVert \mathbf{E}_1 \rVert, \lVert \mathbf{E}_2 \rVert \right)$$. The split therefore does two things at once: it **scales** the envelope, because the ceiling moves with the weaker channel, and it **steers** it, because the locus where the two channels balance shifts toward the weaker one. Because the FEM is linear, a per-channel rescale is enough to evaluate any split without a new solve (Lee et al. 2022). Published TI optima are rarely the 1:1 split that flex-search fixes by default (Lee et al. 2020; Inoue et al. 2025, n = 60), so leaving the split fixed gives up a free axis of the search space.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current ratio effect on the TI envelope" style="width: 80%; max-width: 700px;">
+</div>
 
 **How the two-channel current split scales and steers the TI envelope.** Because the envelope is bounded by the weaker channel, an unequal split trades peak amplitude against the position of the interference locus. This particular montage was itself optimized at 1:1, so 1:1 is near-optimal for it by construction -- post-hoc ratio tuning on top of an already-1:1-optimized placement gains only about +0.8% here. The payoff from a free ratio comes from searching it _jointly_ with electrode placement (below), which can reach placements a 1:1-constrained search would never consider in the first place.
 
@@ -324,7 +336,9 @@ Flex Search supports multi-start optimization to ensure robust and reliable resu
 - **Best Solution Selection**: Automatically selects the optimization run with the lowest function value
 - **Comprehensive Reporting**: Generates multi-start summary files with run-by-run analysis
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization Strategy" style="width: 50%; max-width: 400px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization Strategy" style="width: 50%; max-width: 400px;">
+</div>
 
 **Multi-start optimization validation**: Analysis demonstrates that running multiple independent optimizations with different random seeds yields superior solutions compared to single runs; 4.18% improvement in mean TImax. While statistically significant, the modest gains should be weighed against the increased computational cost. _Data regarding multi-start optimization performance comes from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
 
@@ -332,7 +346,9 @@ Flex Search supports multi-start optimization to ensure robust and reliable resu
 
 The transition from unconstrained optimization solutions to practical electrode montages represents a critical step in clinical translation. While genetic algorithms can identify theoretically optimal electrode positions anywhere on the scalp, its transition to clinical application may be difficult. Our electrode mapping algorithm bridges this gap by finding the best approximation of optimized positions using available electrode sites. For this study, we utilized the inner 185 electrodes of the GSN-HydroCel-256 system (EGI/Philips), which provides high-density coverage. A combinatorial optimization method that solves the assignment problem in polynomial time. By minimizing the total Euclidean distance between optimized and standard positions, this approach ensures good representation of the intended field distribution while maintaining practical feasibility.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Electrode Mapping Distance Analysis" style="width: 70%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Electrode Mapping Distance Analysis" style="width: 70%; max-width: 600px;">
+</div>
 
 **Electrode mapping challenges**: Analysis of optimized electrode positions reveals depth-dependent mapping distances across anatomical targets, with subcortical structures like the hippocampus requiring significantly larger electrode separations (11.74 ± 5.33 mm) compared to cortical regions like the insula (7.30 ± 1.38 mm) or spherical ROIs (8.01 ± 1.43 mm). This pattern reflects the fundamental challenge of targeting deep brain structures with scalp electrodes, where optimal montages often requires large distances between electrodes which may be positioned on the lower scalp that does not have dense electrode coverage. _Data regarding electrode mapping distances comes from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
 
@@ -371,7 +387,9 @@ Additional parameters `aniso_maxratio` (default: 10.0) and `aniso_maxcond` (defa
 
 Flex-search optimization is constrained to valid skin regions where electrodes can be safely placed. The green region represents the valid skin area for electrode placement during optimization, while red "x" marks indicate HD-EEG electrodes that fall outside this valid region.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" style="width: 80%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" style="width: 80%; max-width: 600px;">
+</div>
 
 If electrode positions fall outside the valid skin region, the valid skin region can be manipulated through preprocessing, or ex-search can be used as an alternative since it is not constrained by skin region limitations.
 
@@ -381,4 +399,6 @@ The flex-search skin constraint can be adjusted directly from scripts or from th
 
 For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear and orbital exclusion zones invalid. This guard uses scalp landmarks only (`Nz`, `LPA`, and `RPA`) and does not depend on eye tissue labels.
 
-<img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">
+</div>
