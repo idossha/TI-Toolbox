@@ -72,7 +72,6 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         all_combinations=all_combinations,
         symmetry_mirror_map=symmetry_mirror_map,
         symmetry_pairing=config.symmetry_pairing,
-        channels=config.channels,
     )
     if n_candidates == 0:
         reason = explain_zero_multipolar_combinations(
@@ -114,7 +113,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     )
 
     engine = MExSearchEngine(
-        leadfield_path, roi_target, config.roi_name, logger, channels=config.channels
+        leadfield_path, roi_target, config.roi_name, logger
     )
     engine.initialize(roi_radius=config.roi_radius)
     results = engine.run(

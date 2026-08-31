@@ -22,13 +22,6 @@ def _build_electrodes(data: dict):
     return MExConfig.BucketElectrodes(**data)
 
 
-def _build_channels(data):
-    """Restore ``MExConfig.channels`` from JSON, where tuples become lists."""
-    if data is None:
-        return None
-    return [(list(group_a), list(group_b)) for group_a, group_b in data]
-
-
 def _make_stdout_logger() -> None:
     """Attach a stdout handler so log messages are captured by BaseProcessThread."""
     from tit.logger import setup_logging, add_stream_handler
@@ -50,8 +43,8 @@ def main() -> None:
     get_path_manager(data.pop("project_dir"))
 
     electrodes = _build_electrodes(data.pop("electrodes"))
-    channels = _build_channels(data.pop("channels", None))
-    config = MExConfig(electrodes=electrodes, channels=channels, **data)
+    data.pop("channels", None)  # legacy key from old configs; ignored
+    config = MExConfig(electrodes=electrodes, **data)
     try:
         result = run_m_ex_search(config)
     except ValueError as exc:

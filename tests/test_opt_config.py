@@ -830,11 +830,3 @@ class TestSearchModeBackend:
 
         with pytest.raises(ValueError, match="Unknown search mode"):
             search_backend_for_mode("nope")
-
-    def test_two_carrier_architecture_maps_to_paired_channels(self):
-        """Pairs 1&3 share one carrier, 2&4 the other (Lee et al. 2022)."""
-        from tit.opt.config import MTI_CHANNEL_ARCHITECTURES
-
-        arch = dict(MTI_CHANNEL_ARCHITECTURES)
-        assert arch["Two independent channels"] is None
-        assert arch["Four pairs, two carriers"] == [([0, 2], [1, 3])]

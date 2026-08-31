@@ -94,12 +94,6 @@ class Montage:
         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
     display_name : str or None
         Optional user-facing label.  ``name`` remains the storage and lookup key.
-    channels : list[tuple[list[int], list[int]]] or None
-        Optional carrier grouping passed through to
-        :func:`tit.calc.get_mTI_vectors` / :func:`tit.calc.get_TI_avg`.
-        Each element is ``(group_a, group_b)``, indices into
-        ``electrode_pairs``' HF fields; ``None`` (default) is consecutive
-        pairing, i.e. one carrier per pair, today's behaviour.
 
     See Also
     --------
@@ -114,7 +108,6 @@ class Montage:
     electrode_pairs: list[tuple]
     eeg_net: str | None = None
     display_name: str | None = None
-    channels: list[tuple] | None = None
 
     @property
     def is_xyz(self) -> bool:

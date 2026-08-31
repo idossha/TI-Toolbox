@@ -888,16 +888,6 @@ class MExConfig:
         ``__post_init__``.
     current_mA : float
         Current in mA delivered by each of the four pairs.
-    channels : list of (list of int, list of int), or None
-        Carrier grouping passed to :func:`tit.calc.get_mTI_vectors`.
-        ``None`` treats the four pairs as two independent TI channels
-        (equivalent to ``[([0], [1]), ([2], [3])]``); an explicit grouping
-        such as ``[([0, 2], [1, 3])]`` instead treats all four pairs as
-        one channel sharing two carriers (Lee et al. 2022).  These give
-        materially different fields, so the grouping must be chosen
-        deliberately -- the quasi-static field solve has no frequency
-        term, so this grouping is the only place carrier assignment is
-        expressed.
     roi_radius : float
         Spherical ROI radius in mm for the target region.
     roi_names : list of str or None
@@ -946,7 +936,7 @@ class MExConfig:
     --------
     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-    tit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.
+    tit.calc.get_mTI_vectors : Modulation-amplitude envelope.
     """
 
     # ── Nested ROI types ─────────────────────────────────────────────────
@@ -1007,9 +997,8 @@ class MExConfig:
     roi_name: str
     electrodes: "MExConfig.BucketElectrodes | MExConfig.PoolElectrodes"
 
-    # ── Current and carrier grouping ────────────────────────────────────
+    # ── Current ─────────────────────────────────────────────────────────
     current_mA: float = 2.0
-    channels: list[tuple[list[int], list[int]]] | None = None
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
@@ -1102,17 +1091,6 @@ class MExResult:
 #: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
 SEARCH_MODE_TI = "TI"
 SEARCH_MODE_MTI = "mTI"
-
-#: Carrier wiring for a four-pair montage, as (label, ``channels`` value).
-#: Four pairs can be two independent TI channels -- consecutive pairing, the
-#: default -- or four pairs sharing two carriers, where same-carrier fields
-#: superpose before the envelope is taken (Lee et al. 2022). The two give
-#: materially different fields, so it is a real choice rather than a detail.
-MTI_CHANNEL_ARCHITECTURES = [
-    ("Two independent channels", None),
-    ("Four pairs, two carriers", [([0, 2], [1, 3])]),
-]
-
 
 def search_backend_for_mode(mode):
     """Return ``(module path, config class)`` for an exhaustive-search mode.

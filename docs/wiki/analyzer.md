@@ -55,7 +55,7 @@ With four channels on two carriers (8 electrodes) — or more — `mTI_max` is s
   <em>The same idea in vector space. At each mesh element the four channels' E-fields are vectors (A), and the modulation depth depends on the direction \(\hat{n}\) it is measured along: sweeping \(\hat{n}\) over the sphere and plotting \(r(\hat{n}) = \mathrm{MD}(\hat{n})\) from the \((P, Q)\) formulas gives the directional envelope surface (B). <code>mTI_max</code> is the radius of this surface's farthest point -- exactly what <code>get_mTI_vectors</code> finds with its 192-direction Fibonacci sweep plus local refinement (0.89 V/m along \(\hat{n}^{*}\) here, verified against the toolbox for these vectors). <code>TI_avg</code> is the average radius of the same surface over all sampled directions.</em>
 </div>
 
-The two subsections below give the formulas behind these figures -- the $$(P, Q)$$ sufficient statistics, the exact one-carrier closed form, and the safety metrics. How channels are assigned to carriers (carrier wiring), and how montages are detected as TI vs. mTI, are simulation mechanics covered on the [Simulator page]({{ site.baseurl }}/wiki/simulator/).
+The two subsections below give the formulas behind these figures -- the $$(P, Q)$$ sufficient statistics, the exact one-carrier closed form, and the safety metrics. How montages are detected as TI vs. mTI is a simulation mechanic covered on the [Simulator page]({{ site.baseurl }}/wiki/simulator/).
 
 ### Envelope Math and Critical Values
 
@@ -86,12 +86,12 @@ $$\psi_k$$ is a per-carrier envelope phase offset (radians), `None` by default (
 | Function | Purpose |
 |---|---|
 | `get_TI_vectors(E1, E2)` | Exact $$K = 1$$ closed form (one carrier, 2 channels) |
-| `get_mTI_vectors(fields, channels=None, psi=None)` | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels |
-| `get_TI_avg(fields, channels=None, psi=None)` | Direction-averaged modulation depth |
+| `get_mTI_vectors(fields, psi=None)` | $$K \ge 1$$ carriers; the verified replacement for more than 2 channels |
+| `get_TI_avg(fields, psi=None)` | Direction-averaged modulation depth |
 | `get_magnitude_am(fields)` | Direction-free AM envelope of $$\lVert \mathbf{E}(t) \rVert$$ (Botzanowski et al. 2025) |
 | `get_nTI_vectors(fields)` | **Deprecated.** Delegates to `get_mTI_vectors` |
 
-**`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$. (The `channels` parameter re-assigns channels to carriers -- despite its name, each entry describes one carrier; see carrier wiring on the [Simulator page]({{ site.baseurl }}/wiki/simulator/).)
+**`get_mTI_vectors`** is the function that mTI simulation and mex-search both call. It takes `fields = [E_1a, E_1b, ..., E_Ka, E_Kb]` -- one array of shape `(N, 3)` per channel, ordered so that consecutive fields are the two channels sharing a carrier -- and returns `(N, 3)` modulation-amplitude vectors whose norm is $$\mathrm{MD}$$.
 
 - **$$K = 1$$** (one carrier: standard TI) dispatches exactly to `get_TI_vectors`, an exact closed form (Hirata et al. 2024, *Computers in Biology and Medicine* 178, 108697; sign-agnostic):
 
@@ -134,7 +134,7 @@ $$
 
 This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
 
-Both metrics always sum over **every** channel field regardless of the carrier wiring -- kHz exposure does not depend on how channels are assigned to carriers for the envelope -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+Both metrics always sum over **every** channel field -- kHz exposure does not depend on the carrier structure -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
 
 ### Spatial domain: how the analyzer summarises a field
 
@@ -273,11 +273,10 @@ An mTI run also writes the intermediate per-carrier envelopes (`TI_AB`, `TI_CD`,
 
 ### What `mTI_max` means for the statistics
 
-`mTI_max` is the joint modulation depth over **all** $$K$$ carriers at once, maximised over direction -- the same "beat envelope" quantity as `TI_max`, just with more carriers in the sum. The math, the deprecated recursive TI-of-TI form and the safety metrics are documented under [Quantities of Interest](#envelope-math-and-critical-values) above; carrier wiring on the [Simulator page]({{ site.baseurl }}/wiki/simulator/). What matters for analysis is:
+`mTI_max` is the joint modulation depth over **all** $$K$$ carriers at once, maximised over direction -- the same "beat envelope" quantity as `TI_max`, just with more carriers in the sum. The math, the deprecated recursive TI-of-TI form and the safety metrics are documented under [Quantities of Interest](#envelope-math-and-critical-values) above. What matters for analysis is:
 
 - `TI_max` and `mTI_max` are aliases. Whichever spelling is requested, the analyzer resolves it to the on-disk name the detected simulation type actually wrote, so the Field selector lists it once.
 - ROI statistics carried over from outputs produced by the deprecated `get_nTI_vectors` form are inflated (signed mean +38.6% at 4 channels) and should be regenerated rather than compared.
-- `mTI_max` depends on the [carrier wiring]({{ site.baseurl }}/wiki/simulator/) of the run, and the wiring is **not recorded** in the analysis output. Compare ROI numbers only across runs known to share one. `hf_peak`/`hf_sar` sum over all channel fields regardless of wiring, so they stay comparable.
 - `TI_avg`, `hf_peak` and `hf_sar` can be selected when the run wrote them and go through the identical ROI machinery, each in its own units (see [Quantities of Interest](#quantities-of-interest)).
 
 ### TI_normal

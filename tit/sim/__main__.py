@@ -20,15 +20,7 @@ def _build_montage(data: dict) -> Montage:
         electrode_pairs=pairs,
         eeg_net=data.pop("eeg_net", None),
         display_name=data.pop("display_name", None),
-        channels=_build_channels(data.pop("channels", None)),
     )
-
-
-def _build_channels(data):
-    """Restore ``Montage.channels`` from JSON, where tuples become lists."""
-    if data is None:
-        return None
-    return [(list(group_a), list(group_b)) for group_a, group_b in data]
 
 
 def main() -> None:

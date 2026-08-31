@@ -71,7 +71,7 @@ The TI-Toolbox automatically co-registers these EEG electrode nets to head model
 
 ### Multipolar Mode (mTI)
 
-Standard TI uses 4 electrodes forming 2 **channels** (a channel = one electrode pair driven by one current source); the two channels share one carrier — e.g. 2.000 and 2.010 kHz around a 2 kHz carrier — and their beat is the TI envelope. Multipolar temporal interference (mTI) doubles this: 8 electrodes form 4 channels, and each two channels share a carrier (e.g. channels 1 & 2 near 2 kHz, channels 3 & 4 near 4 kHz). Each carrier produces its own beat, and the beats combine into one modulation envelope.
+Standard TI uses 4 electrodes forming 2 **channels** (a channel = one electrode pair driven by one current source); the two channels share one carrier — e.g. 2.000 and 2.010 kHz around a 2 kHz carrier — and their beat is the TI envelope. Multipolar temporal interference (mTI) doubles this: 8 electrodes form 4 channels, and each two channels share a carrier (e.g. channels 1 & 2 near 2 kHz, channels 3 & 4 near 4 kHz). Each carrier produces its own beat, and the beats combine into one modulation envelope (Botzanowski et al. 2025).
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI: montage, peak HF field, and AM field" style="width: 100%; max-width: 750px;">
@@ -109,28 +109,11 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
   <em>A multipolar montage: 8 electrodes forming 4 channels on 2 carriers.</em>
 </div>
 
-#### Carrier Wiring (`channels`)
+#### Channels and Carriers
 
-Carrier wiring is the choice of **which channels share a carrier**. By default, the envelope functions (`get_mTI_vectors`/`get_TI_avg` in `tit/calc.py`) assign channels to carriers **positionally**: channels 1 & 2 share the first carrier, channels 3 & 4 the second, and so on. The `channels` parameter overrides this assignment explicitly -- note the naming clash: despite its name, each entry of the parameter describes one **carrier**, not one channel:
+The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
 
-```
-channels = [(group_a, group_b), ...]   # one entry per carrier
-```
-
-Each carrier entry is a `(group_a, group_b)` pair of lists of integer indices into `fields` (one field per channel). Per carrier, $$\mathbf{E}_a = \sum_{i \in \texttt{group\_a}} \mathbf{E}_i$$ and $$\mathbf{E}_b = \sum_{i \in \texttt{group\_b}} \mathbf{E}_i$$ -- channels listed in the same group run at the same frequency, so their fields sum coherently (an empty `group_b` sums to zeros -- a non-beating carrier that contributes kHz power but no beat). The summed field pairs from all carriers are fed to the same $$K$$-carrier envelope. `channels=None` reproduces positional pairing byte-identically -- it is not an approximation of the explicit form, it _is_ the explicit form `[([0],[1]), ([2],[3]), ...]`.
-
-For a 4-channel montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes two named choices (the GUI labels below are quoted verbatim and predate this page's channel/carrier vocabulary):
-
-| Label                              | `channels` value     | Meaning                                                                                                                                              |
-| ---------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Two independent channels (default) | `None`               | Channels 1 & 2 share one carrier, channels 3 & 4 a second -- two independent beats (the standard mTI wiring)                                         |
-| Four pairs, two carriers           | `[([0, 2], [1, 3])]` | All four channels share **one** carrier: channels 1 & 3 sum at one frequency, channels 2 & 4 at the other, producing a single beat (Lee et al. 2022) |
-
-`channels=[([0, 2], [1, 3])]` is algebraically exactly $$\mathrm{TI}\!\left( \mathbf{E}_0 + \mathbf{E}_2, \; \mathbf{E}_1 + \mathbf{E}_3 \right)$$ -- summing the channel fields before taking the single-carrier ($$K = 1$$) envelope, rather than taking a 2-carrier envelope over four independent channel fields. The two wirings are **not** interchangeable. The toolbox's regression test on random fields (`tests/test_calc_mti.py`) asserts that they differ by more than 5% in over half of all mesh elements; the figure recorded alongside that assertion for the montage tested is about 92% of elements, and the GUI help text notes differences of up to 6x in places.
-
-**Important:** `Montage.channels` can only be set from a `tit.sim` JSON config or directly in Python (`tit/sim/__main__.py:_build_channels`). `load_montages` never reads a `channels` value from `montage_list.json`, and `tit/gui/simulator_tab.py` never sets `Montage.channels` at all -- so **every mTI simulation launched from the GUI runs with `channels=None` (positional pairing -- each two consecutive channels share a carrier)**. The mex-search tab's "Carrier Wiring" combo is the one place in the GUI that does expose this choice, but only for mex-search candidates, not for simulator runs -- see [Multipolar (mTI) Mode on the Ex-Search page]({{ site.baseurl }}/wiki/ex-search/#multipolar-mti-mode).
-
-The kHz-exposure safety metrics `hf_peak`/`hf_sar` are unaffected by `channels`: they always sum over every channel's field regardless of how channels are assigned to carriers for the envelope. Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The kHz-exposure safety metrics `hf_peak`/`hf_sar` always sum over every channel's field, independent of the carrier structure. Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
 #### Simulator Behavior for mTI
 
@@ -146,12 +129,12 @@ mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
 2. Computes an intermediate per-carrier TI vector field for each consecutive channel pair (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain single-carrier `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
-3. Computes the final envelope over all N channel fields jointly via `get_mTI_vectors(e_fields, channels=montage.channels)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
+3. Computes the final envelope over all N channel fields jointly via `get_mTI_vectors(e_fields)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
 4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
 
 Per-channel high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved into `high_Frequency/mesh/`, matching the A-Z channel labelling used everywhere else in the mTI output.
 
-**References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Lee, S. et al. (2022). Multipair transcranial temporal interference stimulation for deep brain targeting. _Frontiers in Neuroscience_.
+**References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. _Bioelectronic Medicine_ 11(1):7.
 
 ---
 

@@ -355,7 +355,6 @@ class TestMExConfigValidation:
         )
         assert config.roi_name == "target.csv"
         assert config.current_mA == 2.0
-        assert config.channels is None
         assert config.symmetric_bucket is False
 
     def test_rejects_non_positive_current(self):
@@ -416,7 +415,6 @@ class TestMExConfigConfigIO:
                 e4_minus=["H"],
             ),
             current_mA=1.5,
-            channels=[([0, 2], [1, 3])],
         )
         path = write_config_json(config, prefix="mex_test")
         try:
@@ -425,14 +423,13 @@ class TestMExConfigConfigIO:
             assert data["electrodes"]["e3_minus"] == ["F"]
             assert data["roi_name"] == "target.csv"
             assert data["current_mA"] == 1.5
-            assert data["channels"] == [[[0, 2], [1, 3]]]
         finally:
             os.unlink(path)
 
-    def test_pool_electrodes_and_channels_survive_main_rebuild(self):
+    def test_pool_electrodes_survive_main_rebuild(self):
         from tit.config_io import serialize_config
         from tit.opt.config import MExConfig
-        from tit.opt.mex.__main__ import _build_channels, _build_electrodes
+        from tit.opt.mex.__main__ import _build_electrodes
 
         config = MExConfig(
             subject_id="001",
@@ -441,30 +438,13 @@ class TestMExConfigConfigIO:
             electrodes=MExConfig.PoolElectrodes(
                 electrodes=[f"E{i}" for i in range(1, 9)]
             ),
-            channels=[([0, 2], [1, 3])],
         )
         data = json.loads(json.dumps(serialize_config(config)))
 
         electrodes = _build_electrodes(data.pop("electrodes"))
-        channels = _build_channels(data.pop("channels"))
 
         assert isinstance(electrodes, MExConfig.PoolElectrodes)
         assert electrodes.electrodes == [f"E{i}" for i in range(1, 9)]
-        assert channels == [([0, 2], [1, 3])]
-
-    def test_absent_channels_rebuild_to_none(self):
-        from tit.config_io import serialize_config
-        from tit.opt.config import MExConfig
-        from tit.opt.mex.__main__ import _build_channels
-
-        config = MExConfig(
-            subject_id="001",
-            leadfield_hdf="lf.hdf5",
-            roi_name="target",
-            electrodes=MExConfig.PoolElectrodes(electrodes=["E1"] * 8),
-        )
-        data = json.loads(json.dumps(serialize_config(config)))
-        assert _build_channels(data.get("channels")) is None
 
 
 # ---------------------------------------------------------------------------

@@ -44,7 +44,6 @@ from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.config import (
     SEARCH_MODE_TI,
     SEARCH_MODE_MTI,
-    MTI_CHANNEL_ARCHITECTURES,
     search_backend_for_mode,
 )
 from tit.opt.config import ExConfig, MExConfig
@@ -76,12 +75,6 @@ MEX_BUCKET_LABELS = {
     "e4_minus": "E4-",
 }
 
-#: Named carrier-architecture choices for ``MExConfig.channels``, shown in
-#: the mTI "Carrier Wiring" combo as (label, value) pairs. Four bipolar pairs
-#: can be wired as two independent TI channels or as one channel sharing two
-#: carriers (Lee et al. 2022) -- the two give materially different fields
-#: (differ in ~92% of mesh elements, up to 6x), so this is exposed as a
-#: deliberate named choice rather than raw index groups.
 MTI_MODE_HELP = (
     "mTI (4-pair) mode searches four bipolar electrode pairs together and "
     "scores each candidate with the multipolar TI envelope "
@@ -90,18 +83,6 @@ MTI_MODE_HELP = (
     "It needs eight electrode buckets (E1..E4, each +/-) instead of four, "
     "and one current per pair instead of a total/step/limit sweep. Runs "
     "go through tit.opt.mex (MExConfig) instead of tit.opt.ex (ExConfig)."
-)
-
-MTI_CHANNELS_HELP = (
-    "How the four current pairs are grouped into TI carriers:\n\n"
-    "Two independent channels (default): pairs 1&2 form one TI channel "
-    "and pairs 3&4 form a second, independent TI channel -- equivalent to "
-    "running two ordinary 2-pair TI searches together.\n\n"
-    "Four pairs, two carriers: all four pairs share two carriers, e.g. "
-    "pairs 1&3 vs 2&4 (Lee et al. 2022).\n\n"
-    "These two wirings are not interchangeable: they produce materially "
-    "different fields, differing in about 92% of mesh elements and up to "
-    "6x in places. Pick deliberately."
 )
 
 MTI_SYMMETRY_HELP = (
@@ -1641,8 +1622,8 @@ class ExSearchTab(QtWidgets.QWidget):
         """Build the mTI (4-pair) current-configuration page.
 
         One current per pair (MExConfig.current_mA) instead of TI's
-        total/step/limit sweep, plus the carrier-architecture (channels)
-        and symmetric-bucket-search controls that only apply to mTI.
+        total/step/limit sweep, plus the symmetric-bucket-search controls
+        that only apply to mTI.
         """
         panel = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(panel)
@@ -1665,19 +1646,6 @@ class ExSearchTab(QtWidgets.QWidget):
         pair_current_layout.addWidget(self.mex_current_spinbox)
         pair_current_layout.addStretch()
         layout.addLayout(pair_current_layout)
-
-        # Carrier architecture (MExConfig.channels)
-        channels_layout = QtWidgets.QHBoxLayout()
-        channels_label = QtWidgets.QLabel("Carrier Wiring:")
-        channels_label.setFixedWidth(120)
-        self.mex_channels_combo = QtWidgets.QComboBox()
-        for label, value in MTI_CHANNEL_ARCHITECTURES:
-            self.mex_channels_combo.addItem(label, value)
-        channels_layout.addWidget(channels_label)
-        channels_layout.addWidget(self.mex_channels_combo)
-        channels_layout.addWidget(HelpIcon(MTI_CHANNELS_HELP, title="Carrier Wiring"))
-        channels_layout.addStretch()
-        layout.addLayout(channels_layout)
 
         # Symmetric bucket search (MExConfig.symmetric_bucket / symmetry_pairing)
         symmetric_layout = QtWidgets.QHBoxLayout()
@@ -2539,7 +2507,6 @@ class ExSearchTab(QtWidgets.QWidget):
             f"Mode: mTI (4-pair)\n"
             f"{bucket_counts}\n"
             f"Current per Pair: {self.mex_current_spinbox.value():.1f} mA\n"
-            f"Carrier Wiring: {self.mex_channels_combo.currentText()}\n"
             f"Search Space: up to {n_combos_upper:,} eight-electrode combinations\n"
             + (
                 f"Atlas ROI: {', '.join(roi_names)}"
@@ -2669,8 +2636,8 @@ class ExSearchTab(QtWidgets.QWidget):
         Mirrors ``_build_ex_config`` above for the multipolar (4-pair)
         backend: same subject/leadfield/roi/run_name shape, but electrodes
         are always bucketed (eight buckets), current is a single
-        per-pair value, and channels/symmetric_bucket/symmetry_pairing
-        replace TI's total/step/limit sweep.
+        per-pair value, and symmetric_bucket/symmetry_pairing replace
+        TI's total/step/limit sweep.
 
         Args:
             subject_id: Subject identifier.
@@ -2694,7 +2661,6 @@ class ExSearchTab(QtWidgets.QWidget):
             ),
             electrodes=electrodes,
             current_mA=self.mex_current_spinbox.value(),
-            channels=self.mex_channels_combo.currentData(),
             roi_radius=self.roi_radius_spinbox.value(),
             run_name=eeg_net,
             symmetric_bucket=self.mex_symmetric_bucket_cb.isChecked(),
@@ -3285,7 +3251,6 @@ class ExSearchTab(QtWidgets.QWidget):
         for field_widget in self.mti_bucket_inputs.values():
             field_widget.setEnabled(False)
         self.mex_current_spinbox.setEnabled(False)
-        self.mex_channels_combo.setEnabled(False)
         self.mex_symmetric_bucket_cb.setEnabled(False)
         self.mex_symmetry_pairing_combo.setEnabled(False)
         self.run_btn.setEnabled(False)
@@ -3332,7 +3297,6 @@ class ExSearchTab(QtWidgets.QWidget):
         for field_widget in self.mti_bucket_inputs.values():
             field_widget.setEnabled(True)
         self.mex_current_spinbox.setEnabled(True)
-        self.mex_channels_combo.setEnabled(True)
         self.mex_symmetric_bucket_cb.setEnabled(True)
         self.mex_symmetry_pairing_combo.setEnabled(
             self.mex_symmetric_bucket_cb.isChecked()

@@ -87,8 +87,6 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
         run_info["channel_limit_mA"] = config.channel_limit
     if hasattr(config, "current_mA"):
         run_info["current_mA"] = config.current_mA
-    if hasattr(config, "channels"):
-        run_info["channels"] = config.channels
     if hasattr(config, "symmetric_bucket"):
         run_info["symmetric_bucket"] = config.symmetric_bucket
         run_info["symmetry_pairing"] = (
