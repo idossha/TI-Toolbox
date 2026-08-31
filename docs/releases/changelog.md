@@ -7,6 +7,20 @@ permalink: /releases/changelog/
 Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
+### Unreleased (on `main`)
+
+#### Additions
+
+- `TI_normal` for mTI — multipolar simulations now write the normal-component envelope (`{montage}_mTI_normal.msh`) by default, computed by evaluating the multi-carrier envelope along the cortical surface normal; the analyzer's `normal_*` ROI statistics populate for mTI exactly as for standard TI.
+- fsaverage projection for mTI — `map_to_fsavg` no longer skips multipolar runs: the modulation depth is read from the mTI central surface and `hf_peak`/`hf_sar` are derived from all N channel volume meshes.
+
+#### Changes
+
+- **Breaking:** `tit.calc` consolidated to exactly three envelope functions — `get_TI_vectors(fields, psi=None)` (K ≥ 1 carriers; the K = 1 exact closed form is applied internally), `get_TI_avg(fields, psi=None)`, and `get_TI_dir(fields, directions, psi=None)`. Scripts calling `get_TI_vectors(E1, E2)` positionally must switch to `get_TI_vectors([E1, E2])`; `get_mTI_vectors` is now `get_TI_vectors`, `get_mTI_dir` is `get_TI_dir`, and the deprecated `get_nTI_vectors` shim and the unused `get_magnitude_am` were removed, as was the legacy `channels=` carrier-regrouping parameter.
+- Carrier wiring removed — mTI is always positional (each two consecutive electrodes compose a channel, each two consecutive channels compose a carrier): the mex-search "Carrier Wiring" combo, `MTI_CHANNEL_ARCHITECTURES`, and the `channels` JSON config keys are gone (old configs with the key are ignored).
+- Documentation vocabulary unified across the simulator, analyzer and ex-search pages: **electrodes → channels (2 electrodes each) → carriers (shared by 2 channels)**; TI = 4 electrodes / 2 channels / 1 carrier, mTI = 8 electrodes / 4 channels / 2 carriers.
+
+---
 ### v2.5.0 (Latest Release)
 
 **Release Date**: August 27, 2026
