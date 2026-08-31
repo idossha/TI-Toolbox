@@ -276,6 +276,7 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  &[hidden] { display: none; }
 }
 
 .site-nav__gh-stat {
@@ -533,9 +534,25 @@ table {
   }
 }
 .image-container { flex: 0 1 auto; max-width: calc(50% - 16px); img { width: 100%; } }
-// standalone (not inside an .image-row): center the block on the page
-.wiki-content > .image-container { margin-left: auto; margin-right: auto; max-width: 100%; }
 .image-container-natural { flex: 0 0 auto; max-width: calc(50% - 16px); img { width: auto; max-width: 100% !important; max-height: 500px !important; } }
+
+// Standalone image containers (NOT inside an .image-row) must centre themselves.
+// Deliberately parent-agnostic: an earlier `.wiki-content > .image-container`
+// rule silently stopped matching once the markup gained a `.wiki-content-inner`
+// wrapper, which left every standalone figure hugging the left edge at half
+// width. Match on "not inside a row" instead of on a specific ancestor so the
+// rule survives future wrapper changes.
+.image-container:not(.image-row *):not(.image-row-natural *),
+.image-container-natural:not(.image-row *):not(.image-row-natural *) {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+}
+
+// Images wrapped in a link (lightbox / full-size anchors) still centre: the
+// anchor is inline by default, so the block-level img inside it would otherwise
+// sit at the anchor's shrink-to-fit left edge.
+.wiki-content a:has(> img) { display: block; text-align: center; }
 
 // -----------------------------------------------------------------------------
 // Single-column pages (about, search)

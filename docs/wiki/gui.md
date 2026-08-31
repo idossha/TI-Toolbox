@@ -10,27 +10,27 @@ The TI-Toolbox GUI provides a graphical interface for running TI-Toolbox workflo
 
 ### Pre-processing
 
-![TI-Toolbox GUI Main Interface]({{ site.baseurl }}/assets/imgs/UI/UI*pre-process.png)
+![TI-Toolbox GUI Main Interface]({{ site.baseurl }}/assets/imgs/UI/UI_pre-process.png)
 \_Initial tab for pre-processing raw dicoms*
 
 ### Optimizer Interface
 
-![Flex Search Optimization]({{ site.baseurl }}/assets/imgs/UI/UI*flex.png)
+![Flex Search Optimization]({{ site.baseurl }}/assets/imgs/UI/UI_flex.png)
 \_Flex Search optimization interface with parameter controls*
 
 ### Simulator Tab
 
-![Simulator Tab]({{ site.baseurl }}/assets/imgs/UI/UI*sim.png)
+![Simulator Tab]({{ site.baseurl }}/assets/imgs/UI/UI_sim.png)
 \_Simulation controls with parameter settings and progress monitoring*
 
 ### Analysis Results
 
-![Analyzer Tab]({{ site.baseurl }}/assets/imgs/UI/UI*ana.png)
+![Analyzer Tab]({{ site.baseurl }}/assets/imgs/UI/UI_ana.png)
 \_Analysis tab displaying simulation results and statistical outputs*
 
 ### System Monitoring
 
-![System Monitor]({{ site.baseurl }}/assets/imgs/UI/UI*monitor.png)
+![System Monitor]({{ site.baseurl }}/assets/imgs/UI/UI_monitor.png)
 \_Real-time system monitoring and resource usage tracking*
 
 ## Technical Architecture

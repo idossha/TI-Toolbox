@@ -430,7 +430,7 @@ simnibs_python -m tit.stats      config.json
 simnibs_python -m tit.pre        config.json
 ```
 
-`tit.opt.mex` runs multipolar (4-pair, 8-electrode) exhaustive search, consuming `MExConfig`. See [mTI]({{ site.baseurl }}/wiki/mti/) for the full workflow.
+`tit.opt.mex` runs multipolar (4-pair, 8-electrode) exhaustive search, consuming `MExConfig`. See [Ex-Search's multipolar mode]({{ site.baseurl }}/wiki/ex-search/#multipolar-mti-mode) for the full workflow.
 
 Config files are generated programmatically via `tit.config_io.write_config_json()`.
 

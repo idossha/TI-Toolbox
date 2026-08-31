@@ -11,9 +11,8 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Pre-Processing](pre-processing)** - Structural MRI preparation and mesh generation workflows
 - **[Diffusion Processing](diffusion-processing)** - QSIPrep/QSIRecon integration for DTI-based anisotropic simulations
 - **[Flex Search](flex-search)** - TI optimization pipeline based on differential evolutionary algorithm
-- **[Ex Search](ex-search)** - TI optimization pipeline based on leadfield matrices
-- **[Multipolar TI (mTI)](mti)** - Multi-channel TI simulation with 4+ electrode pairs and multipolar exhaustive search (mex-search)
-- **[Simulator](simulator)** - Simulator with flexible parameter input and anisotropic support
+- **[Ex Search](ex-search)** - TI optimization pipeline based on leadfield matrices, including multipolar (mex-search)
+- **[Simulator](simulator)** - Simulator with flexible parameter input, multipolar TI (mTI), and anisotropic support
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 - **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 - **[GUI](gui)** - Main graphical interface of TI-Toolbox

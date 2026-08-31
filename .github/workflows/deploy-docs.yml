@@ -47,6 +47,9 @@ jobs:
           source: ./docs
           destination: ./_site
 
+      - name: Check for broken asset references
+        run: python docs/tests/check_assets.py ./_site
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 

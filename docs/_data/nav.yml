@@ -26,7 +26,6 @@ wiki:
     - { title: Diffusion Processing, url: /wiki/diffusion-processing/ }
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
-    - { title: Multipolar TI (mTI), url: /wiki/mti/ }
     - { title: Simulator, url: /wiki/simulator/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
     - { title: Visualizers, url: /wiki/visualizers/ }

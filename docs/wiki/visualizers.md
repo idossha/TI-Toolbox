@@ -29,16 +29,16 @@ The system will automatically:
 - Launch Gmsh with the correct file path
 - Display the mesh with electric field data
 
-![Gmsh Launching]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*launching.png)
+![Gmsh Launching]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_launching.png)
 \_Gmsh launching with mesh visualization*
 
 ### Gmsh Interface and Tools
 
 Gmsh provides several menu options for enhanced visualization:
-![Gmsh Tools Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*tools_menu.png)
+![Gmsh Tools Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_tools_menu.png)
 \_Gmsh tools menu. Useful for clipping mesh, changing visibility of elements and manipulating general options.*
 
-![Gmsh Options Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh*options_menu.png)
+![Gmsh Options Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_options_menu.png)
 \_Gmsh options menu for view controls. Useful for changing color schemes, visualization cutoffs, mesh settings and more*
 
 ### Gmsh Tips
@@ -87,13 +87,13 @@ The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensi
    - **Electrode Overlay**: Create or load the selected simulation's electrode-placement label mask
 5. **Launch Freeview**: Click **"Launch Freeview"**
 
-![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview*menu.png)
+![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview_menu.png)
 \_Freeview menu showing overlay controls and atlas options*
 
-![Freeview Example]({{ site.baseurl }}/assets/imgs/visualizers/freeview*example.png)
+![Freeview Example]({{ site.baseurl }}/assets/imgs/visualizers/freeview_example.png)
 \_Freeview displaying E-field overlay on anatomical MRI*
 
-![MRI ROI with Field]({{ site.baseurl }}/assets/imgs/visualizers/visualizer*MRI_ROI_field.png)
+![MRI ROI with Field]({{ site.baseurl }}/assets/imgs/visualizers/visualizer_MRI_ROI_field.png)
 \_MRI ROI with field data overlay*
 
 ### Freeview Tips

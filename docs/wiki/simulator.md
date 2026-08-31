@@ -82,11 +82,102 @@ Mode that allows exploration of untraditional montages
 - **Applications**: Focal stimulation with clear current flow direction
 - **Montage Compatibility**: Works with unipolar montage collections
 
-### Multipolar Mode
+### Multipolar Mode (mTI)
+
+Multipolar temporal interference (mTI) generalizes standard 2-pair TI to four or more electrode pairs, driven by independent high-frequency carriers whose beat pattern is combined into one modulation envelope.
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI: montage, peak HF field, and AM field" style="width: 100%; max-width: 750px;">
+  <em>Unipolar (top, A–C) vs. multipolar (bottom, D–F) TI targeting the same deep ROI. Left: electrode montage — two pairs at 8 mA per carrier vs. four pairs at 5 mA per carrier. Middle: peak high-frequency carrier field. Right: the amplitude-modulated (AM) envelope field that actually drives neurons. The multipolar montage trades some ROI intensity (mean 1.00 vs. 1.45 V/m) for a more focal envelope (focality 1.40 vs. 1.17) and a lower per-carrier current. Adapted from <a href="https://doi.org/10.1176/appi.ajp.20250873">Albantakis &amp; Tononi 2026</a>, <i>American Journal of Psychiatry</i>.</em>
+</div>
+
 - **Configuration**: Any even number of electrode pairs, 4 or more (capped at 26, labelled A–Z)
-- **Current Settings**: One current input per pair (see [Multipolar TI]({{ site.baseurl }}/wiki/mti/))
+- **Current Settings**: One current input per pair (see [Simulator Behavior for mTI](#simulator-behavior-for-mti) below)
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
+
+For the envelope field math behind these quantities (the verified K-pair modulation depth, `get_mTI_vectors`, and why the old recursive TI-of-TI form is invalid), see [Envelope Math and Critical Values]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page.
+
+#### How the Toolbox Detects mTI
+
+TI vs. mTI is not a setting -- it is inferred purely from how many electrode pairs a montage has. `Montage.simulation_mode` (`tit/sim/config.py`) does this:
+
+- **2 pairs** -> `SimulationMode.TI`
+- **4 or more pairs** -> `SimulationMode.MTI`
+- **0, 1, or 3 pairs** -> raises `ValueError("Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI).")`
+
+There is no odd-pair-count mTI: an mTI montage must have an even number of pairs, and `mTISimulation` additionally caps it at 26 pairs (see [Simulator Behavior for mTI](#simulator-behavior-for-mti) below).
+
+Montages are persisted in `montage_list.json` under separate keys per EEG net:
+
+```
+data["nets"][eeg_net]["multi_polar_montages"][name] = [[e1,e2],[e3,e4],[e5,e6],[e7,e8]]
+data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
+```
+
+`upsert_montage(..., mode="M")` writes to `multi_polar_montages`; `mode="U"` writes to `uni_polar_montages`. When a montage is loaded by name, `load_montages` resolves it as `multi.get(name) or uni[name]` -- if the same name exists in both dictionaries, the multi-polar entry wins.
+
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/simulator/multipolar.png" alt="Multipolar Montage Example">
+  <em>A multipolar montage: 8 electrodes arranged in 4 channels (4 electrode pairs).</em>
+</div>
+
+#### Carrier Wiring (Channels)
+
+By default, the envelope functions (`get_mTI_vectors`/`get_TI_avg` in `tit/calc.py`) pair fields **positionally**: field 0 with field 1, field 2 with field 3, and so on -- each electrode pair is its own independent carrier. The `channels` parameter overrides this grouping explicitly:
+
+```
+channels = [(group_a, group_b), ...]
+```
+
+Each channel is a `(group_a, group_b)` pair of integer indices into `fields`. Per channel, $$\mathbf{E}_a = \sum_{i \in \texttt{group\_a}} \mathbf{E}_i$$ and $$\mathbf{E}_b = \sum_{i \in \texttt{group\_b}} \mathbf{E}_i$$ (an empty `group_b` sums to zeros -- a non-beating carrier that contributes carrier power but no beat). The summed pairs from all channels are concatenated in channel order and fed to the same K-pair envelope. `channels=None` reproduces positional consecutive pairing byte-identically -- it is not an approximation of the explicit form, it *is* the explicit form `[([0],[1]), ([2],[3]), ...]`.
+
+For a 4-pair montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes two named choices:
+
+| Label | `channels` value | Meaning |
+|---|---|---|
+| Two independent channels (default) | `None` | Pairs 1&2 form one TI channel, pairs 3&4 form a second, independent TI channel |
+| Four pairs, two carriers | `[([0, 2], [1, 3])]` | All four pairs share two carriers -- pairs 1&3 vs. 2&4 (Lee et al. 2022) |
+
+`channels=[([0, 2], [1, 3])]` is algebraically exactly $$\mathrm{TI}\!\left( \mathbf{E}_0 + \mathbf{E}_2, \; \mathbf{E}_1 + \mathbf{E}_3 \right)$$ -- summing carriers before taking the $$K = 1$$ envelope, rather than taking a 4-pair envelope over four independent carriers. The two wirings are **not** interchangeable. The toolbox's regression test on random fields (`tests/test_calc_mti.py`) asserts that they differ by more than 5% in over half of all mesh elements; the figure recorded alongside that assertion for the montage tested is about 92% of elements, and the GUI help text notes differences of up to 6x in places.
+
+**Important:** `Montage.channels` can only be set from a `tit.sim` JSON config or directly in Python (`tit/sim/__main__.py:_build_channels`). `load_montages` never reads a `channels` value from `montage_list.json`, and `tit/gui/simulator_tab.py` never sets `Montage.channels` at all -- so **every mTI simulation launched from the GUI runs with `channels=None` (positional/independent-dyad pairing)**. The mex-search tab's "Carrier Wiring" combo is the one place in the GUI that does expose this choice, but only for mex-search candidates, not for simulator runs -- see [Multipolar (mTI) Mode on the Ex-Search page]({{ site.baseurl }}/wiki/ex-search/#multipolar-mti-mode).
+
+The carrier-exposure safety metrics `hf_peak`/`hf_sar` are unaffected by `channels`: they always sum over every carrier field regardless of how carriers are grouped for the envelope. Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+
+#### Simulator Behavior for mTI
+
+`mTISimulation` (`tit/sim/mTI.py`) builds one SimNIBS TDCS list per pair, each driven at `config.intensities[i]` mA (converted to A). `SimulationConfig.intensities` defaults to `[1.0, 1.0]`; for mTI, validation requires `len(config.intensities) >= montage.num_pairs` -- one current value per pair, not two. The GUI's job-card current placeholder switches from `1.0,1.0` to `1.0,1.0,1.0,1.0` when the montage mode is multipolar.
+
+**Output fields.** `SimulationConfig.output_fields` gates which volume-mesh fields are computed and written -- it defaults to `["TI_max"]` **only**. `TI_avg` and the safety fields (`hf_peak`, `hf_sar`) must be opted into; the four selectable names are exactly `("TI_max", "TI_avg", "hf_peak", "hf_sar")` (`const.SELECTABLE_OUTPUT_FIELDS`). The gating skips the *computation*, not just the write -- unrequested fields are never evaluated. In the GUI (shared by TI and mTI), output fields are checkboxes with only `TI_max` pre-checked; submitting with none checked is rejected with "Select at least one output field."
+
+On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same quantity `TI_max` names on a 2-pair TI mesh, just a different on-disk name for the 4-pair case.
+
+**TI_normal is not computed for mTI.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; the N-pair analogue would need the coherent K-pair envelope evaluated at a *fixed* direction (the surface normal) rather than maximized over direction, and while `tit.calc` has that primitive internally, it is only exposed as a private helper today -- exposing it publicly, and updating `tit/analyzer/field_selector.py` (which resolves the normal mesh under `TI/mesh/` unconditionally), is deferred.
+
+**fsaverage projection is skipped for mTI.** `SimulationConfig.map_to_fsavg` defaults to `True`, but the projection step returns early for any montage whose `simulation_mode != TI`, logging "fsaverage projection: skipping %s (mTI not yet supported)".
+
+mTI supports an arbitrary even number of pairs, **capped at 26** (A-Z pair labelling); more than 26 pairs raises `ValueError`. Post-processing:
+
+1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
+2. Computes intermediate 2-pair TI vector fields for adjacent pairs (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain $$K = 1$$ `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
+3. Computes the final envelope over all N carrier fields jointly via `get_mTI_vectors(e_fields, channels=montage.channels)`, written as `mTI_max`; optionally `TI_avg`, `hf_peak`, `hf_sar` per `output_fields`.
+4. Extracts GM/WM crops (`grey_{montage}_mTI.msh`, `white_{montage}_mTI.msh`), generates a central cortical surface via `msh2cortex`, and converts meshes to NIfTI.
+
+Output layout, under `derivatives/SimNIBS/sub-{id}/Simulations/{montage}/`:
+
+```
+mTI/mesh/{montage}_mTI.msh          # mTI_max / TI_avg / hf_peak / hf_sar (selected)
+mTI/mesh/grey_{montage}_mTI.msh     # GM crop
+mTI/mesh/white_{montage}_mTI.msh    # WM crop
+mTI/mesh/surfaces/                  # central cortical surface (msh2cortex)
+mTI/niftis/                         # mesh -> NIfTI conversion
+mTI/montage_imgs/                   # combined_montage_visualization.png
+```
+
+Per-pair high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved into `high_Frequency/mesh/`, matching the A-Z pair labelling used everywhere else in the mTI output.
+
+**References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. *American Journal of Psychiatry*. doi:10.1176/appi.ajp.20250873. Lee, S. et al. (2022). Multipair transcranial temporal interference stimulation for deep brain targeting. *Frontiers in Neuroscience*.
 
 ---
 
