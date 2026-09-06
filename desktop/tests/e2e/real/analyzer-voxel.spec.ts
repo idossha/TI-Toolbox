@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectReal, expectPage, gotoPage, launchElectronApp, PROJECT_HOST_ROOT, recordPayload, selectSubject, waitForJobTerminal, waitForJobTrace } from "../_helpers";
 import { removeNewEntriesSince, snapshotDir } from "./_dirDiff";
+import { analysisRows, setAnalysisCell } from "../_jobs";
 
 /**
  * Analyzer, voxel space — see `analyzer-mesh.spec.ts`'s file header for the shared rationale
@@ -42,10 +43,13 @@ test.afterAll(async () => {
 test("spherical target, voxel space: accepted, started, and completed", async () => {
   test.setTimeout(360_000);
 
-  await page.locator("#analyzer-simulation").click();
-  await page.getByRole("option", { name: "Thalamus" }).first().click();
+  // The Jobs table's one seeded row is already on the shell's subject (2026-09-06 rework: the row
+  // owns its subject, its simulation, its space and its field).
+  const row = analysisRows(page).first();
+  await expect(row).toHaveAttribute("data-subject", "ernie");
+  await setAnalysisCell(page, row, "simulation", "Thalamus");
 
-  await page.getByRole("radiogroup", { name: "Analysis space" }).getByRole("radio", { name: "Voxel", exact: true }).click();
+  await setAnalysisCell(page, row, "space", "Voxel");
 
   await page.getByLabel("Sphere 1 X").fill("-10");
   await page.getByLabel("Sphere 1 Y").fill("-18");
@@ -60,8 +64,10 @@ test("spherical target, voxel space: accepted, started, and completed", async ()
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
   await page.getByTestId("run-button").click();
 
-  const confirm = page.getByRole("alertdialog").getByRole("button", { name: "Overwrite and run" });
-  if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click();
+  // The shared existing-outputs question (C3) has three answers now — Skip / Replace / Cancel —
+  // and is a `dialog`, not the two-button `alertdialog` this spec was written against.
+  const confirm = page.getByTestId("existing-outputs-replace");
+  if (await confirm.isVisible({ timeout: 5_000 }).catch(() => false)) await confirm.click();
 
   const body = (await jobRequest).postDataJSON() as { kind: string; subject_ids: string[]; config: { space: string; simulation: string; tissue_type: string } };
   expect(body.kind).toBe("analyzer");

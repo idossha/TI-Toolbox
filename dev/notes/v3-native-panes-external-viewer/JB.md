@@ -103,12 +103,33 @@ Storage key for the resizable columns: `tit-montage-columns-v1` → **`tit-sim-j
 | `pnpm run typecheck` | pass |
 | `npx eslint src tests` | pass (only `scene/SceneCanvas.tsx`, lane NR's file, reports) |
 | `npx vitest run` | 1039 passed, 0 failed |
-| `playwright` simulator/simulator-table/analyzer/batch/selection/scene-tabs/layout | **42 passed, 1 failed** |
+| `pnpm run build` | pass |
+| mock e2e: `simulator` (13) · `simulator-table` (5) · `analyzer` (4) · `batch` (10) · `selection` (7) · `scene-tabs` (2) | **all pass** |
+| mock e2e: `controls-consistency` (4) · `page-memory` (11 of 13) | pass / see below |
+| mock e2e: `layout` | 1 pre-existing failure, see below |
+| real (`--project=real`, container `ti-toolbox-fad740e5-tit-1`, `/api/jobs` idle first) | **all pass** |
 
-The one failure is `layout.spec.ts › run pages — light at 1280x800`, asserting
-`scene-pane-tetravox-frame` is visible. **It fails identically at HEAD without this lane's
-changes** — lane NR deleted the embed in `d500b5a6` ("open scenes in the host Tetravox app; delete
-the embed") and `layout.spec.ts` still expects the iframe. NR's file, NR's fix.
+Real gate, run against the live container at `http://127.0.0.1:8765`:
+
+| Spec | Result |
+| --- | --- |
+| `real/montage-shape` (TI 2-pair/2-current, mTI 4-pair/4-current wire shapes) | 3 passed |
+| `real/flex-result-selection` (every real `sub-ernie` flex run resolves to electrodes) | passed |
+| `real/sim` (TI montage: accepted → started → cancelled) | passed — `montage=smoke-ui-59257-ti outcome=cancelled` |
+| `real/analyzer-mesh` (sub-ernie / Thalamus, spherical, mesh) | passed — `job d000a60d4f72433e state=succeeded artifacts=5`, cleanup diff empty |
+
+Never two FEM simulations at once: `/api/jobs` was checked idle before starting, `sim` is the only
+job that starts a runner and it is cancelled within its 120 s "started" budget.
+
+### Pre-existing failures, not this lane's
+
+* `layout.spec.ts › run pages — light at 1280x800` and `page-memory.spec.ts:360 / :394` all assert
+  `scene-pane-tetravox-frame`. Lane NR deleted the embed in `d500b5a6` ("open scenes in the host
+  Tetravox app; delete the embed, its store, its update channel") and these three specs still
+  expect the iframe. Verified red at HEAD without this lane's changes. NR's files, NR's fix.
+* `real/analyzer-{mesh,voxel}.spec.ts` were clicking an `alertdialog` button named
+  "Overwrite and run"; the shared existing-outputs question (C3) has been a three-answer `dialog`
+  for a while. Fixed here (`existing-outputs-replace`) since this lane was re-pointing them anyway.
 
 Artifacts written: `tests/e2e/artifacts/jobs-table-sim.png`,
 `tests/e2e/artifacts/jobs-table-analyzer.png`, `tests/e2e/artifacts/sim-plan-summary.png`.
@@ -150,11 +171,13 @@ Artifacts written: `tests/e2e/artifacts/jobs-table-sim.png`,
   `real/sim*.spec.ts`, `scene-tabs.spec.ts`). The content is correct and committed, just under
   NR's messages; `11418dbd` is this lane's own remainder. Worth a note in the program: two lanes in
   one worktree cannot both use `git add <their own files>` safely when the files overlap.
-* **Real-project gate not run.** `docker inspect ti-toolbox-fad740e5-tit-1` — the container is not
-  up on this machine, so `--project=real` (`montage-shape`, `flex-result-selection`, `sim`
-  start→cancel, an ernie/Thalamus analyzer job) has **not** been executed. The specs are updated
-  and typecheck/lint clean; they need a run against a live container before this is signed off.
-* `layout.spec.ts`'s tetravox-frame assertion is red at HEAD (NR).
+* **The free-hand editor now opens on a button**, not permanently. That is a design change forced
+  by a measurement, and worth knowing: a permanently-rendered 4-row coordinate table made the
+  section tall enough that the run shape's fill controller reached a *different* auto-open decision
+  after a navigation away and back, which `page-memory.spec.ts` correctly reports as a page that
+  did not come back as the user left it. A dialog would have been the tidier home, but a `Select`
+  popover (z-index 60) is unclickable inside a `Dialog` (80/90) — the same known `ui/components.css`
+  gap that keeps the montage editor an inline card.
 * The Simulator's free-hand *authoring* section and the row's free-hand *picker* are two places one
   workflow lives. If free-hand placements become common, the row's picker should grow a
   "New placement…" entry that opens the same editor in a dialog.
