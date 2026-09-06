@@ -104,9 +104,18 @@ Storage key for the resizable columns: `tit-montage-columns-v1` → **`tit-sim-j
 | `npx eslint src tests` | pass (only `scene/SceneCanvas.tsx`, lane NR's file, reports) |
 | `npx vitest run` | 1039 passed, 0 failed |
 | `pnpm run build` | pass |
-| mock e2e: `simulator` (13) · `simulator-table` (5) · `analyzer` (4) · `batch` (10) · `selection` (7) · `scene-tabs` (2) | **all pass** |
-| mock e2e: `controls-consistency` (4) · `page-memory` (11 of 13) | pass / see below |
-| mock e2e: `layout` | 1 pre-existing failure, see below |
+| mock e2e: `simulator` (13) · `simulator-table` (5) · `analyzer` (4) · `batch` (10) · `selection` (7) · `scene-tabs` (2) · `controls-consistency` (4) | **all pass** |
+| mock e2e: `page-memory` | 11 of 13; the 2 red are NR's, see below |
+| mock e2e: `layout`, `jobs` | pre-existing reds, see below |
+
+One serial invocation of the whole set (`simulator`, `simulator-table`, `analyzer`, `batch`,
+`selection`, `scene-tabs`, `controls-consistency`, `jobs`, `layout`): **50 passed, 9 failed** — all
+nine in `jobs.spec.ts` (8) and `layout.spec.ts` (1), both diagnosed below and neither this lane's.
+
+Note for whoever runs the gate next: **do not run two Playwright invocations at once.** They share
+one mock `webServer` on 8790, so a second run mutates the first's job state and produces failures
+that vanish on a serial rerun. Two of the failures above were first seen that way and were not
+real.
 | real (`--project=real`, container `ti-toolbox-fad740e5-tit-1`, `/api/jobs` idle first) | **all pass** |
 
 Real gate, run against the live container at `http://127.0.0.1:8765`:
@@ -127,6 +136,11 @@ job that starts a runner and it is cancelled within its 120 s "started" budget.
   `scene-pane-tetravox-frame`. Lane NR deleted the embed in `d500b5a6` ("open scenes in the host
   Tetravox app; delete the embed, its store, its update channel") and these three specs still
   expect the iframe. Verified red at HEAD without this lane's changes. NR's files, NR's fix.
+* `jobs.spec.ts` — 8 tests fail on `submitJob`'s `POST /api/jobs` returning not-ok. The spec posts
+  `{kind: "sim", config: {}}`, and `e357e4a5` ("reject a sim config the runner cannot deserialise
+  at submit time") made the server refuse exactly that. The spec is untouched since this lane's
+  base (`47350360`) and fails alone; the fix belongs with whoever landed the submit-time check —
+  the seed needs a minimally-valid `SimulationConfig`.
 * `real/analyzer-{mesh,voxel}.spec.ts` were clicking an `alertdialog` button named
   "Overwrite and run"; the shared existing-outputs question (C3) has been a three-answer `dialog`
   for a while. Fixed here (`existing-outputs-replace`) since this lane was re-pointing them anyway.
