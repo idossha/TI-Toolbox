@@ -180,6 +180,11 @@
    "regions": 70,
    "url": "/api/guide/regions?atlas=DK40",
    "files": {
+    "tvsc": "labels/DK40.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "8985a1fb5b28ca432138729e626ada76f3459c50e9d7492b7b655d5c1ea3adc3"
+    },
     "gii": "labels/DK40.gii",
     "gii_meta": {
      "bytes": 2496149,
@@ -201,6 +206,11 @@
    "regions": 362,
    "url": "/api/guide/regions?atlas=HCP_MMP1",
    "files": {
+    "tvsc": "labels/HCP_MMP1.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "f11c606e5cc68e662e3b4571b3a2ee718586dfa107726d3bb5c2b437f0eb3621"
+    },
     "gii": "labels/HCP_MMP1.gii",
     "gii_meta": {
      "bytes": 2554824,
@@ -222,6 +232,11 @@
    "regions": 152,
    "url": "/api/guide/regions?atlas=a2009s",
    "files": {
+    "tvsc": "labels/a2009s.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "d2e475c703c4553652bb312595cc175f7752160f42680e7b6cf6a6c21931f482"
+    },
     "gii": "labels/a2009s.gii",
     "gii_meta": {
      "bytes": 2518062,
@@ -249,6 +264,6 @@
  "generated": {
   "subject": "ernie",
   "generator": "tit.scene.guide_build",
-  "seconds": 6.9
+  "seconds": 7.7
  }
 }

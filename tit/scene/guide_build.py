@@ -46,11 +46,15 @@ from tit.scene import build, cache, guide
 #: Surfaces ship both: ``gii`` is what the embedded Tetravox renderer reads,
 #: and ``tvsc`` keeps the frozen §2.3 wire format — and its ≤3 MB / ≤150 k
 #: budget — a checkable property of the guide rather than of subject data only.
-#: Labels ship ``gii`` only: the ``tvsc`` labels payload is read by nothing
-#: (the desktop renderer that consumed it is retired) and packaging three more
-#: of them would add ~3 MB to every installation for no reader.
+#: Labels ship both for the same reason: the desktop pane's own WebGL2 renderer
+#: reads ``tvsc`` (per-vertex ``uint16`` labels aligned to ``gm``), and the
+#: ``gii`` copies stay while anything else still consumes them. Between
+#: 2026-09-05 and 2026-09-06 labels shipped as ``gii`` only, on the premise
+#: that nothing read the ``tvsc`` payload — true while the renderer was
+#: retired, and the reason the pane could not highlight a region when it came
+#: back.
 SURFACE_FORMATS = ("tvsc", "gii")
-LABEL_FORMATS = ("gii",)
+LABEL_FORMATS = ("tvsc", "gii")
 
 
 def sha256_of(path: Path) -> str:
@@ -254,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     for atlas in manifest["atlases"]:
         print(
             f"{atlas['id']:10s} {atlas['regions']:>4d} regions  "
+            f"tvsc {atlas['files']['tvsc_meta']['bytes'] / 1e6:.2f} MB  "
             f"gii {atlas['files']['gii_meta']['bytes'] / 1e6:.2f} MB"
         )
     print(f"{len(manifest['nets'])} nets, packaged total {total / 1e6:.2f} MB")

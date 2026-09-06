@@ -210,3 +210,23 @@ def test_a_hand_edited_manifest_cannot_read_outside_the_package(tmp_path, monkey
     monkeypatch.setenv("TIT_GUIDE_DIR", str(tmp_path))
     with pytest.raises(guide.GuideUnavailable):
         guide.surface("skin", "tvsc")
+
+
+def test_every_atlas_ships_tvsc_labels_aligned_to_the_grey_matter_surface(manifest: dict) -> None:
+    """The pane's own renderer reads TVSC1 labels, so the package must carry them.
+
+    Between 2026-09-05 and 2026-09-06 labels shipped as GIfTI only, on the
+    premise that nothing read the TVSC payload — and the day the native
+    renderer came back the cortex had no regions to highlight. The alignment
+    half is what the pane checks at runtime before applying labels: same vertex
+    count, same first vertex. Asserting it here means a half-regenerated guide
+    fails a test instead of silently drawing a region centimetres from the one
+    that was clicked.
+    """
+    gm = tvsc.decode(guide.surface("gm", "tvsc").path.read_bytes())
+    assert manifest["atlases"], "the guide packages no atlas at all"
+    for atlas in manifest["atlases"]:
+        payload = tvsc.decode(guide.labels(str(atlas["id"]), "tvsc").path.read_bytes())
+        assert payload.labels is not None, f"{atlas['id']} carries no per-vertex labels"
+        assert len(payload.labels) == len(gm.positions)
+        assert payload.positions[0].tolist() == gm.positions[0].tolist()
