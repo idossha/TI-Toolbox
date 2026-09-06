@@ -198,7 +198,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
   }
 });
 
-test("a selected atlas region is painted in the ROI tint, and the pane holds its budgets", async () => {
+test("a selected atlas region is painted in its own .annot colour, and the pane holds its budgets", async () => {
   test.setTimeout(180_000);
   const app = await launchElectronApp();
   try {
@@ -231,8 +231,8 @@ test("a selected atlas region is painted in the ROI tint, and the pane holds its
     const after = await pixelAt(page, cx, cy);
     expect(delta(before, after), "selecting a region repainted nothing").toBeGreaterThan(10);
 
-    // **The selected region is painted in its OWN atlas colour**, the one the `.annot` colour table
-    // gives it — not in one flat blue for all 70 regions. The expected value is read from the
+    // **The selected region is painted in its OWN atlas colour** — the one the `.annot` colour
+    // table gives it — not in one flat blue for all 70 regions. The expected value is read from the
     // pane's own legend, which is the same `legend[].color` the shader's colour texture was packed
     // from, so this closes the loop from the annotation file to the pixel.
     const picked = await page.evaluate(() => window.__scenePane?.selectedRegions[0] ?? null);
@@ -245,26 +245,53 @@ test("a selected atlas region is painted in the ROI tint, and the pane holds its
     expect(hex, `the legend has no colour for ${picked?.name}/${picked?.hemi}`).toMatch(/^#[0-9a-f]{6}$/);
     const own = [1, 3, 5].map((i) => parseInt((hex as string).slice(i, i + 2), 16));
 
-    // "Closer to its own colour than the unselected cortex was", not "equal to it": the surface
-    // shader lights the fragment (a lambert term and a fresnel silhouette boost) and blends it
-    // under a translucent scalp, so an exact equality here would pin the lighting rather than the
-    // colour anyone chose. What it does pin is the *identity* of the colour.
-    expect(delta(after, own), `selected pixel ${JSON.stringify(after)} vs its atlas colour ${hex}`).toBeLessThan(
-      delta(before, own),
+    // The comparison is on **chroma direction**, not on the raw triple, and that is not a dodge —
+    // it is the only thing the renderer promises. A fragment is lit (a lambert term and a fresnel
+    // silhouette boost) and then blended under a translucent scalp, both of which move every
+    // channel towards white by an amount that depends on where on the head the click landed:
+    // measured here, the atlas' #4b327d [75,50,125] reaches the screen as [150,137,169]. What
+    // survives all of that is the *direction* of the colour away from grey — which is exactly what
+    // "this region is purple and that one is green" means to a person.
+    const chroma = (p: readonly number[]): number[] => {
+      const mean = (p[0]! + p[1]! + p[2]!) / 3;
+      return [p[0]! - mean, p[1]! - mean, p[2]! - mean];
+    };
+    const cosine = (p: readonly number[], q: readonly number[]): number => {
+      const a = chroma(p);
+      const b = chroma(q);
+      const dot = a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
+      const na = Math.hypot(...a);
+      const nb = Math.hypot(...b);
+      return na < 1e-6 || nb < 1e-6 ? 0 : dot / (na * nb);
+    };
+
+    const toOwn = cosine(after, own);
+    expect(toOwn, `selected pixel ${JSON.stringify(after)} is not the hue of its atlas colour ${hex}`).toBeGreaterThan(
+      0.9,
     );
 
-    // …and it is that colour rather than the old flat ROI blue, which is the whole point of the
-    // change. Skipped for the handful of parcels whose ctab entry happens to be a blue close to the
-    // accent — asserting there would be asserting a coincidence, not a behaviour.
+    // …and it is that hue rather than the flat ROI blue this change replaced, which is the whole
+    // point. Skipped for the handful of parcels whose ctab entry is itself a blue near the accent:
+    // asserting there would be asserting a coincidence, not a behaviour.
     const flat = rgb255(SCENE_PALETTE.selected as number[]);
-    if (delta(own, flat) > 60) {
-      expect(delta(after, own), "the region was painted in the flat ROI blue, not in its own colour").toBeLessThan(
-        delta(after, flat),
+    const toFlat = cosine(after, flat);
+    if (cosine(own, flat) < 0.9) {
+      expect(toOwn, `pixel hue matches the flat ROI blue (${toFlat.toFixed(3)}) better than ${hex}`).toBeGreaterThan(
+        toFlat,
       );
     }
+
+    // Selecting saturates: at rest a labelled region already carries its atlas hue, desaturated so
+    // the cortex reads as anatomy, and selection takes it to full. So the change on click is a
+    // change in chroma *magnitude*, not in direction — which is why the assertion above is about
+    // direction and this one is about length.
+    const chromaLen = (p: readonly number[]): number => Math.hypot(...chroma(p));
+    expect(chromaLen(after), "selecting a region did not saturate it").toBeGreaterThan(chromaLen(before));
+
     console.log(
       `REAL-SCENE region ${picked?.name}/${picked?.hemi}: ${JSON.stringify(before)} -> ${JSON.stringify(after)} ` +
-        `(atlas colour ${hex} = ${JSON.stringify(own)}), warm first paint ${firstPaint} ms`,
+        `(atlas colour ${hex} = ${JSON.stringify(own)}, cos to own ${toOwn.toFixed(3)}, ` +
+        `cos to flat blue ${toFlat.toFixed(3)}), warm first paint ${firstPaint} ms`,
     );
 
     // Orbit at 1280: a drag across the canvas, then the renderer's own frame counter.
