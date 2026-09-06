@@ -210,26 +210,33 @@ test("a region picked in the scene is the region the ROI picker lists", async ()
 });
 
 test("a region chosen in the ROI picker is highlighted by the pane", async () => {
-  const before = await page.evaluate(() => window.__scenePane?.selection.regions ?? []);
+  // The region to add is chosen from the PANE's own legend, so the assertion is about the sync and
+  // not about whether the two catalogs happen to overlap: the picker offers every region the atlas
+  // has, the pane can only highlight one its label payload carries.
+  const { before, next } = await page.evaluate(() => {
+    const handle = window.__scenePane;
+    if (!handle) throw new Error("window.__scenePane is absent");
+    const selected = new Set(handle.selectedRegions.map((r) => `${r.hemi}:${r.id}`));
+    const row = handle.legend.find((entry) => !selected.has(`${entry.hemi}:${entry.id}`));
+    if (!row) throw new Error("every legend region is already selected");
+    return { before: handle.selection.regions, next: { key: `${row.hemi}:${row.id}`, label: row.label } };
+  });
+
   await field("Region(s)").getByRole("combobox").click();
-  // A second region, addressed by its own value — no punctuation, no label guessing.
-  const option = page.locator('[role="option"][data-option-value]').first();
-  const value = await option.getAttribute("data-option-value");
-  await option.click();
+  // Scoped to the picker's own list: `[role="option"]` alone also matches the Subjects table's
+  // rows, which are `role="option"` too and sit behind the open dialog's overlay.
+  await page.getByTestId(`roi-region-row-${next.key}`).click();
   await page.getByTestId("roi-region-done").click();
 
   await expect
     .poll(() => page.evaluate(() => (window.__scenePane?.selection.regions ?? []).length))
     .toBe(before.length + 1);
-  // The pane's list is the FORM's list, resolved through the guide legend — same ids, same order.
-  const [selected, legend] = await page.evaluate(() => [
+  // The pane's list IS the form's list, resolved through the guide legend — same region, same
+  // wire label, no second copy.
+  const [regions, selected] = await page.evaluate(() => [
+    window.__scenePane?.selection.regions ?? [],
     window.__scenePane?.selectedRegions ?? [],
-    window.__scenePane?.legend ?? [],
   ]);
-  const added = selected[selected.length - 1]!;
-  expect(`${added.hemi}:${added.id}`).toBe(value);
-  const row = legend.find((entry) => entry.id === added.id && entry.hemi === added.hemi);
-  expect(row, "the pane highlighted a region its own legend does not contain").toBeTruthy();
-  const regions = await page.evaluate(() => window.__scenePane?.selection.regions ?? []);
-  expect(regions).toContain(row!.label);
+  expect(regions).toContain(next.label);
+  expect(selected.map((r) => `${r.hemi}:${r.id}`)).toContain(next.key);
 });
