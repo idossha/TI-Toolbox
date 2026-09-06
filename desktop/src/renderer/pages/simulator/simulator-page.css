@@ -58,8 +58,9 @@
 /* Half the shared --space-2: five columns of controls in a 608px work column cannot afford 16px
    of padding per cell. The controls inside still carry their own. */
 .montage-table th,
+.data-table.sim-jobs-table tbody td,
 .montage-table tbody td {
-  padding: 0 var(--space-1);
+  padding: 0 4px;
 }
 
 /* Compact triggers: the default select spends 40px per control on padding, gap and chevron, which
@@ -68,9 +69,15 @@
 .sim-jobs-table .select-trigger,
 .sim-jobs-table .combobox-trigger,
 .sim-jobs-table .selection-trigger {
-  padding: 0 var(--space-1);
-  gap: var(--space-1);
+  padding: 0 4px;
+  gap: 2px;
   max-width: none;
+}
+
+/* The value takes every pixel the trigger is not spending on its chevron: without this the label
+   box stops at its own preferred width and ellipses a name the column had room for. */
+.sim-jobs-table .picker-value {
+  flex: 1 1 auto;
 }
 
 /* Icon-only, 28px, right-aligned — three of them plus their gaps are exactly the 96px the
@@ -138,17 +145,44 @@
   min-height: 24px;
 }
 
-.job-pairs {
-  display: block;
-  flex: 1 1 auto;
+/* One channel: its colour, its pair, its own current. The current input sits against the pair it
+   drives — the whole point of the group. */
+.job-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  color: var(--text-secondary);
 }
 
-/* The same height as a configured line 2 (a 28px control plus its air), so picking a montage
-   changes what the line says and never how tall the job is. */
+.job-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.job-channel-pair {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.job-channel .number-input {
+  width: 46px;
+  min-width: 0;
+  max-width: none;
+}
+
+.job-polarity {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: none;
+}
+
+.job-line2 > .select-trigger {
+  flex: 0 0 auto;
+  max-width: 160px;
+}
+
 .job-line2-empty {
   display: inline-flex;
   align-items: center;
@@ -157,52 +191,7 @@
   font-size: 12px;
 }
 
-/* The placement pair sits side by side — a segmented control and the net it maps onto, never
-   stacked (maintainer, 2026-09-06) — and is never squeezed below its own content. */
-/* The first grid track: empty for a montage or free-hand job, the placement pair for a flex one. */
-.job-placement-slot:empty {
-  display: none;
-}
-.job-placement-slot {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.job-placement {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.job-placement > .select-trigger {
-  min-width: 0;
-  max-width: 170px;
-}
-
-/* One input per pair, right of the line, with the unit stated once. */
-.job-currents {
-  display: inline-flex;
-  align-items: center;
-  margin-left: auto;
-  gap: 2px;
-}
-
-.job-currents .number-input {
-  width: 46px;
-  min-width: 0;
-  max-width: none;
-}
-
-.job-line-label {
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-right: 2px;
-}
-
-/* The unit is stated once at the end of the line, not in every input (DESIGN.md §4.3). */
-.job-currents .number-input input {
+.job-channel .number-input input {
   min-width: 0;
   padding-left: 2px;
 }
@@ -216,7 +205,8 @@
  * other row. `--accent-soft` plus a 2px `--accent` bar on the first cell; both are theme tokens, so
  * dark gets the dark pair, and neither is a job-state colour.
  */
-.montage-table tbody tr[data-active="true"] > td {
+.montage-table tbody tr[data-active="true"] > td,
+.montage-table tbody tr[data-job-row][data-active="true"] > td.montage-actions {
   background-color: var(--accent-soft);
 }
 .montage-table tbody tr[data-job-detail][data-active="true"] > td {

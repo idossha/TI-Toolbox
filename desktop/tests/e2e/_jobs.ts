@@ -35,26 +35,24 @@ export async function setJobNet(page: Page, row: Locator, option: string): Promi
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 
-/** A flex row's placement: the optimiser's own coordinates, or an EEG net's labels. */
-export async function setJobPlacement(page: Page, row: Locator, mode: "Optimised" | "Map to net"): Promise<void> {
-  const item = jobDetail(row).getByRole("radio", { name: mode, exact: true });
-  await expect(item).toBeVisible();
-  // A real mouse click at the segment's centre. `locator.click()`'s hit-target check reports the
-  // Radix toggle item's own parent as the hit on this control (the item is what
-  // `document.elementFromPoint` returns at exactly this point — asserted by the state change
-  // below), so the pointer is driven directly rather than the assertion being forced off.
-  const box = (await item.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(item).toHaveAttribute("data-state", "on");
-}
-
-/** The net a flex row is mapped onto — only present once "Map to net" is chosen. */
-export async function setJobMappedNet(page: Page, row: Locator, net: string): Promise<void> {
-  const trigger = jobDetail(row).getByRole("combobox");
+/**
+ * A flex row's placement — the optimiser's own coordinates, or the EEG net to map them onto. One
+ * select in the row's EEG-net cell (v4 redesign), so both choices are the same gesture.
+ */
+export async function setJobPlacement(page: Page, row: Locator, option: string): Promise<void> {
+  const trigger = cell(row, "net").getByRole("combobox");
   await expect(trigger).toBeVisible();
+  // A real mouse click at the trigger's centre: `locator.click()`'s hit-target check reports this
+  // cell's own parent as the hit inside the two-line row, so the pointer is driven directly rather
+  // than the actionability assertion being forced off. The option list proves it opened.
   const box = (await trigger.boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.getByRole("option", { name: net, exact: true }).click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/** The net a flex row maps its optimised positions onto. */
+export async function setJobMappedNet(page: Page, row: Locator, net: string): Promise<void> {
+  await setJobPlacement(page, row, net);
 }
 
 /** Sets a row's montage / flex run / free-hand set — the fourth column, whatever the source. */
@@ -78,9 +76,14 @@ export function jobBlank(row: Locator): Locator {
   return jobDetail(row).locator('td[data-cell="detail-pad"], td[data-cell="detail"]').first();
 }
 
-/** The row's electrode-pairs text, on line 2. */
+/** The row's electrode pairs, one locator per channel, on line 2. */
 export function jobPairs(row: Locator): Locator {
-  return jobDetail(row).locator('[data-cell="pairs"]');
+  return jobDetail(row).locator('[data-cell="pair"]');
+}
+
+/** The pairs as one string, the way the old single Pairs cell read: `E1–E2 · E3–E4`. */
+export async function jobPairsText(row: Locator): Promise<string> {
+  return (await jobPairs(row).allTextContents()).join(" · ");
 }
 
 /** The row's current (mA) inputs — the count follows its polarity. */

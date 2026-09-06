@@ -313,15 +313,15 @@ describe("montage pairs come in groups of two", () => {
     // the 334px the other three cannot go below leaves 178 for the net, so a 220px drag stops
     // there rather than pushing the table into a sideways scroll.
     const dragged = resolveColumnWidths(608, { net: 220 });
-    expect(dragged.net).toBe(178);
+    expect(dragged.net).toBe(512 - 64 - 88 - 176);
     expect(resolveColumnWidths(608, { net: 170 }).net).toBe(170);
     expect(dragged.subject + dragged.source + dragged.net + dragged.montage).toBe(608 - 96);
     // At 1280's default pane no column is below what its longest real value needs: a net name
     // (`GSN-HydroCel-185`, 113px) and a montage or flex-run name (`VAL_lhipp_flex_focality`,
     // 137px), each plus ~36px of select chrome.
     const defaults = resolveColumnWidths(608, {});
-    expect(defaults.net).toBeGreaterThanOrEqual(149);
-    expect(defaults.montage).toBeGreaterThanOrEqual(173);
+    expect(defaults.net).toBeGreaterThanOrEqual(140);
+    expect(defaults.montage).toBeGreaterThanOrEqual(176);
   });
 
   it("a row with nothing configured shows no pairs text at all", () => {

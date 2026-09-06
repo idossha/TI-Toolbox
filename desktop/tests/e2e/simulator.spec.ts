@@ -109,8 +109,8 @@ test("a row that names a subject and a montage becomes exactly one planned job",
   const row = montageRows().first();
   await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
   await expect(row).toHaveAttribute("data-polarity", "uni_polar");
-  // The polarity chip sits on line 2, beside the pairs it describes.
-  await expect(jobDetail(row).locator(".chip", { hasText: /^TI$/ })).toBeVisible();
+  // The polarity is a quiet label at the start of line 2; the colours there belong to the channels.
+  await expect(jobDetail(row).locator(".job-polarity")).toHaveText("TI");
 
   /*
    * §4.5, as the maintainer redrew it on 2026-09-06: for `kind="sim"` the columns are the three
@@ -134,10 +134,10 @@ test("a multi-polar montage row takes one current per pair", async () => {
   const row = montageRows().first();
   await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: "mTI_F3F4_P3P4 · mTI" });
   await expect(row).toHaveAttribute("data-polarity", "multi_polar");
-  await expect(jobDetail(row).locator(".chip", { hasText: /^mTI$/ })).toBeVisible();
+  await expect(jobDetail(row).locator(".job-polarity")).toHaveText("mTI");
   // 4 pairs -> 4 currents, derived from the montage, not from a control the user has to set.
   await expect(jobCurrents(row)).toHaveCount(4);
-  await expect(jobPairs(row)).toHaveText("E24–E124 · E67–E77 · E36–E104 · E12–E62");
+  await expect(jobPairs(row)).toHaveText(["E24–E124", "E67–E77", "E36–E104", "E12–E62"]);
 
   // One uni-polar and one multi-polar row side by side.
   await configureMontageJob(page, await addJobRow(page), {
@@ -315,7 +315,7 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await setJobSource(page, row, "Flex result");
   await setJobMontage(page, row, "flex_Thalamus_20260810_101500");
   await expect(row).toHaveAttribute("data-runnable", "true");
-  await expect(jobPairs(row)).toHaveText("E020–E074 · E101–E133");
+  await expect(jobPairs(row)).toHaveText(["E020–E074", "E101–E133"]);
 
   // A flex source lands in the Flex column, and the montage column empties — which is the whole
   // point of summarising by source rather than by simulation name.
@@ -330,17 +330,15 @@ test("a row on the Flex result source becomes a planned job, in either placement
   // The optimiser's own coordinates are the other placement a run can be simulated in — and the
   // only one a run that was never mapped onto a net has. It is the row's EEG-net cell, stated as a
   // choice rather than as a truncated option label.
-  await setJobPlacement(page, row, "Optimised");
-  await expect(jobPairs(row)).toHaveText("4 XYZ coordinates");
+  await setJobPlacement(page, row, "Optimised (XYZ)");
+  await expect(jobPairs(row)).toHaveText(["XYZ (2 pts)", "XYZ (2 pts)"]);
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
 
   // Back to a net — and not only the net the run happens to carry a mapping file for: every net
   // the subject has is offered, and the server maps the optimised positions onto it on demand.
-  await setJobPlacement(page, row, "Map to net");
   await setJobMappedNet(page, row, "EGI_template");
-  await expect(jobPairs(row)).not.toHaveText("4 XYZ coordinates");
-  await expect(jobPairs(row)).toHaveText(/–/, { timeout: 15_000 });
+  await expect(jobPairs(row).first()).toHaveText(/–/, { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
 });

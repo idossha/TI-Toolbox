@@ -31,13 +31,13 @@ import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
+import { channelCss } from "../_shared/scene/model";
 import { deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import "./simulator-page.css";
@@ -152,16 +152,16 @@ export const ACTIONS_W = 96;
 
 /** Below these a column stops being a control and becomes a sliver. */
 export const COLUMN_MIN: Record<ColumnKey, number> = {
-  subject: 70,
-  source: 96,
-  net: 148,
-  montage: 168,
+  subject: 64,
+  source: 88,
+  net: 140,
+  montage: 176,
 };
 
 /** Shares of the resizable area when nothing is stored — the measured widths above, in order:
  *  a subject id, a source label, a net name and a montage or flex-run name, none truncated at the
  *  608px the default 1280 pane gives. */
-const COLUMN_DEFAULT_FRACTION = { subject: 0.15, source: 0.19, net: 0.30, montage: 0.36 } as const;
+const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.19, net: 0.28, montage: 0.39 } as const;
 
 /** New key: the columns are not the ones `tit-sim-jobs-columns-v1` stored. */
 export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v2";
@@ -269,28 +269,50 @@ function ColumnHandle({ label, width, onResize }: { label: string; width: number
   );
 }
 
-/** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string.
- *  An unconfigured row shows nothing at all here — a placeholder dash is not a value (rule 4 of the
- *  2026-09-06 row redesign). */
-function CurrentsCell({ row, onChange }: { row: SelectedRow; onChange: (currents: string) => void }) {
+/**
+ * Line 2's channel list: one group per channel — `[colour dot] E034–E020 [1] mA` — so the current
+ * sits **next to the pair it drives** rather than in a separate right-aligned block where nobody
+ * could tell which value belonged to which channel (maintainer, 2026-09-06).
+ *
+ * The dot is the scene's own channel colour (Okabe-Ito, `channelCss`), which is what the 3-D pane's
+ * legend and its electrode markers use: "channel 2 is orange" means one thing in this table, in the
+ * legend and in the pane.
+ */
+function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents: string) => void }) {
   const count = rowCurrentsCount(row);
   if (count === 0 || !row.name) return null;
   const values = currentValues(row.currents, count);
+  const labels = channelLabels(row, count);
   return (
-    <div className="job-currents">
+    <>
       {values.map((v, i) => (
-        <NumberInput
-          key={i}
-          value={v}
-          onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
-          step={0.1}
-          min={0}
-          aria-label={`${row.name || "row"} pair ${i + 1} current (mA)`}
-        />
+        <span className="job-channel" key={i} data-channel={i}>
+          <span className="job-channel-dot" style={{ background: channelCss(i) }} aria-hidden />
+          <span className="job-channel-pair mono text-dense" data-cell="pair">
+            {labels[i]}
+          </span>
+          <NumberInput
+            value={v}
+            onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
+            step={0.1}
+            min={0}
+            aria-label={`${row.name || "row"} channel ${i + 1} current (mA)`}
+          />
+          <span className="montage-unit">mA</span>
+        </span>
       ))}
-      <span className="montage-unit">mA</span>
-    </div>
+    </>
   );
+}
+
+/** What each channel of a row is, in words: its electrode pair, or its coordinate count. */
+export function channelLabels(row: SelectedRow, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => {
+    const pair = row.pairs?.[i];
+    if (pair) return `${pair[0]}–${pair[1]}`;
+    if (row.xyzPairs?.[i]) return "XYZ (2 pts)";
+    return "—";
+  });
 }
 
 /**
@@ -731,6 +753,7 @@ export function JobsTable({
    * carries its own coordinates and has none. Neither draws a placeholder dash here.
    */
   function renderNetCell(row: SelectedRow) {
+    if (row.source === "flex") return renderPlacementCell(row);
     if (row.source !== "montage") return null;
     const nets = netsForSubject(row.subjectId);
     return (
@@ -745,38 +768,34 @@ export function JobsTable({
   }
 
   /**
-   * A flex row's placement, on line 2: `Optimised · Map to net` side by side with the net it maps
-   * onto (never stacked — maintainer, 2026-09-06). Line 2 has the room line 1's four columns do
-   * not, and the placement belongs with the electrodes it determines.
+   * A flex row's placement, in the EEG-net column of line 1: the optimiser's own coordinates, or
+   * the EEG net its electrodes are mapped onto — **one** select, listing every net the subject has
+   * (the server maps on demand), not only the nets the run was pre-mapped to.
+   *
+   * Why one control and not the `Optimised · Map to net` pair plus a net select: measured in the
+   * app at 1280 with the default pane the four line-1 columns share 512px, and the two controls
+   * together need 290px in a column that can be 162px at most without starving the run name beside
+   * it. Splitting them across the two lines instead made a flex job a line taller than a montage
+   * job. One select keeps every name whole and every job exactly two lines.
    */
-  function renderPlacementControls(row: SelectedRow) {
+  function renderPlacementCell(row: SelectedRow) {
     if (!row.name) return null;
     const options = placementsForRow(row);
     const hasOptimised = options.some((o) => o.value === OPTIMIZED);
     const nets = netsForSubject(row.subjectId);
-    const mapped = !!row.eegNet;
+    const choices = [
+      ...(hasOptimised ? [{ value: OPTIMIZED, label: "Optimised (XYZ)" }] : []),
+      ...nets.map((n) => ({ value: n, label: netStem(n) })),
+    ];
+    const current = row.eegNet ? nets.find((n) => netStem(n) === netStem(row.eegNet!)) : OPTIMIZED;
     return (
-      <span className="job-placement">
-        <SegmentedControl
-          size="sm"
-          aria-label="Placement"
-          value={mapped ? "mapped" : "optimised"}
-          options={[
-            { value: "optimised", label: "Optimised", disabled: !hasOptimised, title: "The optimiser's own electrode coordinates (no EEG net)." },
-            { value: "mapped", label: "Map to net", disabled: nets.length === 0, title: "Snap the optimised positions onto the nearest electrodes of an EEG net." },
-          ]}
-          onValueChange={(v) => setRowPlacementMode(row, v as "optimised" | "mapped")}
-        />
-        {mapped && (
-          <Select
-            value={nets.find((n) => netStem(n) === netStem(row.eegNet!))}
-            onValueChange={(v) => void mapRowToNet(row, v)}
-            options={nets.map((n) => ({ value: n, label: netStem(n) }))}
-            placeholder="EEG net"
-            aria-label="Mapped EEG net"
-          />
-        )}
-      </span>
+      <Select
+        value={choices.some((c) => c.value === current) ? current : undefined}
+        onValueChange={(v) => (v === OPTIMIZED ? setRowPlacementMode(row, "optimised") : void mapRowToNet(row, v))}
+        options={choices}
+        placeholder="Placement"
+        aria-label="Placement"
+      />
     );
   }
 
@@ -878,7 +897,6 @@ export function JobsTable({
               {rows.map((row) => {
                 const montage = catalogMontageOf(row);
                 const active = activeId === row.id;
-                const pairsText = rowPairsText(row);
                 // A click on a control is that control's, not the row's.
                 const claim = (e: React.MouseEvent) => {
                   if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
@@ -955,19 +973,13 @@ export function JobsTable({
                         <>
                           <td data-cell="detail-pad" />
                           <td data-cell="polarity">
-                            {row.kind && (
-                              <span className="chip chip-neutral" title={row.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
-                                {polarityLabel(row.kind)}
-                              </span>
-                            )}
+                            {/* Polarity is implied by the channel count; kept as a quiet label, not
+                                a chip competing with the per-channel colours. */}
+                            <span className="job-polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
                           </td>
                           <td colSpan={2} data-cell="detail">
-                            <div className="job-line2">
-                              <span className="job-placement-slot">{row.source === "flex" && renderPlacementControls(row)}</span>
-                              <span className="job-pairs mono text-dense" data-cell="pairs">
-                                {pairsText}
-                              </span>
-                              <CurrentsCell row={row} onChange={(currents) => patch(row.id, { currents })} />
+                            <div className="job-line2" data-cell="pairs">
+                              <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                           </td>
                         </>

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { addJobRow, configureMontageJob, jobBlank, jobDetail, jobRows } from "./_jobs";
+import { addJobRow, configureMontageJob, jobBlank, jobDetail, jobPairs, jobRows, setJobMontage, setJobSource, setJobSubject } from "./_jobs";
 
 /**
  * The Simulator's **Jobs table** as a *table*: how wide its columns are, that the user can change
@@ -80,9 +80,9 @@ test("the columns fill the container exactly, with a fixed 96px actions column a
   expect(widths[4]).toBe(96);
   // Room for the real names measured in the app: `GSN-HydroCel-185` (113px) and
   // `VAL_lhipp_flex_focality` (137px), each inside ~36px of select chrome.
-  expect(widths[0]).toBeGreaterThanOrEqual(72);
-  expect(widths[2]).toBeGreaterThanOrEqual(149);
-  expect(widths[3]).toBeGreaterThanOrEqual(173);
+  expect(widths[0]).toBeGreaterThanOrEqual(64);
+  expect(widths[2]).toBeGreaterThanOrEqual(140);
+  expect(widths[3]).toBeGreaterThanOrEqual(176);
   expect(widths.reduce((a, b) => a + b, 0)).toBe(box.clientWidth);
 });
 
@@ -187,12 +187,18 @@ test("no select or pairs text is truncated at 1280 or 1600", async () => {
   for (const width of [1280, 1600]) {
     await page.setViewportSize({ width, height: 900 });
     console.log("JOBS-COLS", width, JSON.stringify(await columnWidths()));
+    // Compares the text's own measured width with the box it is drawn in — `scrollWidth` alone
+    // rounds a one-character ellipsis away on some of these nested spans.
     const overflowing = await page
-      .locator("table.sim-jobs-table .select-trigger span, table.sim-jobs-table [data-cell='pairs']")
+      .locator("table.sim-jobs-table .picker-value, table.sim-jobs-table .selection-trigger-text, table.sim-jobs-table [data-cell='pair']")
       .evaluateAll((els) =>
         els
-          .filter((el) => el.scrollWidth > el.clientWidth + 1)
-          .map((el) => `${el.textContent} (${el.scrollWidth} > ${el.clientWidth})`),
+          .filter((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().width > el.getBoundingClientRect().width + 1;
+          })
+          .map((el) => `${el.textContent} (${Math.round(el.getBoundingClientRect().width)}px box)`),
       );
     expect(overflowing, `truncated at ${width}`).toEqual([]);
   }
@@ -256,17 +262,38 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
     const px = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
     return {
       source: px(line1.querySelector('td[data-cell="source"]'))!.x,
-      chip: px(line2.querySelector('td[data-cell="polarity"] .chip'))!.x,
+      chip: px(line2.querySelector('td[data-cell="polarity"] .job-polarity'))!.x,
       montageRight: px(line1.querySelector('td[data-cell="montage"]'))!.right,
-      currentsRight: px(line2.querySelector(".job-currents"))!.right,
       line2Bottom: px(line2)!.bottom,
       detailBottom: px(line2.querySelector(".job-line2"))!.bottom,
     };
   });
   console.log("JOBS-GEOM", JSON.stringify(geom));
-  expect(Math.abs(geom.chip - geom.source), "the chip is not on the Source column's left edge").toBeLessThanOrEqual(8);
-  expect(Math.abs(geom.currentsRight - geom.montageRight), "the currents do not end at the Montage column").toBeLessThanOrEqual(8);
+  expect(Math.abs(geom.chip - geom.source), "the polarity label is not on the Source column's left edge").toBeLessThanOrEqual(8);
   expect(geom.detailBottom).toBeLessThanOrEqual(geom.line2Bottom);
+
+  // Every current input sits against the pair it drives — that is what makes the value
+  // unambiguous, and it is a geometric claim, not a wording one.
+  const channels = await page.evaluate(() => {
+    const line2 = document.querySelector("tr[data-job-row]")!.nextElementSibling!;
+    return [...line2.querySelectorAll(".job-channel")].map((ch) => {
+      const pair = ch.querySelector('[data-cell="pair"]')!.getBoundingClientRect();
+      const input = ch.querySelector("input")!.getBoundingClientRect();
+      return Math.round(input.x - pair.right);
+    });
+  });
+  expect(channels.length, "a channel per pair").toBeGreaterThan(0);
+  for (const gap of channels) expect(gap, `current input ${gap}px from its pair`).toBeLessThanOrEqual(8);
+
+  // The wash spans the whole table on both lines of the active job.
+  const wash = await page.evaluate(() => {
+    const line1 = document.querySelector('tr[data-job-row][data-active="true"]');
+    if (!line1) return null;
+    const line2 = line1.nextElementSibling!;
+    const cells = [...line1.querySelectorAll("td"), ...line2.querySelectorAll("td")];
+    return cells.map((c) => getComputedStyle(c).backgroundColor);
+  });
+  if (wash) expect(new Set(wash).size, `the active row is washed unevenly: ${wash?.join(", ")}`).toBe(1);
 
   // An empty job says so on line 2, at the same height as a configured one.
   const empty = await addJobRow(page);
@@ -281,6 +308,22 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
   });
   // The empty job is exactly as tall as the configured TI job beside it.
   expect(withEmpty[2], `an unconfigured job is a different height: ${withEmpty.join(", ")}`).toBe(withEmpty[1]);
+  // A flex job is exactly as tall as a two-channel montage job: two lines, never three.
+  await setJobSubject(page, empty, "ernie");
+  await setJobSource(page, empty, "Flex result");
+  await setJobMontage(page, empty, "flex_Thalamus_20260810_101500");
+  await expect(jobPairs(empty)).toHaveCount(2);
+  const flexHeights = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const line1 of document.querySelectorAll("tr[data-job-row]")) {
+      const line2 = line1.nextElementSibling!;
+      out.push(Math.round(line1.getBoundingClientRect().height + line2.getBoundingClientRect().height));
+    }
+    return out;
+  });
+  console.log("JOBS-HEIGHTS-FLEX", JSON.stringify(flexHeights));
+  expect(flexHeights[2], "a flex job is not the same height as a TI montage job").toBe(flexHeights[1]);
+
   await empty.getByRole("button", { name: /^Remove job / }).click();
   await expect(rows).toHaveCount(2);
 });
@@ -290,7 +333,7 @@ test("records the jobs table", async () => {
   await container().screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
   for (const width of [1280, 1600] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v3-${width}.png` });
+    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v4-${width}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 });
