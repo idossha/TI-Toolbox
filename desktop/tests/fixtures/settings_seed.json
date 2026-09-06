@@ -1,0 +1,7 @@
+{
+  "telemetry": { "consented": true, "enabled": false },
+  "panels": ["source", "quick-notes", "subject-info"],
+  "image_tag": "idossha/simnibs:v2.3.1",
+  "allow_unsafe_overrides": false,
+  "theme": "system"
+}

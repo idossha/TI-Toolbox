@@ -14,77 +14,10 @@ if str(project_root) not in sys.path:
 
 
 # ---------------------------------------------------------------------------
-# Ex __main__ helpers
+# Ex __main__: electrode/ROI union rebuilding is now tit.config_io.deserialize_config's
+# job (see tests/test_config_schema.py's round-trip coverage for
+# ExConfig/FlexConfig), not a hand-rolled helper in __main__.py.
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestExMainBuildElectrodes:
-    def test_pool_from_type(self):
-        from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import ExConfig
-
-        result = _build_electrodes(
-            {
-                "_type": "PoolElectrodes",
-                "electrodes": ["E1", "E2", "E3"],
-            }
-        )
-        assert isinstance(result, ExConfig.PoolElectrodes)
-        assert result.electrodes == ["E1", "E2", "E3"]
-
-    def test_bucket_from_type(self):
-        from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import ExConfig
-
-        result = _build_electrodes(
-            {
-                "_type": "BucketElectrodes",
-                "e1_plus": ["A1"],
-                "e1_minus": ["A2"],
-                "e2_plus": ["B1"],
-                "e2_minus": ["B2"],
-            }
-        )
-        assert isinstance(result, ExConfig.BucketElectrodes)
-        assert result.e1_plus == ["A1"]
-
-    def test_pool_inferred_from_electrodes_key(self):
-        from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import ExConfig
-
-        result = _build_electrodes(
-            {
-                "electrodes": ["E1", "E2"],
-            }
-        )
-        assert isinstance(result, ExConfig.PoolElectrodes)
-
-    def test_bucket_inferred_from_bucket_keys(self):
-        from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import ExConfig
-
-        result = _build_electrodes(
-            {
-                "e1_plus": ["A1"],
-                "e1_minus": ["A2"],
-                "e2_plus": ["B1"],
-                "e2_minus": ["B2"],
-            }
-        )
-        assert isinstance(result, ExConfig.BucketElectrodes)
-
-    def test_unknown_type_with_electrodes(self):
-        from tit.opt.ex.__main__ import _build_electrodes
-        from tit.opt.config import ExConfig
-
-        result = _build_electrodes(
-            {
-                "_type": "UnknownType",
-                "electrodes": ["E1"],
-            }
-        )
-        assert isinstance(result, ExConfig.PoolElectrodes)
 
 
 @pytest.mark.unit
@@ -141,6 +74,7 @@ class TestExMainFunction:
             "leadfield_hdf": "/lf.hdf5",
             "roi_name": "motor.csv",
             "electrodes": {
+                "_type": "PoolElectrodes",
                 "electrodes": ["E1", "E2", "E3", "E4"],
             },
         }
@@ -172,6 +106,7 @@ class TestExMainFunction:
             "leadfield_hdf": "/lf.hdf5",
             "roi_name": "motor.csv",
             "electrodes": {
+                "_type": "PoolElectrodes",
                 "electrodes": ["E1", "E2", "E3", "E4"],
             },
         }
@@ -196,57 +131,9 @@ class TestExMainFunction:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
-class TestFlexMainBuildROI:
-    def test_build_spherical_roi(self):
-        from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import FlexConfig
-
-        result = _build_roi(
-            {
-                "_type": "SphericalROI",
-                "x": -42.0,
-                "y": -20.0,
-                "z": 55.0,
-                "radius": 10.0,
-            }
-        )
-        assert isinstance(result, FlexConfig.SphericalROI)
-        assert result.x == -42.0
-
-    def test_build_atlas_roi(self):
-        from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import FlexConfig
-
-        result = _build_roi(
-            {
-                "_type": "AtlasROI",
-                "atlas_path": "/path/to/annot",
-                "label": 1001,
-                "hemisphere": "lh",
-            }
-        )
-        assert isinstance(result, FlexConfig.AtlasROI)
-        assert result.label == 1001
-
-    def test_build_subcortical_roi(self):
-        from tit.opt.flex.__main__ import _build_roi
-        from tit.opt.config import FlexConfig
-
-        result = _build_roi(
-            {
-                "_type": "SubcorticalROI",
-                "atlas_path": "/path/to/aseg.nii.gz",
-                "label": 11,
-            }
-        )
-        assert isinstance(result, FlexConfig.SubcorticalROI)
-
-    def test_build_none_roi(self):
-        from tit.opt.flex.__main__ import _build_roi
-
-        result = _build_roi(None)
-        assert result is None
+# ROI union rebuilding is now tit.config_io.deserialize_config's job (see
+# tests/test_config_schema.py's round-trip coverage for FlexConfig), not a
+# hand-rolled helper in __main__.py.
 
 
 @pytest.mark.unit
@@ -292,6 +179,123 @@ class TestFlexMainFunction:
                 with pytest.raises(SystemExit) as exc_info:
                     main()
                 assert exc_info.value.code == 0
+
+    def _dispatch_config_data(self, mode, extra=None):
+        data = {
+            "subject_id": "001",
+            "project_dir": "/proj",
+            "mode": mode,
+            "goal": "focality",
+            "postproc": "max_TI",
+            "current_mA": 2.0,
+            "electrode": {
+                "shape": "ellipse",
+                "dimensions": [8.0, 8.0],
+                "gel_thickness": 4.0,
+            },
+            "roi": {
+                "_type": "SphericalROI",
+                "x": -42.0,
+                "y": -20.0,
+                "z": 55.0,
+            },
+        }
+        data.update(extra or {})
+        return data
+
+    @patch("tit.paths.get_path_manager")
+    @patch("tit.opt.flex.__main__.run_pareto_sweep")
+    @patch("tit.opt.flex.__main__.run_adaptive_focality")
+    @patch("tit.opt.flex.__main__.run_flex_search")
+    def test_main_dispatches_to_run_flex_search_by_default(
+        self, mock_flex, mock_adaptive, mock_pareto, mock_gpm, tmp_path
+    ):
+        """config.mode defaults to 'flex' -- the plain run_flex_search path."""
+        from tit.opt.config import FlexResult
+        from tit.opt.flex.__main__ import main
+
+        mock_flex.return_value = FlexResult(
+            success=True,
+            output_folder="/out",
+            function_values=[-0.01],
+            best_value=-0.01,
+            best_run_index=0,
+        )
+        config_data = self._dispatch_config_data("flex")
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        with patch("tit.logger.add_stream_handler"):
+            with patch.object(sys, "argv", ["prog", str(config_path)]):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+        assert exc_info.value.code == 0
+        mock_flex.assert_called_once()
+        mock_adaptive.assert_not_called()
+        mock_pareto.assert_not_called()
+
+    @patch("tit.paths.get_path_manager")
+    @patch("tit.opt.flex.__main__.run_pareto_sweep")
+    @patch("tit.opt.flex.__main__.run_adaptive_focality")
+    @patch("tit.opt.flex.__main__.run_flex_search")
+    def test_main_dispatches_flex_adaptive_kind_to_the_adaptive_driver(
+        self, mock_flex, mock_adaptive, mock_pareto, mock_gpm, tmp_path
+    ):
+        from tit.opt.config import FlexConfig, FlexResult
+        from tit.opt.flex.__main__ import main
+
+        mock_adaptive.return_value = FlexResult(
+            success=True,
+            output_folder="/out",
+            function_values=[-0.01],
+            best_value=-0.01,
+            best_run_index=0,
+        )
+        config_data = self._dispatch_config_data("flex_adaptive")
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        with patch("tit.logger.add_stream_handler"):
+            with patch.object(sys, "argv", ["prog", str(config_path)]):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+        assert exc_info.value.code == 0
+        mock_adaptive.assert_called_once()
+        mock_flex.assert_not_called()
+        mock_pareto.assert_not_called()
+        # The dispatched-to config really is the deserialized FlexConfig.
+        dispatched_config = mock_adaptive.call_args.args[0]
+        assert dispatched_config.mode is FlexConfig.Mode.FLEX_ADAPTIVE
+
+    @patch("tit.paths.get_path_manager")
+    @patch("tit.opt.flex.__main__.run_pareto_sweep")
+    @patch("tit.opt.flex.__main__.run_adaptive_focality")
+    @patch("tit.opt.flex.__main__.run_flex_search")
+    def test_main_dispatches_flex_pareto_kind_to_the_pareto_driver(
+        self, mock_flex, mock_adaptive, mock_pareto, mock_gpm, tmp_path
+    ):
+        from tit.opt.config import FlexResult
+        from tit.opt.flex.__main__ import main
+
+        mock_pareto.return_value = FlexResult(
+            success=True,
+            output_folder="/out",
+            function_values=[-0.01],
+            best_value=-0.01,
+            best_run_index=0,
+        )
+        config_data = self._dispatch_config_data("flex_pareto")
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        with patch("tit.logger.add_stream_handler"):
+            with patch.object(sys, "argv", ["prog", str(config_path)]):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+        assert exc_info.value.code == 0
+        mock_pareto.assert_called_once()
+        mock_flex.assert_not_called()
+        mock_adaptive.assert_not_called()
 
     @patch("tit.paths.get_path_manager")
     @patch("tit.opt.flex.__main__.run_flex_search")

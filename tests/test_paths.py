@@ -275,6 +275,18 @@ class TestSubjectLevelPaths:
             root, "derivatives", "freesurfer", "sub-001", "mri"
         )
 
+    def test_fastsurfer_subject(self, pm):
+        p, root = pm
+        assert p.fastsurfer_subject("001") == os.path.join(
+            root, "derivatives", "fastsurfer", "sub-001"
+        )
+
+    def test_fastsurfer_mri(self, pm):
+        p, root = pm
+        assert p.fastsurfer_mri("001") == os.path.join(
+            root, "derivatives", "fastsurfer", "sub-001", "mri"
+        )
+
     def test_qsiprep_subject(self, pm):
         p, root = pm
         assert p.qsiprep_subject("001") == os.path.join(
@@ -737,3 +749,127 @@ class TestListOSErrorBranches:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# list_bids_subjects / list_freesurfer_subjects — sub-* dirs, natural sort
+# ---------------------------------------------------------------------------
+
+
+class TestListBidsAndFreesurferSubjects:
+    def test_bids_subjects_natural_sort_and_ignores_files(self, tmp_path):
+        root = _make_project(tmp_path)
+        for sid in ("10", "2", "1"):
+            (pathlib.Path(root) / f"sub-{sid}" / "anat").mkdir(parents=True)
+        (pathlib.Path(root) / "sub-file").write_text("not a dir")
+        (pathlib.Path(root) / "dataset_description.json").write_text("{}")
+        pm = PathManager(project_dir=root)
+        assert pm.list_bids_subjects() == ["1", "2", "10"]
+
+    def test_freesurfer_subjects_ignore_fsaverage(self, tmp_path):
+        root = _make_project(tmp_path)
+        fs = pathlib.Path(root) / "derivatives" / "freesurfer"
+        (fs / "sub-002" / "mri").mkdir(parents=True)
+        (fs / "sub-001").mkdir()
+        (fs / "fsaverage").mkdir()
+        pm = PathManager(project_dir=root)
+        assert pm.list_freesurfer_subjects() == ["001", "002"]
+
+    def test_fastsurfer_subjects_natural_sort(self, tmp_path):
+        root = _make_project(tmp_path)
+        fs = pathlib.Path(root) / "derivatives" / "fastsurfer"
+        (fs / "sub-010" / "mri").mkdir(parents=True)
+        (fs / "sub-2").mkdir()
+        pm = PathManager(project_dir=root)
+        assert pm.list_fastsurfer_subjects() == ["2", "010"]
+
+    def test_fastsurfer_and_freesurfer_listings_are_independent(self, tmp_path):
+        """A legacy recon-all project lists under freesurfer only, and vice versa."""
+        root = _make_project(tmp_path)
+        (pathlib.Path(root) / "derivatives" / "freesurfer" / "sub-old").mkdir(
+            parents=True
+        )
+        (pathlib.Path(root) / "derivatives" / "fastsurfer" / "sub-new").mkdir(
+            parents=True
+        )
+        pm = PathManager(project_dir=root)
+        assert pm.list_freesurfer_subjects() == ["old"]
+        assert pm.list_fastsurfer_subjects() == ["new"]
+
+    def test_empty_when_dirs_missing_or_project_unset(self, tmp_path):
+        root = tmp_path / "bare"
+        root.mkdir()
+        pm = PathManager(project_dir=str(root))
+        assert pm.list_bids_subjects() == []
+        assert pm.list_freesurfer_subjects() == []
+        assert pm.list_fastsurfer_subjects() == []
+        assert pm.list_simnibs_subjects() == []
+        unset = PathManager()
+        unset._project_dir = None
+        assert unset.list_bids_subjects() == []
+        assert unset.list_freesurfer_subjects() == []
+        assert unset.list_fastsurfer_subjects() == []
+
+
+# ---------------------------------------------------------------------------
+# resolve_resources_dir / resolve_resource_path (N0.6 spike)
+# ---------------------------------------------------------------------------
+
+from tit import paths as _paths_module  # noqa: E402
+from tit.paths import resolve_resource_path, resolve_resources_dir  # noqa: E402
+
+
+class TestResolveResourcesDir:
+    def test_checkout_relative_fallback_is_the_real_repo_resources_dir(self):
+        """No env override, and /ti-toolbox doesn't exist on this dev host (r6/skeptic-3): the
+        real, unmocked resolution must land on this checkout's own resources/ directory, which
+        genuinely exists on disk -- not just a plausible-looking string."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TIT_RESOURCES_DIR", None)
+            resolved = resolve_resources_dir()
+        assert os.path.isdir(resolved)
+        assert os.path.basename(resolved) == "resources"
+        # Two levels above tit/paths.py is the repo root.
+        repo_root = os.path.dirname(
+            os.path.dirname(os.path.abspath(_paths_module.__file__))
+        )
+        assert resolved == os.path.join(repo_root, "resources")
+
+    def test_env_override_wins_when_set_and_a_real_directory(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path))
+        assert resolve_resources_dir() == str(tmp_path)
+
+    def test_env_override_ignored_when_it_does_not_exist(self, tmp_path, monkeypatch):
+        """A stale/typo'd TIT_RESOURCES_DIR must not silently win over a real directory --
+        falls through to the next candidate instead of returning a nonexistent path."""
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path / "does-not-exist"))
+        resolved = resolve_resources_dir()
+        assert resolved != str(tmp_path / "does-not-exist")
+        assert os.path.isdir(resolved)
+
+    def test_container_layout_wins_over_checkout_when_present(
+        self, tmp_path, monkeypatch
+    ):
+        """Simulates the Docker image's own /ti-toolbox/resources layout by monkeypatching
+        os.path.isdir rather than requiring root to actually create /ti-toolbox on this host.
+        """
+        monkeypatch.delenv("TIT_RESOURCES_DIR", raising=False)
+        real_isdir = os.path.isdir
+
+        def fake_isdir(path):
+            if path == "/ti-toolbox/resources":
+                return True
+            return real_isdir(path)
+
+        monkeypatch.setattr(_paths_module.os.path, "isdir", fake_isdir)
+        assert resolve_resources_dir() == "/ti-toolbox/resources"
+
+    def test_resolve_resource_path_joins_onto_the_resources_dir(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path))
+        assert resolve_resource_path("amv", "GSN-256.csv") == os.path.join(
+            str(tmp_path), "amv", "GSN-256.csv"
+        )

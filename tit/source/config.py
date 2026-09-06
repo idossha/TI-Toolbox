@@ -18,6 +18,7 @@ tit.source.fsaverage.project_fields_to_fsaverage : Consumes :class:`FsavgMapConf
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 from tit.constants import FSAVG_FIELD_NAMES
 
@@ -108,3 +109,90 @@ class FsavgMapConfig:
             )
         if not self.fields:
             raise ValueError("At least one field must be selected.")
+
+
+# ── Top-level runner config ──────────────────────────────────────────────
+
+
+class SourceMode(StrEnum):
+    """Which :mod:`tit.source` pipeline a :class:`SourceConfig` drives.
+
+    Attributes
+    ----------
+    FORWARD : str
+        Rebuild an EEG forward solution per subject (:class:`ForwardConfig`).
+    FSAVG_MAP : str
+        Project existing simulation fields onto fsaverage for
+        (subject, simulation) pairs (:class:`FsavgMapConfig`).
+    """
+
+    FORWARD = "forward"
+    FSAVG_MAP = "fsavg_map"
+
+
+@dataclass(frozen=True)
+class SourcePair:
+    """One (subject, simulation) pair for the ``fsavg_map`` pipeline.
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+    """
+
+    subject_id: str
+    simulation: str
+
+
+@dataclass
+class SourceConfig:
+    """Configuration for one :mod:`tit.source` runner invocation.
+
+    Wraps the two pipelines :mod:`tit.source.__main__` dispatches on its
+    ``"mode"`` field. Only the fields relevant to *mode* are read by the
+    runner; the other pipeline's fields keep their defaults and are
+    ignored, mirroring ``tit.source.__main__._run_forward`` /
+    ``_run_fsavg_map`` exactly.
+
+    Attributes
+    ----------
+    mode : SourceMode
+        ``"forward"`` or ``"fsavg_map"``.
+    subject_ids : list of str
+        Subjects to rebuild a forward solution for. Required
+        (non-empty) when *mode* is ``"forward"``.
+    pairs : list of SourcePair
+        (subject, simulation) pairs to project onto fsaverage. Required
+        (non-empty) when *mode* is ``"fsavg_map"``.
+    forward : ForwardConfig
+        Forward-solution parameters (``"forward"`` mode only).
+    fsavg_map : FsavgMapConfig
+        fsaverage-projection parameters (``"fsavg_map"`` mode only).
+
+    Raises
+    ------
+    ValueError
+        If *mode* is ``"forward"`` with an empty *subject_ids*, or
+        ``"fsavg_map"`` with an empty *pairs*.
+
+    See Also
+    --------
+    tit.source.__main__ : The entry point whose dispatch this mirrors.
+    ForwardConfig : Consumed by the ``"forward"`` pipeline.
+    FsavgMapConfig : Consumed by the ``"fsavg_map"`` pipeline.
+    """
+
+    mode: SourceMode = SourceMode.FORWARD
+    subject_ids: list[str] = field(default_factory=list)
+    pairs: list[SourcePair] = field(default_factory=list)
+    forward: ForwardConfig = field(default_factory=ForwardConfig)
+    fsavg_map: FsavgMapConfig = field(default_factory=FsavgMapConfig)
+
+    def __post_init__(self) -> None:
+        self.mode = SourceMode(self.mode)
+        if self.mode is SourceMode.FORWARD and not self.subject_ids:
+            raise ValueError("subject_ids must be non-empty when mode='forward'")
+        if self.mode is SourceMode.FSAVG_MAP and not self.pairs:
+            raise ValueError("pairs must be non-empty when mode='fsavg_map'")

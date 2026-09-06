@@ -3,16 +3,18 @@
 
 """NIfTI viewer tab for the TI-Toolbox GUI.
 
-Provides an interface for launching Freeview with simulation outputs,
-atlas overlays, and voxel-space analysis results. Supports both single-
-subject and group visualization modes.
+Discovers simulation outputs, atlas overlays, and voxel-space analysis
+results for a subject (or a group of subject-simulation pairs), and
+prepares electrode-overlay NIfTIs. Actually *viewing* the discovered files
+has moved to the desktop app's Viewer page (D3,
+``dev/notes/v3-docker-streamline-plan.md`` -- Freeview/Gmsh/X11 are gone
+from the toolbox); this tab reports what it found and points there.
 """
 
 import os
 import sys
 import glob
 import json
-import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from tit.paths import get_path_manager
@@ -24,11 +26,13 @@ ELECTRODE_OVERLAY_REGION = "Electrodes"
 
 
 class NiftiViewerTab(QtWidgets.QWidget):
-    """GUI tab for NIfTI visualization using Freeview.
+    """GUI tab for NIfTI/atlas discovery and electrode-overlay creation.
 
-    Manages subject/simulation selection, atlas overlay options, and
-    launches Freeview as an external process with the appropriate command-line
-    arguments.  Supports single-subject and group visualization modes.
+    Manages subject/simulation selection and atlas overlay options, and
+    reports the files that a rendered view would include. Rendering itself
+    happens in the desktop app's Viewer page against the same project
+    (D3 -- Freeview/Gmsh are no longer bundled). Supports single-subject and
+    group discovery modes.
 
     Parameters
     ----------
@@ -39,8 +43,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(NiftiViewerTab, self).__init__(parent)
         self.parent = parent
-        self.freeview_process = None
-        self.current_file = None
         self.current_files = []
         self.current_paths = []
         self.pm = get_path_manager()
@@ -57,7 +59,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         return base_dir
 
-    def detect_freesurfer_atlases(self, subject_id):
+    def detect_voxel_atlases(self, subject_id):
         """Detect available voxel atlases for a subject.
 
         Uses the same canonical atlas list as the analyzer and flex tabs.
@@ -72,6 +74,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         m2m_dir = self.pm.m2m(subject_id)
         mgr = VoxelAtlasManager(
+            fastsurfer_mri_dir=self.pm.fastsurfer_mri(subject_id),
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=str(os.path.join(m2m_dir, "segmentation")) if m2m_dir else "",
             masks_dir=self.pm.masks(subject_id) if m2m_dir else "",
@@ -419,13 +422,13 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         self.status_label.setText(f"Found {len(subject_ids)} subjects")
         self.refresh_simulations(preserve=preserve, preferred_sim=current_sim)
-        self.check_freesurfer_atlases()
+        self.check_voxel_atlases()
 
-    def check_freesurfer_atlases(self):
+    def check_voxel_atlases(self):
         """Check for available Freesurfer atlases for the current subject."""
 
         subject_id = self.subject_combo.currentText()
-        available_atlases = self.detect_freesurfer_atlases(subject_id)
+        available_atlases = self.detect_voxel_atlases(subject_id)
 
         self.atlas_combo.clear()
         has_atlases = bool(available_atlases)
@@ -956,10 +959,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     f"Loading: sub-{subject_id}/{simulation_name} - {basename}", "info"
                 )
 
-        self.launch_freeview_with_files(file_specs)
+        self._notice_viewing_moved(file_specs)
 
     def load_subject_data(self):
-        """Load the selected subject's data in Freeview."""
+        """Discover the selected subject's data (viewing happens in the desktop app)."""
         # Route to appropriate loading function based on mode
         if self.visualization_mode == "group":
             self.load_group_data()
@@ -1083,8 +1086,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             )
             return
 
-        # Launch Freeview with the files
-        self.launch_freeview_with_files(file_specs)
+        self._notice_viewing_moved(file_specs)
 
     def load_custom_nifti(self):
         """Open a file dialog to select a custom NIfTI file."""
@@ -1096,88 +1098,40 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         file_specs = [self._vis_options(fname) for fname in filenames]
-        self.launch_freeview_with_files(file_specs, filenames)
+        self._notice_viewing_moved(file_specs, filenames)
 
-    def launch_freeview_with_files(self, file_specs, file_paths=[]):
-        """Launch Freeview with multiple files.
+    def _notice_viewing_moved(self, file_specs, file_paths=None):
+        """Report the files a view would include; rendering is the desktop app's job.
 
-        Args:
-            file_specs: List of file specifications with options for Freeview
-            file_paths: Optional list of original file paths (without options) for display
+        Freeview is no longer bundled with the toolbox (D3,
+        ``dev/notes/v3-docker-streamline-plan.md``). This tab still discovers and
+        validates which atlas/simulation/electrode-overlay files exist for the current
+        selection -- that discovery logic is unchanged -- but pointed a user at the
+        desktop app's Viewer page to actually render them, instead of shelling out to
+        an external ``freeview`` process.
         """
         if not file_specs:
             return
 
-        try:
-            # Close any existing Freeview process
-            if self.freeview_process is not None:
-                self.terminate_freeview()
+        self.current_files = file_specs
+        self.current_paths = (
+            list(file_paths)
+            if file_paths
+            else [spec["path"] for spec in file_specs if isinstance(spec, dict)]
+        )
 
-            # Store the current files for potential reload
-            self.current_files = file_specs
-            self.current_paths = (
-                file_paths
-                if file_paths
-                else [spec["path"] for spec in file_specs if isinstance(spec, dict)]
-            )
+        self.console_widget.clear_console()
+        self.console_widget.update_console("Files found for this selection:", "info")
+        for i, file_path in enumerate(self.current_paths):
+            basename = os.path.basename(str(file_path).split(":")[0])
+            self.console_widget.update_console(f"{i+1}. {basename}")
 
-            # Construct the command arguments
-            freeview_args = []
-            for spec in file_specs:
-                if not isinstance(spec, dict):
-                    freeview_args.append(spec)
-                    continue
-
-                arg = spec["path"]
-                for key in ("colormap", "lut_file", "opacity", "visible"):
-                    if key in spec:
-                        fv_key = "lut" if key == "lut_file" else key
-                        arg += f":{fv_key}={spec[key]}"
-
-                if spec.get("percentile"):
-                    arg += ":percentile=1"
-                    if "threshold_min" in spec and "threshold_max" in spec:
-                        arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
-
-                freeview_args.append(arg)
-
-            # Construct the command
-            base_command = ["freeview"] + freeview_args
-
-            # Launch Freeview
-            self.freeview_process = subprocess.Popen(
-                base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-
-            # Update UI
-            self.status_label.setText(f"Viewing {len(freeview_args)} files")
-
-            # Update console with file details
-            self.console_widget.clear_console()
-            self.console_widget.update_console("Currently viewing:", "info")
-
-            # Use original paths for display
-            for i, file_path in enumerate(self.current_paths):
-                try:
-                    file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
-                    basename = os.path.basename(file_path)
-                    self.console_widget.update_console(
-                        f"{i+1}. {basename} ({file_size:.2f} MB)"
-                    )
-                except (OSError, ValueError) as e:
-                    # If there's an error getting file size (e.g., due to options in the path)
-                    basename = os.path.basename(file_path.split(":")[0])
-                    self.console_widget.update_console(f"{i+1}. {basename}")
-
-            self.console_widget.update_console(
-                "Freeview is now running. Use its interface to navigate the volumes.",
-                "success",
-            )
-
-        except (OSError, subprocess.SubprocessError) as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"Failed to launch Freeview: {str(e)}"
-            )
+        self.status_label.setText(f"{len(self.current_paths)} file(s) found")
+        self.console_widget.update_console(
+            "Viewing has moved to the desktop app -- open this subject/simulation "
+            "there to render these files.",
+            "info",
+        )
 
     def _load_analysis_overlay(self, file_specs, subject_id, simulation_name):
         """Add voxel analysis overlay to file_specs if selected."""
@@ -1253,24 +1207,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             f"Loading electrode overlay: {os.path.basename(overlay_file)}", "info"
         )
 
-    def terminate_freeview(self):
-        """Terminate the Freeview process."""
-        if self.freeview_process is not None and self.freeview_process.poll() is None:
-            try:
-                self.freeview_process.terminate()
-                self.freeview_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.freeview_process.kill()
-            self.freeview_process = None
-
-    def closeEvent(self, event):
-        """Handle tab close event."""
-        self.terminate_freeview()
-        super(NiftiViewerTab, self).closeEvent(event)
-
     def on_subject_changed(self):
         """Handle subject selection changes."""
-        self.check_freesurfer_atlases()
+        self.check_voxel_atlases()
         self.refresh_simulations()
 
     def _vis_options(self, path, **overrides):

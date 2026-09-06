@@ -1,0 +1,237 @@
+/* Pipeline canvas. Every colour and space is a token from ui/tokens.css — the canvas is part of
+   the app, not a widget with its own palette, and it has to read in both themes. */
+
+/* React Flow measures its container and keeps nodes `visibility: hidden` until it has a non-zero
+   box, so this layout must have a definite height rather than inheriting one from a parent that
+   sizes to its content. `min-height` is the floor; `height: 100%` takes the pane when there is
+   one. */
+.pipeline-main {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 560px;
+}
+
+.pipeline-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.pipeline-palette h2 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pipeline-palette h2:first-child {
+  margin-top: 0;
+}
+
+.pipeline-palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pipeline-palette-item:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-subtle);
+}
+
+.pipeline-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 520px;
+  height: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+/* --- node card ----------------------------------------------------------------------------- */
+
+.pipeline-card {
+  min-width: 180px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-sm);
+}
+
+.pipeline-card.is-invalid {
+  border-color: var(--danger-border, var(--border-danger, #c2410c));
+}
+
+.pipeline-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pipeline-card-kind {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pipeline-card-title {
+  font-size: var(--font-size-sm);
+}
+
+.pipeline-card-summary {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+/* One hue per port type: the wire and both of its handles are the same colour, which is how a
+   glance tells you *what* an edge carries without reading its label. */
+.pipeline-handle {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--surface-default);
+}
+
+.pipeline-handle.port-subjects,
+.pipeline-edge.port-subjects .react-flow__edge-path {
+  background: var(--accent-primary);
+  stroke: var(--accent-primary);
+}
+
+.pipeline-handle.port-montages,
+.pipeline-edge.port-montages .react-flow__edge-path {
+  background: #7c3aed;
+  stroke: #7c3aed;
+}
+
+.pipeline-handle.port-simulation,
+.pipeline-edge.port-simulation .react-flow__edge-path {
+  background: #0891b2;
+  stroke: #0891b2;
+}
+
+.pipeline-handle.port-roi,
+.pipeline-edge.port-roi .react-flow__edge-path {
+  background: #ca8a04;
+  stroke: #ca8a04;
+}
+
+.pipeline-handle.port-leadfield,
+.pipeline-edge.port-leadfield .react-flow__edge-path {
+  background: #16a34a;
+  stroke: #16a34a;
+}
+
+.pipeline-refusal {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* --- right pane ---------------------------------------------------------------------------- */
+
+.pipeline-pane {
+  display: grid;
+  grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+
+.pipeline-pane h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pipeline-receipt {
+  overflow-y: auto;
+  max-height: 40vh;
+}
+
+.pipeline-receipt-rows {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.pipeline-receipt-rows li {
+  margin-bottom: 2px;
+}
+
+.pipeline-receipt-rows code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.pipeline-terminal {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pipeline-muted {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* --- inspector ----------------------------------------------------------------------------- */
+
+.pipeline-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.pipeline-span {
+  grid-column: 1 / -1;
+}
+
+.pipeline-wired {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.pipeline-json {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}

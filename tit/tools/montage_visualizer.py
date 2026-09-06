@@ -17,13 +17,19 @@ tit.sim : Simulation pipeline that invokes the visualiser.
 """
 
 import os
+import shutil
 import subprocess
+
+from tit.paths import resolve_resource_path
 
 # ---------------------------------------------------------------------------
 # Resources
 # ---------------------------------------------------------------------------
 
-_RESOURCES_DIR = "/ti-toolbox/resources/amv"
+# TIT_RESOURCES_DIR env override -> /ti-toolbox/resources (container) -> checkout-relative
+# resources/ -- see tit/paths.py:resolve_resources_dir (N0.6 spike, was hard-coded to the
+# container-only "/ti-toolbox/resources/amv" path, which doesn't exist on a native host).
+_RESOURCES_DIR = resolve_resource_path("amv")
 
 _COORD_FILES: dict[str, str] = {
     "GSN-HydroCel-185.csv": "GSN-256.csv",
@@ -289,13 +295,14 @@ def visualize_montage(
         out_image = os.path.join(
             output_dir, get_expected_output_filename(montage_name, sim_mode)
         )
-        subprocess.run(["cp", template, out_image], check=True)
+        # shutil.copy2, not the "cp" binary (N0.6 spike): cp doesn't exist on Windows.
+        shutil.copy2(template, out_image)
     else:
         out_image = os.path.join(
             output_dir, get_expected_output_filename(montage_name, sim_mode)
         )
         if not os.path.exists(out_image):
-            subprocess.run(["cp", template, out_image], check=True)
+            shutil.copy2(template, out_image)
 
     for i, pair in enumerate(electrode_pairs):
         e1, e2 = pair

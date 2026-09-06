@@ -48,11 +48,18 @@ def _isolate_config(tmp_path, monkeypatch):
 
 
 def _wait_for_telemetry_threads() -> None:
-    """Wait for fire-and-forget telemetry sender threads in tests."""
+    """Wait for tit.telemetry's fire-and-forget sender threads only.
+
+    Must filter by name: the full suite can have other long-lived daemon
+    threads alive at the same time (the JobManager poll loop, AnyIO worker
+    threads), and joining *any* daemon thread — as this used to — burns a
+    full ``timeout=2`` on each of them per call site. Telemetry threads are
+    named ``"tit-telemetry"`` (see ``tit.telemetry.track_event``).
+    """
     import threading
 
     for thread in threading.enumerate():
-        if thread.daemon and thread.is_alive():
+        if thread.name.startswith("tit-telemetry") and thread.is_alive():
             thread.join(timeout=2)
 
 
@@ -167,11 +174,7 @@ class TestSetEnabled:
         with patch("tit.telemetry._send_ga4", side_effect=lambda p: events.append(p)):
             set_enabled(True)
 
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         names = [e["events"][0]["name"] for e in events]
         assert "first_open" in names
@@ -182,11 +185,7 @@ class TestSetEnabled:
         set_enabled(True)
         _invalidate_cache()
 
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         # Disable then re-enable (consent_shown already True)
         set_enabled(False)
@@ -195,9 +194,7 @@ class TestSetEnabled:
         with patch("tit.telemetry._send_ga4", side_effect=lambda p: events.append(p)):
             set_enabled(True)
 
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         names = [e["events"][0]["name"] for e in events]
         assert "first_open" not in names
@@ -333,12 +330,7 @@ class TestTrackEvent:
         with patch("tit.telemetry._send_ga4", side_effect=capture):
             track_event("sim_ti", {"status": "start"})
 
-        # Wait for daemon thread
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         assert len(payloads) == 1
         event = payloads[0]["events"][0]
@@ -356,11 +348,7 @@ class TestTrackEvent:
         with patch("tit.telemetry._send_ga4", side_effect=lambda p: payloads.append(p)):
             track_event("test")
 
-        import threading
-
-        for t in threading.enumerate():
-            if t.daemon and t.is_alive():
-                t.join(timeout=2)
+        _wait_for_telemetry_threads()
 
         assert "client_id" in payloads[0]
         assert len(payloads[0]["client_id"]) == 32

@@ -1,0 +1,13 @@
+{
+  "ernie": [
+    { "name": "Thalamus_target", "x": -12.4, "y": -18.2, "z": 7.9, "radius": 5.0, "space": "subject" },
+    { "name": "L_Insula_target", "x": -38.2, "y": 6.1, "z": 4.4, "radius": 5.0, "space": "subject" },
+    { "name": "MNI_DLPFC_L", "x": -42.0, "y": 32.0, "z": 28.0, "radius": 8.0, "space": "mni" }
+  ],
+  "101": [
+    { "name": "Thalamus_target", "x": -11.8, "y": -17.6, "z": 8.3, "radius": 5.0, "space": "subject" }
+  ],
+  "MNI152": [
+    { "name": "MNI_DLPFC_L", "x": -42.0, "y": 32.0, "z": 28.0, "radius": 8.0, "space": "mni" }
+  ]
+}

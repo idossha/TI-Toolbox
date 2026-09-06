@@ -1,0 +1,175 @@
+/* `SelectionList` / `SelectionPicker` — geometry only; every colour is a token and every type step
+   is DESIGN.md §3.2's (12px floor, 11px only for the uppercase column headings).
+
+   The list is self-sufficient: it repeats the few `.run-subject-*` rules it shares with the run
+   pages' tables rather than depending on `pages/_shared/run/run.css` being imported, because a
+   `SelectionPicker` opens on pages (Settings, a panel) that never load that stylesheet. Where both
+   files define a rule they define the SAME rule — the row height is `--row-h`, once. */
+
+.selection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* One 28px row: filter · All ·  None · badge. The badge is the whole status line — there is no
+   second place that states how many things are chosen, so the two cannot disagree. */
+/* A band, not floating controls: the filter, the two bulk buttons and the badge sit on one
+   `--surface-2` strip, the same 28px header band `.subjects-field-head` and `.form-section-header`
+   draw. It reads as one control rather than three, and the gaps between the controls belong to the
+   strip instead of being holes in the page (`tests/e2e/_metrics.ts`'s dead-space measure counts
+   them either way — this is what makes the measurement agree with what the eye sees). */
+.selection-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1);
+  background: var(--surface-2);
+}
+.selection-filter {
+  flex: 1;
+  min-width: 0;
+}
+.selection-bulk {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.selection-bulk-sep {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.selection-badge {
+  flex: none;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.selection-scroll {
+  max-height: 176px;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+.selection-scroll[data-fill="true"] {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+/* The listbox owns a focus ring: it is a single tab stop with roving `aria-activedescendant`, so
+   the ring has to say which box the arrow keys will move in. */
+.selection-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.selection-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+}
+.selection-table th,
+.selection-table td {
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  text-align: left;
+  white-space: nowrap;
+}
+.selection-table thead th {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.selection-table .selection-check {
+  width: 24px;
+  padding-right: 0;
+}
+.selection-table .selection-label .mono {
+  font-family: var(--font-mono);
+}
+.selection-table .selection-detail {
+  color: var(--ink-2);
+}
+
+/* A row is one click target. `.subject-picker-row` is `display: flex` in components.css (it was a
+   <label> row there), so the element+class selector below keeps these as table rows. */
+tr.selection-row {
+  display: table-row;
+  padding: 0;
+  border-radius: 0;
+  cursor: pointer;
+  background: var(--surface);
+}
+/* `inherit`, so the row's state colour reaches the CELL: a hit test lands on the `<td>`, and a
+   transparent cell over a coloured row reads as a hole in the page to `tests/e2e/_metrics.ts`'s
+   dead-space measure — the Jobs page measured 35 % dead with a full 30-row table because of it. */
+tr.selection-row td {
+  background: inherit;
+}
+tr.selection-row:hover {
+  background: var(--accent-soft);
+}
+tr.selection-row[data-selected="true"] {
+  background: var(--accent-soft);
+}
+/* The keyboard's position in the list, distinct from selection: an inset ring, so a focused-but-
+   unselected row is never mistaken for a chosen one. */
+tr.selection-row[data-focused="true"] td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+tr.selection-row-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+tr.selection-row-disabled:hover {
+  background: transparent;
+}
+
+/* The reason a row cannot be used: 12px, warning-coloured, never truncated to a tooltip — it is
+   the same sentence the action bar prints, and the row is where the user is deciding. */
+.selection-reason {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* Windowed rendering above 150 visible rows: two spacer rows carry the height of what is not in
+   the DOM, so the scrollbar is honest. */
+tr.selection-spacer td {
+  padding: 0;
+  border: 0;
+}
+
+/* The picker's trigger states the selection in words, so the closed control still answers "what
+   did I pick?" — which a chip row truncated at two chips did not. */
+.btn.selection-trigger {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+.selection-trigger-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selection-trigger-empty {
+  color: var(--ink-3);
+  font-family: var(--font-sans);
+}
+
+/* Inside a dialog the list gets the whole width and its own scroll box. */
+.dialog-content .selection {
+  min-width: min(420px, 70vw);
+}

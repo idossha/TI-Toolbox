@@ -1,18 +1,26 @@
 """Tests for tit/stats/__main__.py and supplementary coverage for config.py and nifti.py.
 
 Covers:
-- __main__._build_group_subjects / _build_correlation_subjects
 - __main__.main() with group_comparison and correlation modes
 - __main__._run_group_comparison / _run_correlation
+- __main__._emit_output_artifacts: the nine files a permutation run writes are reported
+  as job artifacts (lane FX3; the sibling runners' cases are in
+  tests/test_runner_artifacts.py, which cannot import this module's real-scipy restore)
 - config._nifti_pattern_for_tissue WHITE and ALL branches
 - config.GroupComparisonConfig validation: 0 responders or 0 non-responders
 - nifti.load_subject_nifti_ti_toolbox FileNotFoundError with directory listing
+
+Building `GroupComparisonConfig.Subject`/`CorrelationConfig.Subject` lists from raw JSON
+dicts is `tit.config_io.deserialize_config`'s job now (see tests/test_config_schema.py's
+round-trip coverage) -- `__main__.py` no longer hand-rolls `_build_group_subjects` /
+`_build_correlation_subjects`.
 """
 
 import importlib
 import json
 import os
 import sys
+from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -52,12 +60,53 @@ from tit.stats.config import (  # noqa: E402
     _nifti_pattern_for_tissue,
 )
 from tit.stats.__main__ import (  # noqa: E402
-    _build_correlation_subjects,
-    _build_group_subjects,
     _run_correlation,
     _run_group_comparison,
     main,
 )
+from types import SimpleNamespace  # noqa: E402
+
+# ============================================================================
+# Shared helpers for the artifact-reporting cases below
+# ============================================================================
+
+
+def _read_events(path) -> list:
+    """Every event line the runner wrote to $TIT_EVENTS_FILE, in order."""
+    with open(path) as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
+def _artifact_paths(path) -> list:
+    return [e["path"] for e in _read_events(path) if e["type"] == "artifact"]
+
+
+def _results(path) -> list:
+    return [e for e in _read_events(path) if e["type"] == "result"]
+
+
+@pytest.fixture
+def events_file(tmp_path, monkeypatch):
+    """A fresh ``$TIT_EVENTS_FILE`` and a clean artifact accumulator."""
+    from tit.jobs import events
+
+    path = tmp_path / "events.jsonl"
+    monkeypatch.setenv("TIT_EVENTS_FILE", str(path))
+    events._reset_state()
+    yield path
+    events._reset_state()
+
+
+def _write_outputs(directory, names) -> list:
+    os.makedirs(directory, exist_ok=True)
+    written = []
+    for name in names:
+        p = os.path.join(directory, name)
+        with open(p, "w") as fh:
+            fh.write("x")
+        written.append(p)
+    return written
+
 
 # ============================================================================
 # _nifti_pattern_for_tissue — WHITE and ALL branches
@@ -186,122 +235,88 @@ class TestConfigTissueTypes:
 
 
 # ============================================================================
-# _build_group_subjects / _build_correlation_subjects
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestBuildSubjects:
-    """Test the JSON-to-Subject conversion helpers in __main__."""
-
-    def test_build_group_subjects(self):
-        raw = [
-            {"subject_id": "001", "simulation_name": "sim_a", "response": 1},
-            {"subject_id": "002", "simulation_name": "sim_b", "response": 0},
-        ]
-        subjects = _build_group_subjects(raw)
-        assert len(subjects) == 2
-        assert isinstance(subjects[0], GroupComparisonConfig.Subject)
-        assert subjects[0].subject_id == "001"
-        assert subjects[0].simulation_name == "sim_a"
-        assert subjects[0].response == 1
-        assert subjects[1].subject_id == "002"
-        assert subjects[1].response == 0
-
-    def test_build_group_subjects_empty(self):
-        subjects = _build_group_subjects([])
-        assert subjects == []
-
-    def test_build_correlation_subjects(self):
-        raw = [
-            {"subject_id": "010", "simulation_name": "sim_x", "effect_size": 0.5},
-            {
-                "subject_id": "020",
-                "simulation_name": "sim_y",
-                "effect_size": 1.2,
-                "weight": 2.0,
-            },
-        ]
-        subjects = _build_correlation_subjects(raw)
-        assert len(subjects) == 2
-        assert isinstance(subjects[0], CorrelationConfig.Subject)
-        assert subjects[0].subject_id == "010"
-        assert subjects[0].effect_size == 0.5
-        assert subjects[0].weight == 1.0  # default
-        assert subjects[1].weight == 2.0
-
-    def test_build_correlation_subjects_empty(self):
-        subjects = _build_correlation_subjects([])
-        assert subjects == []
-
-
-# ============================================================================
 # _run_group_comparison
 # ============================================================================
 
 
+def _make_group_config(**overrides) -> GroupComparisonConfig:
+    subjects = overrides.pop(
+        "subjects",
+        [
+            GroupComparisonConfig.Subject("s1", "sim1", 1),
+            GroupComparisonConfig.Subject("s2", "sim2", 0),
+        ],
+    )
+    return GroupComparisonConfig(
+        analysis_name="gc_test", subjects=subjects, **overrides
+    )
+
+
+def _make_correlation_config(**overrides) -> CorrelationConfig:
+    subjects = overrides.pop(
+        "subjects",
+        [
+            CorrelationConfig.Subject("s1", "sim1", 0.5),
+            CorrelationConfig.Subject("s2", "sim2", 1.0),
+            CorrelationConfig.Subject("s3", "sim3", 1.5),
+        ],
+    )
+    return CorrelationConfig(analysis_name="corr_test", subjects=subjects, **overrides)
+
+
 @pytest.mark.unit
 class TestRunGroupComparison:
-    """Test _run_group_comparison with mocked permutation.run_group_comparison."""
+    """Test _run_group_comparison with mocked permutation.run_group_comparison.
 
-    def _make_data(self):
-        return {
-            "project_dir": "/data/project",
-            "analysis_name": "gc_test",
-            "subjects": [
-                {"subject_id": "s1", "simulation_name": "sim1", "response": 1},
-                {"subject_id": "s2", "simulation_name": "sim2", "response": 0},
-            ],
-        }
+    ``_run_group_comparison`` now takes an already-built ``GroupComparisonConfig``
+    (``__main__.main`` builds it via ``deserialize_config`` before dispatching) and
+    returns an exit code rather than calling ``sys.exit`` itself.
+    """
 
-    @patch("tit.stats.__main__.sys")
-    def test_run_group_comparison_success(self, mock_sys):
+    def test_run_group_comparison_success(self):
         mock_result = MagicMock()
+        mock_result.success = True
         mock_result.n_significant_clusters = 3
         with patch(
             "tit.stats.permutation.run_group_comparison", return_value=mock_result
         ) as mock_run:
-            data = self._make_data()
-            _run_group_comparison(data)
+            assert _run_group_comparison(_make_group_config()) == 0
             mock_run.assert_called_once()
-            # Should call sys.exit(0) since n_significant_clusters >= 0
-            mock_sys.exit.assert_called_once_with(0)
 
-    @patch("tit.stats.__main__.sys")
-    def test_run_group_comparison_with_all_options(self, mock_sys):
+    def test_run_group_comparison_with_all_options(self):
         mock_result = MagicMock()
+        mock_result.success = True
         mock_result.n_significant_clusters = 0
+        config = _make_group_config(
+            test_type=GroupComparisonConfig.TestType.PAIRED,
+            alternative=GroupComparisonConfig.Alternative.GREATER,
+            cluster_stat=GroupComparisonConfig.ClusterStat.SIZE,
+            n_permutations=500,
+            tissue_type=GroupComparisonConfig.TissueType.WHITE,
+        )
         with patch(
             "tit.stats.permutation.run_group_comparison", return_value=mock_result
         ) as mock_run:
-            data = self._make_data()
-            data["test_type"] = "paired"
-            data["alternative"] = "greater"
-            data["cluster_stat"] = "size"
-            data["n_permutations"] = 500
-            data["tissue_type"] = "white"
-            _run_group_comparison(data)
-            # Verify the config was built correctly
+            assert _run_group_comparison(config) == 0
             call_args = mock_run.call_args
-            config = call_args[0][0]
-            assert config.test_type == GroupComparisonConfig.TestType.PAIRED
-            assert config.alternative == GroupComparisonConfig.Alternative.GREATER
-            assert config.cluster_stat == GroupComparisonConfig.ClusterStat.SIZE
-            assert config.n_permutations == 500
-            assert config.tissue_type == GroupComparisonConfig.TissueType.WHITE
-            mock_sys.exit.assert_called_once_with(0)
+            passed_config = call_args[0][0]
+            assert passed_config.test_type == GroupComparisonConfig.TestType.PAIRED
+            assert (
+                passed_config.alternative == GroupComparisonConfig.Alternative.GREATER
+            )
+            assert passed_config.cluster_stat == GroupComparisonConfig.ClusterStat.SIZE
+            assert passed_config.n_permutations == 500
+            assert passed_config.tissue_type == GroupComparisonConfig.TissueType.WHITE
 
-    @patch("tit.stats.__main__.sys")
-    def test_run_group_comparison_negative_clusters(self, mock_sys):
-        """Result with n_significant_clusters < 0 should exit with 1."""
+    def test_run_group_comparison_failure(self):
+        """A failed result (``success=False``) should return exit code 1."""
         mock_result = MagicMock()
-        mock_result.n_significant_clusters = -1
+        mock_result.success = False
+        mock_result.n_significant_clusters = 0
         with patch(
             "tit.stats.permutation.run_group_comparison", return_value=mock_result
         ):
-            data = self._make_data()
-            _run_group_comparison(data)
-            mock_sys.exit.assert_called_once_with(1)
+            assert _run_group_comparison(_make_group_config()) == 1
 
 
 # ============================================================================
@@ -313,57 +328,46 @@ class TestRunGroupComparison:
 class TestRunCorrelation:
     """Test _run_correlation with mocked permutation.run_correlation."""
 
-    def _make_data(self):
-        return {
-            "project_dir": "/data/project",
-            "analysis_name": "corr_test",
-            "subjects": [
-                {"subject_id": "s1", "simulation_name": "sim1", "effect_size": 0.5},
-                {"subject_id": "s2", "simulation_name": "sim2", "effect_size": 1.0},
-                {"subject_id": "s3", "simulation_name": "sim3", "effect_size": 1.5},
-            ],
-        }
-
-    @patch("tit.stats.__main__.sys")
-    def test_run_correlation_success(self, mock_sys):
+    def test_run_correlation_success(self):
         mock_result = MagicMock()
+        mock_result.success = True
         mock_result.n_significant_clusters = 2
         with patch(
             "tit.stats.permutation.run_correlation", return_value=mock_result
         ) as mock_run:
-            data = self._make_data()
-            _run_correlation(data)
+            assert _run_correlation(_make_correlation_config()) == 0
             mock_run.assert_called_once()
-            mock_sys.exit.assert_called_once_with(0)
 
-    @patch("tit.stats.__main__.sys")
-    def test_run_correlation_with_options(self, mock_sys):
+    def test_run_correlation_with_options(self):
         mock_result = MagicMock()
+        mock_result.success = True
         mock_result.n_significant_clusters = 0
+        config = _make_correlation_config(
+            correlation_type=CorrelationConfig.CorrelationType.SPEARMAN,
+            cluster_stat=CorrelationConfig.ClusterStat.SIZE,
+            n_permutations=200,
+            effect_metric="Improvement Score",
+        )
         with patch(
             "tit.stats.permutation.run_correlation", return_value=mock_result
         ) as mock_run:
-            data = self._make_data()
-            data["correlation_type"] = "spearman"
-            data["cluster_stat"] = "size"
-            data["n_permutations"] = 200
-            data["effect_metric"] = "Improvement Score"
-            _run_correlation(data)
-            config = mock_run.call_args[0][0]
-            assert config.correlation_type == CorrelationConfig.CorrelationType.SPEARMAN
-            assert config.cluster_stat == CorrelationConfig.ClusterStat.SIZE
-            assert config.n_permutations == 200
-            assert config.effect_metric == "Improvement Score"
-            mock_sys.exit.assert_called_once_with(0)
+            assert _run_correlation(config) == 0
+            passed_config = mock_run.call_args[0][0]
+            assert (
+                passed_config.correlation_type
+                == CorrelationConfig.CorrelationType.SPEARMAN
+            )
+            assert passed_config.cluster_stat == CorrelationConfig.ClusterStat.SIZE
+            assert passed_config.n_permutations == 200
+            assert passed_config.effect_metric == "Improvement Score"
 
-    @patch("tit.stats.__main__.sys")
-    def test_run_correlation_negative_clusters(self, mock_sys):
+    def test_run_correlation_failure(self):
+        """A failed result (``success=False``) should return exit code 1."""
         mock_result = MagicMock()
-        mock_result.n_significant_clusters = -1
+        mock_result.success = False
+        mock_result.n_significant_clusters = 0
         with patch("tit.stats.permutation.run_correlation", return_value=mock_result):
-            data = self._make_data()
-            _run_correlation(data)
-            mock_sys.exit.assert_called_once_with(1)
+            assert _run_correlation(_make_correlation_config()) == 1
 
 
 # ============================================================================
@@ -388,6 +392,7 @@ class TestMain:
     def test_main_group_comparison_mode(
         self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
+        mock_gc.return_value = 0
         data = {
             "mode": "group_comparison",
             "project_dir": "/data/project",
@@ -400,16 +405,19 @@ class TestMain:
         config_path = self._write_config(tmp_path, data)
 
         with patch.object(sys, "argv", ["__main__", config_path]):
-            main()
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 0
 
         mock_setup.assert_called_once_with("INFO")
         mock_stream.assert_called_once_with("tit.stats")
         mock_gc.assert_called_once()
         mock_corr.assert_not_called()
-        # Verify the data dict passed to _run_group_comparison has mode and project_dir popped
-        call_data = mock_gc.call_args[0][0]
-        assert "mode" not in call_data
-        assert "project_dir" not in call_data
+        # main() now builds a typed GroupComparisonConfig (via deserialize_config)
+        # before dispatching, not a raw dict with mode/project_dir popped.
+        passed_config = mock_gc.call_args[0][0]
+        assert isinstance(passed_config, GroupComparisonConfig)
+        assert passed_config.analysis_name == "test_gc"
 
     @patch("tit.stats.__main__._run_group_comparison")
     @patch("tit.stats.__main__._run_correlation")
@@ -419,6 +427,7 @@ class TestMain:
     def test_main_correlation_mode(
         self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
+        mock_corr.return_value = 0
         data = {
             "mode": "correlation",
             "project_dir": "/data/project",
@@ -432,10 +441,49 @@ class TestMain:
         config_path = self._write_config(tmp_path, data)
 
         with patch.object(sys, "argv", ["__main__", config_path]):
-            main()
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 0
 
         mock_corr.assert_called_once()
         mock_gc.assert_not_called()
+
+    @patch("tit.stats.__main__._hold_locks")
+    @patch("tit.stats.__main__._run_correlation")
+    @patch("tit.logger.add_stream_handler")
+    @patch("tit.logger.setup_logging")
+    @patch("tit.paths.get_path_manager")
+    def test_the_lock_request_still_sees_the_mode(
+        self, mock_pm, mock_setup, mock_stream, mock_corr, mock_locks, tmp_path
+    ):
+        """``mode`` is popped before the config is built, but the lock key needs it.
+
+        ``tit.jobs.locks.keys_for("stats", ...)`` reads ``mode`` off the request dict to
+        build ``project:stats:<mode>/<analysis_name>``; handing it the already-popped dict
+        filed every correlation run under the group_comparison key instead.
+        """
+        mock_corr.return_value = 0
+        mock_locks.return_value = nullcontext()
+        data = {
+            "mode": "correlation",
+            "project_dir": "/data/project",
+            "analysis_name": "test_corr",
+            "subjects": [
+                {"subject_id": "s1", "simulation_name": "sim1", "effect_size": 0.5},
+                {"subject_id": "s2", "simulation_name": "sim2", "effect_size": 1.0},
+                {"subject_id": "s3", "simulation_name": "sim3", "effect_size": 1.5},
+            ],
+        }
+        config_path = self._write_config(tmp_path, data)
+
+        with patch.object(sys, "argv", ["__main__", config_path]):
+            with pytest.raises(SystemExit):
+                main()
+
+        kind, subject_ids, config_dict = mock_locks.call_args[0]
+        assert kind == "stats"
+        assert config_dict["mode"] == "correlation"
+        assert config_dict["analysis_name"] == "test_corr"
 
     @patch("tit.stats.__main__._run_group_comparison")
     @patch("tit.stats.__main__._run_correlation")
@@ -446,6 +494,7 @@ class TestMain:
         self, mock_pm, mock_setup, mock_stream, mock_corr, mock_gc, tmp_path
     ):
         """When 'mode' key is absent, should default to group_comparison."""
+        mock_gc.return_value = 0
         data = {
             "project_dir": "/data/project",
             "analysis_name": "test_default",
@@ -457,7 +506,9 @@ class TestMain:
         config_path = self._write_config(tmp_path, data)
 
         with patch.object(sys, "argv", ["__main__", config_path]):
-            main()
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 0
 
         mock_gc.assert_called_once()
         mock_corr.assert_not_called()
@@ -566,3 +617,75 @@ class TestNiftiFileNotFound:
                     simulation_name="test_sim",
                     nifti_file_pattern="missing_{simulation_name}.nii.gz",
                 )
+
+
+# ============================================================================
+# artifact reporting (lane FX3)
+# ============================================================================
+
+#: The file set the maintainer's own group-comparison job left on disk while reporting
+#: `artifacts: []` -- the evidence row of dev/notes/v3-pipelines/2026-09-03-smoke.md.
+_STATS_OUTPUTS = [
+    "average_non_responders.nii.gz",
+    "average_responders.nii.gz",
+    "analysis_summary.txt",
+    "cluster_size_mass_correlation.pdf",
+    "difference_map.nii.gz",
+    "group_comparison_analysis_20260904.log",
+    "permutation_details.txt",
+    "permutation_null_distribution.pdf",
+    "pvalues_map.nii.gz",
+    "significant_voxels_mask.nii.gz",
+]
+
+
+@pytest.mark.unit
+class TestStatsArtifacts:
+    def test_group_comparison_reports_every_file_it_wrote(self, tmp_path, events_file):
+        out_dir = tmp_path / "group_comparison" / "smoke"
+        written = _write_outputs(out_dir, _STATS_OUTPUTS)
+        result = SimpleNamespace(
+            success=True, n_significant_clusters=2, output_dir=str(out_dir)
+        )
+        with patch("tit.stats.permutation.run_group_comparison", return_value=result):
+            assert _run_group_comparison(MagicMock(), started=0.0) == 0
+
+        assert sorted(_artifact_paths(events_file)) == sorted(written)
+
+    def test_group_comparison_result_names_the_output_dir(self, tmp_path, events_file):
+        out_dir = tmp_path / "group_comparison" / "smoke"
+        _write_outputs(out_dir, ["analysis_summary.txt"])
+        result = SimpleNamespace(
+            success=True, n_significant_clusters=0, output_dir=str(out_dir)
+        )
+        with patch("tit.stats.permutation.run_group_comparison", return_value=result):
+            _run_group_comparison(MagicMock(), started=0.0)
+
+        [event] = _results(events_file)
+        assert event["outputs"]["output_dir"] == str(out_dir)
+        # The result event alone lists the job's files (events.emit_result's contract).
+        assert [a["path"] for a in event["artifacts"]] == [
+            str(out_dir / "analysis_summary.txt")
+        ]
+
+    def test_correlation_reports_its_files_too(self, tmp_path, events_file):
+        out_dir = tmp_path / "correlation" / "smoke"
+        written = _write_outputs(
+            out_dir, ["correlation_map.nii.gz", "analysis_summary.txt"]
+        )
+        result = SimpleNamespace(
+            success=True, n_significant_clusters=1, output_dir=str(out_dir)
+        )
+        with patch("tit.stats.permutation.run_correlation", return_value=result):
+            assert _run_correlation(MagicMock(), started=0.0) == 0
+
+        assert sorted(_artifact_paths(events_file)) == sorted(written)
+
+    def test_a_non_string_output_dir_is_not_fatal(self, events_file):
+        """A partial/mocked result must not turn a finished analysis into a failure."""
+        result = MagicMock()
+        result.success = True
+        result.n_significant_clusters = 0
+        with patch("tit.stats.permutation.run_group_comparison", return_value=result):
+            assert _run_group_comparison(MagicMock(), started=0.0) == 0
+        assert _artifact_paths(events_file) == []

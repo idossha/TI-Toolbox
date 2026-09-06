@@ -1,0 +1,31 @@
+{
+  "kind": "analyzer",
+  "config": {
+    "mode": "single",
+    "subject_id": "ernie",
+    "subject_ids": [],
+    "simulation": "Thalamus",
+    "space": "voxel",
+    "tissue_type": "GM",
+    "analysis_type": "spherical",
+    "field": null,
+    "center": [
+      -10,
+      -18,
+      9
+    ],
+    "radius": 10,
+    "coordinate_space": "subject",
+    "atlas": null,
+    "region": null,
+    "output_dir": null,
+    "visualize": true
+  },
+  "subject_ids": [
+    "ernie"
+  ],
+  "tags": [
+    "analysis:1788521388390"
+  ],
+  "overwrite": false
+}

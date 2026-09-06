@@ -35,8 +35,16 @@ class TestBuiltinAtlasesConstant:
 class TestVoxelAtlases:
     """Tests for the VOXEL_ATLASES dict and derived VOXEL_ATLAS_FILES list."""
 
-    def test_has_five_atlases(self):
-        assert len(VOXEL_ATLASES) == 5
+    def test_fastsurfer_and_legacy_names_present(self):
+        from tit.atlas.constants import (
+            FASTSURFER_ATLASES,
+            LEGACY_FREESURFER_ATLASES,
+        )
+
+        assert "aparc.DKTatlas+aseg.deep.mgz" in FASTSURFER_ATLASES
+        assert "aparc.DKTatlas+aseg.deep.nii.gz" in FASTSURFER_ATLASES
+        assert len(LEGACY_FREESURFER_ATLASES) == 5
+        assert VOXEL_ATLASES == {**FASTSURFER_ATLASES, **LEGACY_FREESURFER_ATLASES}
 
     def test_flat_list_matches_dict_keys(self):
         assert VOXEL_ATLAS_FILES == list(VOXEL_ATLASES)
@@ -177,3 +185,21 @@ class TestParseRegionLabel:
         for bad in ("Hippocampus", "Hippocampus (17)", "Hippocampus (ID: x)", ""):
             with pytest.raises(ValueError, match="Could not parse"):
                 parse_region_label(bad)
+
+
+class TestMniAtlasDirResolution:
+    """MNI_ATLAS_DIR used to be a hard-coded "/ti-toolbox/resources/atlas" -- only ever real
+    inside the Docker image (N0.6 spike). On this dev host it must resolve to the real
+    checkout-relative resources/atlas/ directory via tit.paths.resolve_resource_path."""
+
+    def test_points_at_a_real_directory_on_this_host(self):
+        from tit.atlas.constants import MNI_ATLAS_DIR
+
+        assert os.path.isdir(MNI_ATLAS_DIR)
+        assert MNI_ATLAS_DIR.endswith(os.path.join("resources", "atlas"))
+
+    def test_matches_resolve_resource_path(self):
+        from tit.atlas.constants import MNI_ATLAS_DIR
+        from tit.paths import resolve_resource_path
+
+        assert MNI_ATLAS_DIR == resolve_resource_path("atlas")

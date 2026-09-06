@@ -1,0 +1,8 @@
+{
+  "columns": ["subject", "raw", "freesurfer", "m2m", "dwi", "ct", "leadfields", "simulations"],
+  "rows": [
+    ["ernie", true, true, true, true, false, "GSN-HydroCel-185", 3],
+    ["101", true, false, true, false, true, "", 1],
+    ["MNI152", false, false, true, false, false, "", 0]
+  ]
+}

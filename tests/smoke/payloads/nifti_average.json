@@ -1,0 +1,31 @@
+{
+  "kind": "nifti_average",
+  "config": {
+    "output_name": "smoke-ui-6519",
+    "subjects": [
+      {
+        "subject_id": "101",
+        "simulation_name": "L_Insula",
+        "group": "Group1"
+      },
+      {
+        "subject_id": "ernie",
+        "simulation_name": "L_Insula",
+        "group": "Group1"
+      },
+      {
+        "subject_id": "MNI152",
+        "simulation_name": "L_Insula",
+        "group": "Group1"
+      }
+    ],
+    "space": "mni",
+    "nifti_file_pattern": "{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
+    "diff_pairs": []
+  },
+  "subject_ids": [
+    "101",
+    "ernie",
+    "MNI152"
+  ]
+}

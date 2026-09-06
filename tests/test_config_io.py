@@ -280,18 +280,22 @@ class TestWriteReadRoundTrip:
 
 @pytest.mark.unit
 class TestMontageChannelsRoundTrip:
-    """`tit.sim.__main__._build_montage` must not drop the channel grouping.
+    """`tit.sim.__main__` (via `deserialize_config`) must not drop the channel grouping.
 
     The GUI serializes a Montage to JSON and hands it to a subprocess, which
-    rebuilds it. `_build_montage` pops a fixed key set, so a new field is
-    silently lost unless it is popped explicitly.
+    rebuilds it via `tit.config_io.deserialize_config` -- the entry point no
+    longer hand-rolls this (see `tit/sim/__main__.py`'s `deserialize_config`
+    adoption), but the round-trip guarantee this class checks still holds.
     """
 
     @staticmethod
     def _rebuild(montage):
-        from tit.sim.__main__ import _build_montage
+        from tit.config_io import deserialize_config
+        from tit.sim.config import Montage
 
-        return _build_montage(json.loads(json.dumps(serialize_config(montage))))
+        return deserialize_config(
+            Montage, json.loads(json.dumps(serialize_config(montage)))
+        )
 
     def _montage(self, **kw):
         from tit.sim.config import Montage

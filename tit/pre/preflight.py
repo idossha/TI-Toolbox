@@ -17,7 +17,7 @@ from .utils import _find_nifti
 
 STEP_DICOM = "dicom"
 STEP_CHARM = "charm"
-STEP_RECON_ALL = "recon_all"
+STEP_FASTSURFER = "fastsurfer"
 STEP_QSIPREP = "qsiprep"
 STEP_QSIRECON = "qsirecon"
 STEP_DTI = "dti"
@@ -25,7 +25,7 @@ STEP_DTI = "dti"
 STEP_LABELS = {
     STEP_DICOM: "DICOM conversion",
     STEP_CHARM: "SimNIBS charm",
-    STEP_RECON_ALL: "FreeSurfer recon-all",
+    STEP_FASTSURFER: "FastSurfer segmentation",
     STEP_QSIPREP: "QSIPrep",
     STEP_QSIRECON: "QSIRecon",
     STEP_DTI: "DTI tensor extraction",
@@ -69,7 +69,7 @@ def missing_inputs_for_step(
 ) -> list[PreprocessingInputProblem]:
     """Return missing required inputs for one subject and preprocessing step."""
     pm = get_path_manager(project_dir)
-    if step in (STEP_CHARM, STEP_RECON_ALL) and not _has_bids_t1(
+    if step in (STEP_CHARM, STEP_FASTSURFER) and not _has_bids_t1(
         project_dir, subject_id
     ):
         return [
@@ -146,7 +146,7 @@ def find_missing_preprocessing_inputs(
     steps: Sequence[str] | None = None,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -159,7 +159,7 @@ def find_missing_preprocessing_inputs(
         else selected_preprocessing_steps(
             convert_dicom=convert_dicom,
             create_m2m=create_m2m,
-            run_recon=run_recon,
+            run_fastsurfer=run_fastsurfer,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,
@@ -180,7 +180,7 @@ def find_missing_preprocessing_inputs(
             subject_steps = [
                 step
                 for step in selected_steps
-                if step not in (STEP_CHARM, STEP_RECON_ALL, STEP_QSIPREP)
+                if step not in (STEP_CHARM, STEP_FASTSURFER, STEP_QSIPREP)
             ]
         for step in subject_steps:
             problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
@@ -225,7 +225,7 @@ def _single_path_output(
     path: Path,
 ) -> list[PreprocessingOutput]:
     # An empty directory is not a real output (older releases pre-created
-    # empty per-subject freesurfer dirs in existing projects).
+    # empty per-subject derivative dirs in existing projects).
     if not path.exists() or (path.is_dir() and not any(path.iterdir())):
         return []
     return [
@@ -249,9 +249,9 @@ def existing_outputs_for_step(
         return _single_path_output(
             project_dir, subject_id, step, Path(pm.m2m(subject_id))
         )
-    if step == STEP_RECON_ALL:
+    if step == STEP_FASTSURFER:
         return _single_path_output(
-            project_dir, subject_id, step, Path(pm.freesurfer_subject(subject_id))
+            project_dir, subject_id, step, Path(pm.fastsurfer_subject(subject_id))
         )
     if step == STEP_QSIPREP:
         return _single_path_output(
@@ -275,7 +275,7 @@ def selected_preprocessing_steps(
     *,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -286,8 +286,8 @@ def selected_preprocessing_steps(
         steps.append(STEP_DICOM)
     if create_m2m:
         steps.append(STEP_CHARM)
-    if run_recon:
-        steps.append(STEP_RECON_ALL)
+    if run_fastsurfer:
+        steps.append(STEP_FASTSURFER)
     if run_qsiprep:
         steps.append(STEP_QSIPREP)
     if run_qsirecon:
@@ -304,7 +304,7 @@ def find_existing_preprocessing_outputs(
     steps: Sequence[str] | None = None,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -316,7 +316,7 @@ def find_existing_preprocessing_outputs(
         else selected_preprocessing_steps(
             convert_dicom=convert_dicom,
             create_m2m=create_m2m,
-            run_recon=run_recon,
+            run_fastsurfer=run_fastsurfer,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,

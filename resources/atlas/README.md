@@ -40,6 +40,33 @@ Files:
 Notes:
 The source archive provides separate binary masks for each nucleus and hemisphere. This resource combines the 1 mm left and right nucleus masks into one label image. The LUT reserves labels 1-38 for left-sided structures and 101-138 for right-sided structures; 0 is background. Where source masks overlap, the first listed label in the LUT is retained. In the generated 1 mm image, labels 27 and 127 have no remaining voxels after this overlap rule.
 
+## FreeSurfer ThalamicNuclei v13 (legacy `recon-all` atlas)
+
+Source: FreeSurfer's own `distribution/FreeSurferColorLUT.txt` (fetched from
+https://raw.githubusercontent.com/freesurfer/freesurfer/dev/distribution/FreeSurferColorLUT.txt on
+2026-09-03), the section headed "Labels for thalamus parcellation using histological atlas
+(Iglesias et al.)" -- ids 8103-8136 (left) / 8203-8236 (right).
+
+Reference:
+Iglesias J. E., Insausti R., Lerma-Usabiaga G., Bocchetta M., Van Leemput K., Greve D. N., van der
+Kouwe A., Fischl B., Caballero-Gaudes C., and Paz-Alonso P. M. A probabilistic atlas of the human
+thalamic nuclei combining ex vivo MRI and histology. NeuroImage 183:314-326 (2018).
+https://doi.org/10.1016/j.neuroimage.2018.08.012
+
+Files:
+- `ThalamicNuclei_LUT.txt`: FreeSurfer-style colour lookup table for `ThalamicNuclei.v13.T1.mgz`
+  / `ThalamicNuclei.v13.T1.FSvoxelSpace.mgz`, the per-subject `recon-all` output this atlas names
+  when no atlas-specific sidecar sits next to it -- `tit/atlas/segstats.py::resolve_lut_for_atlas`
+  special-cases this atlas family onto this table (bundled `FreeSurferColorLUT.txt` predates the
+  8100s/8200s range and has no entries there).
+
+Notes:
+This is a fixed, subject-independent id -> name mapping, not derived from the per-subject
+`ThalamicNuclei.v13.T1.volumes.txt` sidecar `recon-all` also writes: that file's name order is
+anatomically grouped, not numeric-id order, and does not line up 1:1 against any one subject's own
+sorted voxel-label ids (small nuclei carry zero voxels in some subjects and not others) -- see
+`ThalamicNuclei_LUT.txt`'s own header for the verification detail.
+
 ## MASSP 2021 Subcortical Parcellation
 
 Files:

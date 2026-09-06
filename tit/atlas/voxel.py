@@ -2,12 +2,17 @@
 
 import os
 import re
-import subprocess
 
 from tit.atlas.constants import (
-    VOXEL_ATLAS_FILES,
+    FASTSURFER_ATLAS_FILES,
+    LEGACY_FREESURFER_ATLAS_FILES,
     MNI_ATLAS_FILES,
     MASK_EXTENSIONS,
+)
+from tit.atlas.segstats import (
+    compute_segstats,
+    resolve_lut_for_atlas,
+    write_segstats_sum,
 )
 
 
@@ -35,11 +40,22 @@ def parse_region_label(region_display: str) -> int:
 class VoxelAtlasManager:
     """Discovers and queries volumetric atlas files.
 
-    All discovery methods use the same canonical ``VOXEL_ATLAS_FILES`` list
-    so that the analyzer, flex-search, and NIfTI viewer show identical atlases.
+    All discovery methods use the same canonical atlas-name lists from
+    :mod:`tit.atlas.constants` so that the analyzer, flex-search and NIfTI
+    viewer show identical atlases.
+
+    Search order for a name present in both trees: ``fastsurfer_mri_dir``
+    first, then ``freesurfer_mri_dir``. The two never collide in practice --
+    FastSurfer writes ``aparc.DKTatlas+aseg.deep.*`` and recon-all writes
+    ``aparc.DKTatlas+aseg.mgz`` -- but the order is fixed so a project that
+    holds both offers the current pipeline's output first.
 
     Args:
-        freesurfer_mri_dir: Path to FreeSurfer mri/ directory.
+        freesurfer_mri_dir: Path to a legacy FreeSurfer ``mri/`` directory
+            (``derivatives/freesurfer/sub-<id>/mri``). Read-only: nothing in
+            the toolbox writes there any more.
+        fastsurfer_mri_dir: Path to the FastSurfer ``mri/`` directory
+            (``derivatives/fastsurfer/sub-<id>/mri``).
         seg_dir: Path to m2m_{subject}/segmentation/ directory.
         masks_dir: Path to m2m_{subject}/masks/, holding user-supplied custom
             label volumes.  Optional; most subjects have no such directory.
@@ -50,28 +66,40 @@ class VoxelAtlasManager:
         freesurfer_mri_dir: str = "",
         seg_dir: str = "",
         masks_dir: str = "",
+        fastsurfer_mri_dir: str = "",
     ) -> None:
         self.freesurfer_mri_dir = freesurfer_mri_dir
+        self.fastsurfer_mri_dir = fastsurfer_mri_dir
         self.seg_dir = seg_dir
         self.masks_dir = masks_dir
 
     def list_atlases(self) -> list[tuple[str, str]]:
         """Discover available voxel atlas files for a subject.
 
-        Checks FreeSurfer mri/ for VOXEL_ATLAS_FILES, segmentation/ for
-        labeling.nii.gz, and masks/ for any user-supplied label volume.
-        Used by analyzer tab, flex subcortical tab, and NIfTI viewer.
+        Checks FastSurfer ``mri/`` first, then a legacy FreeSurfer ``mri/``,
+        then ``segmentation/`` for charm's own ``labeling.nii.gz``, then
+        ``masks/`` for any user-supplied label volume. Used by the analyzer
+        tab, the flex subcortical tab and the NIfTI viewer.
 
         Returns:
-            List of (display_name, full_path) tuples.
+            List of (display_name, full_path) tuples, first match per name.
         """
         results: list[tuple[str, str]] = []
+        seen: set[str] = set()
 
-        if self.freesurfer_mri_dir and os.path.isdir(self.freesurfer_mri_dir):
-            for name in VOXEL_ATLAS_FILES:
-                path = os.path.join(self.freesurfer_mri_dir, name)
+        for mri_dir, names in (
+            (self.fastsurfer_mri_dir, FASTSURFER_ATLAS_FILES),
+            (self.freesurfer_mri_dir, LEGACY_FREESURFER_ATLAS_FILES),
+        ):
+            if not mri_dir or not os.path.isdir(mri_dir):
+                continue
+            for name in names:
+                if name in seen:
+                    continue
+                path = os.path.join(mri_dir, name)
                 if os.path.isfile(path):
                     results.append((name, path))
+                    seen.add(name)
 
         if self.seg_dir:
             labeling = os.path.join(self.seg_dir, "labeling.nii.gz")
@@ -87,8 +115,8 @@ class VoxelAtlasManager:
 
         Any ``*.nii.gz``/``*.nii``/``*.mgz`` file dropped into
         ``m2m_{subject}/masks/`` is offered for targeting.  Display names are
-        prefixed with ``masks/`` so custom entries are distinguishable from the
-        curated FreeSurfer atlases.  A missing directory yields no entries.
+        prefixed with ``masks/`` so custom entries are distinguishable from
+        the curated atlases.  A missing directory yields no entries.
 
         Returns:
             Sorted list of (display_name, full_path) tuples.
@@ -106,9 +134,20 @@ class VoxelAtlasManager:
         return found
 
     def list_regions(self, atlas_path: str) -> list[str]:
-        """List regions in a voxel atlas using mri_segstats.
+        """List regions in a voxel atlas.
 
-        Caches the label file next to the atlas so subsequent calls are fast.
+        Pure-Python replacement for shelling out to FreeSurfer's
+        ``mri_segstats``: labels present in the volume come from
+        :func:`~tit.atlas.segstats.compute_segstats` (nibabel + numpy),
+        named via :func:`~tit.atlas.segstats.resolve_lut_for_atlas` (a
+        sidecar colour table next to the atlas, else the bundled standard
+        FreeSurfer colour table). Validated voxel-for-voxel against live
+        ``mri_segstats`` output on real recon-all data -- see
+        ``dev/spikes/native/fs-binaries/REPORT.md``.
+
+        Caches the label file next to the atlas, in ``mri_segstats
+        --sum``'s own text layout (other modules parse this exact sidecar
+        filename), so subsequent calls skip recomputation.
 
         Returns:
             Sorted list of "RegionName (ID: N)" strings.
@@ -120,19 +159,24 @@ class VoxelAtlasManager:
             os.path.dirname(atlas_path), f"{atlas_bname}_labels.txt"
         )
 
-        if not os.path.isfile(labels_file):
-            cmd = [
-                "mri_segstats",
-                "--seg",
-                atlas_path,
-                "--excludeid",
-                "0",
-                "--ctab-default",
-                "--sum",
-                labels_file,
-            ]
-            subprocess.run(cmd, check=True, capture_output=True)
+        if os.path.isfile(labels_file):
+            return self._parse_labels_file(labels_file)
 
+        lut = resolve_lut_for_atlas(atlas_path)
+        stats = compute_segstats(atlas_path, lut)
+        write_segstats_sum(stats, labels_file)
+        return sorted({f"{s.name} (ID: {s.seg_id})" for s in stats})
+
+    @staticmethod
+    def _parse_labels_file(labels_file: str) -> list[str]:
+        """Parse a cached ``mri_segstats --sum``-format labels file.
+
+        Reads a pre-existing cache -- whether written by this module's own
+        :func:`~tit.atlas.segstats.write_segstats_sum` or (for a project
+        whose cache predates this change) by a real ``mri_segstats`` run --
+        both share the same ``Index SegId NVoxels Volume_mm3 StructName``
+        column layout.
+        """
         regions: list[str] = []
         in_header = True
         with open(labels_file) as fh:

@@ -2,12 +2,18 @@
 
 scipy / nilearn are mocked in this environment, so the adjacency build and
 permutation clustering can't run numerically here -- those are exercised in the
-container.  What's covered: config wiring for the ``space`` option, the npz
-loader (real numpy), and the runner dispatch from ``tit.stats.permutation``.
+container. What's covered: config wiring for the ``space`` option, the npz
+loader (real numpy), the runner dispatch from ``tit.stats.permutation``, the
+GIFTI-reading contract of the vendored fsaverage mesh loader (nibabel is
+mocked too; darrays hold real numpy arrays), and
+``build_fsaverage_adjacency``'s bundled -> nilearn -> error fallback order
+(with scipy.sparse's return-shape stubbed just enough to satisfy the node-count
+check -- a real voxel-for-voxel/vertex-count validation against the actual
+vendored files runs on the host in dev/spikes/native/fs-binaries/REPORT.md).
 """
 
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # tit.stats.__init__ -> permutation -> engine imports scipy submodules the global
 # conftest doesn't mock.  Inject them (numpy stays REAL so the loader test runs).
@@ -124,6 +130,167 @@ class TestLoadGroupSurfaceData:
         self._write_cache(init_pm, "001", "TI_sim", 5, TI_max=np.zeros(10))
         with pytest.raises(ValueError):
             surface.load_group_surface_data([("001", "TI_sim")], "TI_max", 5)
+
+
+# ---------------------------------------------------------------------------
+# fsaverage mesh source: vendored resources/fsaverage/ replacing the
+# nilearn runtime download (nibabel is mocked module-wide; scipy.sparse ops
+# are stubbed with real-shaped return values so the node-count check can
+# run without a real sparse implementation -- see conftest.py / the file
+# header for why).
+# ---------------------------------------------------------------------------
+
+
+class TestLoadFsaverageMeshBundled:
+    def test_returns_none_when_directory_missing(self, monkeypatch, tmp_path):
+        from tit.stats import surface
+
+        monkeypatch.setattr(
+            "tit.paths.resolve_resource_path", lambda *parts: str(tmp_path / "nope")
+        )
+        assert surface._load_fsaverage_mesh_bundled(5) is None
+
+    def test_returns_none_when_only_one_hemisphere_present(self, monkeypatch, tmp_path):
+        from tit.stats import surface
+
+        mesh_dir = tmp_path / "fsaverage" / "5"
+        mesh_dir.mkdir(parents=True)
+        (mesh_dir / "lh.central.gii").touch()  # rh.central.gii missing
+
+        monkeypatch.setattr(
+            "tit.paths.resolve_resource_path",
+            lambda *parts: str(tmp_path.joinpath(*parts)),
+        )
+        assert surface._load_fsaverage_mesh_bundled(5) is None
+
+    def test_reads_coords_and_faces_from_gifti_darrays(self, monkeypatch, tmp_path):
+        """darrays[0] is coordinates, darrays[1] is faces -- the GIFTI convention
+        SimNIBS's own central.gii files follow (verified in the spike report)."""
+        from tit.stats import surface
+
+        mesh_dir = tmp_path / "fsaverage" / "5"
+        mesh_dir.mkdir(parents=True)
+        (mesh_dir / "lh.central.gii").touch()
+        (mesh_dir / "rh.central.gii").touch()
+
+        monkeypatch.setattr(
+            "tit.paths.resolve_resource_path",
+            lambda *parts: str(tmp_path.joinpath(*parts)),
+        )
+
+        lh_coords = np.zeros((4, 3))
+        lh_faces = np.array([[0, 1, 2], [1, 2, 3]])
+        rh_coords = np.zeros((5, 3))
+        rh_faces = np.array([[0, 1, 2]])
+
+        def fake_load(path):
+            img = MagicMock()
+            if "lh" in path:
+                img.darrays = [MagicMock(data=lh_coords), MagicMock(data=lh_faces)]
+            else:
+                img.darrays = [MagicMock(data=rh_coords), MagicMock(data=rh_faces)]
+            return img
+
+        with patch("nibabel.load", side_effect=fake_load):
+            result = surface._load_fsaverage_mesh_bundled(5)
+
+        assert result is not None
+        coords_l, faces_l, coords_r, faces_r = result
+        np.testing.assert_array_equal(coords_l, lh_coords)
+        np.testing.assert_array_equal(faces_l, lh_faces)
+        np.testing.assert_array_equal(coords_r, rh_coords)
+        np.testing.assert_array_equal(faces_r, rh_faces)
+
+
+class TestBuildFsaverageAdjacencySource:
+    """Fallback order: bundled resources -> nilearn download -> clear error."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_adjacency_cache(self):
+        from tit.stats import surface
+
+        surface._ADJ_CACHE.clear()
+        yield
+        surface._ADJ_CACHE.clear()
+
+    def _stub_sparse_ok(self, monkeypatch, n_nodes):
+        """Make scipy.sparse.block_diag(...).tocsr() report *n_nodes* -- just
+        enough for build_fsaverage_adjacency's own node-count check to pass
+        without a real sparse implementation.
+
+        ``from scipy import sparse`` (inside build_fsaverage_adjacency)
+        resolves via attribute access on the already-mocked ``scipy`` module
+        object (conftest.py installs it as a bare MagicMock, not a real
+        package), so the attribute -- not sys.modules["scipy.sparse"] -- is
+        what needs patching.
+        """
+        sparse_mock = MagicMock()
+        sparse_mock.block_diag.return_value.tocsr.return_value.shape = (
+            n_nodes,
+            n_nodes,
+        )
+        monkeypatch.setattr(sys.modules["scipy"], "sparse", sparse_mock)
+        return sparse_mock
+
+    def test_prefers_bundled_mesh_over_nilearn(self, monkeypatch):
+        from tit.stats import surface
+        from tit.source.fsaverage import _FSAVG_NODES
+
+        self._stub_sparse_ok(monkeypatch, _FSAVG_NODES[5])
+        mesh = (np.zeros((1, 3)), np.zeros((1, 3), dtype=int)) * 2
+        monkeypatch.setattr(
+            surface, "_load_fsaverage_mesh_bundled", lambda spacing: mesh
+        )
+        nilearn_spy = MagicMock(
+            side_effect=AssertionError("nilearn should not be tried")
+        )
+        monkeypatch.setattr(surface, "_load_fsaverage_mesh_nilearn", nilearn_spy)
+
+        surface.build_fsaverage_adjacency(5)
+        nilearn_spy.assert_not_called()
+
+    def test_falls_back_to_nilearn_when_bundle_missing(self, monkeypatch):
+        from tit.stats import surface
+        from tit.source.fsaverage import _FSAVG_NODES
+
+        self._stub_sparse_ok(monkeypatch, _FSAVG_NODES[6])
+        monkeypatch.setattr(
+            surface, "_load_fsaverage_mesh_bundled", lambda spacing: None
+        )
+        mesh = (np.zeros((1, 3)), np.zeros((1, 3), dtype=int)) * 2
+        nilearn_spy = MagicMock(return_value=mesh)
+        monkeypatch.setattr(surface, "_load_fsaverage_mesh_nilearn", nilearn_spy)
+
+        surface.build_fsaverage_adjacency(6)
+        nilearn_spy.assert_called_once_with(6)
+
+    def test_raises_clear_error_when_both_sources_fail(self, monkeypatch):
+        from tit.stats import surface
+
+        monkeypatch.setattr(
+            surface, "_load_fsaverage_mesh_bundled", lambda spacing: None
+        )
+
+        def _boom(spacing):
+            raise RuntimeError("no network")
+
+        monkeypatch.setattr(surface, "_load_fsaverage_mesh_nilearn", _boom)
+
+        with pytest.raises(RuntimeError, match="fsaverage5"):
+            surface.build_fsaverage_adjacency(5)
+
+    def test_result_is_cached_per_spacing(self, monkeypatch):
+        from tit.stats import surface
+        from tit.source.fsaverage import _FSAVG_NODES
+
+        self._stub_sparse_ok(monkeypatch, _FSAVG_NODES[5])
+        mesh = (np.zeros((1, 3)), np.zeros((1, 3), dtype=int)) * 2
+        bundled_spy = MagicMock(return_value=mesh)
+        monkeypatch.setattr(surface, "_load_fsaverage_mesh_bundled", bundled_spy)
+
+        surface.build_fsaverage_adjacency(5)
+        surface.build_fsaverage_adjacency(5)
+        bundled_spy.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

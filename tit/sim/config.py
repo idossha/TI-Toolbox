@@ -111,10 +111,10 @@ class Montage:
 
     name: str
     mode: MontageMode
-    electrode_pairs: list[tuple]
+    electrode_pairs: list[tuple[str | list[float], str | list[float]]]
     eeg_net: str | None = None
     display_name: str | None = None
-    channels: list[tuple] | None = None
+    channels: list[tuple[list[int], list[int]]] | None = None
 
     @property
     def is_xyz(self) -> bool:
@@ -237,13 +237,28 @@ class SimulationConfig:
         ``mTI_max`` on disk for mTI meshes. Defaults to
         ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
         (``hf_peak``, ``hf_sar``) must be opted into.
+    tissue_conductivities : dict[int, float] or None
+        Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue
+        number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the
+        default) uses SimNIBS's own tissue defaults for every tissue.
+        JSON object keys are always strings, so this round-trips as
+        ``{"<tissue number>": <S/m>}`` on disk; :func:`tit.config_io.deserialize_config`
+        coerces the keys back to ``int``, and this dataclass's own
+        ``__post_init__`` does the same for an instance built directly
+        with string keys. Consumed by ``tit.sim.__main__`` via
+        ``TISSUE_COND_<n>`` environment variables (the mechanism
+        ``tit.sim.base.BaseSimulation._apply_tissue_conductivities``
+        already reads) -- deprecated in favor of this field, which is
+        visible in the job's config and its manifest instead of being an
+        invisible process-environment side channel.
 
     Raises
     ------
     ValueError
         If *conductivity* is not one of the valid model names, if
-        *output_fields* contains an unknown name, or if *output_fields*
-        is empty.
+        *output_fields* contains an unknown name, if *output_fields*
+        is empty, or if *tissue_conductivities* contains a non-positive
+        value.
 
     See Also
     --------
@@ -272,6 +287,7 @@ class SimulationConfig:
     aniso_maxratio: float = 10.0
     aniso_maxcond: float = 2.0
     output_fields: list[str] = field(default_factory=lambda: [const.FIELD_TI_MAX])
+    tissue_conductivities: dict[int, float] | None = None
 
     def __post_init__(self):
         if self.conductivity not in _VALID_CONDUCTIVITIES:
@@ -290,6 +306,50 @@ class SimulationConfig:
                 "output_fields must not be empty; at least one output field "
                 "must be selected"
             )
+        # Cross-field rules that need nothing but the config itself. They used to live only
+        # in `tit.sim.utils._validate_simulation_inputs`, which runs inside the job -- so
+        # `POST /api/validate/sim` answered {"ok": true} for a config the runner rejected one
+        # second later (measured 2026-09-03, job cdf272b6556c43fa: a 4-pair mTI montage with
+        # the default 2 intensities -> "requires 4 current intensities; got 2"). Anything that
+        # needs the filesystem (the m2m directory, the EEG-net CSV) stays in utils, which is
+        # why this is a split and not a move.
+        for montage in self.montages:
+            for pair in montage.electrode_pairs:
+                if len(pair) != 2:
+                    raise ValueError(
+                        f"Montage {montage.name!r} has an invalid electrode pair {pair!r}; "
+                        "each pair must contain exactly two electrodes."
+                    )
+            try:
+                mode = montage.simulation_mode
+            except ValueError:
+                # A pair count `simulation_mode` cannot classify (1, 3, ...) is left exactly
+                # where it was: `run_simulation` raises on it. Deciding it here instead would
+                # turn "constructs, fails at run time" into "cannot be constructed" for
+                # configs that existing callers and tests build deliberately.
+                continue
+            required = 2 if mode == SimulationMode.TI else montage.num_pairs
+            if len(self.intensities) < required:
+                raise ValueError(
+                    f"Montage {montage.name!r} requires {required} current "
+                    f"intensities; got {len(self.intensities)}."
+                )
+
+        if self.tissue_conductivities is not None:
+            # JSON object keys are always strings; deserialize_config coerces them back
+            # to int (see tit.config_io._deserialize_value's dict-origin branch), but a
+            # config built directly in Python (as here) may still hand in string keys.
+            self.tissue_conductivities = {
+                int(k): float(v) for k, v in self.tissue_conductivities.items()
+            }
+            non_positive = {
+                k: v for k, v in self.tissue_conductivities.items() if v <= 0
+            }
+            if non_positive:
+                raise ValueError(
+                    "tissue_conductivities values must be > 0 S/m; got "
+                    f"{non_positive}"
+                )
 
 
 def parse_intensities(s: str) -> list[float]:

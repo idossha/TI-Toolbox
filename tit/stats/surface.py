@@ -115,21 +115,85 @@ def _faces_to_adjacency(faces: np.ndarray, n_nodes: int):
     return adj
 
 
+def _load_fsaverage_mesh_bundled(spacing: int):
+    """Load lh/rh (coords, faces) from the vendored ``resources/fsaverage/``.
+
+    Returns ``None`` (never raises) when the bundled directory is absent, so
+    :func:`build_fsaverage_adjacency` can fall through to the nilearn
+    download -- e.g. a dev checkout that hasn't vendored the resource.
+    """
+    import os
+
+    import nibabel as nib
+
+    from tit.paths import resolve_resource_path
+
+    mesh_dir = resolve_resource_path("fsaverage", str(spacing))
+    lh_path = os.path.join(mesh_dir, "lh.central.gii")
+    rh_path = os.path.join(mesh_dir, "rh.central.gii")
+    if not (os.path.isfile(lh_path) and os.path.isfile(rh_path)):
+        return None
+
+    lh = nib.load(lh_path)
+    rh = nib.load(rh_path)
+    coords_l, faces_l = lh.darrays[0].data, lh.darrays[1].data
+    coords_r, faces_r = rh.darrays[0].data, rh.darrays[1].data
+    return coords_l, faces_l, coords_r, faces_r
+
+
+def _load_fsaverage_mesh_nilearn(spacing: int):
+    """Load lh/rh (coords, faces) via nilearn's runtime-downloaded fsaverage.
+
+    Fallback for a host without the vendored ``resources/fsaverage/``
+    directory (see :func:`_load_fsaverage_mesh_bundled`). Requires nilearn
+    and network access on first call (nilearn caches the download under
+    ``~/nilearn_data/`` after that).
+    """
+    from nilearn import datasets, surface
+
+    fs = datasets.fetch_surf_fsaverage(f"fsaverage{spacing}")
+    coords_l, faces_l = surface.load_surf_mesh(fs["pial_left"])
+    coords_r, faces_r = surface.load_surf_mesh(fs["pial_right"])
+    return coords_l, faces_l, coords_r, faces_r
+
+
 def build_fsaverage_adjacency(spacing: int):
     """Block-diagonal lh+rh fsaverage vertex adjacency (cached per spacing).
 
     No edges cross the hemisphere boundary, so a slow-wave cluster can never
     bridge the two hemispheres through a spurious midline edge -- matching the
     ``[lh; rh]`` node ordering the field caches are written in.
+
+    Mesh source, tried in order (see ``resources/fsaverage/README.md`` for
+    why the bundled source is preferred on correctness grounds, not just to
+    avoid a download): the vendored ``resources/fsaverage/{spacing}/`` GIFTI
+    surfaces (SimNIBS's own bundled fsaverage -- the same source
+    :func:`tit.source.fsaverage._compute_fields` projects each subject's
+    fields onto, via SimNIBS's ``cross_subject_map``); then nilearn's
+    ``fetch_surf_fsaverage`` (a runtime download, the previous sole
+    behavior); a :class:`RuntimeError` naming both failed sources if
+    neither is available.
     """
     if spacing in _ADJ_CACHE:
         return _ADJ_CACHE[spacing]
-    from nilearn import datasets, surface
     from scipy import sparse
 
-    fs = datasets.fetch_surf_fsaverage(f"fsaverage{spacing}")
-    coords_l, faces_l = surface.load_surf_mesh(fs["pial_left"])
-    coords_r, faces_r = surface.load_surf_mesh(fs["pial_right"])
+    mesh = _load_fsaverage_mesh_bundled(spacing)
+    source = "bundled resources/fsaverage"
+    if mesh is None:
+        try:
+            mesh = _load_fsaverage_mesh_nilearn(spacing)
+            source = "nilearn fetch_surf_fsaverage"
+        except Exception as exc:
+            raise RuntimeError(
+                f"No fsaverage{spacing} mesh available: bundled "
+                f"resources/fsaverage/{spacing}/ is missing, and the "
+                f"nilearn fallback failed ({exc!r}). Vendor the resource "
+                "(see resources/fsaverage/README.md) or ensure network "
+                "access for nilearn's one-time download."
+            ) from exc
+
+    coords_l, faces_l, coords_r, faces_r = mesh
     adj = sparse.block_diag(
         [
             _faces_to_adjacency(faces_l, len(coords_l)),
@@ -139,7 +203,7 @@ def build_fsaverage_adjacency(spacing: int):
     if adj.shape[0] != _FSAVG_NODES[spacing]:
         raise ValueError(
             f"fsaverage{spacing} adjacency has {adj.shape[0]} nodes, "
-            f"expected {_FSAVG_NODES[spacing]}"
+            f"expected {_FSAVG_NODES[spacing]} (mesh source: {source})"
         )
     _ADJ_CACHE[spacing] = adj
     return adj

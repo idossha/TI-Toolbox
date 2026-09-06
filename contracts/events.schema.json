@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ti-toolbox.dev/contracts/events.schema.json",
+  "title": "Event",
+  "description": "One line of a job's events.jsonl file (tit.jobs.events emit_* helpers). Mirrors the Event component in contracts/openapi.v1.yaml.",
+  "type": "object",
+  "required": ["seq", "ts", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "monotonically increasing per job, starting at 0; used for /api/jobs/{id}/events?since= and /ws/jobs subscribe"
+    },
+    "ts": {
+      "type": "number",
+      "description": "unix seconds"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["log", "stage", "progress", "marker", "artifact", "result", "exit"]
+    },
+    "level": {
+      "type": "string",
+      "enum": ["debug", "info", "warning", "error", "critical"],
+      "description": "log events only"
+    },
+    "logger": {
+      "type": "string",
+      "description": "log events only; the stdlib logger name (e.g. tit.opt.flex.flex)"
+    },
+    "msg": {
+      "type": "string",
+      "description": "log and marker events"
+    },
+    "stage": {
+      "type": "string",
+      "description": "stage and progress events; the current named phase (e.g. \"charm\", \"pair1\")"
+    },
+    "i": {
+      "type": "integer",
+      "description": "progress events; current unit index"
+    },
+    "n": {
+      "type": "integer",
+      "description": "progress events; total unit count"
+    },
+    "pct": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "progress events; 0-100"
+    },
+    "path": {
+      "type": "string",
+      "description": "artifact events; the produced file's path"
+    },
+    "kind": {
+      "type": "string",
+      "description": "artifact events; the produced file's kind (e.g. \"png\", \"csv\", \"mesh\")"
+    },
+    "label": {
+      "type": "string",
+      "description": "artifact events; optional human-readable label for the produced file"
+    },
+    "outputs": {
+      "type": "object",
+      "description": "result events; the runner's arbitrary structured result payload (mixes file paths and scalar metrics -- not a file list, see the artifacts property for that)"
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "result events; the job's accumulated artifact list (every artifact event's {path, kind, label} seen so far)",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string" },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    "code": {
+      "type": "integer",
+      "description": "exit events; the runner's process exit code"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "type": { "const": "log" } }
+      },
+      "then": {
+        "required": ["msg", "level"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "stage" } }
+      },
+      "then": {
+        "required": ["stage"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "progress" } }
+      },
+      "then": {
+        "required": ["stage", "i", "n", "pct"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "artifact" } }
+      },
+      "then": {
+        "required": ["path", "kind"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "result" } }
+      },
+      "then": {
+        "required": ["outputs"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "exit" } }
+      },
+      "then": {
+        "required": ["code"]
+      }
+    }
+  ]
+}

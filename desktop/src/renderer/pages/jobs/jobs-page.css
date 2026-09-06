@@ -1,0 +1,104 @@
+/**
+ * The Jobs page's split geometry (DESIGN.md v3 §2.1 shape B, §4.1 "browse"): the work pane grows,
+ * the detail pane is a fixed 360/400px column, and — per program U1 ("never an empty pane") — the
+ * composition in `index.tsx` does not render `.jobs-page-right` at all when nothing is selected, so
+ * this file only owns widths, never a placeholder. Both children already draw their own bordered
+ * "page"-density box (`JobsTable`, `JobDetailPane` — see `app/jobs-rail/jobs-rail.css`), so the gap
+ * between them is the only thing this file adds.
+ */
+.jobs-page-split {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  /* The U13 `PaneSeparator` (6px, or a 16px rail once collapsed) is the divider now, so the flex
+   * gap that used to be it would be counted twice. The pane keeps a `--space-2` of its own gutter
+   * on the side the separator's 1px rule sits, exactly as the run shape does. */
+  gap: 0;
+}
+.jobs-page-work {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  /* A column, so the table takes its natural height and the ground rows below it take the rest. */
+  display: flex;
+  flex-direction: column;
+}
+/* DESIGN.md §2.1's 360/400px column is the DEFAULT, not the only width: `--jobs-pane-w` is set
+ * inline by `usePaneController` once the user drags the separator, and persists per page id. */
+.jobs-page-right {
+  flex: 0 0 var(--jobs-pane-w, 360px);
+  width: var(--jobs-pane-w, 360px);
+  min-height: 0;
+  padding-left: var(--space-2);
+}
+@media (min-width: 1440px) {
+  .jobs-page-right {
+    flex-basis: var(--jobs-pane-w, 400px);
+    width: var(--jobs-pane-w, 400px);
+  }
+}
+/* Expanded (U13): the detail pane is the page. The table is not rendered while this holds, so
+ * there is nothing for the pane to sit beside. */
+.jobs-page-right[data-pane-mode="expanded"] {
+  flex: 1 1 auto;
+  width: auto;
+  padding-left: 0;
+}
+
+/**
+ * `ui/components.css`'s `.data-table thead th` declares its own background (`--surface-2`), but
+ * `.data-table tbody td` never does — it is visually fine (the table's own transparent stack shows
+ * the same `--surface` ground underneath either way), but the dead-space instrument
+ * (`tests/e2e/_metrics.ts`) can only credit a *leaf* element or a small-area *coloured* one as
+ * content (DESIGN.md §12.1). A cell whose value is a chip, a badge or a "—" span (State, Stage,
+ * Waiting on — exactly the columns a queued job has nothing to show yet) is neither: the chip's own
+ * box is content, but the rest of that (auto-layout-widened) `<td>` around it has no background of
+ * its own and no direct text, so it reads as dead even though it is a real, populated table row.
+ * Declaring the background explicitly — a single `<td>`'s rect is a small fraction of the sampled
+ * rect, so the instrument's own "small coloured area counts" rule applies — fixes the blind spot
+ * without changing a single pixel on screen. Scoped to this page rather than added to the shared
+ * rule in `ui/components.css` (not owned by this lane): every other table-shaped page (Subjects,
+ * Results, the jobs panel) likely has the identical gap and would want the same one-line fix at the
+ * source — reported upward rather than done here.
+ */
+.jobs-page .data-table tbody td {
+  background-color: var(--surface);
+}
+
+/* The rows this list will have, drawn as ground below the table (fix round, lane FIX-D, defect
+ * 4). `SubjectsField` and `MontageManager` do this with real `<tr>`s; `DataTable` owns its own
+ * rows, so the same object is painted here at the same 28px pitch as `--row-h`. It is what turns
+ * "one sentence in the middle of a 1224 x 704 box" (99.1 % dead, measured) into a page that shows
+ * the shape of the list it is waiting for.
+ *
+ * `flex: 1` inside a column whose height is the pane: it fills whatever the table leaves. */
+/* `.jobs-table` is `height: 100%` (jobs-rail.css), and on this page it keeps that: the ground
+ * rows are inside the table now (`ui/DataTable`'s `fill`), so the box IS the list's shape and a
+ * long list still scrolls inside it exactly as before. The CONTENT-height override this rule used
+ * to carry existed only to leave room for `.jobs-page-filler`, a repeating gradient painted behind
+ * the table — the same rule `panels.css` carried for Subject info, in a file that did not know
+ * about this one. */
+.jobs-page-work > .jobs-table {
+  display: flex;
+  flex-direction: column;
+}
+.jobs-page-empty-action {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0 0;
+}
+
+/* The list's own flex chain (plan C4): `.jobs-table` → `.selection` → its scroll box, so the box
+   is as tall as the pane and `ui/SelectionList`'s measured ground rows have a height to measure
+   against. Without this the list falls back to its 176px default and the empty page stops being
+   the shape of the list it is waiting for (`tests/e2e/table-room.spec.ts:201`). */
+.jobs-page-work > .jobs-table {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.jobs-page-work > .jobs-table > .selection {
+  flex: 1 1 auto;
+  min-height: 0;
+}

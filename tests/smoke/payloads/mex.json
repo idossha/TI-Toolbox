@@ -1,0 +1,55 @@
+{
+  "kind": "mex",
+  "config": {
+    "subject_id": "ernie",
+    "leadfield_hdf": "/mnt/000/derivatives/SimNIBS/sub-ernie/leadfields/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    "roi_name": "aparc.DKTatlas+aseg.mgz_1region",
+    "electrodes": {
+      "e1_plus": [
+        "Fp1"
+      ],
+      "e1_minus": [
+        "Fp2"
+      ],
+      "e2_plus": [
+        "F3"
+      ],
+      "e2_minus": [
+        "F4"
+      ],
+      "e3_plus": [
+        "C3"
+      ],
+      "e3_minus": [
+        "C4"
+      ],
+      "e4_plus": [
+        "P3"
+      ],
+      "e4_minus": [
+        "P4"
+      ],
+      "_type": "BucketElectrodes"
+    },
+    "current_mA": 2,
+    "channels": null,
+    "roi_radius": 3,
+    "roi_names": [],
+    "roi_atlas": [
+      {
+        "atlas_path": "/mnt/000/derivatives/freesurfer/sub-ernie/mri/aparc.DKTatlas+aseg.mgz",
+        "label": 17
+      }
+    ],
+    "roi_coordinate_space": "subject",
+    "run_name": "smoke-ui-6519-mex",
+    "symmetric_bucket": false,
+    "symmetry_eeg_csv": null,
+    "symmetry_pairing": "within_pairs"
+  },
+  "subject_ids": [
+    "ernie"
+  ],
+  "tags": [],
+  "overwrite": false
+}

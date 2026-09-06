@@ -1,0 +1,24 @@
+{
+  "kind": "pre",
+  "config": {
+    "subject_ids": [
+      "101"
+    ],
+    "convert_dicom": false,
+    "run_fastsurfer": false,
+    "fastsurfer_threads": null,
+    "create_m2m": false,
+    "run_tissue_analysis": true,
+    "run_qsiprep": false,
+    "run_qsirecon": false,
+    "qsiprep_config": null,
+    "qsi_recon_config": null,
+    "extract_dti": false,
+    "skip_existing_outputs": false,
+    "replace_existing_outputs": true
+  },
+  "subject_ids": [
+    "101"
+  ],
+  "parallel_subjects": 1
+}

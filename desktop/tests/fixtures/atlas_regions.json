@@ -1,0 +1,724 @@
+{
+  "DK40": {
+    "lh": [
+      {
+        "id": 1,
+        "name": "bankssts"
+      },
+      {
+        "id": 2,
+        "name": "caudalanteriorcingulate"
+      },
+      {
+        "id": 3,
+        "name": "caudalmiddlefrontal"
+      },
+      {
+        "id": 5,
+        "name": "cuneus"
+      },
+      {
+        "id": 6,
+        "name": "entorhinal"
+      },
+      {
+        "id": 7,
+        "name": "fusiform"
+      },
+      {
+        "id": 8,
+        "name": "inferiorparietal"
+      },
+      {
+        "id": 9,
+        "name": "inferiortemporal"
+      },
+      {
+        "id": 10,
+        "name": "isthmuscingulate"
+      },
+      {
+        "id": 11,
+        "name": "lateraloccipital"
+      },
+      {
+        "id": 12,
+        "name": "lateralorbitofrontal"
+      },
+      {
+        "id": 13,
+        "name": "lingual"
+      },
+      {
+        "id": 14,
+        "name": "medialorbitofrontal"
+      },
+      {
+        "id": 15,
+        "name": "middletemporal"
+      },
+      {
+        "id": 16,
+        "name": "parahippocampal"
+      },
+      {
+        "id": 17,
+        "name": "paracentral"
+      },
+      {
+        "id": 18,
+        "name": "parsopercularis"
+      },
+      {
+        "id": 19,
+        "name": "parsorbitalis"
+      },
+      {
+        "id": 20,
+        "name": "parstriangularis"
+      },
+      {
+        "id": 21,
+        "name": "pericalcarine"
+      },
+      {
+        "id": 22,
+        "name": "postcentral"
+      },
+      {
+        "id": 23,
+        "name": "posteriorcingulate"
+      },
+      {
+        "id": 24,
+        "name": "precentral"
+      },
+      {
+        "id": 25,
+        "name": "precuneus"
+      },
+      {
+        "id": 26,
+        "name": "rostralanteriorcingulate"
+      },
+      {
+        "id": 27,
+        "name": "rostralmiddlefrontal"
+      },
+      {
+        "id": 28,
+        "name": "superiorfrontal"
+      },
+      {
+        "id": 29,
+        "name": "superiorparietal"
+      },
+      {
+        "id": 30,
+        "name": "superiortemporal"
+      },
+      {
+        "id": 31,
+        "name": "supramarginal"
+      },
+      {
+        "id": 32,
+        "name": "frontalpole"
+      },
+      {
+        "id": 33,
+        "name": "temporalpole"
+      },
+      {
+        "id": 34,
+        "name": "transversetemporal"
+      },
+      {
+        "id": 35,
+        "name": "insula"
+      }
+    ],
+    "rh": [
+      {
+        "id": 1,
+        "name": "bankssts"
+      },
+      {
+        "id": 2,
+        "name": "caudalanteriorcingulate"
+      },
+      {
+        "id": 3,
+        "name": "caudalmiddlefrontal"
+      },
+      {
+        "id": 5,
+        "name": "cuneus"
+      },
+      {
+        "id": 6,
+        "name": "entorhinal"
+      },
+      {
+        "id": 7,
+        "name": "fusiform"
+      },
+      {
+        "id": 8,
+        "name": "inferiorparietal"
+      },
+      {
+        "id": 9,
+        "name": "inferiortemporal"
+      },
+      {
+        "id": 10,
+        "name": "isthmuscingulate"
+      },
+      {
+        "id": 11,
+        "name": "lateraloccipital"
+      },
+      {
+        "id": 12,
+        "name": "lateralorbitofrontal"
+      },
+      {
+        "id": 13,
+        "name": "lingual"
+      },
+      {
+        "id": 14,
+        "name": "medialorbitofrontal"
+      },
+      {
+        "id": 15,
+        "name": "middletemporal"
+      },
+      {
+        "id": 16,
+        "name": "parahippocampal"
+      },
+      {
+        "id": 17,
+        "name": "paracentral"
+      },
+      {
+        "id": 18,
+        "name": "parsopercularis"
+      },
+      {
+        "id": 19,
+        "name": "parsorbitalis"
+      },
+      {
+        "id": 20,
+        "name": "parstriangularis"
+      },
+      {
+        "id": 21,
+        "name": "pericalcarine"
+      },
+      {
+        "id": 22,
+        "name": "postcentral"
+      },
+      {
+        "id": 23,
+        "name": "posteriorcingulate"
+      },
+      {
+        "id": 24,
+        "name": "precentral"
+      },
+      {
+        "id": 25,
+        "name": "precuneus"
+      },
+      {
+        "id": 26,
+        "name": "rostralanteriorcingulate"
+      },
+      {
+        "id": 27,
+        "name": "rostralmiddlefrontal"
+      },
+      {
+        "id": 28,
+        "name": "superiorfrontal"
+      },
+      {
+        "id": 29,
+        "name": "superiorparietal"
+      },
+      {
+        "id": 30,
+        "name": "superiortemporal"
+      },
+      {
+        "id": 31,
+        "name": "supramarginal"
+      },
+      {
+        "id": 32,
+        "name": "frontalpole"
+      },
+      {
+        "id": 33,
+        "name": "temporalpole"
+      },
+      {
+        "id": 34,
+        "name": "transversetemporal"
+      },
+      {
+        "id": 35,
+        "name": "insula"
+      }
+    ]
+  },
+  "a2009s": {
+    "lh": [
+      {
+        "id": 1,
+        "name": "G_and_S_frontomargin"
+      },
+      {
+        "id": 2,
+        "name": "G_and_S_occipital_inf"
+      },
+      {
+        "id": 3,
+        "name": "G_and_S_paracentral"
+      },
+      {
+        "id": 4,
+        "name": "G_and_S_subcentral"
+      },
+      {
+        "id": 5,
+        "name": "G_and_S_transv_frontopol"
+      },
+      {
+        "id": 6,
+        "name": "G_and_S_cingul-Ant"
+      },
+      {
+        "id": 7,
+        "name": "G_and_S_cingul-Mid-Ant"
+      },
+      {
+        "id": 8,
+        "name": "G_and_S_cingul-Mid-Post"
+      },
+      {
+        "id": 9,
+        "name": "G_cingul-Post-dorsal"
+      },
+      {
+        "id": 10,
+        "name": "G_cingul-Post-ventral"
+      },
+      {
+        "id": 11,
+        "name": "G_cuneus"
+      },
+      {
+        "id": 12,
+        "name": "G_front_inf-Opercular"
+      },
+      {
+        "id": 13,
+        "name": "G_front_inf-Orbital"
+      },
+      {
+        "id": 14,
+        "name": "G_front_inf-Triangul"
+      },
+      {
+        "id": 15,
+        "name": "G_front_middle"
+      },
+      {
+        "id": 16,
+        "name": "G_front_sup"
+      },
+      {
+        "id": 17,
+        "name": "G_Ins_lg_and_S_cent_ins"
+      },
+      {
+        "id": 18,
+        "name": "G_insular_short"
+      },
+      {
+        "id": 19,
+        "name": "G_occipital_middle"
+      },
+      {
+        "id": 20,
+        "name": "G_occipital_sup"
+      }
+    ],
+    "rh": [
+      {
+        "id": 1,
+        "name": "G_and_S_frontomargin"
+      },
+      {
+        "id": 2,
+        "name": "G_and_S_occipital_inf"
+      },
+      {
+        "id": 3,
+        "name": "G_and_S_paracentral"
+      },
+      {
+        "id": 4,
+        "name": "G_and_S_subcentral"
+      },
+      {
+        "id": 5,
+        "name": "G_and_S_transv_frontopol"
+      },
+      {
+        "id": 6,
+        "name": "G_and_S_cingul-Ant"
+      },
+      {
+        "id": 7,
+        "name": "G_and_S_cingul-Mid-Ant"
+      },
+      {
+        "id": 8,
+        "name": "G_and_S_cingul-Mid-Post"
+      },
+      {
+        "id": 9,
+        "name": "G_cingul-Post-dorsal"
+      },
+      {
+        "id": 10,
+        "name": "G_cingul-Post-ventral"
+      },
+      {
+        "id": 11,
+        "name": "G_cuneus"
+      },
+      {
+        "id": 12,
+        "name": "G_front_inf-Opercular"
+      },
+      {
+        "id": 13,
+        "name": "G_front_inf-Orbital"
+      },
+      {
+        "id": 14,
+        "name": "G_front_inf-Triangul"
+      },
+      {
+        "id": 15,
+        "name": "G_front_middle"
+      },
+      {
+        "id": 16,
+        "name": "G_front_sup"
+      },
+      {
+        "id": 17,
+        "name": "G_Ins_lg_and_S_cent_ins"
+      },
+      {
+        "id": 18,
+        "name": "G_insular_short"
+      },
+      {
+        "id": 19,
+        "name": "G_occipital_middle"
+      },
+      {
+        "id": 20,
+        "name": "G_occipital_sup"
+      }
+    ]
+  },
+  "HCP_MMP1": {
+    "lh": [
+      {
+        "id": 1,
+        "name": "L_V1"
+      },
+      {
+        "id": 2,
+        "name": "L_V2"
+      },
+      {
+        "id": 3,
+        "name": "L_V3"
+      },
+      {
+        "id": 4,
+        "name": "L_V4"
+      },
+      {
+        "id": 5,
+        "name": "L_MT"
+      },
+      {
+        "id": 6,
+        "name": "L_4"
+      },
+      {
+        "id": 7,
+        "name": "L_3b"
+      },
+      {
+        "id": 8,
+        "name": "L_1"
+      },
+      {
+        "id": 9,
+        "name": "L_2"
+      },
+      {
+        "id": 10,
+        "name": "L_44"
+      },
+      {
+        "id": 11,
+        "name": "L_45"
+      },
+      {
+        "id": 12,
+        "name": "L_STSvp"
+      },
+      {
+        "id": 13,
+        "name": "L_TE1a"
+      },
+      {
+        "id": 14,
+        "name": "L_FFC"
+      },
+      {
+        "id": 15,
+        "name": "L_PSL"
+      },
+      {
+        "id": 16,
+        "name": "L_7Am"
+      }
+    ],
+    "rh": [
+      {
+        "id": 1,
+        "name": "R_V1"
+      },
+      {
+        "id": 2,
+        "name": "R_V2"
+      },
+      {
+        "id": 3,
+        "name": "R_V3"
+      },
+      {
+        "id": 4,
+        "name": "R_V4"
+      },
+      {
+        "id": 5,
+        "name": "R_MT"
+      },
+      {
+        "id": 6,
+        "name": "R_4"
+      },
+      {
+        "id": 7,
+        "name": "R_3b"
+      },
+      {
+        "id": 8,
+        "name": "R_1"
+      },
+      {
+        "id": 9,
+        "name": "R_2"
+      },
+      {
+        "id": 10,
+        "name": "R_44"
+      },
+      {
+        "id": 11,
+        "name": "R_45"
+      },
+      {
+        "id": 12,
+        "name": "R_STSvp"
+      },
+      {
+        "id": 13,
+        "name": "R_TE1a"
+      },
+      {
+        "id": 14,
+        "name": "R_FFC"
+      },
+      {
+        "id": 15,
+        "name": "R_PSL"
+      },
+      {
+        "id": 16,
+        "name": "R_7Am"
+      }
+    ]
+  },
+  "aparc.DKTatlas+aseg": {
+    "both": [
+      {
+        "id": 10,
+        "name": "Left-Thalamus-Proper"
+      },
+      {
+        "id": 11,
+        "name": "Left-Caudate"
+      },
+      {
+        "id": 12,
+        "name": "Left-Putamen"
+      },
+      {
+        "id": 13,
+        "name": "Left-Pallidum"
+      },
+      {
+        "id": 16,
+        "name": "Brain-Stem"
+      },
+      {
+        "id": 17,
+        "name": "Left-Hippocampus"
+      },
+      {
+        "id": 18,
+        "name": "Left-Amygdala"
+      },
+      {
+        "id": 26,
+        "name": "Left-Accumbens-area"
+      },
+      {
+        "id": 49,
+        "name": "Right-Thalamus-Proper"
+      },
+      {
+        "id": 50,
+        "name": "Right-Caudate"
+      },
+      {
+        "id": 51,
+        "name": "Right-Putamen"
+      },
+      {
+        "id": 52,
+        "name": "Right-Pallidum"
+      },
+      {
+        "id": 53,
+        "name": "Right-Hippocampus"
+      },
+      {
+        "id": 54,
+        "name": "Right-Amygdala"
+      },
+      {
+        "id": 58,
+        "name": "Right-Accumbens-area"
+      }
+    ]
+  },
+  "labeling.nii.gz": {
+    "both": [
+      {
+        "id": 1,
+        "name": "lesion"
+      },
+      {
+        "id": 2,
+        "name": "target_region"
+      }
+    ]
+  },
+  "CIT168": {
+    "both": [
+      {
+        "id": 1,
+        "name": "CIT168_Pu_Putamen"
+      },
+      {
+        "id": 2,
+        "name": "CIT168_Ca_Caudate"
+      },
+      {
+        "id": 3,
+        "name": "CIT168_NAC_Nucleus_accumbens"
+      },
+      {
+        "id": 4,
+        "name": "CIT168_EXA_Extended_amygdala"
+      },
+      {
+        "id": 5,
+        "name": "CIT168_GPe_External_globus_pallidus"
+      },
+      {
+        "id": 6,
+        "name": "CIT168_GPi_Internal_globus_pallidus"
+      },
+      {
+        "id": 7,
+        "name": "CIT168_SNc_Substantia_nigra_pars_compacta"
+      },
+      {
+        "id": 8,
+        "name": "CIT168_RN_Red_nucleus"
+      },
+      {
+        "id": 9,
+        "name": "CIT168_SNr_Substantia_nigra_pars_reticulata"
+      },
+      {
+        "id": 10,
+        "name": "CIT168_PBP_Parabrachial_pigmented_nucleus"
+      },
+      {
+        "id": 11,
+        "name": "CIT168_VTA_Ventral_tegmental_area"
+      },
+      {
+        "id": 12,
+        "name": "CIT168_VeP_Ventral_pallidum"
+      },
+      {
+        "id": 13,
+        "name": "CIT168_HN_Habenular_nuclei"
+      },
+      {
+        "id": 14,
+        "name": "CIT168_HTH_Hypothalamus"
+      },
+      {
+        "id": 15,
+        "name": "CIT168_MN_Mammillary_nuclei"
+      },
+      {
+        "id": 16,
+        "name": "CIT168_STH_Subthalamic_nucleus"
+      }
+    ]
+  }
+}

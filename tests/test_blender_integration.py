@@ -362,3 +362,27 @@ class TestBlenderExports:
             "run_regions",
         }
         assert set(tit.blender.__all__) == expected
+
+
+class TestElectrodeTemplateResolution:
+    """montage_publication.py's electrode_template used to be a hard-coded
+    "/ti-toolbox/tit/blender/Electrode.blend" -- only ever real inside the Docker image (N0.6
+    spike). It now resolves package-relatively (sibling of montage_publication.py itself).
+    """
+
+    def test_source_no_longer_hard_codes_the_container_path(self):
+        import inspect
+
+        import tit.blender.montage_publication as mp
+
+        source = inspect.getsource(mp.run_montage)
+        assert "/ti-toolbox" not in source
+
+    def test_package_relative_path_is_a_real_shipped_file_on_this_host(self):
+        import os
+
+        import tit.blender.montage_publication as mp
+
+        blender_dir = os.path.dirname(os.path.abspath(mp.__file__))
+        electrode_template = os.path.join(blender_dir, "Electrode.blend")
+        assert os.path.isfile(electrode_template)

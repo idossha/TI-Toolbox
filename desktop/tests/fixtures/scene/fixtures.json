@@ -1,0 +1,124 @@
+{
+  "//": "Regenerate with `python3 tests/scene/make_fixtures.py`. Every number here is authored from the TVSC1 spec table in dev/notes/v3-scene-ia-plan.md 2.3 and the position formula above, never read back from the encoder.",
+  "fixtures": {
+    "labelled-surface.tvsc": {
+      "bytes": 140,
+      "flags": 1,
+      "indexCount": 9,
+      "labels": [
+        0,
+        7,
+        65535,
+        3,
+        1
+      ],
+      "pins": "all three blocks present: a reader that computes the label offset from the header instead of accumulating the index block lands wrong",
+      "positionFormula": {
+        "originY": 40.0,
+        "originZ": -12.0,
+        "stepX": 1.5,
+        "stepY": 7.25,
+        "stepZ": 3.0,
+        "x": "i * 1.5",
+        "y": "40.0 - i * 7.25",
+        "z": "-12.0 + i*i * 3.0"
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          4
+        ]
+      ],
+      "vertexCount": 5
+    },
+    "labels-only.tvsc": {
+      "bytes": 104,
+      "flags": 1,
+      "indexCount": 0,
+      "labels": [
+        0,
+        7,
+        65535,
+        3,
+        1
+      ],
+      "pins": "the payload GET /api/scene/labels returns: indexCount 0, an odd vertex count so the uint16 block needs 2 bytes of tail padding",
+      "positionFormula": {
+        "originY": 40.0,
+        "originZ": -12.0,
+        "stepX": 1.5,
+        "stepY": 7.25,
+        "stepZ": 3.0,
+        "x": "i * 1.5",
+        "y": "40.0 - i * 7.25",
+        "z": "-12.0 + i*i * 3.0"
+      },
+      "triangles": [],
+      "vertexCount": 5
+    },
+    "tri-surface.tvsc": {
+      "bytes": 128,
+      "flags": 0,
+      "indexCount": 9,
+      "labels": null,
+      "pins": "a surface with no labels: flags bit0 clear and no trailing label block, so a reader that always looks for labels reads past the end",
+      "positionFormula": {
+        "originY": 40.0,
+        "originZ": -12.0,
+        "stepX": 1.5,
+        "stepY": 7.25,
+        "stepZ": 3.0,
+        "x": "i * 1.5",
+        "y": "40.0 - i * 7.25",
+        "z": "-12.0 + i*i * 3.0"
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          4
+        ]
+      ],
+      "vertexCount": 5
+    }
+  },
+  "format": {
+    "flagLabels": 1,
+    "headerBytes": 32,
+    "littleEndian": true,
+    "magic": "TVSC",
+    "offsets": {
+      "flags": 16,
+      "indexCount": 12,
+      "magic": 0,
+      "positions": 32,
+      "reserved": 20,
+      "version": 4,
+      "vertexCount": 8
+    },
+    "version": 1
+  },
+  "groundTruth": "authored",
+  "reader": "python: tests/test_scene_tvsc.py (struct.unpack against the spec offsets, positions recomputed from positionFormula)"
+}

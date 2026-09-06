@@ -31,6 +31,7 @@ from tit.pre import (
     find_existing_preprocessing_outputs,
     find_missing_preprocessing_inputs,
 )
+from tit.pre.fastsurfer import DEFAULT_THREADS as FASTSURFER_DEFAULT_THREADS
 from tit.gui.style import FONT_SM, FONT_HELP, FONT_SUBHEADING
 from tit.gui.components.qsi_config_dialogs import (
     QSIPrepConfigDialog,
@@ -175,32 +176,34 @@ class PreProcessTab(QtWidgets.QWidget):
         self.convert_dicom_cb.setChecked(True)
         options_group_layout.addWidget(self.convert_dicom_cb)
 
-        # FreeSurfer options
-        self.run_recon_cb = QtWidgets.QCheckBox("Run FreeSurfer recon-all")
-        self.run_recon_cb.setChecked(True)
-        options_group_layout.addWidget(self.run_recon_cb)
+        # FastSurfer deep segmentation (voxel-space DKT + aseg parcellation)
+        self.run_fastsurfer_cb = QtWidgets.QCheckBox("Run FastSurfer segmentation")
+        self.run_fastsurfer_cb.setChecked(True)
+        self.run_fastsurfer_cb.setToolTip(
+            "Deep-learning cortical and subcortical parcellation from the T1w "
+            "image. About 5 minutes per subject on CPU."
+        )
+        options_group_layout.addWidget(self.run_fastsurfer_cb)
 
-        # Parallel processing with checkbox and cores input on same line
-        parallel_layout = QtWidgets.QHBoxLayout()
-        self.parallel_cb = QtWidgets.QCheckBox("Run recon-all in parallel")
-        self.parallel_cb.setEnabled(True)
-        parallel_layout.addWidget(self.parallel_cb, 0)
+        # Thread count for the inference, on the same line.
+        threads_layout = QtWidgets.QHBoxLayout()
+        threads_label = QtWidgets.QLabel("FastSurfer threads")
+        threads_layout.addWidget(threads_label, 0)
 
         available_cores = multiprocessing.cpu_count()
-        self.cores_spin = QtWidgets.QSpinBox()
-        self.cores_spin.setRange(1, available_cores)
-        self.cores_spin.setValue(available_cores)
-        self.cores_spin.setFixedWidth(60)
-        parallel_layout.addWidget(self.cores_spin, 0)
-        parallel_layout.addStretch(1)
-        options_group_layout.addLayout(parallel_layout)
+        self.threads_spin = QtWidgets.QSpinBox()
+        self.threads_spin.setRange(1, available_cores)
+        self.threads_spin.setValue(min(FASTSURFER_DEFAULT_THREADS, available_cores))
+        self.threads_spin.setFixedWidth(60)
+        threads_layout.addWidget(self.threads_spin, 0)
+        threads_layout.addStretch(1)
+        options_group_layout.addLayout(threads_layout)
 
-        # Add small comment below
-        parallel_comment = QtWidgets.QLabel(
-            f"   {available_cores} cores available; parallel mode runs multiple subjects via Python threads"
+        threads_comment = QtWidgets.QLabel(
+            f"   {available_cores} cores available; subjects are processed one at a time"
         )
-        parallel_comment.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
-        options_group_layout.addWidget(parallel_comment)
+        threads_comment.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
+        options_group_layout.addWidget(threads_comment)
 
         log_hint = QtWidgets.QLabel(
             "Troubleshooting logs: derivatives/ti-toolbox/logs/sub-{subject}/"
@@ -209,11 +212,8 @@ class PreProcessTab(QtWidgets.QWidget):
         log_hint.setStyleSheet(f"color: #888888; font-size: {FONT_SM};")
         options_group_layout.addWidget(log_hint)
 
-        # Enable spinbox based on checkbox
-        self.parallel_cb.toggled.connect(
-            lambda checked: self.cores_spin.setEnabled(checked)
-        )
-        self.cores_spin.setEnabled(self.parallel_cb.isChecked())
+        self.run_fastsurfer_cb.toggled.connect(self.threads_spin.setEnabled)
+        self.threads_spin.setEnabled(self.run_fastsurfer_cb.isChecked())
 
         self.create_m2m_cb = QtWidgets.QCheckBox("Create SimNIBS m2m folder")
         self.create_m2m_cb.setChecked(True)
@@ -391,8 +391,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.select_none_btn.setEnabled(not is_processing)
         self.refresh_subjects_btn.setEnabled(not is_processing)
         self.convert_dicom_cb.setEnabled(not is_processing)
-        self.run_recon_cb.setEnabled(not is_processing)
-        self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
+        self.run_fastsurfer_cb.setEnabled(not is_processing)
+        self.threads_spin.setEnabled(
+            not is_processing and self.run_fastsurfer_cb.isChecked()
+        )
         self.create_m2m_cb.setEnabled(not is_processing)
         self.run_tissue_analyzer_cb.setEnabled(not is_processing)
 
@@ -444,7 +446,7 @@ class PreProcessTab(QtWidgets.QWidget):
             selected_subjects,
             convert_dicom=self.convert_dicom_cb.isChecked(),
             create_m2m=self.create_m2m_cb.isChecked(),
-            run_recon=self.run_recon_cb.isChecked(),
+            run_fastsurfer=self.run_fastsurfer_cb.isChecked(),
             run_qsiprep=self.run_qsiprep_cb.isChecked(),
             run_qsirecon=self.run_qsirecon_cb.isChecked(),
             extract_dti=self.extract_dti_cb.isChecked(),
@@ -474,7 +476,7 @@ class PreProcessTab(QtWidgets.QWidget):
             selected_subjects,
             convert_dicom=self.convert_dicom_cb.isChecked(),
             create_m2m=self.create_m2m_cb.isChecked(),
-            run_recon=self.run_recon_cb.isChecked(),
+            run_fastsurfer=self.run_fastsurfer_cb.isChecked(),
             run_qsiprep=self.run_qsiprep_cb.isChecked(),
             run_qsirecon=self.run_qsirecon_cb.isChecked(),
             extract_dti=self.extract_dti_cb.isChecked(),
@@ -534,15 +536,6 @@ class PreProcessTab(QtWidgets.QWidget):
             )
             return
 
-        # Validate options
-        if self.parallel_cb.isChecked() and not self.run_recon_cb.isChecked():
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Invalid Options",
-                "Parallel mode requires recon-all to be enabled.",
-            )
-            return
-
         # Check if tissue analyzer is enabled but m2m folders are missing
         if (
             self.run_tissue_analyzer_cb.isChecked()
@@ -585,11 +578,6 @@ class PreProcessTab(QtWidgets.QWidget):
             if self.convert_dicom_cb.isChecked()
             else "No"
         )
-        parallel_text = (
-            "Yes (multiple subjects via ThreadPoolExecutor)"
-            if self.parallel_cb.isChecked()
-            else "No"
-        )
         existing_outputs_text = "Block"
         if replace_existing_outputs:
             existing_outputs_text = "Replace and rerun"
@@ -600,8 +588,8 @@ class PreProcessTab(QtWidgets.QWidget):
             f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n"
             + f"- Convert DICOM: {convert_dicom_text}\n"
             + f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n"
-            + f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
-            + f"- Parallel processing: {parallel_text}\n"
+            + f"- Run FastSurfer: {'Yes' if self.run_fastsurfer_cb.isChecked() else 'No'}\n"
+            + f"- FastSurfer threads: {self.threads_spin.value()}\n"
             + f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n"
             + f"- Run QSIPrep: {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n"
             + f"- Run QSIRecon: {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n"
@@ -630,9 +618,11 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(
             f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", "debug"
         )
-        self.update_output(f"- Run recon-all: {self.run_recon_cb.isChecked()}", "debug")
         self.update_output(
-            f"- Parallel processing: {self.parallel_cb.isChecked()}", "debug"
+            f"- Run FastSurfer: {self.run_fastsurfer_cb.isChecked()}", "debug"
+        )
+        self.update_output(
+            f"- FastSurfer threads: {self.threads_spin.value()}", "debug"
         )
         self.update_output(
             "Logs are saved under derivatives/ti-toolbox/logs/sub-{subject}/",
@@ -662,9 +652,8 @@ class PreProcessTab(QtWidgets.QWidget):
             "project_dir": self.project_dir,
             "subject_ids": selected_subjects,
             "convert_dicom": self.convert_dicom_cb.isChecked(),
-            "run_recon": self.run_recon_cb.isChecked(),
-            "parallel_recon": self.parallel_cb.isChecked(),
-            "parallel_cores": self.cores_spin.value(),
+            "run_fastsurfer": self.run_fastsurfer_cb.isChecked(),
+            "fastsurfer_threads": self.threads_spin.value(),
             "create_m2m": self.create_m2m_cb.isChecked(),
             "run_tissue_analysis": self.run_tissue_analyzer_cb.isChecked(),
             "run_qsiprep": self.run_qsiprep_cb.isChecked(),

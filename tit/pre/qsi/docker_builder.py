@@ -8,12 +8,19 @@ This module constructs Docker run commands for QSIPrep and QSIRecon,
 handling volume mounts, resource allocation, and pipeline arguments.
 """
 
+import os
 import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 from tit import constants as const
+
+# Mirrors tit.jobs.runner.ENV_JOB_ID. Not imported directly: tit.jobs already imports
+# tit.pre.config (tit/jobs/plans.py), so tit.pre importing back from tit.jobs would cycle the
+# two packages at import time -- tit.pre stays the lower layer, tit.jobs the orchestration
+# layer that spawns it, matching every other module boundary in this repo (N0.6 spike).
+_JOB_ID_ENV_VAR = "TIT_JOB_ID"
 
 # Custom pipeline YAMLs shipped in resources/qsirecon_pipelines/.
 # These work around upstream QSIRecon bugs or missing features.
@@ -57,6 +64,30 @@ class DockerPaths:
     output_dir: str = "/out"
     work_dir: str = "/work"
     license_file: str = "/opt/freesurfer/license.txt"
+
+
+def resolve_fs_license_path() -> Path | None:
+    """Return a readable FreeSurfer license file, or ``None``.
+
+    The only FreeSurfer license consumer left in the toolbox: QSIPrep and
+    QSIRecon run FreeSurfer *inside their own* pennlinc images for the
+    anatomically-constrained recon specs, and refuse to start without a
+    license. TI-Toolbox's own pipeline needs none.
+
+    Resolution order: ``$FS_LICENSE`` (what FreeSurfer itself reads, so a
+    user who already has one set needs no extra configuration), then
+    :data:`tit.constants.FS_LICENSE_PATH`. A missing file is not an error --
+    the caller simply omits the license mount, and only ACT recon specs
+    fail, with QSIPrep's own message.
+    """
+    candidates = [os.environ.get("FS_LICENSE"), const.FS_LICENSE_PATH]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.is_file():
+            return path
+    return None
 
 
 class DockerCommandBuilder:
@@ -103,10 +134,29 @@ class DockerCommandBuilder:
         self._host_project_dir = get_host_project_dir()
         self._host_license_path = self._stage_fs_license()
 
+    def _label_args(self, kind: str) -> list[str]:
+        """``--label`` argv fragments identifying this sibling container to
+        ``tit/jobs/runner.py``'s ``stop_docker_siblings(job_id)`` (N0.6 spike -- previously no
+        ``--label`` was ever emitted here, so a cancelled QSIPrep/QSIRecon job's sibling
+        container was never found and never stopped: dead code, not merely untested).
+
+        ``tit.job_id`` is read from the environment because the QSI Docker builder runs *inside*
+        the "pre" job's own process (spawned by ``tit/jobs/runner.py``'s ``LocalPopenRunner``
+        with ``runner_env(job_id=...)``, which already sets this exact env var) -- i.e. this is
+        the same top-level job id ``JobManager.cancel()`` later passes to
+        ``stop_docker_siblings``. Omitted (only ``tit.kind`` is set) when the env var isn't
+        present, e.g. this builder invoked outside a job (a script, a test).
+        """
+        labels = ["--label", f"tit.kind={kind}"]
+        job_id = os.environ.get(_JOB_ID_ENV_VAR)
+        if job_id:
+            labels.extend(["--label", f"tit.job_id={job_id}"])
+        return labels
+
     def _stage_fs_license(self) -> str | None:
         """Copy the FreeSurfer license into the project dir for DooD siblings."""
-        src = Path(const.FS_LICENSE_PATH)
-        if not src.is_file():
+        src = resolve_fs_license_path()
+        if src is None:
             return None
         dest = Path(self.project_dir) / ".freesurfer_license.txt"
         shutil.copy2(src, dest)
@@ -171,6 +221,7 @@ class DockerCommandBuilder:
             "linux/amd64",
             "--name",
             f"qsiprep_{config.subject_id}_{uuid.uuid4().hex[:8]}",
+            *self._label_args("qsiprep"),
         ]
 
         # Resource limits
@@ -272,6 +323,7 @@ class DockerCommandBuilder:
             "linux/amd64",
             "--name",
             f"qsirecon_{config.subject_id}_{recon_spec.replace('-', '_')}_{uuid.uuid4().hex[:8]}",
+            *self._label_args("qsirecon"),
         ]
 
         if config.use_gpu:

@@ -1,0 +1,59 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    // "node" is needed for tests/unit/*.test.ts, which use node:fs/node:path/__dirname to read
+    // contracts/schema.json from disk (see e.g. tests/unit/simulator-defaults.test.ts) — src/
+    // itself never imports a node builtin, so this does not weaken strictness there, only adds
+    // ambient node globals/module declarations to the compilation unit as a whole. Kept in this
+    // one config (rather than a separate tests/tsconfig.test.json) because `npm run typecheck`
+    // invokes tsconfig.node.json and tsconfig.web.json directly, not via project-reference build,
+    // so a third config would need a `tsc -p` invocation nothing currently makes.
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/renderer/**/*.ts",
+    "src/renderer/**/*.tsx",
+    "src/shared/**/*.ts",
+    "src/main/window.ts",
+    // nativeRuntime.ts (N0.4 spike) is unit-tested directly (tests/unit/nativeRuntime.test.ts,
+    // same rationale as window.ts above) — composite projects require every transitively-imported
+    // file to match an include pattern, so its own main/-local imports need listing too, even
+    // though the ones that reach into "electron" (health.ts, log.ts) are never actually exercised
+    // by the pure-function tests that import this file (see nativeRuntime.test.ts's file doc).
+    "src/main/nativeRuntime.ts",
+    "src/main/health.ts",
+    "src/main/log.ts",
+    "src/main/port.ts",
+    // docker/{engine,discover,frames}.ts (N0.3 spike) are unit-tested directly
+    // (tests/unit/docker-engine*.test.ts), same "composite requires every transitively-imported
+    // file to match an include pattern" reason as the entries above.
+    "src/main/docker/**/*.ts",
+    // stack.ts's pure decisions (resolveRepoDir / sameHostDir / decideAttach) are unit-tested
+    // directly in tests/unit/docker-stack.test.ts — same reason again, plus its two remaining
+    // main/-local imports.
+    "src/main/stack.ts",
+    "src/main/hostInfo.ts",
+    "src/main/userConfig.ts",
+    // scripts/dev*.ts: the dev-mode entry point and the two pure modules tests/unit/dev-*.test.ts
+    // exercise (the dotenv/env resolution and the Vite proxy factory). Composite projects require
+    // every transitively-imported file to match an include pattern, which is also why
+    // src/main/stack.ts and src/main/docker/** above are listed.
+    "scripts/**/*.ts",
+    "tests/unit/**/*.ts",
+    "tests/unit/**/*.tsx",
+    "tests/e2e/**/*.ts"
+  ]
+}

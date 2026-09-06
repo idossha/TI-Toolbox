@@ -1018,13 +1018,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         from tit.atlas import VoxelAtlasManager
 
         mgr = VoxelAtlasManager(
+            fastsurfer_mri_dir=self.pm.fastsurfer_mri(subject_id),
             freesurfer_mri_dir=self.pm.freesurfer_mri(subject_id),
             seg_dir=self.pm.segmentation(subject_id),
             masks_dir=self.pm.masks(subject_id),
         )
         results = mgr.list_atlases()
         if not results:
-            return ["FreeSurfer recon-all preprocessing required for atlas generation"]
+            return ["FastSurfer segmentation required for atlas generation"]
         return results
 
     def update_atlas_combo(self):
@@ -1064,7 +1065,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_combo.addItem("Select a subject first")
             self.atlas_combo.setEnabled(False)
             self.atlas_warning_label.setText(
-                "<i>*Please run FreeSurfer recon-all in the Preprocessing tab to enable voxel cortical analysis.*</i>"
+                "<i>*Please run FastSurfer segmentation in the Preprocessing tab to enable voxel cortical analysis.*</i>"
             )
             self.atlas_warning_label.setVisible(True)
             # Update all related controls
@@ -1115,7 +1116,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Update warning label visibility
         if requires_atlas and not has_valid_atlas:
             self.atlas_warning_label.setText(
-                "<i>*Please run FreeSurfer recon-all in the Preprocessing tab to enable voxel cortical analysis.*</i>"
+                "<i>*Please run FastSurfer segmentation in the Preprocessing tab to enable voxel cortical analysis.*</i>"
             )
             self.atlas_warning_label.setVisible(True)
         else:

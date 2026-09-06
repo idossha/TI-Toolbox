@@ -17,6 +17,7 @@ from tit.atlas import MNI_ATLAS_DIR, MeshAtlasManager, VoxelAtlasManager
 from tit.gui.components.atlas_region_finder import AtlasRegionFinderDialog
 from tit.gui.components.region_chips import RegionChipsWidget
 from tit.opt.config import FlexConfig
+from tit.opt.roi_spec import resolve_volume_atlas_path
 
 
 class ROIPickerWidget(QtWidgets.QWidget):
@@ -1168,6 +1169,7 @@ class ROIPickerWidget(QtWidgets.QWidget):
                     return
                 seg_dir = str(Path(m2m_dir) / "segmentation")
                 voxel_mgr = VoxelAtlasManager(
+                    fastsurfer_mri_dir=pm.fastsurfer_mri(self._subject_id),
                     freesurfer_mri_dir=pm.freesurfer_mri(self._subject_id),
                     seg_dir=seg_dir,
                     masks_dir=pm.masks(self._subject_id),
@@ -1195,7 +1197,14 @@ class ROIPickerWidget(QtWidgets.QWidget):
             return os.path.join(seg_dir, atlas_filename)
 
         pm = get_path_manager()
-        return os.path.join(pm.freesurfer_mri(subject_id), atlas_filename)
+        return resolve_volume_atlas_path(
+            subject_id=subject_id,
+            seg_dir=seg_dir,
+            fastsurfer_mri_dir=pm.fastsurfer_mri(subject_id),
+            freesurfer_mri_dir=pm.freesurfer_mri(subject_id),
+            atlas_filename=atlas_filename,
+            atlas_space="subject",
+        )
 
     def _mni_atlas_dir(self) -> str:
         if os.path.isdir(MNI_ATLAS_DIR):

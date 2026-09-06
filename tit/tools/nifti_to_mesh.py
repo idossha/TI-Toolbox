@@ -291,6 +291,34 @@ def save_gmsh(verts, faces, filename):
         f.write("$EndElements\n")
 
 
+def _report_job_outputs(result: dict) -> None:
+    """Announce the mesh this run wrote to the job manager, if we are inside a job.
+
+    ``tools`` jobs take argv rather than a spec.json (``tit.jobs.kinds``), so there is no
+    shared runner wrapper that could report for them -- each tool script reports its own
+    outputs through the same ``tit.jobs.events`` contract every other runner uses. A no-op
+    outside a job (``tit.jobs.events`` writes nothing unless ``$TIT_EVENTS_FILE`` is set),
+    and never fatal: the mesh is already on disk by the time this runs, so a bookkeeping
+    failure must not turn a finished conversion into a failed job.
+    """
+    try:
+        from tit.jobs import events
+
+        output = result.get("output_file")
+        if output:
+            events.emit_artifact(str(output), kind="mesh", label="surface mesh")
+        events.emit_result(
+            {
+                "success": True,
+                "output_file": output,
+                "vertices": result.get("vertices"),
+                "faces": result.get("faces"),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - the mesh is written; reporting is extra
+        print(f"artifact reporting skipped: {exc}", file=sys.stderr)
+
+
 def main():
     """Command-line entry point for NIfTI-to-mesh conversion."""
     parser = argparse.ArgumentParser(
@@ -336,6 +364,8 @@ Supported output formats: .stl (binary STL), .msh (Gmsh ASCII)
             clean_components=args.clean,
             clean_threshold=args.clean_threshold,
         )
+
+        _report_job_outputs(result)
 
         if args.verbose:
             print(f"Input file: {args.input}")

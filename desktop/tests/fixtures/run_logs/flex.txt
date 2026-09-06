@@ -1,0 +1,5 @@
+2026-08-29 10:15:00 INFO tit.opt.flex: started flex search for sub-ernie
+2026-08-29 10:16:20 INFO leadfield: loaded EGI256 leadfield
+2026-08-29 10:24:45 INFO roi: resolved thalamus ROI
+2026-08-29 10:38:10 WARNING search: population converged early
+2026-08-29 10:44:31 INFO tit.opt.flex: wrote optimized montage and summary.csv

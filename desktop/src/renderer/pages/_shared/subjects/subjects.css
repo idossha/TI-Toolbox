@@ -1,0 +1,121 @@
+/* The one subject control (plan §3). Geometry only — every colour is a token, and the type steps
+   are DESIGN.md §3.2's (12px floor: the reason line is 12px, never 11px + --ink-3). */
+
+.subjects-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The collapsed state is ONE row: measured as the cheapest chrome that still states the whole
+   selection (Simulator's own note — a collapsed FormSection's header + padding cost enough
+   headroom that a 4-pair mTI montage editor's last row landed under the sticky action bar). */
+/* The same 28px header band every `FormSection` on the page now draws (`.form-section-header`,
+ * components.css). J2 says Subjects is the FIRST section of every run page; before this it was the
+ * only one that did not look like one — a bare row of text above a stack of banded headers. Same
+ * geometry, same token, so the page reads as one stack. */
+.subjects-field-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  min-height: var(--section-header-h);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.subjects-field-title {
+  flex: none;
+}
+.subjects-field-head > .btn {
+  flex: none;
+}
+.subjects-field-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.subjects-field-summary .mono {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.subjects-field-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.subjects-field-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.subjects-field-filter {
+  flex: 1;
+  min-width: 0;
+}
+
+/* `.subject-picker-row` is `display: flex` in components.css (it was a <label> row there). These
+   rows are <tr>s of the shared `.run-subject-table`, so the element+class selector wins the
+   cascade and keeps them table rows. The class stays because it is the vocabulary every existing
+   spec — mock and real — already locates a subject row by. */
+tr.subject-picker-row {
+  display: table-row;
+  padding: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+tr.subject-picker-row:hover {
+  background: var(--accent-soft);
+}
+/* An ineligible row is still tickable (its reason is what the Run button then prints), so it
+   keeps the pointer and the hover — only its id is muted, next to the reason. */
+tr.subject-picker-row[data-eligible="false"] .subjects-field-id {
+  color: var(--ink-2);
+}
+
+.subjects-field-rows .subjects-field-check {
+  width: 24px;
+  padding-right: 0;
+}
+.subjects-field-id {
+  font-family: var(--font-mono);
+}
+/* The reason a subject cannot be used: 12px, --ink-2, never truncated to a tooltip — it is the
+   same sentence the action bar prints, and the row is where a user is deciding. */
+.subjects-field-reason {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* `fill`: the control and its body become the column the scroll box grows inside. Scoped to the
+   attribute rather than to a page, so the one page whose job is choosing subjects gets the room
+   and every other page keeps the 176px default (`pages/_shared/run/run.css`). */
+.subjects-field[data-fill="true"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.subjects-field[data-fill="true"] .subjects-field-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* `fill` reaches the scroll box through the shared list now (`ui/SelectionList`): the control, its
+   body, the list and the list's scroll box are one flex column, so the room the page measured is
+   the height the rows get. Without this the list box kept its own 176px default and the Source
+   panel's table stopped at 113px of an 800px column (measured, `tests/e2e/table-room.spec.ts`). */
+.subjects-field[data-fill="true"] .selection {
+  flex: 1;
+  min-height: 0;
+}

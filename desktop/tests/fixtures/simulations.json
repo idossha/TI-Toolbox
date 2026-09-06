@@ -1,0 +1,73 @@
+{
+  "ernie": [
+    {
+      "name": "Thalamus",
+      "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus",
+      "has_ti": true,
+      "has_mti": false,
+      "montages": ["F3_F4"],
+      "fields": ["TI_max", "TI_normal", "TI_avg", "hf_peak", "hf_sar"],
+      "space": ["subject", "mni"],
+      "report_ids": ["ernie-thalamus-2026-08-01"],
+      "niftis": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/subject_overlays/ernie_TI_max.nii.gz", "field": "TI_max", "space": "subject", "tissue": null },
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/mni_overlays/ernie_TI_max_MNI.nii.gz", "field": "TI_max", "space": "mni", "tissue": null }
+      ],
+      "meshes": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/mesh/ernie_TI.msh", "kind": "ti" }
+      ]
+    },
+    {
+      "name": "L_Insula",
+      "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula",
+      "has_ti": true,
+      "has_mti": false,
+      "montages": ["E37_E18"],
+      "fields": ["TI_max", "TI_normal", "TI_avg"],
+      "space": ["subject"],
+      "report_ids": ["ernie-l_insula-2026-08-10"],
+      "niftis": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/subject_overlays/ernie_TI_max.nii.gz", "field": "TI_max", "space": "subject", "tissue": null }
+      ],
+      "meshes": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/mesh/ernie_TI.msh", "kind": "ti" }
+      ]
+    },
+    {
+      "name": "docs_example",
+      "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example",
+      "has_ti": false,
+      "has_mti": true,
+      "montages": ["mTI_F3F4_P3P4"],
+      "fields": ["mTI_max", "hf_peak", "hf_sar"],
+      "space": ["subject", "mni"],
+      "report_ids": ["ernie-docs_example-2026-07-20"],
+      "niftis": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/mTI/subject_overlays/ernie_mTI_max.nii.gz", "field": "mTI_max", "space": "subject", "tissue": null },
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/mTI/mni_overlays/ernie_mTI_max_MNI.nii.gz", "field": "mTI_max", "space": "mni", "tissue": null }
+      ],
+      "meshes": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/mTI/mesh/ernie_mTI.msh", "kind": "mti" }
+      ]
+    }
+  ],
+  "101": [
+    {
+      "name": "Thalamus",
+      "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus",
+      "has_ti": true,
+      "has_mti": false,
+      "montages": ["F3_F4"],
+      "fields": ["TI_max", "TI_normal"],
+      "space": ["subject"],
+      "report_ids": ["101-thalamus-2026-08-05"],
+      "niftis": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/TI/subject_overlays/101_TI_max.nii.gz", "field": "TI_max", "space": "subject", "tissue": null }
+      ],
+      "meshes": [
+        { "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/TI/mesh/101_TI.msh", "kind": "ti" }
+      ]
+    }
+  ],
+  "MNI152": []
+}

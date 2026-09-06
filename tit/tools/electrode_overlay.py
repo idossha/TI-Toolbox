@@ -1,5 +1,14 @@
 #!/usr/bin/env simnibs_python
-"""Create NIfTI electrode placement overlays from simulation configs."""
+"""Create NIfTI electrode placement overlays from simulation configs.
+
+Run as a ``tools`` job (``simnibs_python -m tit.tools.electrode_overlay <args>``) this
+module reports the two files it writes through ``tit.jobs.events``, the same
+``emit_artifact``/``emit_result`` contract every other runner uses -- see
+:func:`_report_job_outputs`. A ``tools`` job takes argv rather than a spec.json, so there
+is no shared runner wrapper to do it: each tool script reports its own outputs. Before
+this, a finished ``tools`` job reported ``artifacts: []`` and the Jobs rail and Results
+had nothing to link (job ``0465e86914a94ea4``).
+"""
 
 from __future__ import annotations
 
@@ -46,8 +55,7 @@ def _montage_color_names() -> list[str]:
 def _as_xyz(value: Any) -> tuple[float, float, float]:
     if not isinstance(value, (list, tuple)) or len(value) != 3:
         raise ValueError(
-            "Electrode overlay requires XYZ coordinate electrodes; "
-            f"got {value!r}"
+            "Electrode overlay requires XYZ coordinate electrodes; " f"got {value!r}"
         )
     try:
         return (float(value[0]), float(value[1]), float(value[2]))
@@ -102,7 +110,7 @@ def _extract_pair_positions(
 
 
 def _group_flat_positions(
-    positions: list[tuple[float, float, float]]
+    positions: list[tuple[float, float, float]],
 ) -> list[list[tuple[float, float, float]]]:
     if len(positions) % 2:
         raise ValueError(
@@ -117,9 +125,7 @@ def _extract_position_pairs(
     montage_name: str | None = None,
     eeg_positions_dir: str | Path | None = None,
 ) -> list[list[tuple[float, float, float]]]:
-    eeg_positions = _load_eeg_positions(
-        eeg_positions_dir, config_data.get("eeg_net")
-    )
+    eeg_positions = _load_eeg_positions(eeg_positions_dir, config_data.get("eeg_net"))
 
     for key in (
         "electrode_positions",
@@ -180,7 +186,9 @@ def _extract_xyz_positions(
 ) -> list[tuple[float, float, float]]:
     return [
         position
-        for pair in _extract_position_pairs(config_data, montage_name, eeg_positions_dir)
+        for pair in _extract_position_pairs(
+            config_data, montage_name, eeg_positions_dir
+        )
         for position in pair
     ]
 
@@ -270,6 +278,16 @@ def electrode_overlay_lut_path(output_path: str | Path) -> Path:
 
 
 def write_electrode_overlay_lut(path: str | Path, num_pairs: int) -> str:
+    """Write the FreeSurfer-shaped channel LUT beside an electrode overlay.
+
+    The last column is alpha. Freeview reads it as *transparency* (0 = opaque)
+    and so was happy with 0; every other LUT consumer -- the in-app viewer
+    included -- reads a FreeSurfer LUT's fourth colour column as *opacity* and
+    multiplies it into the palette, which made every electrode invisible
+    (r1 §10.5.1). 255 is opaque under both readings: Freeview clamps a
+    transparency above its range to fully opaque, which is what these markers
+    were always meant to be.
+    """
     color_names = _montage_color_names()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -278,7 +296,7 @@ def write_electrode_overlay_lut(path: str | Path, num_pairs: int) -> str:
         for idx in range(1, num_pairs + 1):
             color_name = color_names[(idx - 1) % len(color_names)]
             red, green, blue = _MONTAGE_COLOR_RGB.get(color_name, (220, 220, 220))
-            f.write(f"{idx} Channel_{idx} {red} {green} {blue} 0\n")
+            f.write(f"{idx} Channel_{idx} {red} {green} {blue} 255\n")
     return str(path)
 
 
@@ -350,6 +368,25 @@ def simulation_config_has_xyz_electrodes(
     return True
 
 
+def _report_job_outputs(overlay_path: str) -> None:
+    """Announce the overlay and its LUT to the job manager, if we are inside a job.
+
+    A no-op outside one (``tit.jobs.events`` writes nothing unless ``$TIT_EVENTS_FILE``
+    is set), and never fatal: the overlay is already on disk by the time this runs, so a
+    bookkeeping failure must not turn a finished export into a failed job.
+    """
+    try:
+        from tit.jobs import events
+
+        events.emit_artifact(overlay_path, kind="nifti", label="electrode overlay")
+        lut = electrode_overlay_lut_path(overlay_path)
+        if lut.is_file():
+            events.emit_artifact(str(lut), kind="txt", label="overlay colour table")
+        events.emit_result({"success": True, "overlay": overlay_path})
+    except Exception as exc:  # noqa: BLE001 - the file is written; reporting is extra
+        print(f"artifact reporting skipped: {exc}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Create a NIfTI electrode placement overlay from a simulation config."
@@ -367,13 +404,14 @@ def main(argv: list[str] | None = None) -> None:
         help="Directory containing EEG cap CSVs, or a direct EEG positions CSV path",
     )
     args = parser.parse_args(argv)
-    create_electrode_overlay_nifti(
+    overlay_path = create_electrode_overlay_nifti(
         args.config,
         args.reference,
         args.output,
         montage_name=args.montage_name,
         eeg_positions_dir=args.eeg_positions_dir,
     )
+    _report_job_outputs(overlay_path)
 
 
 if __name__ == "__main__":

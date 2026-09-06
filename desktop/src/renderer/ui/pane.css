@@ -1,0 +1,66 @@
+/**
+ * The resizable / collapsible / expandable right pane (program U13). Imported by `ui/Layout.tsx`,
+ * beside the base `.page-layout-inspector-handle` rule that already lives in `ui/components.css`
+ * (shared by several lanes) — this file only adds the three states that file does not know about,
+ * so the shared stylesheet keeps one definition of the 6 px grab strip.
+ */
+
+/* The separator is the same 6px strip as before while the pane is open; the modifiers below are
+ * the only geometry this file owns. Selectors are one class deeper than `components.css`'s so the
+ * cascade never depends on which stylesheet the bundler emitted first. */
+.page-layout .pane-separator,
+.jobs-page .pane-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+}
+
+/* Hidden panes retain their DOM but occupy no layout or keyboard space. These author rules beat
+ * the base flex display rules, which would otherwise override the browser's [hidden] default. */
+.page-layout .page-layout-main[hidden],
+.page-layout .page-layout-panel[hidden],
+.resizable-panels > .resizable-panel[hidden],
+.resizable-panels > .resizable-handle[hidden] {
+  display: none;
+}
+
+/* Collapsed: the pane itself is off screen, so the divider becomes the affordance that brings it
+ * back — 16px of clickable rail with a chevron, which is the only thing on screen that can say
+ * "there is a pane here" once the pane is hidden. */
+.page-layout .pane-separator[data-pane-mode="collapsed"],
+.jobs-page .pane-separator[data-pane-mode="collapsed"] {
+  width: 16px;
+  cursor: pointer;
+  border-left: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.page-layout .pane-separator[data-pane-mode="collapsed"]::after,
+.jobs-page .pane-separator[data-pane-mode="collapsed"]::after {
+  content: none;
+}
+.page-layout .pane-separator[data-pane-mode="collapsed"]:hover,
+.jobs-page .pane-separator[data-pane-mode="collapsed"]:hover {
+  color: var(--ink);
+  border-left-color: var(--line-strong);
+}
+
+/* Expanded: the pane is the content box. `width` beats both `[data-pane-kind="preview"]`'s
+ * percentage and `[data-pane-width="fixed"]`'s custom property because this selector carries one
+ * more class; the border-left would otherwise draw a rule against the shell's own edge. */
+.page-layout .page-layout-panel[data-pane-width="expanded"] {
+  width: 100%;
+  flex: 1 1 auto;
+  border-left: 0;
+  padding-left: 0;
+}
+
+/* The pane header's own controls (collapse chevron, expand/restore). A pane header is a 28px row
+ * the page owns, so this only pins the buttons to its right edge. */
+.pane-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex: none;
+}

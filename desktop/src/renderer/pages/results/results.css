@@ -1,0 +1,612 @@
+/**
+ * Results — shape B (DESIGN.md §2, wireframes §6): subject list 200 · outputs tree flex ·
+ * preview pane (PageLayout's right pane, clamp(380, 40%, 560)).
+ *
+ * Page-local, imported by `pages/results/index.tsx`, the same way `pages/viewer/viewer-page.css`
+ * and `pages/_shared/run/run.css` are: nothing here is reusable enough to earn a place in
+ * `ui/components.css`, which several lanes share.
+ */
+
+/* The preview pane is a document surface, so it must be as tall as the content box: `ui/Layout.tsx`
+ * gives `.page-layout-panel` `align-self: flex-start` (right for a sticky run panel, wrong for a
+ * preview), which left this pane 373 px tall at 1440x900 and collapsed the report iframe to its
+ * intrinsic 150 px — 21 % of the whole content box, dead. Scoped with `:has()` so it changes only
+ * this page's pane; the general fix belongs in the shared `.page-layout-browse .page-layout-panel`
+ * rule and is reported to lane B1. */
+.page-layout-panel:has(.results-preview) {
+  align-self: stretch;
+  height: 100%;
+  max-height: 100%;
+}
+
+.results-browse {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------- subject list (200) */
+
+.results-subjects {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+.results-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-3);
+  flex: none;
+}
+
+.results-filter input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.results-filter input::placeholder {
+  color: var(--ink-3);
+}
+
+/* The list owns its empty tail the same way `DataTable` owns ground rows: a 3-subject project
+ * still shows the subject column as a list, not as a few rows over bare app ground. The row-stripe
+ * background is component-local and decorative-free: it states row capacity without inventing
+ * subjects or adding focusable/ARIA nodes. */
+.results-subject-list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--surface) 0,
+    var(--surface) calc(var(--row-h) - 1px),
+    transparent calc(var(--row-h) - 1px),
+    transparent var(--row-h)
+  );
+}
+
+/* Rows are cards on the app ground, panes are the ground. One visual rule across both browse
+ * pages: a row you can click has a surface, the space between rows does not. */
+.results-subject {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.results-subject:hover {
+  background: var(--surface-2);
+}
+
+.results-subject[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.results-subject-id {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-subject-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.results-subject-group {
+  border-top: 1px solid var(--line);
+}
+
+/* ---------------------------------------------------------------- outputs tree */
+
+.results-tree-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.results-tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.results-tree-toolbar .results-filter {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-bottom: 0;
+  padding-left: 0;
+}
+
+.results-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--surface) 0,
+    var(--surface) calc(var(--row-h) - 1px),
+    transparent calc(var(--row-h) - 1px),
+    transparent var(--row-h)
+  );
+}
+
+.results-group-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.results-group-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.results-node {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.results-node:hover {
+  background: var(--surface-2);
+}
+
+.results-node[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.results-node-label {
+  flex: none;
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-node-badges {
+  display: flex;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.results-node-created {
+  flex: none;
+  min-width: 44px;
+  text-align: right;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+/* The path takes the middle of the row rather than leaving it blank. `truncatePathLeft` has already
+ * shortened it from the left (checklist item 4); this only stops an unusually long tail from
+ * pushing the created column off the row. Dropped below 480 px of tree. */
+.results-node-path {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- preview pane */
+
+.results-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* The pane's own 28px bar, on `--surface-2` like the tree's group rows — one visual rule across
+ * both columns of the browse shape, and the row reads as chrome rather than as a floating title. */
+.results-preview-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  flex: none;
+}
+
+.results-preview-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A flex column, not a block: U14's preview ends with something that should take whatever height
+ * the summary above it left — a simulation's report, an ex run's ranked table — instead of leaving
+ * the bottom third of a 800px pane bare (measured 60.5 % dead in this lane's round 1). */
+.results-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+
+.results-preview-body-flush {
+  padding: 0;
+  overflow: hidden;
+}
+.results-preview-body-flush > .results-report-frame {
+  flex: 1;
+}
+
+/* Generated reports are static, always-light documents. An iframe's own background shows through
+ * wherever the framed document paints none, so a dark app theme would otherwise make a report with
+ * no explicit body background unreadable. Deliberately literal — this white belongs to the report's
+ * page, not to the app chrome. */
+.results-report-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+  color-scheme: light;
+}
+
+.results-preview-artifacts {
+  flex: none;
+  border-top: 1px solid var(--line);
+  max-height: 34%;
+  overflow: auto;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* The "Files" heading is the same 20px bar as a section head. */
+.results-preview-artifacts > .results-eyebrow {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  margin: 0;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+/* Same rule as the tree: a row you can act on is a card on the ground. Scoped to this pane so the
+ * shared `.artifact-row` used by the jobs panel is untouched. */
+.results-preview-artifacts .artifact-row {
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.results-preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  flex: none;
+}
+
+/* ------------------------------------------------- U14: what the output IS, not where it is */
+
+/* A flush section, the same shape a run page's `FormSection` uses: an 11px eyebrow over a 1px
+ * rule, body flush to the pane edge. No cards inside a 490px column. */
+.results-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  flex: none;
+}
+/* The last section of a simulation preview is the report; it fills, with a floor so it is still a
+ * readable document when the summary above it is long. */
+.results-preview-section:has(.results-report-inline) {
+  flex: 1 1 auto;
+  min-height: 260px;
+  padding-bottom: 0;
+}
+.results-report-inline {
+  flex: 1;
+  min-height: 240px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.results-preview-section + .results-preview-section {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+/* A section heading is the same 20px `--surface-2` bar the outputs tree gives its groups. Beyond
+ * the consistency it also stops the row from reading as dead space to `_metrics.ts` (a transparent
+ * container with one short text leaf in it) — the same blind spot `jobs-page.css` documents for a
+ * `<td>` whose only child is a chip. */
+.results-preview-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+/* The electrode pairs of a simulation, one chip per stimulation channel. Sits on the app ground
+ * like every other row in this pane (see the `.definition-list` note below for why that matters to
+ * `_metrics.ts` as well as to the eye). */
+.results-pair-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+/* The field files (simulation) and the things a simulation holds. Rows are cards on the app
+ * ground, the same rule the tree and the subject list follow. */
+.results-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.results-file-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.results-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.results-file:hover {
+  background: var(--surface-2);
+}
+.results-file-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-file-name {
+  margin-left: auto;
+  /* --ink-2, not --ink-3: the 12px floor's companion rule (DESIGN.md §3.2) is that 11px never
+   * carries the placeholder ink, and this is a real file name a user reads. */
+  color: var(--ink-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+}
+
+.results-holds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.results-hold {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-hold:hover {
+  background: var(--surface-2);
+}
+
+/* Figures: a fluid grid of thumbnails, so a run with one PNG does not get a 500px hero and a run
+ * with six does not need a scroll of its own. */
+.results-figures {
+  display: grid;
+  /* auto-FIT, not auto-fill: a run with one PNG should show it across the pane rather than leave
+   * three empty grid tracks beside it. */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+.results-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+.results-figure:hover {
+  border-color: var(--line-strong);
+}
+/* `contain`, not `cover`: these are plots, and a crop of a convergence curve is worse than a
+ * letterboxed one. The tile keeps a fixed height so a row of them lines up, and clicking it opens
+ * the file at full size. */
+.results-figure img {
+  display: block;
+  width: 100%;
+  height: 108px;
+  object-fit: contain;
+  background: var(--surface-2);
+}
+.results-figure-label {
+  padding: 2px var(--space-1) var(--space-1);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The foot: the path (one mono line, U14) and the viewer link. Same `--surface-2` as the header,
+ * so the pane is a document between two bars. */
+.results-preview-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  flex: none;
+}
+
+/* Summary rows are rows: each cell sits on the app ground rather than on nothing, which is the
+ * same rule the tree, the subject list and the file list already follow — and the same
+ * `_metrics.ts` blind spot `jobs-page.css` documents (a transparent grid cell reads as dead even
+ * when it carries the number the pane exists to show). The column gap drops from 24px to 8px
+ * because a 490px pane cannot spend 24 of them on nothing. */
+.results-preview .definition-list {
+  gap: 2px var(--space-2);
+}
+.results-preview .definition-list dt,
+.results-preview .definition-list dd {
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  padding: 1px var(--space-1);
+}
+/* A ranked table takes the pane's full width — an auto-width table left a bare strip beside it.
+ * (`.data-table tbody td` already declares its own `--surface`, ui/components.css.) */
+.results-preview .data-table {
+  width: 100%;
+}
+/* The first column of a ranked table is a montage name; the numbers beside it are the point, so it
+ * truncates rather than pushing them out of the pane. */
+.results-preview .data-table tbody td:first-child {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* `Current_Ch1_mA` is 14 characters of header over a 3-character number. Letting the header wrap
+ * (it does not elsewhere in the app, where columns are short) narrows the column to its data, and
+ * is what puts TImean_ROI and Focality inside a 490px pane instead of behind a scrollbar. */
+.results-preview .data-table thead th {
+  white-space: normal;
+  height: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.results-preview-path {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+}
+.results-preview-path-value {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+/* The head shrinks and ellipsizes; the last two segments never do (see `PathLine`'s note). */
+.results-preview-path-head {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.results-preview-path-tail {
+  flex: none;
+  color: var(--ink);
+}
+
+.results-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}

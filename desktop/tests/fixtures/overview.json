@@ -1,0 +1,59 @@
+{
+  "subjects": [
+    {
+      "id": "ernie",
+      "raw": "present", "fastsurfer": "present", "freesurfer": "present", "m2m": "present",
+      "dwi": "present", "ct": "absent", "leadfield": "partial", "eeg_net": "present",
+      "leadfields": ["GSN-HydroCel-185"],
+      "eeg_nets": ["GSN-HydroCel-185", "EGI_template"],
+      "counts": { "simulations": 3, "optimizations": 2, "analyses": 4 },
+      "readiness": [
+        { "stage": "preprocess", "ready": true, "reason": null },
+        { "stage": "simulator", "ready": true, "reason": null },
+        { "stage": "optimizer", "ready": true, "reason": null },
+        { "stage": "analyzer", "ready": true, "reason": null }
+      ]
+    },
+    {
+      "id": "101",
+      "raw": "present", "fastsurfer": "absent", "freesurfer": "absent", "m2m": "present",
+      "dwi": "absent", "ct": "present", "leadfield": "absent", "eeg_net": "present",
+      "leadfields": [],
+      "eeg_nets": ["GSN-HydroCel-185"],
+      "counts": { "simulations": 1, "optimizations": 0, "analyses": 0 },
+      "readiness": [
+        { "stage": "preprocess", "ready": true, "reason": null },
+        { "stage": "simulator", "ready": true, "reason": null },
+        { "stage": "optimizer", "ready": false, "reason": "no leadfield" },
+        { "stage": "analyzer", "ready": true, "reason": null }
+      ]
+    },
+    {
+      "id": "MNI152",
+      "raw": "absent", "fastsurfer": "present", "freesurfer": "absent", "m2m": "present",
+      "dwi": "absent", "ct": "absent", "leadfield": "absent", "eeg_net": "present",
+      "leadfields": [],
+      "eeg_nets": ["GSN-HydroCel-185", "EGI_template"],
+      "counts": { "simulations": 0, "optimizations": 0, "analyses": 0 },
+      "readiness": [
+        { "stage": "preprocess", "ready": false, "reason": "no raw MRI" },
+        { "stage": "simulator", "ready": true, "reason": null },
+        { "stage": "optimizer", "ready": false, "reason": "no leadfield" },
+        { "stage": "analyzer", "ready": false, "reason": "no simulations" }
+      ]
+    }
+  ],
+  "totals": {
+    "subjects": 3,
+    "simulations": 4,
+    "optimizations": 2,
+    "analyses": 4,
+    "coverage": [
+      { "id": "raw", "have": 2, "total": 3 },
+      { "id": "recon", "have": 2, "total": 3 },
+      { "id": "m2m", "have": 3, "total": 3 },
+      { "id": "dwi", "have": 1, "total": 3 },
+      { "id": "leadfield", "have": 1, "total": 3 }
+    ]
+  }
+}

@@ -8,7 +8,7 @@ from tit.pre.preflight import (
     STEP_DTI,
     STEP_QSIPREP,
     STEP_QSIRECON,
-    STEP_RECON_ALL,
+    STEP_FASTSURFER,
     existing_outputs_for_step,
     find_existing_preprocessing_outputs,
     find_missing_preprocessing_inputs,
@@ -21,7 +21,7 @@ def test_selected_preprocessing_steps_preserves_pipeline_order():
     steps = selected_preprocessing_steps(
         convert_dicom=True,
         create_m2m=True,
-        run_recon=True,
+        run_fastsurfer=True,
         run_qsiprep=True,
         run_qsirecon=True,
         extract_dti=True,
@@ -30,7 +30,7 @@ def test_selected_preprocessing_steps_preserves_pipeline_order():
     assert steps == [
         STEP_DICOM,
         STEP_CHARM,
-        STEP_RECON_ALL,
+        STEP_FASTSURFER,
         STEP_QSIPREP,
         STEP_QSIRECON,
         STEP_DTI,
@@ -41,7 +41,7 @@ def test_find_existing_structural_and_qsi_outputs(tmp_path):
     subject_id = "001"
     for output_dir in (
         tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001",
-        tmp_path / "derivatives" / "freesurfer" / "sub-001",
+        tmp_path / "derivatives" / "fastsurfer" / "sub-001",
         tmp_path / "derivatives" / "qsiprep" / "sub-001",
         tmp_path / "derivatives" / "qsirecon" / "sub-001",
     ):
@@ -61,7 +61,7 @@ def test_find_existing_structural_and_qsi_outputs(tmp_path):
         str(tmp_path),
         [subject_id],
         create_m2m=True,
-        run_recon=True,
+        run_fastsurfer=True,
         run_qsiprep=True,
         run_qsirecon=True,
         extract_dti=True,
@@ -69,7 +69,7 @@ def test_find_existing_structural_and_qsi_outputs(tmp_path):
 
     assert {output.step for output in outputs} == {
         STEP_CHARM,
-        STEP_RECON_ALL,
+        STEP_FASTSURFER,
         STEP_QSIPREP,
         STEP_QSIRECON,
         STEP_DTI,
@@ -79,7 +79,7 @@ def test_find_existing_structural_and_qsi_outputs(tmp_path):
 def test_empty_output_directories_are_not_existing_outputs(tmp_path):
     """Older releases pre-created empty per-subject dirs; ignore them."""
     (tmp_path / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001").mkdir(parents=True)
-    (tmp_path / "derivatives" / "freesurfer" / "sub-001").mkdir(parents=True)
+    (tmp_path / "derivatives" / "fastsurfer" / "sub-001").mkdir(parents=True)
     (tmp_path / "derivatives" / "qsiprep" / "sub-001").mkdir(parents=True)
     (tmp_path / "derivatives" / "qsirecon" / "sub-001").mkdir(parents=True)
 
@@ -87,7 +87,7 @@ def test_empty_output_directories_are_not_existing_outputs(tmp_path):
         str(tmp_path),
         ["001"],
         create_m2m=True,
-        run_recon=True,
+        run_fastsurfer=True,
         run_qsiprep=True,
         run_qsirecon=True,
     )

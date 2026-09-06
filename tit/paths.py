@@ -5,7 +5,7 @@
 
 Provides a singleton :class:`PathManager` that resolves all file and
 directory paths within a BIDS-structured TI-Toolbox project.  Paths cover
-subject anatomical data, SimNIBS derivatives, FreeSurfer outputs, analysis
+subject anatomical data, SimNIBS derivatives, FastSurfer outputs, analysis
 results, and optimization runs.
 
 Public API
@@ -39,12 +39,77 @@ import re
 from . import constants as const
 
 
+def natural_key(text: str) -> list[int | str]:
+    """Sort key: ``sub-2`` before ``sub-10`` (digits compared numerically)."""
+    return [int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", text)]
+
+
+# ============================================================================
+# PACKAGE RESOURCES (N0.6 spike -- dev/spikes/native/job-control/REPORT.md)
+# ============================================================================
+#
+# Distinct from everything else in this module: PathManager resolves *project* directories
+# (BIDS data a user points the app at); the two functions below resolve the *package*
+# resources/ tree (atlases, EEG net coordinate files, electrode templates) tit's own code
+# reads at runtime -- previously hard-coded as the container's absolute
+# "/ti-toolbox/resources/..." path in a handful of call sites (tit/tools/montage_visualizer.py,
+# tit/atlas/constants.py, tit/blender/montage_publication.py), which only ever existed inside
+# the Docker image, never on a bare host.
+
+
+def resolve_resources_dir() -> str:
+    """Resolve the ``resources/`` directory tit's resource-bearing modules read from.
+
+    Resolution order, first match wins:
+
+    1. ``TIT_RESOURCES_DIR`` env var, if set and an existing directory -- the override a
+       native (non-Docker) launcher or a packaged install can set explicitly. This is also
+       the *only* way to point at resources/ from a wheel install today: a wheel only ships
+       the ``tit`` package itself (``pyproject.toml``'s
+       ``[tool.setuptools.packages.find] include = ["tit*"]`` excludes the top-level
+       ``resources/`` tree entirely), so a packaged app with no override and no
+       ``/ti-toolbox`` present has no resources/ directory to find -- moving these files
+       inside the package and reading them via ``importlib.resources`` is the real fix,
+       tracked as an N1 follow-up, not attempted here.
+    2. ``/ti-toolbox/resources`` -- the Docker image's own layout (the container copies the
+       checkout to ``/ti-toolbox``); kept working unchanged for the existing container path.
+    3. ``<repo_root>/resources`` -- checkout-relative, ``repo_root`` being two levels above
+       this file (``tit/paths.py`` -> ``tit/`` -> repo root). What a native run from a git
+       checkout has on disk today. Returned even when it doesn't exist, so callers get a
+       stable, informative path for error messages instead of ``None``.
+
+    Examples
+    --------
+    >>> resolve_resources_dir()  # doctest: +SKIP
+    '/Users/.../TI-toolbox/resources'
+    """
+    env_dir = os.environ.get("TIT_RESOURCES_DIR")
+    if env_dir and os.path.isdir(env_dir):
+        return env_dir
+    container_dir = "/ti-toolbox/resources"
+    if os.path.isdir(container_dir):
+        return container_dir
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(repo_root, "resources")
+
+
+def resolve_resource_path(*parts: str) -> str:
+    """``resolve_resources_dir()`` joined with *parts*.
+
+    Examples
+    --------
+    >>> resolve_resource_path("amv", "GSN-256.csv")  # doctest: +SKIP
+    '/Users/.../TI-toolbox/resources/amv/GSN-256.csv'
+    """
+    return os.path.join(resolve_resources_dir(), *parts)
+
+
 class PathManager:
     """BIDS-compliant path resolution for TI-Toolbox projects.
 
     Provides methods to resolve file and directory paths within a
     BIDS-structured project, including subject anatomical data, SimNIBS
-    derivatives, FreeSurfer outputs, optimization runs, and analysis results.
+    derivatives, FastSurfer outputs, optimization runs, and analysis results.
 
     The project directory can be set explicitly or auto-detected from the
     ``PROJECT_DIR`` / ``PROJECT_DIR_NAME`` environment variables (useful
@@ -133,8 +198,18 @@ class PathManager:
         """Path to ``<project>/derivatives/SimNIBS/``."""
         return os.path.join(self._root(), "derivatives", "SimNIBS")
 
+    def fastsurfer(self) -> str:
+        """Path to ``<project>/derivatives/fastsurfer/``."""
+        return os.path.join(self._root(), "derivatives", "fastsurfer")
+
     def freesurfer(self) -> str:
-        """Path to ``<project>/derivatives/freesurfer/``."""
+        """Path to ``<project>/derivatives/freesurfer/`` (legacy, read-only).
+
+        TI-Toolbox no longer writes here -- FastSurfer ``--seg_only``
+        replaced ``recon-all`` -- but every atlas reader still discovers
+        existing ``recon-all`` output so projects processed with older
+        releases keep working.
+        """
         return os.path.join(self._root(), "derivatives", "freesurfer")
 
     def ti_toolbox(self) -> str:
@@ -144,6 +219,10 @@ class PathManager:
     def config_dir(self) -> str:
         """Path to ``<project>/code/ti-toolbox/config/``."""
         return os.path.join(self._root(), "code", "ti-toolbox", "config")
+
+    def jobs_dir(self) -> str:
+        """Path to ``<project>/code/ti-toolbox/jobs/`` (job server state)."""
+        return os.path.join(self._root(), "code", "ti-toolbox", "jobs")
 
     def montage_config(self) -> str:
         """Path to the ``montage_list.json`` configuration file."""
@@ -359,12 +438,24 @@ class PathManager:
         """Path to ``sourcedata/sub-{sid}/``."""
         return os.path.join(self.sourcedata(), f"sub-{sid}")
 
+    def fastsurfer_subject(self, sid: str) -> str:
+        """Path to ``derivatives/fastsurfer/sub-{sid}/``."""
+        return os.path.join(self.fastsurfer(), f"sub-{sid}")
+
+    def fastsurfer_mri(self, sid: str) -> str:
+        """Path to ``derivatives/fastsurfer/sub-{sid}/mri/``.
+
+        Holds ``aparc.DKTatlas+aseg.deep.mgz`` (plus the ``.nii.gz`` copy and
+        the ``*_labels.txt`` sidecar :mod:`tit.pre.fastsurfer` writes).
+        """
+        return os.path.join(self.fastsurfer_subject(sid), "mri")
+
     def freesurfer_subject(self, sid: str) -> str:
-        """Path to ``derivatives/freesurfer/sub-{sid}/``."""
+        """Path to ``derivatives/freesurfer/sub-{sid}/`` (legacy, read-only)."""
         return os.path.join(self.freesurfer(), f"sub-{sid}")
 
     def freesurfer_mri(self, sid: str) -> str:
-        """Path to ``derivatives/freesurfer/sub-{sid}/mri/``."""
+        """Path to ``derivatives/freesurfer/sub-{sid}/mri/`` (legacy, read-only)."""
         return os.path.join(self.freesurfer_subject(sid), "mri")
 
     def qsiprep_subject(self, sid: str) -> str:
@@ -497,6 +588,42 @@ class PathManager:
     # Listing helpers
     # ------------------------------------------------------------------
 
+    def _list_sub_dirs(self, directory: str) -> list[str]:
+        """Naturally sorted ids of ``sub-*`` directories directly under *directory*."""
+        try:
+            entries = os.listdir(directory)
+        except OSError:
+            return []
+        ids = [
+            name[len(const.PREFIX_SUBJECT) :]
+            for name in entries
+            if name.startswith(const.PREFIX_SUBJECT)
+            and os.path.isdir(os.path.join(directory, name))
+        ]
+        return sorted(ids, key=natural_key)
+
+    def list_bids_subjects(self) -> list[str]:
+        """Subject ids with a raw BIDS folder (``<project>/sub-*``), naturally sorted."""
+        if not self.project_dir:
+            return []
+        return self._list_sub_dirs(self.project_dir)
+
+    def list_fastsurfer_subjects(self) -> list[str]:
+        """Subject ids with a ``derivatives/fastsurfer/sub-*`` folder, naturally sorted."""
+        if not self.project_dir:
+            return []
+        return self._list_sub_dirs(self.fastsurfer())
+
+    def list_freesurfer_subjects(self) -> list[str]:
+        """Subject ids with a ``derivatives/freesurfer/sub-*`` folder (legacy).
+
+        Kept so projects carrying old ``recon-all`` output still list those
+        subjects; nothing in the toolbox writes this tree any more.
+        """
+        if not self.project_dir:
+            return []
+        return self._list_sub_dirs(self.freesurfer())
+
     def list_simnibs_subjects(self) -> list[str]:
         """List subject IDs that have a SimNIBS head-model (m2m) folder.
 
@@ -506,24 +633,13 @@ class PathManager:
             Naturally sorted subject identifiers (without the ``sub-`` prefix).
             Returns an empty list if the SimNIBS directory does not exist.
         """
-        simnibs_dir = self.simnibs() if self.project_dir else None
-        if not simnibs_dir or not os.path.isdir(simnibs_dir):
+        if not self.project_dir:
             return []
-
-        subjects = []
-        for item in os.listdir(simnibs_dir):
-            if not item.startswith(const.PREFIX_SUBJECT):
-                continue
-            sid = item.replace(const.PREFIX_SUBJECT, "", 1)
-            if os.path.isdir(self.m2m(sid)):
-                subjects.append(sid)
-
-        subjects.sort(
-            key=lambda x: [
-                int(c) if c.isdigit() else c.lower() for c in re.split("([0-9]+)", x)
-            ]
-        )
-        return subjects
+        return [
+            sid
+            for sid in self._list_sub_dirs(self.simnibs())
+            if os.path.isdir(self.m2m(sid))
+        ]
 
     def list_simulations(self, sid: str) -> list[str]:
         """List simulation folder names for a subject.

@@ -1,0 +1,110 @@
+# electron-builder config for the N0.4 native-packaging spike (dev/notes/v3-native-desktop-plan.md
+# Stage N0 lane 4). Proves the mechanics — extraResources for a bundled Python runtime, hardened
+# runtime + entitlements, macOS `--dir` packaging, ad-hoc signing cost — NOT a production release
+# pipeline: only macOS arm64 `dir` has been run against this file (REPORT.md). Linux/Windows blocks
+# below are declared (electron-builder validates the whole config either way) but not built here —
+# that is Stage N1 (dev/notes/v3-native-desktop-plan.md §2, Stage N1 item 5).
+#
+# Signing posture, deliberately unlike a real release: `mac.identity: null` disables code signing
+# entirely (electron-builder's own meaning for a null identity — not "auto-discover one"), so
+# `mac.hardenedRuntime: true` below is declarative-only in this spike; nothing in Stage N0 looks for
+# or uses a Developer ID (`package.json`'s `package`/`package:dir` scripts also export
+# `CSC_IDENTITY_AUTO_DISCOVERY=false` before invoking electron-builder, mirroring Tetravox's own
+# unsigned-path guard, `/Users/idohaber/00_development/tetravox/scripts/electron-builder.sh`, so a
+# real certificate sitting in this machine's login keychain is never picked up by accident). A real
+# release build points `identity`/`CSC_LINK` at a Developer ID and gets Stage N1's notarization
+# pipeline; nothing here needs to change to support that later except removing this one override.
+#
+# extraResources.from below is `.runtime-staging/<platform-arch>`, NOT `${env.TIT_RUNTIME_DIR}`
+# directly, for a reason worth recording (REPORT.md "what failed and why"): electron-builder 26.15.3
+# resolves a `from:` path with `path.resolve(projectDir, pattern.from)` BEFORE running macro
+# expansion (`app-builder-lib/out/fileMatcher.js` `getFileMatchers`, `FileMatcher` constructor) — so
+# an absolute path that only becomes absolute *after* `${env.X}` is substituted still gets
+# `path.resolve`d against the project directory first, while it is still the literal macro token
+# (which is relative), producing `<projectDir>${env.TIT_RUNTIME_DIR}` and only THEN substituting the
+# real value into the middle of that already-wrong string (reproduced: `file source doesn't exist
+# from=.../desktop//private/tmp/.../runtime`). `scripts/stage-runtime.sh` (run by `npm run package`/
+# `package:dir` before electron-builder) copies `$TIT_RUNTIME_DIR` to this fixed relative path instead
+# — the env-var parametrisation the brief asks for still happens, just one step earlier, outside a
+# YAML macro electron-builder does not evaluate early enough for this use.
+appId: edu.wisc.ti-toolbox.desktop
+productName: TI-Toolbox
+copyright: TI-Toolbox contributors
+
+directories:
+  output: release
+  buildResources: build
+
+# electron-vite already bundles the renderer/main/preload into out/**; nothing under node_modules
+# needs to ship (the bundler inlines every renderer dependency, and main/preload are bundled too via
+# electron-vite's own esbuild step) — matches Tetravox's own `files` block for the same reason.
+files:
+  - out/**
+  - package.json
+  - '!node_modules/**'
+
+# TWO extraResources, both real directories on disk (never inside asar — a multi-GB Python tree and
+# conda/pip's own relocation assumptions are a bad fit for asar's read-only archive semantics, r4
+# §2.2/§3.1; the renderer copy exists so a natively-spawned `tit.server` child process — a plain OS
+# process with no asar access at all — has a real `--static-dir` to serve, see
+# `src/main/index.ts`'s `resolveNativeStaticDir`):
+#
+#   1. runtime/darwin-arm64 <- $TIT_RUNTIME_DIR (env, not hardcoded — this spike points it at
+#      dev/spikes/native/packaging/build-runtime.sh's output; Stage N1's CI runtime build produces
+#      the same shape from a real SimNIBS+tit environment, N0.1's lane). Only darwin-arm64 exists as
+#      a `to:` path today because that is the one platform this spike built and measured; the
+#      per-platform "to" of a real build is `runtime/<platform>-<arch>` matching
+#      `nativeRuntime.ts`'s `nativePlatformArch()` naming (darwin-arm64 / linux-x64 / win32-x64 — NOT
+#      darwin-x64: r4 §4.1-§4.3 found no Intel-Mac wheel for bpy/torch/SimNIBS's own petsc4py fork).
+#   2. renderer <- the electron-vite renderer build (out/renderer), so the native runtime option in
+#      `src/main/index.ts` can pass a real `--static-dir` to the spawned `tit.server`.
+extraResources:
+  - from: .runtime-staging/darwin-arm64
+    to: runtime/darwin-arm64
+    filter:
+      - '**/*'
+  - from: out/renderer
+    to: renderer
+    filter:
+      - '**/*'
+
+asar: true
+npmRebuild: false
+
+icon: build/icon.icns
+
+mac:
+  category: public.app-category.medical
+  target:
+    - target: dir
+      arch: [arm64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # See the file header: no signing identity is used in this spike (Stage N0 does not look for or
+  # use secrets). `null` here means "do not sign", not "auto-discover a certificate".
+  identity: null
+
+linux:
+  category: Science
+  icon: build/icon.png
+  executableName: ti-toolbox
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

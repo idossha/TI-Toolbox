@@ -1,0 +1,1 @@
+{ "docker_socket": true, "bpy": false, "jupyter": true, "tetravox_embed": { "available": true, "version": "0.3.4", "protocol": 1, "source": "baked", "features": ["cursor", "layers", "meshes", "probe", "screenshot", "volumes"], "compatible": true, "supported": { "min": 1, "max": 2 } }, "fastsurfer": true }

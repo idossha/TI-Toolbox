@@ -18,8 +18,6 @@ tit.analyzer.field_selector : Automatic field file resolution.
 """
 
 import logging
-import subprocess
-import tempfile
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -27,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 from tit.analyzer.field_selector import select_field_file
+from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
     save_analysis_metadata,
     save_histogram,
@@ -1136,14 +1135,19 @@ class Analyzer:
         if Path(atlas).is_file():
             return Path(atlas)
 
-        fs_mri = Path(self._pm.freesurfer_mri(self.subject_id))
+        fs_mri = Path(self._pm.fastsurfer_mri(self.subject_id))
+        legacy_mri = Path(self._pm.freesurfer_mri(self.subject_id))
         seg_dir = Path(self._pm.segmentation(self.subject_id))
         candidates = [
             fs_mri / atlas,
+            legacy_mri / atlas,
             seg_dir / atlas,
             fs_mri / f"{atlas}.mgz",
             fs_mri / f"{atlas}.nii.gz",
             fs_mri / f"{atlas}.nii",
+            legacy_mri / f"{atlas}.mgz",
+            legacy_mri / f"{atlas}.nii.gz",
+            legacy_mri / f"{atlas}.nii",
             seg_dir / f"{atlas}.nii.gz",
             seg_dir / f"{atlas}.nii",
         ]
@@ -1151,7 +1155,9 @@ class Analyzer:
             if path.exists():
                 return path
 
-        raise FileNotFoundError(f"Atlas {atlas!r} not found in {fs_mri} or {seg_dir}")
+        raise FileNotFoundError(
+            f"Atlas {atlas!r} not found in {fs_mri}, {legacy_mri}, or {seg_dir}"
+        )
 
     @staticmethod
     def _resample_if_needed(
@@ -1163,14 +1169,24 @@ class Analyzer:
     ) -> np.ndarray:
         """Resample atlas array to *target_shape* if dimensions differ.
 
+        Pure-Python replacement for ``mri_convert --reslice_like``:
+        nearest-neighbour resampling via
+        ``nibabel.processing.resample_from_to(..., order=0)``, driven
+        entirely by the two images' own affines (no FreeSurfer binary).
+        Validated voxel-for-voxel (0 differing voxels, including on the
+        labelled subset) against real ``mri_convert --reslice_like`` output
+        cached on disk for ``sub-ernie`` -- see
+        ``dev/spikes/native/fs-binaries/REPORT.md``.
+
         The resampled result is saved next to *atlas_path* with a
         shape-encoded suffix so that repeated analyses reuse the cached
-        file instead of re-running ``mri_convert``.
+        file instead of resampling again.
         """
         if atlas_arr.shape[:3] == target_shape[:3]:
             return atlas_arr
 
         import nibabel as nib
+        from nibabel.processing import resample_from_to
 
         atlas_path = Path(atlas_path)
         sx, sy, sz = target_shape[:3]
@@ -1188,24 +1204,12 @@ class Analyzer:
             cached_path,
         )
 
-        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tf:
-            template_path = tf.name
+        resampled_img = resample_from_to(
+            atlas_img, (target_shape[:3], target_affine), order=0
+        )
+        nib.save(resampled_img, str(cached_path))
 
-        template_img = nib.Nifti1Image(np.zeros(target_shape[:3]), target_affine)
-        nib.save(template_img, template_path)
-
-        cmd = [
-            "mri_convert",
-            "--reslice_like",
-            template_path,
-            str(atlas_path),
-            str(cached_path),
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
-        Path(template_path).unlink()
-
-        resampled = nib.load(str(cached_path)).get_fdata()
-        return resampled
+        return nib.load(str(cached_path)).get_fdata()
 
     @staticmethod
     def _find_voxel_region_id(
@@ -1213,38 +1217,25 @@ class Analyzer:
         atlas_path: Path,
         region: str,
     ) -> int:
-        """Resolve a region name to its integer label in the atlas volume."""
+        """Resolve a region name to its integer label in the atlas volume.
+
+        Pure-Python replacement for shelling out to ``mri_segstats``: labels
+        actually present in the volume (:func:`~tit.atlas.segstats.compute_segstats`)
+        are named via :func:`~tit.atlas.segstats.resolve_lut_for_atlas` and the
+        first substring match (by ascending label id, matching
+        ``mri_segstats``'s own row order) wins -- identical matching
+        semantics to the subprocess it replaces.
+        """
         region_stripped = region.strip()
         if region_stripped.isdigit():
             return int(region_stripped)
 
-        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as tf:
-            stats_path = tf.name
-
-        cmd = [
-            "mri_segstats",
-            "--seg",
-            str(atlas_path),
-            "--excludeid",
-            "0",
-            "--ctab-default",
-            "--sum",
-            stats_path,
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
+        lut = resolve_lut_for_atlas(str(atlas_path))
+        stats = compute_segstats(str(atlas_path), lut)
 
         region_lower = region.lower()
-        with open(stats_path) as fh:
-            for line in fh:
-                if line.startswith("#"):
-                    continue
-                parts = line.strip().split()
-                if len(parts) >= 5:
-                    seg_id = int(parts[1])
-                    name = " ".join(parts[4:])
-                    if region_lower in name.lower():
-                        Path(stats_path).unlink()
-                        return seg_id
+        for stat in stats:
+            if region_lower in stat.name.lower():
+                return stat.seg_id
 
-        Path(stats_path).unlink()
         raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")

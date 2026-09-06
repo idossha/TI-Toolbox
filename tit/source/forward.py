@@ -35,6 +35,7 @@ import itertools
 import logging
 import multiprocessing as mp
 import subprocess
+import sys
 from pathlib import Path
 
 import mne
@@ -186,6 +187,68 @@ def _find_existing_leadfield(forward_dir: Path) -> Path | None:
     return candidates[0] if candidates else None
 
 
+def _check_forward_dependencies() -> None:
+    """Fail before the FEM leadfield, not after it, on a missing optional dep.
+
+    ``mne.SourceMorph.save`` writes its ``.h5`` through ``h5io``, which
+    ``pip install mne`` does **not** pull in. Without it the run dies in
+    ``_write_src_fwd_morph``, the very last step -- costing the whole
+    point-electrode leadfield (~13 min for a 75-channel net on the emulated
+    container, measured 2026-09-04) before saying so.
+    """
+    import importlib.util
+
+    if importlib.util.find_spec("h5io") is None:
+        raise RuntimeError(
+            "the EEG forward pipeline needs h5io (mne's HDF5 backend, used by "
+            "SourceMorph.save to write the fsaverage morph) and it is not installed "
+            "in this environment. Install it -- `simnibs_python -m pip install h5io` "
+            "-- or rebuild the image from container/blueprint/Dockerfile.ti-toolbox, "
+            "which lists it."
+        )
+
+
+def _leadfield_channel_order(leadfield_hdf5: Path) -> list[str]:
+    """The channel order the assembled forward solution will have.
+
+    Read off the leadfield rather than assumed: SimNIBS's ``TDCSLEADFIELD`` stores
+    the net's **reference electrode first**, not in the net CSV's own order (for
+    ``EEG10-10_UI_Jurak_2007`` on sub-101, measured 2026-09-04, ``Cz`` and the
+    CSV's first electrode ``Fp1`` are swapped), and
+    :func:`simnibs.eeg.forward.prepare_forward` re-inserts the reference *at its own
+    index* -- so ``electrode_names`` is exactly the final ``forward["ch_names"]``.
+    """
+    import h5py
+
+    with h5py.File(str(leadfield_hdf5), "r") as handle:
+        attrs = handle["mesh_leadfield"]["leadfields"]["tdcs_leadfield"].attrs
+        return [str(name) for name in attrs["electrode_names"].tolist()]
+
+
+def _in_leadfield_order(
+    electrodes: dict[str, np.ndarray], leadfield_hdf5: Path
+) -> dict[str, np.ndarray]:
+    """Re-key *electrodes* into the leadfield's channel order.
+
+    The failure this prevents: ``simnibs.eeg.utils_mne.make_forward`` asserts
+    ``info["ch_names"] == forward["ch_names"]`` -- an ordered, element-wise
+    comparison. Built straight from the net CSV, the Info carries the same 76 names
+    in a different order, and the assembly dies with *"Inconsistencies between
+    channels in Info and leadfield"* ten minutes into a run, after the FEM
+    (job ``c8ef9a4a2d454ff0``, 2026-09-04).
+    """
+    order = _leadfield_channel_order(leadfield_hdf5)
+    missing = [name for name in order if name not in electrodes]
+    extra = [name for name in electrodes if name not in order]
+    if missing or extra:
+        raise ValueError(
+            f"the net CSV and {leadfield_hdf5.name} describe different electrode "
+            f"sets: missing from the CSV {missing}, absent from the leadfield "
+            f"{extra}. Delete the cached leadfield to rebuild it for this net."
+        )
+    return {name: electrodes[name] for name in order}
+
+
 def _compute_leadfield(
     m2m_dir: Path, forward_dir: Path, eeg_csv: Path, cpus: int
 ) -> Path:
@@ -260,6 +323,8 @@ def prepare_forward(
     if not m2m_dir.is_dir():
         raise FileNotFoundError(f"m2m directory not found: {m2m_dir}")
 
+    _check_forward_dependencies()
+
     forward_dir = (
         Path(output_dir) if output_dir is not None else Path(pm.forward(subject_id))
     )
@@ -276,14 +341,6 @@ def prepare_forward(
         return expected
 
     electrodes, fiducials = _read_simnibs_montage(m2m_dir, cfg.eeg_net)
-    montage_info, trans = _build_montage_info(electrodes, fiducials)
-
-    info_path = forward_dir / f"{stem}-info.fif"
-    trans_path = forward_dir / f"{stem}-trans.fif"
-    mne.io.RawArray(
-        np.zeros((len(montage_info.ch_names), 1)), montage_info, verbose=False
-    ).save(str(info_path), overwrite=True, verbose=False)
-    mne.write_trans(str(trans_path), trans, overwrite=True)
 
     # Redundancy guard: reuse the FEM leadfield if one is already cached.
     leadfield_hdf5 = None if cfg.overwrite else _find_existing_leadfield(forward_dir)
@@ -293,10 +350,30 @@ def prepare_forward(
         eeg_csv = m2m_dir / "eeg_positions" / f"{cfg.eeg_net}.csv"
         leadfield_hdf5 = _compute_leadfield(m2m_dir, forward_dir, eeg_csv, cfg.cpus)
 
+    # The Info is built *after* the leadfield, in the leadfield's channel order:
+    # SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by
+    # element, and the leadfield does not use the net CSV's order (below).
+    electrodes = _in_leadfield_order(electrodes, leadfield_hdf5)
+    montage_info, trans = _build_montage_info(electrodes, fiducials)
+
+    info_path = forward_dir / f"{stem}-info.fif"
+    trans_path = forward_dir / f"{stem}-trans.fif"
+    mne.io.RawArray(
+        np.zeros((len(montage_info.ch_names), 1)), montage_info, verbose=False
+    ).save(str(info_path), overwrite=True, verbose=False)
+    mne.write_trans(str(trans_path), trans, overwrite=True)
+
+    # Not SimNIBS's own ``prepare_eeg_forward`` console script: that wrapper runs
+    # ``python -E``, so no compatibility shim can reach it, and its MNE/cortech
+    # bridge dies *after* the FEM leadfield above has been paid for. The worker
+    # calls the same ``simnibs.eeg.forward.make_forward`` with the shims applied --
+    # still a child process, so the ~0.9 GB gain matrix is reclaimed on exit.
+    # See tit/source/_simnibs_compat.py.
     _run(
         [
-            "prepare_eeg_forward",
-            "mne",
+            sys.executable,
+            "-m",
+            "tit.source._prepare_forward",
             str(m2m_dir),
             str(leadfield_hdf5),
             str(info_path),
@@ -304,7 +381,7 @@ def prepare_forward(
             "--fsaverage",
             str(cfg.fsaverage_spacing),
         ],
-        f"prepare_eeg_forward for sub-{subject_id}",
+        f"MNE forward assembly for sub-{subject_id}",
         cwd=forward_dir,
     )
     return _rename_generated_outputs(forward_dir, stem)

@@ -1,0 +1,90 @@
+====================================================================================================
+Optimization summary:
+====================================================================================================
+Date: 2026-07-30 00:03:12
+Headmodel:                        /mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/ernie.msh
+Electrode_mask:                   /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs/resources/templates/MNI152_T1_1mm_upper_head_mask.nii.gz
+Conductivity anisotropy type:     scalar
+Output_folder:                    /mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/VAL_lhipp_flex_focality/00
+ 
+Optimization and FEM settings
+----------------------------------------------------------------------------------------------------
+Optimizer:                        differential_evolution
+Goal:                             ['focality']
+Postprocessing:                   ['max_TI', 'max_TI']
+Threshold:                        [0.1, 0.2]
+Number of ROIs:                   2
+Number of Channels:               2
+ROI weights:                      None
+Constrain electrode locations:    False
+Polish (local optimization):      False
+Map to net electrodes:            False
+Optimizer settings:
+	len_tol: 2.7777777777777777e-10
+	f_min_rtol: 1e-12
+	maxiter: 60
+	disp: True
+	recombination: 0.7
+	mutation: [0.01, 0.5]
+	popsize: 13
+	tol: 0.1
+	locally_biased: False
+	seed: None
+	lb: [-1.57079633 -3.14159265 -1.57079633 -3.14159265 -1.57079633 -3.14159265
+ -1.57079633 -3.14159265]
+	ub: [1.57079633 3.14159265 1.57079633 3.14159265 1.57079633 3.14159265
+ 1.57079633 3.14159265]
+	init_vals: [ 0.85323549  0.62620565  0.01915891 -0.6146975  -0.4578474  -0.24158083
+  1.04384377 -2.04775451]
+	vol_tol: 3.3333333333333334e-09
+ 
+FEM solver options:               pardiso
+Dirichlet correction:             False
+Dirichlet correction (detailed):  False
+Current outlier correction:       False
+ 
+====================================================================================================
+Optimization results:
+====================================================================================================
+Number of function evaluations (global optimization):   2288
+Number of FEM evaluations (global optimization):        710
+Goal function value (global optimization):              -91.5566569075475
+Total number of function evaluations:                   2288
+Total number of FEM evaluations:                        710
+Final goal function value:                              -91.5566569075475
+Duration (setup and optimization):                      1057.4810614585876
+Electrode array infos:
+====================================================================================================
+Stimulation channel 0:
+	currents: [ 0.002 -0.002]
+Stimulation channel 1:
+	currents: [ 0.002 -0.002]
+ 
+Electrode coordinates (Cartesian space):
+----------------------------------------------------------------------------------------------------
+Stimulation channel 0:
+Array 0:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000, -1.106
+		 0.000,  1.000,  0.000, -91.936
+		 0.000,  0.000,  1.000,  8.487
+		 0.000,  0.000,  0.000,  1.000
+Array 1:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000,  79.299
+		 0.000,  1.000,  0.000,  45.177
+		 0.000,  0.000,  1.000, -46.781
+		 0.000,  0.000,  0.000,  1.000
+Stimulation channel 1:
+Array 0:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000, -74.208
+		 0.000,  1.000,  0.000,  46.873
+		 0.000,  0.000,  1.000, -13.873
+		 0.000,  0.000,  0.000,  1.000
+Array 1:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000, -78.229
+		 0.000,  1.000,  0.000,  5.472
+		 0.000,  0.000,  1.000,  6.015
+		 0.000,  0.000,  0.000,  1.000

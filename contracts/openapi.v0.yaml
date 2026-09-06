@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: TI-Toolbox job server (tit.server)
+  version: "0.0.1"
+  description: >-
+    Hand-authored v0 contract for the Phase-0 walking skeleton. The real server's `--dump-openapi`
+    output must be a superset of this document (CI diff). Every path is origin-relative; the UI is
+    served by the same server. Auth: the launcher passes `?token=<TIT_SERVER_TOKEN>` exactly once;
+    the server mints a random session id (never the token), keeps it in memory, sets it as an
+    HttpOnly, SameSite=Strict `tit_session` cookie and redirects to `/`. A server restart forgets
+    every session (401 → back to the launcher). API routes accept either that cookie or
+    `Authorization: Bearer <token>` (scripts). Unauthenticated requests get 401.
+    `POST /auth/logout` forgets the session and clears the cookie.
+servers:
+  - url: /
+paths:
+  /api/health:
+    get:
+      summary: Liveness (no auth)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/version:
+    get:
+      summary: Version handshake
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+  /api/capabilities:
+    get:
+      summary: What this runtime can do (used to grey out UI)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+  /api/project:
+    get:
+      summary: The project this server instance is bound to
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /api/catalog/subjects:
+    get:
+      summary: Subjects with presence flags (PathManager rules, never re-implemented in TS)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectList"
+  /api/catalog/simulations:
+    get:
+      summary: Simulations of one subject
+      parameters:
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationList"
+        "404":
+          description: unknown subject
+  /api/system:
+    get:
+      summary: One system snapshot (same payload as the /ws/system stream)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSnapshot"
+  /auth/session:
+    get:
+      summary: Token → cookie exchange (called by the launcher once)
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        "303":
+          description: cookie set, redirect to /
+        "401":
+          description: bad token
+  /auth/logout:
+    post:
+      summary: End the cookie session (cookie or Bearer auth required)
+      responses:
+        "204":
+          description: cookie cleared, session forgotten
+        "401":
+          description: Unauthorized
+  /ws/system:
+    get:
+      summary: WebSocket; one SystemSnapshot JSON message every 2 s (auth via cookie or ?token=)
+      responses:
+        "101":
+          description: switching protocols
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, uptime_s]
+      properties:
+        status: { type: string, enum: [ok] }
+        uptime_s: { type: number }
+    Version:
+      type: object
+      required: [tit_version, server_api, schema_hash, python, simnibs]
+      properties:
+        tit_version: { type: string }
+        server_api: { type: string, enum: [v0] }
+        schema_hash: { type: string, description: sha256 of contracts/schema.json (empty until Phase 1) }
+        python: { type: string }
+        simnibs: { type: [string, "null"] }
+    Capabilities:
+      # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer removed
+      # from the runtime entirely (viewing = the Tetravox embed, no X11 anywhere); tetravox_embed
+      # and fastsurfer take their place. The walking-skeleton contract tracks the live runtime's
+      # actual capability surface rather than freezing a Phase-0 shape the server no longer has.
+      type: object
+      required: [docker_socket, bpy, tetravox_embed, fastsurfer]
+      properties:
+        docker_socket: { type: boolean }
+        bpy: { type: boolean }
+        tetravox_embed:
+          type: object
+          required: [available, version, protocol]
+          properties:
+            available: { type: boolean }
+            version: { type: [string, "null"] }
+            protocol: { type: [integer, "null"] }
+        fastsurfer:
+          type: boolean
+          description: FASTSURFER_HOME (or /opt/fastsurfer) has run_fastsurfer.sh
+    Project:
+      type: object
+      required: [container_path, name]
+      properties:
+        container_path: { type: string }
+        host_path: { type: [string, "null"], description: from LOCAL_PROJECT_DIR when known }
+        name: { type: string }
+    Subject:
+      type: object
+      required: [id, has_raw, has_fastsurfer, has_freesurfer, has_m2m, n_simulations]
+      properties:
+        id: { type: string, description: without the sub- prefix }
+        has_raw: { type: boolean }
+        has_fastsurfer: { type: boolean }
+        has_freesurfer:
+          {
+            type: boolean,
+            description: legacy derivatives/freesurfer, still detected read-only,
+          }
+        has_m2m: { type: boolean }
+        n_simulations: { type: integer }
+        has_sourcedata:
+          {
+            type: boolean,
+            description:
+              "sourcedata/sub-<id>/ has a raw T1w or T2w series staged (DICOM
+              or equivalent), converted or not -- 'not converted' is this
+              True with has_raw False. Optional: added 2026-09-03, lane FX5.",
+          }
+    SubjectList:
+      type: object
+      required: [subjects]
+      properties:
+        subjects:
+          type: array
+          items: { $ref: "#/components/schemas/Subject" }
+    Simulation:
+      type: object
+      required: [name, path, has_ti, has_mti]
+      properties:
+        name: { type: string }
+        path: { type: string, description: container path }
+        has_ti: { type: boolean }
+        has_mti: { type: boolean }
+    SimulationList:
+      type: object
+      required: [simulations]
+      properties:
+        simulations:
+          type: array
+          items: { $ref: "#/components/schemas/Simulation" }
+    SystemSnapshot:
+      type: object
+      required: [ts, cpu_percent, cpu_count, mem, disk, processes]
+      properties:
+        ts: { type: number, description: unix seconds }
+        cpu_percent: { type: number }
+        cpu_count: { type: integer }
+        mem:
+          type: object
+          required: [total, available, used, percent]
+          properties:
+            total: { type: integer }
+            available: { type: integer }
+            used: { type: integer }
+            percent: { type: number }
+        disk:
+          type: object
+          required: [total, free, percent]
+          properties:
+            total: { type: integer }
+            free: { type: integer }
+            percent: { type: number }
+        processes:
+          type: array
+          description: toolbox-relevant processes (same keyword filter as system_monitor_tab.py)
+          items:
+            type: object
+            required: [pid, name, cpu_percent, rss, started]
+            properties:
+              pid: { type: integer }
+              name: { type: string }
+              cmdline: { type: string }
+              cpu_percent: { type: number }
+              rss: { type: integer }
+              started: { type: number }

@@ -1,0 +1,7 @@
+2026-08-27 08:41:02 INFO tit.pre: started pre-processing for sub-ernie
+2026-08-27 08:42:04 INFO sourcedata: found T1w and diffusion series
+2026-08-27 08:43:18 INFO dcm2niix: converted 2 series into BIDS anat and dwi folders
+2026-08-27 08:57:06 INFO charm: segmentation reached tissue labeling
+2026-08-27 09:02:41 WARNING charm: T2 image missing; continuing with T1-only segmentation
+2026-08-27 09:15:12 INFO tissue analyzer: wrote volume summary
+2026-08-27 09:16:33 INFO tit.pre: wrote derivatives/ti-toolbox/reports/sub-ernie_pre.html

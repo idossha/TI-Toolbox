@@ -362,7 +362,15 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    electrode_template = "/ti-toolbox/tit/blender/Electrode.blend"
+    # Package-relative, not the container-only "/ti-toolbox/tit/blender/Electrode.blend"
+    # (N0.6 spike): Electrode.blend ships inside tit/blender/ itself (not resources/), so a
+    # plain sibling-of-this-file lookup works in a checkout unconditionally. A wheel install
+    # would additionally need this file declared as package data (pyproject.toml has no
+    # MANIFEST.in / package_data entry for it today) -- flagged as an N1 packaging follow-up,
+    # not fixed here.
+    electrode_template = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "Electrode.blend"
+    )
 
     subject_m2m = pm.m2m(subject_id)
     if not subject_m2m or not os.path.isdir(subject_m2m):

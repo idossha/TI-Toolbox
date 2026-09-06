@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "title": "ernie · Thalamus · TI_max",
+  "space": "subject",
+  "cursor": null,
+  "layout": "3d+1",
+  "datasets": [
+    {
+      "id": "d0_t1",
+      "name": "T1.nii.gz",
+      "kind": "volume",
+      "bytes": 13109495,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz",
+      "sidecars": null,
+      "lazy": false
+    },
+    {
+      "id": "d1_electrode_overlay_subject",
+      "name": "electrode_overlay_subject.nii.gz",
+      "kind": "volume",
+      "bytes": 119919,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/montage_imgs/electrode_overlay_subject.nii.gz",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/montage_imgs/electrode_overlay_subject.nii.gz",
+      "sidecars": {
+        "lut": {
+          "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/montage_imgs/electrode_overlay_subject.lut",
+          "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/montage_imgs/electrode_overlay_subject.lut"
+        },
+        "opt": null
+      },
+      "lazy": false
+    },
+    {
+      "id": "d2_thalamus_ti_subject_ti_max",
+      "name": "Thalamus_TI_subject_TI_max.nii.gz",
+      "kind": "volume",
+      "bytes": 17243027,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/Thalamus_TI_subject_TI_max.nii.gz",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/Thalamus_TI_subject_TI_max.nii.gz",
+      "sidecars": null,
+      "lazy": true
+    },
+    {
+      "id": "d3_grey_thalamus_ti_subject_ti_max",
+      "name": "grey_Thalamus_TI_subject_TI_max.nii.gz",
+      "kind": "volume",
+      "bytes": 3058262,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/grey_Thalamus_TI_subject_TI_max.nii.gz",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/grey_Thalamus_TI_subject_TI_max.nii.gz",
+      "sidecars": null,
+      "lazy": false
+    },
+    {
+      "id": "d4_white_thalamus_ti_subject_ti_max",
+      "name": "white_Thalamus_TI_subject_TI_max.nii.gz",
+      "kind": "volume",
+      "bytes": 2612404,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/white_Thalamus_TI_subject_TI_max.nii.gz",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/white_Thalamus_TI_subject_TI_max.nii.gz",
+      "sidecars": null,
+      "lazy": true
+    },
+    {
+      "id": "d5_grey_thalamus_ti",
+      "name": "grey_Thalamus_TI.msh",
+      "kind": "mesh",
+      "bytes": 63926663,
+      "path": "/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/mesh/grey_Thalamus_TI.msh",
+      "url": "/api/files/raw/mnt/000/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/mesh/grey_Thalamus_TI.msh",
+      "sidecars": null,
+      "lazy": true
+    }
+  ],
+  "layers": [
+    {
+      "id": "L0",
+      "datasetId": "d0_t1",
+      "kind": "volume",
+      "role": "base",
+      "name": "T1",
+      "visible": true,
+      "opacity": 1.0,
+      "colormap": "gray",
+      "isLabel": false,
+      "window": null,
+      "threshold": null,
+      "field": null,
+      "clip": null,
+      "contours": null
+    },
+    {
+      "id": "L1",
+      "datasetId": "d1_electrode_overlay_subject",
+      "kind": "volume",
+      "role": "electrodes",
+      "name": "Electrodes",
+      "visible": true,
+      "opacity": 0.85,
+      "colormap": null,
+      "isLabel": true,
+      "window": null,
+      "threshold": null,
+      "field": null,
+      "clip": null,
+      "contours": null
+    },
+    {
+      "id": "L2",
+      "datasetId": "d2_thalamus_ti_subject_ti_max",
+      "kind": "volume",
+      "role": "field",
+      "name": "TI_max (volume)",
+      "visible": false,
+      "opacity": 0.85,
+      "colormap": "hot",
+      "isLabel": false,
+      "window": {
+        "lo": null,
+        "hi": null,
+        "percentile": {
+          "lo": 95.0,
+          "hi": 99.9
+        }
+      },
+      "threshold": null,
+      "field": null,
+      "clip": null,
+      "contours": null
+    },
+    {
+      "id": "L3",
+      "datasetId": "d3_grey_thalamus_ti_subject_ti_max",
+      "kind": "volume",
+      "role": "field",
+      "name": "GM · TI_max (volume)",
+      "visible": true,
+      "opacity": 0.85,
+      "colormap": "hot",
+      "isLabel": false,
+      "window": {
+        "lo": null,
+        "hi": null,
+        "percentile": {
+          "lo": 95.0,
+          "hi": 99.9
+        }
+      },
+      "threshold": null,
+      "field": null,
+      "clip": null,
+      "contours": null
+    },
+    {
+      "id": "L4",
+      "datasetId": "d4_white_thalamus_ti_subject_ti_max",
+      "kind": "volume",
+      "role": "field",
+      "name": "WM · TI_max (volume)",
+      "visible": false,
+      "opacity": 0.85,
+      "colormap": "hot",
+      "isLabel": false,
+      "window": {
+        "lo": null,
+        "hi": null,
+        "percentile": {
+          "lo": 95.0,
+          "hi": 99.9
+        }
+      },
+      "threshold": null,
+      "field": null,
+      "clip": null,
+      "contours": null
+    },
+    {
+      "id": "L5",
+      "datasetId": "d5_grey_thalamus_ti",
+      "kind": "mesh",
+      "role": "mesh",
+      "name": "GM mesh · TI_max",
+      "visible": false,
+      "opacity": 1.0,
+      "colormap": "hot",
+      "isLabel": false,
+      "window": {
+        "lo": null,
+        "hi": null,
+        "percentile": {
+          "lo": 95.0,
+          "hi": 99.9
+        }
+      },
+      "threshold": null,
+      "field": "TI_max",
+      "clip": "cursor",
+      "contours": true
+    }
+  ]
+}

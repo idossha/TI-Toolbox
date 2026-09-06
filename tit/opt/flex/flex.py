@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tit.opt.config import FlexConfig, FlexResult
+from tit.opt.config import FlexConfig, FlexResult, _as_list
 from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 from . import builder, utils
@@ -114,11 +114,23 @@ def _require_file(path: Path, description: str) -> None:
 
 
 def _validate_roi_input(label: str, roi) -> None:
+    """Check ``roi.atlas_path`` exists on disk -- scalar or a region-union list.
+
+    ``AtlasROI``/``SubcorticalROI.atlas_path`` is ``str | list[str]`` (PR #130's ROI
+    unions: one entry per region, often repeating the same file for several labels
+    within one hemisphere/atlas -- see the maintainer's own failing config,
+    ``atlas_path: [path, path, path]`` for three DK40 labels). ``Path(atlas_path)``
+    on a list raises ``TypeError: expected str, bytes or os.PathLike object, not
+    list`` before any real validation runs (job ``c45cb53b0e864d02``); ``_as_list``
+    plus de-duplication checks every distinct file once, matching how
+    :mod:`tit.opt.flex.utils`/``builder`` already read this same field downstream.
+    """
     atlas_path = getattr(roi, "atlas_path", None)
     if not atlas_path:
         return
 
-    _require_file(Path(atlas_path), f"{label} atlas")
+    for path in dict.fromkeys(_as_list(atlas_path)):
+        _require_file(Path(path), f"{label} atlas")
 
 
 def _run_flex_search_inner(config: FlexConfig) -> FlexResult:

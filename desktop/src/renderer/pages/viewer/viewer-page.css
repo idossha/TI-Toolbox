@@ -1,0 +1,170 @@
+/**
+ * Viewer page chrome — the 40 px source bar over the embed (DESIGN.md §10, program U5).
+ *
+ * Not in `ui/components.css` because none of it is a primitive: it is the frame around one iframe.
+ * There is no inspector any more — the stage is the source bar plus whatever fills
+ * `.viewer-canvas-wrap` (the embed, or one of the page-level designed states below it). The stage
+ * keeps the canvas ground (`--canvas`, dark in both themes by imaging convention, DESIGN.md §10) so
+ * a slow first frame is dark rather than white.
+ */
+
+.viewer-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--canvas);
+}
+
+/* 40 px, the plan's number. Flush against the canvas: no card, no shadow, no rounded corners. */
+.viewer-sourcebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 40px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.viewer-source-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A source select is a fixed 160 px, not `1fr`: three of them plus the space segment have to fit
+   in 40 px of height at 1024 px wide, and a select that grows with its content makes the bar
+   reflow every time the picked simulation's name changes length. */
+.viewer-source-item .select-trigger {
+  width: 160px;
+  min-width: 0;
+}
+
+.viewer-source-label {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.viewer-source-spacer {
+  flex: 1 1 auto;
+}
+
+/* ------------------------------------------------- the empty-3D hint */
+
+.viewer-canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+/* An inline note over the canvas, not a blocking overlay: the slices behind it are perfectly
+   usable, and the one thing missing is a 3D pane the user has not asked to populate yet. */
+.viewer-hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(560px, calc(100% - var(--space-6)));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(230, 235, 241, 0.18);
+  border-radius: var(--radius-controls);
+  background: rgba(11, 13, 16, 0.82);
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(230, 235, 241, 0.82);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------- designed states: not-bundled, view-error */
+
+.viewer-unbundled {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--canvas);
+}
+
+.viewer-unbundled-body {
+  max-width: 480px;
+}
+
+.viewer-unbundled-title {
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--on-canvas);
+}
+
+.viewer-unbundled-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(230, 235, 241, 0.68);
+}
+
+.viewer-canvas-error-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* ------------------------------------------------- R5: the wider source bar and the load strip */
+
+/* The bar grew a Type selector and up to four conditional ones, so it scrolls sideways rather than
+   wrapping to a second row: the stage's vertical budget belongs to the canvas, and a bar whose
+   height changes with the chosen view type would move the picture every time someone switched. */
+.viewer-sourcebar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.viewer-source-item {
+  flex: 0 0 auto;
+}
+
+.viewer-source-path {
+  width: 320px;
+  min-width: 0;
+}
+
+/* The failed-Load strip: above the canvas, never instead of it. R5 corrects DESIGN.md §4.4's
+   "error text over --canvas" for this page — the last successfully loaded scene keeps the
+   viewport, because that scene is what the reader still has and it is expensive to get back. */
+.viewer-load-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--danger-bg, var(--surface));
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.viewer-load-error-title {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.viewer-load-error-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-2);
+}

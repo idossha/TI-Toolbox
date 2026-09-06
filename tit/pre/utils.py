@@ -34,6 +34,8 @@ from tit.paths import get_path_manager
 
 DATASET_TEMPLATES = {
     "root": "root.dataset_description.json",
+    "fastsurfer": "fastsurfer.dataset_description.json",
+    # Legacy: only written for projects that still hold recon-all output.
     "freesurfer": "freesurfer.dataset_description.json",
     "simnibs": "simnibs.dataset_description.json",
     "ti-toolbox": "ti-toolbox.dataset_description.json",
@@ -261,13 +263,8 @@ def _dataset_description_target(project_dir: str, dataset: str) -> Path:
     """Return the target path for a dataset_description.json file."""
     if dataset == "root":
         return Path(project_dir) / "dataset_description.json"
-    if dataset == "freesurfer":
-        return (
-            Path(project_dir)
-            / "derivatives"
-            / "freesurfer"
-            / "dataset_description.json"
-        )
+    if dataset in ("fastsurfer", "freesurfer"):
+        return Path(project_dir) / "derivatives" / dataset / "dataset_description.json"
     if dataset == "simnibs":
         return (
             Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
@@ -458,7 +455,12 @@ class CommandRunner:
         output_tail: deque[str] = deque(maxlen=20)
         self.last_output_lines = []
 
-        preexec_fn = os.setsid if os.name != "nt" else None
+        # start_new_session=True (not preexec_fn=os.setsid): preexec_fn runs
+        # after fork() but before exec(), which is unsafe in a process that
+        # may have other threads alive (only async-signal-safe calls are
+        # allowed there) -- start_new_session asks the C library to call
+        # setsid() itself, giving the same "own process group" result
+        # _terminate_process's os.killpg(...) needs, without that hazard.
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -467,7 +469,7 @@ class CommandRunner:
             bufsize=1,
             cwd=cwd,
             env=env,
-            preexec_fn=preexec_fn,
+            start_new_session=(os.name != "nt"),
         )
 
         with self._lock:

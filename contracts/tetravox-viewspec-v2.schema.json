@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/idossha/TI-toolbox/contracts/tetravox-viewspec-v2.schema.json",
+  "title": "Tetravox ViewSpec v2 (subset emitted by tit.viewspec.to_tetravox_viewspec)",
+  "description": "HOST-FACING: this hand-written schema documents the subset of Tetravox's own (engine-owned, frozen) `ViewSpec` v2 type (packages/engine/src/scene/types.ts `ViewSpec`, packages/engine/src/scene/serialize.ts `SCENE_VERSION`) that tit.server actually emits from tit/viewspec.py::to_tetravox_viewspec. It is NOT a redeclaration of Tetravox's type -- the engine's own TypeScript remains the source of truth for what Engine.load() accepts; this file exists so tit.server's tests can assert every scene this server builds validates as a well-formed ViewSpec v2 document without a JS/TS toolchain in the Python test process. Fields the engine type allows that this server never emits (visibleLabels, labelColors, iso3d, glyphs, measurements, extensions, theme, ...) are simply absent here, not forbidden -- additionalProperties is left permissive at every level so a future server addition does not need this file edited in lockstep.",
+  "type": "object",
+  "required": [
+    "version",
+    "datasets",
+    "layers",
+    "activeLayerId",
+    "slices",
+    "view3d",
+    "layout",
+    "cursor",
+    "radiological",
+    "background",
+    "lighting",
+    "annotations",
+    "transparency"
+  ],
+  "properties": {
+    "version": { "const": 2 },
+    "datasets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DatasetRef" }
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/VolumeLayer" },
+          { "$ref": "#/$defs/MeshLayer" }
+        ]
+      }
+    },
+    "activeLayerId": { "type": ["string", "null"] },
+    "slices": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SliceView" }
+    },
+    "view3d": { "$ref": "#/$defs/View3D" },
+    "layout": { "$ref": "#/$defs/Layout" },
+    "cursor": { "$ref": "#/$defs/vec3" },
+    "radiological": { "type": "boolean" },
+    "background": { "$ref": "#/$defs/vec4" },
+    "lighting": {
+      "type": "object",
+      "required": ["ambient", "headlight"],
+      "properties": {
+        "ambient": { "type": "number" },
+        "headlight": { "type": "boolean" }
+      }
+    },
+    "annotations": {
+      "type": "object",
+      "required": [
+        "orientationLabels",
+        "cornerInfo",
+        "conventionBadge",
+        "scaleBar",
+        "colorbars",
+        "crosshair",
+        "orientationCube"
+      ],
+      "properties": {
+        "orientationLabels": { "type": "boolean" },
+        "cornerInfo": { "type": "boolean" },
+        "conventionBadge": { "const": true },
+        "scaleBar": { "type": "boolean" },
+        "colorbars": { "type": "boolean" },
+        "crosshair": { "type": "boolean" },
+        "orientationCube": { "type": "boolean" }
+      }
+    },
+    "transparency": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["twoPhase", "sorted", "peel"] },
+        "peelLayers": { "type": "integer" }
+      }
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "vec4": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "type": "number" }
+    },
+    "SidecarRef": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string" },
+        "absPath": { "type": "string" }
+      }
+    },
+    "DatasetRef": {
+      "type": "object",
+      "required": ["id", "kind", "name", "path", "fingerprint"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["volume", "mesh"] },
+        "name": { "type": "string" },
+        "path": {
+          "type": "string",
+          "description": "an origin-relative /api/files/raw/... URL (leading '/', no scheme/host), not a container filesystem path -- see tit/viewspec.py's module docstring.",
+          "pattern": "^/api/files/raw/"
+        },
+        "absPath": {
+          "type": "string",
+          "pattern": "^/api/files/raw/"
+        },
+        "fingerprint": { "const": "" },
+        "sidecars": {
+          "type": "object",
+          "properties": {
+            "lut": { "$ref": "#/$defs/SidecarRef" },
+            "opt": { "$ref": "#/$defs/SidecarRef" }
+          }
+        }
+      }
+    },
+    "LayerBase": {
+      "type": "object",
+      "required": ["id", "datasetId", "name", "visible", "opacity", "pickable", "showColorbar"],
+      "properties": {
+        "id": { "type": "string" },
+        "datasetId": { "type": "string" },
+        "name": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "pickable": { "type": "boolean" },
+        "showColorbar": { "type": "boolean" }
+      }
+    },
+    "Threshold": {
+      "type": "object",
+      "required": ["lo", "hi", "symmetric", "mode", "softEdge"],
+      "properties": {
+        "lo": { "type": ["number", "null"] },
+        "hi": { "type": ["number", "null"] },
+        "symmetric": { "type": "boolean" },
+        "mode": { "enum": ["hide", "clamp"] },
+        "softEdge": { "type": "number" }
+      }
+    },
+    "Scale": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "lo", "hi"],
+          "properties": {
+            "kind": { "const": "linear" },
+            "lo": { "type": "number" },
+            "hi": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "min", "mid", "max", "truncate", "inverse", "negative"],
+          "properties": {
+            "kind": { "const": "heat" },
+            "min": { "type": "number" },
+            "mid": { "type": "number" },
+            "max": { "type": "number" },
+            "truncate": { "type": "boolean" },
+            "inverse": { "type": "boolean" },
+            "negative": { "enum": ["mirror", "hide", "separate"] }
+          }
+        }
+      ]
+    },
+    "VolumeLayer": {
+      "allOf": [
+        { "$ref": "#/$defs/LayerBase" },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "volumeIndex",
+            "colormap",
+            "scale",
+            "threshold",
+            "interpolation",
+            "labelMode",
+            "outlineWidthPx",
+            "showIn3D",
+            "precision"
+          ],
+          "properties": {
+            "kind": { "const": "volume" },
+            "volumeIndex": { "type": "integer", "minimum": 0 },
+            "colormap": { "type": "string" },
+            "scale": { "$ref": "#/$defs/Scale" },
+            "threshold": { "$ref": "#/$defs/Threshold" },
+            "interpolation": { "enum": ["linear", "nearest"] },
+            "labelMode": { "enum": ["fill", "outline", "both"] },
+            "outlineWidthPx": { "type": "number" },
+            "showIn3D": { "type": "boolean" },
+            "precision": { "enum": ["auto", "f32"] }
+          }
+        }
+      ]
+    },
+    "ClipPlane": {
+      "type": "object",
+      "required": ["plane", "enabled"],
+      "properties": {
+        "plane": {
+          "type": "object",
+          "required": ["normal", "offset"],
+          "properties": {
+            "normal": { "$ref": "#/$defs/vec3" },
+            "offset": { "type": "number" }
+          }
+        },
+        "enabled": { "type": "boolean" },
+        "followCursor": { "type": "boolean" }
+      }
+    },
+    "MeshLayer": {
+      "allOf": [
+        { "$ref": "#/$defs/LayerBase" },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "colorMode",
+            "solidColor",
+            "colormap",
+            "scale",
+            "threshold",
+            "tagStyle",
+            "edges",
+            "edgeColor",
+            "edgeWidthPx",
+            "flatShading",
+            "faceMode",
+            "clip",
+            "contoursIn2D",
+            "contourWidthPx",
+            "fillIn2D"
+          ],
+          "properties": {
+            "kind": { "const": "mesh" },
+            "colorMode": { "enum": ["tag", "field", "solid", "label"] },
+            "solidColor": { "$ref": "#/$defs/vec4" },
+            "field": {
+              "type": ["object", "null"],
+              "properties": {
+                "source": { "enum": ["node", "elm"] },
+                "name": { "type": "string" },
+                "component": { "enum": ["mag", 0, 1, 2] }
+              }
+            },
+            "colormap": { "type": "string" },
+            "scale": { "$ref": "#/$defs/Scale" },
+            "threshold": { "$ref": "#/$defs/Threshold" },
+            "tagStyle": { "type": "object" },
+            "edges": {
+              "type": "object",
+              "required": ["surface", "caps"],
+              "properties": {
+                "surface": { "type": "boolean" },
+                "caps": { "type": "boolean" }
+              }
+            },
+            "edgeColor": { "$ref": "#/$defs/vec4" },
+            "edgeWidthPx": { "type": "number" },
+            "flatShading": { "type": "boolean" },
+            "faceMode": { "enum": ["cull", "both"] },
+            "clip": {
+              "type": "object",
+              "required": ["planes", "caps", "capColorMode"],
+              "properties": {
+                "planes": {
+                  "type": "array",
+                  "maxItems": 6,
+                  "items": { "$ref": "#/$defs/ClipPlane" }
+                },
+                "caps": { "type": "boolean" },
+                "capColorMode": { "enum": ["inherit", "tag"] }
+              }
+            },
+            "contoursIn2D": { "type": "boolean" },
+            "contourWidthPx": { "type": "number" },
+            "fillIn2D": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "SliceView": {
+      "type": "object",
+      "required": ["id", "mode", "normal", "up", "camera"],
+      "properties": {
+        "id": { "type": "string" },
+        "mode": { "enum": ["axial", "coronal", "sagittal", "oblique"] },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "up": { "$ref": "#/$defs/vec3" },
+        "camera": {
+          "type": "object",
+          "required": ["center", "mmPerPx"],
+          "properties": {
+            "center": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "type": "number" }
+            },
+            "mmPerPx": { "type": "number" }
+          }
+        }
+      }
+    },
+    "View3D": {
+      "type": "object",
+      "required": ["id", "camera", "showSlicePlanes"],
+      "properties": {
+        "id": { "type": "string" },
+        "camera": {
+          "type": "object",
+          "required": ["target", "distance", "rotation", "fovYDeg", "orthographic", "near", "far"],
+          "properties": {
+            "target": { "$ref": "#/$defs/vec3" },
+            "distance": { "type": "number" },
+            "rotation": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": { "type": "number" }
+            },
+            "fovYDeg": { "type": "number" },
+            "orthographic": { "type": "boolean" },
+            "near": { "type": "number" },
+            "far": { "type": "number" }
+          }
+        },
+        "showSlicePlanes": { "type": "boolean" }
+      }
+    },
+    "Layout": {
+      "type": "object",
+      "required": ["kind", "cells"],
+      "properties": {
+        "kind": {
+          "enum": ["1x1", "1x3", "1x3-horizontal", "2x2", "3d-only", "1+3", "3d+1"]
+        },
+        "cells": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "ernie": {
+    "Thalamus": [
+      {
+        "name": "Thalamus_DK40_TI_max",
+        "space": "subject",
+        "field": "TI_max",
+        "roi": "Thalamus_target",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.json",
+        "msh": null,
+        "nifti": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/TI_max_masked.nii.gz",
+        "pdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/report.pdf"
+      }
+    ],
+    "L_Insula": [
+      {
+        "name": "L_Insula_a2009s_TI_max",
+        "space": "subject",
+        "field": "TI_max",
+        "roi": "L_Insula_target",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/L_Insula_a2009s_TI_max/summary.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/L_Insula_a2009s_TI_max/summary.json",
+        "msh": null,
+        "nifti": null,
+        "pdf": null
+      }
+    ],
+    "docs_example": [
+      {
+        "name": "docs_example_CIT168_mTI_max",
+        "space": "mni",
+        "field": "mTI_max",
+        "roi": "MNI_DLPFC_L",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/docs_example_CIT168_mTI_max/summary.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/Analyses/docs_example_CIT168_mTI_max/summary.json",
+        "msh": null,
+        "nifti": null,
+        "pdf": null
+      }
+    ]
+  },
+  "101": {
+    "Thalamus": [
+      {
+        "name": "Thalamus_DK40_TI_max",
+        "space": "subject",
+        "field": "TI_max",
+        "roi": "Thalamus_target",
+        "csv": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv",
+        "json": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.json",
+        "msh": null,
+        "nifti": null,
+        "pdf": null
+      }
+    ]
+  }
+}

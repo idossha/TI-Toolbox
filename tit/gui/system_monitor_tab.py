@@ -60,8 +60,8 @@ class ProcessMonitorThread(QThread):
         self.relevant_keywords = [
             "charm",
             "simnibs",
-            "freesurfer",
-            "recon-all",
+            "fastsurfer",
+            "run_fastsurfer.sh",
             "dcm2niix",
             "fsl",
             "bet",
@@ -73,7 +73,7 @@ class ProcessMonitorThread(QThread):
             "pre/structural.py",
             "pre/dicom2nifti.py",
             "pre/charm.py",
-            "pre/recon_all.py",
+            "pre/fastsurfer.py",
             # QSI-related processes (QSIPrep, QSIRecon, DTI extraction)
             "qsiprep",
             "qsirecon",

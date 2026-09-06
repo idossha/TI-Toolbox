@@ -624,6 +624,36 @@ class TestResolveVoxelAtlas:
         with pytest.raises(FileNotFoundError, match="not found"):
             a._resolve_voxel_atlas("nonexistent")
 
+    def test_prefers_fastsurfer_over_legacy_freesurfer(self, tmp_path):
+        # Both dirs carry a same-named atlas -- FastSurfer's own mri/ must win.
+        a = _make_analyzer(space="voxel")
+        a._pm.fastsurfer_mri.return_value = str(tmp_path / "fastsurfer_mri")
+        a._pm.freesurfer_mri.return_value = str(tmp_path / "fs_mri")
+        a._pm.segmentation.return_value = str(tmp_path / "seg")
+        (tmp_path / "fastsurfer_mri").mkdir()
+        (tmp_path / "fs_mri").mkdir()
+        (tmp_path / "seg").mkdir()
+        (tmp_path / "fs_mri" / "aparc+aseg.mgz").touch()
+        deep = tmp_path / "fastsurfer_mri" / "aparc+aseg.mgz"
+        deep.touch()
+
+        result = a._resolve_voxel_atlas("aparc+aseg")
+        assert result == deep
+
+    def test_falls_back_to_legacy_freesurfer_when_fastsurfer_lacks_it(self, tmp_path):
+        a = _make_analyzer(space="voxel")
+        a._pm.fastsurfer_mri.return_value = str(tmp_path / "fastsurfer_mri")
+        a._pm.freesurfer_mri.return_value = str(tmp_path / "fs_mri")
+        a._pm.segmentation.return_value = str(tmp_path / "seg")
+        (tmp_path / "fastsurfer_mri").mkdir()
+        (tmp_path / "fs_mri").mkdir()
+        (tmp_path / "seg").mkdir()
+        legacy = tmp_path / "fs_mri" / "ThalamicNuclei.v13.T1.mgz"
+        legacy.touch()
+
+        result = a._resolve_voxel_atlas("ThalamicNuclei.v13.T1.mgz")
+        assert result == legacy
+
 
 class TestCombinedCortexMesh:
     """Combined ROI: _cortex_mesh unions multiple atlas regions."""
@@ -761,7 +791,7 @@ class TestMainRegionsKey:
     """__main__ reads 'regions' key for combined ROI."""
 
     def test_run_single_uses_regions_list(self):
-        from tit.analyzer.__main__ import _run_single
+        from tit.analyzer.__main__ import _build_config_legacy, _run_single
 
         data = {
             "subject_id": "001",
@@ -775,7 +805,7 @@ class TestMainRegionsKey:
         with patch("tit.analyzer.Analyzer") as MockAnalyzer:
             mock_instance = MockAnalyzer.return_value
             mock_instance.analyze_cortex.return_value = MagicMock()
-            _run_single(data)
+            _run_single(_build_config_legacy(data))
             mock_instance.analyze_cortex.assert_called_once_with(
                 atlas="DK40",
                 region=["V1", "V2"],
@@ -783,7 +813,7 @@ class TestMainRegionsKey:
             )
 
     def test_run_single_falls_back_to_region_string(self):
-        from tit.analyzer.__main__ import _run_single
+        from tit.analyzer.__main__ import _build_config_legacy, _run_single
 
         data = {
             "subject_id": "001",
@@ -797,7 +827,7 @@ class TestMainRegionsKey:
         with patch("tit.analyzer.Analyzer") as MockAnalyzer:
             mock_instance = MockAnalyzer.return_value
             mock_instance.analyze_cortex.return_value = MagicMock()
-            _run_single(data)
+            _run_single(_build_config_legacy(data))
             mock_instance.analyze_cortex.assert_called_once_with(
                 atlas="DK40",
                 region="V1",
@@ -896,7 +926,7 @@ class TestFieldPlumbing:
         assert mock_select.call_args.kwargs["field"] is None
 
     def test_run_single_forwards_field(self):
-        from tit.analyzer.__main__ import _run_single
+        from tit.analyzer.__main__ import _build_config_legacy, _run_single
 
         data = {
             "subject_id": "001",
@@ -908,12 +938,12 @@ class TestFieldPlumbing:
             "field": "TI_avg",
         }
         with patch("tit.analyzer.Analyzer") as MockAnalyzer:
-            _run_single(data)
+            _run_single(_build_config_legacy(data))
 
         assert MockAnalyzer.call_args.kwargs["field"] == "TI_avg"
 
     def test_run_single_without_field_defaults_none(self):
-        from tit.analyzer.__main__ import _run_single
+        from tit.analyzer.__main__ import _build_config_legacy, _run_single
 
         data = {
             "subject_id": "001",
@@ -923,14 +953,15 @@ class TestFieldPlumbing:
             "region": "V1",
         }
         with patch("tit.analyzer.Analyzer") as MockAnalyzer:
-            _run_single(data)
+            _run_single(_build_config_legacy(data))
 
         assert MockAnalyzer.call_args.kwargs["field"] is None
 
     def test_run_group_forwards_field(self):
-        from tit.analyzer.__main__ import _run_group
+        from tit.analyzer.__main__ import _build_config_legacy, _run_group
 
         data = {
+            "mode": "group",
             "subject_ids": ["001", "002"],
             "simulation": "montage1",
             "analysis_type": "cortical",
@@ -939,6 +970,6 @@ class TestFieldPlumbing:
             "field": "hf_peak",
         }
         with patch("tit.analyzer.run_group_analysis") as mock_group:
-            _run_group(data)
+            _run_group(_build_config_legacy(data))
 
         assert mock_group.call_args.kwargs["field"] == "hf_peak"

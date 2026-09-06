@@ -1,0 +1,26 @@
+{
+    "Name": "FastSurfer derivatives for TI-Toolbox",
+    "BIDSVersion": "1.10.0",
+    "DatasetType": "derivative",
+    "License": "CC-BY-4.0",
+    "Authors": "TI-Toolbox Authors",
+    "Acknowledgements": "We thank the FastSurfer developers at the Deep Medical Imaging Lab (Deep-MI).",
+    "HowToAcknowledge": "Please cite: Henschel, L., Conjeti, S., Estrada, S., Diers, K., Fischl, B., Reuter, M. (2020). FastSurfer - A fast and accurate deep learning based neuroimaging pipeline. NeuroImage, 219, 117012. https://doi.org/10.1016/j.neuroimage.2020.117012",
+    "ReferencesAndLinks": [
+      "https://github.com/Deep-MI/FastSurfer",
+      "Henschel, L., Conjeti, S., Estrada, S., Diers, K., Fischl, B., Reuter, M. (2020). FastSurfer - A fast and accurate deep learning based neuroimaging pipeline. NeuroImage, 219, 117012. https://doi.org/10.1016/j.neuroimage.2020.117012"
+    ],
+    "GeneratedBy": [
+      {
+        "Name": "FastSurfer",
+        "Description": "Voxel-space cortical and subcortical parcellation with run_fastsurfer.sh --seg_only --no_cc.",
+        "CodeURL": "https://github.com/Deep-MI/FastSurfer"
+      }
+    ],
+    "SourceDatasets": [
+      {
+        "URI": ""
+      }
+    ],
+    "DatasetLinks": {}
+}

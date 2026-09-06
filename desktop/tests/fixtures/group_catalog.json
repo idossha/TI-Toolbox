@@ -1,0 +1,30 @@
+{
+  "stats": [
+    {
+      "name": "group_comparison_Thalamus_TI_max_20260815",
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815",
+      "kind": "group_comparison",
+      "field": "TI_max",
+      "subjects": ["ernie", "101"],
+      "created": "2026-08-15T12:00:00Z"
+    }
+  ],
+  "nilearn": [
+    {
+      "name": "nilearn_TI_max_glass_brain_20260816",
+      "path": "/mnt/example/derivatives/group/nilearn/nilearn_TI_max_glass_brain_20260816.png",
+      "field": "TI_max",
+      "created": "2026-08-16T09:30:00Z"
+    }
+  ],
+  "group_analyses": [
+    {
+      "name": "group_avg_TI_max_DK40_20260817",
+      "path": "/mnt/example/derivatives/group/analyses/group_avg_TI_max_DK40_20260817",
+      "field": "TI_max",
+      "atlas": "DK40",
+      "subjects": ["ernie", "101"],
+      "created": "2026-08-17T15:45:00Z"
+    }
+  ]
+}

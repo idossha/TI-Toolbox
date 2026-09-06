@@ -1,0 +1,338 @@
+/*
+ * Geometry for the jobs component family. It lives here rather than in `app/shell.css` because
+ * that file belongs to the shell lane; the `.jobs-dock` class doubles the specificity of every
+ * rule below (0,2,0 vs 0,1,0), so the v1 `.jobs-rail*` rules still in shell.css cannot win no
+ * matter which stylesheet Vite emits first. The `.jobs-rail`/`.jobs-rail-expanded` class names
+ * themselves are kept because the shell's own e2e keys on them.
+ *
+ * Heights are plan §1's: 32px collapsed, 260px expanded. Everything inside is on the shared
+ * tokens (`--row-h`, `--control-h`, `--pane-pad`) — no literal colours, no second density.
+ */
+
+.jobs-rail.jobs-dock {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--app-ground);
+}
+
+/* ---------- 32px: traces ---------- */
+
+.jobs-rail.jobs-dock.jobs-rail-collapsed {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+}
+.jobs-rail.jobs-dock .jobs-rail-traces {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  /* No horizontal scroll: what does not fit becomes the "+N queued" chip, so a trace is never
+   * clipped mid-word. */
+  overflow: hidden;
+}
+/* Uniform 164px slots: the rail reads as a strip of equal cells, and — with `fitTraces`
+ * measuring the container — a trace is never squeezed or cut off by the right edge. A long
+ * subject id ellipsizes inside its own slot, which is a controlled truncation, not a clip. */
+.jobs-rail.jobs-dock .job-trace {
+  flex: none;
+  width: 164px;
+  min-width: 0;
+  overflow: hidden;
+}
+.jobs-rail.jobs-dock .job-trace-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jobs-rail.jobs-dock .job-trace-elapsed {
+  margin-left: auto;
+  flex: none;
+}
+.jobs-rail.jobs-dock .jobs-rail-empty {
+  /* Real, always-visible copy — never `--ink-3`, which is placeholders and disabled only. */
+  color: var(--ink-2);
+  font-size: 12px;
+  padding: 0 var(--space-2);
+}
+.jobs-rail.jobs-dock .jobs-rail-overflow {
+  flex: none;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.jobs-rail.jobs-dock .jobs-rail-overflow:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+/* ---------- 260px: the panel ---------- */
+
+.jobs-rail.jobs-dock.jobs-rail-expanded {
+  height: 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.jobs-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.jobs-panel-head {
+  flex: none;
+  height: var(--section-header-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.jobs-panel-count {
+  margin-left: auto;
+  color: var(--ink-2);
+}
+.jobs-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---------- the one table, at both heights ---------- */
+
+.jobs-table {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+.jobs-table[data-density="page"] {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panes);
+}
+.jobs-table-skeleton {
+  padding: var(--pane-pad);
+}
+.jobs-cell-none {
+  color: var(--ink-3);
+}
+
+/* ---------- detail pane (was a modal drawer) ---------- */
+
+.job-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  padding: var(--space-2) var(--pane-pad);
+  gap: var(--space-2);
+  overflow: auto;
+}
+.job-detail[data-density="page"] {
+  border-left: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panes);
+}
+.job-detail-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+}
+.job-detail-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.job-detail-id {
+  margin-left: auto;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.job-detail-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.job-detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.job-detail-log {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  padding: var(--space-3);
+  white-space: pre-wrap;
+}
+.job-detail-log-inline {
+  max-height: 160px;
+  background: var(--surface);
+  padding: var(--space-2);
+}
+
+/* Summary tab's console excerpt (`page` density only) — fills the space a definition list alone
+ * left blank (dev/notes/v3-ui-program wireframes.md §8). No `max-height` cap here, unlike
+ * `.job-detail-log-inline`'s 160px: forty lines of mono text is meant to occupy the pane, and
+ * `.job-detail-body`'s own `overflow: auto` (above) takes over if the pane itself is short. */
+.job-detail-console {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.job-detail-console-head {
+  color: var(--ink-2);
+}
+.job-detail-console-body {
+  /* `.job-detail-log` caps most excerpts at 320px; the Summary tab's console excerpt is the thing
+   * meant to occupy the pane, so it grows to its natural (40-line) height instead — the ancestor
+   * `.job-detail-body` still scrolls the whole tab if that is taller than the pane. */
+  max-height: none;
+  min-height: 220px;
+}
+
+/* ---------- console / report panes ---------- */
+
+.jobs-pane-empty {
+  padding: var(--space-2) var(--pane-pad);
+}
+.console-pane,
+.report-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.console-pane-head,
+.report-pane-head {
+  flex: none;
+  height: var(--section-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--pane-pad);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.console-pane-body {
+  flex: 1;
+  min-height: 0;
+}
+.report-pane-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+/* ---------- Host tab ---------- */
+
+.host-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.host-stats {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--pane-pad);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.host-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.host-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+}
+.host-stat-value {
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 56px;
+  text-align: right;
+}
+.host-stat-detail {
+  color: var(--ink-2);
+}
+.host-stat-siblings {
+  max-width: 44ch;
+  white-space: normal;
+}
+.host-ws-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.host-processes {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+/* ---------- height 3: the full page ---------- */
+
+.jobs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+}
+.jobs-toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+}
+.jobs-toolbar-label {
+  color: var(--ink-2);
+}
+.jobs-toolbar-count {
+  margin-left: auto;
+  color: var(--ink-2);
+}
+.jobs-page-body {
+  flex: 1;
+  min-height: 0;
+}
+.jobs-page-groups {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}

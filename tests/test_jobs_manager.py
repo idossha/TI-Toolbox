@@ -1,0 +1,825 @@
+"""Integration tests: JobManager driving real (fake) subprocesses end to end.
+
+Each test builds its own :class:`~tit.jobs.manager.JobManager` pointed at a fresh ``tmp_path``,
+with the command builder swapped for one that always runs ``tests/fake_runner.py`` regardless of
+kind — so these exercise the real scheduler tick, real subprocess spawn/wait/cancel, and the real
+lock directory, without needing any of the nine science runners to exist.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import time
+
+import psutil
+import pytest
+
+from tit.jobs import locks
+from tit.jobs.manager import JobManager
+from tit.jobs.registry import events_path
+from tit.jobs.spec import Cost
+
+FAKE_RUNNER = os.path.join(os.path.dirname(__file__), "fake_runner.py")
+
+
+def _fake_command_for(kind, config, spec_path):
+    return [sys.executable, FAKE_RUNNER, spec_path]
+
+
+def make_manager(
+    tmp_path, *, budget: Cost | None = None, poll_interval: float = 0.05
+) -> JobManager:
+    manager = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=poll_interval,
+        budget=budget or Cost(cpus=8, mem_gb=64),
+        command_for=_fake_command_for,
+    )
+    manager.start()
+    return manager
+
+
+def wait_until(predicate, timeout=10.0, interval=0.02):
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        last = predicate()
+        if last:
+            return last
+        time.sleep(interval)
+    raise AssertionError(f"condition not met within {timeout}s (last value: {last!r})")
+
+
+@pytest.fixture()
+def manager(tmp_path):
+    m = make_manager(tmp_path)
+    yield m
+    m.shutdown()
+
+
+# ---------------------------------------------------------------------------------------------
+# happy path / failure
+# ---------------------------------------------------------------------------------------------
+
+
+def test_submit_runs_and_succeeds(manager):
+    status = manager.submit(
+        "tools",
+        {"__fake": {"stages": ["a", "b"], "duration_s": 0.1, "artifact": "/x/out.txt"}},
+        ["001"],
+    )
+    assert status["state"] == "queued"
+    final = wait_until(
+        lambda: (lambda s: s if s["state"] in ("succeeded", "failed") else None)(
+            manager.get(status["id"])
+        )
+    )
+    assert final["state"] == "succeeded"
+    assert final["exit_code"] == 0
+    assert final["started_at"] is not None and final["finished_at"] is not None
+    assert final["artifacts"] == [{"path": "/x/out.txt", "kind": "txt"}]
+    assert final["progress"]["stage"] == "b"
+    # ra_13 finding #6: JobStatus.log_path, derived by the manager from its own registry rather
+    # than reconstructed client-side (pages/jobs/JobDetailDrawer.tsx used to do exactly that).
+    from tit.jobs.registry import stdout_path
+
+    assert final["log_path"] == stdout_path(manager.project_dir, status["id"])
+    assert os.path.isfile(final["log_path"])
+
+    events = manager.get_events(status["id"])
+    types = [e["type"] for e in events]
+    assert types[:2] == ["stage", "log"]
+    assert "result" in types and "exit" in types
+    # seq is dense and starts at 0
+    assert [e["seq"] for e in events] == list(range(len(events)))
+
+    log = manager.get_log(status["id"])
+    assert "fake_runner: starting kind=tools" in log
+
+
+def test_submit_failure_records_exit_code_and_error(manager):
+    status = manager.submit(
+        "tools", {"__fake": {"duration_s": 0.05, "fail": True, "exit_code": 3}}, []
+    )
+    final = wait_until(
+        lambda: (lambda s: s if s["state"] == "failed" else None)(
+            manager.get(status["id"])
+        )
+    )
+    assert final["exit_code"] == 3
+    assert final["error"]["type"] == "runner_failed"
+    assert "3" in final["error"]["message"]
+
+
+def test_unknown_kind_rejected_at_submit(manager):
+    with pytest.raises(ValueError):
+        manager.submit("not_a_real_kind", {}, [])
+
+
+def test_disallowed_kind_fails_with_kind_error_at_admit_time(tmp_path):
+    """ra_13 finding #14: a kind that passes JOB_KINDS at submit() (it's a real, known kind)
+    but that the *real* ``tit.jobs.kinds.command_for`` refuses -- the ``tools`` allowlist
+    (ra_14 finding #2) is exactly such a case -- surfaces as a "failed" job with
+    ``error.type == "kind_error"``, not a raised exception or a wedged "queued" job. Uses the
+    real ``kinds.command_for`` (not this file's fake-runner override) since the point is what
+    the real admit path does when it raises.
+    """
+    manager = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=0.05,
+        budget=Cost(cpus=8, mem_gb=64),
+    )
+    manager.start()
+    try:
+        status = manager.submit("tools", {"module": "os"}, [])
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] == "failed" else None)(
+                manager.get(status["id"])
+            )
+        )
+        assert final["error"]["type"] == "kind_error"
+        assert "not an allowed tit.tools module" in final["error"]["message"]
+    finally:
+        manager.shutdown()
+
+
+def test_list_and_get_detail(manager):
+    status = manager.submit(
+        "tools", {"__fake": {"duration_s": 0.05}}, ["001"], tags=["t1"]
+    )
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(status["id"])
+        )
+    )
+    listed = manager.list_jobs(subject="001")
+    assert any(j["id"] == status["id"] for j in listed)
+    detail = manager.get_detail(status["id"])
+    assert detail["spec"]["tags"] == ["t1"]
+    assert detail["status"]["id"] == status["id"]
+    assert detail["artifacts"] == detail["status"]["artifacts"]
+    assert manager.get_detail("nope") is None
+
+
+def test_delete_requires_terminal_state(manager):
+    # 0.2s is plenty to observe "not_terminal" below before the job finishes (ra_11 finding #10
+    # -- this was 1.0s, dominating a large slice of the file's real wall-clock time for no
+    # correctness benefit).
+    status = manager.submit("tools", {"__fake": {"duration_s": 0.2}}, [])
+    assert manager.delete(status["id"]) == "not_terminal"
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(status["id"])
+        )
+    )
+    assert manager.delete(status["id"]) == "deleted"
+    assert manager.get(status["id"]) is None
+    assert manager.delete(status["id"]) == "not_found"
+
+
+# ---------------------------------------------------------------------------------------------
+# dependencies
+# ---------------------------------------------------------------------------------------------
+
+
+def test_after_dependency_waits_then_runs(manager):
+    first = manager.submit("tools", {"__fake": {"duration_s": 0.3}}, [])
+    second = manager.submit(
+        "tools", {"__fake": {"duration_s": 0.05}}, [], after=[first["id"]]
+    )
+
+    waiting = wait_until(
+        lambda: (lambda s: s if s["waiting_on"] else None)(manager.get(second["id"]))
+    )
+    assert waiting["state"] == "queued"
+    assert waiting["waiting_on"] == [{"key": "after", "job_id": first["id"]}]
+
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(first["id"])
+        )
+    )
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(second["id"])
+        )
+    )
+
+
+def test_dependency_failure_skips_dependants_transitively(manager):
+    first = manager.submit("tools", {"__fake": {"duration_s": 0.05, "fail": True}}, [])
+    second = manager.submit("tools", {"__fake": {}}, [], after=[first["id"]])
+    third = manager.submit("tools", {"__fake": {}}, [], after=[second["id"]])
+
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "skipped" else None)(
+            manager.get(third["id"])
+        )
+    )
+    second_final = manager.get(second["id"])
+    assert second_final["state"] == "skipped"
+    assert "failed" in second_final["error"]["message"]
+
+
+# ---------------------------------------------------------------------------------------------
+# locks
+# ---------------------------------------------------------------------------------------------
+
+
+def test_lock_conflict_shows_waiting_on_then_admits(tmp_path):
+    manager = make_manager(tmp_path)
+    try:
+        holder = manager.submit(
+            "leadfield",
+            {
+                "__fake": {
+                    "duration_s": 0.2,  # ra_11 finding #10: was 0.5s
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
+            ["001"],
+        )
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "running" else None)(
+                manager.get(holder["id"])
+            )
+        )
+        # The lock is acquired *inside* the fake_runner subprocess after it starts up, not the
+        # instant the manager marks the job "running" -- wait for the actual on-disk hold.
+        wait_until(
+            lambda: [
+                h for h in locks.holders(str(tmp_path)) if h["job_id"] == holder["id"]
+            ]
+            or None
+        )
+
+        waiter = manager.submit(
+            "leadfield",
+            {
+                "__fake": {
+                    "duration_s": 0.05,
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
+            ["001"],
+        )
+        waiting = wait_until(
+            lambda: (lambda s: s if s["waiting_on"] else None)(
+                manager.get(waiter["id"])
+            )
+        )
+        assert waiting["waiting_on"][0]["job_id"] == holder["id"]
+        assert "leadfields" in waiting["waiting_on"][0]["key"]
+
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+                manager.get(holder["id"])
+            )
+        )
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+                manager.get(waiter["id"])
+            )
+        )
+    finally:
+        manager.shutdown()
+
+
+def test_lock_conflicts_query_for_plan_endpoint(tmp_path):
+    manager = make_manager(tmp_path)
+    try:
+        holder = manager.submit(
+            "leadfield",
+            {
+                "__fake": {
+                    "duration_s": 0.2,  # ra_11 finding #10: was 0.5s
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
+            ["001"],
+        )
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "running" else None)(
+                manager.get(holder["id"])
+            )
+        )
+        wait_until(
+            lambda: [
+                h for h in locks.holders(str(tmp_path)) if h["job_id"] == holder["id"]
+            ]
+            or None
+        )
+        conflicts = wait_until(
+            lambda: manager.lock_conflicts(["subject:001:leadfields:write"]) or None
+        )
+        assert conflicts[0]["held_by"] == holder["id"]
+        assert conflicts[0]["subject"] == "001"
+        assert conflicts[0]["kind"] == "leadfield"
+    finally:
+        manager.shutdown()
+
+
+# ---------------------------------------------------------------------------------------------
+# budget
+# ---------------------------------------------------------------------------------------------
+
+
+def test_budget_fanout_limits_concurrency(tmp_path):
+    manager = make_manager(tmp_path, budget=Cost(cpus=8, mem_gb=64))
+    try:
+        ids = []
+        for _ in range(4):
+            # 0.2s (ra_11 finding #10: was 0.6s x 4) still leaves plenty of 0.02s-interval
+            # samples per "wave" (floor(8/3)=2 concurrent) below to reliably catch an overshoot.
+            status = manager.submit(
+                "flex", {"cpus": 3, "__fake": {"duration_s": 0.2}}, []
+            )
+            ids.append(status["id"])
+
+        # At least one job must be observed waiting on budget (3 cpu x 3 running = 9 > 8).
+        def _some_budget_waiting():
+            statuses = [manager.get(i) for i in ids]
+            return any(
+                s["budget_wait"] if "budget_wait" in s else None for s in statuses
+            ) or any(s["state"] == "queued" for s in statuses)
+
+        # observe peak concurrency never exceeds floor(8/3) = 2
+        max_running = 0
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            statuses = [manager.get(i) for i in ids]
+            running = sum(1 for s in statuses if s["state"] == "running")
+            max_running = max(max_running, running)
+            if all(s["state"] == "succeeded" for s in statuses):
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("jobs did not all finish in time")
+
+        assert max_running <= 2
+        assert all(manager.get(i)["state"] == "succeeded" for i in ids)
+    finally:
+        manager.shutdown()
+
+
+# ---------------------------------------------------------------------------------------------
+# cancel
+# ---------------------------------------------------------------------------------------------
+
+
+def test_cancel_queued_job(manager):
+    blocker = manager.submit("tools", {"__fake": {"duration_s": 2.0}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "running" else None)(
+            manager.get(blocker["id"])
+        )
+    )
+    dependant = manager.submit("tools", {"__fake": {}}, [], after=[blocker["id"]])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "queued" and s["waiting_on"] else None)(
+            manager.get(dependant["id"])
+        )
+    )
+    result = manager.cancel(dependant["id"])
+    assert result["state"] == "cancelled"
+    manager.cancel(blocker["id"])
+
+
+def test_cancel_running_job_kills_process(manager):
+    status = manager.submit("tools", {"__fake": {"duration_s": 5.0}}, [])
+    running = wait_until(
+        lambda: (lambda s: s if s["state"] == "running" else None)(
+            manager.get(status["id"])
+        )
+    )
+    assert running["liveness"] == "active"
+
+    with manager._lock:  # test-only peek; production code never needs this
+        pid_val = manager._status[status["id"]].pid
+    assert pid_val is not None and psutil.pid_exists(pid_val)
+
+    result = manager.cancel(status["id"])
+    assert result["state"] == "cancelled"
+    assert (
+        not psutil.pid_exists(pid_val)
+        or psutil.Process(pid_val).status() == psutil.STATUS_ZOMBIE
+    )
+
+
+def test_cancel_closes_the_log_with_one_readable_line(manager):
+    """FX2: a cancelled job's log used to end in PETSc's ten-line "Caught signal number 15 /
+    MPI_Abort" block -- even for kinds that run no solver -- so a cancel read as a crash
+    (`dev/notes/v3-pipelines/2026-09-03-smoke.md` open issue 2). The runner cannot write this
+    line itself (SIGTERM's default disposition runs no Python), so the manager writes it once,
+    after the process tree is gone."""
+    from tit.jobs.manager import CANCEL_NOTE
+    from tit.jobs.registry import stdout_path
+
+    status = manager.submit("tools", {"__fake": {"duration_s": 5.0}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "running" else None)(
+            manager.get(status["id"])
+        )
+    )
+    assert manager.cancel(status["id"])["state"] == "cancelled"
+
+    log = stdout_path(manager.project_dir, status["id"])
+    lines = [ln for ln in open(log, encoding="utf-8").read().splitlines() if ln.strip()]
+    assert lines.count(CANCEL_NOTE) == 1
+    assert lines[-1] == CANCEL_NOTE  # nothing can write after it: the tree is dead
+    assert not any("PETSC ERROR" in ln or "MPI_Abort" in ln for ln in lines)
+
+
+def test_cancel_note_survives_a_missing_log(tmp_path):
+    """Best-effort: a job whose log directory is gone must still cancel cleanly."""
+    manager = make_manager(tmp_path)
+    try:
+        manager._append_cancel_note("no-such-job")  # must not raise
+    finally:
+        manager.shutdown()
+
+
+def test_cancel_unknown_job_returns_none(manager):
+    assert manager.cancel("nope") is None
+
+
+def test_force_marks_terminal_without_waiting(manager):
+    status = manager.submit("tools", {"__fake": {"duration_s": 5.0}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "running" else None)(
+            manager.get(status["id"])
+        )
+    )
+    forced = manager.force(status["id"])
+    assert forced["state"] == "lost"
+    assert forced["error"]["type"] == "forced"
+    # best-effort background termination should eventually actually kill it too
+    with manager._lock:
+        pid_val = manager._status[status["id"]].pid
+    assert pid_val is None  # cleared by force()
+
+
+# ---------------------------------------------------------------------------------------------
+# rerun
+# ---------------------------------------------------------------------------------------------
+
+
+def test_submit_plan_group_cap_limits_concurrent_running_jobs(tmp_path):
+    """submit_plan(group_cap=N) (JobGroupRequest.parallel_subjects) admits at most N of the
+    group's independent (no ``after``) jobs at once, end to end through the real scheduler.
+    """
+    from tit.jobs.spec import PlannedJob
+
+    manager = make_manager(tmp_path, budget=Cost(cpus=64, mem_gb=256))
+    try:
+        planned = [
+            PlannedJob(
+                label=f"j{i}",
+                kind="tools",
+                config={"__fake": {"duration_s": 0.3}},
+                subject_ids=[f"{i:03d}"],
+            )
+            for i in range(4)
+        ]
+        result = manager.submit_plan(planned, group_cap=2)
+        ids = [j["id"] for j in result["jobs"]]
+        assert len(ids) == 4
+
+        max_running = 0
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            statuses = [manager.get(i) for i in ids]
+            running = sum(1 for s in statuses if s["state"] == "running")
+            max_running = max(max_running, running)
+            if all(s["state"] == "succeeded" for s in statuses):
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("group jobs did not all finish in time")
+
+        assert max_running <= 2
+        assert all(manager.get(i)["state"] == "succeeded" for i in ids)
+    finally:
+        manager.shutdown()
+
+
+def test_rerun_submits_new_job_with_same_config(manager):
+    original = manager.submit(
+        "tools", {"__fake": {"duration_s": 0.05}}, ["001"], tags=["batch"]
+    )
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(original["id"])
+        )
+    )
+    rerun = manager.rerun(original["id"])
+    assert rerun["id"] != original["id"]
+    assert rerun["subject_ids"] == ["001"]
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(rerun["id"])
+        )
+    )
+    assert manager.rerun("nope") is None
+
+
+# ---------------------------------------------------------------------------------------------
+# restart re-attach / lost detection
+# ---------------------------------------------------------------------------------------------
+
+
+def test_restart_reattaches_still_running_job(tmp_path):
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit(
+        "tools", {"__fake": {"duration_s": 3.0, "stages": ["a", "b", "c"]}}, []
+    )
+    # Wait for at least one progress event to have been tailed, not just "running" (which flips
+    # the instant the process is spawned, before it's necessarily emitted anything yet).
+    running = wait_until(
+        lambda: (lambda s: s if s["state"] == "running" and s["progress"] else None)(
+            manager1.get(status["id"])
+        )
+    )
+    with manager1._lock:
+        pid = manager1._status[status["id"]].pid
+    assert psutil.pid_exists(pid)
+    # Shut down the manager (its background loop/thread) without touching the child process --
+    # this simulates the server process restarting while a job's real OS process survives.
+    manager1.shutdown()
+    assert psutil.pid_exists(pid)
+
+    manager2 = make_manager(tmp_path)
+    try:
+        reattached = manager2.get(status["id"])
+        assert reattached["state"] == "running"
+        assert (
+            reattached["progress"] is not None
+        )  # continues tailing from where it left off
+
+        result = manager2.cancel(status["id"])
+        assert result["state"] == "cancelled"
+        wait_until(lambda: (not psutil.pid_exists(pid)) or None)
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_detects_lost_job(tmp_path):
+    # Rewrite a finished job's status.json as if it were still "running" under a pid that
+    # cannot possibly exist, and blank its events -- simulating a server restart discovering a
+    # job whose real process died without a trace (e.g. an OOM kill), without any real-OS-timing
+    # race around actually killing and reaping a process and hoping its pid isn't reused before
+    # the next manager starts (a genuine risk in a suite that spawns many short-lived
+    # processes back to back).
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    with manager1._lock:
+        job_status = manager1._status[status["id"]]
+        job_status.state = "running"
+        job_status.pid = 999_999_999
+        job_status.create_time = 0.0
+        job_status.finished_at = None
+        job_status.error = None
+        manager1.registry.write_status(job_status)
+    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        # start() only guarantees the background loop *exists*, not that its first tick (which
+        # runs _reattach_all()) has executed yet -- poll rather than assume it already has.
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "lost"
+        assert final["error"]["type"] == "lost"
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_refuses_to_reattach_to_pid_1_or_this_processs_own_pid(tmp_path):
+    """ra_14 finding #5: a crafted/corrupted status.json naming pid 1 or the *reattaching*
+    process's own pid (standing in here for "the server's own pid", which is exactly what a
+    real server restart's own re-attach would be checking against) must never be treated as
+    "still running" -- even when create_time is filled in with a value that would otherwise
+    pass the pid-reuse check. Regression coverage for is_alive()'s untouchable-pid guard, at
+    the level actually exercised by a restart (not just the unit test in test_jobs_model.py).
+    """
+    import psutil as _psutil
+
+    own_create_time = _psutil.Process(os.getpid()).create_time()
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    with manager1._lock:
+        job_status = manager1._status[status["id"]]
+        job_status.state = "running"
+        job_status.pid = os.getpid()  # this test process -- genuinely alive
+        job_status.create_time = own_create_time  # and correctly attributed to it
+        job_status.finished_at = None
+        job_status.error = None
+        manager1.registry.write_status(job_status)
+    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "lost"
+    finally:
+        manager2.shutdown()
+    # The pid this test runs under is still alive and untouched.
+    assert psutil.pid_exists(os.getpid())
+
+
+def test_restart_refuses_to_reattach_without_a_create_time(tmp_path):
+    """ra_14 finding #5: a "running" status.json with no create_time can't be verified as the
+    same process this server actually spawned (pid reuse is otherwise undetectable) -- treat
+    it as lost, even though the pid it names happens to be a genuinely live, unrelated process
+    (this test's own pid).
+    """
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    with manager1._lock:
+        job_status = manager1._status[status["id"]]
+        job_status.state = "running"
+        job_status.pid = os.getpid()  # genuinely alive
+        job_status.create_time = None  # ...but unverifiable
+        job_status.finished_at = None
+        job_status.error = None
+        manager1.registry.write_status(job_status)
+    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "lost"
+    finally:
+        manager2.shutdown()
+
+
+def test_cancel_of_a_running_status_pointing_at_pid_1_never_signals_it(manager):
+    """ra_14 finding #5, the ``cancel`` path specifically: even if a job's in-memory status
+    somehow carries pid 1 (a corrupted status.json read back, or -- the real-world case this
+    guards -- a re-attach that predates this fix), ``cancel()`` must finalize the job without
+    ever calling ``terminate_tree`` on pid 1 itself. Bypasses ``_reattach_all`` entirely (already
+    covered by the two tests above) to isolate the cancel-path guard in ``runner.terminate_tree``.
+    """
+    status = manager.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager.get(status["id"])
+        )
+    )
+    with manager._lock:
+        job_status = manager._status[status["id"]]
+        job_status.state = "running"
+        job_status.pid = 1
+        job_status.create_time = None
+        job_status.finished_at = None
+        job_status.error = None
+
+    result = manager.cancel(status["id"])
+    assert result["state"] == "cancelled"
+
+
+def _rewrite_as_running_under_a_dead_pid(manager, job_id: str) -> None:
+    """Shared setup for the two tests below: same "server restarted while a job's real process
+    was already gone" scenario as test_restart_detects_lost_job, but the job's own events.jsonl
+    is left intact (not blanked) so its ``exit`` event can be read back."""
+    with manager._lock:
+        job_status = manager._status[job_id]
+        job_status.state = "running"
+        job_status.pid = 999_999_999
+        job_status.create_time = 0.0
+        job_status.finished_at = None
+        job_status.error = None
+        manager.registry.write_status(job_status)
+
+
+def test_restart_reads_exit_code_from_the_exit_event_succeeded(tmp_path):
+    """A re-attached job whose process is gone is finalized from its own ``exit`` event's
+    ``code`` (contracts/events.schema.json), not merely whether a ``result`` event exists.
+    """
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit(
+        "tools", {"__fake": {"duration_s": 0.05, "artifact": "/x/out.txt"}}, []
+    )
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    _rewrite_as_running_under_a_dead_pid(manager1, status["id"])
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        # start() only guarantees the background loop *exists*, not that its first tick (which
+        # runs _reattach_all()) has executed yet -- poll rather than assume it already has.
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "succeeded"
+        assert final["exit_code"] == 0
+        assert final["error"] is None
+        # Artifacts recorded before the (real, prior) exit are still recovered on reattach.
+        assert final["artifacts"] == [{"path": "/x/out.txt", "kind": "txt"}]
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_reads_exit_code_from_the_exit_event_failed(tmp_path):
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit(
+        "tools", {"__fake": {"duration_s": 0.05, "fail": True, "exit_code": 7}}, []
+    )
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "failed" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    _rewrite_as_running_under_a_dead_pid(manager1, status["id"])
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "failed"
+        assert final["exit_code"] == 7
+        assert final["error"]["type"] == "runner_failed"
+    finally:
+        manager2.shutdown()
+
+
+def test_module_kinds_get_a_config_file_with_project_dir(tmp_path):
+    """Pipeline runners read a *config* JSON (fields + project_dir), never the job record.
+
+    Found by the first real analyzer job on Dataset 000: ``tit.analyzer`` crashed with
+    ``KeyError: 'project_dir'`` because it was handed ``spec.json``.
+    """
+    import json
+    import os
+
+    from tit.jobs.registry import job_dir
+
+    manager = make_manager(tmp_path)
+    try:
+        job = manager.submit(
+            "analyzer",
+            {"subject_id": "001", "simulation": "sim", "__fake": {"duration_s": 0.05}},
+            ["001"],
+        )
+        wait_until(
+            lambda: (lambda s: s if s["state"] in ("succeeded", "failed") else None)(
+                manager.get(job["id"])
+            )
+        )
+        cfg_path = os.path.join(job_dir(str(tmp_path), job["id"]), "config.json")
+        assert os.path.exists(cfg_path)
+        data = json.load(open(cfg_path))
+        assert data["project_dir"] == str(tmp_path)
+        assert data["subject_id"] == "001"
+        assert "kind" not in data and "id" not in data  # config, not the job record
+        spec = json.load(
+            open(os.path.join(job_dir(str(tmp_path), job["id"]), "spec.json"))
+        )
+        assert spec["kind"] == "analyzer"
+    finally:
+        manager.shutdown()

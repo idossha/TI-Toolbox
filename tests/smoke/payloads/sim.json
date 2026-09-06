@@ -1,0 +1,42 @@
+{
+  "kind": "sim",
+  "config": {
+    "subject_id": "101",
+    "montages": [
+      {
+        "_type": "Montage",
+        "name": "smoke-ui-6519-ti",
+        "mode": "net",
+        "electrode_pairs": [
+          [
+            "A1",
+            "A2"
+          ],
+          [
+            "B1",
+            "B2"
+          ]
+        ],
+        "eeg_net": "BioSemi-128-A1.csv"
+      }
+    ],
+    "conductivity": "scalar",
+    "intensities": [
+      1,
+      1
+    ],
+    "electrode_shape": "ellipse",
+    "electrode_dimensions": [
+      8,
+      8
+    ],
+    "gel_thickness": 4,
+    "output_fields": [
+      "TI_max"
+    ]
+  },
+  "subject_ids": [
+    "101"
+  ],
+  "overwrite": false
+}

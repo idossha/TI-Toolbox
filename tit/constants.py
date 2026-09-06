@@ -136,8 +136,7 @@ ENV_ROI_NAME = "ROI_NAME"
 ENV_TI_LOG_FILE = "TI_LOG_FILE"
 ENV_FLEX_MONTAGES_FILE = "FLEX_MONTAGES_FILE"
 
-# Display and system variables
-ENV_DISPLAY = "DISPLAY"
+# System variables
 ENV_HOST_IP = "HOST_IP"
 
 # ============================================================================
@@ -712,7 +711,10 @@ QSI_FALLBACK_TOTAL_READOUT_TIME = 0.05
 # QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
 
-# FreeSurfer license (always present in SimNIBS container)
+# FreeSurfer license. Only QSIPrep/QSIRecon need one (their own ACT recon
+# specs run FreeSurfer inside the pennlinc images); TI-Toolbox itself no
+# longer ships or requires FreeSurfer. Override with $FS_LICENSE -- see
+# tit.pre.qsi.docker_builder.resolve_fs_license_path.
 FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 
 # ============================================================================
@@ -894,7 +896,7 @@ TELEMETRY_OP_GROUP_ANALYSIS = "group_analysis"
 # -- Preprocessing --
 TELEMETRY_OP_PRE_PIPELINE = "pre_pipeline"
 TELEMETRY_OP_PRE_CHARM = "pre_charm"
-TELEMETRY_OP_PRE_RECON_ALL = "pre_recon_all"
+TELEMETRY_OP_PRE_FASTSURFER = "pre_fastsurfer"
 TELEMETRY_OP_PRE_DICOM = "pre_dicom"
 TELEMETRY_OP_PRE_QSIPREP = "pre_qsiprep"
 TELEMETRY_OP_PRE_QSIRECON = "pre_qsirecon"

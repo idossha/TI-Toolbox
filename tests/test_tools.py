@@ -1,5 +1,7 @@
 """Tests for tit/tools modules added during TODO-cleanup phases."""
 
+import os
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -103,3 +105,42 @@ class TestGmshOpt:
         assert "TI_max" in content
         assert "TI_normal" in content
         assert "0.5" in content
+
+
+class TestMontageVisualizerResources:
+    """_RESOURCES_DIR used to be a hard-coded "/ti-toolbox/resources/amv" -- only ever real
+    inside the Docker image (N0.6 spike). These exercise the real (unmocked) resolved path end
+    to end on this dev host, and confirm the template-copy step no longer shells out to the
+    POSIX-only ``cp`` binary (replaced with shutil.copy2)."""
+
+    def test_resources_dir_points_at_a_real_directory_with_expected_files(self):
+        from tit.tools.montage_visualizer import _RESOURCES_DIR
+
+        assert os.path.isdir(_RESOURCES_DIR)
+        assert os.path.isfile(os.path.join(_RESOURCES_DIR, "GSN-256.csv"))
+        assert os.path.isfile(os.path.join(_RESOURCES_DIR, "GSN-256.png"))
+
+    def test_visualize_montage_copies_template_without_shelling_out_to_cp(
+        self, tmp_path
+    ):
+        """No electrode_pairs -> only the template-copy path (shutil.copy2) runs; the
+        ImageMagick ``convert``-based ring/arc drawing (a separate, still-external-binary
+        dependency, out of this lane's scope) is never reached."""
+        from tit.tools.montage_visualizer import (
+            get_expected_output_filename,
+            visualize_montage,
+        )
+
+        with patch("tit.tools.montage_visualizer.subprocess.run") as mock_run:
+            visualize_montage(
+                montage_name="combined",
+                electrode_pairs=[],
+                eeg_net="GSN-HydroCel-185.csv",
+                output_dir=str(tmp_path),
+                sim_mode="U",
+            )
+
+        mock_run.assert_not_called()
+        out_path = tmp_path / get_expected_output_filename("combined", "U")
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0

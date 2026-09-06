@@ -789,7 +789,6 @@ class ExSearchTab(QtWidgets.QWidget):
                 "PROJECT_DIR_NAME",
                 "PROJECT_DIR",
                 "SUBJECT_NAME",
-                "SUBJECTS_DIR",
                 "LEADFIELD_HDF",
                 "SELECTED_EEG_NET",
                 "TI_LOG_FILE",
@@ -2393,7 +2392,6 @@ class ExSearchTab(QtWidgets.QWidget):
                 )
 
             env = os.environ.copy()
-            env["SUBJECTS_DIR"] = project_dir
 
             self.disable_controls()
             self.update_status(f"Running optimization for subject {subject_id}...")
@@ -2473,7 +2471,6 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Set up environment variables
         env = os.environ.copy()
-        env["SUBJECTS_DIR"] = project_dir
 
         # Disable controls and show status
         self.disable_controls()
@@ -2572,7 +2569,6 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Set up environment variables
         env = os.environ.copy()
-        env["SUBJECTS_DIR"] = project_dir
 
         # Disable controls and show status
         self.disable_controls()

@@ -804,28 +804,32 @@ class TestOutputFieldSelection:
 
 @pytest.mark.unit
 class TestOutputFieldsSurviveDeserialization:
-    """``_build_sim_config`` reads an explicit key list, so a new field is
-    dropped unless added there -- the bug that silently lost Montage.channels
-    on the GUI -> JSON -> subprocess path."""
+    """``deserialize_config(SimulationConfig, ...)`` must not drop a field on
+    the GUI -> JSON -> subprocess path (the bug this class is named for used
+    to live in a hand-rolled ``tit.sim.__main__._build_sim_config`` that read
+    an explicit key list; ``tit.sim.__main__`` now uses
+    ``tit.config_io.deserialize_config`` directly, which reads every field
+    off the dataclass itself, but the round-trip guarantee still holds)."""
 
     @staticmethod
     def _rebuild(**overrides):
         import json as _json
-        from tit.config_io import serialize_config
-        from tit.sim.__main__ import _build_sim_config
+        from tit.config_io import deserialize_config, serialize_config
+        from tit.sim.config import SimulationConfig
 
         cfg = _make_sim_config(montages=[_make_ti_montage()], **overrides)
-        return _build_sim_config(_json.loads(_json.dumps(serialize_config(cfg))))
+        data = _json.loads(_json.dumps(serialize_config(cfg)))
+        data.pop("project_dir", None)
+        return deserialize_config(SimulationConfig, data)
 
     def test_selection_survives_round_trip(self):
         back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_SAR])
         assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_SAR]
 
     def test_absent_key_defaults_to_ti_max(self):
-        from tit.sim.__main__ import _build_sim_config
-
         import json as _json
-        from tit.config_io import serialize_config
+        from tit.config_io import deserialize_config, serialize_config
+        from tit.sim.config import SimulationConfig
 
         data = _json.loads(
             _json.dumps(
@@ -833,4 +837,7 @@ class TestOutputFieldsSurviveDeserialization:
             )
         )
         data.pop("output_fields", None)
-        assert _build_sim_config(data).output_fields == [const.FIELD_TI_MAX]
+        data.pop("project_dir", None)
+        assert deserialize_config(SimulationConfig, data).output_fields == [
+            const.FIELD_TI_MAX
+        ]

@@ -87,8 +87,8 @@ def test_create_overlay_from_saved_simulation_config(tmp_path, monkeypatch):
     assert data[10, 10, 10] == 1
     assert data[20, 20, 10] == 2
     lut = electrode_overlay_lut_path(tmp_path / "overlay.nii.gz")
-    assert "1 Channel_1 0 0 255 0" in lut.read_text()
-    assert "2 Channel_2 255 0 0 0" in lut.read_text()
+    assert "1 Channel_1 0 0 255 255" in lut.read_text()
+    assert "2 Channel_2 255 0 0 255" in lut.read_text()
 
 
 @pytest.mark.unit
@@ -127,10 +127,32 @@ def test_create_overlay_from_multipolar_config_uses_one_label_per_channel(
 
     assert set(np.unique(saved["img"]._data)) == {0, 1, 2, 3, 4}
     lut = electrode_overlay_lut_path(tmp_path / "overlay.nii.gz").read_text()
-    assert "1 Channel_1 0 0 255 0" in lut
-    assert "2 Channel_2 255 0 0 0" in lut
-    assert "3 Channel_3 0 128 0 0" in lut
-    assert "4 Channel_4 128 0 128 0" in lut
+    assert "1 Channel_1 0 0 255 255" in lut
+    assert "2 Channel_2 255 0 0 255" in lut
+    assert "3 Channel_3 0 128 0 255" in lut
+    assert "4 Channel_4 128 0 128 255" in lut
+
+
+@pytest.mark.unit
+def test_write_electrode_overlay_lut_is_opaque(tmp_path):
+    """Every channel's alpha column is 255.
+
+    The in-app viewer multiplies a FreeSurfer LUT's fourth colour column into
+    the palette, so the 0 this file used to write made every electrode
+    marker fully transparent (r1 §10.5.1). Freeview reads the same column as
+    transparency and treats 255 as opaque, so both consumers now agree.
+    """
+    lut_path = tmp_path / "overlay.lut"
+
+    write_electrode_overlay_lut(lut_path, 3)
+
+    rows = [
+        line.split()
+        for line in lut_path.read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    assert len(rows) == 3
+    assert [row[-1] for row in rows] == ["255", "255", "255"]
 
 
 @pytest.mark.unit
@@ -139,8 +161,8 @@ def test_write_electrode_overlay_lut_wraps_montage_colors(tmp_path):
 
     write_electrode_overlay_lut(lut_path, 9)
 
-    assert "8 Channel_8 238 130 238 0" in lut_path.read_text()
-    assert "9 Channel_9 0 0 255 0" in lut_path.read_text()
+    assert "8 Channel_8 238 130 238 255" in lut_path.read_text()
+    assert "9 Channel_9 0 0 255 255" in lut_path.read_text()
 
 
 @pytest.mark.unit

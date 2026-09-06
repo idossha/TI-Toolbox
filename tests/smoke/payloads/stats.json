@@ -1,0 +1,44 @@
+{
+  "kind": "stats",
+  "config": {
+    "analysis_name": "smoke-ui-6519",
+    "cluster_threshold": 0.05,
+    "cluster_stat": "mass",
+    "n_permutations": 1000,
+    "alpha": 0.05,
+    "n_jobs": -1,
+    "tissue_type": "grey",
+    "nifti_file_pattern": null,
+    "space": "mni",
+    "fsaverage_field": "TI_max",
+    "fsaverage_spacing": 5,
+    "atlas_files": [],
+    "subjects": [
+      {
+        "subject_id": "101",
+        "simulation_name": "L_Insula",
+        "response": 1
+      },
+      {
+        "subject_id": "ernie",
+        "simulation_name": "L_Insula",
+        "response": 0
+      },
+      {
+        "subject_id": "MNI152",
+        "simulation_name": "L_Insula",
+        "response": 1
+      }
+    ],
+    "test_type": "unpaired",
+    "alternative": "two-sided",
+    "group1_name": "Responders",
+    "group2_name": "Non-Responders",
+    "value_metric": "Current intensity"
+  },
+  "subject_ids": [
+    "101",
+    "ernie",
+    "MNI152"
+  ]
+}

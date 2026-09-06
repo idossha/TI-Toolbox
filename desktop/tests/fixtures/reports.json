@@ -1,0 +1,11 @@
+{
+  "ernie": [
+    { "id": "ernie-thalamus-2026-08-01", "kind": "simulation", "title": "Thalamus simulation report", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/report/Thalamus_report.html", "created": "2026-08-01T11:00:00Z" },
+    { "id": "ernie-l_insula-2026-08-10", "kind": "simulation", "title": "L_Insula simulation report", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/report/L_Insula_report.html", "created": "2026-08-10T11:00:00Z" },
+    { "id": "ernie-docs_example-2026-07-20", "kind": "simulation", "title": "docs_example mTI report", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/report/docs_example_report.html", "created": "2026-07-20T11:00:00Z" }
+  ],
+  "101": [
+    { "id": "101-thalamus-2026-08-05", "kind": "simulation", "title": "Thalamus simulation report", "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus/report/Thalamus_report.html", "created": "2026-08-05T11:00:00Z" }
+  ],
+  "MNI152": []
+}

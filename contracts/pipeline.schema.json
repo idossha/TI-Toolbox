@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ti-toolbox.org/contracts/pipeline.schema.json",
+  "title": "TI-Toolbox pipeline document",
+  "description": "A pipeline is a DAG whose nodes are existing job kinds carrying exactly the config the matching v3 page already builds, and whose edges are typed bindings between one node's named output and another's same-named input. This file is the standalone schema for the document as saved under `<project>/code/ti-toolbox/pipelines/<name>.json` and as carried in an exported notebook's `metadata.ti_toolbox.pipeline`; the same shapes appear in `contracts/openapi.v1.yaml` as `Pipeline`/`PipelineNode`/`PipelineEdge`. Implemented by `tit/pipeline/document.py`.",
+  "type": "object",
+  "required": ["version", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Document version. A reader that does not know this number refuses the file rather than guessing."
+    },
+    "name": {
+      "type": "string",
+      "description": "The pipeline's name; also its file name under `pipelines/` and the notebook's title."
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Edge" }
+    }
+  },
+  "$defs": {
+    "Node": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canvas-scoped, unique within the document. Also the prefix of every job label the node produces (`<id>:<n>`), which is how a job traces back to its node."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"],
+          "description": "An existing `tit.jobs.spec.JOB_KINDS` entry. A pipeline introduces no new job kind."
+        },
+        "label": { "type": "string", "description": "User-visible name; defaults to the kind." },
+        "config": {
+          "type": "object",
+          "description": "Exactly the config the matching page's builder produces, validated server-side against its dataclass (`tit.config_io.deserialize_config`). A port bound by an edge may be absent here."
+        },
+        "position": {
+          "type": "object",
+          "description": "Canvas coordinates. Carried through untouched by the server; it never affects what runs.",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        }
+      }
+    },
+    "Edge": {
+      "type": "object",
+      "required": ["from", "to", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string", "description": "Producer node id." },
+        "to": { "type": "string", "description": "Consumer node id." },
+        "port": {
+          "type": "string",
+          "enum": ["subjects", "montages", "simulation", "roi", "leadfield"],
+          "description": "The value this wire carries. `subjects` and `roi` are resolved from the producer's config at submit time; `montages`, `leadfield` and a `simulation` whose montages are themselves optimized only exist once the producer has run, so a small `tools` resolve job is planned between producer and consumer."
+        }
+      }
+    }
+  }
+}

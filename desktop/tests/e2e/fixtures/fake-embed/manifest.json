@@ -1,0 +1,10 @@
+{
+  "name": "tetravox-embed-fake",
+  "version": "0.4.0-fake",
+  "protocol": 2,
+  "entry": "/fake-embed.js",
+  "caps": {
+    "webgl2": true,
+    "features": ["meshes", "scalars", "labels", "markers", "pick", "camera"]
+  }
+}

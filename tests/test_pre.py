@@ -93,13 +93,13 @@ class TestPreImports:
             check_m2m_exists,
             discover_subjects,
             extract_dti_tensor,
+            fastsurfer_available,
             run_charm,
             run_dicom_to_nifti,
             run_pipeline,
             run_qsiprep,
             run_qsirecon,
-            run_recon_all,
-            run_subcortical_segmentations,
+            run_fastsurfer,
             run_tissue_analysis,
         )
 
@@ -108,13 +108,13 @@ class TestPreImports:
             check_m2m_exists,
             discover_subjects,
             extract_dti_tensor,
+            fastsurfer_available,
             run_charm,
             run_dicom_to_nifti,
             run_pipeline,
             run_qsiprep,
             run_qsirecon,
-            run_recon_all,
-            run_subcortical_segmentations,
+            run_fastsurfer,
             run_tissue_analysis,
         ):
             assert callable(fn), f"{fn!r} is not callable"

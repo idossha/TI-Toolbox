@@ -1,0 +1,33 @@
+{
+  "ernie": {
+    "cortical": [
+      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
+      { "id": "HCP_MMP1", "name": "HCP Multi-Modal Parcellation (HCP_MMP1)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.HCP_MMP1.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
+      { "id": "a2009s", "name": "Destrieux (a2009s)", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.a2009s.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+    ],
+    "subcortical": [
+      { "id": "aparc.DKTatlas+aseg", "name": "DKT + aseg subcortical", "path": "/mnt/example/derivatives/freesurfer/sub-ernie/mri/aparc.DKTatlas+aseg.mgz", "space": "subject" },
+      { "id": "labeling.nii.gz", "name": "Custom subject mask", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/labeling.nii.gz", "space": "subject" },
+      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+    ]
+  },
+  "101": {
+    "cortical": [
+      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
+      { "id": "HCP_MMP1", "name": "HCP Multi-Modal Parcellation (HCP_MMP1)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.HCP_MMP1.annot", "hemispheres": ["lh", "rh"], "space": "subject" },
+      { "id": "a2009s", "name": "Destrieux (a2009s)", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.a2009s.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+    ],
+    "subcortical": [
+      { "id": "aparc.DKTatlas+aseg", "name": "DKT + aseg subcortical", "path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101/segmentation/aparc.DKTatlas+aseg.mgz", "space": "subject" },
+      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+    ]
+  },
+  "MNI152": {
+    "cortical": [
+      { "id": "DK40", "name": "Desikan-Killiany (DK40)", "path": "/mnt/example/derivatives/SimNIBS/sub-MNI152/m2m_MNI152/segmentation/lh.DK40.annot", "hemispheres": ["lh", "rh"], "space": "subject" }
+    ],
+    "subcortical": [
+      { "id": "CIT168", "name": "CIT168 subcortical atlas (MNI)", "path": "/ti-toolbox/resources/atlas/CIT168_labeling_MNI152NLin2009cAsym.nii.gz", "space": "mni" }
+    ]
+  }
+}

@@ -1,0 +1,2308 @@
+/* Design-system primitive styles. Tokens only — no literal colours. */
+
+/* ---------- Button ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-sm {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  font-size: 12px;
+}
+.btn-lg {
+  height: var(--control-height-lg);
+  padding: 0 var(--space-4);
+  font-size: 14px;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn-destructive {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+.btn-destructive:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+.btn-icon {
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+}
+.btn-icon.btn-sm {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+}
+.btn-icon.btn-lg {
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+}
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.btn-label-loading {
+  visibility: visible;
+}
+
+/* ---------- Status: dot, chip, badge, progress, liveness ---------- */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-3);
+}
+.status-dot-neutral {
+  background: var(--ink-3);
+}
+.status-dot-accent {
+  background: var(--accent);
+}
+.status-dot-success {
+  background: var(--success);
+}
+.status-dot-warning {
+  background: var(--warning);
+}
+.status-dot-danger {
+  background: var(--danger);
+}
+.status-dot-field {
+  background: var(--field);
+}
+.status-dot-lost {
+  background: var(--lost);
+}
+.status-dot-pulse {
+  animation: pulse var(--duration-pulse) ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-chip);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.chip-neutral {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.chip-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.chip-success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.chip-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.chip-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.chip-field {
+  background: var(--field-soft);
+  color: var(--field);
+}
+.chip-lost {
+  background: var(--lost-soft);
+  color: var(--lost);
+}
+.chip-missing {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.chip-dot-pulse {
+  animation: pulse var(--duration-pulse) ease-in-out infinite;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-chip);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.badge-neutral {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.progress-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width var(--duration-fast) var(--ease-out);
+}
+.progress-indeterminate .progress-fill {
+  width: 40% !important;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.liveness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 12px;
+  font-weight: 500;
+}
+.liveness-active {
+  color: var(--success);
+}
+.liveness-stalled {
+  color: var(--warning);
+}
+
+/* ---------- Forms ---------- */
+/*
+ * `Field` v2 (DESIGN.md §3): a label-LEFT grid row at `--row-h`, not a three-line column. The v1
+ * shape cost 70px per field (label 18 + gap 4 + control 32 + help 16); this costs 28. Help text is
+ * no longer a third line — it is an (i) Popover on the label, or a unit suffix inside the control.
+ *
+ * The 2px accent tick lives in the label gutter (`.field::before`) so a changed value is visible
+ * from the left edge of the form without adding a row.
+ */
+.field {
+  display: grid;
+  grid-template-columns: var(--field-label-w) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  min-height: var(--row-h);
+  min-width: 0;
+  position: relative;
+}
+.field::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-2) * -1);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: transparent;
+}
+/* "Defaults are visible, changes are marked": a field still at its schema default renders its
+ * value in --ink-2; a changed one renders in --ink and takes the tick. Both states are opt-in —
+ * a Field with no `changed` prop is untinted, so pages that do not participate look unchanged. */
+.field-default .control,
+.field-default .select-trigger,
+.field-default .combobox-trigger {
+  color: var(--ink-2);
+}
+.field-changed::before {
+  background: var(--accent);
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+.field-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.field-control {
+  min-width: 0;
+}
+/* A select/combobox FILLS its column rather than stopping at 280px. DESIGN.md §3.3 wrote the
+ * width as "selects 200–280 px", which was a sensible number when the work pane was 666px wide and
+ * a single column; at 826px in two columns it left a ragged right edge and ~110px of nothing at
+ * the end of every row (measured: `.field` rows on the Analyzer were 40–68 % empty). A control
+ * that ends where its column ends also gives the eye a second alignment edge, which is what makes
+ * a label-left form readable across a wide pane. Capped on a full-bleed row, where "the column" is
+ * the whole 826px and a select that wide reads as a page-width banner. */
+.field-control > .select-trigger,
+.field-control > .combobox-trigger {
+  width: 100%;
+  max-width: none;
+}
+.field-full-bleed .field-control > .select-trigger,
+.field-full-bleed .field-control > .combobox-trigger,
+.field-stacked .field-control > .select-trigger,
+.field-stacked .field-control > .combobox-trigger {
+  max-width: 420px;
+}
+.field-required {
+  color: var(--danger);
+}
+/* Kept as a standalone utility class: pages use `<p className="field-help">` for one-line notes
+ * that are not attached to a Field. Field itself no longer renders one. */
+.field-help {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.field-error {
+  grid-column: 2;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--danger);
+}
+.field-note {
+  grid-column: 2;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.field-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  flex: none;
+}
+.field-help-trigger:hover {
+  color: var(--ink);
+}
+.field-help-popover {
+  max-width: 34ch;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink);
+}
+.field-help-popover-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/*
+ * Escape hatches from the label-left row.
+ *
+ *  - `layout="stacked"` (`.field-stacked`) puts the label back above the control, for the rare row
+ *    that genuinely needs the full column width but still wants a label.
+ *  - `fullBleed` (`.field-full-bleed`) drops the label gutter entirely and spans both columns.
+ *
+ * The named exceptions from DESIGN.md §3 request full bleed structurally, via `:has()`, so they
+ * behave correctly inside pages that were written before the prop existed: coordinate/sphere
+ * tables, ElectrodePairsEditor, KeyValueTable, PathInput, chip MultiSelect, consoles, callouts.
+ */
+.field-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.field-stacked .field-label-row {
+  justify-content: flex-start;
+}
+.field-stacked .field-label {
+  text-align: left;
+}
+.field-full-bleed,
+.field:has(> .field-control > .coordinate-input),
+.field:has(> .field-control > .electrode-pairs),
+.field:has(> .field-control > .kv-table),
+.field:has(> .field-control > .path-input),
+.field:has(> .field-control > .multi-select),
+.field:has(> .field-control > .virtual-list),
+.field:has(> .field-control > .callout),
+.field:has(> .field-control > .subject-picker-list),
+.field:has(> .field-control > .data-table-container) {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  row-gap: var(--space-1);
+}
+.field-full-bleed .field-label-row,
+.field:has(> .field-control > .coordinate-input) .field-label-row,
+.field:has(> .field-control > .electrode-pairs) .field-label-row,
+.field:has(> .field-control > .kv-table) .field-label-row,
+.field:has(> .field-control > .path-input) .field-label-row,
+.field:has(> .field-control > .multi-select) .field-label-row,
+.field:has(> .field-control > .virtual-list) .field-label-row,
+.field:has(> .field-control > .callout) .field-label-row,
+.field:has(> .field-control > .subject-picker-list) .field-label-row,
+.field:has(> .field-control > .data-table-container) .field-label-row {
+  justify-content: flex-start;
+}
+.field-full-bleed .field-label,
+.field:has(> .field-control > .coordinate-input) .field-label,
+.field:has(> .field-control > .electrode-pairs) .field-label,
+.field:has(> .field-control > .kv-table) .field-label,
+.field:has(> .field-control > .path-input) .field-label,
+.field:has(> .field-control > .multi-select) .field-label,
+.field:has(> .field-control > .virtual-list) .field-label,
+.field:has(> .field-control > .callout) .field-label,
+.field:has(> .field-control > .subject-picker-list) .field-label,
+.field:has(> .field-control > .data-table-container) .field-label {
+  text-align: left;
+}
+.field-full-bleed .field-error,
+.field-stacked .field-error,
+.field-full-bleed .field-note,
+.field-stacked .field-note {
+  grid-column: 1;
+}
+
+.control {
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  width: 100%;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.control::placeholder {
+  color: var(--ink-3);
+}
+.control:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.control:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--focus);
+}
+.control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.control-error {
+  border-color: var(--danger);
+}
+.control-mono {
+  font-family: var(--font-mono);
+}
+
+.number-input {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: fit-content;
+  min-width: 96px;
+  max-width: 128px;
+}
+.number-input input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  padding-right: var(--space-1);
+}
+.number-input-unit {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-left: none;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.number-input input {
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+}
+.number-input-no-unit input {
+  border-radius: var(--radius-control);
+}
+
+.select-trigger,
+.combobox-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  min-width: 0;
+  width: 100%;
+  max-width: 280px;
+  cursor: pointer;
+  text-align: left;
+}
+/* Long atlas, simulation and subject names must stay inside their column. The full label
+   remains in the trigger's accessible name and tooltip, and wraps inside the option list. */
+.picker-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-chevron {
+  display: inline-flex;
+  flex: none;
+}
+.select-trigger:hover,
+.combobox-trigger:hover {
+  border-color: var(--line-strong);
+}
+.select-trigger[data-state="open"],
+.select-trigger:focus-visible,
+.combobox-trigger:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.select-trigger[data-placeholder],
+.combobox-trigger[data-placeholder] {
+  color: var(--ink-3);
+}
+.select-trigger:disabled,
+.combobox-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.select-content,
+.popover-content,
+.dropdown-content {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-1);
+  z-index: var(--z-popover);
+  max-height: min(340px, var(--radix-select-content-available-height, 340px));
+  overflow: auto;
+}
+.select-content {
+  min-width: var(--radix-select-trigger-width);
+  max-width: min(420px, var(--radix-select-content-available-width));
+}
+.select-item,
+.dropdown-item,
+.combobox-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+.picker-option-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+}
+.picker-option-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.select-item[data-highlighted],
+.dropdown-item[data-highlighted],
+.combobox-option[aria-selected="true"],
+.combobox-option:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.select-item[data-disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.combobox-popover {
+  padding: 0;
+  width: var(--radix-popover-trigger-width);
+  min-width: min(240px, var(--radix-popover-content-available-width));
+  max-width: min(420px, var(--radix-popover-content-available-width));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: hidden;
+}
+.combobox-search {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: var(--space-2);
+}
+.combobox-list {
+  padding: var(--space-1);
+  max-height: min(260px, calc(var(--radix-popover-content-available-height) - var(--control-h) - 2px));
+  overflow: auto;
+}
+.combobox-empty {
+  padding: var(--space-2);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.multi-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: text;
+}
+.multi-select:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.multi-select[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.multi-select-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 4px 0 var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+}
+.multi-select-chip button {
+  display: inline-flex;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+}
+.multi-select-chip button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+.multi-select-input {
+  flex: 1;
+  min-width: 60px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.switch-root {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+  cursor: pointer;
+  border: none;
+  transition: background var(--duration-fast) var(--ease-out);
+  flex: none;
+}
+.switch-root[data-state="checked"] {
+  background: var(--accent);
+}
+.switch-root:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.switch-root:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  /* rb_13 finding 3 residual: matches the Run-button fix (tokens.css --on-accent) so the thumb
+   * stays legible against the checked track's fill (--accent), which is a light blue in dark
+   * theme — a literal #fff thumb there loses definition against it. */
+  background: var(--on-accent);
+  box-shadow: var(--shadow-1);
+  transform: translateX(2px);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.switch-root[data-state="checked"] .switch-thumb {
+  transform: translateX(16px);
+}
+
+.checkbox-root {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.checkbox-root[data-state="checked"],
+.checkbox-root[data-state="indeterminate"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  /* rb_13 finding 3 residual: the check glyph is drawn in `color` (Radix Checkbox.Indicator's
+   * currentColor icon) on top of the accent fill above — same --on-accent contrast fix as the
+   * Run button and the switch thumb. */
+  color: var(--on-accent);
+}
+.checkbox-root:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.checkbox-root:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.checkbox-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.radio-group {
+  display: flex;
+  gap: var(--space-3);
+}
+.radio-group-cards {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.radio-item-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.radio-root {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.radio-root[data-state="checked"] {
+  border-color: var(--accent);
+}
+.radio-root:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.radio-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.radio-card {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 13px;
+}
+.radio-card[data-state="checked"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.slider-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 20px;
+  flex: 1;
+  min-width: 120px;
+  touch-action: none;
+}
+.slider-root[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.slider-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.slider-range {
+  position: absolute;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.slider-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-1);
+}
+.slider-thumb:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.path-input {
+  display: flex;
+  gap: var(--space-2);
+}
+.path-input .control {
+  font-family: var(--font-mono);
+}
+
+.subject-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: var(--space-1);
+}
+.subject-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  cursor: pointer;
+}
+.subject-picker-row:hover {
+  background: var(--surface-2);
+}
+.subject-picker-id {
+  font-family: var(--font-mono);
+  flex: 1;
+}
+.subject-picker-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.coordinate-input {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.coordinate-axis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.coordinate-axis-label {
+  font-size: 11px;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.kv-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.kv-table td {
+  padding: 4px 0;
+  vertical-align: middle;
+}
+.kv-table td + td {
+  padding-left: var(--space-2);
+}
+.kv-remove {
+  padding-left: var(--space-2);
+}
+
+.electrode-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.electrode-pair-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.electrode-pair-index {
+  width: 20px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+/* ---------- Layout: Stack / Cluster / KeyValue (ra_12 #28) ---------- */
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.cluster-nowrap {
+  flex-wrap: nowrap;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.justify-end {
+  justify-content: flex-end;
+}
+.justify-center {
+  justify-content: center;
+}
+.items-start {
+  align-items: flex-start;
+}
+.items-center {
+  align-items: center;
+}
+.items-end {
+  align-items: flex-end;
+}
+.items-stretch {
+  align-items: stretch;
+}
+.items-baseline {
+  align-items: baseline;
+}
+/* One class per --space-N token (tokens.css §3) — the only gaps Stack/Cluster accept. */
+.gap-1 {
+  gap: var(--space-1);
+}
+.gap-2 {
+  gap: var(--space-2);
+}
+.gap-3 {
+  gap: var(--space-3);
+}
+.gap-4 {
+  gap: var(--space-4);
+}
+.gap-6 {
+  gap: var(--space-6);
+}
+.gap-8 {
+  gap: var(--space-8);
+}
+.gap-12 {
+  gap: var(--space-12);
+}
+.kv-item-label {
+  color: var(--ink-2);
+}
+.kv-item-value {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Containers ---------- */
+/*
+ * `Card` survives for Workbench cards and result summaries — a genuinely separate object on the
+ * page — but NOT for form sections (see `.form-section` below). It carries no `--shadow-1` any
+ * more: elevation is reserved for things that are actually above the page (Popover, Drawer,
+ * Dialog, palette, Toast). A card is a 1px rule, not a floating rectangle.
+ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.card-body {
+  padding: var(--pane-pad);
+  /* `.form-grid`'s `@container (max-width: 760px)` collapse rule (below) needs a sized ancestor
+     container to query — without this, `@container` has nothing to attach to and never fires, so
+     a two-column form never collapses no matter how narrow it gets. `.card-body` is `.form-grid`'s
+     direct parent in every context it's used (a page's content column via FormSection, or a
+     Dialog's body — e.g. QsiPrepDialog/QsiReconDialog), so this is the one place that covers all
+     of them, rather than a page-level wrapper that Dialog-based forms never sit inside. */
+  container-type: inline-size;
+}
+
+/*
+ * `FormSection` v2 — flush sections, not cards (DESIGN.md §3). A run screen is one pane holding a
+ * stack of `<section>`s separated by a 1px rule: no border box, no shadow, no gap between them.
+ * Chrome per section drops from 94px (v1: 12+12+20 header, 16+16 body, 2px border, 16px gap) to
+ * 41px (28px header + 1px rule + 12px body padding).
+ *
+ * The header was `position: sticky` so a long section kept its name in view while you scrolled its
+ * body. **It is not any more** (lane LAY, L4 "nothing overlaps"). A sticky header inside the pane's
+ * own scroller necessarily paints over its own body: measured on the Optimizer at 1280x800, five
+ * controls — the three Target radios, the atlas combobox and the region multi-select — hit-tested
+ * to `.form-section-header-trigger "Target"` instead of to themselves at `scrollTop` 120–200. That
+ * is not a cosmetic overlap: `document.elementFromPoint` is the test Chromium applies to a click,
+ * so those controls were unclickable at exactly the offsets `scrollIntoViewIfNeeded` produces
+ * (it parks an element flush at the top of the scrollport, which is where the header pins). The
+ * name stays visible for free anyway now that the fill rule sizes a section to the pane it is in.
+ */
+.form-section {
+  border-top: 1px solid var(--line);
+}
+.form-section:first-child {
+  border-top: none;
+}
+/* The header is a HEADER ROW, the same object §4.3 already defines for a table: 28px on
+ * `--surface-2`, 11px uppercase `--ink-2`. Lane LAY changed it from bare ground for one measured
+ * reason: at 826px of work pane a flush section header is a full-width strip carrying ~50px of
+ * eyebrow, and the dead-space probe scored those strips **97 % empty** — five of them per page.
+ * Tinting them costs nothing, makes the section boundaries scannable at a glance (which is what a
+ * stack of five flush sections needs most), and reuses a shape the app already has instead of
+ * inventing a second kind of header. */
+.form-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--section-header-h);
+  height: var(--section-header-h);
+  padding: 0 var(--space-2);
+  background: var(--surface-2);
+  border: none;
+  color: inherit;
+  text-align: left;
+}
+/* `background: inherit`, not `none`: the trigger is `flex: 1`, so it covers almost the whole header
+ * band, and a transparent element with children is invisible to anything that resolves a point to
+ * the innermost element — which is why the tinted band above scored 93 % empty on a NON-collapsible
+ * section (a <span> trigger) and 0 % on a collapsible one (a <button>, which every such probe
+ * counts). Visually identical either way; this just stops the header lying about itself. */
+.form-section-header-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  background: inherit;
+  border: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+button.form-section-header-trigger {
+  cursor: pointer;
+}
+button.form-section-header-trigger:hover .form-section-title {
+  color: var(--ink);
+}
+.form-section-chevron {
+  flex: none;
+  display: inline-flex;
+  color: var(--ink-2);
+  width: 12px;
+}
+.form-section-title {
+  flex: none;
+  color: var(--ink-2);
+}
+/* Right-aligned value summary — a collapsed section must render its current values in its own
+ * header, so aggressive collapsing is compact rather than lossy. */
+.form-section-summary {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.form-section-marks {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.form-section-marks:not(:has(> *)) {
+  display: none;
+}
+.form-section-mark-changed,
+.form-section-mark-error {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-chip);
+  display: inline-block;
+}
+.form-section-mark-changed {
+  background: var(--accent);
+}
+.form-section-mark-error {
+  background: var(--danger);
+}
+.form-section-menu {
+  flex: none;
+}
+/* 4px above, 8px below (was 8/12). A run page stacks four to six of these, so the pair costs
+ * ~50px of every screen; on the Optimizer, whose form needs 767px of a 628px scrollport at
+ * 1280x800, that is two more Solver rows above the fold. Horizontal padding stays 0 so a row uses
+ * the full pane width. */
+.form-section-body {
+  padding: var(--space-1) 0 var(--space-2) 0;
+  /* Same reason as `.card-body`: `.form-grid`'s container query needs a sized ancestor to query. */
+  container-type: inline-size;
+}
+
+.form-section-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+.form-section-advanced-toggle:hover {
+  color: var(--ink);
+}
+.form-section-advanced-badge {
+  color: var(--accent);
+}
+.form-section-advanced {
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--line);
+}
+/*
+ * Two-up rows. A label-left row is 160 + ~240 = 400px, so two rows plus the 24px gutter need
+ * ~824px — which the v2 work pane (880px) has and the v1 column (674px) never did. The v1
+ * threshold of 560px meant the two-column grid never collapsed and never had room; 760px is the
+ * width below which a two-up label-left row stops being honest.
+ */
+/* Row gap 4px, not 8px: a 28px label-left row on a 36px pitch spends 22 % of a form's height on
+ * nothing, and at 826px of work pane a run form is mostly rows. 32px is still on the 4px grid and
+ * still clears the 28px control. Column gap stays 24px — that one separates two independent
+ * label+control pairs and is what stops the eye reading across them. */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-6);
+}
+@container (max-width: 760px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tabs-list {
+  display: flex;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.tabs-trigger {
+  background: none;
+  border: none;
+  padding: var(--space-2) 0;
+  margin-bottom: -1px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tabs-trigger[data-state="active"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.tabs-trigger:hover {
+  color: var(--ink);
+}
+.tabs-content {
+  padding-top: var(--space-4);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 25, 0.4);
+  z-index: var(--z-overlay);
+}
+.dialog-content,
+.alert-dialog-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-4);
+  z-index: var(--z-dialog);
+}
+.dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+.dialog-description {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-bottom: var(--space-4);
+}
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.dialog-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.drawer-content {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-2);
+  z-index: var(--z-dialog);
+  display: flex;
+  flex-direction: column;
+}
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.drawer-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+.popover-content {
+  min-width: 180px;
+}
+.tooltip-content {
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 12px;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-2);
+  z-index: var(--z-tooltip);
+}
+.tooltip-arrow {
+  fill: var(--ink);
+}
+
+/*
+ * Empty states have two variants (DESIGN.md §3). `page` is the whole-page empty: centred, icon,
+ * one sentence, one action. `inline` is the empty state of a surface *inside* a populated page —
+ * a panel, an inspector block, a table body: left- and top-aligned, at most two lines, one action,
+ * no icon and no box, because a centred 180px block inside a 300px inspector is a hole, not a
+ * state.
+ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  color: var(--ink-2);
+}
+.empty-state-icon {
+  color: var(--ink-3);
+}
+.empty-state-message {
+  font-size: 13px;
+  color: var(--ink);
+  max-width: 40ch;
+}
+.empty-state-inline {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  min-height: var(--row-h);
+}
+.empty-state-inline .empty-state-message {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+
+/*
+ * A failed data load is never a toast — a toast disappears and takes the explanation with it. It
+ * is an inline error in the surface that failed, next to the thing that is missing, with the
+ * retry that fixes it.
+ */
+.inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 16px;
+}
+.inline-error-icon {
+  flex: none;
+  color: var(--danger);
+  display: inline-flex;
+  padding-top: 1px;
+}
+.inline-error-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inline-error-detail {
+  color: var(--ink-2);
+  word-break: break-word;
+}
+.inline-error-action {
+  margin-left: auto;
+  flex: none;
+}
+
+/*
+ * Refetch is a 2px indeterminate bar, nothing else. Re-skeletoning a populated surface on every
+ * refresh is what makes a page jump between two identical states.
+ */
+.refetch-bar {
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+  flex: none;
+}
+.refetch-bar-fill {
+  height: 100%;
+  width: 40%;
+  background: var(--accent);
+  animation: indeterminate 1.2s var(--ease-out) infinite;
+}
+
+/* Skeletons are sized to the rows they replace (n × --row-h), never a slab: a `height={240}`
+ * placeholder for three 28px rows is a guaranteed layout jump on first paint. */
+.skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-control);
+}
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.callout {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.callout-info {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--ink);
+}
+.callout-info .callout-icon {
+  color: var(--accent);
+}
+.callout-warning {
+  background: var(--warning-soft);
+  border-color: transparent;
+}
+.callout-warning .callout-icon {
+  color: var(--warning);
+}
+.callout-danger {
+  background: var(--danger-soft);
+  border-color: transparent;
+}
+.callout-danger .callout-icon {
+  color: var(--danger);
+}
+.callout-icon {
+  flex: none;
+  margin-top: 1px;
+}
+
+kbd.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  box-shadow: 0 1px 0 var(--line-strong);
+}
+
+.resizable-panels {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.resizable-panel {
+  overflow: auto;
+  min-width: 0;
+}
+.resizable-handle {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  border: none;
+  padding: 0;
+  position: relative;
+  flex: none;
+}
+.resizable-handle::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.resizable-handle:hover::after,
+.resizable-handle:focus-visible::after {
+  background: var(--line-strong);
+}
+.resizable-handle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.definition-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px var(--space-6);
+  font-size: 13px;
+}
+.definition-list dt {
+  color: var(--ink-2);
+}
+.definition-list dd {
+  font-family: var(--font-mono);
+}
+
+/* ---------- PlanSummary (ra_12 #7) ---------- */
+.plan-summary-idle {
+  color: var(--ink-2);
+}
+.plan-summary-output {
+  /* rb_13 #2: resolved output paths ("/mnt/example/derivatives/SimNIBS/...") are one long
+   * unbreakable token — without this the grid's 1fr `dd` column (definition-list, above) sizes to
+   * that token's min-content width and pushes past the 320px context panel (optimizer-ex-*.png). */
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.plan-summary-output-overwrite {
+  color: var(--warning);
+}
+
+.virtual-list {
+  overflow: auto;
+  position: relative;
+}
+
+/* ---------- Data table ---------- */
+.data-table-container {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+/* `fill`: the box takes the height the page gives it and the table draws ground rows into it.
+   Both spellings, because the two pages that need it put the table in different boxes — a flex
+   column (Subject info's card body) and a block of definite height (the Jobs page's table card). */
+.data-table-container[data-fill="true"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+/* A ground row: the same 28px pitch and the same surface as a real row, so the empty state reads
+   as the shape of the list rather than as a page that stops. Rendered, not painted — the rows are
+   the table's own, which is why two pages painting a gradient behind it could never line up. */
+.data-table tbody tr.data-table-filler td {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  height: var(--row-h);
+  padding: 0;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+/* Header is 11px uppercase at the same 28px row height as the body: the eyebrow step is legal
+ * here because it is set in --ink-2, never --ink-3 (the 12px floor applies to --ink-3 pairings). */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 0 var(--space-2);
+  height: var(--row-h);
+  white-space: nowrap;
+  z-index: 1;
+  cursor: default;
+  user-select: none;
+}
+.data-table th[data-sortable="true"] {
+  cursor: pointer;
+}
+.data-table th[data-sortable="true"]:hover {
+  color: var(--ink);
+}
+.data-table th[data-align="right"],
+.data-table td[data-align="right"] {
+  text-align: right;
+}
+.data-table tbody td {
+  padding: 0 var(--space-2);
+  height: var(--row-h);
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  /* A cell is a surface, not a hole in the page. Without this the sampled dead-space metric reads
+   * every gap between two values in a row as bare ground, and a reader sees the same thing: rows
+   * that dissolve where the text stops. Requested by B6 (§3.1), who had applied it to Jobs only. */
+  background-color: var(--surface);
+}
+/* Numbers are right-aligned and tabular everywhere, so a column of them reads as a column. */
+.data-table tbody td.data-table-numeric,
+.data-table th[data-align="right"] {
+  font-variant-numeric: tabular-nums;
+}
+.data-table tbody td.data-table-numeric {
+  font-family: var(--font-mono);
+}
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+}
+.data-table tbody tr[data-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.data-table-sort-icon {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+/* Sonner already ships a very high default z-index; pin it to the documented scale's top slot
+   (--z-toast, tokens.css) so the layering order is one legible source of truth instead of "sonner
+   default, trust it's high enough" — a toast must outrank a dialog (a save can complete while one
+   is still open) and a tooltip (an open popover can trigger one). */
+[data-sonner-toaster] {
+  z-index: var(--z-toast) !important;
+}
+
+/* ---------- Charts ---------- */
+.sparkline-wrap {
+  width: 100%;
+}
+.sparkline-wrap .u-legend {
+  display: none;
+}
+.chart-frame {
+  position: relative;
+  width: 100%;
+}
+.chart-collecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-collecting-label {
+  position: absolute;
+  color: var(--ink-2);
+}
+
+/* ---------- Jobs ---------- */
+.job-trace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  height: 100%;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.job-trace:hover {
+  background: var(--surface-2);
+}
+.job-trace-finishing {
+  opacity: 0.55;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.job-trace-kind {
+  font-weight: 500;
+}
+.job-trace-subject {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+}
+.job-trace-bar {
+  position: relative;
+  width: 64px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  flex: none;
+}
+.job-trace-bar-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transition: width var(--duration-fast) var(--ease-out);
+}
+.job-trace-elapsed {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.job-console {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface-2);
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.job-console-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.job-console-lines {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-2);
+  overflow-x: auto;
+}
+.job-console-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  color: var(--ink-3);
+  text-align: center;
+}
+.job-console-line {
+  display: flex;
+  gap: var(--space-2);
+  white-space: pre; /* virtual rows have a fixed height: never wrap, scroll sideways instead */
+  word-break: break-word;
+  line-height: 18px;
+}
+.job-console-line-error {
+  color: var(--danger);
+}
+.job-console-line-warning {
+  color: var(--warning);
+}
+.job-console-line-debug {
+  color: var(--ink-3);
+}
+
+.artifact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.artifact-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+}
+.artifact-row:hover {
+  background: var(--surface-2);
+}
+.artifact-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.artifact-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ---------- Page layout (work pane + optional inspector + optional action bar) ---------- */
+/*
+ * `PageLayout` v3 has three shapes (DESIGN.md §2, program U1).
+ *
+ *  - `run`: the work pane takes every pixel the right pane does not — **no 880px cap**, which is
+ *    the whole of U1 in one declaration. Optional 360/400px run panel, optional sticky 44px action
+ *    bar at the bottom of the work pane.
+ *  - `browse`: an internally split work pane with an optional preview pane sized as a percentage;
+ *    the panes are flush and divided by 1px rules, so the shell's padding is negated.
+ *  - `bleed`: no padding, no max width — the page fills the shell's content box. The Viewer is the
+ *    reason this exists: no imaging tool puts a 24px margin around its render panes.
+ *
+ * There is no page header by default. The nav rail already says which page this is.
+ */
+.page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+  /* DESIGN.md §2.1: 360 below 1440, 400 at or above it. A page that passes `rightPaneWidth`
+   * overrides this inline on the same element, and an inline custom property beats a stylesheet
+   * one, so the breakpoint is a default rather than a cage. */
+  --right-pane-w: 360px;
+}
+@media (min-width: 1440px) {
+  .page-layout {
+    --right-pane-w: 400px;
+  }
+}
+.page-layout-body {
+  display: flex;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+}
+/* L4 — "nothing overlaps". The work pane is NOT the scroller; its scroll child is.
+ *
+ * The defect this replaces (lane UC, measured on the real container, re-measured by lane SCC):
+ * `.page-layout-main` was `overflow: auto` with two flex children — the content and the sticky
+ * `.action-bar`. A sticky element's offsets are resolved against its own flow position, and that
+ * position tracks the *flex-allocated* box (`clientHeight − 44`), not "below however tall the
+ * overflowing content actually is". So the moment the form overflowed at all, the bar rendered
+ * INSIDE the content, and because both moved together under scroll no scroll position ever
+ * cleared it — UC scanned `scrollTop` 0→161 in 10 px steps and found the same ~29 px overlap at
+ * every one (`anyClear: false`). Playwright could not click the Simulator's "Save montage" or its
+ * "Cancel"; a user could not either, and `force: true` did not help because Chromium's own
+ * hit-testing at that point still resolved to the bar.
+ *
+ * Making the scroll child the scroller reserves the bar's height structurally: the bar is a
+ * `flex: none` sibling *outside* the scrollport, so the scrollport is exactly
+ * `pane height − 44 px` and content can never be painted under the bar at any scroll offset.
+ * `tests/e2e/layout.spec.ts` asserts it by hit-testing every interactive element's centre at
+ * every step of the scroll range. `.page-layout-main` keeps `overflow: hidden` so it is still a
+ * clipping box (a wide table scrolls inside its own container, never the page — §4.3). */
+.page-layout-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.page-layout-main-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.page-layout-panel {
+  flex: none;
+  width: var(--right-pane-w);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: 100%;
+  overflow: auto;
+}
+/* A preview pane holds a document, not a column of controls, so it scales with the window:
+ * 40% of the content box, floored at 380 and ceilinged at 560 (DESIGN.md §2.1). The percentage
+ * resolves against `.page-layout-body`, which on the browse shape is exactly the content box. */
+.page-layout-panel[data-pane-kind="preview"] {
+  width: clamp(380px, 40%, 560px);
+}
+/* An explicit `rightPaneWidth`/`inspectorWidth` wins over the preview percentage — this rule is
+ * after it on purpose, since both are one attribute + one class. */
+.page-layout-panel[data-pane-width="fixed"] {
+  width: var(--right-pane-w);
+}
+/* The 6px grab strip between the work pane and the right pane. It is the *only* thing between
+ * them on the run shape, which is why it carries the 1px rule: DESIGN.md §2.1 spends exactly six
+ * pixels here and no gap. */
+.page-layout-inspector-handle {
+  width: 6px;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+}
+.page-layout-inspector-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--line);
+}
+.page-layout-inspector-handle:hover::after,
+.page-layout-inspector-handle:focus-visible::after {
+  background: var(--line-strong);
+}
+.page-layout-inspector-handle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* The run shape's panes are divided by the 6px handle alone, not by a gap: DESIGN.md §2.1's
+ * arithmetic at 1280 is work 666 + handle 6 + panel 360 = 1032 = the 1064 content box minus its
+ * 2 x 16px padding. A `--space-4` gap on each side of the handle would take 32 of those pixels
+ * off the work pane and put it under the >=660 floor §12.3 states. */
+.page-layout-run .page-layout-body {
+  gap: 0;
+}
+/* The handle is 6px of grab strip with a 1px rule inside it, which leaves the pane's own content
+ * about 4px from that rule — measured on `preprocess-dark-1280x800.png`, round 2. The gutter
+ * belongs to the pane (shell furniture), not to whatever a page renders inside it, so it is
+ * declared once here: a page's right-pane component must NOT add its own left padding. */
+.page-layout-run .page-layout-panel {
+  padding-left: var(--space-3);
+}
+/* The run shape's right pane must FILL the content box: the Terminal below the Plan grid is
+ * defined as "fills the remaining height, min 180" (DESIGN.md §4.6), and the default
+ * `align-self: flex-start; max-height: 100%` above sizes the pane to its content instead. Measured
+ * by lane B2 at 1280x800: 440 of 3053 sampled points (14 % of the whole content box) landed on
+ * bare `.page-layout-body` under a short pane, and the console never got a scroll region at all.
+ * Requested by B2/B4; landed here (FXU1) so the pane's own stylesheet no longer carries a copy. */
+.page-layout-panel[data-pane-kind="run"] {
+  align-self: stretch;
+  max-height: none;
+  overflow: hidden;
+}
+/* The browse shape's panes are flush and divided by rules, not by gaps (DESIGN.md §4.1). */
+.page-layout-browse {
+  gap: 0;
+  margin: calc(var(--page-pad) * -1);
+  height: calc(100% + var(--page-pad) * 2);
+}
+.page-layout-browse .page-layout-body {
+  gap: 0;
+}
+.page-layout-browse .page-layout-panel {
+  border-left: 1px solid var(--line);
+}
+.page-layout-full-bleed {
+  gap: 0;
+  /* Cancel the shell's content padding so the page owns every pixel of the content box. The
+   * shell's padding is the same token, so this stays correct if the shell changes it. */
+  margin: calc(var(--page-pad) * -1);
+  /* `.page-layout`'s `height: 100%` resolves against `.shell-content`'s CONTENT-box height (i.e.
+   * excluding both its top and bottom padding), but the negative margin above only repositions
+   * this box -- it does not grow a non-auto height to also fill the space the top edge moved
+   * into. Width has no equivalent gap: an unset `width` is `auto`, and an auto-width block does
+   * expand to absorb negative margins on both sides, which is why left/right already reach the
+   * shell's edges without this. Height needs the same "both paddings" compensation spelled out,
+   * or the pane's bottom edge sits a full `2 * --page-pad` short of `.shell-content`'s own bottom
+   * edge -- a real, visible gap this rule exists to close (caught by gallery.spec.ts's geometry
+   * assertions against the Viewer page, the one page that uses this variant). Only takes effect
+   * where this class's `margin` above is also in play -- the <1099px breakpoint below re-declares
+   * `.page-layout { height: auto }` and wins by source order, so this never fights that stacked
+   * layout. */
+  height: calc(100% + var(--page-pad) * 2);
+}
+.page-layout-full-bleed .page-layout-body {
+  gap: 0;
+}
+.page-layout-full-bleed .page-layout-main {
+  max-width: none;
+  overflow: hidden;
+}
+.page-layout-full-bleed .page-layout-panel {
+  border-left: 1px solid var(--line);
+}
+@media (max-width: 899px) {
+  /* Mirrors the shell's own padding step-down so the flush negation stays exact. */
+  .page-layout-full-bleed,
+  .page-layout-browse {
+    margin: calc(var(--page-pad-sm) * -1);
+  }
+}
+@media (max-width: 1099px) {
+  /* Below 1100px the panel drops under the form (DESIGN.md §4), so `.page-layout` must no longer
+   * force `height: 100%` (there is no fixed-height parent to fill once content stacks) and
+   * `.page-layout-main` must stop being its own `overflow: auto` scroller — otherwise the form
+   * gets clipped to whatever height happened to remain and the panel below it is unreachable
+   * (ra_12 #2: Tissue-type select and the sphere row cut mid-control, an empty card sliver above
+   * Plan). `.shell-content` (app/shell.css) is the only scroller in this layout. */
+  .page-layout {
+    height: auto;
+  }
+  .page-layout-body {
+    flex-direction: column;
+  }
+  .page-layout-main {
+    overflow: visible;
+    max-width: none;
+  }
+  /* …and neither is its scroll child, for the same reason: two nested scrollers under a page that
+   * is itself scrolled by `.shell-content` would clip the form twice. The action bar keeps its
+   * `position: sticky`, which in this stacked layout resolves against `.shell-content` — the
+   * behaviour this shape always had. */
+  .page-layout-main-scroll {
+    overflow: visible;
+  }
+  /* Below 1100px a 360px column leaves the form under 600px, so the right pane stops being a
+   * column (DESIGN.md §2.2). It stacks full width under the work pane. */
+  .page-layout-panel {
+    width: 100%;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* ---------- Page header ---------- */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.page-header-breadcrumb {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-bottom: 4px;
+}
+.page-header-purpose {
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+.page-header-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+/* ---------- Chrome: context bar, action bar, status bar ---------- */
+/*
+ * These are the shell's three horizontal strips, but their geometry belongs to the design system
+ * so a page can reserve space for one without knowing how the shell is assembled. The shell (S1)
+ * fills the context bar's slots; a run screen supplies the action bar; the status bar is global.
+ */
+.context-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--context-bar-h);
+  flex: none;
+  padding: 0 var(--space-3);
+  background: var(--app-ground);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 16px;
+}
+.context-bar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink-2);
+}
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 260px;
+}
+.crumb:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+.crumb[aria-expanded="true"] {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+.crumb-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crumb-meta {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+.crumb-chevron {
+  flex: none;
+  color: var(--ink-2);
+}
+.crumb-separator {
+  color: var(--ink-3);
+  flex: none;
+  user-select: none;
+}
+
+/*
+ * The action bar sits at the bottom of the work pane: the primary action is next to the control
+ * you were last editing, not 500px above it in a right-hand panel. Left is the plan's one-line
+ * digest (the 80% of the Plan people read); right is one secondary plus one primary. The
+ * primary's label is generated from the plan ("Run simulation", "Queue 3 jobs").
+ *
+ * At >= 1100px it is a `flex: none` sibling OUTSIDE the scrollport (`.page-layout-main-scroll`),
+ * so it reserves its own 44px and no content can ever be painted under it (L4). `position: sticky`
+ * is kept for the < 1100px stacked shape, where the pane stops being a scroller and
+ * `.shell-content` scrolls the whole page instead.
+ */
+.action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--action-bar-h);
+  flex: none;
+  padding: 5px var(--space-3);
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--app-ground);
+  border-top: 1px solid var(--line);
+}
+.action-bar-digest {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.action-bar-digest-blocked {
+  color: var(--warning);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.action-bar-warnings {
+  flex: none;
+}
+.action-bar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+.action-bar-primary {
+  display: flex;
+  align-items: center;
+}
+.action-bar-primary > .btn {
+  height: var(--control-h-lg);
+}
+.action-bar-hint {
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 14px;
+  flex: none;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  height: var(--status-bar-h);
+  flex: none;
+  padding: 0 var(--space-3);
+  background: var(--gutter);
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--ink-2);
+}
+.status-bar-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 var(--space-2);
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.status-bar-cell:first-child {
+  padding-left: 0;
+}
+.status-bar-cell:last-child {
+  border-right: none;
+}
+.status-bar-cell-end {
+  margin-left: auto;
+  border-right: none;
+}
+.status-bar-cell-label {
+  color: var(--ink-3);
+}
+
+/* ---------- SegmentedControl ---------- */
+/*
+ * One-of-N where a RadioGroup would cost a whole block: Method ⟨Flex │ Ex │ mEx⟩, Scope
+ * ⟨Subject │ Group │ Figures⟩. Radix ToggleGroup, single-select, never empty.
+ */
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--control-h);
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+.segmented-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.segmented-item:hover:not([data-state="on"]):not(:disabled) {
+  color: var(--ink);
+}
+.segmented-item[data-state="on"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+.segmented-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.segmented-sm {
+  height: var(--control-h-sm);
+}
+.segmented-sm .segmented-item {
+  padding: 0 var(--space-2);
+  font-size: 11px;
+}

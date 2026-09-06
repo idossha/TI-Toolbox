@@ -500,7 +500,13 @@ def track_event(
         ],
     }
 
-    thread = threading.Thread(target=_send_ga4, args=(payload,), daemon=True)
+    # Named so tests can join *only* telemetry sender threads (see
+    # tests/test_telemetry.py::_wait_for_telemetry_threads) instead of every
+    # daemon thread in the process — joining unrelated long-lived daemons
+    # (e.g. the JobManager poll loop) there used to cost seconds per test.
+    thread = threading.Thread(
+        target=_send_ga4, args=(payload,), name="tit-telemetry", daemon=True
+    )
     thread.start()
     if _blocking:
         thread.join(timeout=const.TELEMETRY_TIMEOUT_S + 1)

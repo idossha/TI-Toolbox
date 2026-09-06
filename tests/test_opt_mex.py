@@ -430,9 +430,8 @@ class TestMExConfigConfigIO:
             os.unlink(path)
 
     def test_pool_electrodes_and_channels_survive_main_rebuild(self):
-        from tit.config_io import serialize_config
+        from tit.config_io import deserialize_config, serialize_config
         from tit.opt.config import MExConfig
-        from tit.opt.mex.__main__ import _build_channels, _build_electrodes
 
         config = MExConfig(
             subject_id="001",
@@ -444,18 +443,19 @@ class TestMExConfigConfigIO:
             channels=[([0, 2], [1, 3])],
         )
         data = json.loads(json.dumps(serialize_config(config)))
+        data.pop("project_dir", None)
 
-        electrodes = _build_electrodes(data.pop("electrodes"))
-        channels = _build_channels(data.pop("channels"))
+        # tit.opt.mex.__main__ now rebuilds the whole config via
+        # deserialize_config rather than hand-rolling electrodes/channels.
+        rebuilt = deserialize_config(MExConfig, data)
 
-        assert isinstance(electrodes, MExConfig.PoolElectrodes)
-        assert electrodes.electrodes == [f"E{i}" for i in range(1, 9)]
-        assert channels == [([0, 2], [1, 3])]
+        assert isinstance(rebuilt.electrodes, MExConfig.PoolElectrodes)
+        assert rebuilt.electrodes.electrodes == [f"E{i}" for i in range(1, 9)]
+        assert rebuilt.channels == [([0, 2], [1, 3])]
 
     def test_absent_channels_rebuild_to_none(self):
-        from tit.config_io import serialize_config
+        from tit.config_io import deserialize_config, serialize_config
         from tit.opt.config import MExConfig
-        from tit.opt.mex.__main__ import _build_channels
 
         config = MExConfig(
             subject_id="001",
@@ -464,7 +464,8 @@ class TestMExConfigConfigIO:
             electrodes=MExConfig.PoolElectrodes(electrodes=["E1"] * 8),
         )
         data = json.loads(json.dumps(serialize_config(config)))
-        assert _build_channels(data.get("channels")) is None
+        data.pop("project_dir", None)
+        assert deserialize_config(MExConfig, data).channels is None
 
 
 # ---------------------------------------------------------------------------

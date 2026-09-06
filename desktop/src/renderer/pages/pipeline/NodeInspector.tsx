@@ -1,0 +1,319 @@
+/**
+ * The node inspector — double-clicking a node card opens this over the canvas.
+ *
+ * Every field here is the *same component the node's own page uses*: `ObjectiveSection` and
+ * `ElectrodesSection` from `pages/optimizer/FlexSections`, the shared `RoiPicker`, the same
+ * `Field`/`Select`/`NumberInput` primitives. Nothing is a copy, so a change on the Optimizer page
+ * shows up here with no edit.
+ *
+ * Kinds whose page form does not lift out of its page (`ex`, `mex`, `leadfield`, `source`,
+ * `stats`) get a JSON editor, plainly labelled — an honest gap rather than a half-form that would
+ * build a config the runner rejects.
+ */
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Dialog } from "../../ui/Overlay";
+import { Field } from "../../ui/Field";
+import { Select } from "../../ui/Select";
+import { Switch } from "../../ui/Toggle";
+import { NumberInput } from "../../ui/NumberInput";
+import { SegmentedControl } from "../../ui/SegmentedControl";
+import { FormSection } from "../../ui/Layout";
+import { Callout } from "../../ui/Feedback";
+import { ObjectiveSection, ElectrodesSection } from "../optimizer/FlexSections";
+import { RoiPicker, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import type { FlexFormState } from "../optimizer/flexConfig";
+import { PRE_STAGES, parseSubjects, type NodeEditor } from "./editors";
+import { KIND_TITLE, PORT_LABEL, incoming, type PipelineDoc, type PipelineNode } from "./graph";
+
+/** Same per-subject atlas resolution the Optimizer page does, for one subject. */
+export function useAtlasLookup(subject: string | undefined, value: RoiValue | undefined): (atlas: string) => AtlasLookup | undefined {
+  const kind = value?.mode === "cortical" ? "cortical" : value?.mode === "subcortical" ? "subcortical" : undefined;
+  const space = value?.mode === "subcortical" ? value.atlasSpace : undefined;
+  const { data } = useQuery({
+    queryKey: kind === "subcortical" ? ["atlases", subject, "subcortical", space] : ["atlases", subject, "cortical"],
+    queryFn: () => getAtlases(subject!, kind as "cortical" | "subcortical", space),
+    enabled: kind !== undefined && !!subject,
+  });
+  return useMemo(() => (atlasId: string) => (data as Atlas[] | undefined)?.find((a) => a.id === atlasId), [data]);
+}
+
+export function NodeInspector({
+  doc,
+  node,
+  editor,
+  onEditorChange,
+  onLabelChange,
+  onClose,
+}: {
+  doc: PipelineDoc;
+  node: PipelineNode;
+  editor: NodeEditor;
+  onEditorChange: (next: NodeEditor) => void;
+  onLabelChange: (label: string) => void;
+  onClose: () => void;
+}) {
+  const wired = incoming(doc, node.id);
+  const subjectsWired = wired.some((e) => e.port === "subjects");
+  const subjects = "subjects" in editor ? parseSubjects(editor.subjects) : [];
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={`${KIND_TITLE[node.kind]} — ${node.id}`}
+      description="Edited with the same form sections the node's own page uses."
+    >
+      <div className="pipeline-inspector">
+        <FormSection title="Node">
+          <>
+            <Field label="Name" help="Shown on the card and in the exported notebook.">
+              <input
+                className="input"
+                value={node.label ?? ""}
+                placeholder={KIND_TITLE[node.kind]}
+                onChange={(e) => onLabelChange(e.target.value)}
+                aria-label="Node name"
+              />
+            </Field>
+            {wired.length > 0 && (
+              <Field label="Wired inputs" className="pipeline-span">
+                <ul className="pipeline-wired">
+                  {wired.map((edge) => (
+                    <li key={`${edge.from}-${edge.port}`}>
+                      <strong>{PORT_LABEL[edge.port]}</strong> from <code>{edge.from}</code>
+                    </li>
+                  ))}
+                </ul>
+              </Field>
+            )}
+            {"subjects" in editor && (
+              <Field
+                label="Subjects"
+                help={
+                  subjectsWired
+                    ? "Wired from an upstream node — this field is ignored while the wire is there."
+                    : "Comma- or space-separated subject ids."
+                }
+                className="pipeline-span"
+              >
+                <input
+                  className="input"
+                  value={editor.subjects}
+                  disabled={subjectsWired}
+                  placeholder="ernie, 101"
+                  onChange={(e) => onEditorChange({ ...editor, subjects: e.target.value } as NodeEditor)}
+                  aria-label="Subjects"
+                />
+              </Field>
+            )}
+          </>
+        </FormSection>
+
+        {editor.kind === "pre" && (
+          <FormSection title="Stages">
+            <>
+              {PRE_STAGES.map((stage) => (
+                <Field key={stage.key} label={stage.label}>
+                  <Switch
+                    checked={editor.stages[stage.key] === true}
+                    onCheckedChange={(checked: boolean) =>
+                      onEditorChange({ ...editor, stages: { ...editor.stages, [stage.key]: checked } })
+                    }
+                    aria-label={stage.label}
+                  />
+                </Field>
+              ))}
+            </>
+          </FormSection>
+        )}
+
+        {editor.kind === "flex" && (
+          <>
+            <ObjectiveSection
+              form={editor.form}
+              onChange={(patch: Partial<FlexFormState>) => onEditorChange({ ...editor, form: { ...editor.form, ...patch } })}
+              nonRoi={editor.roi}
+              onNonRoiChange={() => undefined}
+              subject={subjects[0]}
+            />
+            <ElectrodesSection
+              form={editor.form}
+              onChange={(patch: Partial<FlexFormState>) => onEditorChange({ ...editor, form: { ...editor.form, ...patch } })}
+            />
+            <FormSection title="Target">
+              <div className="pipeline-span">
+                <RoiPicker
+                  value={editor.roi}
+                  onChange={(roi) => onEditorChange({ ...editor, roi })}
+                  modes={["spherical", "cortical", "subcortical"]}
+                  subject={subjects[0]}
+                />
+              </div>
+            </FormSection>
+          </>
+        )}
+
+        {editor.kind === "sim" && (
+          <FormSection title="Simulation">
+            <>
+              <Field
+                label="Montages"
+                help={
+                  wired.some((e) => e.port === "montages")
+                    ? "Wired from an optimizer — the names come from its finished run."
+                    : "Comma-separated montage names from montage_list.json."
+                }
+                className="pipeline-span"
+              >
+                <input
+                  className="input"
+                  value={editor.montages}
+                  disabled={wired.some((e) => e.port === "montages")}
+                  placeholder="L_Insula, R_Insula"
+                  onChange={(e) => onEditorChange({ ...editor, montages: e.target.value })}
+                  aria-label="Montages"
+                />
+              </Field>
+              <Field label="EEG net">
+                <input
+                  className="input"
+                  value={editor.eegNet}
+                  placeholder="GSN-HydroCel-185.csv"
+                  onChange={(e) => onEditorChange({ ...editor, eegNet: e.target.value })}
+                  aria-label="EEG net"
+                />
+              </Field>
+              <Field label="Currents (mA)">
+                <input
+                  className="input"
+                  value={editor.currents}
+                  onChange={(e) => onEditorChange({ ...editor, currents: e.target.value })}
+                  aria-label="Currents"
+                />
+              </Field>
+              <Field label="Conductivity">
+                <Select
+                  value={editor.params.conductivity}
+                  onValueChange={(v) => onEditorChange({ ...editor, params: { ...editor.params, conductivity: v } })}
+                  options={[
+                    { value: "scalar", label: "scalar" },
+                    { value: "vn", label: "vn" },
+                    { value: "dir", label: "dir" },
+                    { value: "mc", label: "mc" },
+                  ]}
+                />
+              </Field>
+            </>
+          </FormSection>
+        )}
+
+        {editor.kind === "analyzer" && (
+          <>
+            <FormSection title="Analysis">
+              <>
+                <Field
+                  label="Simulation"
+                  help={
+                    wired.some((e) => e.port === "simulation")
+                      ? "Wired from a Simulator node — one analysis per simulation it writes."
+                      : "Simulation (montage) name to analyse."
+                  }
+                  className="pipeline-span"
+                >
+                  <input
+                    className="input"
+                    value={editor.simulation}
+                    disabled={wired.some((e) => e.port === "simulation")}
+                    onChange={(e) => onEditorChange({ ...editor, simulation: e.target.value })}
+                    aria-label="Simulation"
+                  />
+                </Field>
+                <Field label="Space">
+                  <SegmentedControl
+                    value={editor.space}
+                    onValueChange={(v) => onEditorChange({ ...editor, space: v as typeof editor.space })}
+                    options={[
+                      { value: "mesh", label: "Mesh" },
+                      { value: "voxel", label: "Voxel" },
+                    ]}
+                    aria-label="Analysis space"
+                  />
+                </Field>
+                <Field label="Target">
+                  <Select
+                    value={editor.analysisType}
+                    onValueChange={(v) => onEditorChange({ ...editor, analysisType: v as typeof editor.analysisType })}
+                    options={[
+                      { value: "spherical", label: "Spherical" },
+                      { value: "cortical", label: "Cortical" },
+                      { value: "subcortical", label: "Subcortical" },
+                    ]}
+                  />
+                </Field>
+              </>
+            </FormSection>
+            {editor.analysisType === "spherical" ? (
+              <FormSection title="Sphere">
+                <>
+                  {(["x", "y", "z", "radius"] as const).map((key) => (
+                    <Field key={key} label={key === "radius" ? "Radius" : key.toUpperCase()}>
+                      <NumberInput
+                        value={editor.sphere[key]}
+                        onValueChange={(v) => onEditorChange({ ...editor, sphere: { ...editor.sphere, [key]: v } })}
+                        unit="mm"
+                        aria-label={key}
+                      />
+                    </Field>
+                  ))}
+                  <Field label="Coordinate space">
+                    <SegmentedControl
+                      value={editor.coordinateSpace}
+                      onValueChange={(v) => onEditorChange({ ...editor, coordinateSpace: v as "subject" | "mni" })}
+                      options={[
+                        { value: "subject", label: "Subject" },
+                        { value: "mni", label: "MNI" },
+                      ]}
+                      aria-label="Coordinate space"
+                    />
+                  </Field>
+                </>
+              </FormSection>
+            ) : (
+              <FormSection title="Region">
+                <div className="pipeline-span">
+                  <RoiPicker
+                    value={editor.roi}
+                    onChange={(roi) => onEditorChange({ ...editor, roi })}
+                    modes={[editor.analysisType]}
+                    subject={subjects[0]}
+                  />
+                </div>
+              </FormSection>
+            )}
+          </>
+        )}
+
+        {editor.kind === "json" && (
+          <FormSection title="Config">
+            <div className="pipeline-span">
+              <Callout kind="info">
+                {`${KIND_TITLE[editor.nodeKind]} has no lifted form yet — edit its config as JSON. The server validates it against the same dataclass the runner reads, so a mistake comes back as a reason, not a failed job.`}
+              </Callout>
+              <textarea
+                className="input pipeline-json"
+                rows={14}
+                spellCheck={false}
+                value={editor.text}
+                onChange={(e) => onEditorChange({ ...editor, text: e.target.value })}
+                aria-label="Node config JSON"
+              />
+            </div>
+          </FormSection>
+        )}
+      </div>
+    </Dialog>
+  );
+}

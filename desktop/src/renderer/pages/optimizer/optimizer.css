@@ -1,0 +1,103 @@
+/* Optimizer-only furniture. Tokens only — no literal colours (checklist item 5). */
+
+/* Method segment + run name on one 28px row: the merge's first row (wireframes §4). */
+.optimizer-method-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--control-h);
+}
+.optimizer-method-row .field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The Ex/mEx precondition strip: a gate, not a form field. One row, stated fact, one action. */
+.optimizer-precondition {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.optimizer-precondition .select-trigger,
+.optimizer-precondition .control {
+  max-width: 260px;
+}
+.optimizer-precondition .field-help {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The search-cost read-out, beside the decision that changes it. Same line as the digest. */
+.optimizer-cost {
+  margin: var(--space-2) 0 0;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* Eight buckets read as four pairs: two columns keeps E1+/E1- adjacent at any pane width. */
+.optimizer-buckets {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.optimizer-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.optimizer-help:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* Round-1 measurement fixed two ways: a 160 px label plus a 240 px control does not fit a 400 px
+   grid column (the pane is ~830 px at 1280 with the icon rail, so `.form-grid` is two-up), and a
+   field holding two controls needs the whole row. Scoped to this page, not the shared token. */
+.page-optimizer .form-grid {
+  --field-label-w: 128px;
+}
+/* Two controls wide: "Dimensions (x, y)" is two number inputs and "Current ratio" is a checkbox
+   plus one. Un-spanning them at 1280 (a 389px column does hold 160 + 12 + 2x110) was measured and
+   REJECTED: the section's dead space went UP, from 45.5 % to 47.2 % of the content box, because
+   two 826px rows became four 389px cells of which the extra two were empty, and the number inputs
+   lost the room that kept them off each other. The span stays. */
+.page-optimizer .optimizer-span {
+  grid-column: 1 / -1;
+}
+
+
+/* Density (checklist item 1): the sections stack tighter than the shared 12 px, because a run
+   page's work pane is a form and every 4 px of gutter is a row that does not fit above the fold. */
+.page-optimizer .run-work {
+  gap: var(--space-2);
+}
+
+/* Two-up from 700 px, not 760 (checklist item 1; §2.1's threshold is derived, not magic).
+   §2.1 sizes the honest two-up threshold from a 160 px label + a 240 px control + gutter. This
+   page's label column is 128 px, so an honest column here is 338 px and two of them plus the
+   24 px gutter is 700. Without this the work pane is one column at 1440 x 900 — `--page-pad` 24
+   takes the `.run-work` container to ~722 px, under the shared 760 px rule — which is the
+   opposite of what §2.1 asks for at that size, and measured 4 points worse on dead space. */
+@container (min-width: 700px) {
+  .page-optimizer .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -183,7 +183,7 @@ class SubjectInfoWindow(QtWidgets.QDialog):
                 self.project_dir / subject_id / "anat"
             ).exists()
             has_fs = (
-                self.project_dir / "derivatives" / "freesurfer" / subject_id / "mri"
+                self.project_dir / "derivatives" / "fastsurfer" / subject_id / "mri"
             ).exists()
             has_simnibs = (
                 simnibs_dir.exists()
@@ -360,9 +360,9 @@ class SubjectInfoWindow(QtWidgets.QDialog):
                 info["anat_files"] = ["Permission denied"]
 
         # FreeSurfer
-        freesurfer_dir = self.project_dir / "derivatives" / "freesurfer" / subject_id
-        if freesurfer_dir.exists():
-            info["freesurfer_complete"] = (freesurfer_dir / "mri").exists()
+        fastsurfer_dir = self.project_dir / "derivatives" / "fastsurfer" / subject_id
+        if fastsurfer_dir.exists():
+            info["fastsurfer_complete"] = (fastsurfer_dir / "mri").exists()
 
         # SimNIBS data
         simnibs_dir = self.project_dir / "derivatives" / "SimNIBS" / subject_id

@@ -1,0 +1,23 @@
+{
+  "nets": {
+    "GSN-HydroCel-185": {
+      "uni_polar_montages": {
+        "F3_F4": [["E24", "E124"]],
+        "Thalamus_target": [["E37", "E87"]],
+        "L_Insula_target": [["E37", "E18"]]
+      },
+      "multi_polar_montages": {
+        "mTI_F3F4_P3P4": [["E24", "E124"], ["E67", "E77"]]
+      }
+    },
+    "EGI_template": {
+      "uni_polar_montages": {
+        "F3_F4": [["E36", "E224"]],
+        "Cz_Oz": [["E129", "E126"]]
+      },
+      "multi_polar_montages": {
+        "mTI_Cz_Oz_F3_F4": [["E129", "E126"], ["E36", "E224"]]
+      }
+    }
+  }
+}

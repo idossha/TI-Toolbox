@@ -129,10 +129,9 @@ Project Directory/
 │       │   └── dicom/                      <i>(Place DWI DICOM files here)</i>
 │       └── additional_files/               <i>(Optional documentation)</i>
 ├── derivatives/                            <i>(Auto-created during pre-processing)</i>
-│   ├── freesurfer/                         
+│   ├── fastsurfer/
 │   │   └── sub-{subject}/
-│   │       ├── mri/
-│   │       └── label/
+│   │       └── mri/
 │   ├── SimNIBS/
 │   │   └── sub-{subject}/
 │   │       ├── m2m_{subject}/
@@ -230,14 +229,13 @@ Project Directory/
                     "- Runs the SimNIBS charm tool to create subject-specific head models<br>"
                     "- Generates meshes necessary for electromagnetic field simulations<br>"
                     "- Creates the m2m_{SUBJECT_ID} directory in the SimNIBS folder<br><br>"
-                    "<b>Run FreeSurfer recon-all:</b><br>"
-                    "- Optional cortical reconstruction using FreeSurfer's recon-all<br>"
-                    "- Creates cortical surface models and anatomical parcellations<br>"
-                    "- This is a computationally intensive step that can take several hours<br><br>"
-                    "<b>Run FreeSurfer reconstruction in parallel:</b><br>"
-                    "- Uses Python ThreadPoolExecutor to run recon-all for multiple subjects at once<br>"
-                    "- Only applies when 'Run FreeSurfer recon-all' is selected for multiple subjects<br>"
-                    "- Each parallel subject runs recon-all with one core; sequential mode lets one subject use FreeSurfer internal parallelism<br><br>"
+                    "<b>Run FastSurfer segmentation:</b><br>"
+                    "- Deep-learning cortical and subcortical parcellation from the T1w image<br>"
+                    "- Writes <code>aparc.DKTatlas+aseg.deep</code> to <code>derivatives/fastsurfer/sub-{subject}/mri/</code><br>"
+                    "- About 5 minutes per subject on CPU; subjects are processed one at a time<br><br>"
+                    "<b>FastSurfer threads:</b><br>"
+                    "- Threads used for the inference on one subject<br>"
+                    "- Peak memory is about 5 GB regardless of the thread count<br><br>"
                     "<b>Run tissue analyzer:</b><br>"
                     "- Analyzes skull bone, skin, and CSF volume and thickness from segmented tissue data<br>"
                     "- Results are saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br>"
@@ -253,10 +251,10 @@ Project Directory/
                     "2. <b>SimNIBS Head Model Creation:</b><br>"
                     "   - Uses the SimNIBS charm tool to create realistic head models<br>"
                     "   - Generates mesh files for FEM simulations and subject atlas annotations<br><br>"
-                    "3. <b>FreeSurfer Reconstruction (Optional):</b><br>"
-                    "   - T1 images and optionally T2 images are processed using FreeSurfer's recon-all<br>"
-                    "   - Creates cortical surface models and segmentation of brain structures<br>"
-                    "   - Can be run in parallel for multiple subjects<br><br>"
+                    "3. <b>FastSurfer Segmentation (Optional):</b><br>"
+                    "   - The T1 image is parcellated into cortical and subcortical labels<br>"
+                    "   - Gives the voxel-space atlas the analyzer and ROI pickers offer<br>"
+                    "   - Runs in parallel with head-model creation, one subject at a time<br><br>"
                     "4. <b>Tissue Analysis (Optional):</b><br>"
                     "   - Analyzes skull, skin, and CSF volume and thickness from segmented tissue data<br>"
                     "   - Results saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br><br>"
@@ -267,9 +265,9 @@ Project Directory/
                 "title": "Tips and Troubleshooting",
                 "content": (
                     "- Ensure that raw DICOM files are organized under <code>sourcedata/sub-{subject}/{T1w,T2w}/dicom/</code><br>"
-                    "- T1-weighted MRI scans are required for SimNIBS; recon-all is optional unless your analysis needs FreeSurfer outputs<br>"
+                    "- T1-weighted MRI scans are required for SimNIBS; FastSurfer is optional unless your analysis needs a voxel-space parcellation<br>"
                     "- T2-weighted MRI scans are optional but improve head model quality<br>"
-                    "- When processing multiple subjects with recon-all, consider parallel processing for throughput<br>"
+                    "- FastSurfer needs about 5 GB of memory per subject; close other heavy work while it runs<br>"
                     "- The Console Output window shows real-time progress and any error messages<br>"
                     "- Detailed log files are saved under <code>derivatives/ti-toolbox/logs/sub-{subject}/</code><br>"
                     "- If processing fails, check the console output and per-subject log files for specific error messages<br>"
@@ -659,7 +657,7 @@ Project Directory/
                 "content": (
                     "The monitor automatically detects and displays processes related to:<br>"
                     "- <b>SimNIBS</b>: charm, simnibs simulations<br>"
-                    "- <b>FreeSurfer</b>: recon-all, surface reconstruction<br>"
+                    "- <b>FastSurfer</b>: deep segmentation<br>"
                     "- <b>Pre-processing</b>: dcm2niix, FSL tools (bet, fast, flirt, fnirt)<br>"
                     "- <b>TI-Toolbox</b>: optimization, analysis, and simulation scripts<br><br>"
                     "System-wide CPU and memory usage graphs are updated in real time."
