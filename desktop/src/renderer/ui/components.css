@@ -2336,14 +2336,45 @@ kbd.kbd {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-5);
+  /* 24px between fields, 8px between wrapped lines. NOT `--space-5`: that token does not exist
+     (tokens.css goes 4/8/12/16/24), so the column-gap it was written with was invalid and the row
+     fell back to a 0px gap — the "Dimensions" label sitting flush against the segmented control
+     beside it. */
+  gap: var(--space-2) var(--space-6);
   min-width: 0;
 }
 .field-row-inline > .field {
-  grid-template-columns: auto minmax(0, auto);
+  /* Not the 2-column grid: a flex line of label -> control, both sized to their content, so the
+     label->control gap is the same --space-2 in every field of the row and the gap BETWEEN fields
+     is the row's own 24px. A grid here gave the first field a flush-left label and the later
+     ones a control jammed against the next label. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: var(--row-h);
   min-width: 0;
 }
+.field-row-inline > .field > .field-label-row {
+  flex: none;
+  justify-content: flex-start;
+}
 .field-row-inline > .field .field-label {
   white-space: nowrap;
+  text-align: left;
+}
+.field-row-inline > .field > .field-control {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* Controls are sized to their content here, not to a column: a two-digit millimetre value in a
+   128px box is what made the row read as three oversized inputs. `--control-w` is the per-field
+   escape (a wider select, a value with a unit suffix). */
+.field-row-inline .number-input {
+  min-width: var(--control-w, 72px);
+  max-width: var(--control-w, 72px);
+}
+.field-row-inline .select-trigger,
+.field-row-inline .combobox-trigger {
+  width: var(--control-w, 200px);
+  max-width: var(--control-w, 200px);
 }

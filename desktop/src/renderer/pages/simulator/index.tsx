@@ -23,6 +23,7 @@ import { MontageManager, emptyDraft, type MontageDraft } from "./MontageManager"
 import { FlexTab } from "./FlexTab";
 import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
+import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, OUTPUT_FIELDS_HELP, type SelectedRow } from "./types";
 import { RunPanel, RunWork, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
@@ -329,7 +330,9 @@ function SimulatorPage() {
                 summary={electrodeSummary(electrodeShape, dimensions, gelThickness)}
               >
                 {/* Shape, dimensions and gel thickness are one decision about one object, and
-                    three narrow controls; `.field-row-inline` keeps them on a single line. */}
+                    three narrow controls; `.field-row-inline` keeps them on a single line.
+                    The row is deliberately FULL-BLEED (no 160px label gutter) — and so is
+                    Conductivity's below, so the two short sections share one left edge. */}
                 <div className="field-row-inline">
                   <Field label="Shape">
                     <SegmentedControl
@@ -348,7 +351,7 @@ function SimulatorPage() {
                       <NumberInput value={dimensions[1]} onValueChange={(v) => setDimensions([dimensions[0], v ?? 8])} unit="h" step={0.5} min={0} aria-label="Electrode height" />
                     </div>
                   </Field>
-                  <Field label="Gel thickness">
+                  <Field label="Gel thickness" className="sim-gel-field">
                     <NumberInput value={gelThickness} onValueChange={(v) => setGelThickness(v ?? 4)} step={0.5} min={0} unit="mm" />
                   </Field>
                 </div>
@@ -361,14 +364,19 @@ function SimulatorPage() {
                 changed={conductivity !== "scalar" || overrides > 0}
                 summary={conductivitySummary(conductivity, overrides)}
               >
-                <Field label="Model">
-                  <Select value={conductivity} onValueChange={setConductivity} options={CONDUCTIVITY_OPTIONS} />
-                </Field>
-                <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this run only.">
-                  <Button variant="secondary" onClick={() => setConductivityDialogOpen(true)}>
-                    Edit tissue conductivities…
-                  </Button>
-                </Field>
+                {/* Same grammar as Electrodes above: one inline row, label -> control, flush left.
+                    A 450px select for the word "Isotropic" and a button floated to the far right
+                    were two halves of one short decision reading as two unrelated rows. */}
+                <div className="field-row-inline">
+                  <Field label="Model">
+                    <Select value={conductivity} onValueChange={setConductivity} options={CONDUCTIVITY_OPTIONS} />
+                  </Field>
+                  <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this run only.">
+                    <Button variant="secondary" onClick={() => setConductivityDialogOpen(true)}>
+                      Edit tissue conductivities…
+                    </Button>
+                  </Field>
+                </div>
               </FormSection>
 
               <FormSection

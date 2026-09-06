@@ -21,9 +21,6 @@ import {
   type SelectedRow,
 } from "./types";
 
-/** Minimum visible rows in the montage table (DESIGN.md §4.3 density + FXU1's fill rule). */
-const MIN_MONTAGE_ROWS = 6;
-
 export type Kind = MontageKind;
 
 /** A montage as the table addresses it: which net's bucket it lives in, and its pairs. */
@@ -73,11 +70,14 @@ export function currentSlotsReserved(counts: number[]): number {
 function CurrentsCell({
   rows,
   count,
+  slots,
   label,
   onChange,
 }: {
   rows: SelectedRow[];
   count: number;
+  /** Slots the column reserves — see `currentSlotsReserved`. */
+  slots: number;
   label: string;
   onChange: (currents: string) => void;
 }) {
@@ -85,7 +85,7 @@ function CurrentsCell({
   if (!first) return <span className="field-help">—</span>;
   const values = currentValues(first.currents, count);
   return (
-    <div className="montage-currents">
+    <div className="montage-currents" style={{ "--slots": slots } as React.CSSProperties}>
       {values.map((v, i) => (
         <NumberInput
           key={i}
@@ -361,10 +361,15 @@ export function MontageManager({
   // The table always offers at least one row to fill in, without holding a pending row in state
   // for the empty case (nothing to clean up when it is used).
   const emptyRow: PendingRow[] = chosen.length === 0 && pendingRows.length === 0 ? [{ key: "row-1", net: editorNet }] : [];
-  const displayed = chosen.length + pendingRows.length + emptyRow.length;
 
-  /** Reserved so a row switching TI <-> mTI never widens (or narrows) the column. */
-  const currentsWidth = currentSlotsReserved(chosen.map((c) => currentsCount(c.montage.kind, c.montage.pairs.length))) * 100 + 24;
+  /** Reserved so a row switching TI <-> mTI never resizes the inputs already in the column: the
+   *  cell is a grid of this many equal slots, whether or not every slot holds an input. */
+  /** Rows whose net not every selected subject has — reported under the table, not in it. */
+  const skipped = chosen
+    .map(({ montage }) => ({ name: montage.name, net: montage.net, missing: selectedSubjects.length - eligibleFor(montage.net).length }))
+    .filter((s) => s.missing > 0);
+
+  const currentSlots = currentSlotsReserved(chosen.map((c) => currentsCount(c.montage.kind, c.montage.pairs.length)));
 
   /** Up/Down moves the active row — the one the 3-D pane is drawing. */
   function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
@@ -399,7 +404,7 @@ export function MontageManager({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       {selectedSubjects.length === 0 && <Callout kind="info">Pick at least one subject above to add montages to the run.</Callout>}
 
       {montages.isPending && <Skeleton height={160} />}
@@ -408,16 +413,22 @@ export function MontageManager({
         <EmptyState icon={<Plus size={24} />} message="No EEG nets available for the selected subjects." />
       )}
       {montages.data && availableNets.length > 0 && (
-        <div className="data-table-container scroll-x">
+        <div className="data-table-container">
           {/* Fixed geometry: an explicit `<colgroup>` plus `table-layout: fixed` (simulator-page.css).
-              Nothing a user does to one row — net, montage, polarity — may move a cell in another. */}
-          <table className="data-table run-table-min-rows montage-table" onKeyDown={onTableKeyDown}>
+              Nothing a user does to one row — net, montage, polarity — may move a cell in another.
+              The widths are PERCENTAGES, not pixels: the five px columns summed to ~1500px and the
+              work column is 608px at 1280, so the table scrolled sideways at every real pane width.
+              Percentages always sum to the table's own width, which is what makes the container's
+              scrollWidth == clientWidth an invariant rather than a width the columns happen to fit
+              in; the pairs column is the narrow one and is the one that clips (title carries the
+              full text). Constant per pane width, so "nothing moves while editing" still holds. */}
+          <table className="data-table montage-table" onKeyDown={onTableKeyDown}>
             <colgroup>
-              <col style={{ width: 210 }} />
-              <col style={{ width: 300 }} />
-              <col style={{ width: 300 }} />
-              <col style={{ width: currentsWidth }} />
-              <col style={{ width: 120 }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "23%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "36%" }} />
+              <col style={{ width: "13%" }} />
             </colgroup>
             <thead>
               <tr>
@@ -449,7 +460,10 @@ export function MontageManager({
                   >
                     <td>{renderNetCell(key, montage.net, montage.name)}</td>
                     <td>
-                      <div className="montage-cell">
+                      <div
+                        className="montage-cell"
+                        title={missing > 0 ? `${missing} selected subject(s) do not have the "${montage.net}" net` : undefined}
+                      >
                         <Select
                           value={montageOptionValue(montage.kind, montage.name)}
                           onValueChange={(v) => pickMontage(key, montage.net, v)}
@@ -457,19 +471,15 @@ export function MontageManager({
                           placeholder="Choose a montage"
                           aria-label={`Montage for ${montage.net}`}
                         />
-                        {/* Fixed-width slots, drawn even when empty: a chip appearing must not
-                            push the select beside it. */}
+                        {/* One fixed-width slot, drawn even when empty: the polarity chip changing
+                            must not push the select beside it. The "N skipped" chip that used to
+                            sit in a second reserved 76px slot is a footnote under the table now —
+                            76px of permanently reserved width in a 608px table for a warning that
+                            is usually absent is what made the row unable to fit. */}
                         <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
                           <span className="chip chip-neutral" title={montage.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
                             {polarityLabel(montage.kind)}
                           </span>
-                        </span>
-                        <span className="montage-chip-slot" style={{ "--slot": "76px" } as React.CSSProperties}>
-                          {missing > 0 && (
-                            <span className="chip chip-warning" title={`${missing} selected subject(s) do not have the "${montage.net}" net`}>
-                              {missing} skipped
-                            </span>
-                          )}
                         </span>
                       </div>
                     </td>
@@ -482,11 +492,12 @@ export function MontageManager({
                       <CurrentsCell
                         rows={rows}
                         count={count}
+                        slots={currentSlots}
                         label={montage.name}
                         onChange={(currents) => rows.forEach((r) => onCurrentsChange?.(r.id, currents))}
                       />
                     </td>
-                    <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                    <td className="montage-actions">
                       <IconButton
                         aria-label={`Edit ${montage.name}`}
                         icon={<Pencil size={14} />}
@@ -518,7 +529,7 @@ export function MontageManager({
                     </td>
                     <td className="field-help">—</td>
                     <td className="field-help">—</td>
-                    <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                    <td className="montage-actions">
                       {pendingRows.some((r) => r.key === p.key) && (
                         <IconButton
                           aria-label={`Remove ${label}`}
@@ -530,18 +541,17 @@ export function MontageManager({
                   </tr>
                 );
               })}
-              {/* A minimum of six visible rows (FXU1). The montage table is the Simulator's Tier-1
-                  control and a two-row table left the pane looking unfinished; the filler rows are
-                  drawn as ground (`--surface` + the same rule), not as blank page, so they read as
-                  "room for more montages" rather than as a rendering fault. */}
-              {Array.from({ length: Math.max(0, MIN_MONTAGE_ROWS - displayed) }, (_, i) => (
-                <tr key={`filler-${i}`} className="run-table-filler" aria-hidden>
-                  <td colSpan={5} />
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* The "N skipped" warning, out of the table: it is rare, it is per row, and reserving a
+          fixed slot for it in every row cost more width than the table had. */}
+      {skipped.length > 0 && (
+        <p className="field-help">
+          {skipped.map((s) => `${s.name}: ${s.missing} selected subject(s) have no "${s.net}" net`).join(" · ")}
+        </p>
       )}
 
       <div style={{ display: "flex", gap: "var(--space-2)" }}>

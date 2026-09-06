@@ -224,6 +224,23 @@ test("nothing moves while a row is edited: fixed columns and fixed row heights",
   expect(await boxes(), "montage change moved a cell").toEqual(before);
 });
 
+test("the montage table never scrolls sideways in the work column", async () => {
+  // The columns are percentages of the table, so the sum is the table's width by construction —
+  // this asserts that construction rather than a set of pixel widths that happen to add up. The
+  // table holds a 4-current mTI row from the test above, which is its widest content.
+  for (const width of [1280, 1024]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(page.locator("table.montage-table")).toBeVisible();
+    const box = await page.locator(".data-table-container").first().evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(box.clientWidth, `table container collapsed at ${width}`).toBeGreaterThan(300);
+    expect(box.scrollWidth, `montage table scrolls sideways at ${width}`).toBeLessThanOrEqual(box.clientWidth);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
 test("clicking a row makes it the one the 3-D pane draws, and up/down moves it", async () => {
   const rows = montageRows();
   await rows.nth(1).locator("td.mono").click();
@@ -319,7 +336,13 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
   for (const row of rows) {
     // See preprocess.spec.ts for why this is not §12.3's 22 %: the DOM instrument measures a
     // strictly smaller quantity than the pixel proxy those limits were set against.
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.58) /* measured 0.62–0.75 (pre) / 0.42–0.55 (sim) across rounds; +0.05 margin so a few-thousandths drift at 1440 light is not a failure — this is a regression guard, not the design target */;
+    // Raised from 0.58 when the montage table's six ground rows were removed (the Subjects rule:
+    // a list is a list, not a box padded out with empty rows). Those rows were ~200px of
+    // `--surface`-backed <td> down the work column, which this instrument scores as content — so
+    // deleting them RAISES the number while removing chrome, which is exactly the case where the
+    // instrument and the design disagree. Measured after the removal: 0.63 (1280) / 0.69 (1440);
+    // +0.02 margin, and still a regression guard on anything that adds real emptiness.
+    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.71);
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
     // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the

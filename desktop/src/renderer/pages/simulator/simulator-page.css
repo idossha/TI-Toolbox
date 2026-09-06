@@ -16,9 +16,30 @@
   overflow: hidden;
 }
 
-/* One line, one height — a cell's content can never make its row taller. */
+/* One line, one height — a cell's content can never make its row taller. 32px is a 28px control
+   plus 2px of air above and below; the 40px it was spent 8px per row on nothing. */
 .montage-table tbody tr {
-  height: 40px;
+  height: 32px;
+}
+
+/* The table never scrolls sideways: percentage columns (MontageManager) plus cells that clip. */
+.montage-table {
+  width: 100%;
+}
+
+/* Half the shared --space-2: five columns of controls in a 608px work column cannot afford 16px
+   of padding per cell. The controls inside still carry their own. */
+.montage-table th,
+.montage-table tbody td {
+  padding: 0 var(--space-1);
+}
+
+/* Icon-only, 28px, right-aligned — three of them fit the 13% actions column. */
+.montage-table td.montage-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .montage-table td > * {
@@ -60,16 +81,28 @@
   min-width: 0;
 }
 
-/* One current input per required current, each a fixed width — a row that gains two more pairs
-   fills reserved space rather than widening the column. */
+/* The currents cell is a grid of `--slots` equal columns — the widest polarity the table holds,
+   never fewer than 4 (`currentSlotsReserved`). A row that gains two more pairs fills reserved
+   slots rather than resizing the inputs already there, and the column itself never changes width
+   because it is a percentage of the table. Each input is capped at 64px so the cell does not draw
+   four wide boxes on a large monitor. */
 .montage-currents {
-  display: flex;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: repeat(var(--slots, 4), minmax(0, 1fr));
+  gap: 2px;
   align-items: center;
 }
 
-.montage-currents > * {
-  flex: 0 0 104px;
+.montage-currents .number-input {
+  min-width: 0;
+  max-width: 64px;
+  width: 100%;
+}
+
+/* The "mA" suffix stays (DESIGN.md §4.2 rule 2); the digits give up their left padding for it. */
+.montage-currents .number-input input {
+  min-width: 0;
+  padding-left: 2px;
 }
 
 /* The active row: what the 3-D pane is drawing. A quiet tint plus an accent edge — never a colour
@@ -82,4 +115,10 @@
 .montage-table tbody tr[data-montage-row]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
+   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
+.sim-gel-field {
+  --control-w: 88px;
 }
