@@ -397,7 +397,13 @@ describe("contract: job lifecycle", () => {
 
   it("submit a slow job, cancel it, and see it end cancelled without finishing", async () => {
     const { json: submitted } = await call("/api/jobs", "POST", "/api/jobs", {
-      body: { kind: "sim", config: { subject_id: "101" }, subject_ids: ["101"] },
+      // A complete SimulationConfig: both routes now reject one whose schema-required fields
+      // are missing, the way the real backend's `tit/jobs/config_check.py` does.
+      body: {
+        kind: "sim",
+        config: { subject_id: "101", montages: [{ _type: "Montage", name: "m1", mode: "net", electrode_pairs: [["E1", "E2"]] }] },
+        subject_ids: ["101"],
+      },
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const id = (submitted as any).id as string;

@@ -1051,6 +1051,10 @@ paths:
                 $ref: "#/components/schemas/JobStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: >-
+            unknown kind, malformed body, or a config the kind's runner could not
+            deserialize (e.g. a sim config with no subject_id/montages)
   /api/jobs/groups:
     post:
       tags: [jobs]
@@ -1070,6 +1074,10 @@ paths:
                 $ref: "#/components/schemas/JobGroupResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: >-
+            unsupported kind, malformed body, or a config that does not deserialize
+            for the kind
   /api/jobs/{id}:
     get:
       tags: [jobs]

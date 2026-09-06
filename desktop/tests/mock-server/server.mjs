@@ -1463,6 +1463,44 @@ function loadSchemaJson() {
   return { $defs };
 }
 
+/**
+ * kind -> the `contracts/schema.json` `$defs` name whose `required` list a submitted config must
+ * satisfy. Only the kinds whose real runner calls `deserialize_config(<Class>, data)` with no
+ * fallback are listed -- for those, a missing required field is not a warning, it is a
+ * `TypeError: <Class>.__init__() missing N required positional arguments` minutes into the run
+ * (the regression this check exists for: the Simulator POSTed a `sim` config with no
+ * `subject_id`/`montages` and the mock happily accepted it, so e2e stayed green while the real
+ * backend died). `tit/jobs/config_check.py` is the real server's half of this.
+ */
+const SCHEMA_DEF_FOR_KIND = {
+  sim: "SimulationConfig",
+  flex: "FlexConfig",
+  flex_adaptive: "FlexConfig",
+  flex_pareto: "FlexConfig",
+  ex: "ExConfig",
+  mex: "MExConfig",
+};
+
+/**
+ * Required-field errors for one submitted config, or `[]`.
+ *
+ * A config carrying a `__mock_*` escape hatch (`__mock_fast`, `__mock_fail`) is exempt: those are
+ * this mock's own synthetic jobs, deliberately not real configs, and the real server rejects them
+ * with a 422 too. Nothing the app builds from a page's form ever carries one, so the exemption
+ * cannot hide a real regression.
+ */
+function schemaRequiredErrors(kind, config) {
+  const name = SCHEMA_DEF_FOR_KIND[kind];
+  if (!name) return [];
+  const cfg = config && typeof config === "object" ? config : {};
+  if (Object.keys(cfg).some((k) => k.startsWith("__mock_"))) return [];
+  const def = (loadSchemaJson().$defs ?? {})[name];
+  const required = Array.isArray(def?.required) ? def.required : [];
+  return required
+    .filter((field) => cfg[field] === undefined || cfg[field] === null || (Array.isArray(cfg[field]) && cfg[field].length === 0))
+    .map((field) => `${field} is required`);
+}
+
 // ------------------------------------------------------------------------------------- routing
 // `/:name` matches one segment; `/*name` (only ever as the last piece) matches the rest of the
 // path including slashes -- FastAPI's `{path:path}`, which /api/files/raw/{path} needs.
@@ -2230,6 +2268,10 @@ route("GET", "/api/jobs", (ctx) => {
 });
 route("POST", "/api/jobs", async (ctx) => {
   const body = await ctx.body();
+  const missing = schemaRequiredErrors(body.kind, body.config);
+  if (missing.length) {
+    return json(ctx.res, 422, { detail: `config is not a valid ${SCHEMA_DEF_FOR_KIND[body.kind]} for kind ${JSON.stringify(body.kind)}: ${missing.join(", ")}` });
+  }
   const job = createJob({ kind: body.kind, config: body.config, subject_ids: body.subject_ids ?? [], after: body.after ?? [], tags: body.tags ?? [], overwrite: !!body.overwrite });
   json(ctx.res, 201, job.status);
 });
@@ -2284,10 +2326,18 @@ route("POST", "/api/jobs/groups", async (ctx) => {
     }
     for (const subject of subjectIds) {
       for (const entry of bySubject.get(subject) ?? [body.config ?? {}]) {
+        const resolved = { ...(entry && typeof entry === "object" ? entry : {}), subject_id: subject };
+        // Same required-field gate as POST /api/jobs, applied to the config this group would
+        // actually generate (subject_id already forced), mirroring the real server's
+        // `plan_per_subject`, which round-trips every generated config through its dataclass.
+        const missingEntry = schemaRequiredErrors(body.kind, resolved);
+        if (missingEntry.length) {
+          return json(ctx.res, 422, { detail: `config is not a valid ${SCHEMA_DEF_FOR_KIND[body.kind]} for kind ${JSON.stringify(body.kind)}: ${missingEntry.join(", ")}` });
+        }
         created.push(
           createJob({
             kind: body.kind,
-            config: { ...(entry && typeof entry === "object" ? entry : {}), subject_id: subject },
+            config: resolved,
             subject_ids: [subject],
             tags: [`group:${groupId}`, ...tags],
             group_id: groupId,

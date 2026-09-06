@@ -56,24 +56,38 @@ test("TI montage: accepted, started, and cancelled cleanly", async () => {
     ],
   });
 
-  const cell = page.getByTestId(`plan-cell-101-${MONTAGE_NAME}`);
+  // The Simulator's plan grid has one column per montage *source* ("montage"/"flex"/"freehand"),
+  // not one per simulation name -- see `RunControls.tsx`'s `stageFor: sourceOfJob`.
+  const cell = page.getByTestId("plan-cell-101-montage");
   await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|overwrite)$/);
+  await expect(cell).toHaveText(/^1 (new|overwrite)$/);
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
 
-  const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
+  // Every run page submits its whole batch as ONE `POST /api/jobs/groups` (R3) -- never a loop of
+  // per-job `POST /api/jobs`. The per-subject config lives in `subject_configs`.
+  const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await page.getByTestId("run-button").click();
+  type SimConfig = { subject_id: string; montages: { name: string; mode: string; electrode_pairs: [string, string][] }[] };
   const body = (await jobRequest).postDataJSON() as {
     kind: string;
     subject_ids: string[];
-    config: { montages: { name: string; mode: string; electrode_pairs: [string, string][] }[] };
+    config: SimConfig;
+    subject_configs?: { subject_id: string; config: SimConfig }[];
   };
   expect(body.kind).toBe("sim");
   expect(body.subject_ids).toEqual(["101"]);
-  expect(body.config.montages).toHaveLength(1);
-  expect(body.config.montages[0]?.name).toBe(MONTAGE_NAME);
-  expect(body.config.montages[0]?.electrode_pairs).toHaveLength(2);
-  recordPayload("sim", body);
+  const configs = body.subject_configs?.length ? body.subject_configs.map((e) => e.config) : [body.config];
+  expect(configs).toHaveLength(1);
+  const config = configs[0]!;
+  // The regression this spec now pins: a `sim` config the runner can actually deserialise. Both
+  // fields are `SimulationConfig`'s required arguments -- a config without them was accepted by
+  // the server and only died inside `tit/sim/__main__.py`'s `deserialize_config` (see
+  // `tit/jobs/config_check.py` and `tests/test_jobs_config_check.py`).
+  expect(config.subject_id).toBe("101");
+  expect(config.montages).toHaveLength(1);
+  expect(config.montages[0]?.name).toBe(MONTAGE_NAME);
+  expect(config.montages[0]?.electrode_pairs).toHaveLength(2);
+  recordPayload("sim", { kind: body.kind, subject_ids: body.subject_ids, config });
 
   // Jobs rail + in-page terminal within the 120 s "started" budget (P4).
   await waitForJobTrace(page, "sim", { timeoutMs: 120_000 });

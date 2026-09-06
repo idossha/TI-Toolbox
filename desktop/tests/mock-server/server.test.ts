@@ -490,6 +490,31 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
     return fetch(`${BASE}/api/jobs/groups`, { method: "POST", headers: auth, body: JSON.stringify(body) });
   }
 
+  it("rejects a sim config missing a schema-required field, the way the real backend does", async () => {
+    // Regression: the app POSTed a sim config with no `subject_id`/`montages`, this mock accepted
+    // it, and the real runner died on `deserialize_config(SimulationConfig, ...)`. Required fields
+    // now come from contracts/schema.json, so e2e fails where the real backend would.
+    const bad = await fetch(`${BASE}/api/jobs`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ kind: "sim", config: { subject_id: "ernie" }, subject_ids: ["ernie"] }),
+    });
+    expect(bad.status).toBe(422);
+    expect(String(((await bad.json()) as { detail: string }).detail)).toContain("montages is required");
+
+    // The group route checks the config it would actually generate (subject_id already forced).
+    const badGroup = await submit({ kind: "sim", config: { montages: [] }, subject_ids: ["ernie"], parallel_subjects: 1 });
+    expect(badGroup.status).toBe(422);
+
+    // `__mock_*` configs stay exempt: they are this mock's synthetic jobs, never app-built.
+    const synthetic = await fetch(`${BASE}/api/jobs`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ kind: "sim", config: { __mock_fast: true }, subject_ids: ["ernie"] }),
+    });
+    expect(synthetic.status).toBe(201);
+  });
+
   it("creates one queued job per subject, each config carrying only its own subject id", async () => {
     const res = await submit({ kind: "sim", config: simConfig("ernie"), subject_ids: ["ernie", "101"], parallel_subjects: 1 });
     expect(res.status).toBe(201);

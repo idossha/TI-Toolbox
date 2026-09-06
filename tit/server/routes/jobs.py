@@ -17,6 +17,7 @@ from fastapi.responses import PlainTextResponse
 from starlette.concurrency import run_in_threadpool
 
 from tit.jobs.bootstrap import get_manager
+from tit.jobs.config_check import check_job_config
 from tit.jobs.manager import JobManager
 from tit.jobs.spec import JOB_KINDS, JOB_STATES
 
@@ -59,6 +60,14 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     subject_ids = body.get("subject_ids")
     if not isinstance(subject_ids, list):
         raise HTTPException(status_code=422, detail="subject_ids must be an array")
+    # `/api/jobs/groups` gets this for free: `plan_per_subject` round-trips every generated
+    # config through the kind's dataclass. This single-job route did not, so a config the
+    # runner cannot deserialise (a `sim` config with no `subject_id`/`montages`) was accepted,
+    # written to config.json, and only died minutes later inside `tit/sim/__main__.py`.
+    try:
+        check_job_config(kind, config)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         return _manager(request).submit(
             kind,

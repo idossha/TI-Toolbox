@@ -207,6 +207,31 @@ def test_submit_validation_errors(client: TestClient) -> None:
     )
 
 
+def test_submit_rejects_a_sim_config_the_runner_could_not_deserialise(
+    client: TestClient,
+) -> None:
+    """Regression: this body was accepted, and only died later inside tit/sim/__main__.py with
+    `TypeError: SimulationConfig.__init__() missing 2 required positional arguments`."""
+    r = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": {"__mock_fail": False, "__mock_fast": True},
+            "subject_ids": ["ernie"],
+        },
+    )
+    assert r.status_code == 422
+    assert "SimulationConfig" in r.json()["detail"]
+    # A complete config from the same route still submits.
+    ok = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
+    )
+    assert ok.status_code == 201
+
+
 def test_submit_rejects_legacy_viewer_kind(client: TestClient) -> None:
     """D3: the "viewer" job kind and its freeview/gmsh launch routes are gone (the embedded
     Tetravox viewer needs no server-side job at all). A client still sending the old
