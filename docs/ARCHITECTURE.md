@@ -45,10 +45,10 @@ workers while its tab is hidden is an intentional cost of preserving the user's 
 
 ## 3. Run-page visualization
 
-**Simulator, Optimizer and Analyzer use a viewport-only embed.** The URL opts into
-`presentation=viewport`; the embed uses the existing engine and channel but omits its application
-toolbar, side panels and status bar. Without the parameter, the dedicated Viewer retains its full UI.
-The host must not reach into the embed DOM to hide implementation-specific controls.
+**Simulator, Optimizer and Analyzer draw their own pane** (revised 2026-09-06, §7.2): the app's
+WebGL2 renderer, not an embedded copy of another application. The rule the retired
+`presentation=viewport` embed existed to satisfy is now structural — the pane draws only what the
+workflow needs, so there is no application chrome to hide and no foreign DOM to reach into.
 
 **Skin and grey-matter opacity are two explicit controls below each preview.** Percent values map
 directly to the protocol's normalized opacity, including fully transparent and opaque endpoints.
@@ -157,70 +157,80 @@ to nothing available falls back to that same choice rather than failing the requ
 changes which layer is built and adds nothing to the ViewSpec, so
 `contracts/tetravox-viewspec-v2.schema.json` is unchanged.
 
-**The Viewer loads on command.** It keeps a draft selection (what the source bar shows) separate
-from a loaded selection (what the embed is drawing). Editing a selector changes only the draft;
-Load validates it, snapshots it, issues exactly one view request and posts exactly one scene to the
-retained iframe. A failed load keeps the previously loaded scene on screen with the error attached
-to the attempted selection. Deep links prefill the draft and never auto-load. Reload remains
-iframe/runtime recovery for the *loaded* scene, not the draft.
+**The Viewer selects on command** (revised 2026-09-06, §7.1). It keeps the draft → command grammar:
+editing a selector changes only the draft, and **Open in Tetravox** validates it, snapshots it and
+issues exactly one `POST /api/view/open`. What changed is what the command does — it writes a scene
+file and hands it to another application instead of posting a scene into a retained iframe. A failed
+Open leaves the previous summary on screen with the error attached to the attempted selection. Deep
+links prefill the draft and never auto-open.
 
-## 7. The Tetravox update channel, pipelines, the selection grammar and the electrode contract
+## 7. The external viewer, the run-page renderer, pipelines and the selection grammar
 
-*Added 2026-09-05 (second batch); refines §§1–6. Requirements:
-[2026-09-05 Tetravox/selection/pipeline](requirements/2026-09-05-tetravox-selection-pipeline.md).
+*Added 2026-09-05 (second batch); refines §§1–6. §§7.1–7.2 were **replaced on 2026-09-06** — the
+Tetravox embed and its update channel are retired. Requirements:
+[2026-09-05 Tetravox/selection/pipeline](requirements/2026-09-05-tetravox-selection-pipeline.md),
+[2026-09-06 native panes / external viewer](requirements/2026-09-06-native-panes-external-viewer.md).
 Rationale in [DECISIONS.md](DECISIONS.md).*
 
-### 7.1 The embed bundle has two delivery paths and one rule
+### 7.1 The viewer is a separate application, and the only interface is a file
 
-The image bakes a floor (`/opt/tetravox/embed`), resolved at build time from the newest Tetravox
-release whose embed manifest's `protocol` is inside the range `tit/tetravox/protocol.py` declares;
-the server may install a newer release into the user-config root at runtime, under the same rule.
-**The rule — a protocol range plus named features, never a version — is the only coupling between
-the two projects.** A release past the range is reported, never installed: the honest answer is
-"update TI-Toolbox to use it", and it is given without downloading the tarball.
+*Replaced 2026-09-06; the previous text described the embed's delivery and update channel.*
 
-The index is the **GitHub Releases API** of `idossha/tetravox`, not a file anyone must remember to
-commit. A release is incorporable iff it carries all three assets
+TI-Toolbox ships no viewer. 3-D viewing is **Tetravox**, a signed, notarised desktop application
+installed on the host, which auto-updates through electron-updater and whose releases are not
+coupled to this project's. The whole interface between the two is one document.
 
-```
-tetravox-embed-<X.Y.Z>.tgz            tetravox-embed-<X.Y.Z>.tgz.sha256            tetravox-embed-<X.Y.Z>.manifest.json
-```
+`POST /api/view/open` builds the ViewSpec v2 document `GET /api/view/{kind}` already built, rewrites
+every dataset and sidecar path from an `/api/files/raw/…` URL to the **host's** own absolute path,
+and writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. The extension is load-bearing:
+`.tetravox.json` is the compound extension the app registers as its scene document, and any other
+suffix is classified as data and read as a volume — a failure three layers from its cause. The
+response carries the path in both languages, container and host, because the server writes it inside
+a container and the app opens it outside one; `host_path: null` is the honest answer where the host
+root is unknowable, and the client then offers the file as a download.
 
-where `<X.Y.Z>` is the release tag without its leading `v`, the `.sha256` is in `sha256sum` format,
-and the manifest is a byte-for-byte copy of the one inside the tarball
-(`{name, version, protocol, sha}`). `protocol` is read from the manifest **asset**, so compatibility
-is answerable for about 2 KB. `TIT_TETRAVOX_RELEASE_INDEX` overrides the index for air-gapped
-mirrors and accepts either the GitHub shape or a plain one; `api.github.com` is on the download
-allowlist. A release carrying no embed asset is "not incorporable", not an error.
+Electron main maps the container path with the same project mount `openPath` uses, refuses anything
+not ending `.tetravox.json`, and spawns the app detached (`open -a Tetravox <scene>` on macOS, the
+resolved binary elsewhere). A second Open is a second spawn: Tetravox holds a single-instance lock
+and routes the file into the window already on screen, so nothing on this side tracks whether the
+app is running. Discovery is the platform's conventional locations plus one Settings override; there
+is no bundled copy, no version pin, no protocol number and no update channel, because none of those
+is this project's to hold.
 
-`GET /api/tetravox/updates` answers from a cache the server's own background pass refills — a
-rendered Settings card costs no GitHub request, `?refresh=true` is the button. `POST
-/api/tetravox/policy` carries `auto_update` (default **on**), stored in `<install root>/policy.json`
-because it is a property of the install root, not of the bound project. "Off" stops the installing,
-not the knowing. **"Newer" is measured against the newest bundle this updater installed from a
-release** (its recorded provenance), never against whatever bundle is active, so a hand-installed
-dev bundle numbered ahead of every real release cannot freeze the updater. `/ws/tetravox` carries
-the single app-level `tetravox.updated` event; `contracts/events.schema.json` is unchanged, because
-it describes one line of a job's `events.jsonl` and no job emits this.
+**What this replaces.** The previous §7.1 described a protocol range, a named-feature map, a release
+index, a two-root install store with a pin, a digest-verified installer, a background update policy
+and a WebSocket event — machinery that existed to stop a Tetravox release implying a TI-Toolbox
+release. The coupling it managed came from baking a viewer into an image. Removing the bake removes
+the coupling, and the machinery with it. `Capabilities` says nothing about the viewer:
+`tetravox_embed` is gone, because whether an application is installed on the user's machine is a
+fact about the host, answered by the Electron shell's `window.tit.viewer.probe`.
 
-**Compatibility matrix.** This build supports embed protocol **1–2**: 0.3.4 (the baked floor,
-protocol 1) and every Tetravox release from 0.3.12 onward (protocol 2), plus the dev container's
-hand-installed 0.4.0-dev. Protocol 3+ is listed with `compatible: false` and outcome `unsupported`;
-raising `SUPPORTED_PROTOCOL_MAX` is one constant that a cross-language test keeps in step between
-Python and `container/blueprint/build.sh`. Named features are unchanged: `volumes, meshes, cursor,
-probe, screenshot, layers` at protocol 1; `markers, pick, camera` at protocol 2; a manifest's own
-`features` array always wins.
+### 7.2 The run-page panes are our own WebGL2 renderer
 
-### 7.2 The points layer is the electrode contract
+*Replaced 2026-09-06; the previous text was the embed's points-layer contract, and reverses §3's
+`presentation=viewport` embed rule and the electrode-dot clauses of the 2026-09-05 batch.*
 
-`EmbedPointsLayer` gains `dotRadiusPx` and `labelColorSource`; `EmbedPoint` gains `radiusPx`. All
-additive within protocol 2. A point's own `color` takes precedence over `stateColors`, and in the
-bundles shipped so far a point whose `state` is `idle` is never state-coloured at all — so a host
-that wants per-point colour must write it on **every** point, idle ones included. A point with no
-`name` draws no label, which is how "labels for the selection only" is expressed. `dotRadiusPx` is
-read from the layer, not the point, and until Tetravox 0.3.12 it reaches the 2-D slice pass only, so
-a `3d-only` pane draws millimetre spheres whatever `shape` says. The run-page pane sends neither
-`setPointTool` nor `setPointSelection`, which are the only messages that draw a selection ring.
+The Simulator, Optimizer and Analyzer 3-D panes are rendered by `desktop/src/renderer/scene/`, a
+WebGL2 renderer with no runtime dependency, no iframe and no message protocol. It draws two
+translucent surfaces, screen-space point markers and a labelled region highlight, and picks either
+through a colour-id pass cross-checked against its own CPU projection. It consumes the packaged
+guide over `GET /api/guide/{manifest,surface,labels,regions,electrodes}`; surfaces and labels are
+`TVSC1` (`?format=tvsc`), and the labels payload is the `gm` positions plus their `uint16`
+per-vertex labels, pinned by a test to be *aligned* to the `gm` surface rather than merely present.
+
+**An electrode's colour is its whole state.** Neutral grey in no channel, 35 % grey when unusable,
+its channel's Okabe-Ito hue when placed. No ring, no outline, no second glyph — a selected marker's
+footprint is byte-identical to an idle one's, which is what makes "no ring" a pixel assertion
+(a solid disc that reaches zero and stays zero) rather than a claim about which message was not
+sent. The palette is six hues, not four, because mTI runs to four pairs and a wrap should not repeat
+before it must.
+
+**The atlas is interactive, and there is one selection.** The pane carries its own atlas selector
+over the packaged atlases, hover names the region under the cursor, and a click adds or removes it
+from the ROI the form holds. `<ScenePane>` and `<RoiPicker>` edit the same list through the same
+`regionKey`/`toggleRegion`: a 3-D click and a form chip are one selection, in both directions, not
+two toggles that agree today. Sphere targets keep typed coordinates only — §3's rule stands, and the
+guide's `guide-ras` is still no research subject's space.
 
 ### 7.3 Pipelines
 
@@ -281,3 +291,26 @@ Cancel.
 The rail's ⌘-number is the page's index in `registry.ts`'s `NAV_ORDER`, and Settings takes the first
 digit the rail does not (`⌘0` since the Pipeline row landed; `⌘,` remains its alias). The `?` sheet
 and the Help page both derive their rows from that list rather than restating it.
+
+### 7.5 A run page that submits many jobs describes them as a table
+
+*Added 2026-09-06; refines §7.4 and removes the subject-set × montage fan-out from the Simulator and
+the Analyzer.*
+
+**One row is one job**, and the row owns every input that differs between jobs: the Simulator's row
+is `Subject · Source · EEG net · Montage · Pairs · Currents`, the Analyzer's is
+`Subject · Simulation · Space · Field`. A page with a jobs table therefore has **no page-level
+subject control** — §7.4's grammar applies inside the subject cell, where a subject that cannot run
+here is listed with its reason and cannot be picked. Properties of the *run* rather than of a job —
+electrode geometry, conductivity, output fields, the analysis ROI — stay page-level sections.
+
+The cross-product the page used to be is now something the user asks for: `Add job for each ready
+subject` and `Quick add: every subject with X` repeat a row, and duplicating one row is the
+one-click gesture for "the same job for another subject". A half-filled row is shown and is not
+planned — one predicate is the gate between visible and submitted. A group is a **switch over the
+same rows**, not a mode with its own selection: the rows name the cohort, and rows that disagree
+about what a cohort job can only do once are refused with the reason on the button rather than
+silently resolved to the first row's answer. Submitting does not empty the table.
+
+What runs is unchanged: one `POST /api/jobs/groups` with `subject_configs`, one config per row
+carrying its own subject, and §7.4's shared existing-outputs question.

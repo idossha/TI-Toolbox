@@ -1,6 +1,13 @@
 # Native run-page panes and an external Tetravox viewer (plan of record, 2026-09-06)
 
-Status: approved direction from the maintainer (2026-09-06); implementation not yet gated.
+Status: **implemented and gated (2026-09-06)**. Lanes NR/VX/JB done, seams closed and records landed
+by CX3 — evidence `dev/notes/v3-native-panes-external-viewer/{NR,VX,JB,CX3}.md`, requirements
+`docs/requirements/2026-09-06-native-panes-external-viewer.md`, contract `docs/ARCHITECTURE.md`
+§§7.1/7.2/7.5, ADR row 27.
+
+One correction to the text below: V2's working name `<name>.tvx.json` is **wrong**. The app's scene
+extension is the compound `.tetravox.json` and nothing else; any other suffix is read as a volume,
+silently. See VX.md §1.
 Supersedes the embed-in-panes half of `v3-embed-convergence-plan.md` (E6) and the Viewer-in-iframe half of
 ADR rows 15/23; the Tetravox update channel (ARCHITECTURE §7.1) is retired with them.
 

@@ -381,7 +381,11 @@ test("hidden tabs cannot take focus or respond to the active pane's shortcut", a
   await page.keyboard.press(chord);
   await expect(currentPane).toHaveAttribute("data-pane-mode", simulatorMode!);
 
-  await activePage().getByTestId("subjects-change").focus();
+  // Start the Tab walk from the first focusable in the *active* page's work column. Addressed
+  // structurally rather than by a named control: the Simulator lost its page-level SubjectsField
+  // to the 2026-09-06 jobs table, and what this test measures is where focus can land, not which
+  // control it starts from.
+  await activePage().getByTestId("page-work").locator("button, input, select, textarea, [tabindex=\"0\"]").first().focus();
   const focusStates: (string | null)[] = [];
   for (let index = 0; index < 20; index++) {
     await page.keyboard.press("Tab");

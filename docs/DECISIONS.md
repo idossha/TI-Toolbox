@@ -303,3 +303,111 @@ Help page's Keyboard tab both build their rows from `NAV_ORDER` rather than rest
 **Why.** Settings was hard-coded to `⌘9` because the rail was exactly eight rows; a ninth row put two
 pages on one key, and the two places that had typed the list out by hand became wrong the same day.
 A rail row must not need an edit in four files.
+
+## 2026-09-06 — The in-app Tetravox embed is retired; viewing is the host-installed desktop app
+
+**Decision.** Architecture §7.1 is replaced. TI-Toolbox ships no viewer. The Viewer page is a data
+selector whose Open writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` with host paths
+and hands it to the host's Tetravox application. The embed, `/tetravox/`, `tit/tetravox/**`, the
+protocol range, the release index, the install store, `/ws/tetravox`, the Settings engine card and
+the image bake are all deleted. Reverses the embed halves of 2026-09-02, 2026-09-03 and the E1–E4
+delivery decisions of 2026-09-04.
+
+**Why.** The maintainer, verbatim: *"for the viewer, instead of embedding the web version of
+Tetravox … the viewer tab only acts as the data selection and it actually opens up everything in
+[an external window] like we have in 2.5.0"*, and *"I want the complexity to be as simple as
+possible and the implementation to require minimal maintenance."* The engineering reasoning is the
+fact D3 already established: the container has no display. An embed was the only way to draw
+*inside* the app without one, and paying for it meant an image bake, a protocol range, an installer,
+an update channel and a WebSocket — roughly 3,000 lines and 130 tests — to manage a coupling that
+existed only because we shipped a viewer at all. The desktop app is the one Tetravox build that is
+signed, notarised and self-updating; removing the bake removes the coupling, and the machinery
+with it. The removal took ~130 tests of delivery machinery out of the suite and added 10 of the
+feature that does the same job.
+
+**Alternatives rejected.** Keeping the embed only for the Viewer page would have kept every piece of
+the delivery stack for one page. Shipping a GUI Tetravox *inside* the container needs X11, which v3
+removed. Copying Tetravox's engine into this repo is the vendoring the service boundary exists to
+prevent — the run-page panes are our own renderer over our own guide format (§7.2), not a copy of
+another product.
+
+## 2026-09-06 — `Capabilities` says nothing about the viewer (breaking)
+
+**Decision.** `tetravox_embed` is removed from `GET /api/capabilities`.
+
+**Why.** A capability is what *this runtime* can do. Whether an application is installed on the
+user's machine is a fact about the host, answered by the Electron shell's `window.tit.viewer.probe`,
+which reads the filesystem. Reported over HTTP it would have been a container answering a question
+about a computer it cannot see.
+
+## 2026-09-06 — The run-page panes render themselves; the embed was never a pane
+
+**Decision.** Architecture §7.2 is replaced. `desktop/src/renderer/scene/` — the 2026-09-04 WebGL2
+renderer, restored — is the only renderer on the Simulator, Optimizer and Analyzer. It reads the
+packaged guide in `TVSC1`, draws electrodes as screen-space dots with no ring, and carries its own
+atlas selector with hover naming and click-to-select regions.
+
+**Why.** The maintainer, verbatim: *"I still don't like our implementation … we had a really neat
+implementation that worked very well and showed the electrodes in a better fashion and also the
+atlas ROIs were interactive"*, and *"write our own little module based on the logic from Tetravox
+and embed it exactly how we need it into our tabs."* Driving the embed from the forms cost an
+iframe, a message protocol, a runtime update channel and a capability negotiation, and still gave a
+worse pane: the electrodes were spheres the engine would not size, selection was a ring the user
+could not read on a dense net, and the atlas was not interactive at all. Two of those were
+protocol-2 asks upstream — i.e. a pane feature this project could not ship without another
+project's release.
+
+**Alternatives rejected.** Waiting on Tetravox protocol 2 (`markers`, `pick`, `camera`) makes a pane
+feature depend on another product's release cadence; the parked work is recorded in ROADMAP.md and
+remains useful upstream. Rendering only 2-D slices in the pane loses the electrode geometry that is
+the whole point of the Simulator's pane.
+
+## 2026-09-06 — The guide packages `TVSC1` labels again
+
+**Decision.** `tit/scene/guide_build.py` packages per-vertex `uint16` label payloads (`LABEL_FORMATS
+= ("tvsc", "gii")`), ~0.99 MB per atlas, 2.96 MB on the installation.
+
+**Why.** They were dropped on 2026-09-05 on the premise that nothing read them, which was true only
+while the native renderer was retired; the day it came back the cortex had no regions to highlight.
+A test pins them by **alignment to the `gm` surface** — same vertex count, same first vertex — not
+merely by presence, because a label payload for a different surface is the failure that looks like
+a working feature.
+
+## 2026-09-06 — One region-selection model
+
+**Decision.** `<ScenePane>` and `<RoiPicker>` edit the same list through the same `regionKey` and
+`toggleRegion`, exported once from the scene model.
+
+**Why.** Two toggles that agree today are two toggles. A 3-D click and a form chip must compare
+regions the same way or the pane highlights a region the form does not hold — and that divergence
+is invisible until a user notices the ROI they clicked is not the ROI that ran.
+
+## 2026-09-06 — A jobs table replaces the subject-set × montage fan-out
+
+**Decision.** Architecture §7.5. The Simulator and the Analyzer describe a run as a table in which
+one row is one job; the page-level subject control, the Simulator's source tabs and the Analyzer's
+Scope segment and single Simulation combobox are removed.
+
+**Why.** The maintainer, verbatim: *"it's hard to separate users, montages, modes in different jobs.
+In 2.5.0, within a job users could manipulate the subject, the mode, the montage, the current
+intensities… We need that capability. This is also true for the Analyzer."* A page-level subject set
+fanned across a montage list can only express the cross-product: three subjects × two montages was
+six jobs, and there was no way to say "ernie on F3_F4, 101 on the flex result". 2.5.0's job cards
+and Subject × Simulation pair table could. The cross-product survives as an explicit button, which
+is what it always was — a convenience, not the model.
+
+**Alternatives rejected.** Per-subject overrides layered on the page-level set keeps the fan-out as
+the model and adds an exception mechanism on top of it. A separate "advanced" mode makes the page
+two pages with two selection idioms, against §7.4.
+
+## 2026-09-06 — The bridge budget is 13, not 12
+
+**Decision.** ADR row 14's preload bridge budget moves from 12 entries to 13. The new entry is
+`viewer` (`probe`/`open`/`setPath`).
+
+**Why.** Opening a scene in another application is a host action, and a host action is only
+reachable through main. It replaces capability the app previously had with *no* bridge entry at all
+— an `<iframe src="/tetravox/">` — so the budget moves rather than the feature being squeezed into
+an entry it does not belong to. `smoke.spec.ts` asserts the exact key list, which is what holds a
+fourteenth to an ADR line.
+

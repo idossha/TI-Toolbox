@@ -8,6 +8,15 @@ delivery steps 1 and 7 closed by the consolidation lane (`.../CX.md`) — record
 e2e, build, host pytest, the route-import guard and the real-container checks are green. Step 7's
 `pnpm run dev` smoke is the maintainer's own, deliberately not run here. Nothing is committed.
 
+A **2026-09-06** pass follows both of the 2026-09-05 ones and **reverses parts of them**: the
+run-page 3-D panes are now this app's own WebGL2 renderer, the Viewer page is a data selector that
+opens the host-installed Tetravox desktop app with a scene file (the embed, its update channel and
+`Capabilities.tetravox_embed` are deleted), and the Simulator and Analyzer describe a run as a jobs
+table instead of a page-level subject set fanned across a montage list. Plan of record
+`dev/notes/v3-native-panes-external-viewer-plan.md`; requirements
+`docs/requirements/2026-09-06-native-panes-external-viewer.md`; contract `docs/ARCHITECTURE.md`
+§§7.1, 7.2, 7.5; gate `dev/notes/v3-native-panes-external-viewer/CX3.md`.
+
 A **second** 2026-09-05 pass followed this one — Tetravox currency and automatic updates, electrodes
 as coloured dots, one selection grammar with the receipt, and the pipeline canvas. Its plan of record
 is `dev/notes/v3-tetravox-selection-pipeline-plan.md` (A-D), its requirements are

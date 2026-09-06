@@ -66,7 +66,7 @@ Shape A — run page (U2)                          Shape B — browser (U4)     
 ### 2.1 Exact widths
 
 Content box = window width − nav rail. Page padding `--page-pad` is **16 px below 1440, 24 px at or
-above it**; the browser and embed shapes negate it.
+above it**; the browser shape negates it.
 
 | | 1280 × 800 | 1440 × 900 |
 |---|---|---|
@@ -406,7 +406,7 @@ the measurement that forced it, not a new control.
 ### 4.4.2 What survives a navigation — the user's state and the derived state
 
 **A page comes back exactly as the user left it, for the open project session.** Visited pages now
-retain their component tree and iframe (§13). Previously, leaving a page unmounted it and state in
+retain their component tree and live canvas (§13). Previously, leaving a page unmounted it and state in
 `useState`, so a step onto Results and back built a brand-new page: measured on 2026-09-04 against
 the running container, `tests/e2e/real/page-memory.spec.ts` failed on **all four** run pages —
 Simulator's `Electrodes` closed by hand came back open, the Optimizer's "After the search" opened by
@@ -439,9 +439,10 @@ Three consequences, each with the failure it prevents:
    is a drop-in for `useState`, so session-scoping a field is one line and a transient (a dialog's
    open flag, an in-flight `running`) stays `useState` on purpose.
 3. **The live renderer is part of page state.** A session bag alone cannot preserve its camera,
-   layers and loaded data. The 2026-09-04 maintainer requirement supersedes the embed migration's
-   visible-only lifetime: visited pages and their frames remain mounted, with workers disposed on
-   project close/switch or an explicit viewer reload. See §13 and `docs/ARCHITECTURE.md` §2.
+   surfaces and uploaded buffers. The 2026-09-04 maintainer requirement supersedes the embed
+   migration's visible-only lifetime: visited pages and their canvases remain mounted, and a
+   retained canvas is the claim `page-memory.spec.ts` measures — the same DOM node, a live GL
+   context, and zero guide requests to redraw it. Contexts are released on project close/switch. See §13 and `docs/ARCHITECTURE.md` §2.
 
 ### 4.5 Run panel
 
@@ -680,8 +681,9 @@ about.
 
 In the montage scene pane, an electrode's **colour is its whole state**: neutral grey when it is in
 no channel, 35 % grey when it is unusable, and its channel's hue when it is placed. No ring, no
-outline, no second glyph — the pane never sends `setPointTool` or `setPointSelection`, which are the
-messages that draw one. Names are shown for placed electrodes only: 185 labels over a head is not a
+outline, no second glyph. Since 2026-09-06 that is structural rather than a message we decline to
+send: the pane is our own renderer (§13), and a selected marker's footprint is byte-identical to an
+idle one's, so "no ring" is a pixel assertion. Names are shown for placed electrodes only: 185 labels over a head is not a
 legend, it is a fog. The channel hues are **Okabe-Ito** and are the same colours the pair editor and
 the channel legend use, so "pair 2 is orange" means one thing everywhere; every hue comes from
 `channelCss()`, never from a literal.
@@ -690,7 +692,42 @@ A **channel legend** sits above the pane: one chip per pair, its swatch and `E1 
 chip makes that pair the one the next 3-D click fills. The active pair is stated by ring *and* ink,
 never by hue alone. Click an idle dot to fill the next free slot of the active pair; click a selected
 dot to remove it and park the cursor on the vacated slot. The form is the source of truth and the
-layer re-derives from it — `setPoints` replaces the whole layer, fire-and-forget.
+markers re-derive from it in one pass — there is no partial update to get wrong.
+
+### 4.10 Jobs table
+
+*Added 2026-09-06 (`docs/ARCHITECTURE.md` §7.5). It removes the page-level subject set from the
+Simulator and the Analyzer, and with it §4.4.1's "a set" answer for those two pages.*
+
+A run page that submits **more than one job at a time** describes the run as a table in which **one
+row is one job**, and the row owns every input that differs between jobs. The Simulator's row is
+`Subject · Source · EEG net · Montage · Pairs · Currents`; the Analyzer's is
+`Subject · Simulation · Space · Field`.
+
+1. **The row owns its subject.** A page with a jobs table has no page-level subject control. The
+   subject grammar (§4.4.1, J3) still applies, inside the cell: a subject that cannot run here is
+   *listed with its reason* and cannot be picked.
+2. **A cell may change with the row, never the layout.** Column widths come from a resolver whose
+   total is the container by construction, so a row switching source (or polarity) changes what is
+   *inside* its cells and moves nothing anywhere else in the table.
+3. **Incomplete is allowed.** A half-filled row is shown and is not planned. One predicate
+   (`isRunnableRow`) is the gate, and the disabled Run states the *table* being empty before it
+   states anything about subjects.
+4. **Duplicate, not fan-out.** Repeating a job for another subject is one click on the row. The
+   cross-product is still available as an explicit button ("Add job for each ready subject",
+   "Quick add: every subject with X") — it is something the user asks for, never the only thing the
+   page can express.
+5. **What is global stays global.** Properties of the *run* rather than of a job — electrode
+   geometry, conductivity, output fields, the analysis ROI — remain page-level sections.
+6. **A group is a switch over the rows,** not a separate mode with its own selection: the rows name
+   the cohort, and rows that disagree about what a cohort job can only do once are refused with the
+   reason on the button.
+7. **The table survives the run.** Submitting does not empty it.
+
+**Authoring is not choosing.** The Simulator's free-hand *editor* is its own section, opened on
+demand; picking a saved placement in a row is a different act from writing one, the same split the
+montage catalog already had. A permanently-rendered coordinate table also made the section tall
+enough to change the run shape's auto-open decision across a navigation, which §4.4.2 forbids.
 
 ## 5. Components (`src/renderer/ui/`) — the only primitives pages may use
 
@@ -746,9 +783,9 @@ yet migrated, and every run page moves to `PlanGrid`; the last migration deletes
    a montage) use `AlertDialog`; the confirm button repeats the verb.
 3. Errors explain what and how to fix, in the interface's voice, never apologetic, never vague.
 4. Empty states invite action and link to it; inline ones do it in ≤ 2 lines.
-5. **Keyboard.** Unmodified keys belong to whatever has focus — including the Tetravox canvas,
-   whose own keys are unmodified letters and arrows. **Every app shortcut carries ⌘/Ctrl.** `?`
-   opens one sheet listing app *and* viewer keys. `Esc` is scoped to the innermost overlay.
+5. **Keyboard.** Unmodified keys belong to whatever has focus — including the scene canvas, whose
+   own keys are unmodified letters and arrows. **Every app shortcut carries ⌘/Ctrl.** `?` opens one
+   sheet listing them. `Esc` is scoped to the innermost overlay.
    `⌘K` palette · `⌘P` subject switcher (U11: opens the same palette, at its Subjects section —
    there is no separate switcher to open any more) · `⌘J` jobs rail · `⌘⇧I` collapse/expand the right
    pane · `⌘⇧N` notes · `⌘⏎` the action bar's primary · `⌘⇧V` focus the canvas ·
@@ -907,14 +944,17 @@ like any other.
   that calls only the documented `tit` scripting API and carries the document in its metadata.
 - No drag-to-reorder of anything but the node positions themselves; order is the graph.
 
-## 9.2 Settings — the viewer engine card
+## 9.2 Settings — the Viewer card
 
-The card never reaches the network. It renders what the server's own background check found — when
-it last looked, what it decided, and what is installable — and **Check now** is the only control that
-asks the index again. Turning automatic updates off stops the installing, not the knowing: the card
-still lists what was found, with an explicit Install. A failure (offline, rate-limited, bad digest)
-is one honest line here and in the log; it never blocks anything and never retries inside its
-interval. Rollback to the baked bundle or the previous install stays one click.
+*Rewritten 2026-09-06 with the embed's retirement (§10). The card it replaces described an engine
+this app shipped: a bundle version, a protocol range, a release index, install and rollback.*
+
+The card answers one question — **where is Tetravox on this machine** — and it answers it by looking
+at the local filesystem through `window.tit.viewer.probe`, never over the network. Found: the
+resolved path and the bundle's version, stated plainly. Not found: that fact first, then
+**Download Tetravox**. A path override exists for an install outside the conventional places (an
+AppImage, a second copy), and it is the only setting here, because there is nothing else to decide:
+the app updates itself and its releases are not this project's to pin.
 
 ## 10. Viewer
 
@@ -1090,11 +1130,11 @@ The [2026-09-04 maintainer requirements](../docs/requirements/2026-09-04-maintai
 supersede earlier plans wherever they required unmounting an inactive tab. The cross-component
 contract is [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) §§2–4.
 
-Visited tabs retain their live page, form and iframe until project close/switch. Each tab remembers
+Visited tabs retain their live page, form and live canvas until project close/switch. Each tab remembers
 its subject and route context; a different tab cannot reset it. Inactive pages relinquish keyboard
 shortcuts, commands, status cells and portals, and their content is hidden and inert. A Results link
-prefills the Viewer's draft selection; the scene changes only when Load is pressed. Plain navigation
-resumes both the draft and the loaded scene.
+prefills the Viewer's draft selection; nothing opens until **Open in Tetravox** is pressed (§10).
+Plain navigation resumes the draft.
 
 Preview collapse/expansion hides the alternate pane without discarding it. Source-editor drafts,
 including unfinished coordinate text, and dropdown search terms remain intact when returning.
@@ -1106,11 +1146,13 @@ requests and zero remounts. Click-to-place of a sphere centre is gone from these
 coordinate is not any research subject's millimetres, so the form's typed x/y/z fields are the way
 a centre is set. Subject-specific anatomy lives in the Viewer and in Results.
 
-Those panes opt into the embed's `presentation=viewport`: one 3D viewport,
-the orientation cues, a pair of labelled Skin / Grey matter opacity controls, and the interaction
-hint. The full Tetravox toolbar, panels and status bar belong to the dedicated Viewer. Opacity is
-shown as a percent and changing it updates the corresponding live layer without reloading geometry
-or resetting the camera. Grey matter also controls the cortical atlas surface.
+**Those panes are this app's own WebGL2 renderer** (`src/renderer/scene/`, restored 2026-09-06,
+`docs/ARCHITECTURE.md` §7.2) — no iframe, no message protocol, no second engine to install. They
+draw one 3-D viewport, the orientation cues, a pair of labelled Skin / Grey matter opacity controls
+and the interaction hint. There is no application chrome to hide, because the renderer only ever
+drew the pane. Opacity is shown as a percent and changing it updates the corresponding surface
+without reloading geometry or resetting the camera; grey matter also carries the cortical atlas
+surface, whose regions the pane names on hover and selects on click (§4.9, §4.10).
 
 Shared dropdowns contain long values and use the available viewport height. Interactive elements
 carry their accessible names. The action bar has the shared primary action on the right and grows

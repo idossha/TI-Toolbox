@@ -4,60 +4,65 @@ title: Viewer
 permalink: /wiki/visualizers/
 ---
 
-TI-Toolbox has one built-in viewer, **Tetravox Embed**, for both mesh (`.msh`) and volumetric
-(`.nii`/`.nii.gz`) results. It renders inside the same window as the rest of the toolbox — no
-separate application, no X11, no host-side install. There is no Freeview or Gmsh in TI-Toolbox
-v3: viewing a simulation, an analysis, or an atlas overlay all go through the same embedded
-viewer.
+TI-Toolbox does not ship a viewer. Full 3-D viewing of mesh (`.msh`) and volumetric
+(`.nii`/`.nii.gz`) results is **[Tetravox](https://github.com/idossha/tetravox)**, a separate
+desktop application you install on your own machine. TI-Toolbox's **Viewer** page chooses *what*
+to look at and opens it there. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
 
-## What Tetravox Embed is
+The run pages (Simulator, Optimizer, Analyzer) have their own small 3-D pane for placing
+electrodes and picking atlas regions. That pane is part of the toolbox, needs nothing installed,
+and is not a viewer — it draws packaged reference anatomy, never your subject's.
 
-Tetravox is a standalone WebGL2 + WASM viewer (its own project, with its own docs). TI-Toolbox
-serves a built copy of it from the container at `/tetravox/` and mounts it inside the app's
-window as an `<iframe>`. The toolbox UI talks to it with `postMessage`, and everything the
-viewer needs — the head mesh, field data, atlas volumes — streams to it from the same
-container over `/api/files/raw/...`, so the WebGL2/WASM rendering itself runs on your host's
-GPU even though the container did all the computing.
+## Installing Tetravox
 
-For the full scene format and message protocol, see Tetravox's own **[EMBED.md](https://github.com/idossha/tetravox)**
-documentation — TI-Toolbox does not reinvent a scene format of its own. When TI-Toolbox opens
-a result in the viewer, it builds a Tetravox `ViewSpec` v2 document server-side (from the
-simulation's mesh/NIfTI outputs) and hands it to the embed with a `load` message; the embed
-answers `loaded` once it has fetched and rendered every referenced dataset.
+Download the signed build for your platform from
+[the Tetravox releases page](https://github.com/idossha/tetravox/releases/latest) and install it
+as you would any application. It updates itself; its releases are not tied to TI-Toolbox's.
+
+**Settings ▸ Viewer** shows whether TI-Toolbox found it, where, and which version. It looks in the
+conventional places (`/Applications/Tetravox.app` and `~/Applications` on macOS, `tetravox` on
+`PATH` on Linux, `%LOCALAPPDATA%\Programs\Tetravox\Tetravox.exe` on Windows). If yours is
+somewhere else — an AppImage, a second copy — set the path there. If it is not installed, the
+Viewer page says so and offers the download link instead of failing on click.
 
 ## How to open a result
 
-1. **From the Analyzer, Simulator, or Results page**: select a subject, a simulation, and an
-   analysis, then choose **View**.
-2. The viewer opens in the same window — full-bleed, with an inspector panel alongside it.
-3. Use the inspector to toggle layers, move the cursor between slice views and the 3D view,
-   change the layout, or take a screenshot.
+1. On the **Viewer** page, choose what to look at: the type (simulation, analysis, atlas overlay,
+   a custom path), then the subject, simulation, field and space it takes.
+2. Nothing happens while you are choosing — the page shows a **"What will open"** list of the
+   layers it would build, with each one's colormap.
+3. Press **Open in Tetravox**. TI-Toolbox writes a scene document into your project at
+   `code/ti-toolbox/viewer/<type>.tetravox.json` and hands that file to the app.
 
-There is no separate window to manage, no file path to type, and nothing to install — if the
-scene fails to load, the most likely cause is listed under "No-WebGL2 state" below.
+Pressing Open again does not start a second copy: Tetravox loads the new scene into the window
+already on screen. Results pages carry the same button for a single result.
 
-## The Inspector
+The scene file is an ordinary file in your project. You can open it later by double-clicking it,
+or from Tetravox's own **File ▸ Open Scene…** — it is `ViewSpec` v2, Tetravox's own format, and
+TI-Toolbox invents no scene format of its own. Every layer refers to a dataset by its path on your
+machine, so nothing is copied and the file stays a few kilobytes.
 
-The inspector panel alongside the viewer offers:
+### Without the desktop app
 
-- **Layers** — toggle visibility and opacity per dataset (anatomical volume, field overlay,
-  atlas labels, mesh surfaces), matching what a scene's `ViewSpec` layers describe.
-- **Cursor / space** — move the shared 3D cursor and switch between the slice views (axial,
-  coronal, sagittal) and the 3D view; a mesh's clip plane follows the cursor automatically for
-  simulation scenes.
-- **Layout** — switch between the default 2×2 (three slice views + 3D) and other supported
-  arrangements.
-- **Screenshot** — capture the current view as an image (`postMessage`'s `screenshot`
-  round-trip through the embed).
-- **Save scene** — export the current `ViewSpec` for reuse or sharing.
+If you are running the toolbox in a browser rather than the desktop shell, there is no way for the
+page to start an application. The button reads **Download scene** instead: save the file, then open
+it in Tetravox with File ▸ Open Scene…. The file is the whole interface, so this is a complete
+answer, not a degraded one.
+
+## What Tetravox shows
+
+Everything the toolbox used to draw in an inspector belongs to the app now — layer visibility and
+opacity, the shared 3-D cursor and the slice/3-D layouts, screenshots and saving a modified scene.
+See Tetravox's own documentation for those; TI-Toolbox's side of the boundary ends at the scene
+file.
 
 ## No-WebGL2 state
 
-Tetravox Embed needs WebGL2. On a host GPU/driver combination without it, the viewer reports
-this instead of a blank canvas — the toolbox UI shows an explicit "your browser/GPU does not
-support WebGL2" state in the viewer pane rather than failing silently. This is a host
-capability check, not a container one: it depends on what the Electron renderer's GPU process
-can do on your machine.
+The run pages' 3-D pane needs WebGL2. On a host GPU/driver combination without it, the pane says
+so explicitly rather than showing a blank canvas — the rest of the page keeps working, and every
+choice the pane offers (electrodes, atlas regions) is also available from the form beside it. This
+is a host capability check, not a container one: it depends on what the Electron renderer's GPU
+process can do on your machine. Tetravox itself makes the same check on its own.
 
 ---
 
