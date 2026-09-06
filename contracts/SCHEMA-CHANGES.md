@@ -1200,3 +1200,33 @@ a WebSocket and an installer instead of removing the coupling's cause.
    than fetching URLs. The pattern now accepts the URL form, a POSIX absolute path or a
    Windows drive path, and still rejects a bare relative name — the app would resolve one
    beside the scene file, which is not where the data is.
+
+## 2026-09-06 — feat:pipeline-canvas — `PipelineIssue.code` / `.port`
+
+No dataclass changes, so `contracts/schema.json` is untouched.
+`contracts/openapi.v1.yaml` / `.json` and `desktop/src/renderer/api/schema.d.ts`
+gain two **optional** properties on `PipelineIssue`; every existing reader keeps
+working, because `level` and `message` are unchanged and still the only required
+fields.
+
+1. **`PipelineIssue.code`** — the stable machine-readable name of the finding,
+   one of `empty · duplicate_id · edge_unknown_node · self_edge · bad_output ·
+   bad_input · double_bound · cycle · missing_input · unconfigured ·
+   unconnected`, defined once in `tit.pipeline.validate.ISSUE_CODES`. The
+   Pipeline canvas needs it to tell findings apart *without matching on English*.
+   Before it existed the receipt printed every issue as an undifferentiated list,
+   so an `unconnected` note ("… is not connected to anything; it will run on its
+   own" — which is a legitimate graph, not a fault) read exactly like a blocker,
+   and the maintainer's screenshot of the page is a pane of them. With the code,
+   the canvas states the independent steps **once** ("3 steps run independently")
+   and shows only real errors as errors.
+2. **`PipelineIssue.port`** — for the port-shaped findings (`missing_input`,
+   `bad_input`, `bad_output`, `double_bound`), which of the five port types the
+   finding is about. This is what lets the canvas draw an unbound required input
+   as a chip on the node's own card ("needs: subjects") and open that node's
+   editor at that field, rather than re-deriving the same fact client-side from
+   the config and risking a disagreement with the server that decides Run.
+
+Mirrored in `desktop/tests/mock-server/server.mjs` (its planner is a deliberate
+mirror of `tit/pipeline/*`), asserted in `tests/test_pipeline_validate.py` and
+`desktop/tests/unit/pipeline-graph.test.ts`.

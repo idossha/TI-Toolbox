@@ -23,6 +23,7 @@ from tit.pipeline.document import (
 )
 
 __all__ = [
+    "ISSUE_CODES",
     "Issue",
     "ValidationResult",
     "can_connect",
@@ -32,14 +33,40 @@ __all__ = [
 ]
 
 
+#: Every ``Issue.code`` this module can emit.  The code is what a *client* keys on; the message
+#: is what a human reads.  Before it existed the canvas had to match on message text to tell an
+#: "it will run on its own" note (which is fine, and which a canvas should state once for the
+#: whole graph) from a real blocker, and it did not -- it printed both as a wall of warnings.
+ISSUE_CODES = (
+    "empty",  # the document has no nodes at all
+    "duplicate_id",  # two nodes share an id
+    "edge_unknown_node",  # an edge names a node that is not on the canvas
+    "self_edge",  # a node feeds itself
+    "bad_output",  # the producer does not produce that port type
+    "bad_input",  # the consumer does not take that port type
+    "double_bound",  # one input port wired twice
+    "cycle",  # the graph is not a DAG
+    "missing_input",  # a required input is neither wired nor set in the node's config
+    "unconfigured",  # the node carries an empty config
+    "unconnected",  # the node has no edges; it runs on its own
+)
+
+
 @dataclass
 class Issue:
-    """One finding. ``level`` is ``"error"`` (blocks Run) or ``"warning"`` (does not)."""
+    """One finding. ``level`` is ``"error"`` (blocks Run) or ``"warning"`` (does not).
+
+    ``code`` is the stable, machine-readable name of the finding (see :data:`ISSUE_CODES`) and
+    ``port`` names the port type a ``missing_input`` is about, so a client can render the finding
+    as a chip on the node's own card and open the editor at that field instead of parsing English.
+    """
 
     level: str
     message: str
     node_id: str | None = None
     edge: dict[str, Any] | None = None
+    code: str = ""
+    port: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"level": self.level, "message": self.message}
@@ -47,6 +74,10 @@ class Issue:
             out["node_id"] = self.node_id
         if self.edge is not None:
             out["edge"] = self.edge
+        if self.code:
+            out["code"] = self.code
+        if self.port is not None:
+            out["port"] = self.port
         return out
 
 
@@ -178,12 +209,12 @@ def validate(doc: PipelineDocument) -> ValidationResult:
     ids = [n.id for n in doc.nodes]
 
     if not doc.nodes:
-        issues.append(Issue("error", "a pipeline needs at least one node"))
+        issues.append(Issue("error", "a pipeline needs at least one node", code="empty"))
 
     seen: set[str] = set()
     for node_id in ids:
         if node_id in seen:
-            issues.append(Issue("error", f"duplicate node id: {node_id}", node_id=node_id))
+            issues.append(Issue("error", f"duplicate node id: {node_id}", node_id=node_id, code="duplicate_id"))
         seen.add(node_id)
 
     # -- edges ---------------------------------------------------------------------------------
@@ -193,14 +224,19 @@ def validate(doc: PipelineDocument) -> ValidationResult:
         wire = edge.to_dict()
         if edge.source not in known or edge.target not in known:
             issues.append(
-                Issue("error", "edge refers to a node that is not on the canvas", edge=wire)
+                Issue(
+                    "error",
+                    "edge refers to a node that is not on the canvas",
+                    edge=wire,
+                    code="edge_unknown_node",
+                )
             )
             continue
         src = doc.node(edge.source)
         dst = doc.node(edge.target)
         assert src is not None and dst is not None  # guarded by `known` above
         if edge.source == edge.target:
-            issues.append(Issue("error", "a node cannot feed itself", edge=wire))
+            issues.append(Issue("error", "a node cannot feed itself", edge=wire, code="self_edge"))
             continue
         if edge.port not in node_outputs(src.kind):
             issues.append(
@@ -208,6 +244,8 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     "error",
                     f"{src.display_name} does not produce {port_label(edge.port)}",
                     edge=wire,
+                    code="bad_output",
+                    port=edge.port,
                 )
             )
             continue
@@ -217,6 +255,8 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     "error",
                     f"{dst.display_name} does not take {port_label(edge.port)}",
                     edge=wire,
+                    code="bad_input",
+                    port=edge.port,
                 )
             )
             continue
@@ -227,6 +267,8 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     "error",
                     f"{dst.display_name} has {port_label(edge.port)} wired twice",
                     edge=wire,
+                    code="double_bound",
+                    port=edge.port,
                 )
             )
             continue
@@ -234,7 +276,7 @@ def validate(doc: PipelineDocument) -> ValidationResult:
 
     order = topological_order(doc)
     if order is None:
-        issues.append(Issue("error", "the pipeline has a cycle"))
+        issues.append(Issue("error", "the pipeline has a cycle", code="cycle"))
         order = []
 
     # -- required inputs -----------------------------------------------------------------------
@@ -251,6 +293,8 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     f"{node.display_name} needs {port_label(port)}: wire it from an upstream "
                     f"node or set it in the node's form",
                     node_id=node.id,
+                    code="missing_input",
+                    port=port,
                 )
             )
         if not node.config:
@@ -259,6 +303,7 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     "warning",
                     f"{node.display_name} has no configuration yet",
                     node_id=node.id,
+                    code="unconfigured",
                 )
             )
 
@@ -270,8 +315,10 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                 issues.append(
                     Issue(
                         "warning",
-                        f"{node.display_name} is not connected to anything; it will run on its own",
+                        f"{node.display_name} is not connected to anything; "
+                        f"it will run on its own",
                         node_id=node.id,
+                        code="unconnected",
                     )
                 )
 
