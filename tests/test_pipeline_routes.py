@@ -218,6 +218,10 @@ def test_save_load_list_and_delete_round_trip(client: TestClient, tmp_path: Path
 
     listed = client.get("/api/pipelines", headers=BEARER).json()
     assert [entry["name"] for entry in listed] == ["my run"]
+    # The list states a pipeline's *size*, so the palette's Saved list can say "4 steps" without
+    # loading every document to count them.
+    assert listed[0]["nodes"] == 4
+    assert listed[0]["edges"] == 5
 
     loaded = client.get("/api/pipelines/my run", headers=BEARER).json()
     assert loaded["name"] == "my run"
@@ -225,6 +229,21 @@ def test_save_load_list_and_delete_round_trip(client: TestClient, tmp_path: Path
 
     assert client.delete("/api/pipelines/my run", headers=BEARER).status_code == 204
     assert client.get("/api/pipelines/my run", headers=BEARER).status_code == 404
+
+
+def test_an_unreadable_saved_file_still_lists_but_without_counts(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """A file someone hand-edited into invalid JSON must not make the whole list disappear."""
+    assert client.put("/api/pipelines/good", headers=BEARER, json=four_node()).status_code == 200
+    broken = tmp_path / "code" / "ti-toolbox" / "pipelines" / "broken.json"
+    broken.write_text("{ not json", encoding="utf-8")
+
+    listed = client.get("/api/pipelines", headers=BEARER).json()
+    by_name = {entry["name"]: entry for entry in listed}
+    assert set(by_name) == {"good", "broken"}
+    assert by_name["good"]["nodes"] == 4
+    assert "nodes" not in by_name["broken"]
 
 
 @pytest.mark.parametrize("name", [".hidden", "a" * 65, "semi;colon", "dot.dot"])

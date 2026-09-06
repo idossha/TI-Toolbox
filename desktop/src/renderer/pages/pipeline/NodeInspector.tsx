@@ -76,9 +76,20 @@ export function NodeInspector({
   // own name, which is the one thing both sides already agree on.
   useEffect(() => {
     if (!focusPort) return;
-    const field = body.current?.querySelector<HTMLElement>(`input[data-port="${focusPort}"], textarea[data-port="${focusPort}"]`);
-    field?.focus();
-    field?.scrollIntoView({ block: "center" });
+    // After the paint, and after Radix: a dialog moves focus to its own first focusable on open
+    // (`onOpenAutoFocus`), which runs *after* this effect and would take the focus straight back
+    // off the field the chip asked for. Two frames is enough, and a missing field is not an error
+    // — a port with no form control of its own (`roi`, `leadfield`) simply opens the form.
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const field = body.current?.querySelector<HTMLElement>(
+          `input[data-port="${focusPort}"], textarea[data-port="${focusPort}"]`,
+        );
+        field?.focus();
+        field?.scrollIntoView({ block: "center" });
+      }),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [focusPort]);
 
   return (

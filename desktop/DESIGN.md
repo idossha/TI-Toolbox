@@ -939,18 +939,72 @@ Palette on the left (the node kinds), the React Flow canvas in the middle, the r
 Terminal on the right — the same right pane every run page has, because a pipeline run is a job group
 like any other.
 
-- A **node** is one existing job kind carrying exactly the config the matching page builds. Its card
-  states the kind, a one-line summary (subjects, montage or ROI) and a live status chip while the
-  group runs. Double-click opens that page's own form sections — imported, not copied.
+- A **node** is one existing job kind carrying exactly the config the matching page builds. Double-click
+  opens that page's own form sections — imported, not copied.
 - An **edge** is a typed binding between one node's named output and another's same-named input:
   `subjects | montages | simulation | roi | leadfield`. Ports and their wires take one hue per type.
   An illegal drag is refused *with its reason* on the canvas, never silently dropped.
-- **Run submits once.** One group id, one row-group in Jobs, cancellable as one thing. The receipt
-  says "N jobs in one group — K steps" and lists them with their `after` chain, following §4.8's
-  "first 15 + … and K more" rule.
+- **Run submits once.** One group id, one row-group in Jobs, cancellable as one thing.
 - **Save/Load** under `code/ti-toolbox/pipelines/<name>.json`; **Export notebook** writes an `.ipynb`
   that calls only the documented `tit` scripting API and carries the document in its metadata.
 - No drag-to-reorder of anything but the node positions themselves; order is the graph.
+
+### 9.1.1 The card is a row, not a poster
+
+**A node card is at the app's density like everything else**: 208 px wide, 8 px padding, a 20 px
+header row of kind icon + name + status chip, a two-line 12/16 summary that clamps, and 13/18 as the
+base — the same steps §3.2 gives every other surface. It is not a place where a canvas earns its own
+type scale.
+
+The failure this rule was written from, and it is worth stating plainly because it cost a release's
+worth of trust in the page: `pipeline.css` was authored against a token vocabulary that **does not
+exist in this app** — `--surface-default`, `--text-muted`, `--font-size-sm`, `--border-subtle`,
+`--radius-md`, `--shadow-sm`, `--accent-primary`, 36 references in all. A browser drops a declaration
+whose custom property is undefined and reports nothing, so every visual property on the card, the
+palette and the port handles was silently discarded, the card inherited React Flow's own default
+type at roughly three times this density, and the page shipped looking broken while every behaviour
+on it was fine. **A stylesheet must use tokens `ui/tokens.css` actually defines**;
+`tests/unit/pipelineTokens.test.ts` fails on one that does not, and `tests/e2e/pipeline-ux.spec.ts`
+reads the computed style off the live card.
+
+### 9.1.2 What a node states about itself
+
+- **An unbound required input is a chip on the card**, not a line in the receipt: `needs: subjects`,
+  in `--danger`, one per unbound port, straight from the server's `missing_input` issues. Clicking
+  it opens that node's form with that field focused; wiring the port removes it. The card never
+  prints what it is missing in its summary as well — that said the same thing twice and left no room
+  for what the node actually has.
+- **Ports print their names on hover.** Five hues is a legend nobody memorises.
+- **The selection ring is on the card**, drawn off React Flow's own `.selected`, so a click, a
+  marquee and ⌘A all light the same thing.
+- **A wire animates while either of its ends is running**, and stops on `prefers-reduced-motion`.
+
+### 9.1.3 The receipt states the plan, or the blockers — never both as a list
+
+This is the one page where the maintainer wants a run summary in the right pane, and it follows
+§4.8's "first 15 + … and K more" rule: "N jobs in one group — K steps", then the labels with their
+`after` chain.
+
+**When the pipeline cannot run, the receipt is the blockers instead, grouped by node, each group with
+a Fix button that selects and centres that node.** Only `level: "error"` counts. The two findings that
+are not faults — a node wired to nothing (`unconnected`), a node still at its defaults
+(`unconfigured`) — collapse into **one** sentence at the bottom ("3 steps run independently"). The
+page tells them apart by `PipelineIssue.code`, which was added to the contract for exactly this;
+matching on the message text is not allowed, because a reworded sentence would then turn a note into
+a blocker with nothing failing.
+
+The failure it prevents, from the maintainer's own screenshot: three unwired nodes produced three
+"… is not connected to anything; it will run on its own" warnings and three "has no configuration
+yet" warnings, in the same flat list as the real errors, so a pane of six alarms described a graph
+with nothing wrong with it.
+
+### 9.1.4 The empty canvas is one line and a way in
+
+One sentence — "Add a step or import a pipeline" — and a **Start from a sample** button that builds
+the `pre → flex → sim → analyzer` graph, wired, on a subject the project has. The sample is the
+graph the D6 gate submits, so what a first-time user lands on is a pipeline that is *known* to
+validate and run, not four unconfigured cards. The empty state is drawn **over** a live canvas, never
+instead of one: React Flow has to be mounted or a palette drag has nowhere to land.
 
 ## 9.2 Settings — the Viewer card
 

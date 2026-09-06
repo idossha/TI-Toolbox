@@ -104,8 +104,12 @@ test("launcher connects and the shell renders its chrome around the landing page
 
   // The bridge exists but the token never reaches the renderer. Thirteen entries since V3
   // (`dev/notes/v3-native-panes-external-viewer-plan.md`) added `viewer` — opening a scene in the
-  // host's Tetravox app is a host action, and a host action is only reachable through main. ADR
-  // row 14's budget moves 12 → 13 with it; this list is what holds a fourteenth to an ADR line.
+  // host's Tetravox app is a host action, and a host action is only reachable through main.
+  // Fourteen since the Pipeline canvas added `saveFile` (`dev/notes/v3-native-panes-external-
+  // viewer/PL.md`): saving renderer-produced text to a file the user picks is a host action too,
+  // and the renderer had no way to do it at all — its `<a download>` on a blob: URL was inert in
+  // this shell and reported success anyway. ADR row 14's budget moves 13 → 14 with it; this list
+  // is what holds a fifteenth to an ADR line.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
@@ -115,6 +119,7 @@ test("launcher connects and the shell renders its chrome around the landing page
     "openExternal",
     "openPath",
     "platform",
+    "saveFile",
     "selectDirectory",
     "selectFile",
     "setSettings",

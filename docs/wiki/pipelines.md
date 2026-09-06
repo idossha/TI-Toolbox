@@ -52,7 +52,31 @@ The five port types:
 - **Leadfield** — the `.hdf5` an ex/mEx search needs.
 
 An input that is not wired is not an error: it just has to be filled in on the node's own form. A
-Simulator whose montages you picked by hand is a perfectly good one-node pipeline.
+Simulator whose montages you picked by hand is a perfectly good one-node pipeline. A step that is
+wired to nothing at all is not an error either — it simply runs on its own, and the receipt says so
+once, at the bottom ("3 steps run independently"), rather than warning you about each one.
+
+A **required** input that is neither wired nor filled in *is* an error, and the card says which:
+a red **needs: subjects** chip on the card itself. Click the chip and the node's form opens with
+that field focused; wire the port and the chip goes away.
+
+## Working on the canvas
+
+| To… | Do |
+|---|---|
+| add a step | click it in the palette (it lands in the middle of the view), or drag it onto the canvas |
+| wire two steps | drag from an output handle on the right of one card to the same-coloured input handle on the left of another |
+| see what a handle is | hover the card — every port prints its name |
+| move a step | drag the card; it snaps to a 16 px grid |
+| select several | ⌘-click, shift-click, or drag a marquee on empty canvas; **⌘A** takes everything, **Esc** clears |
+| delete | select and press **Delete**, use the toolbar's trash, or right-click ▸ **Delete step / Delete wire** |
+| undo / redo | **⌘Z** / **⇧⌘Z**, or the toolbar arrows |
+| pan / zoom | trackpad scroll and pinch, the zoom buttons, or the minimap |
+| fit everything on screen | the fit button, bottom-left |
+
+An illegal wire is refused *while you drag it*: the target handle will not take the drop, and the
+canvas states the reason ("Subjects is already wired from Head model", "that would make a cycle").
+Nothing is ever dropped silently.
 
 ## Editing a node
 
@@ -64,12 +88,20 @@ Kinds whose page form cannot be lifted out of its page yet (`ex`, `mex`, `leadfi
 `stats`) are edited as JSON. The server validates that JSON against the same dataclass the runner
 reads, so a mistake comes back as a sentence rather than a failed job twenty minutes later.
 
-## The receipt
+## The receipt, and the Terminal under it
 
 The right pane always shows what Run *would* submit: how many jobs, in one group, and each job's
-label, kind, subjects and the jobs it waits for. Anything that would stop the run — a cycle, an
-incompatible wire, a required input that is neither wired nor filled in — is listed there as a
-sentence, and Run stays disabled until it is gone.
+label, kind, subjects and the jobs it waits for (the first 15, then a count).
+
+When something *would* stop the run, the receipt becomes the list of those things instead —
+**grouped by the step they are about**, each with a **Fix** button that selects and centres that
+step on the canvas. Only real blockers appear: a cycle, an incompatible wire, a required input that
+is neither wired nor filled in. Facts that are not faults — a step wired to nothing, a step still at
+its defaults — are one sentence at the bottom.
+
+Below the receipt is the live **Terminal**. It follows the step you last clicked when that step has
+a job in the running group, and otherwise whatever is running, so watching a particular step's log
+is one click on its card.
 
 ## Running
 
@@ -100,7 +132,8 @@ pipeline is submitted.
 Pipelines are saved in your project, at `code/ti-toolbox/pipelines/<name>.json`, and appear in the
 palette's **Saved** list. **Import JSON…** reads the same file from anywhere.
 
-**Export notebook** writes an `.ipynb` with:
+**Save** asks for a name and writes the file; **Export notebook** opens a save dialog and writes an
+`.ipynb` with:
 
 - a title cell carrying the graph as a Mermaid diagram;
 - one markdown + code cell pair per node, in dependency order, written against the public

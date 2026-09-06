@@ -57,12 +57,16 @@ export function NodeCard({ data, id }: NodeProps) {
         </span>
       ))}
 
+      {/* Icon + name + status, and nothing else. The kind's name used to be spelled out here too,
+          which cost half the row and truncated the thing a user actually chose — the step's own
+          name — to "Head ..." and "Measure the R...". The icon is the kind, and the `title` spells
+          it out for anyone who needs the words. */}
       <div className="pipeline-card-head">
         <Icon size={14} aria-hidden />
-        <span className="pipeline-card-name" title={card.title}>
+        <span className="pipeline-card-name" title={`${card.title} — ${KIND_TITLE[card.kind]}`}>
           {card.title}
         </span>
-        {card.state ? <JobStateChip state={card.state} pulse={running} /> : <span className="pipeline-card-kind">{KIND_TITLE[card.kind]}</span>}
+        {card.state && <JobStateChip state={card.state} pulse={running} />}
       </div>
 
       <span className="pipeline-card-summary">{card.summary}</span>

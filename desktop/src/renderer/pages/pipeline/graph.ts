@@ -255,15 +255,18 @@ export function samplePipeline(subject: string): PipelineDoc {
     version: 1,
     name: "sample",
     nodes: [
-      { id: "pre1", kind: "pre", label: "Head model", config: { subject_ids: [subject], create_m2m: true }, position: { x: 0, y: 80 } },
-      { id: "flex1", kind: "flex", label: "Find a montage", config: { goal: "mean", postproc: "max_TI" }, position: { x: 280, y: 0 } },
-      { id: "sim1", kind: "sim", label: "Simulate it", config: { conductivity: "scalar" }, position: { x: 560, y: 80 } },
+      // Two columns, two rows: a 208 px card four-across is ~1000 px, which `fitView` would have to
+      // shrink to about half size to fit the canvas beside the receipt. Folded, the sample opens at
+      // full size and still reads left-to-right, top-to-bottom.
+      { id: "pre1", kind: "pre", label: "Head model", config: { subject_ids: [subject], create_m2m: true }, position: { x: 0, y: 0 } },
+      { id: "flex1", kind: "flex", label: "Find a montage", config: { goal: "mean", postproc: "max_TI" }, position: { x: 260, y: 0 } },
+      { id: "sim1", kind: "sim", label: "Simulate it", config: { conductivity: "scalar" }, position: { x: 0, y: 190 } },
       {
         id: "an1",
         kind: "analyzer",
         label: "Measure the ROI",
         config: { space: "mesh", analysis_type: "spherical", center: [0, 0, 0], radius: 5 },
-        position: { x: 840, y: 160 },
+        position: { x: 260, y: 190 },
       },
     ],
     edges: [

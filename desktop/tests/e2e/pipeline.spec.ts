@@ -87,8 +87,9 @@ test("adding a step from the palette puts a card on the canvas", async () => {
   await page.getByRole("link", { name: "Pipeline", exact: true }).click();
   await page.getByTestId("pipeline-add-sim").click();
   await expect(page.getByTestId("pipeline-node-sim1")).toBeVisible();
-  // An unconfigured Simulator cannot run, and the receipt says why rather than failing later.
-  await expect(page.getByTestId("pipeline-receipt")).toContainText("needs Subjects");
+  // An unconfigured Simulator cannot run, and the receipt says why rather than failing later —
+  // grouped under the step it is about, keyed on the issue's `port` rather than on its sentence.
+  await expect(page.getByTestId("pipeline-problem-sim1")).toContainText("needs subjects");
   await expect(page.getByTestId("pipeline-run")).toBeDisabled();
 });
 

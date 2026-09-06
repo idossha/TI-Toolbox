@@ -198,6 +198,9 @@
   fill: currentColor;
 }
 
+/* A map, not a second canvas: React Flow's stock 200x150 is a quarter of this pane. The *size* is
+   set in props (`<MiniMap width height />`) because the component lays its SVG out from them; only
+   the skin belongs here. */
 .pipeline-canvas .react-flow__minimap {
   background: var(--surface);
   border: 1px solid var(--line);

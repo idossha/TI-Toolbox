@@ -120,11 +120,31 @@ function PipelineCanvas() {
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
   const [saveAs, setSaveAs] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  /** A step added this render, to be selected as soon as React Flow knows about it. */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   /** Undo history. Deliberately *not* in the page session: a history is per-visit, not per-page. */
   const [past, setPast] = useState<PipelineDoc[]>([]);
   const [future, setFuture] = useState<PipelineDoc[]>([]);
   const queryClient = useQueryClient();
-  const pane = usePaneController({ pageId: "pipeline", name: "receipt" });
+  /**
+   * The receipt is a *receipt*, and this page's work pane is a canvas.
+   *
+   * The run shape's default pane is `clamp(320px, 45vw, calc(100% - 566px))` — 610 px at 1440,
+   * measured — which is right for the Simulator, whose pane carries the plan grid and a terminal
+   * beside a column of controls. On this page it left a 560 px work pane, a 200 px palette and a
+   * **348 px canvas**: too narrow to hold two node cards side by side, which is why the
+   * maintainer's screenshot showed one enormous card on an otherwise empty grid. So the floor is
+   * lowered to 320 and the pane is seeded once at 400 — the width `--right-pane-w-lg` gives every
+   * other pane at this breakpoint. It is a *default*, not a lock: the drag handle, ⌘⇧I and the
+   * expand control all still work, and once the user sets a width theirs is what persists.
+   */
+  const pane = usePaneController({ pageId: "pipeline", name: "receipt", minWidth: 320 });
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || pane.width !== null) return;
+    seeded.current = true;
+    pane.dispatch({ type: "resize", width: 400 });
+  }, [pane]);
   const fileInput = useRef<HTMLInputElement>(null);
   const wrapper = useRef<HTMLDivElement>(null);
   const flow = useReactFlow();
@@ -212,13 +232,12 @@ function PipelineCanvas() {
 
   // The Terminal pins to the node the user is looking at when that node has a job, and otherwise
   // to whatever is running -- so double-clicking a card and watching its log is one gesture.
-  const selectedNodeId = useMemo(() => flow.getNodes().find((n) => n.selected)?.id, [flow]);
   const [pinned, setPinned] = useState<string | null>(null);
   const followed = useMemo(() => {
     const forNode = (id: string | null | undefined) =>
       id ? groupJobs.find((j) => session.jobNodes[j.id] === id) : undefined;
-    return forNode(pinned) ?? forNode(selectedNodeId) ?? groupJobs.find((j) => j.state === "running") ?? groupJobs[0];
-  }, [groupJobs, session.jobNodes, pinned, selectedNodeId]);
+    return forNode(pinned) ?? groupJobs.find((j) => j.state === "running") ?? groupJobs[0];
+  }, [groupJobs, session.jobNodes, pinned]);
 
   const events = useQuery({
     queryKey: ["pipeline-log", followed?.id],
@@ -257,7 +276,11 @@ function PipelineCanvas() {
         { ...doc, nodes: [...doc.nodes, { id, kind, config: configFor(editor, atlasLookup), position }] },
         { ...editors, [id]: editor },
       );
-      window.setTimeout(() => flow.setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === id }))), 0);
+      // Selected by the effect below, once the node the document just gained is in `flowNodes`.
+      // Not a `setTimeout`: a timer here raced the keyboard, and ⌘A pressed straight after adding
+      // a step was undone a tick later by the timer re-selecting only the new node (measured: 1
+      // node selected out of 2).
+      setJustAdded(id);
     },
     [doc, editors, commit, atlasLookup, flow],
   );
@@ -320,12 +343,27 @@ function PipelineCanvas() {
     [doc],
   );
 
+  /**
+   * The reason the *last* handle the pointer was over refused the wire, and whether the drag
+   * ended in an actual connection.
+   *
+   * `isValidConnection` is what makes an illegal target simply not accept the drop — good, and
+   * the reason it is not enough on its own: a refused drop never reaches `onConnect`, so without
+   * this the wire would spring back with no explanation, which is exactly the "silently dropped"
+   * behaviour §9.1 forbids. So the verdict computed during the drag is kept, and `onConnectEnd`
+   * states it if the drag produced nothing.
+   */
+  const pendingRefusal = useRef<string | null>(null);
+  const connected = useRef(false);
+
   const onConnect = (connection: Connection) => {
     const verdict = verdictFor(connection);
     if (!verdict.ok) {
       refuse(verdict.reason);
       return;
     }
+    connected.current = true;
+    pendingRefusal.current = null;
     setRefusal(null);
     commit({
       ...doc,
@@ -383,11 +421,28 @@ function PipelineCanvas() {
     // selection, the live position mid-drag) is kept; the data comes from the document. A node
     // the document no longer has disappears, which is what makes Delete work.
     const byId = new Map(flowNodes.map((n) => [n.id, n]));
+    const wasDerived = new Map(lastDerived.map((n) => [n.id, n.position]));
     setLastDerived(derived);
+    // A step just added is the selected one — decided *here*, in the same pass that first puts it
+    // into React Flow's array, rather than in a timer afterwards. The timer raced the keyboard:
+    // ⌘A pressed right after adding a step was undone a tick later by the timer re-selecting only
+    // the new node (measured: 1 of 2 selected).
+    const select = justAdded;
+    if (select) setJustAdded(null);
     setFlowNodes(
       derived.map((node) => {
         const existing = byId.get(node.id);
-        return existing ? { ...existing, ...node, position: existing.position } : node;
+        if (!existing) return select ? { ...node, selected: node.id === select } : node;
+        if (select) return { ...existing, ...node, position: node.position, selected: node.id === select };
+        // Position is the one field where "keep what React Flow has" is not always right. Mid-drag
+        // React Flow's copy is the live one and the document's is stale, so the default is to keep
+        // it. But when the *document's* position changes on its own — undo, redo, a loaded
+        // pipeline, the sample — the document is the one that moved, and keeping React Flow's copy
+        // would let a card sit where a drag left it while the document says otherwise. (Measured:
+        // ⌘Z after dragging a card put the document back and left the card 152 px away from it.)
+        const before = wasDerived.get(node.id);
+        const moved = !before || before.x !== node.position.x || before.y !== node.position.y;
+        return { ...existing, ...node, position: moved ? node.position : existing.position };
       }),
     );
   }
@@ -517,7 +572,7 @@ function PipelineCanvas() {
   /** Select a node, bring it into view and pin the Terminal to it. The receipt's "Fix" link. */
   const focusNode = useCallback(
     (nodeId: string) => {
-      flow.setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === nodeId })));
+      setFlowNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === nodeId })));
       setPinned(nodeId);
       const node = nodeById(doc, nodeId);
       if (node) void flow.setCenter(node.position.x + 104, node.position.y + 40, { zoom: flow.getZoom(), duration: 200 });
@@ -543,12 +598,12 @@ function PipelineCanvas() {
       }
       if (meta && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        flow.setNodes((ns) => ns.map((n) => ({ ...n, selected: true })));
+        setFlowNodes((ns) => ns.map((n) => ({ ...n, selected: true })));
         setSelectedEdges(doc.edges.map(edgeId));
         return;
       }
       if (event.key === "Escape") {
-        flow.setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
+        setFlowNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
         setSelectedEdges([]);
         setMenu(null);
         setRefusal(null);
@@ -731,7 +786,19 @@ function PipelineCanvas() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            isValidConnection={(c) => verdictFor(c).ok}
+            isValidConnection={(c) => {
+              const verdict = verdictFor(c);
+              pendingRefusal.current = verdict.ok ? null : verdict.reason;
+              return verdict.ok;
+            }}
+            onConnectStart={() => {
+              connected.current = false;
+              pendingRefusal.current = null;
+            }}
+            onConnectEnd={() => {
+              if (!connected.current && pendingRefusal.current) refuse(pendingRefusal.current);
+              pendingRefusal.current = null;
+            }}
             onNodesDelete={(deleted) => removeNodes(deleted.map((n) => n.id))}
             onEdgesDelete={(deleted) => removeEdges(deleted.map((e) => e.id))}
             onNodeClick={(_, node) => setPinned(node.id)}
@@ -761,7 +828,10 @@ function PipelineCanvas() {
             snapToGrid
             snapGrid={[16, 16]}
             fitView
-            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+            // Never *magnify* (a lone card scaled 2x is what made the first screenshot's node look
+            // enormous) and never shrink past readability either — below ~0.75 the 13 px card type
+            // stops being type. Past that the answer is panning, not a smaller card.
+            fitViewOptions={{ padding: 0.15, minZoom: 0.75, maxZoom: 1 }}
             minZoom={0.2}
             maxZoom={2}
             deleteKeyCode={["Delete", "Backspace"]}
@@ -770,7 +840,16 @@ function PipelineCanvas() {
           >
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             <Controls showInteractive={false} position="bottom-left" />
-            <MiniMap pannable zoomable position="bottom-right" nodeStrokeWidth={2} />
+            {/* Sized by the inline `style`, which is the only size the minimap reads
+                (`elementWidth = style?.width ?? 200`). A CSS-only size shrinks the box and leaves
+                its contents laid out for the stock 200x150, spilling over the edge. */}
+            <MiniMap
+              pannable
+              zoomable
+              position="bottom-right"
+              style={{ width: 132, height: 88 }}
+              nodeStrokeWidth={2}
+            />
           </ReactFlow>
 
           {doc.nodes.length === 0 && (
