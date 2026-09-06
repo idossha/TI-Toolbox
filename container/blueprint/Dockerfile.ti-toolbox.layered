@@ -1,0 +1,166 @@
+# Dockerfile.ti-toolbox.layered
+#
+# The v3 image, layered FROM idossha/simnibs:v2.5.0 instead of built from ubuntu:22.04.
+# This is NOT the recipe CI publishes — that is Dockerfile.ti-toolbox, a from-scratch
+# multi-stage build that installs SimNIBS itself and does not exist yet in any registry.
+# This file exists so a working session (or a developer's machine that already has
+# idossha/simnibs:v2.5.0 pulled) can build+smoke idossha/ti-toolbox in minutes instead of
+# the ~40+ minutes a from-scratch SimNIBS install takes, while exercising exactly the v3
+# additions on top of a known-good SimNIBS 4.6 environment: baked API deps, FastSurfer,
+# the UI bundle, the Tetravox embed, the new entrypoint, and the healthcheck.
+#
+# What this file deliberately does NOT redo: idossha/simnibs:v2.5.0 was itself built by
+# Dockerfile.simnibs, which already applied the atlas2subject/nan_to_num SimNIBS patches,
+# copied the extra EEG nets, and installed the flex-search extension — those are baked
+# into the base image already and are untouched here. What this file DOES redo: replace
+# /ti-toolbox's `tit` package with the current checkout's `tit/` (the base image's copy
+# predates tit.server entirely) and reinstall it, so the smoke test below actually
+# exercises this worktree's server code, not whatever TI-Toolbox commit v2.5.0 shipped.
+#
+# Build context: a small staged directory build.sh assembles under `mktemp -d` — NOT the
+# raw repo root (desktop/node_modules alone is ~700 MB and would blow up build-context
+# transfer; see build.sh's own header comment for exactly what gets staged). Build with:
+#   ./container/blueprint/build.sh --layered --tag idossha/ti-toolbox:dev
+# or directly, against an already-staged context dir:
+#   docker build --platform linux/amd64 \
+#     -f container/blueprint/Dockerfile.ti-toolbox.layered \
+#     -t idossha/ti-toolbox:dev <staged-context-dir>
+
+FROM idossha/simnibs:v2.5.0
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV OMP_NUM_THREADS=1
+ENV KMP_AFFINITY=disabled
+
+# ---------------------------------------------------------------------------------------
+# tit source refresh — the base image's /ti-toolbox predates tit.server (see header note).
+# TIT_REPO_DIR is a build-context-relative path holding a staged {tit/, resources/,
+# pyproject.toml, README.md} subset (build.sh's stage_context; see its comments for why
+# this is a curated copy, not `COPY . /ti-toolbox`).
+# ---------------------------------------------------------------------------------------
+ARG TIT_REPO_DIR=ti-toolbox
+# `rm -rf` first: COPY <dir> <existing-dir> merges/overlays rather than replacing, so a file
+# the current checkout deleted (e.g. a renamed module) would otherwise survive from the base
+# image's older /ti-toolbox/tit indefinitely.
+RUN rm -rf /ti-toolbox/tit /ti-toolbox/resources
+COPY ${TIT_REPO_DIR}/tit /ti-toolbox/tit
+COPY ${TIT_REPO_DIR}/resources /ti-toolbox/resources
+COPY ${TIT_REPO_DIR}/pyproject.toml ${TIT_REPO_DIR}/README.md /ti-toolbox/
+RUN cd /ti-toolbox && \
+    simnibs_python -m pip install --no-cache-dir --force-reinstall --no-deps .
+
+# ---------------------------------------------------------------------------------------
+# API server dependencies — baked in (D1: no pip install at container start). The v2
+# compose `command:` used to install these on every `docker compose up`;
+# docker-compose.v3.yml's `command:` no longer does (see that file's own header note).
+# `nbformat` is the pipeline canvas's notebook export (tit.pipeline.notebook).
+# ---------------------------------------------------------------------------------------
+RUN simnibs_python -m pip install --no-cache-dir \
+    fastapi \
+    h5io \
+    nbformat \
+    "uvicorn[standard]" \
+    pyyaml \
+    psutil
+
+# ---------------------------------------------------------------------------------------
+# FastSurfer --seg_only (D1; r3-parcellation-alternatives.md; spike
+# dev/spikes/native/fastsurfer/REPORT.md) — the recon-all replacement for voxel-space DKT
+# cortical parcellation. --seg_only needs no FreeSurfer license or binaries. Pinned tag
+# v2.5.4 (spike-verified: mean Dice 0.922 subcortical / 0.914 cortical vs real recon-all
+# on sub-ernie, n=1).
+# ---------------------------------------------------------------------------------------
+ARG FASTSURFER_REF=v2.5.4
+ENV FASTSURFER_HOME=/opt/fastsurfer
+RUN git clone --depth 1 --branch "${FASTSURFER_REF}" \
+        https://github.com/Deep-MI/FastSurfer.git "${FASTSURFER_HOME}" \
+    && rm -rf "${FASTSURFER_HOME}/.git"
+
+# FastSurfer's pyproject.toml pins torch==2.7.* — above idossha/simnibs:v2.5.0's stock
+# torch (2.6.0, itself only a floor requirement of SimNIBS's own BrainNet: torch>=2.1,
+# spike-verified not in conflict for a shared runtime). `pip install -e .` lets pip
+# upgrade torch to satisfy FastSurfer's pin; the image-level smoke test (build.sh /
+# w2-image-notes.md) re-verifies charm's own torch-consuming imports still work
+# afterward (`simnibs.segmentation`, `brainnet`) per the brief's explicit instruction —
+# this is the one part of this Dockerfile that changes a dependency the rest of SimNIBS
+# relies on, so it is the one part that gets an explicit post-hoc import check, not just
+# an assumption that the pin resolves cleanly.
+#
+# CPU-only torch pinned FIRST, from PyTorch's own CPU wheel index: a bare `pip install -e
+# /opt/fastsurfer` (verified this session, see w2-image-notes.md) resolves `torch==2.7.*`
+# against plain PyPI, which serves the CUDA build by default on Linux — pulling ~2 GB of
+# unused `nvidia-{cublas,cudnn,cusparse,...}` wheels into a container with no GPU access
+# either way (Docker Desktop's Linux VM under this machine's own amd64 emulation, and no
+# CUDA runtime assumed on any deployment target). PEP 440's `==2.7.*` prefix-match ignores
+# the local-version segment, so an already-installed `2.7.1+cpu` satisfies FastSurfer's
+# `torch==2.7.*` and pip's resolver leaves it alone instead of reinstalling the CUDA build.
+RUN simnibs_python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch==2.7.1" "torchvision==0.22.1" && \
+    simnibs_python -m pip install --no-cache-dir -e "${FASTSURFER_HOME}" && \
+    simnibs_python -c "import torch; assert '+cpu' in torch.__version__, torch.__version__" && \
+    simnibs_python -c "import simnibs.segmentation, brainnet" && \
+    echo "torch bump OK: $(simnibs_python -c 'import torch; print(torch.__version__)')"
+
+# Checkpoints: --vinn only (asegdkt cortical/subcortical segmentation, the one module the
+# toolbox uses). CerebNet/HypVINN checkpoints are NOT downloaded — the production
+# invocation passes --no_cereb --no_hypothal --no_cc (spike report SS4/SS9), so those
+# weights would be dead weight in the image.
+RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn
+
+# ---------------------------------------------------------------------------------------
+# Desktop UI bundle. Built by `cd desktop && npm run build`; build.sh builds it if stale
+# or missing before staging the context.
+# ---------------------------------------------------------------------------------------
+COPY ui /opt/ti-toolbox/ui
+
+# ---------------------------------------------------------------------------------------
+# Tetravox Embed. TETRAVOX_EMBED_TGZ, when given, is an http(s) URL to a released
+# `tetravox-embed-<ver>.tgz` (lane W1's `pack:embed` output + release-asset step) —
+# fetched and extracted at build time. Left empty (the default, until W1 ships a release),
+# a placeholder manifest + landing page is written instead so /opt/tetravox/embed always
+# exists and always has a manifest.json, whatever lane W3a's route ends up doing with it.
+# ---------------------------------------------------------------------------------------
+ARG TETRAVOX_EMBED_TGZ=""
+RUN mkdir -p /opt/tetravox/embed && \
+    if [ -n "$TETRAVOX_EMBED_TGZ" ]; then \
+        echo "Fetching Tetravox Embed: $TETRAVOX_EMBED_TGZ" && \
+        curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/tetravox-embed.tgz && \
+        # The release tarball is <name>-<ver>/{dist/, manifest.json, LICENSE, EMBED.md, *.schema.json}
+        # (Tetravox docs/EMBED.md). What tit.server serves at /tetravox/ is dist/ plus manifest.json;
+        # the documents and schemas sit one level up, out of the served jail.
+        mkdir -p /tmp/tvx /opt/tetravox && \
+        tar -xzf /tmp/tetravox-embed.tgz -C /tmp/tvx --strip-components=1 && \
+        cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ && \
+        cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json && \
+        cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ && \
+        test -f /opt/tetravox/embed/index.html && test -f /opt/tetravox/embed/manifest.json && \
+        rm -rf /tmp/tvx /tmp/tetravox-embed.tgz; \
+    else \
+        echo "TETRAVOX_EMBED_TGZ not set; writing placeholder embed" && \
+        printf '{"name":"tetravox-embed","version":"0.0.0-placeholder","protocol":1}\n' \
+            > /opt/tetravox/embed/manifest.json && \
+        printf '%s\n' \
+            '<!doctype html><html><head><meta charset="utf-8"><title>Tetravox Embed</title></head>' \
+            '<body><p>The Tetravox embed bundle is not packaged in this build.</p></body></html>' \
+            > /opt/tetravox/embed/index.html; \
+    fi
+
+# ---------------------------------------------------------------------------------------
+# Entrypoint — execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3),
+# no pip-install-then-exec (everything above is baked).
+# ---------------------------------------------------------------------------------------
+COPY entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
+RUN chmod +x /usr/local/bin/entrypoint.ti-toolbox.sh
+
+ARG TI_TOOLBOX_VERSION=dev
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.title="TI-Toolbox" \
+      org.opencontainers.image.version="${TI_TOOLBOX_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="https://github.com/idossha/TI-Toolbox"
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 \
+    CMD curl -fsS "http://127.0.0.1:${TIT_SERVER_PORT:-8765}/api/health" || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.ti-toolbox.sh"]

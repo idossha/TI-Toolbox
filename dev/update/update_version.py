@@ -64,6 +64,19 @@ def update_version(new_version):
         "dev/bash_dev/docker-compose.dev.yml": [
             (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}")
         ],
+        # v3 streamlined stack (dev/notes/v3-docker-streamline-plan.md D1/D4): one image,
+        # idossha/ti-toolbox:<ver>, tagged independently of idossha/simnibs above (the v3
+        # image bundles a specific SimNIBS build, it does not share its version number).
+        # The `:-dev` default is deliberately for local iteration only — bump it on every
+        # release so a fresh `desktop/docker/docker-compose.v3.yml` pull with no
+        # TIT_IMAGE_TAG override resolves to the version being released, not last
+        # release's dev tag.
+        "desktop/docker/docker-compose.v3.yml": [
+            (
+                r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-[^}]*\}",
+                f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{new_version}}}",
+            ),
+        ],
         # Electron Desktop App files
         "package/package.json": [
             (r'"version": "\d+\.\d+\.\d+"', f'"version": "{new_version}"'),

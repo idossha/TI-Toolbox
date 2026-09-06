@@ -8,7 +8,7 @@ To-Do List:
 ### UI - Frontend
 
 - [ ] Ex-search viewer - graphical UI for electrode visualization and selection.
-- [ ] Convert to fully-based Electron frontend → planned in detail below (**v3.0.0**), not started.
+- [ ] Convert to fully-based Electron frontend → in progress (**v3.0.0**, plan below; Phase 0 started 2026-08-27).
 
 ### Other
 
@@ -18,8 +18,12 @@ To-Do List:
 
 ## v3.0.0 — Electron/TypeScript GUI over an (almost) unchanged Python backend
 
-**Status:** PLANNED — nothing below has been started. Do not begin without answers to §9
-"Open decisions".
+**Status:** IN PROGRESS — Phase 0 started 2026-08-27. §9 answers are recorded as an ADR in
+`tracks/active/v3-electron-gui.md`. **Decision 2026-08-27:** the GUI moves to Electron now; Freeview and
+Gmsh stay *in the container on X11* for 3.0 and are launched by `tit.server` from a ViewSpec; an internal
+web renderer (spike (c) in `dev/notes/v3-spikes.md`) is a separate later track that retires them step by
+step. Everything below that said "X11 goes away" is amended accordingly (§0, §1, §2.6, §2.7, §2.8, §3.C,
+§4, §5, §9, §10).
 **Branch:** `feature/v3-electron-gui` (long-lived integration branch; phase PRs target *it*, never
 `main`; periodic `main → feature/v3-electron-gui` merges).
 **Written:** 2026-08-26 against `main @ 0c0ef614`, after a read-only audit of the repo (9 agents)
@@ -40,12 +44,14 @@ other. Ship as **v3.0.0** with a new `idossha/simnibs:v3.0.0` image.
 
 Non-goals for 3.0: two projects open in one app instance, a third-party UI plugin API, GPU work,
 HPC job submission through SLURM (architecture leaves the door open, §2.7), and any change to
-numerical code (SimNIBS calls, envelope math, optimizers, stats).
+numerical code (SimNIBS calls, envelope math, optimizers, stats). **Also out of 3.0 (decision
+2026-08-27):** replacing Freeview/Gmsh with an embedded renderer and removing X11 — tracked separately
+as the "internal viewer" track (`dev/notes/v3-spikes.md` holds the evidence).
 
 ### 1. Why (what the current setup costs)
 
-- **X11 is the biggest install/support burden** and exists only because the GUI process lives in
-  the container: `loader.py:125-219` (xhost/XQuartz), `package/src/backend/env.js:69-436` (~250
+- **X11 is the biggest install/support burden** and exists today because the GUI process lives in
+  the container (in 3.0 it remains, but only for the Freeview/Gmsh windows — §2.6): `loader.py:125-219` (xhost/XQuartz), `package/src/backend/env.js:69-436` (~250
   LOC DISPLAY/XQuartz/VcXsrv), three compose files mounting `/tmp/.X11-unix` + `~/.Xauthority`,
   `xhost +` never reverted (`env.js:342-346`). All of it disappears when the UI runs on the host.
 - **~3,000 LOC of scientific/orchestration logic is trapped in Qt files** (gross ≈3.8k incl. ~350
@@ -336,12 +342,13 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
 - Desktop notifications on completion; app close with running jobs asks "keep containers running
   in the background?" (decouples UI from job lifetime).
 
-#### 2.6 Viewers (X11 goes away)
+#### 2.6 Viewers (decision 2026-08-27: Freeview + Gmsh stay in 3.0, launched by the server)
 
-| today (X11 subprocess in the container) | v3 |
+| today (X11 subprocess spawned by a Qt tab) | v3.0 |
 |---|---|
-| `freeview` from the NIfTI Viewer tab (`nifti_viewer_tab.py:1101-1180`), ROI picker, ex AddROIDialog, analyzer | **NiiVue** in the renderer. The tab already produces a declarative layer spec; that builder moves to `tit/catalog.py::build_view_spec` and returns **absolute** `cal_min/cal_max` computed server-side from freeview's `percentile=1:heatscale=a,b` (numpy), colormap map `{heat→hot + alphaThreshold, gecolor→ge_color, nih, jet, surface, grayscale→gray}`, `.nii/.nii.gz/.mgz`. Label overlays use `setColormapLabel` + `alphaThreshold` (proven in `docs/assets/js/atlas-browser.js:148-150`). Volumes come from an authenticated `GET /api/files/volume?path=…` (whole file — NiiVue does not use Range; `.nii` + `Content-Encoding: gzip` so the browser inflates natively) with a `max_voxels` guard and a `?downsample=2` option (renderer memory, not transport, is the limit — spike (c)). Coordinate picking = NiiVue `onLocationChange.mm` = scanner RAS of the reference volume; acceptance: a point picked on sub-ernie matches Freeview's RAS readout within 1 mm. "Create/refresh electrode overlay" is a `tools` job (`tit/tools/electrode_overlay.py`). "Load additional NIfTI" is limited to files under the project or `resources/` (jail). |
-| `gmsh` for `.msh` results (`analyzer_tab.py:2758-2782`; the SimNIBS-standard way to inspect field-on-mesh) | **three.js surface viewer in 3.0** (Results screen): the server exports GM/ROI surface + scalar field from `.msh` via `simnibs.mesh_io` as binary buffers; clipping/tetra in 3.1. Plus "Open with host Gmsh if installed" (`shell.openPath`; `tit/tools/gmsh_opt.py` already writes the `.opt` sidecar). **Escape hatch kept, unsupported:** the tiny X11 client + OSMesa apt libs stay in the image so `docker exec -e DISPLAY=… simnibs_container gmsh\|freeview <file>` still works for power users (one-paragraph recipe in `visualizers.md`); only launcher plumbing is removed. |
+| `freeview` from the NIfTI Viewer tab (`nifti_viewer_tab.py:1101-1180`), ROI picker, ex AddROIDialog, analyzer | **Freeview, unchanged binary, launched by `tit.server`** (`POST /api/viewers/freeview` with a ViewSpec). The layer-spec builder (`nifti_viewer_tab.py:1272-1290`, `:961-1087`, `:832-959`) moves to `tit/viewspec.py` — `build_view(kind, ...)` + `to_freeview_args(spec)` (same grammar as `launch_freeview_with_files`, with the six audit bugs fixed: HF glob never matching `_scalar_subject_magnE`, `labeling_LUT.txt` ignored, `*_LUT.txt` not found in group mode, MNI template paths outside `resources/atlas`, thresholds dropped when percentile mode is off, single-subject MNI unreachable). The process inherits the container's `DISPLAY` (X11 mounts stay in compose) and is tracked as a job of kind `viewer` (no locks, no budget) so it shows in the Jobs panel and Stop works; the previous instance is terminated first, as today. The Viewer screen is the layer/threshold form + "Open in Freeview". Coordinate lookup for spherical ROIs stays manual (read Freeview's status bar, type it) until the internal viewer lands. |
+| `gmsh` for `.msh` results (`analyzer_tab.py:2758-2782`; the SimNIBS-standard way to inspect field-on-mesh) | **Gmsh, unchanged, launched by `tit.server`** (`POST /api/viewers/gmsh {path}`), `.opt` sidecars written as today (`tit/tools/gmsh_opt.py`, `tit/analyzer/visualizer.py`, `tit/sim/TI.py`). Results screen: "Open in Gmsh" per mesh artifact. |
+| *(later track: internal viewer)* | NiiVue was verified on sub-ernie for volumes + server-exported surfaces (`dev/notes/v3-spikes.md`, spike (c)); a three.js tet/surface renderer is the candidate for the Gmsh side. Both consume the same ViewSpec; nothing in 3.0 depends on them, and they retire Freeview → Gmsh → X11 in that order when they are good enough. |
 | PyOpenGL electrode placement (`extensions/electrode_placement.py`, 358 LOC GL + ray casting) | three.js + Raycaster; skin surface exported by the server (`tit/blender/electrode_placement.py` already extracts the scalp from `.msh`); `stim_configs` writer moves to `tit/electrodes/placement.py`. **Default 3.1.** Because that extension is the *only* writer of `m2m/stim_configs/*.json` (`electrode_placement.py:1010-1036`) and the Simulator's Free-hand source reads them, the Simulator screen ships a **free-hand table editor** (label, x, y, z, type → same JSON via `tit/electrodes/placement.py`, "add from picked NiiVue coordinate") so the source keeps working without the 3D picker. |
 | HTML reports opened with `xdg-open` inside the container | `<iframe sandbox="allow-scripts">` (no `allow-same-origin` → opaque origin, no cookie access) whose `src` is `/api/files/report/<id>` served with its own CSP (`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:`) — reports embed inline `<script>` (`reporting/core/templates.py:866-868`) and are derived from run data, so they never run in the app's origin. "Open in browser" = `shell.openPath`. |
 | matplotlib/nilearn PDFs & PNGs | produced by jobs as today; shown as artifacts (PDF viewer / img). |
@@ -350,7 +357,11 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
 
 - **Desktop app (the documented path):** Launcher screen (Docker check, project dir, pull
   progress) → `docker compose -p ti-toolbox-<hash8(project path)> up -d` → wait for `/api/health`
-  → `loadURL(http://127.0.0.1:<port>/?token=…)`. No X11 anywhere. Windows becomes first-class.
+  → `loadURL(http://127.0.0.1:<port>/?token=…)`. X11 is needed only for the viewer windows: the app
+  carries the XQuartz/VcXsrv/`xhost` setup from `package/src/backend/env.js` (ported to
+  `desktop/src/main/x11.ts`, `xhost` scoped to localhost and reverted on exit); a missing X server
+  disables "Open in Freeview/Gmsh" with a message and nothing else. Windows stays supported via VcXsrv
+  for viewers only.
   **Attach, don't kill:** if a stack for the same project is already up (CLI user, previous
   session) the app attaches to it; today `cleanupExistingContainers` force-removes any running
   `simnibs_container` (`docker-manager.js:184-198`). **Switch project:** the app queries
@@ -371,7 +382,8 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
 - **Browser mode** (same bundle served by `tit.server`, `experimental` in 3.0 release notes):
   works because every renderer request is origin-relative. Electron-only features degrade via
   `window.tit?.isElectron`: "Open"/"Reveal" → show container path + copy; host file picker → text
-  input of a container path; launcher/docker lifecycle/notifications → not available.
+  input of a container path; launcher/docker lifecycle/notifications → not available; viewer
+  launches need an X display on the server side (documented: `ssh -X`).
 - **JupyterHub (`deploy/jupyterhub`, untracked WIP) / HPC (Apptainer):** 3.1. Requires adding
   `jupyter-server-proxy` to the single-user image (not present today) and, for SLURM, a second
   runner backend (`tit/jobs/runner.py` is an interface: `LocalPopenRunner` in 3.0, `SbatchRunner`
@@ -412,6 +424,9 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
   (Electron has no LTS; 28 is EOL); pinned `electron-builder`/`@electron/notarize` (delete the
   `@latest` installs in `release-build.yml:86-89` now).
 - **Jupyter:** off by default, started on demand with a token, published on `127.0.0.1:8888`.
+- **X11 (3.0):** the socket + `.Xauthority` mounts and `DISPLAY` stay for Freeview/Gmsh; `xhost` is
+  scoped (`+localhost` / `+SI:localuser:$USER`) and reverted when the app exits (today's `xhost +` is
+  never reverted, `env.js:342-346`).
 - **Docker socket:** unchanged for 3.0 (DooD for QSIPrep), documented; compose profile in 3.1.
 
 #### 2.9 App behaviour (first run, Docker discovery, updates)
@@ -528,11 +543,11 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
 
 **C. Removals at cutover (Phase 6)**
 - `tit/gui/` entirely (28k LOC), `tests/test_gui_imports.py`, `tit/gui/components/qt_log_handler.py`
-  (no callers), X11 mounts/env in all compose files, X11 code in `loader.py` and
-  `package/src/backend/env.js`, `package/docker/loader.sh`, `package/start-ti-toolbox.sh`,
-  `package/tests/test-docker-integration.sh`, Qt5/GTK apt packages in `Dockerfile.simnibs:55-93`
-  (keep the small X11 client + OSMesa/EGL set for the gmsh/freeview escape hatch and bpy/gmsh
-  offscreen — spike (g) decides the exact list).
+  (no callers), the legacy launcher `package/` (replaced by `desktop/`), `package/docker/loader.sh`,
+  `package/start-ti-toolbox.sh`, `package/tests/test-docker-integration.sh`; Qt5/GTK apt packages in
+  `Dockerfile.simnibs:81-92` only if Freeview (bundles its own Qt) and Gmsh keep working — spike (g).
+  **X11 stays** (mounts/env in compose, X11 client libs + Mesa `:55-79`, the XQuartz/VcXsrv logic —
+  ported to TypeScript).
 
 **Which copy of `tit` runs:** keep the `/ti-toolbox` checkout (pinned to the build commit) as the
 **only** copy — drop `pip install .` (`Dockerfile.simnibs:190`) and set `ENV PYTHONPATH=/ti-toolbox`
@@ -566,10 +581,10 @@ that keeps the documented import pattern working), the example notebook and `scr
   (`@niivue/niivue`); **three.js**; **uPlot** (`useUPlot` hook, ~40 lines); **openapi-typescript +
   openapi-fetch**. Tests: **vitest**, **Playwright** (`_electron` against the built
   `out/main/index.js`, mock server via `TIT_MOCK_SERVER_URL`).
-- **Layout:** first Phase-4 PR does `git mv package desktop` (history preserved; `package/` reads
-  as "the Python package" and collides with npm vocabulary) and updates the 4 paths in
-  `dev/update/update_version.py:68-89`, the 8 `working-directory` lines in `release-build.yml`,
-  `docs/wiki/desktop-app.md`, `AGENTS.md`. `desktop/{electron.vite.config.ts, src/main, src/preload,
+- **Layout:** the v3 app lives in a new `desktop/` directory; the legacy launcher `package/` stays
+  untouched until Phase 6 (decision 2026-08-27: no `git mv`, so the 2.x launcher keeps working during
+  the transition; `dev/update/update_version.py:68-89`, the 8 `working-directory` lines in
+  `release-build.yml`, `docs/wiki/desktop-app.md` and `AGENTS.md` switch to `desktop/` in Phase 6). `desktop/{electron.vite.config.ts, src/main, src/preload,
   src/renderer, src/shared, tests, build, docker}`; electron-builder `files: ['out/**','build/**']`,
   `main: ./out/main/index.js`, `extraResources: docker/` (+ the tmpdir compose copy pattern from
   `main.js:24-60`), `mac.notarize: true` replacing the custom `afterSign` hook. The renderer bundle
@@ -610,9 +625,9 @@ extracted function so the legacy GUI exercises the new code until cutover).
   fastapi "uvicorn[standard]"` inside `idossha/simnibs:v2.4.0`, serve REST + WS on `0.0.0.0`
   behind `127.0.0.1:<port>` publishing and **assert reachability with `curl` from the HOST** on
   macOS, Windows (Docker Desktop/WSL2) and Linux Engine; (b) time `import tit.sim; import tit.opt;
-  import tit.analyzer` and record RSS in the container (the server will hold SimNIBS); (c) NiiVue
-  in a sandboxed Electron renderer loading ernie T1 + T2_reg + two overlays from the server;
-  record renderer RSS/GPU memory and the voxel count at which the tab dies → `max_voxels` guard;
+  import tit.analyzer` and record RSS in the container (the server will hold SimNIBS); (c) **done
+  2026-08-27** (`dev/notes/v3-spikes.md`): NiiVue loads ernie T1 + tissue LUT + TI_max + electrode
+  overlay and server-exported GIfTI surfaces; kept as the seed of the internal-viewer track;
   (d) electron-vite + `contextIsolation`/`sandbox` skeleton doing `loadURL` against (a) with a
   token→cookie exchange and a WS round-trip, plus the Vite proxy dev loop; (e) **threads**: time
   charm, one FEM solve, `recon-all -parallel` and one QSIPrep run with `OMP_NUM_THREADS` = 1/4/8
@@ -681,7 +696,7 @@ extracted function so the legacy GUI exercises the new code until cutover).
 
 **Phase 4 — Desktop foundation (TypeScript, ≈4 wks; starts after Phase 1 against the v0
 contract + fixtures, not after Phase 3)**
-- `git mv package desktop`; electron-vite skeleton; security settings; preload bridge; Docker
+- new `desktop/` (legacy `package/` untouched); electron-vite skeleton; security settings; preload bridge; Docker
   lifecycle via CLI (`execa`), per-project compose name, **attach-or-start**, project switch
   semantics, launcher screen with pull progress (reuse `renderer.js:133-249` parsing); project
   init sequencing: Electron only `mkdir`s the chosen empty dir → compose up with it mounted →
@@ -722,7 +737,8 @@ contract + fixtures, not after Phase 3)**
   as deferred in the 3.0 release notes.
 
 **Phase 6 — Cutover, docs, release (≈2–3 wks)**
-- Delete `tit/gui/`, `tests/test_gui_imports.py`, X11 code and compose lines, Qt apt packages;
+- Delete `tit/gui/`, `tests/test_gui_imports.py`, `package/` (legacy launcher), Qt apt packages (if
+  spike (g) allows); X11 mounts/env stay for the viewers;
   bump to 3.0.0 (`update_version.py`: `desktop/package.json`, compose image tags, Dockerfile ARG;
   drop the `index.html`/`main.js` string patches; fix its stale `dev/bash_dev/…` target);
   `release-build.yml`: `npm ci && npm run typecheck && npm run lint && npm test && npm run build`,
@@ -732,10 +748,10 @@ contract + fixtures, not after Phase 3)**
   unchanged; `TISSUE_COND_<n>` honoured with a warning for one release; `code/ti-toolbox/jobs/`
   appears (and is `.bidsignore`d); users' `xhost`/XQuartz settings — CHANGELOG cleanup note.
 - Docs: rewrite `wiki/gui.md`, `wiki/desktop-app.md` (new architecture SVG), `wiki/extension.md`
-  (→ optional panels), `wiki/visualizers.md` (NiiVue, three.js, escape-hatch recipe),
+  (→ optional panels), `wiki/visualizers.md` (viewers launched from the app; X server still required for them),
   `wiki/scripting.md` (jobs API, events, locks from a notebook, new drivers; lines 40-53 Jupyter
   token), `wiki/example-notebook.md:19-23`, `installation/{windows,macos,linux,dependencies,
-  bash-cli}.md` (delete X-server sections; loader.py semantics; WSL2 note),
+  bash-cli}.md` (X-server sections reworded: needed for Freeview/Gmsh only; loader.py semantics; WSL2 note),
   `installation/hpc-apptainer.md` (browser mode, capabilities), `wiki/troubleshooting.md`
   (X11 section → "Remote server" ssh-tunnel section), "User Interface" sections in simulator /
   flex-search / ex-search / cluster-permutation-testing / nilearn-visuals / mti /
@@ -794,30 +810,30 @@ start once Phase 1's v0 contract exists. **One developer ≈ 8–10 months; two 
 user-visible milestone = end of Phase 4 (Jobs panel driving real container jobs); first
 daily-driver milestone = Phase 5 step 4.
 
-### 9. Open decisions (answer before Phase 1)
+### 9. Decisions (recorded 2026-08-27; ADR in `tracks/active/v3-electron-gui.md`)
 
-1. **Origin model:** UI served by `tit.server` + Electron `loadURL` (recommended: same-origin, no
-   CORS, one bundle) vs bundle-in-Electron + `app://` CORS allowlist.
-2. **Optional panels in 3.0:** recommended = Source, Cluster Permutation, NIfTI Group Average,
-   Nilearn Visuals, Quick Notes, Subject Info; **3D Visual Exporter and Electrode Placement → 3.1**
-   (free-hand simulations keep working through the table editor).
-3. **Viewer escape hatch:** keep the unsupported `docker exec -e DISPLAY … gmsh|freeview` recipe
-   (recommended; costs a few apt packages) vs remove X11 client libs entirely.
-4. **`.msh` viewer** three.js surface-only in 3.0 (recommended) vs 3.1.
-5. **`loader.py` fate:** shrink to a wrapper sharing Electron's env computation (recommended) vs
-   delete in favour of an Electron `--headless` CLI.
-6. **UI stack** confirm: React + Vite + TS + shadcn/Tailwind + RHF/ajv (alternatives: Svelte, Vue).
-7. **Windows code signing** for 3.0 (currently unsigned NSIS); no `electron-updater` in 3.0
-   (recommended).
-8. **Per-project stacks** (`ti-toolbox-<hash8>`) in 3.0 (recommended) vs single fixed stack.
-9. **Docker socket** stays mounted by default in 3.0 (recommended) vs compose profile.
-10. **PEP 562 lazy imports** in `tit/sim`/`tit/opt` `__init__` (optional; reduces server startup).
-11. **Per-subject QSIPrep work dir** (recommended) vs project-wide `qsi_work` lock.
+1. **Origin model:** UI served by `tit.server`, Electron `loadURL` after `/api/health` (same origin,
+   no CORS, one bundle).
+2. **Optional panels in 3.0:** Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals,
+   Quick Notes, Subject Info. 3D Visual Exporter and Electrode Placement → 3.1 (free-hand
+   simulations keep working through the table editor).
+3. **Viewers:** Freeview and Gmsh stay in the container, launched by `tit.server` from a ViewSpec
+   (§2.6); X11 stays. No embedded renderer in 3.0. Internal viewer = later track.
+4. **`.msh` viewer:** Gmsh (unchanged) in 3.0.
+5. **`loader.py` fate:** shrink to a wrapper sharing Electron's env computation.
+6. **UI stack:** React + Vite + TypeScript strict + shadcn/Tailwind + react-hook-form/ajv.
+7. **Windows:** unsigned NSIS in 3.0; no `electron-updater`.
+8. **Per-project stacks** (`ti-toolbox-<hash8>`): yes.
+9. **Docker socket:** stays mounted by default in 3.0.
+10. **PEP 562 lazy imports:** decide in Phase 1 from spike (b) numbers.
+11. **QSIPrep work dir:** per-subject (`-w`).
+12. **Repo layout (new):** new `desktop/` directory; `package/` untouched until Phase 6.
 
 ### 10. Definition of done for v3.0.0
 
-- [ ] No X11 in any launch path or doc (`DISPLAY`, `xhost`, XQuartz/VcXsrv gone); PyQt5 not
-      imported by `tit`; the only X11 remnant is the documented unsupported viewer recipe.
+- [ ] PyQt5 not imported by `tit`; the GUI process runs on the host without X11; X11 is used only
+      by Freeview/Gmsh windows launched through `tit.server` (`xhost` scoped and reverted); docs
+      describe the X server as required for the viewers only.
 - [ ] One documented user entry point (desktop app, macOS/Windows/Linux); `python loader.py`
       works for developers/servers (`--serve`, `--jupyter`, `--detach`, `--down`, `--bind`) and
       never tears down running jobs without asking.

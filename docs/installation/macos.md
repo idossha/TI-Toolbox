@@ -10,11 +10,9 @@ permalink: /installation/macos/
 1. **Install Docker Desktop** for Mac from [docker.com](https://www.docker.com/products/docker-desktop/)
 2. **Start Docker Desktop** and ensure it's running (green indicator in menu bar)
 
-### X Server for GUI
-Install [XQuartz](https://www.xquartz.org/) for GUI display:
-- Download and install XQuartz from the official website
-- Log out and back in (or restart) after installation
-- On the first launch of a project, the loader enables *Allow connections from network clients* for you (`defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false`); restart XQuartz once afterwards
+That's the only prerequisite — no X server to install. The toolbox UI renders inside the
+desktop app's own window; 3D/volume viewing happens in the same window too, not in a
+separate application.
 
 ## Option 1: Desktop App
 
@@ -22,8 +20,8 @@ Download the pre-built desktop application for your Mac from the **[Latest Relea
 
 | Architecture | Download |
 |--------------|----------|
-| **Intel/AMD** | `TI-Toolbox-{version}.dmg` |
 | **Apple Silicon** | `TI-Toolbox-{version}-arm64.dmg` |
+| **Intel/AMD** | `TI-Toolbox-{version}.dmg` |
 
 Simply download, mount the DMG, and drag TI-Toolbox to your Applications folder — the app handles Docker management for you.
 
@@ -50,13 +48,13 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    python3 loader.py
    ```
-4. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
+4. **First run will download the single Docker image (`idossha/ti-toolbox`, ~6.7GB)** — a few minutes on a typical connection
 
 ## macOS-Specific Features
 
 ### Apple Silicon Compatibility
-- Both images are built for `linux/amd64`; on Apple Silicon Docker Desktop runs them under Rosetta emulation
-- Expect slower FEM solves and recon-all on Apple Silicon than on a comparable x86 machine
+- The image is built for `linux/amd64`; on Apple Silicon Docker Desktop runs it under Rosetta emulation
+- Expect slower FEM solves and FastSurfer segmentation on Apple Silicon than on a comparable x86 machine — see the [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) page for the measured native-arm64 FastSurfer runtime and its emulated-amd64 status
 - All TI-Toolbox features work on both architectures
 
 ### Security & Notarization

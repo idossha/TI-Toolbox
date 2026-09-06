@@ -8,6 +8,12 @@ The Python loader is the command-line way to start the TI-Toolbox containers. It
 Docker stack the [desktop application]({{ site.baseurl }}/wiki/desktop-app/) launches, without the
 launcher window.
 
+> This page documents the classic two-image (`idossha/simnibs` + FreeSurfer) bash/CLI
+> workflow with an X-forwarded PyQt5 GUI, which this stack predates the single-image
+> `idossha/ti-toolbox:<version>` streamlining described on the main [Installation]({{ site.baseurl }}/installation/)
+> and [Architecture]({{ site.baseurl }}/wiki/desktop-app/) pages. Use the desktop app for the
+> streamlined, no-X11 workflow; this CLI entrypoint is unaffected by that change for now.
+
 ## Installation Steps
 
 ### Step 1: Download Required Files

@@ -28,13 +28,8 @@ permalink: /installation/windows/
 
 3. **Restart Docker Desktop** after enabling integration
 
-### X Server for GUI
-Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/) for GUI display and start it (XLaunch) with:
-- **Multiple windows** mode
-- **Disable access control** checked
-- Windows Firewall allowing connections to VcXsrv
-
-The loader pauses until you confirm the X server is configured.
+No X server is required — the toolbox UI and viewer both run inside the desktop app's own
+window, not a separate X11 client.
 
 ## Option 1: Desktop App
 
@@ -73,7 +68,7 @@ Download these files to your **Windows filesystem**:
    ```bash
    python3 loader.py
    ```
-5. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
+5. **First run will download the single Docker image (`idossha/ti-toolbox`, ~6.7GB)** — a few minutes on a typical connection
 
 ## File Mounting Considerations
 
@@ -92,10 +87,9 @@ Download these files to your **Windows filesystem**:
 ### Docker Integration Issues
 - **WSL integration not enabled**: Check Docker Desktop settings under "Resources" > "WSL Integration"
 - **Docker daemon not accessible**: Restart Docker Desktop and ensure WSL integration is active
-
-### X Server (VcXsrv) Issues
-- **GUI not appearing**: Ensure VcXsrv is running and "Disable access control" is checked
-- **Connection refused**: Configure VcXsrv to allow connections from WSL2 (default settings usually work)
+- **Windows named pipe**: the desktop app talks to Docker over its Engine API; if Docker
+  Desktop was just installed or updated, restart it once so its named pipe is available
+  before launching TI-Toolbox.
 
 ---
 

@@ -24,6 +24,124 @@ commands:
 
 jobs:
 
+  # v3 image build + smoke (dev/notes/v3-docker-streamline-plan.md D1). Gates on the
+  # *layered* recipe (Dockerfile.ti-toolbox.layered, FROM idossha/simnibs:v2.5.0) rather
+  # than the from-scratch one (Dockerfile.ti-toolbox) that CI is meant to eventually
+  # publish from: a from-scratch SimNIBS install takes 30-60+ minutes even on native
+  # hardware (see container/blueprint/Dockerfile.ti-toolbox's own header and
+  # dev/notes/v3-docker-streamline/w2-image-notes.md's "Not attempted" section, which
+  # ran into the same wall in a Phase-A session) — well past what this job's default
+  # `machine` resource class (2 vCPU / 8 GB) should be asked to absorb on every push, and
+  # nothing in this repo has provisioned a self-hosted or `resource_class: large`/`xlarge`
+  # executor for it yet. The layered recipe adds only the v3-specific layers (FastSurfer,
+  # the API deps, the entrypoint) on top of an already-built, already-published SimNIBS
+  # base image, which is what makes it CI-tractable: pull ~6 GB, build in minutes. See
+  # dev/notes/v3-docker-streamline/w6-docs-ci-notes.md for the reasoning and what would be
+  # needed to gate on the from-scratch recipe instead (a large/self-hosted executor, or a
+  # separate nightly/release-triggered job so it doesn't sit on every push).
+  #
+  # `ubuntu-2204:current` is an x86_64 machine, so this build and its smoke run natively
+  # (no QEMU emulation) — unlike a build on Apple Silicon, this is a legitimate place to
+  # eventually measure a native-amd64 FastSurfer runtime (w2/w3b notes both flag that
+  # number as "not yet measured"); not attempted in this job to keep it fast (checkpoints
+  # are already baked into the image at build time — no download needed — but a full
+  # segmentation run adds several more minutes per subject).
+  build-and-smoke-image:
+    executor: vm-docker
+    steps:
+      - common-setup
+
+      - run:
+          name: Build idossha/ti-toolbox (layered recipe)
+          no_output_timeout: 15m
+          command: |
+            set -euo pipefail
+            # --skip-ui-build: this job smoke-tests the container mechanics (health,
+            # the /tetravox/ route, FastSurfer, the SimNIBS/torch import) — not the
+            # built desktop UI bundle, which is `desktop`'s own vitest/build/e2e gates'
+            # job. Skipping it avoids an `npm ci` for the whole Electron toolchain here;
+            # the image instead ships tit.server's plain status page at `/`.
+            ./container/blueprint/build.sh --layered --skip-ui-build \
+                --tag idossha/ti-toolbox:ci
+
+      - run:
+          name: Start the container
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/ti-toolbox-smoke-project
+            docker run -d --name tit-ci-smoke \
+                -p 127.0.0.1:18765:8765 \
+                -e PROJECT_DIR_NAME=smoke \
+                -e TIT_SERVER_PORT=8765 \
+                -v /tmp/ti-toolbox-smoke-project:/mnt/smoke \
+                -v "$(pwd)":/ti-toolbox \
+                -e PYTHONPATH=/ti-toolbox \
+                idossha/ti-toolbox:ci
+            echo "Waiting for the container to become healthy..."
+            for i in $(seq 1 30); do
+              status="$(docker inspect tit-ci-smoke --format '{{.State.Health.Status}}' 2>/dev/null || echo starting)"
+              if [ "$status" = "healthy" ]; then
+                echo "healthy after ${i}0s"
+                break
+              fi
+              if [ "$status" = "unhealthy" ] || [ "$(docker inspect tit-ci-smoke --format '{{.State.Running}}')" != "true" ]; then
+                echo "Container did not become healthy (status=$status):"
+                docker logs tit-ci-smoke
+                exit 1
+              fi
+              sleep 10
+            done
+
+      - run:
+          name: Smoke test the image
+          command: |
+            set -euo pipefail
+
+            echo "-- /api/health --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/api/health)"
+            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
+
+            echo "-- / (UI or status page) --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/)"
+            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
+
+            echo "-- /tetravox/manifest.json --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/manifest.json)"
+            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
+            curl -s http://127.0.0.1:18765/tetravox/manifest.json
+
+            echo "-- FastSurfer --help --"
+            docker exec tit-ci-smoke bash -lc \
+                'cd "$FASTSURFER_HOME" && ./run_fastsurfer.sh --help | head -5'
+
+            echo "-- SimNIBS / FastAPI / torch import --"
+            docker exec tit-ci-smoke simnibs_python -c \
+                "import simnibs, fastapi, torch; print(simnibs.__version__, fastapi.__version__, torch.__version__)"
+            docker exec tit-ci-smoke simnibs_python -c \
+                "import simnibs.segmentation, brainnet; print('charm imports OK')"
+
+      - run:
+          name: Container pytest subset (server + viewspec + catalog + files routes)
+          command: |
+            set -euo pipefail
+            docker exec tit-ci-smoke simnibs_python -m pip install --no-cache-dir --quiet pytest
+            docker exec -w /ti-toolbox tit-ci-smoke simnibs_python -m pytest -q \
+                tests/test_catalog_v1.py \
+                tests/test_server_skeleton.py \
+                tests/test_viewspec.py \
+                tests/test_viewspec_scene.py \
+                tests/test_files_raw.py \
+                tests/test_files_routes.py \
+                tests/test_pre_fastsurfer.py
+
+      - run:
+          name: Stop and remove the container
+          when: always
+          command: |
+            docker logs tit-ci-smoke || true
+            docker stop tit-ci-smoke || true
+            docker rm tit-ci-smoke || true
+
   build-and-run-tests:
     executor: vm-docker
     steps:
@@ -103,7 +221,119 @@ jobs:
           path: /tmp/coverage
           destination: coverage
 
+  # Desktop app checks (FX3 fix lane, qa-security-notes.md finding #2: "the desktop app has
+  # zero CI enforcement"). Every gate the Phase-A/B/C lane notes in
+  # dev/notes/v3-docker-streamline/ cite as already passing in a developer's own session --
+  # typecheck, lint, unit tests, the production build, and the offscreen Electron e2e suite --
+  # re-run here on every push, so a later commit breaking one of them (the offscreen guarantee
+  # included) is caught instead of silently regressing until someone happens to run it by hand.
+  #
+  # Reuses `vm-docker` (not a lighter `docker:` executor) even though this job never touches
+  # Docker itself: it is the one executor type already proven to work on this project, and a
+  # real X11-capable Linux userspace (glib/gtk/nss/dbus/X libs) is exactly what Electron needs
+  # to start at all -- a minimal `docker:` image would need most of the same packages
+  # `playwright install-deps` already installs below, for no real savings.
+  #
+  # `npm run e2e:quiet` itself stays macOS-only by design (its own header:
+  # "macOS only -- it is the platform with the monitor to hijack (Linux CI runs under Xvfb)");
+  # this job runs the plain `npm run e2e` it wraps, under Xvfb -- Electron's Chromium backend
+  # needs a real X display to initialize even with `TIT_E2E_OFFSCREEN=1` (a window built but
+  # never shown is not the same as no window server existing at all), so `xvfb-run` supplies
+  # one rather than skipping the offscreen guarantee's own e2e suite in CI.
+  desktop-checks:
+    executor: vm-docker
+    steps:
+      - common-setup
+
+      - run:
+          name: "Install Node 22 (package.json engines: >=22.12.0)"
+          command: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            # ubuntu-2204:current ships nvm; install/select 22 explicitly rather than trust
+            # whatever LTS the image defaults to today.
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm alias default 22
+            {
+              echo 'export NVM_DIR="$HOME/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+              # Each `run` step is a fresh shell that only sources $BASH_ENV -- sourcing
+              # nvm.sh alone does not select a version, so activate "default" explicitly
+              # rather than depend on this image's own bashrc doing it.
+              echo 'nvm use default >/dev/null'
+            } >> "$BASH_ENV"
+            node --version
+            npm --version
+
+      - restore_cache:
+          keys:
+            - desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+            - desktop-npm-cache-v1-
+
+      - run:
+          name: npm ci
+          working_directory: desktop
+          command: |
+            set -euo pipefail
+            # `npm ci` always wipes and reinstalls node_modules by design, so what actually
+            # benefits from caching is npm's own download cache (~/.npm), not node_modules
+            # itself -- restored/saved below keyed on package-lock.json's checksum.
+            npm ci
+
+      - save_cache:
+          key: desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+          paths:
+            - ~/.npm
+
+      - run:
+          name: Typecheck
+          working_directory: desktop
+          command: npm run typecheck
+
+      - run:
+          name: Lint
+          working_directory: desktop
+          command: npm run lint
+
+      - run:
+          name: Unit tests (vitest)
+          working_directory: desktop
+          command: npx vitest run
+
+      - run:
+          name: Production build
+          working_directory: desktop
+          command: npm run build
+
+      - run:
+          name: Install Xvfb + Playwright's Chromium OS deps
+          command: |
+            set -euo pipefail
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+            # Electron bundles Chromium, so the OS libraries Playwright's own Chromium needs
+            # (nss, gtk3, dbus, atk, ...) are the same ones Electron needs to start at all --
+            # this installs them without downloading a browser binary this project never
+            # launches directly (only Electron, via `_electron.launch`).
+            cd desktop && npx playwright install-deps chromium
+
+      - run:
+          name: E2E (Electron, offscreen, under Xvfb)
+          command: |
+            set -euo pipefail
+            cd desktop
+            export TIT_E2E_OFFSCREEN=1
+            xvfb-run -a npm run e2e
+
+      - store_artifacts:
+          path: desktop/test-results
+          destination: desktop-e2e-test-results
+          when: always
+
 workflows:
   test_workflow:
     jobs:
       - build-and-run-tests
+      - build-and-smoke-image
+      - desktop-checks

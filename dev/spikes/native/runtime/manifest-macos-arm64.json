@@ -1,0 +1,83 @@
+{
+  "platform": "macosx_11_0_arm64 (macOS arm64)",
+  "python_build_standalone": {
+    "release_tag": "20260901",
+    "asset": "cpython-3.11.16+20260901-aarch64-apple-darwin-install_only.tar.gz",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.11.16%2B20260901-aarch64-apple-darwin-install_only.tar.gz",
+    "size_bytes": 27087450,
+    "sha256": "50424fa409e8ae84b82a3052522f64695b47dff2158b70bb7358e0ebd6c085c9"
+  },
+  "wheels_installed_no_deps_from_github_release": [
+    {
+      "name": "simnibs",
+      "version": "4.6.0",
+      "url": "https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs-4.6.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "size_bytes": 184051752,
+      "sha256": "fd312341f6de77586f9574458122f4eea2f6d57b9a0ea4ad1b982fee42715dea"
+    },
+    {
+      "name": "petsc4py",
+      "version": "3.22.2",
+      "url": "https://github.com/simnibs/petsc4py/releases/download/v3.22.2/petsc4py-3.22.2-cp311-cp311-macosx_14_0_arm64.whl",
+      "size_bytes": 16399098,
+      "sha256": "945f13cf41fbf22bf5fcb55209cd5b37657e243095f1ef6e3d819404476e060c"
+    },
+    {
+      "name": "fmm3dpy",
+      "version": "1.0.4",
+      "url": "https://github.com/simnibs/fmm3dpy/releases/download/v1.0.4/fmm3dpy-1.0.4-cp311-cp311-macosx_14_0_arm64.whl",
+      "size_bytes": 6613690,
+      "sha256": "c5704c04ec5566df1c37da4b1c2e5040ba284ab2ced995f5d0e98831073431a5"
+    },
+    {
+      "name": "cortech",
+      "version": "0.1",
+      "url": "https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-macosx_11_0_arm64.whl",
+      "size_bytes": 1180190,
+      "sha256": "400d9a499faa4b26a89ab33e53befbe3161e621cfb91a009c41d1a30467bf9b2"
+    },
+    {
+      "name": "samseg",
+      "version": "0.5a0",
+      "url": "https://github.com/oulap/samseg_wheels/releases/download/dev/samseg-0.5a0-cp311-cp311-macosx_14_0_arm64.whl",
+      "size_bytes": 49317411,
+      "sha256": "d0982b43d28f3605a7f876a00051ba709e49dfe46dc5f118ed3b2227c4dfef4a",
+      "note": "third-party personal GitHub account (github.com/oulap), not simnibs org or freesurfer/samseg -- supply-chain risk, see REPORT.md"
+    }
+  ],
+  "git_source_installs": [
+    {"name": "brainnet", "spec": "brainnet@git+https://github.com/simnibs/brainnet@v0.2"},
+    {"name": "brainsynth", "spec": "brainsynth@git+https://github.com/simnibs/brainsynth@v0.1"}
+  ],
+  "pypi_pins_from_environment_macos_yml": [
+    "gmsh==4.14.0", "h5py==3.15.1", "nibabel==5.3.3", "numba==0.64.0",
+    "numpy==2.3.0", "pygpc==0.4.4", "pyqt5==5.15.11", "scipy==1.17.1", "torch==2.6.0",
+    "jsonschema==4.26.0", "pillow==12.1.1", "requests==2.32.5", "mock==5.2.0",
+    "pyopengl==3.1.10", "matplotlib==3.10.8"
+  ],
+  "pypi_transitive_pins_discovered_by_pip_check": {
+    "ml-dtypes": "0.4.1 (samseg dependency, not listed in environment_macos.yml)",
+    "surfa": "git+https://github.com/freesurfer/surfa.git@ec5ddb193fd1caf22ec654c457b5678f6bd8e460 (samseg dependency, not listed in environment_macos.yml either -- pulled from FreeSurfer's own surfa geometry library, MIT-ish, NOT full FreeSurfer)"
+  },
+  "conda_only_dependency": {
+    "name": "python-mumps",
+    "pinned_version": "0.0.6",
+    "pypi_status": "sdist only (python_mumps-0.0.6.tar.gz), NO wheel for any platform -- needs the compiled MUMPS/SCOTCH/METIS C/Fortran libraries at build time, which pip cannot provide",
+    "conda_forge_status": "wheel-equivalent .conda packages exist for osx-arm64, osx-64, linux-64, linux-aarch64, linux-ppc64le, win-64",
+    "resolution_used_in_this_spike": "micromamba (2.9.0) into a throwaway env (mm/mumbaenv), then the compiled extension + its 21-dylib transitive closure copied into the pip runtime and relinked with install_name_tool (see graft_mumps.sh) so every @rpath reference resolves via @loader_path instead of the conda prefix",
+    "verified_working": true,
+    "grafted_size": "27 MB (mumps package + .dylibs, in runtime-macos-arm64/lib/python3.11/site-packages/mumps/)"
+  },
+  "upstream_wheel_defect_worked_around": {
+    "component": "simnibs 4.6.0 macosx_11_0_arm64 wheel, mesh_tools/cgal/{create_mesh_surf,create_mesh_vol,cgal_misc}.cpython-311-darwin.so",
+    "symptom": "ImportError: Library not loaded: @rpath/libmpfr.6.dylib -- LC_RPATH baked into the wheel at build time is the SimNIBS developer's own absolute path (/Users/axelt/miniforge3/envs/simnibs_dev/lib), not relocatable",
+    "resolution_used_in_this_spike": "libmpfr.6.dylib + libgmp.10.dylib obtained from conda-forge (mpfr=4.2.1, same pin environment_macos.yml lists) via micromamba, copied in, install_name_tool -add_rpath pointing the 3 extensions at the new location plus /usr/lib (libc++.1.dylib and libz.1.dylib are system libraries, resolved once /usr/lib is an explicit rpath entry -- @rpath lookups do not fall back to /usr/lib on their own)",
+    "see_script": "graft_cgal_libs.sh"
+  },
+  "tit_and_pure_deps": {
+    "tit": "pip install -e <repo> --no-deps",
+    "pure_python_deps_installed": ["nibabel", "mne", "nilearn", "pandas", "joblib", "matplotlib", "fastapi", "uvicorn", "pydantic", "pyyaml", "psutil"],
+    "bpy": "NOT installed in this spike (size; SimNIBS itself does not need it, only tit.blender does)"
+  },
+  "pip_check": "No broken requirements found."
+}

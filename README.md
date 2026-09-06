@@ -19,7 +19,12 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
+> **v3**: TI-Toolbox now ships as a single Docker image (`idossha/ti-toolbox`) with no X11
+> dependency — SimNIBS, FastSurfer, the toolbox UI, and the built-in 3D/volume viewer
+> (Tetravox Embed) are all served by the container and rendered in the Electron window. No
+> XQuartz/VcXsrv, no separate FreeSurfer image or license for the core workflow. See
+> [installation docs](https://idossha.github.io/TI-Toolbox/installation/) and the
+> [architecture page](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/) for details.
 
 ## How to Cite
 

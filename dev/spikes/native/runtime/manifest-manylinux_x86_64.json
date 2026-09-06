@@ -1,0 +1,14 @@
+{
+  "platform": "manylinux_2_28_x86_64",
+  "verified_by": "HTTP HEAD (200 + real content-length) only -- not installed or run, no Linux x86_64 machine available in this spike",
+  "wheels": [
+    {"name": "simnibs", "version": "4.6.0", "size_bytes": 188305161, "url": "https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs-4.6.0-cp311-cp311-linux_x86_64.whl"},
+    {"name": "petsc4py", "version": "3.22.2", "size_bytes": 25252811, "url": "https://github.com/simnibs/petsc4py/releases/download/v3.22.2/petsc4py-3.22.2-cp311-cp311-manylinux_2_28_x86_64.whl"},
+    {"name": "fmm3dpy", "version": "1.0.4", "size_bytes": 6371594, "url": "https://github.com/simnibs/fmm3dpy/releases/download/v1.0.4/fmm3dpy-1.0.4-cp311-cp311-manylinux_2_28_x86_64.whl"},
+    {"name": "cortech", "version": "0.1", "size_bytes": 1882346, "url": "https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl"},
+    {"name": "samseg", "version": "0.5a0", "size_bytes": 51144128, "url": "https://github.com/oulap/samseg_wheels/releases/download/dev/samseg-0.5a0-cp311-cp311-manylinux_2_28_x86_64.whl"},
+    {"name": "torch", "version": "2.6.0+cpu", "size_bytes": 178655896, "url": "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl"}
+  ],
+  "python_mumps": "no PyPI wheel; conda-forge linux-64 .conda package exists (same graft strategy would apply)",
+  "extra_yml_deps_not_on_macos": ["mkl=2024.2.2 (Pardiso solver)", "tbb=2021.13.0", "freeglut=3.2.2"]
+}

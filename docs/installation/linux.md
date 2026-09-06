@@ -19,11 +19,9 @@ permalink: /installation/linux/
    ```
    *Log out and back in for changes to take effect*
 
-### X Server
-Most Linux distributions come with X11 pre-installed. If you need to install it:
-- **Ubuntu/Debian**: `sudo apt install xorg`
-- **Fedora/RHEL**: `sudo dnf install xorg-x11-server-Xorg` (or yum)
-- **Arch**: `sudo pacman -S xorg-server`
+No X server is required. The toolbox UI and 3D/volume viewer both run inside the desktop
+app's own window (or, for the CLI route, are served over HTTP and opened in your regular
+browser) — there is nothing X11-specific to install.
 
 ## Option 1: Desktop App
 
@@ -63,15 +61,12 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
    ```bash
    python3 loader.py
    ```
-5. **First run will download the two Docker images (~18GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
-
-The loader runs `xhost +local:` so the container can open windows on your X display.
+5. **First run will download the single Docker image (`idossha/ti-toolbox`, ~6.7GB)** — a few minutes on a typical connection
 
 ## Distribution-Specific Notes
 
 ### Ubuntu/Debian
-- Follow standard Docker installation instructions
-- X11 is usually pre-installed
+- Follow standard Docker installation instructions — this is the primary tested distribution
 
 
-*Currently tested primarily on Ubuntu. Please submit an issue if you encounter problems on other distributions.* 
+*Currently tested primarily on Ubuntu. Please submit an issue if you encounter problems on other distributions.*

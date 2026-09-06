@@ -7,6 +7,43 @@ permalink: /releases/changelog/
 Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
+### Unreleased
+
+Docker-centric streamlining for the v3 Electron desktop app: one image instead of two, no
+X11 anywhere, FastSurfer replaces `recon-all`, and the built-in viewer moves from
+Freeview/Gmsh to an embedded Tetravox pane. See the [Architecture]({{ site.baseurl }}/wiki/desktop-app/)
+and [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) pages for the full detail.
+
+#### Additions
+
+- **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one ~6.7 GB image; no `pip install` at container start.
+- **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
+- **Tetravox Embed viewer** — the 3D/volume viewer now renders inside the app's own window (WebGL2 + WASM on the host GPU, driven by a `postMessage` protocol), instead of launching Freeview/Gmsh as separate X11 applications.
+- **Docker Engine API stack** — the desktop app now drives Docker entirely through its Engine API (image pull with progress, container create/start, health check, log streaming, stop) instead of shelling out to the `docker compose` CLI; `docker context inspect` is the only remaining CLI use, for engine discovery.
+- **Offscreen end-to-end test harness** — Electron e2e tests run headless/offscreen by default, with a quiet-check wrapper that asserts no window reaches the screen.
+
+#### Removals
+
+- **X11 everywhere** — no `/tmp/.X11-unix`/`.Xauthority` mounts, no `DISPLAY`, no `xhost`, no XQuartz/VcXsrv setup on any platform.
+- **The separate FreeSurfer image** — `recon-all`, the thalamic-nuclei and hippocampal-subfield segmentation stages, the `freesurfer` compose service, the `freesurfer_data` volume, and the FreeSurfer license plumbing for the core workflow are all removed. Existing `derivatives/freesurfer/` outputs on disk keep working — readers accept both FastSurfer and legacy FreeSurfer outputs.
+- **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate.
+- **`dockerode` and CLI-driven Docker orchestration** in the desktop app, replaced by the dependency-free Engine API client above.
+
+#### Changes
+
+- **Focused 3D previews** — **Simulator / Optimizer / Analyzer ▸ Scene** use only the visualization viewport and restore separate Skin and Grey matter opacity sliders. The dedicated Viewer keeps its full controls; saved scientific configurations are unchanged.
+- **Consistent workflow controls** — subject checkboxes and sliders have keyboard-readable names, long dropdown choices stay inside their pane, and primary actions and blocked-action reasons use the shared layout in both themes.
+
+- **Config field rename:** `PreprocessConfig.run_recon` → `run_fastsurfer` (an incoming `run_recon` is still accepted as a deprecated alias, with a warning); `parallel_recon`, `parallel_cores`, and `run_subcortical_segmentations` are dropped with no replacement (thalamic-nuclei/hippocampal-subfield segmentation has no FastSurfer equivalent — see the Pre-Processing page).
+- **Capabilities:** `x11_display`, `freeview`, `gmsh`, and `freesurfer` (as a capability flag; `has_freesurfer` on a subject's info is unaffected) are removed from `GET /api/capabilities`; `tetravox_embed {available, version, protocol}` and `fastsurfer` are added.
+
+#### Fixed
+
+- **Tabs preserve your work** — switching between Pre-processing, Simulator, Optimizer, Analyzer and Viewer retains each tab's draft, subject selection, section state, scroll and live 3D view for the open project session. Returning to a tab no longer rebuilds its viewer or resets its camera. Project switching starts a fresh session.
+- **Preview failures stay readable** — a missing or failed 3D renderer no longer loops through silent reloads; retry is explicit and retains your surface-opacity settings.
+- **Cortical atlas previews load again** — fixed a mesh-index lookup that prevented the atlas surface from building. Server build errors now remain readable until you explicitly retry, instead of appearing to build indefinitely.
+
+---
 ### v2.4.0 (Latest Release)
 
 **Release Date**: July 20, 2026

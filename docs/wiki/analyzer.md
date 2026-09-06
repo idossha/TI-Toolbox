@@ -39,7 +39,7 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 
 - Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
 - In mesh space, a bare region name (e.g. `cuneus`) expands to both hemispheres (`lh.cuneus` + `rh.cuneus`)
-- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz`, plus the subject's own `segmentation/labeling.nii.gz`
+- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.deep.mgz` (the cortical DKT parcellation FastSurfer's `--seg_only` produces for every subject processed by the current pipeline), plus the subject's own `segmentation/labeling.nii.gz` (charm; also gives whole-thalamus/-hippocampus/-amygdala). Five more voxel atlases only ever exist for a subject with **legacy `derivatives/freesurfer/` output from a pre-FastSurfer `recon-all` run** — `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz` — and are absent for a FastSurfer-only subject, with no replacement for the last three (thalamic nuclei and hippocampal/amygdala subfields); see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer) for what changed and why
 - The four bundled MNI atlases (used elsewhere for subcortical ROI targeting) are not offered by the analyzer
 - Detailed regional statistics and visualizations
 

@@ -18,6 +18,39 @@ The page has two parts. **Part 1** covers things outside the toolbox's control �
 
 # Part 1 — Environment problems (Docker, display, machine, upstream tools)
 
+## Developing desktop v3
+
+### Switching tabs resets a draft or 3D camera
+
+**Applies to:** early 3.0.0 development builds.
+**Cause:** route navigation unmounted pages and their embedded renderers; a shared subject selection
+also changed hidden workflows. The September 4 polishing update retains visited pages and gives
+each tab its own subject context. Closing/switching projects intentionally starts a new session.
+**Fix:** restart the updated desktop client once. In development, use `pnpm run dev` from `desktop/`.
+The Simulator, Optimizer and Analyzer previews also require the viewport-capable Tetravox bundle;
+an older protocol-2 bundle can still show its full application chrome.
+
+### A 3D preview never leaves "Loading"
+
+**Cause:** older builds removed a failed iframe, cleared its error during cleanup, and immediately
+loaded it again. A missing/unusable embed bundle could therefore appear to load forever.
+**Fix:** the updated preview keeps the error visible and offers **Retry 3D preview**. A locally built
+embed must use the installed layout: `index.html`, `assets/` and the generated `manifest.json` in
+one served directory. Raw Vite `dist/` output lacks the manifest; the release installer flattens
+the packaged `dist/` correctly. Do not fabricate a manifest for an unknown build.
+
+### Analyzer stays at "Building … scene" with repeated atlas errors
+
+**Cause:** the atlas builder accessed `TvscPayload.triangles`, but decoded meshes expose `indices`.
+The frontend then retried the server's one-shot HTTP 500, starting another build; stale HTTP 202
+data kept the preview at "Building". This is not evidence of a corrupt subject or a slow mesh.
+**Fix:** the updated builder uses the decoded index array. Manifest/atlas failures now stop polling,
+show the server's message and offer **Retry 3D preview**. Do not delete head models or cached surfaces
+to work around this development defect.
+
+If a cold atlas preview shows duplicate skin/cortex surfaces, update the desktop as well: its first
+scene now waits for the required atlas instead of racing a temporary anatomy scene against it.
+
 ## Docker
 
 ### Docker image store is corrupted — `blob sha256:… not found`
@@ -99,6 +132,12 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 
 ## GUI display (X11)
 
+> **v3 note:** the desktop app no longer uses X11 at all — the toolbox UI and the built-in
+> viewer (Tetravox Embed) both render inside the Electron window itself. Everything in this
+> section applies only to the classic `python3 loader.py` + `docker-compose.yml` CLI
+> workflow (see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)), which still
+> uses a PyQt5 GUI over X11 forwarding.
+
 ### No GUI on macOS — Qt XCB / `could not connect to display` / Qt5Agg error
 
 **Applies to:** macOS (Sequoia, Tahoe), XQuartz.
@@ -142,10 +181,11 @@ CLI tools work regardless of X11.
 **Cause:** the container filesystem is case-sensitive; macOS and Windows are not, so two spellings that look like one folder on your machine are two folders in the container.
 **Fix:** keep exactly one spelling per modality folder, matching the [pre-processing layout]({{ site.baseurl }}/wiki/pre-processing/).
 
-### `recon-all` fails with `ERROR! FOV=282.000 > 256`
+### `recon-all` fails with `ERROR! FOV=282.000 > 256` (legacy FreeSurfer derivatives)
 
+**Applies to:** projects with existing `derivatives/freesurfer/` output from before v3, or the legacy CLI path.
 **Cause:** FreeSurfer's 256 mm field-of-view limit — typical for templates such as MNI152 or large-FOV clinical scans.
-**Fix:** recon-all is optional (it only adds FreeSurfer atlases); disable it for templates, or crop/conform the volume first.
+**Fix:** v3 no longer runs `recon-all` at all (FastSurfer replaces it — see [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)), so this error only affects existing legacy output or the CLI path. Disable recon-all for templates, or crop/conform the volume first.
 **Source:** [#94](https://github.com/idossha/TI-Toolbox/discussions/94).
 
 ### DWI has no `.bval`/`.bvec`, or the pre-flight rejects it
