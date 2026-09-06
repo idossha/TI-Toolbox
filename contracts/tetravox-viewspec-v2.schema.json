@@ -112,12 +112,12 @@
         "name": { "type": "string" },
         "path": {
           "type": "string",
-          "description": "an origin-relative /api/files/raw/... URL (leading '/', no scheme/host), not a container filesystem path -- see tit/viewspec.py's module docstring.",
-          "pattern": "^/api/files/raw/"
+          "description": "either an origin-relative /api/files/raw/... URL (leading '/', no scheme/host) or an absolute filesystem path. tit.viewspec emits the URL form -- it was written for a viewer served from this origin. POST /api/view/open rewrites it to the *host's* absolute path (tit/server/routes/viewers.py::localise_scene_paths) because the Tetravox desktop app reads files, not URLs; a Windows host path is why this is not pinned to a leading '/'. Never a bare relative name: the app resolves those beside the scene file, which is not where the data is.",
+          "pattern": "^(/api/files/raw/|/|[A-Za-z]:[\\\\/])"
         },
         "absPath": {
           "type": "string",
-          "pattern": "^/api/files/raw/"
+          "pattern": "^(/api/files/raw/|/|[A-Za-z]:[\\\\/])"
         },
         "fingerprint": { "const": "" },
         "sidecars": {

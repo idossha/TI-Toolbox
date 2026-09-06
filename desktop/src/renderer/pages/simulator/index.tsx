@@ -17,15 +17,22 @@ import { Select } from "../../ui/Select";
 import { Button, IconButton } from "../../ui/Button";
 import { Checkbox } from "../../ui/Toggle";
 import { Popover } from "../../ui/Overlay";
-import { SubjectsField, blockedSubjects, presenceColumns, subjectsBlockedReason } from "../_shared/subjects";
+import { subjectsBlockedReason } from "../_shared/subjects";
 import { getSubjectDetail } from "./api";
-import { MontageManager, emptyDraft, type MontageDraft } from "./MontageManager";
-import { FlexTab } from "./FlexTab";
+import { JobsTable, emptyDraft, type JobSubject, type MontageDraft } from "./MontageManager";
 import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
-import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, OUTPUT_FIELDS_HELP, type SelectedRow } from "./types";
+import {
+  CONDUCTIVITY_OPTIONS,
+  OUTPUT_FIELDS,
+  OUTPUT_FIELDS_HELP,
+  emptyRow,
+  isRunnableRow,
+  type MontageSource,
+  type SelectedRow,
+} from "./types";
 import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
@@ -48,55 +55,46 @@ export function runLabelFor(rowCount: number): string {
 }
 
 /**
- * U16: the context bar's own subject switcher is gone (U11), so this page's own Subjects table
- * seeds itself from the shell's primary subject the same way `pages/preprocess/index.tsx` does —
- * a change to the primary (the command palette's "Change subject") is folded into the page's own
- * selection rather than silently ignored, but only by *adding* it: unticking it here afterwards
- * must not be fought by every render.
+ * The Jobs section's summary line: how many rows are jobs, over how many subjects — the sentence
+ * 2.5.0's "This will run N simulation(s)" confirmation made, stated continuously rather than only
+ * at the moment of pressing Run.
  */
-export function seedWithShellSubject(current: string[], shellSubject: string | null): string[] {
-  if (!shellSubject || current.includes(shellSubject)) return current;
-  return [shellSubject, ...current];
+export function jobsSummary(rows: SelectedRow[]): string {
+  const runnable = rows.filter(isRunnableRow);
+  if (rows.length === 0) return "no jobs yet";
+  const subjects = new Set(runnable.map((r) => r.subjectId)).size;
+  const incomplete = rows.length - runnable.length;
+  const head =
+    runnable.length === 0
+      ? "no complete job"
+      : `${runnable.length} job${runnable.length === 1 ? "" : "s"} · ${subjects} subject${subjects === 1 ? "" : "s"}`;
+  return incomplete > 0 ? `${head} · ${incomplete} incomplete` : head;
 }
 
 /**
- * Subjects a simulation can actually target: every ticked subject that has a head model built —
- * the same rule the Source panel's own subject picker applies (`pages/panels/source/index.tsx`).
- * Falls back to the full ticked list when the project has no `m2m` subjects at all (nothing to
- * compare against, matching this page's pre-U16 behaviour) rather than an always-empty plan.
+ * This page's readiness verdict per subject, handed to the Jobs table's own Subject cell — the
+ * subject grammar's J3 rule ("state *why*, and refuse to pick it") applied inside a row rather
+ * than in a page-wide table (which is the control the jobs rework removed: the row owns the
+ * subject now, so a global subject set had nothing left to decide).
  */
-export function eligibleSubjectsFor(selected: string[], subjectsWithModel: string[]): string[] {
-  return selected.filter((id) => subjectsWithModel.length === 0 || subjectsWithModel.includes(id));
+export function jobSubjectsFrom(subjects: Subject[]): JobSubject[] {
+  const anyModel = subjects.some((s) => s.has_m2m);
+  return subjects.map((s) => ({
+    id: s.id,
+    blockedReason: s.has_m2m || !anyModel ? undefined : "no head model (m2m)",
+  }));
 }
-
-/** The subset of the shared readiness columns this page's data supports (no dwi/ct detail read). */
-const SIM_COLUMNS = presenceColumns<Subject>();
 
 /** The Simulator's steps never vary with the configuration — one montage runs the same five. */
 const SIM_STEPS = stepsFor("sim");
 
 function SimulatorPage() {
   const navigate = useNavigate();
-  // U16: U11 deleted the context bar's own subject switcher, which was the only writer for
-  // `useSubject().batch` — so a multi-subject run is reachable again only through a control this
-  // page owns, seeded from (and kept loosely in step with) the shell's primary subject. Page-owned
-  // and page-local: unlike the old batch store, unticking a row here never re-scopes another page.
   const { id: shellSubject, subjects } = useSubject();
   // `usePageSession`, not `useState`, for everything the *user* decided (lane N2): this page
   // unmounts on every navigation, so a plain `useState` meant a step onto Results discarded the
-  // montage they had assembled and the sections they had opened. A transient (a dialog's open
-  // flag, the shell-subject sync sentinel) stays `useState` — reopening a modal on return is not
-  // "where they left off".
-  const [selectedSubjects, setSelectedSubjects] = usePageSession<string[]>("subjects", () =>
-    shellSubject ? [shellSubject] : [],
-  );
-  const [lastShellSubject, setLastShellSubject] = useState(shellSubject);
-  if (shellSubject !== lastShellSubject) {
-    setLastShellSubject(shellSubject);
-    setSelectedSubjects((prev) => seedWithShellSubject(prev, shellSubject));
-  }
-  const [tab, setTab] = usePageSession<"montage" | "flex" | "freehand">("sourceTab", "montage");
-  const [rows, setRows] = usePageSession<SelectedRow[]>("rows", []);
+  // jobs they had assembled and the sections they had opened.
+  const [rows, setRows] = usePageSession<SelectedRow[]>("jobRows", []);
 
   const [conductivity, setConductivity] = usePageSession("conductivity", "scalar");
   const [customConductivities, setCustomConductivities] = usePageSession<CustomConductivities>("conductivityOverrides", {});
@@ -112,64 +110,56 @@ function SimulatorPage() {
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
   const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
-  // Which placement each flex run is being simulated in (an EEG net's mapping, or the optimiser's
-  // free coordinates) — the user's decision, so it outlives a navigation like every other one here.
-  const [flexPlacement, setFlexPlacement] = usePageSession<Record<string, string>>("flexPlacement", {});
-  // Click-to-visualise: the montage row the user clicked, drawn on the guide pane as its net's
+  // Click-to-visualise: the job row the user clicked, drawn on the guide pane as its net's
   // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
   const [montagePreview, setMontagePreview] = useState<{ net: string; name: string; pairs: [string, string][] } | null>(null);
+  const [activeSource, setActiveSource] = useState<MontageSource | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
 
-  const subjectsWithModel = useMemo(() => subjects.filter((s) => s.has_m2m).map((s) => s.id), [subjects]);
-  const eligible = useMemo(
-    () => eligibleSubjectsFor(selectedSubjects, subjectsWithModel),
-    [selectedSubjects, subjectsWithModel],
-  );
-  // J3: the page states *why* a subject cannot be used and the control refuses to tick it —
-  // rather than the page silently dropping it from `eligible` on the way to the plan, which is
-  // what it did before. The fallback (no m2m subject anywhere) is `eligibleSubjectsFor`'s: with
-  // nothing to compare against, nothing is blocked.
-  const eligibility = useMemo(
-    () => (s: Subject) =>
-      s.has_m2m || subjectsWithModel.length === 0
-        ? { ok: true }
-        : { ok: false, reason: "no head model (m2m)" },
-    [subjectsWithModel],
-  );
-  const subjectsBlocked = subjectsBlockedReason(selectedSubjects, blockedSubjects(subjects, selectedSubjects, eligibility));
+  const jobSubjects = useMemo(() => jobSubjectsFrom(subjects), [subjects]);
+  const usable = useMemo(() => jobSubjects.filter((s) => !s.blockedReason).map((s) => s.id), [jobSubjects]);
+  const usableKey = usable.join(",");
 
   const subjectDetailQueries = useQueries({
-    queries: eligible.map((id) => ({ queryKey: ["subject-detail", id], queryFn: () => getSubjectDetail(id) })),
+    queries: usable.map((id) => ({ queryKey: ["subject-detail", id], queryFn: () => getSubjectDetail(id), staleTime: 60_000 })),
   });
   const subjectNets = useMemo(() => {
     const map: Record<string, string[]> = {};
-    eligible.forEach((id, i) => {
+    usableKey.split(",").filter(Boolean).forEach((id, i) => {
       map[id] = subjectDetailQueries[i]?.data?.eeg_nets ?? [];
     });
     return map;
-  }, [eligible, subjectDetailQueries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useQueries` hands back a fresh array each render.
+  }, [usableKey, subjectDetailQueries.map((q) => q.dataUpdatedAt).join(",")]);
 
-  function addRow(row: SelectedRow) {
-    setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
-  }
-  function removeRow(id: string) {
-    setRows((prev) => prev.filter((r) => r.id !== id));
-  }
-  function updateRowCurrents(id: string, currents: string) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, currents } : r)));
+  // The page starts with one empty job row seeded on the shell's primary subject: a table whose
+  // first act is "press Add job" would make the page's own subject a thing to discover.
+  const [seeded, setSeeded] = useState(false);
+  if (!seeded && rows.length === 0 && usable.length > 0) {
+    setSeeded(true);
+    setRows([emptyRow(shellSubject && usable.includes(shellSubject) ? shellSubject : (usable[0] as string))]);
   }
 
-  // Selections tied to a subject that leaves the context-bar selection no longer make sense — drop
-  // them so the plan and the job list never silently outlive the subject that owns them.
-  const visibleRows = useMemo(() => rows.filter((r) => eligible.includes(r.subjectId)), [rows, eligible]);
+  /** Rows that are actually jobs: a half-filled row is shown, never planned or submitted. */
+  const runnableRows = useMemo(() => rows.filter(isRunnableRow), [rows]);
+  const planSubjects = useMemo(() => [...new Set(runnableRows.map((r) => r.subjectId))], [runnableRows]);
 
   const params: GlobalParams = useMemo(
     () => ({ conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities }),
     [conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities],
   );
 
-  const plan = useSimPlan(visibleRows, params, selectedSubjects, subjectsBlocked);
+  // The subject clause of the blocked sentence is still the shared grammar's, but it is now about
+  // the subjects the ROWS name rather than a page-level tick list.
+  const subjectsBlocked = subjectsBlockedReason(
+    planSubjects,
+    planSubjects
+      .map((id) => ({ id, reason: jobSubjects.find((s) => s.id === id)?.blockedReason }))
+      .filter((b): b is { id: string; reason: string } => !!b.reason),
+  );
+
+  const plan = useSimPlan(runnableRows, params, planSubjects, runnableRows.length === 0 ? null : subjectsBlocked);
   const overrides = Object.keys(customConductivities).length;
 
   const digest = plan.model ? planDigest(plan.model) : (plan.blockedReason ?? "Resolving the plan…");
@@ -185,14 +175,16 @@ function SimulatorPage() {
   }
   const runButton = (
     <RunButton
-      rows={visibleRows}
+      rows={runnableRows}
       params={params}
       plan={plan}
       parallelSubjects={parallelSubjects}
       onSubmitted={() => setRows([])}
-      label={runLabelFor(visibleRows.length)}
+      label={runLabelFor(runnableRows.length)}
     />
   );
+
+  const previewIsMontage = activeSource === null || activeSource === "montage";
 
   return (
     <>
@@ -210,8 +202,8 @@ function SimulatorPage() {
             refetching={plan.refetching}
             error={plan.error}
             onRefetch={plan.refetch}
-            subjects={eligible}
-            emptyMessage={plan.blockedReason ?? "Select a montage to see the plan."}
+            subjects={planSubjects}
+            emptyMessage={plan.blockedReason ?? "Add a job to see the plan."}
             pinnedJobId={pinnedJobId}
             onPinJob={setPinnedJobId}
             steps={SIM_STEPS}
@@ -221,11 +213,15 @@ function SimulatorPage() {
               <ScenePane
                 mode="montage"
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
-                pairs={montageDraft?.pairs ?? (tab === "montage" ? montagePreview?.pairs : undefined)}
-                showing={tab === "montage" && !montageDraft && montagePreview ? { montage: montagePreview.name, net: montagePreview.net } : null}
-                onPairsChange={tab === "montage" ? setDraftPairs : undefined}
-                onRequestPairs={tab === "montage" ? startDraftFromScene : undefined}
-                note={tab === "montage" ? undefined : "Flex and free-hand sources carry their own electrode positions — the preview shows the net, not the run."}
+                pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
+                showing={previewIsMontage && !montageDraft && montagePreview ? { montage: montagePreview.name, net: montagePreview.net } : null}
+                onPairsChange={montageDraft ? setDraftPairs : undefined}
+                onRequestPairs={startDraftFromScene}
+                note={
+                  previewIsMontage
+                    ? undefined
+                    : "Flex and free-hand jobs carry their own electrode positions — the preview shows the net, not the run."
+                }
               />
             }
           />
@@ -234,96 +230,57 @@ function SimulatorPage() {
       >
         <RunWork>
           {/*
-           * Subjects (J1/J2): the one shared control, first on the page, `data-tier="1"` (§8 —
-           * never closed by `RunWork`'s fill controller, matching the contract
-           * `firstScreenControls` reads). It is deliberately not a `FormSection`: that primitive
-           * registers with the fill controller, which was measured to oscillate this table
-           * open/closed once later page content grew after mount.
+           * JOBS (2026-09-06 rework): the one table where a run is described, first on the page and
+           * `data-tier="1"` (§8 — never closed by `RunWork`'s fill controller). It replaces the
+           * page-level Subjects table *and* the three source tabs: a row carries its own subject,
+           * its own source, its own montage and its own currents, which is what 2.5.0's job cards
+           * did and what the v3 cross-product could not express.
            *
-           * Open by default (R3): every subject-taking workflow shows the selector on first
-           * visit, so a user never has to discover that a page takes more than one subject. The
-           * disclosure state is page-session memory from there on, so shutting it sticks while
-           * the user works — which is the headroom a real 4-pair mTI montage editor needs at
-           * 1280×900.
+           * It is deliberately not a `FormSection`: that primitive registers with the fill
+           * controller, which was measured to oscillate the page's first table open/closed once
+           * later page content grew after mount.
            */}
           <div data-tier="1">
-            <SubjectsField
-              subjects={subjects}
-              value={selectedSubjects}
-              onChange={setSelectedSubjects}
-              columns={SIM_COLUMNS}
-              eligibility={eligibility}
-              mode="per-subject"
-              defaultOpen
-            />
+            <FormSection
+              title="Jobs"
+              summary={jobsSummary(rows)}
+              helpSlot={
+                <Popover trigger={<IconButton aria-label="About simulation jobs" icon={<Info size={13} />} variant="ghost" size="sm" />}>
+                  <div style={{ maxWidth: 340 }} className="text-dense">
+                    One row is one simulation job. Each row picks its own subject and its own source — a montage from the
+                    catalog, an optimised electrode set from a flex-search run, or a saved free-hand placement — and carries
+                    its own currents. Duplicate a row to run the same job on another subject.
+                  </div>
+                </Popover>
+              }
+            >
+              <div style={{ gridColumn: "1 / -1" }}>
+                {subjects.length === 0 ? (
+                  <EmptyState
+                    icon={<Workflow size={24} />}
+                    message="No subjects in this project yet."
+                    actionLabel="Go to Pre-processing"
+                    onAction={() => navigate("/preprocess")}
+                  />
+                ) : (
+                  <JobsTable
+                    subjects={jobSubjects}
+                    subjectNets={subjectNets}
+                    rows={rows}
+                    onRowsChange={setRows}
+                    draft={montageDraft}
+                    onDraftChange={setMontageDraft}
+                    onNetChange={setMontageNet}
+                    onPreviewChange={setMontagePreview}
+                    onActiveSourceChange={setActiveSource}
+                  />
+                )}
+              </div>
+            </FormSection>
           </div>
 
-          {selectedSubjects.length === 0 ? (
-            <EmptyState
-              icon={<Workflow size={24} />}
-              message={subjects.length === 0 ? "No subjects in this project yet." : "Select a subject above to configure a simulation."}
-              actionLabel={subjects.length === 0 ? "Go to Pre-processing" : undefined}
-              onAction={subjects.length === 0 ? () => navigate("/preprocess") : undefined}
-            />
-          ) : (
+          {subjects.length > 0 && (
             <>
-              <div data-tier="1">
-                <FormSection
-                  title="Source"
-                  summary={`${visibleRows.length} selected`}
-                  helpSlot={
-                    <Popover trigger={<IconButton aria-label="About simulation sources" icon={<Info size={13} />} variant="ghost" size="sm" />}>
-                      <div style={{ maxWidth: 320 }} className="text-dense">
-                        A montage from the catalog, an optimised electrode set from a flex-search run, or a free-hand
-                        placement. Every ticked entry becomes one job per selected subject.
-                      </div>
-                    </Popover>
-                  }
-                >
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <SegmentedControl
-                      value={tab}
-                      onValueChange={(v) => setTab(v)}
-                      options={[
-                        { value: "montage", label: "Montage" },
-                        { value: "flex", label: "Flex result" },
-                        { value: "freehand", label: "Free-hand" },
-                      ]}
-                      aria-label="Montage source"
-                    />
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    {tab === "montage" && (
-                      <MontageManager
-                        selectedSubjects={eligible}
-                        subjectNets={subjectNets}
-                        selectedRows={rows}
-                        onAddRow={addRow}
-                        onRemoveRow={removeRow}
-                        onCurrentsChange={updateRowCurrents}
-                        draft={montageDraft}
-                        onDraftChange={setMontageDraft}
-                        onNetChange={setMontageNet}
-                        onPreviewChange={setMontagePreview}
-                      />
-                    )}
-                    {tab === "flex" && (
-                      <FlexTab
-                        selectedSubjects={eligible}
-                        selectedRows={rows}
-                        onAddRow={addRow}
-                        onRemoveRow={removeRow}
-                        placement={flexPlacement}
-                        onPlacementChange={(id, value) => setFlexPlacement((prev) => ({ ...prev, [id]: value }))}
-                      />
-                    )}
-                    {tab === "freehand" && (
-                      <FreehandTab selectedSubjects={eligible} selectedRows={rows} onAddRow={addRow} onRemoveRow={removeRow} />
-                    )}
-                  </div>
-                </FormSection>
-              </div>
-
               <FormSection
                 title="Electrodes"
                 collapsible
@@ -332,9 +289,7 @@ function SimulatorPage() {
                 summary={electrodeSummary(electrodeShape, dimensions, gelThickness)}
               >
                 {/* Shape, dimensions and gel thickness are one decision about one object, and
-                    three narrow controls; `.field-row-inline` keeps them on a single line.
-                    The row is deliberately FULL-BLEED (no 160px label gutter) — and so is
-                    Conductivity's below, so the two short sections share one left edge. */}
+                    three narrow controls; `.field-row-inline` keeps them on a single line. */}
                 <div className="field-row-inline">
                   <Field label="Shape">
                     <SegmentedControl
@@ -366,9 +321,6 @@ function SimulatorPage() {
                 changed={conductivity !== "scalar" || overrides > 0}
                 summary={conductivitySummary(conductivity, overrides)}
               >
-                {/* Same grammar as Electrodes above: one inline row, label -> control, flush left.
-                    A 450px select for the word "Isotropic" and a button floated to the far right
-                    were two halves of one short decision reading as two unrelated rows. */}
                 <div className="field-row-inline">
                   <Field label="Model">
                     <Select value={conductivity} onValueChange={setConductivity} options={CONDUCTIVITY_OPTIONS} />
@@ -412,6 +364,17 @@ function SimulatorPage() {
                 </div>
               </FormSection>
 
+              {/*
+               * Free-hand placements are AUTHORED here and CHOSEN in a job row's Montage cell — the
+               * same split the montage catalog has (its editor is inside the table's own "New
+               * montage"). Collapsed by default: writing electrode coordinates by hand is rare
+               * next to picking a montage.
+               */}
+              <FormSection title="Free-hand placements" collapsible defaultOpen={false} summary="author XYZ electrode sets">
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <FreehandTab subjects={usable} />
+                </div>
+              </FormSection>
             </>
           )}
         </RunWork>

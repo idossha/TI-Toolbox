@@ -7,7 +7,9 @@ import { buildSimulationConfig, type GlobalParams } from "../../src/renderer/pag
 import {
   currentsCount,
   defaultCurrentsFor,
+  emptyRow,
   inferMontageKind,
+  isRunnableRow,
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
@@ -19,7 +21,7 @@ import {
   montageOptionValue,
   parseMontageOptionValue,
 } from "../../src/renderer/pages/simulator/MontageManager";
-import { eligibleSubjectsFor, seedWithShellSubject } from "../../src/renderer/pages/simulator/index";
+import { jobSubjectsFrom, jobsSummary, runLabelFor } from "../../src/renderer/pages/simulator/index";
 import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
 import type { FlexRun } from "../../src/renderer/pages/simulator/api";
 import { SIM_PLAN_STAGES, sourceOfJob } from "../../src/renderer/pages/simulator/RunControls";
@@ -180,34 +182,55 @@ describe("Simulator page configs validate against contracts/schema.json", () => 
   });
 });
 
-// U16: Simulator's own page-owned Subjects table (`useSubject().batch` lost its only writer when
-// U11 removed the context bar's switcher) — a multi-subject run must be reachable from this page
-// alone.
-describe("Simulator's page-owned subject selection (U16)", () => {
-  it("seedWithShellSubject prepends the shell's primary subject when it is not already ticked", () => {
-    expect(seedWithShellSubject([], "ernie")).toEqual(["ernie"]);
-    expect(seedWithShellSubject(["101"], "ernie")).toEqual(["ernie", "101"]);
+/*
+ * 2026-09-06 jobs rework: the page-level Subjects table is gone — the ROW owns the subject
+ * (maintainer: "within a job users could manipulate the subject, the mode, the montage, the
+ * current intensities"). What is left to test here is the readiness verdict the row's own Subject
+ * cell renders, and the sentence the Jobs section prints.
+ */
+describe("the Simulator's job rows own their subject", () => {
+  const subjects = [
+    { id: "ernie", has_m2m: true },
+    { id: "101", has_m2m: false },
+  ] as Parameters<typeof jobSubjectsFrom>[0];
+
+  it("a subject with no head model is listed with its reason rather than dropped", () => {
+    expect(jobSubjectsFrom(subjects)).toEqual([
+      { id: "ernie", blockedReason: undefined },
+      { id: "101", blockedReason: "no head model (m2m)" },
+    ]);
   });
 
-  it("seedWithShellSubject never duplicates an already-ticked subject or fights an unticked one", () => {
-    expect(seedWithShellSubject(["ernie", "101"], "ernie")).toEqual(["ernie", "101"]);
-    // The primary was ticked, then the user unticked it in the table by hand — a later render with
-    // the same shell subject (`shellSubject !== lastShellSubject` guards re-seeding on every
-    // render) must not re-add it out from under the user.
-    expect(seedWithShellSubject([], null)).toEqual([]);
+  it("nothing is blocked when the project has no m2m subject at all (nothing to compare against)", () => {
+    const none = [{ id: "ernie", has_m2m: false }] as Parameters<typeof jobSubjectsFrom>[0];
+    expect(jobSubjectsFrom(none)[0]?.blockedReason).toBeUndefined();
   });
 
-  it("eligibleSubjectsFor keeps only ticked subjects with a head model — a subject without an m2m cannot be simulated", () => {
-    expect(eligibleSubjectsFor(["ernie", "101"], ["ernie"])).toEqual(["ernie"]);
-    expect(eligibleSubjectsFor(["101"], ["ernie"])).toEqual([]);
+  it("isRunnableRow gates the plan: a half-filled row is shown but never planned", () => {
+    expect(isRunnableRow(emptyRow("ernie"))).toBe(false);
+    expect(isRunnableRow({ ...emptyRow("ernie"), name: "F3_F4" })).toBe(false);
+    expect(isRunnableRow({ ...emptyRow(""), name: "F3_F4", pairs: [["E1", "E2"]] })).toBe(false);
+    expect(isRunnableRow({ ...emptyRow("ernie"), name: "F3_F4", pairs: [["E1", "E2"], ["E3", "E4"]] })).toBe(true);
+    // A flex/free-hand row is resolved by its XYZ pairs instead.
+    expect(isRunnableRow({ ...emptyRow("ernie", "flex"), name: "run", xyzPairs: [[[0, 0, 0], [1, 1, 1]]] })).toBe(true);
   });
 
-  it("eligibleSubjectsFor does not filter when the project has no m2m subjects at all (nothing to compare against)", () => {
-    expect(eligibleSubjectsFor(["ernie", "101"], [])).toEqual(["ernie", "101"]);
+  it("the Jobs summary counts complete jobs, their subjects, and what is still being filled in", () => {
+    const done = (subject: string): SelectedRow => ({
+      ...emptyRow(subject),
+      name: "F3_F4",
+      pairs: [["E1", "E2"], ["E3", "E4"]],
+    });
+    expect(jobsSummary([])).toBe("no jobs yet");
+    expect(jobsSummary([emptyRow("ernie")])).toBe("no complete job · 1 incomplete");
+    expect(jobsSummary([done("ernie")])).toBe("1 job · 1 subject");
+    expect(jobsSummary([done("ernie"), done("101")])).toBe("2 jobs · 2 subjects");
+    expect(jobsSummary([done("ernie"), done("ernie"), emptyRow("101")])).toBe("2 jobs · 1 subject · 1 incomplete");
   });
 
-  it("two ticked subjects both stay eligible when both have a head model — the two-subject plan case", () => {
-    expect(eligibleSubjectsFor(["ernie", "101"], ["ernie", "101", "MNI152"])).toEqual(["ernie", "101"]);
+  it("the primary's label counts the jobs the table holds, not the subjects", () => {
+    expect(runLabelFor(1)).toBe("Run simulation");
+    expect(runLabelFor(4)).toBe("Run 4 simulations");
   });
 });
 

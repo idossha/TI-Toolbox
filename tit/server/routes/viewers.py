@@ -8,11 +8,15 @@ to ``build_view``.
 D3 (``dev/notes/v3-docker-streamline-plan.md``): the external Freeview/Gmsh
 launch routes (``POST /api/viewers/freeview``, ``POST /api/viewers/gmsh``),
 ``_require_x11`` and the ``viewer`` job-kind submission they drove are
-**removed** -- viewing is the Tetravox embed rendered client-side from
-``ViewSpec.scene`` (served at ``/tetravox/`` by :mod:`tit.server.static`),
-which needs no X11 and launches nothing server-side. ``freeview_args``
-itself stays on the response for one release (deprecated) so an old client
+**removed** -- there is no X11 in this runtime. ``freeview_args`` itself
+stays on the response for one release (deprecated) so an old client
 mid-migration does not break; :func:`view_args` still exists to preview it.
+
+V2 (``dev/notes/v3-native-panes-external-viewer-plan.md``): viewing is the
+**host-installed Tetravox desktop app**, not an embed served from this
+origin. ``POST /api/view/open`` (bottom of this module) writes the scene
+document that app opens; it still launches nothing server-side, because the
+app it writes for is not on this side of the container boundary.
 
 Electrode overlay creation (v1 gap, ``pages/viewer/PARITY.md`` #1): the
 Viewer page's "Create/refresh electrode overlay" action is not a viewer
@@ -49,12 +53,16 @@ viewspec change was needed for the *viewing* half of this gap, only the
 
 from __future__ import annotations
 
+import copy
+import json
+import os
 from typing import Any
+from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException, Query
 
 from tit import viewspec
-from tit.server.schemas import ViewSpec
+from tit.server.schemas import ViewerOpen, ViewSpec
 
 router = APIRouter()
 
@@ -171,4 +179,190 @@ def view_args(body: dict[str, Any]) -> dict[str, Any]:
         "freeview_args": args,
         "freeview_command": ["freeview"] + args,
         "scene": spec["scene"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# V2 -- the scene file the host-installed Tetravox desktop app opens.
+#
+# The embed is retired (dev/notes/v3-native-panes-external-viewer-plan.md, V4):
+# nothing renders a viewer inside this app any more, and this container has no
+# display to render one in.  Viewing is the Tetravox *desktop app* on the host,
+# which the maintainer already installs and which auto-updates itself.  This
+# server's whole part in that is to put a scene document where that app can
+# open it.
+#
+# Two facts shape everything below.
+#
+# 1. **The app reads files, not URLs.**  ``to_tetravox_viewspec`` writes every
+#    ``DatasetRef.path`` as ``/api/files/raw/<abs path>`` because the embed
+#    fetched its bytes back through this origin.  A desktop app on the host
+#    opens ``/Users/me/datasets/000/...`` instead, so every dataset and sidecar
+#    path is rewritten here -- container path out of the URL, then container
+#    root -> host root.  A scene whose host root is unknowable is still written
+#    (the caller may only want to download it), with ``host_path: null`` saying
+#    so.
+#
+# 2. **The extension is ``.tetravox.json``, not ``.tvx.json``.**  Measured in
+#    the Tetravox repo at 0.3.11: ``packages/app/src/main/menu.ts::isScenePath``
+#    is ``/\.tetravox\.json$/i`` and ``electron-builder.yml`` registers exactly
+#    that compound extension as the app's owned document type.  Any other
+#    suffix is classified as *data* and the app tries to read the JSON as a
+#    volume -- the plan's working name ``<name>.tvx.json`` would have failed
+#    that way, silently, at the last step.
+# ---------------------------------------------------------------------------
+
+_SCENE_SUFFIX = ".tetravox.json"
+
+#: One file per view kind, overwritten on every Open.  A timestamped name per
+#: click would leave a directory nobody ever cleans up inside the user's own
+#: project; the scene is a derived artefact of the current selection, not a
+#: record of it.
+_SCENE_NAMES = {
+    "subject": "subject",
+    "simulation": "simulation",
+    "analysis": "analysis",
+    "group": "group",
+    "custom": "custom",
+}
+
+
+def viewer_scene_dir() -> str:
+    """``<project>/code/ti-toolbox/viewer/`` -- sibling of ``config/`` and ``jobs/``."""
+    from tit.paths import get_path_manager
+
+    return os.path.join(os.path.dirname(get_path_manager().config_dir()), "viewer")
+
+
+def _container_path_from_raw_url(url: str) -> str | None:
+    """``/api/files/raw/mnt/000/x.nii.gz`` -> ``/mnt/000/x.nii.gz``; anything else -> ``None``."""
+    if not isinstance(url, str) or not url.startswith(viewspec.RAW_ROUTE_PREFIX):
+        return None
+    return "/" + unquote(url[len(viewspec.RAW_ROUTE_PREFIX) :])
+
+
+def _to_host(container_path: str, container_root: str, host_root: str) -> str:
+    """``container_path`` re-rooted onto the host, keeping the *host's* separator.
+
+    A Windows host's project root is ``C:\\Users\\me\\data`` while every path
+    this server produces is POSIX, so the remainder is translated rather than
+    concatenated -- the same rule :func:`tit.server.host_path._join_host` uses
+    for the project root itself.
+    """
+    root = container_root.rstrip("/")
+    if container_path == root:
+        remainder = ""
+    elif container_path.startswith(root + "/"):
+        remainder = container_path[len(root) :]
+    else:
+        return container_path
+    if not remainder:
+        return host_root
+    if "\\" in host_root and "/" not in host_root:
+        return host_root.rstrip("\\") + remainder.replace("/", "\\")
+    return host_root.rstrip("/") + remainder
+
+
+def localise_scene_paths(
+    scene: dict[str, Any], container_root: str, host_root: str | None
+) -> dict[str, Any]:
+    """Every dataset/sidecar URL in *scene* rewritten to a filesystem path.
+
+    Returns a new document; *scene* is not mutated (the same object is still
+    the response body of ``GET /api/view/{kind}``, where the URL form is
+    correct).  With no *host_root* the container path is used, which is right
+    for a browser-mode download opened on a machine that mounts the project at
+    the same place, and honest everywhere else -- Tetravox says which file it
+    could not find.
+    """
+
+    def localise(url: Any) -> Any:
+        container = _container_path_from_raw_url(url)
+        if container is None:
+            return url
+        if host_root is None:
+            return container
+        return _to_host(container, container_root, host_root)
+
+    out = copy.deepcopy(scene)
+    for dataset in out.get("datasets", []):
+        if not isinstance(dataset, dict):
+            continue
+        for key in ("path", "absPath"):
+            if key in dataset:
+                dataset[key] = localise(dataset[key])
+        for sidecar in (dataset.get("sidecars") or {}).values():
+            if not isinstance(sidecar, dict):
+                continue
+            for key in ("path", "absPath"):
+                if key in sidecar:
+                    sidecar[key] = localise(sidecar[key])
+    return out
+
+
+@router.post(
+    "/api/view/open",
+    summary="Write the scene file the host-installed Tetravox desktop app opens",
+    response_model=ViewerOpen,
+)
+def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """``{kind, subject, ...}`` -> ``{name, path, host_path, scene}``.
+
+    Launches nothing.  The server has no display and the app this file is for
+    runs on the host; the Electron shell (or the browser's download) is what
+    turns the returned path into an open window.
+    """
+    from tit.paths import get_path_manager
+    from tit.server.host_path import host_project_dir
+
+    payload = body or {}
+    kind = str(payload.get("kind") or "")
+    if kind not in _SCENE_NAMES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"kind must be one of {', '.join(sorted(_SCENE_NAMES))}",
+        )
+    spec = viewspec.build_view(
+        kind,
+        subject=payload.get("subject"),
+        simulation=payload.get("simulation"),
+        space=payload.get("space"),
+        field=payload.get("field"),
+        analysis=payload.get("analysis"),
+        atlas=payload.get("atlas"),
+        roi=payload.get("roi"),
+        path=payload.get("path"),
+    )
+    if spec is None:
+        raise HTTPException(
+            status_code=404, detail="Unknown subject/simulation/analysis"
+        )
+    scene = spec.get("scene")
+    if not isinstance(scene, dict):
+        raise HTTPException(
+            status_code=404, detail="The server built no scene for this selection"
+        )
+
+    container_root = get_path_manager().project_dir or ""
+    host_root = host_project_dir(container_root)
+    localised = localise_scene_paths(scene, container_root, host_root)
+
+    directory = viewer_scene_dir()
+    os.makedirs(directory, exist_ok=True)
+    name = f"{_SCENE_NAMES[kind]}{_SCENE_SUFFIX}"
+    target = os.path.join(directory, name)
+    # Written whole, then renamed: the app may be watching this exact path from
+    # a previous Open, and half a JSON document is a parse error on screen.
+    tmp = f"{target}.partial"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(localised, handle, indent=1)
+    os.replace(tmp, target)
+
+    return {
+        "name": name,
+        "path": target,
+        "host_path": (
+            _to_host(target, container_root, host_root) if host_root else None
+        ),
+        "scene": localised,
     }

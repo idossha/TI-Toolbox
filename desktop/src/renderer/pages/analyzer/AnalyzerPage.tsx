@@ -24,13 +24,13 @@ import { ActionBar } from "../../ui/Chrome";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
-import { Combobox } from "../../ui/Combobox";
+import { Switch } from "../../ui/Toggle";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { notify } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
-import { SubjectsField, blockedSubjects, subjectsBlockedReason, type SubjectColumn } from "../_shared/subjects";
+import { subjectsBlockedReason } from "../_shared/subjects";
 import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import {
   RoiPicker,
@@ -40,11 +40,15 @@ import {
   type RoiValue,
 } from "../_shared/roi";
 import { ScenePane } from "../_shared/scene";
+import { TI_NORMAL_VOXEL_HELP } from "./fields";
 import {
-  FIELD_REGISTRY,
-  TI_NORMAL_VOXEL_HELP,
-  fieldSpecForName,
-} from "./fields";
+  AnalyzerJobRows,
+  analyzerJobsSummary,
+  emptyAnalyzerRow,
+  isRunnableAnalyzerRow,
+  type AnalyzerRow,
+  type AnalyzerSubject,
+} from "./JobRows";
 import { EMPTY_SPHERE, SphereRows, type Sphere } from "./SphereRows";
 import { ResultsPanel } from "./ResultsPanel";
 import { viewerSearch } from "../results";
@@ -81,24 +85,29 @@ function useDebounced<T>(value: T, delayMs: number): T {
 const ANALYZER_STEPS = stepsFor("analyzer");
 
 /**
- * U16: mirrors `pages/simulator/index.tsx`'s own `seedWithShellSubject` — U11 left
- * `useSubject().batch` with no writer, so this page's own Subjects table seeds itself from the
- * shell's primary subject (the command palette's "Change subject") by *adding* it, never by
- * fighting a subject the user has since unticked here.
+ * The subjects a **group** analysis runs over: the distinct subjects the rows name, in row order
+ * (`AnalyzerConfig.subject_ids`). In per-row mode each row is its own single-subject job, so this
+ * is only the cohort's membership.
  */
-export function seedWithShellSubject(current: string[], shellSubject: string | null): string[] {
-  if (!shellSubject || current.includes(shellSubject)) return current;
-  return [shellSubject, ...current];
+export function cohortSubjects(rows: AnalyzerRow[]): string[] {
+  return [...new Set(rows.filter(isRunnableAnalyzerRow).map((r) => r.subjectId))];
 }
 
 /**
- * `AnalyzerConfig.subject_id`/`.subject_ids` are mutually exclusive by mode (`buildConfig.ts`):
- * Subject mode analyzes exactly the first ticked subject; Group mode analyzes every ticked one.
- * Ticking a second subject without switching to Group must not silently multiply the job.
+ * A group analysis is one job over one simulation name (`run_group_analysis` reads the same
+ * simulation out of every subject's derivatives), so rows that disagree are a state the page must
+ * refuse rather than silently resolve to the first row's answer.
  */
-export function effectiveSubjectIdsFor(mode: Mode, selected: string[]): string[] {
-  if (mode === "single") return selected.length > 0 ? [selected[0] as string] : [];
-  return selected;
+export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
+  const runnable = rows.filter(isRunnableAnalyzerRow);
+  if (runnable.length === 0) return null;
+  const sims = [...new Set(runnable.map((r) => r.simulation))];
+  if (sims.length > 1) return `A group analysis runs one simulation — these rows name ${sims.join(", ")}.`;
+  const spaces = [...new Set(runnable.map((r) => r.space))];
+  if (spaces.length > 1) return "A group analysis runs in one space — these rows mix mesh and voxel.";
+  const fields = [...new Set(runnable.map((r) => r.field))];
+  if (fields.length > 1) return "A group analysis measures one field — these rows name more than one.";
+  return null;
 }
 
 export function AnalyzerPage() {

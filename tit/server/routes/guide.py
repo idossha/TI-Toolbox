@@ -57,7 +57,8 @@ def _manifest() -> dict[str, Any]:
 def _format(fmt: str) -> str:
     if fmt not in ("tvsc", "gii"):
         raise HTTPException(
-            status_code=400, detail=f"Unknown guide format {fmt!r}; expected 'tvsc' or 'gii'"
+            status_code=400,
+            detail=f"Unknown guide format {fmt!r}; expected 'tvsc' or 'gii'",
         )
     return fmt
 
@@ -85,7 +86,10 @@ def _json_response(body: Any) -> Response:
     return Response(
         content=json.dumps(body),
         media_type="application/json",
-        headers={"cache-control": IMMUTABLE_CACHE_CONTROL, "x-guide-version": str(guide.GUIDE_VERSION)},
+        headers={
+            "cache-control": IMMUTABLE_CACHE_CONTROL,
+            "x-guide-version": str(guide.GUIDE_VERSION),
+        },
     )
 
 
@@ -102,10 +106,15 @@ def manifest() -> Any:
     """
     body = _manifest()
     parts = [
-        {k: v for k, v in part.items() if k != "files"} for part in body.get("parts", [])
+        {k: v for k, v in part.items() if k != "files"}
+        for part in body.get("parts", [])
     ]
     atlases = [
-        {k: v for k, v in atlas.items() if k not in ("files", "legend_file", "legend_meta")}
+        {
+            k: v
+            for k, v in atlas.items()
+            if k not in ("files", "legend_file", "legend_meta")
+        }
         for atlas in body.get("atlases", [])
     ]
     nets = [
@@ -134,7 +143,10 @@ def manifest() -> Any:
     summary="One packaged guide surface as TVSC1 or GIfTI bytes",
     response_class=Response,
     responses={
-        200: {"description": "TVSC1 or GIfTI binary, per ?format", "content": {"application/octet-stream": {}}},
+        200: {
+            "description": "TVSC1 or GIfTI binary, per ?format",
+            "content": {"application/octet-stream": {}},
+        },
         304: {"description": "not modified (If-None-Match matched the ETag)"},
         400: {"description": "unknown ?format"},
         404: {"description": "no such packaged part, or the guide is not installed"},
@@ -158,7 +170,10 @@ def surface(
     summary="One packaged atlas' grey-matter surface with per-vertex labels",
     response_class=Response,
     responses={
-        200: {"description": "GIfTI binary with a label array and label table", "content": {"application/octet-stream": {}}},
+        200: {
+            "description": "GIfTI binary with a label array and label table",
+            "content": {"application/octet-stream": {}},
+        },
         304: {"description": "not modified"},
         400: {"description": "unknown ?format"},
         404: {"description": "no such packaged atlas, or the guide is not installed"},

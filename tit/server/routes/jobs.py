@@ -218,7 +218,10 @@ def _plan_generic_group(
         return plan_per_subject(kind, entries, tags=tags, overwrite=overwrite)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (TypeError, KeyError) as exc:  # a config that does not fit the kind's dataclass
+    except (
+        TypeError,
+        KeyError,
+    ) as exc:  # a config that does not fit the kind's dataclass
         raise HTTPException(
             status_code=422, detail=f"invalid config for kind {kind!r}: {exc}"
         ) from exc

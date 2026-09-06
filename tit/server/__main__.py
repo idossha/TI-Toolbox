@@ -31,9 +31,6 @@ from tit.server.settings import (
     resolve_dev_origins,
     resolve_project_dir,
     resolve_static_dir,
-    resolve_tetravox_embed_dir,
-    resolve_tetravox_embed_override,
-    resolve_tetravox_install_root,
     resolve_token,
 )
 
@@ -79,17 +76,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--token", help="shared secret (default: TIT_SERVER_TOKEN)")
     parser.add_argument(
         "--static-dir", help="UI bundle directory (default: TIT_STATIC_DIR)"
-    )
-    parser.add_argument(
-        "--tetravox-dir",
-        help="Tetravox embed bundle directory, served at /tetravox/ "
-        "(default: TIT_TETRAVOX_EMBED_DIR, else /opt/tetravox/embed). Given "
-        "explicitly it overrides any bundle installed through /api/tetravox.",
-    )
-    parser.add_argument(
-        "--tetravox-install-root",
-        help="where POST /api/tetravox/install writes bundles "
-        "(default: TIT_TETRAVOX_INSTALL_ROOT, else <user config>/tetravox/embed)",
     )
     parser.add_argument(
         "--dev-origin",
@@ -203,9 +189,6 @@ def main(argv: list[str] | None = None) -> int:
         port=args.port or int(os.environ.get(ENV_PORT, "8765")),
         token=token,
         static_dir=resolve_static_dir(args.static_dir),
-        tetravox_embed_dir=resolve_tetravox_embed_dir(args.tetravox_dir),
-        tetravox_embed_override=resolve_tetravox_embed_override(args.tetravox_dir),
-        tetravox_install_root=resolve_tetravox_install_root(args.tetravox_install_root),
         dev_reload=args.reload,
         dev_origins=resolve_dev_origins(args.dev_origin),
         allow_hosts=resolve_allow_hosts(args.allow_host),

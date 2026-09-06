@@ -94,7 +94,9 @@ export function useSimPlan(
   const refetching = queries.some((q) => q.isRefetching);
   const failed = queries.some((q) => q.error);
 
-  const blockedReason = subjectsBlocked ?? (rows.length === 0 ? "Select at least one montage." : null);
+  // A page with no complete job says so first: "select a subject" is not the truth when the table
+  // is what is empty (2026-09-06 jobs rework).
+  const blockedReason = rows.length === 0 ? "Add a job with a subject and a montage." : (subjectsBlocked ?? null);
 
   // Derived on every render rather than memoized: `useQueries` hands back a fresh array each
   // render, so a manual `useMemo` over it can only be keyed on a serialisation — which React

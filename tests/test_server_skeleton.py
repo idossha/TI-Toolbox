@@ -22,7 +22,6 @@ from tit.paths import get_path_manager  # noqa: E402
 from tit.server import COOKIE_NAME  # noqa: E402
 from tit.server.app import CSP_HEADER, create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
-from tit.server.static import TETRAVOX_CSP  # noqa: E402
 
 TOKEN = "test-token-abc123"
 BASE = "http://127.0.0.1:8765"
@@ -431,82 +430,15 @@ def test_version_schema_hash_changes_when_schema_json_changes(
 
 def test_capabilities_shape(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
-    # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer are gone;
-    # tetravox_embed/fastsurfer replace what viewing/parcellation capability they used to gate.
-    keys = {"docker_socket", "bpy", "jupyter", "tetravox_embed", "fastsurfer"}
+    # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer are gone.
+    # V4 (dev/notes/v3-native-panes-external-viewer-plan.md): `tetravox_embed` is gone too --
+    # there is no embedded viewer for this runtime to have a capability about. Viewing is the
+    # host-installed Tetravox desktop app, which this server neither ships nor serves, so its
+    # presence is a fact about the *host*, answered by the Electron shell (`tit:viewer:probe`),
+    # not by an HTTP capability.
+    keys = {"docker_socket", "bpy", "jupyter", "fastsurfer"}
     assert set(body) == keys
-    bool_keys = keys - {"tetravox_embed"}
-    assert all(isinstance(body[k], bool) for k in bool_keys)
-    # E1 (dev/notes/v3-embed-convergence-plan.md): `source`, `features`,
-    # `compatible` and `supported` are what let a host ask "can this embed do
-    # markers" instead of "is this version >= x" -- the coupling that used to
-    # mean a TI-Toolbox release per Tetravox release.
-    assert set(body["tetravox_embed"]) == {
-        "available",
-        "version",
-        "protocol",
-        "source",
-        "features",
-        "compatible",
-        "supported",
-    }
-    assert body["tetravox_embed"]["available"] is False  # no embed dir in these tests
-    assert body["tetravox_embed"]["version"] is None
-    assert body["tetravox_embed"]["protocol"] is None
-    assert body["tetravox_embed"]["source"] is None
-    assert body["tetravox_embed"]["features"] == []
-    assert body["tetravox_embed"]["compatible"] is False
-    # The supported range is reported even with no bundle at all: it is a
-    # property of this build, not of whatever happens to be installed.
-    assert body["tetravox_embed"]["supported"] == {"min": 1, "max": 2}
-
-
-def test_capabilities_tetravox_embed_reads_the_manifest(
-    project: Path, tmp_path: Path
-) -> None:
-    embed_dir = tmp_path / "embed"
-    embed_dir.mkdir()
-    (embed_dir / "manifest.json").write_text(
-        json.dumps({"name": "tetravox-embed", "version": "0.3.1", "protocol": 1})
-    )
-    (embed_dir / "index.html").write_text("<html>embed</html>")
-    settings = ServerSettings(
-        project_dir=str(project), token=TOKEN, tetravox_embed_dir=str(embed_dir)
-    )
-    client = TestClient(create_app(settings), base_url=BASE)
-    body = client.get("/api/capabilities", headers=BEARER).json()
-    assert body["tetravox_embed"] == {
-        "available": True,
-        "version": "0.3.1",
-        "protocol": 1,
-        "source": "baked",
-        "features": [
-            "cursor",
-            "layers",
-            "meshes",
-            "probe",
-            "screenshot",
-            "volumes",
-        ],
-        "compatible": True,
-        "supported": {"min": 1, "max": 2},
-    }
-
-
-def test_capabilities_tetravox_embed_false_on_malformed_manifest(
-    project: Path, tmp_path: Path
-) -> None:
-    embed_dir = tmp_path / "embed"
-    embed_dir.mkdir()
-    (embed_dir / "manifest.json").write_text("not json")
-    settings = ServerSettings(
-        project_dir=str(project), token=TOKEN, tetravox_embed_dir=str(embed_dir)
-    )
-    client = TestClient(create_app(settings), base_url=BASE)
-    body = client.get("/api/capabilities", headers=BEARER).json()
-    assert body["tetravox_embed"]["available"] is False
-    assert body["tetravox_embed"]["version"] is None
-    assert body["tetravox_embed"]["source"] is None
+    assert all(isinstance(body[k], bool) for k in keys)
 
 
 def test_project_shape(client: TestClient, project: Path, monkeypatch) -> None:
@@ -718,11 +650,12 @@ def test_csp_header_is_exactly_the_todo_string() -> None:
 
 
 def test_csp_no_longer_grants_wasm_eval_in_the_app_origin() -> None:
-    """D3: the in-app viewer moved into the Tetravox embed's own iframe/CSP.
+    """V4: nothing in this origin instantiates WASM any more.
 
-    The embed's Rust->WASM engine needs ``'wasm-unsafe-eval'`` -- but only on
-    responses under ``/tetravox/`` (``TETRAVOX_CSP``), never in this app's
-    own origin any more; plain ``eval`` stays blocked in both.
+    D3 moved the in-app viewer into the embed's own iframe and CSP; V4
+    (``dev/notes/v3-native-panes-external-viewer-plan.md``) removed the embed
+    outright. Neither ``eval`` nor WASM instantiation is granted anywhere this
+    server serves.
     """
     assert "wasm-unsafe-eval" not in CSP_HEADER
     assert "unsafe-eval" not in CSP_HEADER
@@ -797,133 +730,6 @@ def test_bundle_picked_up_without_restart(project: Path) -> None:
     bundle.mkdir()
     (bundle / "index.html").write_text("<html>built later</html>")
     assert "built later" in client.get("/").text
-
-
-# --------------------------------------------------------------------------
-# /tetravox/ -- the embed bundle (D1/D3, dev/notes/v3-docker-streamline-plan.md)
-# --------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def embed_dir(tmp_path: Path) -> Path:
-    d = tmp_path / "embed"
-    (d / "assets").mkdir(parents=True)
-    (d / "index.html").write_text("<html><body>tetravox embed</body></html>")
-    (d / "manifest.json").write_text('{"name": "tetravox-embed", "version": "0.1.0"}')
-    (d / "assets" / "app.wasm").write_bytes(b"\x00asm")
-    (d / "assets" / "app.js").write_text("export {}")
-    return d
-
-
-def _client_with_embed(project: Path, embed_dir: Path) -> TestClient:
-    settings = ServerSettings(
-        project_dir=str(project), token=TOKEN, tetravox_embed_dir=str(embed_dir)
-    )
-    return TestClient(create_app(settings), base_url=BASE)
-
-
-def test_tetravox_serves_index_at_bare_and_slash_and_index_html(
-    project: Path, embed_dir: Path
-) -> None:
-    client = _client_with_embed(project, embed_dir)
-    for path in ("/tetravox", "/tetravox/", "/tetravox/index.html"):
-        r = client.get(path)
-        assert r.status_code == 200, path
-        assert "tetravox embed" in r.text
-        assert r.headers["content-security-policy"] == TETRAVOX_CSP
-
-
-def test_tetravox_head_matches_get_headers_with_no_body(
-    project: Path, embed_dir: Path
-) -> None:
-    # An APIRoute, unlike a plain Starlette Route, does not infer HEAD from a GET decorator --
-    # `curl -I` against /tetravox/ 405'd before HEAD was registered explicitly (R2 item 7).
-    client = _client_with_embed(project, embed_dir)
-    for path in (
-        "/tetravox",
-        "/tetravox/",
-        "/tetravox/manifest.json",
-        "/tetravox/assets/app.js",
-    ):
-        get_resp = client.get(path)
-        head_resp = client.head(path)
-        assert head_resp.status_code == get_resp.status_code, path
-        assert head_resp.content == b"", path
-        assert (
-            head_resp.headers["content-length"] == get_resp.headers["content-length"]
-        ), path
-        assert head_resp.headers["content-security-policy"] == TETRAVOX_CSP, path
-
-
-def test_tetravox_has_its_own_csp_not_the_app_ones(
-    project: Path, embed_dir: Path
-) -> None:
-    client = _client_with_embed(project, embed_dir)
-    csp = client.get("/tetravox/").headers["content-security-policy"]
-    assert "wasm-unsafe-eval" in csp
-    assert csp != CSP_HEADER
-    # The CSPMiddleware never appends a second policy on top of this route's own.
-    assert csp == TETRAVOX_CSP
-
-
-def test_tetravox_mime_types(project: Path, embed_dir: Path) -> None:
-    client = _client_with_embed(project, embed_dir)
-    wasm = client.get("/tetravox/assets/app.wasm")
-    assert wasm.status_code == 200
-    assert wasm.headers["content-type"] == "application/wasm"
-    js = client.get("/tetravox/assets/app.js")
-    assert js.status_code == 200
-    assert "javascript" in js.headers["content-type"]
-    manifest = client.get("/tetravox/manifest.json")
-    assert manifest.status_code == 200
-    assert manifest.json() == {"name": "tetravox-embed", "version": "0.1.0"}
-    assert manifest.headers["content-security-policy"] == TETRAVOX_CSP
-
-
-def test_tetravox_jail_blocks_traversal(project: Path, embed_dir: Path) -> None:
-    client = _client_with_embed(project, embed_dir)
-    (project / "secret.txt").write_text("nope")
-    for path in ("/tetravox/../secret.txt", "/tetravox/%2e%2e/secret.txt"):
-        r = client.get(path)
-        assert "nope" not in r.text, path
-
-
-def test_tetravox_unknown_asset_404s_not_spa_fallback(
-    project: Path, embed_dir: Path
-) -> None:
-    client = _client_with_embed(project, embed_dir)
-    r = client.get("/tetravox/assets/does-not-exist.js")
-    assert r.status_code == 404
-    assert "tetravox embed" not in r.text  # never falls back to index.html
-
-
-def test_tetravox_404_when_dir_absent(project: Path) -> None:
-    settings = ServerSettings(
-        project_dir=str(project), token=TOKEN
-    )  # default dir, not installed
-    client = TestClient(create_app(settings), base_url=BASE)
-    for path in ("/tetravox", "/tetravox/", "/tetravox/manifest.json"):
-        assert client.get(path).status_code == 404, path
-
-
-def test_tetravox_path_never_falls_through_to_the_ui_spa(
-    project: Path, embed_dir: Path
-) -> None:
-    """``tetravox`` is a reserved prefix on the main catch-all: even with a
-    conventional UI bundle installed too, /tetravox/* never renders it."""
-    bundle = project / "bundle"
-    bundle.mkdir()
-    (bundle / "index.html").write_text("<html>SPA</html>")
-    settings = ServerSettings(
-        project_dir=str(project),
-        token=TOKEN,
-        static_dir=str(bundle),
-        tetravox_embed_dir=str(embed_dir),
-    )
-    client = TestClient(create_app(settings), base_url=BASE)
-    assert "tetravox embed" in client.get("/tetravox/").text
-    assert "SPA" in client.get("/").text
-    assert "SPA" in client.get("/jobs/42").text  # unrelated deep link still falls back
 
 
 # --------------------------------------------------------------------------

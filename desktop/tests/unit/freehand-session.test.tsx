@@ -36,7 +36,7 @@ describe("Free-hand source draft", () => {
     act(() => root.render(
       <QueryClientProvider client={queryClient}>
         <PageIdContext.Provider value="simulator">
-          {show && <FreehandTab selectedSubjects={["ernie"]} selectedRows={[]} onAddRow={() => {}} onRemoveRow={() => {}} />}
+          {show && <FreehandTab subjects={["ernie"]} />}
         </PageIdContext.Provider>
       </QueryClientProvider>,
     ));

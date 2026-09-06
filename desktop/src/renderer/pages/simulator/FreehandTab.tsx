@@ -1,7 +1,13 @@
+/**
+ * Free-hand placements — the **author** side only (2026-09-06 jobs rework).
+ *
+ * Choosing one is a job row's business now (`JobsTable`'s Montage cell lists a subject's saved
+ * sets); this section is where a set is written down and saved, which is exactly the split the
+ * montage catalog already had.
+ */
 import { Plus, Trash2, MapPin } from "lucide-react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
-import { Checkbox } from "../../ui/Toggle";
 import { Field, TextInput } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
@@ -10,7 +16,7 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
 import { usePageSession } from "../../app/pageSession";
 import { getFreehand, putFreehand, type ElectrodePosition, type FreehandConfig } from "./api";
-import { defaultCurrents, type SelectedRow } from "./types";
+
 
 /** Matches `Montage.simulation_mode`: 2 or 4+ pairs, i.e. 4 or 8+ positions (an even count). */
 function isValidPositionCount(n: number): boolean {
@@ -31,23 +37,9 @@ function pairsFromPositions(positions: ElectrodePosition[]): [[number, number, n
   return out;
 }
 
-function rowId(subject: string, name: string) {
-  return `freehand:${subject}:${name}`;
-}
-
 const EMPTY_POSITION: ElectrodePosition = { label: "", x: 0, y: 0, z: 0 };
 
-export function FreehandTab({
-  selectedSubjects,
-  selectedRows,
-  onAddRow,
-  onRemoveRow,
-}: {
-  selectedSubjects: string[];
-  selectedRows: SelectedRow[];
-  onAddRow: (row: SelectedRow) => void;
-  onRemoveRow: (id: string) => void;
-}) {
+export function FreehandTab({ subjects: selectedSubjects }: { subjects: string[] }) {
   const queryClient = useQueryClient();
   const queries = useQueries({
     queries: selectedSubjects.map((subject) => ({
@@ -183,7 +175,6 @@ export function FreehandTab({
           <table className="data-table">
             <thead>
               <tr>
-                <th />
                 <th>Subject</th>
                 <th>Configuration</th>
                 <th>Positions</th>
@@ -191,31 +182,9 @@ export function FreehandTab({
             </thead>
             <tbody>
               {rows.map(({ subject, config }) => {
-                const id = rowId(subject, config.name);
-                const checked = selectedRows.some((r) => r.id === id);
                 const pairs = pairsFromPositions(config.electrode_positions);
                 return (
-                  <tr key={id}>
-                    <td>
-                      <Checkbox
-                        checked={checked}
-                        disabled={pairs.length === 0}
-                        onCheckedChange={(on) => {
-                          if (on) {
-                            onAddRow({
-                              id,
-                              subjectId: subject,
-                              source: "freehand",
-                              name: config.name,
-                              xyzPairs: pairs,
-                              currents: defaultCurrents(pairs.length),
-                            });
-                          } else {
-                            onRemoveRow(id);
-                          }
-                        }}
-                      />
-                    </td>
+                  <tr key={`${subject}:${config.name}`}>
                     <td className="mono">{subject}</td>
                     <td className="mono">{config.name}</td>
                     <td className="text-dense">{config.electrode_positions.length} positions ({pairs.length} pairs)</td>

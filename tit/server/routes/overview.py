@@ -67,7 +67,11 @@ def job_states_by_subject(jobs: list[dict[str, Any]]) -> dict[str, dict[str, str
     for job in jobs:
         kind = str(job.get("kind", ""))
         state = str(job.get("state", ""))
-        value = "pending" if state in _ACTIVE_STATES else ("failed" if state == "failed" else "")
+        value = (
+            "pending"
+            if state in _ACTIVE_STATES
+            else ("failed" if state == "failed" else "")
+        )
         for sid in job.get("subject_ids") or []:
             per_kind = seen.setdefault(str(sid), {})
             if kind in per_kind:

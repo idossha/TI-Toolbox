@@ -59,7 +59,9 @@ def _safe_path(name: str) -> str:
 
 
 def _document(body: Any) -> PipelineDocument:
-    payload = body.get("pipeline") if isinstance(body, dict) and "pipeline" in body else body
+    payload = (
+        body.get("pipeline") if isinstance(body, dict) and "pipeline" in body else body
+    )
     try:
         return PipelineDocument.from_dict(payload)
     except PipelineDocumentError as exc:
@@ -121,7 +123,8 @@ def load_pipeline(name: str) -> dict[str, Any]:
             data = json.load(fh)
         except json.JSONDecodeError as exc:
             raise HTTPException(
-                status_code=422, detail=f"saved pipeline {name!r} is not valid JSON: {exc}"
+                status_code=422,
+                detail=f"saved pipeline {name!r} is not valid JSON: {exc}",
             ) from exc
     return _document(data).to_dict()
 
@@ -139,7 +142,9 @@ def save_pipeline(name: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]
     return {"name": name, "saved": True}
 
 
-@router.delete("/api/pipelines/{name}", status_code=204, summary="Delete a saved pipeline")
+@router.delete(
+    "/api/pipelines/{name}", status_code=204, summary="Delete a saved pipeline"
+)
 def delete_pipeline(name: str) -> None:
     path = _safe_path(name)
     if not os.path.isfile(path):
@@ -147,7 +152,9 @@ def delete_pipeline(name: str) -> None:
     os.remove(path)
 
 
-@router.post("/api/pipelines/validate", summary="Validate a pipeline graph, with reasons")
+@router.post(
+    "/api/pipelines/validate", summary="Validate a pipeline graph, with reasons"
+)
 def validate_pipeline(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     doc = _document(body)
     result = validate(doc).to_dict()
@@ -182,7 +189,9 @@ def _job_preview(doc: PipelineDocument) -> list[dict[str, Any]]:
     status_code=201,
     summary="Run a whole pipeline as one job group",
 )
-def run_pipeline_route(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+def run_pipeline_route(
+    request: Request, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """One ``submit_plan`` call: one ``group_id`` for the whole canvas.
 
     ``after`` on every submitted job is the document's edges resolved to real job ids, so the
@@ -206,7 +215,9 @@ def run_pipeline_route(request: Request, body: dict[str, Any] = Body(...)) -> di
         or isinstance(parallel_subjects, bool)
         or parallel_subjects < 1
     ):
-        raise HTTPException(status_code=422, detail="parallel_subjects must be an integer >= 1")
+        raise HTTPException(
+            status_code=422, detail="parallel_subjects must be an integer >= 1"
+        )
     try:
         planned = plan_pipeline(
             doc,

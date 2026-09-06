@@ -26,150 +26,11 @@ class Version(BaseModel):
     simnibs: str | None
 
 
-class ProtocolRange(BaseModel):
-    """The inclusive embed-protocol range this build can host (E1)."""
-
-    min: int
-    max: int
-
-
-class TetravoxEmbedCapability(BaseModel):
-    available: bool
-    version: str | None = None
-    protocol: int | None = None
-    source: Literal["override", "installed", "baked"] | None = Field(
-        default=None,
-        description=(
-            "where the active bundle came from: the version baked into the image, "
-            "one installed through POST /api/tetravox/install, or a --tetravox-dir "
-            "dev override"
-        ),
-    )
-    features: list[str] = Field(
-        default_factory=list,
-        description=(
-            "named capabilities of the active bundle (E1): derived from its protocol, "
-            "or taken verbatim from the manifest's own `features` array when it has one, "
-            "so a host asks for a name and never for a version number"
-        ),
-    )
-    compatible: bool = Field(
-        default=False,
-        description="the active bundle's protocol is inside `supported`",
-    )
-    supported: ProtocolRange = Field(
-        description=(
-            "the protocol range this build can host (tit.tetravox.protocol). Always "
-            "present -- it is a property of this build, not of whatever is installed"
-        )
-    )
-
-
-class TetravoxRelease(BaseModel):
-    """One embed bundle on disk (active, installed, or the image's floor)."""
-
-    version: str
-    protocol: int | None = None
-    source: Literal["override", "installed", "baked"]
-    path: str
-    name: str | None = None
-    sha: str | None = None
-    features: list[str] = Field(default_factory=list)
-    compatible: bool = False
-    active: bool = False
-
-
-class TetravoxState(BaseModel):
-    """``GET /api/tetravox`` — everything the Settings page needs in one read."""
-
-    active: TetravoxRelease | None = None
-    reason: str = Field(description="one line saying why that bundle is the active one")
-    installed: list[TetravoxRelease] = Field(default_factory=list)
-    baked: TetravoxRelease | None = None
-    supported: ProtocolRange
-    install_root: str
-    index_url: str = Field(description="where `check for updates` reads from")
-    auto_update: bool = Field(
-        default=True,
-        description=(
-            "A3: when true the server checks the release index at startup and every "
-            "24 h and installs a newer *compatible* bundle on its own; when false it "
-            "still checks and only reports. Persisted in <install root>/policy.json"
-        ),
-    )
-
-
-class TetravoxUpdate(BaseModel):
-    """One entry of the release index."""
-
-    version: str
-    protocol: int | None = None
-    url: str
-    sha256: str
-    notes: str | None = None
-    published: str | None = None
-    compatible: bool = Field(
-        description="protocol inside the supported range: installable by this build"
-    )
-    installed: bool = Field(description="already present in the install root")
-
-
-class TetravoxUpdateOutcome(BaseModel):
-    """What one pass of the auto-update policy decided (A3).
-
-    ``action`` is the whole vocabulary: ``installed`` (a newer compatible bundle
-    is now active), ``available`` (there is one, automatic updates are off),
-    ``current``, ``unsupported`` (its protocol is past this build's range -- A1
-    says report, never install) and ``failed`` (offline, rate-limited, bad
-    digest).  Every one of them is a sentence in ``message``.
-    """
-
-    action: Literal["installed", "available", "current", "unsupported", "failed"]
-    message: str
-    version: str | None = None
-    protocol: int | None = None
-    at: float | None = Field(default=None, description="unix seconds")
-
-
-class TetravoxUpdates(BaseModel):
-    """``GET /api/tetravox/updates`` — never an error when the network is down.
-
-    ``available`` is false with a readable ``message`` instead, because "you are
-    offline" is a state to render, not a failure to retry.
-    """
-
-    available: bool
-    message: str | None = None
-    index_url: str
-    releases: list[TetravoxUpdate] = Field(default_factory=list)
-    auto_update: bool = Field(
-        default=True, description="the persisted policy (A3); see TetravoxState"
-    )
-    checked_at: float | None = Field(
-        default=None,
-        description="unix seconds of the check this answer comes from (cached or fresh)",
-    )
-    from_cache: bool = Field(
-        default=False,
-        description=(
-            "this answer came from the ETag/age cache rather than a request just "
-            "made -- GitHub allows 60 unauthenticated requests per hour per IP"
-        ),
-    )
-    last_outcome: TetravoxUpdateOutcome | None = Field(
-        default=None,
-        description="what the last automatic pass decided, in the words Settings shows",
-    )
-
-
 class Capabilities(BaseModel):
     docker_socket: bool
     bpy: bool
     jupyter: bool = Field(
         description="jupyter importable in this interpreter (contracts/SCHEMA-CHANGES.md, ra_13 3e)"
-    )
-    tetravox_embed: TetravoxEmbedCapability = Field(
-        description="the embedded viewer bundle at /tetravox/, from <embed dir>/manifest.json"
     )
     fastsurfer: bool = Field(
         description="FASTSURFER_HOME (or /opt/fastsurfer) has run_fastsurfer.sh"
@@ -221,6 +82,31 @@ class ViewSpec(BaseModel):
             "server's output). Untyped here (Any) because the full engine scene model is "
             "Tetravox-owned and far larger than a Pydantic model is worth mirroring."
         ),
+    )
+
+
+class ViewerOpen(BaseModel):
+    """``POST /api/view/open`` -- where the scene file was written, in both path languages.
+
+    V2 (``dev/notes/v3-native-panes-external-viewer-plan.md``).  ``path`` is
+    inside this container; ``host_path`` is the same file as the *host* sees
+    it, and is what the Electron shell hands to the Tetravox desktop app.
+    ``host_path`` is ``None`` when this server cannot know its project's host
+    root (:mod:`tit.server.host_path`) -- the app then offers the scene as a
+    download instead of a launch.
+    """
+
+    name: str = Field(description="the file's basename, ending in .tetravox.json")
+    path: str = Field(
+        description="absolute container path, under <project>/code/ti-toolbox/viewer/"
+    )
+    host_path: str | None = None
+    scene: dict[str, Any] = Field(
+        description=(
+            "the ViewSpec v2 document that was written, with every dataset/sidecar path "
+            "rewritten from an /api/files/raw URL to the host's own absolute path -- the "
+            "desktop app reads files, not URLs"
+        )
     )
 
 

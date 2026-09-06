@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import logging
 import time
@@ -13,7 +12,6 @@ import psutil
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse
-from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -24,12 +22,10 @@ from tit.server.auth import _token_matches, new_session_id, require_auth
 from tit.server.routes import OPEN_MODULES, iter_route_modules
 from tit.server.settings import ServerSettings
 
-# TODO.md §2.8. D3 (dev/notes/v3-docker-streamline-plan.md): the in-app viewer is now the
-# Tetravox embed, rendered inside a same-origin <iframe src="/tetravox/...">, not code running in
-# this app's own origin/CSP -- tit/server/static.py's TETRAVOX_CSP carries the 'wasm-unsafe-eval'
-# its Rust->WASM engine needs, on responses under /tetravox/ only. This header no longer needs
-# (and no longer grants) it: plain JS eval and WASM instantiation both stay blocked in the app's
-# own origin. 'frame-src self' keeps permitting that iframe.
+# TODO.md §2.8. V4 (dev/notes/v3-native-panes-external-viewer-plan.md): there is no embedded
+# viewer any more, so nothing in this app needs 'wasm-unsafe-eval' and nothing is framed from this
+# origin -- plain JS eval and WASM instantiation stay blocked. `frame-src` survives for exactly one
+# reason, the published documentation site below.
 #: The published documentation website. Help -> Docs frames it (and probes it with a `no-cors`
 #: fetch first), so it needs both `frame-src` and `connect-src`; nothing else in the app talks to
 #: an outside origin. Framing a same-origin `/docs/` instead is what made that tab render the app
@@ -157,13 +153,6 @@ def _custom_openapi(app: FastAPI) -> dict[str, Any]:
         components.setdefault(name, _rewrite_defs_refs(definition))
     for name, definition in _job_enum_schemas().items():
         components.setdefault(name, definition)
-    schema["paths"]["/ws/tetravox"] = {
-        "get": {
-            "summary": "WebSocket; app-level events (today only tetravox.updated, "
-            "published by the auto-update policy)",
-            "responses": {"101": {"description": "switching protocols"}},
-        }
-    }
     schema["paths"]["/ws/system"] = {
         "get": {
             "summary": "WebSocket; one SystemSnapshot JSON message every 2 s "
@@ -175,70 +164,17 @@ def _custom_openapi(app: FastAPI) -> dict[str, Any]:
     return schema
 
 
-async def _tetravox_auto_update(app: FastAPI) -> None:
-    """A3 — check the Tetravox release index at startup and every 24 h.
-
-    Three properties, in the order they matter:
-
-    1. **It never delays ``/api/health``.**  It is an :mod:`asyncio` task created
-       by the lifespan *after* startup completes, and its first act is to sleep
-       :data:`tit.tetravox.updates.STARTUP_DELAY_S`, so a request arriving in the
-       first moments of the process is answered by a loop that is doing nothing.
-    2. **Every network call runs in a threadpool.**  ``tit.tetravox`` is
-       ``urllib``-based and blocking; awaiting it on the event loop would stall
-       every other request for the length of a 30 s timeout.
-    3. **It cannot take the server down.**  Every pass is wrapped: an offline
-       host, a 403 and a corrupt archive are all recorded as the last outcome and
-       reported by ``GET /api/tetravox/updates``, never raised.
-
-    A short-lived process (a ``TestClient`` block, ``--dump-openapi``) shuts its
-    lifespan down long before the initial sleep elapses, so it makes no request
-    at all -- which is why the delay is part of the design and not politeness.
-    """
-    from tit.tetravox import store as tvx_store
-    from tit.tetravox import updates as tvx_updates
-
-    await asyncio.sleep(tvx_updates.STARTUP_DELAY_S)
-    while True:
-        try:
-            settings = app.state.settings
-            root = tvx_store.install_root(
-                getattr(settings, "tetravox_install_root", None)
-            )
-            # No `current_version`: the baseline is the newest bundle this updater
-            # itself installed from a release, not whatever happens to be active.
-            # The dev container holds a hand-installed 0.4.0 from a pre-release
-            # branch -- numerically ahead of the first real release (0.3.12) --
-            # so comparing against the active bundle would answer "up to date"
-            # forever on exactly the machine this matters on.
-            outcome = await run_in_threadpool(
-                tvx_updates.run_check_and_maybe_install, root
-            )
-            await run_in_threadpool(tvx_updates.record_outcome, root, outcome)
-            logger.info(
-                "tetravox auto-update: %s — %s", outcome.action, outcome.message
-            )
-            if outcome.action == "installed" and outcome.version:
-                ws.publish_tetravox_updated(
-                    outcome.version, outcome.protocol, outcome.message
-                )
-        except asyncio.CancelledError:
-            raise
-        except Exception:  # never take the server down for a viewer update
-            logger.exception("tetravox auto-update: check failed")
-        await asyncio.sleep(tvx_updates.CHECK_INTERVAL_S)
-
-
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Start the background Tetravox check; cancel it on shutdown."""
-    task = asyncio.create_task(_tetravox_auto_update(app))
-    try:
-        yield
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await task
+    """No startup or shutdown work.
+
+    V4 (``dev/notes/v3-native-panes-external-viewer-plan.md``) removed the only
+    thing that lived here -- the background Tetravox-embed update check.  The
+    hook itself stays so that adding the next one is an edit, not a re-wiring
+    of ``create_app``.
+    """
+    del app
+    yield
 
 
 def create_app(settings: ServerSettings) -> FastAPI:
