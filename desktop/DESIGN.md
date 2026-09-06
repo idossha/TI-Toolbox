@@ -1020,89 +1020,83 @@ the app updates itself and its releases are not this project's to pin.
 
 ## 10. Viewer
 
-**The Viewer page is a composition panel, not a viewer** (V1 + VM,
-`dev/notes/v3-native-panes-external-viewer/{VX,VM}.md`). V1's brief: *"the viewer tab only acts as
-the data selection and it actually opens up everything in [an external window] like we have in
-2.5.0."* VM's, on seeing what that produced — a 40 px bar over a black rectangle with a ghost list
-in it: *"make the menu for the visualizer much more extensive and centred — since the viewer opens
-in its own window, the page can be graceful and let users enjoy an extensive menu experience."*
+**The Viewer page is a source, a file list, and Open** (V1 · VM · VM2,
+`dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
 
-The embed is retired. Nothing on this page draws pixels and nothing on this page is an `<iframe>`:
-the picture belongs to the **Tetravox desktop app**, a signed, notarised, self-updating application
-on the host, with its own window, its own theme, its own panels and its own release cadence. What
-this page owes a person is the whole composition — and a composition deserves a centred column with
-room to think in, not a strip of selects over a canvas that will never draw anything.
+V1 made it a data selector: *"the viewer tab only acts as the data selection and it actually opens
+up everything in [an external window] like we have in 2.5.0."* VM read the empty space that left as
+room for a composition panel — per-layer cards with opacity, colormap and threshold, a layout, a
+camera, a background, "Also open" extras — and the maintainer's verdict on the screenshots was
+**"too much"**. VM2 is the correction, and it is a better page than either:
+
+> **The list of files that will open is the whole scene, and it is editable.**
+
+Remove a row and that dataset is not in the scene. Add one — from everything the subject and the
+simulation offer, or any path in the project — and it is, at the end. Drag (or ↑/↓) to reorder and
+that is the layer order. Reset lets the source decide again. Open writes exactly those files, in
+that order.
 
 ```
 ┌──────┬────────────────────────────────────────────────────────────┐
-│ rail │            Compose a scene                                 │  centred, max 880
-│  56  │            Pick what to look at and how it should look…    │
-│      │            ── SOURCE ────────────────────────────────      │
-│      │            Type ⟨Simulation⟩   Subject ⟨ernie⟩             │  label-left, 2 cols
-│      │            Simulation ⟨…⟩      Field ⟨…⟩                   │
-│      │            Space ⟨Subject│MNI⟩                             │
-│      │            ── LAYERS ────────────────────────────────      │
-│      │            [👁 T1                          grayscale]      │  one card per layer
-│      │             Opacity ▬▬▬▬ 100%   Colormap ⟨gray⟩            │
-│      │             Threshold ⟨lo⟩⟨hi⟩  In 3D ☐                    │
-│      │            ── LAYOUT & CAMERA ───────────────────────      │
-│      │            Panes ⟨1×1│1+3│2×2│3D⟩  Camera ⟨A P L R S I⟩    │
-│      │            Background ⟨Dark│Black│Light⟩  Convention ☐     │
-│      │            ── ALSO OPEN ─────────────────────────────      │
-│      │            ☐ Subject T1   ☐ Atlas labels …                 │
-│      │            ┌ What will open ──────────── 5 files ┐         │  preview card
-│      │            │ T1.nii.gz            volume   12.5 MB│        │
-│      │            └───────────────────────────────────────┘       │
-│      │  [Save as preset…] [Recent]              [Open in Tetravox] │  sticky footer
+│ rail │   Open in Tetravox                                         │  centred, max 880
+│  56  │   Pick a source, edit the list of files it resolves to…    │
+│      │  ┌ SOURCE  The type decides which of the fields it needs ┐ │
+│      │  │ Type ⟨Simulation⟩      Subject ⟨ernie⟩                │ │
+│      │  │ Simulation ⟨Thalamus⟩  Field ⟨…⟩                      │ │
+│      │  │ Space ⟨Subject│MNI⟩                                   │ │
+│      │  └───────────────────────────────────────────────────────┘ │
+│      │  ┌ WHAT WILL OPEN  2 files, in this order      [+ Add…]  ┐ │
+│      │  │ ⠿ T1.nii.gz           volume  12.5 MB  ↑ ↓ ×         │ │
+│      │  │ ⠿ ernie_TI_max.nii.gz volume  16.6 MB  ↑ ↓ ×         │ │
+│      │  └───────────────────────────────────────────────────────┘ │
+│      │  [Save as preset…] [Recent]            [Open in Tetravox]  │
 └──────┴────────────────────────────────────────────────────────────┘
 ```
 
-- **The rule that decides what the panel may offer: every knob has to land in the scene file.** A
-  control whose value the server cannot write is a lie told to the person using it, and nothing on
-  screen would say so. The vocabulary is therefore the server's
-  (`tit/viewspec.py::apply_scene_overrides`, `EXTRA_LAYERS`), which is in turn the engine's own
-  ViewSpec v2 type. This is also why there is **no electrode-*points* checkbox**: ViewSpec v2 has
-  no points layer. The electrode overlay *volume* exists, so that is what "Also open" offers.
-- **Four sections, each with a one-line description.** Source (what the scene is built from — the
-  type decides which fields follow), Layers (what the selection resolved to, with the server's own
-  defaults), Layout & camera (how the window is divided and where the camera starts), Also open
-  (extra files). A heading that is a noun with no verb makes a reader open the section to find out
-  what it does; the line costs 16 px and is read once.
-- **The draft → command grammar covers the composition too.** Editing anything — a selector, an
-  opacity, a layout — edits the draft. Drafting costs one `dry_run` request, which writes no file
-  and launches nothing. **Open** is the one place a scene is written and the one place the app is
-  launched: one `POST /api/view/open`, one file, one spawn.
-- **The preview strip is the same endpoint, in dry run.** A preview built by different code from
-  the thing it previews is a preview that can be wrong, and the one moment this page must not be
-  wrong is the moment before another application's window covers someone's work. It lists the
-  resolved files with their sizes, because "this is a 64 MB mesh" is the fact a person wants before
-  the window opens, not after.
+- **The page does not say how a file should look, and that is deliberate.** Opacity, colormap,
+  threshold, layout, camera, convention: all of it is a judgement about the *data* — a percentile
+  window on a TI field, a LUT and `nearest` on a label volume, a mesh added hidden because the file
+  is 64 MB — and it lives in `tit/viewspec.py` with the rest of the scene's defaults. A file the
+  view type produced keeps exactly that view type's settings; a file the person added is described
+  by `_layer_for_path` from its name. Tetravox has an inspector, its own window and the reader's
+  full attention; this page has a list. (The server's `overrides` plumbing from VM still exists and
+  is still tested — nothing on this page sends it.)
+- **The list is the same endpoint that opens it.** It resolves through `POST /api/view/open` with
+  `dry_run`, and Open is the same call without it. A list built by different code from the thing it
+  opens is a list that can be wrong, and the one moment this page must not be wrong is the moment
+  before another application's window covers someone's work. Editing a row therefore re-resolves:
+  the server is the one that knows a path is jailed out, missing or a duplicate, and the row
+  disappearing is a truer answer than a row the client kept and the scene did not.
+- **Sizes are on every row, and in the picker.** One of these files is routinely 64 MB. "How much
+  is about to open" is the fact a person wants *before* the window, not after thirty seconds of
+  loading.
+- **Changing the source resets the list.** A different source resolves to different files; keeping
+  the edited rows would silently open the previous subject's data under a new heading.
+- **Reordering works without a mouse.** Drag is the natural gesture and ↑/↓ buttons are the one
+  that everybody has.
 - **A preset is kept; a recent is a footprint.** Presets are JSON under
   `<project>/code/ti-toolbox/viewer/presets/` — the project is the unit people copy, archive and
   share, and a preset in browser storage would be lost exactly when the work it describes was
-  passed on. Recents are the last eight *opened*, in this machine's browser storage, where losing
-  them costs nothing. Restoring either fills the panel and opens nothing.
+  passed on. Recents are the last eight *opened*, in this machine's browser storage. Restoring
+  either fills the page and opens nothing.
 - **A second Open reuses the window that is already open.** Tetravox holds a single-instance lock
   and routes a second launch's file into the running window (verified in its repo at 0.3.11), so
   this page never has to track whether the app is running.
-- **Layer names, defaults and colormaps are the server's.** `tit/viewspec.py` decides what a layer
-  is called and how it starts; no display-name mapping and no default table lives in the client.
 - **Three states, each naming what happened.**
-  - **Nothing selected** — the Layers section says "Choose a source above and the layers it
-    resolves to appear here"; Open's disabled title says what is missing.
-  - **Tetravox not installed** — a callout at the top of the panel leads with that fact and offers
-    **Download Tetravox**; Open is disabled rather than failing on click. Everything else still
-    works, because composing a scene does not need the app.
-  - **Browser mode** — there is no main process to start an application, so the button reads
-    **Download scene** and the sentence afterwards says to open it with File ▸ Open Scene…. This is
-    a complete answer, not a degraded one: the file is the interface.
+  - **Nothing selected** — "Choose a source above and the files it resolves to appear here"; Open's
+    disabled title says what is missing.
+  - **Tetravox not installed** — a callout leads with that fact and offers **Download Tetravox**;
+    Open is disabled rather than failing on click. Everything else still works, because building a
+    list does not need the app.
+  - **Browser mode** — no main process to start an application, so the button reads **Download
+    scene** and the sentence afterwards says File ▸ Open Scene…. A complete answer, not a degraded
+    one: the file is the interface.
 - **Settings ▸ Viewer is the other half.** The resolved path and version, a path override, and the
   same download link. It reaches no network.
-- **The panel is centred and may be shorter than the window.** A composition panel is a column of
-  controls; padding it to fill 1440 px would be filling space, not designing it. This remains the
-  one page whose dead-space budget (§9) does not apply.
-- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. Nothing here owns unmodified keys, so the
-  shell keeps all of its shortcuts on this page as on every other.
+- **The page is allowed to be mostly empty.** Two cards and a footer; padding them out to fill
+  1440 px would be filling space, not designing it. This remains the one page whose dead-space
+  budget (§9) does not apply.
+- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. Nothing here owns unmodified keys.
 
 ## 11. Status bar — removed
 
