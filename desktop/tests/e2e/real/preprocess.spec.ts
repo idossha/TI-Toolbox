@@ -66,12 +66,7 @@ test("tissue analysis on sub-101: accepted, started, and completed with a real a
   await page.getByLabel("FastSurfer segmentation").uncheck();
   await page.getByLabel("Tissue analyzer").check();
 
-  // "Existing outputs" is collapsed by default (§4.2 rule 5) — expand it to reach the policy radio.
-  const existingOutputs = page.locator(".form-section", { hasText: "Existing outputs" }).first();
-  if ((await existingOutputs.locator(".form-section-body").count()) === 0) {
-    await existingOutputs.locator(".form-section-header-trigger").click();
-  }
-  await existingOutputs.getByRole("radio", { name: "Replace and rerun" }).click();
+  await setExistingOutputsPolicy(page, "Replace and rerun");
 
   // The plan resolves against the real server: the G3 (tissue) column for 101 is not blocked.
   const cell = page.getByTestId("plan-cell-101-G3");
@@ -196,11 +191,7 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     await page.getByLabel("FastSurfer segmentation").uncheck();
     await page.getByLabel("Tissue analyzer").uncheck();
 
-    const existingOutputs = page.locator(".form-section", { hasText: "Existing outputs" }).first();
-    if ((await existingOutputs.locator(".form-section-body").count()) === 0) {
-      await existingOutputs.locator(".form-section-header-trigger").click();
-    }
-    await existingOutputs.getByRole("radio", { name: "Skip existing outputs" }).click();
+    await setExistingOutputsPolicy(page, "Skip existing outputs");
 
     // The plan resolves against the real server: the G1 (DICOM) column for 102 is a new job.
     const cell = page.getByTestId("plan-cell-102-G1");
@@ -279,3 +270,15 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     }
   }
 });
+
+/**
+ * The existing-output policy is a user-level setting (Settings ▸ Execution, 2026-09-06). Set it
+ * there and return to the page the caller was on.
+ */
+async function setExistingOutputsPolicy(page: Page, label: "Skip existing outputs" | "Replace and rerun"): Promise<void> {
+  const from = await page.locator('[data-page-active="true"]').getAttribute("data-page");
+  await page.locator('[data-nav-id="settings"]').click();
+  await page.locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]').getByRole("radio", { name: label, exact: true }).click();
+  await page.locator(`[data-nav-id="${from}"]`).click();
+  await expect(page.locator('[data-page-active="true"]')).toHaveAttribute("data-page", from ?? "");
+}

@@ -139,21 +139,17 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   await dialog.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("Pre-processing's existing-output policy and Settings' theme are segments", async () => {
-  await gotoPage(page, "preprocess", "Pre-processing");
-  await expectPage(page, "preprocess");
+test("Settings' existing-output policy and theme are segments", async () => {
+  await gotoPage(page, "settings", "Settings");
+  await expectPage(page, "settings");
 
-  const outputs = await openSection("Existing outputs");
-  const policy = outputs.locator(".segmented");
-  await expect(policy).toHaveAttribute("aria-label", "Existing outputs");
+  // The existing-output policy is a user-level setting (Settings ▸ Execution, 2026-09-06).
+  const policy = page.locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]');
+  await expect(policy).toBeVisible();
   expect(await policy.getByRole("radio").allTextContents()).toEqual(["Skip existing outputs", "Replace and rerun"]);
   await expect(policy.getByRole("radio", { name: "Skip existing outputs", exact: true })).toBeChecked();
   await policy.getByRole("radio", { name: "Replace and rerun", exact: true }).click();
-  // Collapsed, the section states the value the click produced — the page's own readout, not the
-  // control's pressed state (a summary only exists while the section is closed).
-  await outputs.locator(".form-section-header-trigger").click();
-  await expect(outputs.locator(".form-section-summary")).toHaveText(/^replace and rerun · /);
-  await outputs.locator(".form-section-header-trigger").click();
+  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeChecked();
   await policy.getByRole("radio", { name: "Skip existing outputs", exact: true }).click();
   await noRadioGroup();
 

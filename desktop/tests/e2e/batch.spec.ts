@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page, type Request } from "@playwright/test";
-import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { setSubjectChecked, subjectsField } from "./_subjects";
 
 /**
@@ -127,16 +127,15 @@ test("two subjects produce two plan rows on Pre-processing", async () => {
 });
 
 test("the cap goes to the server in ONE request, and never as client-side parallel POSTs", async () => {
-  // The shared `Subjects in parallel` control lives in the collapsed "Existing outputs" section
-  // on this page; the same component, testid and meaning appear on Simulator and Optimizer.
-  await setSectionOpen(page, "Existing outputs", true);
-  // Scoped to the ACTIVE page: the shell keeps every visited page mounted, so an unscoped testid
-  // resolves to one control per page that has one.
-  const active = page.locator('[data-page-active="true"]');
-  const parallel = active.getByTestId("subjects-in-parallel");
+  // `Subjects in parallel` is a user-level setting (Settings ▸ Execution, 2026-09-06), not a
+  // page control: set it there, then come back — every run page reads the same value.
+  await gotoPage(page, "settings", "Settings");
+  const parallel = page.locator('[data-page-active="true"]').getByTestId("subjects-in-parallel");
   await expect(parallel).toBeVisible();
   await parallel.fill("2");
   await parallel.blur();
+  await gotoPage(page, "preprocess", "Pre-processing");
+  const active = page.locator('[data-page-active="true"]');
 
   // Record EVERY job-submitting request the click causes, not just the first: a page that fanned
   // out one `POST /api/jobs` per subject (what these pages used to do) would show up here as two

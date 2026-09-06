@@ -5,6 +5,7 @@ import { useQueries } from "@tanstack/react-query";
 import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
+import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
 import { EmptyState } from "../../ui/Feedback";
 import { ActionBar } from "../../ui/Chrome";
@@ -24,7 +25,7 @@ import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import { useSimPlan, RunButton } from "./RunControls";
 import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, OUTPUT_FIELDS_HELP, type SelectedRow } from "./types";
-import { Receipt, RunPanel, RunWork, SubjectsInParallel, parallelSummary, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
+import { Receipt, RunPanel, RunWork, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 
@@ -103,7 +104,7 @@ function SimulatorPage() {
   const [dimensions, setDimensions] = usePageSession<[number, number]>("electrodeDims", [8, 8]);
   const [gelThickness, setGelThickness] = usePageSession("gelThickness", 4);
   const [outputFields, setOutputFields] = usePageSession<string[]>("outputFields", ["TI_max"]);
-  const [parallelSubjects, setParallelSubjects] = usePageSession("parallel", 1);
+  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The montage editor's state, lifted here (SCC): the scene pane and the pairs editor are two
   // editors of ONE draft, which is what makes "click an electrode" and "pick it in the form" the
@@ -394,22 +395,6 @@ function SimulatorPage() {
                 </div>
               </FormSection>
 
-              {/* Execution policy (R3): the same control, wording and scheduler-enforced meaning
-                  as Pre-processing and the Optimizer. */}
-              <FormSection
-                title="Execution"
-                collapsible
-                defaultOpen={false}
-                changed={parallelSubjects > 1}
-                summary={parallelSummary(parallelSubjects)}
-              >
-                <SubjectsInParallel
-                  value={parallelSubjects}
-                  onChange={setParallelSubjects}
-                  subjectCount={selectedSubjects.length}
-                  help="How many of this batch's jobs run at once; 1 runs them one after another. The server's scheduler enforces this, not the app."
-                />
-              </FormSection>
             </>
           )}
         </RunWork>

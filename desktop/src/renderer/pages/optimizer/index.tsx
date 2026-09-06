@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
+import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
 import { useStatusCells } from "../../app/statusCells";
 import { useJobsStream } from "../../app/jobs/useJobsStream";
@@ -34,8 +35,6 @@ import {
   Receipt,
   receiptFrom,
   ExistingOutputsDialog,
-  SubjectsInParallel,
-  parallelSummary,
   planDigest,
   planModelFrom,
   stepsFor,
@@ -159,7 +158,7 @@ function OptimizerPage() {
   const [method, setMethod] = usePageSession<Method>("method", "flex");
   const [runName, setRunName] = usePageSession("runName", "");
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
-  const [parallelSubjects, setParallelSubjects] = usePageSession("parallel", 1);
+  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
@@ -666,21 +665,6 @@ function OptimizerPage() {
         {method === "ex" && <ExCurrentSection form={exForm} onChange={patchEx} />}
         {method === "mex" && <MExCarrierSection form={mexForm} onChange={patchMex} />}
 
-        {/* Execution policy (R3): the same shared control every per-subject workflow shows. */}
-        <FormSection
-          title="Execution"
-          collapsible
-          defaultOpen={false}
-          changed={parallelSubjects > 1}
-          summary={parallelSummary(parallelSubjects)}
-        >
-          <SubjectsInParallel
-            value={parallelSubjects}
-            onChange={setParallelSubjects}
-            subjectCount={subjects.length}
-            help="How many of this batch's searches run at once; 1 runs them one after another. The server's scheduler enforces this, not the app."
-          />
-        </FormSection>
 
         {validationErrors.length > 0 && (
           <Callout kind="danger" title="The server rejected this configuration">

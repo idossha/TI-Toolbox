@@ -12,7 +12,6 @@ import {
 import {
   defaultConfig,
   describePreStageDir,
-  outputsSummary,
   plannedSteps,
   runLabelFor,
   stageLabelFor,
@@ -138,12 +137,6 @@ describe("preprocess page defaults validate against contracts/schema.json", () =
     );
     // `label` (e.g. the server's internal "sub-ernie:G2a") is the second choice, above the guess.
     expect(stageLabelFor({ label: "sub-ernie:G2a", output_dir: "/mnt/proj/m2m_ernie" })).toBe("sub-ernie:G2a");
-  });
-
-  it("outputsSummary() states the collapsed section's values (DESIGN.md v3 §4.2 rule 5)", () => {
-    // `1` reads as "sequential", not "1 in parallel" — the shared control's own wording (R3).
-    expect(outputsSummary("skip", 1)).toBe("skip existing · sequential");
-    expect(outputsSummary("replace", 4)).toBe("replace and rerun · 4 in parallel");
   });
 
   it("runLabelFor() names the primary from the plan, not from the page", () => {

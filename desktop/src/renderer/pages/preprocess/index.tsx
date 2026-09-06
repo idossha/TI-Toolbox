@@ -5,6 +5,7 @@ import { Info, Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
+import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
 import { Button, IconButton } from "../../ui/Button";
@@ -12,7 +13,6 @@ import { ActionBar } from "../../ui/Chrome";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Checkbox } from "../../ui/Toggle";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Tooltip } from "../../ui/Overlay";
 import { InlineError } from "../../ui/Feedback";
 import { FormSection, PageLayout } from "../../ui/Layout";
@@ -24,11 +24,9 @@ import {
   planDigest,
   planModelFrom,
   stepsFor,
-  SubjectsInParallel,
   Receipt,
   receiptFrom,
   ExistingOutputsDialog,
-  parallelSummary,
   useRunShortcut,
   useRunStatusCells,
   type PlanModel,
@@ -168,11 +166,6 @@ export function stageLabelFor(job: { stage?: string; label?: string; output_dir:
   return job.stage ?? job.label ?? describePreStageDir(job.output_dir);
 }
 
-/** The one-line summary a collapsed "Existing outputs" section states while shut (§4.2 rule 5). */
-export function outputsSummary(policy: ExistingOutputPolicy, parallelSubjects: number): string {
-  return `${policy === "skip" ? "skip existing" : "replace and rerun"} · ${parallelSummary(parallelSubjects)}`;
-}
-
 /** The primary's label, from the plan: "Run preprocessing" for one subject, "Queue N jobs" past that. */
 export function runLabelFor(subjectCount: number, jobCount: number): string {
   if (subjectCount <= 1) return "Run preprocessing";
@@ -224,8 +217,8 @@ function PreprocessPage() {
     [subjects, detailQueries],
   );
 
-  const [parallelSubjects, setParallelSubjects] = usePageSession("parallel", 1);
-  const [policy, setPolicy] = usePageSession<ExistingOutputPolicy>("policy", "skip");
+  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
+  const policy = useExecutionPrefs((s) => s.existingOutputs);
   const [qsiPrepOpen, setQsiPrepOpen] = useState(false);
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
@@ -460,30 +453,6 @@ function PreprocessPage() {
           </FormSection>
         </div>
 
-        <FormSection title="Existing outputs" collapsible defaultOpen={false} summary={outputsSummary(policy, parallelSubjects)}>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <SegmentedControl
-              value={policy}
-              onValueChange={(v) => setPolicy(v as ExistingOutputPolicy)}
-              options={[
-                { value: "skip", label: "Skip existing outputs" },
-                { value: "replace", label: "Replace and rerun" },
-              ]}
-              aria-label="Existing outputs"
-            />
-          </div>
-          {/* The one shared execution-policy control (R3) — same component, same wording, same
-              scheduler-enforced meaning on every page that runs one job per subject. */}
-          <SubjectsInParallel
-            value={parallelSubjects}
-            onChange={setParallelSubjects}
-            subjectCount={selected.length}
-            help="How many subjects' jobs run at once; each subject is its own job. The server's scheduler enforces this, not the app."
-          />
-          <div style={{ gridColumn: "1 / -1" }}>
-            <p className="field-help mono">Logs: derivatives/ti-toolbox/logs/sub-&#123;subject&#125;/</p>
-          </div>
-        </FormSection>
       </RunWork>
 
       <QsiPrepDialog
