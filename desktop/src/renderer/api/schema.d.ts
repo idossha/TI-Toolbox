@@ -4319,6 +4319,10 @@ export interface components {
             jobs: components["schemas"]["JobStatus"][];
         };
         PipelineListEntry: {
+            /** @description How many steps the saved document has, so the Saved list can state a pipeline's size without loading it. Absent when the file could not be parsed as a document. */
+            nodes?: number;
+            /** @description How many wires the saved document has. Absent when it could not be parsed. */
+            edges?: number;
             name: string;
             /** @description unix seconds */
             modified_at: number;

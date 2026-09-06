@@ -3393,6 +3393,14 @@ components:
         name: { type: string }
         modified_at: { type: number, description: unix seconds }
         size: { type: integer }
+        nodes:
+          type: integer
+          description: >-
+            How many steps the saved document has, so the Saved list can state a pipeline's size
+            without loading it. Absent when the file could not be parsed as a document.
+        edges:
+          type: integer
+          description: How many wires the saved document has. Absent when it could not be parsed.
     PipelineKinds:
       type: object
       required: [port_types, kinds]

@@ -103,13 +103,25 @@ def list_pipelines() -> list[dict[str, Any]]:
             stat = os.stat(path)
         except OSError:  # pragma: no cover - raced deletion
             continue
-        out.append(
-            {
-                "name": filename[: -len(".json")],
-                "modified_at": stat.st_mtime,
-                "size": stat.st_size,
-            }
-        )
+        entry: dict[str, Any] = {
+            "name": filename[: -len(".json")],
+            "modified_at": stat.st_mtime,
+            "size": stat.st_size,
+        }
+        # Its size in steps, so the Saved list can state what a pipeline *is* without the user
+        # opening it. Read, never parsed into a document: an unreadable or hand-mangled file
+        # still lists (with no counts) rather than disappearing from the list.
+        try:
+            with open(path, encoding="utf-8") as handle:
+                saved = json.load(handle)
+            if isinstance(saved, dict):
+                if isinstance(saved.get("nodes"), list):
+                    entry["nodes"] = len(saved["nodes"])
+                if isinstance(saved.get("edges"), list):
+                    entry["edges"] = len(saved["edges"])
+        except (OSError, ValueError):
+            pass
+        out.append(entry)
     return out
 
 

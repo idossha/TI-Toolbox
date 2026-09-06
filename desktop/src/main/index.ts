@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
 import { readSettings, updateSettings } from "./settings";
@@ -24,6 +25,8 @@ import type {
   TitConnectArgs,
   TitConnectResult,
   TitSelectFileOptions,
+  TitSaveFileOptions,
+  TitSaveFileResult,
   TitStackEvent,
   TitStackStartResult,
   TitStackStatus,
@@ -578,6 +581,32 @@ function registerIpc(): void {
     const containerPath = await resolveContainerPathForBrowse(hostPath);
     return containerPath ?? undefined;
   });
+  ipcMain.handle(
+    "tit:saveFile",
+    async (e, text: unknown, options: unknown): Promise<TitSaveFileResult> => {
+      // Save-as for renderer-produced text (the Pipeline page's exported notebook). A renderer
+      // cannot save a file itself here -- an `<a download>` on a blob: URL needs a download
+      // handler this app does not install, so the click silently did nothing.
+      //
+      // The renderer never names a path. It suggests a *basename*, `basename()` strips any
+      // directory out of even that, and the OS dialog is what decides where the bytes go -- so
+      // this handler cannot be talked into writing to a path of the page's choosing.
+      if (!fromMainWindow(e) || !mainWindow) return { ok: false, reason: "unknown sender" };
+      const opts = (options ?? {}) as TitSaveFileOptions;
+      const suggested = basename(String(opts.defaultName ?? "untitled.txt")) || "untitled.txt";
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: suggested,
+        filters: opts.filters,
+      });
+      if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+      try {
+        await writeFile(result.filePath, String(text), "utf8");
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+      return { ok: true, path: result.filePath };
+    },
+  );
   ipcMain.handle("tit:openPath", async (e, path: unknown): Promise<{ ok: boolean; reason?: string }> => {
     if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
     const resolved = await resolveHostPathStrict(String(path));

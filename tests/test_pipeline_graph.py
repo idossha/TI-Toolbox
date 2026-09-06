@@ -16,7 +16,7 @@ from tit.pipeline.document import (
     PipelineDocument,
     PipelineDocumentError,
 )
-from tit.pipeline.validate import can_connect, topological_order, validate
+from tit.pipeline.validate import ISSUE_CODES, can_connect, topological_order, validate
 
 
 def doc(nodes, edges=(), name="p"):
@@ -209,3 +209,59 @@ def test_topological_order_is_none_for_a_cycle() -> None:
         [("a", "b", "subjects"), ("b", "a", "subjects")],
     )
     assert topological_order(graph) is None
+
+
+# -- issue codes ---------------------------------------------------------------------------------
+#
+# The canvas keys on `code`, never on the message text.  These tests are what stop a reworded
+# sentence from silently turning a blocker into a note (or the reverse) on the Pipeline page.
+
+
+def test_every_issue_carries_a_code_from_the_published_set() -> None:
+    graph = doc(
+        [
+            ("s1", "sim", {}),
+            ("a1", "analyzer", {}),
+            ("p1", "pre", {"subject_ids": ["ernie"]}),
+        ],
+        [("a1", "p1", "subjects")],
+    )
+    issues = validate(graph).issues
+    assert issues, "this graph is meant to produce findings"
+    for issue in issues:
+        assert issue.code in ISSUE_CODES, issue.to_dict()
+        assert issue.to_dict()["code"] == issue.code
+
+
+def test_a_missing_required_input_names_its_port_in_the_finding() -> None:
+    graph = doc([("a1", "analyzer", {})])
+    missing = [i for i in validate(graph).issues if i.code == "missing_input"]
+    assert {i.port for i in missing} == {"subjects", "simulation"}
+    assert all(i.node_id == "a1" and i.level == "error" for i in missing)
+
+
+def test_an_unconnected_node_is_coded_as_a_note_not_as_a_blocker() -> None:
+    graph = doc(
+        [
+            ("p1", "pre", {"subject_ids": ["ernie"]}),
+            ("p2", "pre", {"subject_ids": ["ernie"]}),
+        ]
+    )
+    result = validate(graph)
+    assert result.ok, "two independent pre nodes are a legal pipeline"
+    assert {i.code for i in result.issues} == {"unconnected"}
+    assert all(i.level == "warning" for i in result.issues)
+
+
+def test_a_rejected_wire_names_the_port_it_was_about() -> None:
+    graph = doc(
+        [("a1", "analyzer", {"subject_ids": ["e"], "simulation": "M"}), ("p1", "pre", {})],
+        [("a1", "p1", "montages")],
+    )
+    bad = [i for i in validate(graph).issues if i.code in {"bad_output", "bad_input"}]
+    assert bad and all(i.port == "montages" for i in bad)
+
+
+def test_the_four_node_pipeline_has_no_findings_at_all() -> None:
+    result = validate(doc(*FOUR_NODE))
+    assert result.ok and result.issues == []

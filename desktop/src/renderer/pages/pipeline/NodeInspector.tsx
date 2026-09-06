@@ -10,7 +10,7 @@
  * `stats`) get a JSON editor, plainly labelled — an honest gap rather than a half-form that would
  * build a config the runner rejects.
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog } from "../../ui/Overlay";
 import { Field } from "../../ui/Field";
@@ -24,7 +24,7 @@ import { ObjectiveSection, ElectrodesSection } from "../optimizer/FlexSections";
 import { RoiPicker, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import type { FlexFormState } from "../optimizer/flexConfig";
 import { PRE_STAGES, parseSubjects, type NodeEditor } from "./editors";
-import { KIND_TITLE, PORT_LABEL, incoming, type PipelineDoc, type PipelineNode } from "./graph";
+import { KIND_TITLE, PORT_LABEL, incoming, type PipelineDoc, type PipelineNode, type PortType } from "./graph";
 
 /** Same per-subject atlas resolution the Optimizer page does, for one subject. */
 export function useAtlasLookup(subject: string | undefined, value: RoiValue | undefined): (atlas: string) => AtlasLookup | undefined {
@@ -42,6 +42,7 @@ export function NodeInspector({
   doc,
   node,
   editor,
+  focusPort,
   onEditorChange,
   onLabelChange,
   onClose,
@@ -49,6 +50,8 @@ export function NodeInspector({
   doc: PipelineDoc;
   node: PipelineNode;
   editor: NodeEditor;
+  /** Open with this port's field focused — how a card's "needs: subjects" chip lands here. */
+  focusPort?: PortType | null;
   onEditorChange: (next: NodeEditor) => void;
   onLabelChange: (label: string) => void;
   onClose: () => void;
@@ -56,6 +59,27 @@ export function NodeInspector({
   const wired = incoming(doc, node.id);
   const subjectsWired = wired.some((e) => e.port === "subjects");
   const subjects = "subjects" in editor ? parseSubjects(editor.subjects) : [];
+  const body = useRef<HTMLDivElement>(null);
+
+  const jsonError = useMemo(() => {
+    if (editor.kind !== "json") return null;
+    try {
+      const parsed: unknown = JSON.parse(editor.text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "a config must be a JSON object";
+      return null;
+    } catch (error) {
+      return String((error as Error)?.message ?? error);
+    }
+  }, [editor]);
+
+  // The chip on the card names a *port*; the field that satisfies it is labelled with that port's
+  // own name, which is the one thing both sides already agree on.
+  useEffect(() => {
+    if (!focusPort) return;
+    const field = body.current?.querySelector<HTMLElement>(`input[data-port="${focusPort}"], textarea[data-port="${focusPort}"]`);
+    field?.focus();
+    field?.scrollIntoView({ block: "center" });
+  }, [focusPort]);
 
   return (
     <Dialog
@@ -66,7 +90,7 @@ export function NodeInspector({
       title={`${KIND_TITLE[node.kind]} — ${node.id}`}
       description="Edited with the same form sections the node's own page uses."
     >
-      <div className="pipeline-inspector">
+      <div className="pipeline-inspector" ref={body}>
         <FormSection title="Node">
           <>
             <Field label="Name" help="Shown on the card and in the exported notebook.">
@@ -102,6 +126,7 @@ export function NodeInspector({
                 <input
                   className="input"
                   value={editor.subjects}
+                  data-port="subjects"
                   disabled={subjectsWired}
                   placeholder="ernie, 101"
                   onChange={(e) => onEditorChange({ ...editor, subjects: e.target.value } as NodeEditor)}
@@ -171,6 +196,7 @@ export function NodeInspector({
                 <input
                   className="input"
                   value={editor.montages}
+                  data-port="montages"
                   disabled={wired.some((e) => e.port === "montages")}
                   placeholder="L_Insula, R_Insula"
                   onChange={(e) => onEditorChange({ ...editor, montages: e.target.value })}
@@ -226,6 +252,7 @@ export function NodeInspector({
                   <input
                     className="input"
                     value={editor.simulation}
+                    data-port="simulation"
                     disabled={wired.some((e) => e.port === "simulation")}
                     onChange={(e) => onEditorChange({ ...editor, simulation: e.target.value })}
                     aria-label="Simulation"
@@ -303,13 +330,24 @@ export function NodeInspector({
                 {`${KIND_TITLE[editor.nodeKind]} has no lifted form yet — edit its config as JSON. The server validates it against the same dataclass the runner reads, so a mistake comes back as a reason, not a failed job.`}
               </Callout>
               <textarea
-                className="input pipeline-json"
+                className={`input pipeline-json${jsonError ? " is-invalid" : ""}`}
                 rows={14}
                 spellCheck={false}
                 value={editor.text}
+                data-port="subjects"
+                data-testid="pipeline-json"
                 onChange={(e) => onEditorChange({ ...editor, text: e.target.value })}
                 aria-label="Node config JSON"
+                aria-invalid={jsonError ? true : undefined}
               />
+              {/* Unparseable JSON used to become `{}` in the document, without a word: the node
+                  quietly lost its config the moment a brace was mistyped. It now keeps the last
+                  config that parsed, and the reason is on screen while the text is broken. */}
+              {jsonError && (
+                <Callout kind="danger" title="Not valid JSON — the step keeps its last good config">
+                  {jsonError}
+                </Callout>
+              )}
             </div>
           </FormSection>
         )}

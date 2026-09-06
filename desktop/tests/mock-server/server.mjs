@@ -2510,7 +2510,7 @@ route("GET", "/api/pipelines/kinds", (ctx) =>
     kinds: PIPE_KINDS.map((kind) => ({ kind, inputs: PIPE_PORTS[kind].inputs, outputs: PIPE_PORTS[kind].outputs, required: PIPE_PORTS[kind].required })),
   }),
 );
-route("GET", "/api/pipelines", (ctx) => json(ctx.res, 200, [...pipelineStore.entries()].map(([name, entry]) => ({ name, modified_at: entry.modified_at, size: JSON.stringify(entry.doc).length })).sort((a, b) => a.name.localeCompare(b.name))));
+route("GET", "/api/pipelines", (ctx) => json(ctx.res, 200, [...pipelineStore.entries()].map(([name, entry]) => ({ name, modified_at: entry.modified_at, size: JSON.stringify(entry.doc).length, nodes: (entry.doc.nodes ?? []).length, edges: (entry.doc.edges ?? []).length })).sort((a, b) => a.name.localeCompare(b.name))));
 route("POST", "/api/pipelines/validate", async (ctx) => {
   let doc;
   try { doc = pipeDoc(await ctx.body()); } catch (err) { return json(ctx.res, 422, { detail: String(err.message ?? err) }); }

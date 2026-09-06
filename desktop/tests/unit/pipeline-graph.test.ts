@@ -147,8 +147,18 @@ describe("node cards", () => {
   });
 
   it("names an unconfigured node honestly", () => {
+    // The summary says what the node *has*, not what it is missing: an unbound required input is
+    // now a chip on the card (from the server's `missing_input` issues), so repeating "no
+    // subjects" in the summary line said the same thing twice and left no room for the config.
     const graph = doc([["sim1", "sim", {}]]);
-    expect(nodeSummary(graph, graph.nodes[0]!)).toContain("no subjects");
+    expect(nodeSummary(graph, graph.nodes[0]!)).toBe("not configured yet");
+  });
+
+  it("summarises what a configured node has, and never mentions what it lacks", () => {
+    const graph = doc([["sim1", "sim", { subject_ids: ["ernie", "101"], montages: [{ name: "L_Insula" }] }]]);
+    const summary = nodeSummary(graph, graph.nodes[0]!);
+    expect(summary).toBe("2 subjects · L_Insula");
+    expect(summary).not.toContain("no ");
   });
 });
 

@@ -5,6 +5,7 @@ import type {
   TitBridge,
   TitConnectArgs,
   TitSelectFileOptions,
+  TitSaveFileOptions,
   TitSettings,
   TitStackEvent,
   TitStackStartResult,
@@ -24,6 +25,8 @@ const tit: TitBridge = {
   setSettings: (partial: Partial<TitSettings>) => ipcRenderer.invoke("tit:setSettings", partial),
   selectDirectory: () => ipcRenderer.invoke("tit:selectDirectory"),
   selectFile: (options?: TitSelectFileOptions) => ipcRenderer.invoke("tit:selectFile", options ?? {}),
+  saveFile: (text: string, options?: TitSaveFileOptions) =>
+    ipcRenderer.invoke("tit:saveFile", String(text), options ?? {}),
   openPath: (path: string) => ipcRenderer.invoke("tit:openPath", String(path)),
   showItemInFolder: (path: string) => ipcRenderer.invoke("tit:showItemInFolder", String(path)),
   notify: (title: string, body?: string) => ipcRenderer.invoke("tit:notify", String(title), body ? String(body) : undefined),

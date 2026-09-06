@@ -118,6 +118,17 @@ export interface TitSelectFileOptions {
   filters?: { name: string; extensions: string[] }[];
 }
 
+export interface TitSaveFileOptions {
+  /** Suggested file name, e.g. `"my pipeline.ipynb"`. Basename only; any directory is stripped. */
+  defaultName?: string;
+  filters?: { name: string; extensions: string[] }[];
+}
+
+export type TitSaveFileResult =
+  | { ok: true; path: string }
+  | { ok: false; canceled: true }
+  | { ok: false; canceled?: false; reason: string };
+
 export type TitStackStartResult = { ok: true; attached: boolean } | { ok: false; error: string };
 export type TitStackStopResult = { ok: true } | { ok: false; error: string };
 
@@ -189,6 +200,17 @@ export interface TitBridge {
    * there is no secret in a "no mount" case, only a path the caller has no way to use anyway).
    */
   selectFile(options?: TitSelectFileOptions): Promise<string | undefined>;
+  /**
+   * Save renderer-produced **text** to a host file the user picks.
+   *
+   * This exists because a renderer cannot save a file on its own here: an `<a download>` on a
+   * `blob:` URL — which is how the Pipeline page's "Export notebook" was written — needs a
+   * download handler, and this app has none, so the click did nothing at all and reported
+   * success. The dialog is the *only* thing that decides where the bytes land: the renderer names
+   * a suggested basename and never a directory, so this cannot be used to write to a path of the
+   * renderer's choosing. Text only, by design — there is no binary path here to abuse.
+   */
+  saveFile(text: string, options?: TitSaveFileOptions): Promise<TitSaveFileResult>;
   /**
    * Open a path (as given by the server — a container path when a project is mounted, mapped to
    * the host path internally) with the OS default application. Host<->container mapping prefers

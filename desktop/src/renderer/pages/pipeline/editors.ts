@@ -116,6 +116,67 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
   }
 }
 
+/**
+ * The best editor state a *saved* node's config can be read back into.
+ *
+ * The document stores each node's **built** config, which is what validates, runs and exports; the
+ * form state that produced it is page session state and is not saved. No v3 page has a full
+ * `config -> form state` reader (PC.md open item 2), so this is deliberately partial: it recovers
+ * the fields a user is most likely to want to see and change again — the subjects, the montage
+ * names, the simulation, the pre stages, the analyzer's space and target — and leaves the rest at
+ * that kind's defaults.
+ *
+ * The important part is what it does **not** do. It never invents a config: opening a loaded node
+ * and closing it again without touching anything leaves the document's config alone, and only an
+ * actual edit rebuilds it. And for the JSON-edited kinds it seeds the textarea with the node's own
+ * config rather than `{}`, which is the difference between "edit this step" and "silently replace
+ * this step with an empty object".
+ */
+export function editorFromNode(node: { kind: NodeKind; config?: Record<string, unknown> }): NodeEditor {
+  const config = node.config ?? {};
+  const base = defaultEditor(node.kind);
+  const subjects = (() => {
+    const list = config.subject_ids;
+    if (Array.isArray(list)) return list.map((s) => String(s).trim()).filter(Boolean).join(", ");
+    const one = String(config.subject_id ?? "").trim();
+    return one;
+  })();
+
+  switch (base.kind) {
+    case "pre": {
+      const stages: Record<string, boolean> = {};
+      for (const stage of PRE_STAGES) if (config[stage.key] === true) stages[stage.key] = true;
+      return { ...base, subjects, stages: Object.keys(stages).length ? stages : base.stages };
+    }
+    case "flex":
+      return { ...base, subjects };
+    case "sim": {
+      const montages = Array.isArray(config.montages)
+        ? config.montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean).join(", ")
+        : "";
+      return {
+        ...base,
+        subjects,
+        montages,
+        eegNet: String(config.eeg_net ?? "") || base.eegNet,
+        params: { ...base.params, conductivity: String(config.conductivity ?? base.params.conductivity) },
+      };
+    }
+    case "analyzer":
+      return {
+        ...base,
+        subjects,
+        simulation: String(config.simulation ?? ""),
+        space: config.space === "voxel" ? "voxel" : base.space,
+        analysisType: ["spherical", "cortical", "subcortical"].includes(String(config.analysis_type))
+          ? (String(config.analysis_type) as typeof base.analysisType)
+          : base.analysisType,
+      };
+    case "json":
+      return { ...base, text: JSON.stringify(config, null, 2) };
+  }
+}
+
 export function parseSubjects(text: string): string[] {
   return text
     .split(/[,\s]+/)
@@ -145,6 +206,7 @@ function simRow(subjectId: string, name: string, editor: SimEditor): SelectedRow
 export function configFor(
   editor: NodeEditor,
   atlasLookup: (atlas: string) => AtlasLookup | undefined,
+  previous?: Record<string, unknown>,
 ): Record<string, unknown> {
   const subjects = "subjects" in editor ? parseSubjects(editor.subjects) : [];
   const representative = subjects[0] ?? "";
@@ -188,12 +250,18 @@ export function configFor(
       return { ...config, subject_ids: subjects };
     }
     case "json": {
+      // `previous` is the config the node already carries. Mid-edit the textarea is *always*
+      // briefly unparseable, and returning `{}` for it — which this used to do — wiped the node's
+      // real config on the first mistyped brace and never said so. Keeping the last config that
+      // parsed means a half-typed edit costs nothing, and the inspector shows the parse error
+      // while it lasts.
       try {
-        const parsed = JSON.parse(editor.text);
-        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+        const parsed: unknown = JSON.parse(editor.text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
       } catch {
-        return {};
+        /* fall through to the last good config */
       }
+      return previous ?? {};
     }
   }
 }

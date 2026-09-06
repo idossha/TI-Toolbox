@@ -8,6 +8,19 @@
  * the two cannot drift into disagreeing about which wire is legal.
  */
 
+import {
+  BarChart3,
+  Crosshair,
+  Grid3x3,
+  Radio,
+  Sigma,
+  SquareStack,
+  Target,
+  Waypoints,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+
 export type PortType = "subjects" | "montages" | "simulation" | "roi" | "leadfield";
 
 export type NodeKind =
@@ -63,6 +76,19 @@ export const KIND_TITLE: Record<NodeKind, string> = {
   analyzer: "Analyzer",
   source: "Source model",
   stats: "Group statistics",
+};
+
+/** The rail icon of the page each kind belongs to, so a card is recognisable before it is read. */
+export const KIND_ICON: Record<NodeKind, LucideIcon> = {
+  pre: SquareStack,
+  leadfield: Grid3x3,
+  flex: Target,
+  ex: Crosshair,
+  mex: Waypoints,
+  sim: Zap,
+  analyzer: BarChart3,
+  source: Radio,
+  stats: Sigma,
 };
 
 export interface PipelineNode {
@@ -192,9 +218,9 @@ export function nodeSummary(doc: PipelineDoc, node: PipelineNode): string {
   const subjects = subjectsOf(doc, node.id);
   const wiredSubjects = incoming(doc, node.id).some((e) => e.port === "subjects");
   if (subjects.length) {
-    parts.push(subjects.length === 1 ? String(subjects[0]) : `${subjects.length} subjects${wiredSubjects ? " (wired)" : ""}`);
-  } else {
-    parts.push("no subjects");
+    parts.push(
+      subjects.length === 1 ? String(subjects[0]) : `${subjects.length} subjects${wiredSubjects ? " (wired)" : ""}`,
+    );
   }
   const montages = node.config.montages;
   if (node.kind === "sim") {
@@ -202,7 +228,7 @@ export function nodeSummary(doc: PipelineDoc, node: PipelineNode): string {
     else if (Array.isArray(montages) && montages.length) {
       const names = montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean);
       parts.push(names.length ? names.join(", ") : `${montages.length} montages`);
-    } else parts.push("no montages");
+    }
   }
   if (node.kind === "analyzer") {
     if (incoming(doc, node.id).some((e) => e.port === "simulation")) parts.push("simulation from Simulator");
@@ -214,5 +240,38 @@ export function nodeSummary(doc: PipelineDoc, node: PipelineNode): string {
     const goal = node.config.goal;
     if (goal) parts.push(String(goal));
   }
-  return parts.join(" · ");
+  return parts.join(" · ") || "not configured yet";
+}
+
+/**
+ * A worked example the empty canvas can offer: pre → flex → sim → analyzer, wired the way the
+ * four steps actually depend on each other, on whichever subject the project has.
+ *
+ * It is the same graph the D6 gate submits, which is deliberate: the button hands a first-time
+ * user a pipeline that is known to validate and run, rather than four unconfigured cards.
+ */
+export function samplePipeline(subject: string): PipelineDoc {
+  return {
+    version: 1,
+    name: "sample",
+    nodes: [
+      { id: "pre1", kind: "pre", label: "Head model", config: { subject_ids: [subject], create_m2m: true }, position: { x: 0, y: 80 } },
+      { id: "flex1", kind: "flex", label: "Find a montage", config: { goal: "mean", postproc: "max_TI" }, position: { x: 280, y: 0 } },
+      { id: "sim1", kind: "sim", label: "Simulate it", config: { conductivity: "scalar" }, position: { x: 560, y: 80 } },
+      {
+        id: "an1",
+        kind: "analyzer",
+        label: "Measure the ROI",
+        config: { space: "mesh", analysis_type: "spherical", center: [0, 0, 0], radius: 5 },
+        position: { x: 840, y: 160 },
+      },
+    ],
+    edges: [
+      { from: "pre1", to: "flex1", port: "subjects" },
+      { from: "pre1", to: "sim1", port: "subjects" },
+      { from: "flex1", to: "sim1", port: "montages" },
+      { from: "sim1", to: "an1", port: "subjects" },
+      { from: "sim1", to: "an1", port: "simulation" },
+    ],
+  };
 }
