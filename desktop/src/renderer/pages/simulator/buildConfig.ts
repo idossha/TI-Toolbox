@@ -33,9 +33,13 @@ function parseIntensities(s: string): number[] {
  * note on the plan-only `name` field this function used to add.
  */
 export function buildSimulationConfig(row: SelectedRow, params: GlobalParams): Record<string, unknown> {
-  const mode = row.source === "montage" ? "net" : row.source === "flex" ? "flex_mapped" : "freehand";
+  // A flex row is `flex_mapped` when it carries an EEG net (its electrodes are that cap's labels)
+  // and `flex_free` when it does not (the optimiser's own XYZ coordinates) — the same distinction
+  // `Montage.Mode` makes, and the reason a run with no mapping file is still simulable.
+  const mode =
+    row.source === "montage" ? "net" : row.source === "flex" ? (row.eegNet ? "flex_mapped" : "flex_free") : "freehand";
   const electrodePairs =
-    row.source === "freehand"
+    row.source === "freehand" || (row.source === "flex" && !row.eegNet)
       ? (row.xyzPairs ?? []).map(([a, b]) => [a, b])
       : (row.pairs ?? []).map(([a, b]) => [a, b]);
 
@@ -68,18 +72,17 @@ export function buildSimulationConfig(row: SelectedRow, params: GlobalParams): R
 }
 
 /**
- * `PlanRequest.montage_sources` for one row, for the plan preview only — job submission always
- * embeds a fully-resolved `Montage` (see `buildSimulationConfig` above) since `POST /api/jobs`
- * has no `montage_sources` field. Field names (`subject`/`run`, `subject`/`name`) match
- * `MontageSources` in `contracts/openapi.v1.yaml`, not the `subject_id`/`run_name` pair the
- * current backend route reads from inside `config` (see `planSim`'s doc comment for the gap).
+ * `PlanRequest.montage_sources` for one row — **never sent for a row this page has already
+ * resolved**, which since the flex fix is every row.
+ *
+ * The reason is not tidiness: `tit/server/routes/plan.py` resolves `montage_sources` into montages
+ * *in addition to* `config.montages`, so a flex or free-hand row that sent both was planned twice —
+ * two `PlanJob`s for one job, under two different output directories. Job submission has to embed a
+ * fully-resolved `Montage` anyway (`POST /api/jobs`'s `JobSpec` has no `montage_sources` field), so
+ * the resolved config is the single source of truth and this returns nothing. Kept as the one
+ * documented place the decision lives, rather than deleted, because the field is still part of the
+ * frozen `PlanRequest` contract.
  */
-export function buildMontageSources(row: SelectedRow): MontageSources | undefined {
-  if (row.source === "flex") {
-    return { flex: [{ subject: row.subjectId, run: row.name, electrode_type: "mapped", eeg_net: row.eegNet }] };
-  }
-  if (row.source === "freehand") {
-    return { freehand: [{ subject: row.subjectId, name: row.name }] };
-  }
+export function buildMontageSources(): MontageSources | undefined {
   return undefined;
 }

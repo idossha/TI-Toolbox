@@ -2955,10 +2955,39 @@ components:
         manifest:
           type: object
           additionalProperties: true
+        mappings:
+          type: array
+          description: >-
+            EEG-label electrode pairs already mapped for this run, one entry per net
+            (from its electrode_mapping_<net>.json files). Empty when the run has never
+            been mapped onto a net; `optimized` is then the only way to simulate it.
+          items: { $ref: "#/components/schemas/FlexMapping" }
+        optimized:
+          type: array
+          nullable: true
+          description: >-
+            The run's free XYZ electrode pairs (Montage mode flex_free), from
+            electrode_positions.json; null when the run wrote no usable positions.
+          items:
+            type: array
+            items:
+              type: array
+              items: { type: number }
         artifacts:
           type: array
           items: { $ref: "#/components/schemas/Artifact" }
           description: run outputs (Pareto-front/convergence PNGs, CSVs, manifests) to list, not just reveal-in-folder
+    FlexMapping:
+      type: object
+      required: [eeg_net, pairs]
+      properties:
+        eeg_net: { type: string }
+        pairs:
+          type: array
+          description: one [anode, cathode] EEG-label pair per stimulation channel
+          items:
+            type: array
+            items: { type: string }
     ExBest:
       type: object
       required: [montage, score]

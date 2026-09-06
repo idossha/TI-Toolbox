@@ -4216,8 +4216,17 @@ export interface components {
             manifest: {
                 [key: string]: unknown;
             };
+            /** @description EEG-label electrode pairs already mapped for this run, one entry per net (from its electrode_mapping_<net>.json files). Empty when the run has never been mapped onto a net; `optimized` is then the only way to simulate it. */
+            mappings?: components["schemas"]["FlexMapping"][];
+            /** @description The run's free XYZ electrode pairs (Montage mode flex_free), from electrode_positions.json; null when the run wrote no usable positions. */
+            optimized?: number[][][] | null;
             /** @description run outputs (Pareto-front/convergence PNGs, CSVs, manifests) to list, not just reveal-in-folder */
             artifacts: components["schemas"]["Artifact"][];
+        };
+        FlexMapping: {
+            eeg_net: string;
+            /** @description one [anode, cathode] EEG-label pair per stimulation channel */
+            pairs: string[][];
         };
         ExBest: {
             montage: string;
@@ -6740,20 +6749,59 @@ export interface components {
          */
         MontageMode: "net" | "flex_mapped" | "flex_free" | "freehand";
         /**
-         * FieldPostproc
-         * @description Field post-processing method applied to the TI envelope.
+         * ParetoSweepConfig
+         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
+         *
+         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
+         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
+         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
+         *     step-1 ``"mean"`` calibration run. See
+         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
          *
          *     Attributes
          *     ----------
-         *     MAX_TI : str
-         *         Maximum TI amplitude (direction-independent).
-         *     DIR_TI_NORMAL : str
-         *         TI component normal to the cortical surface.
-         *     DIR_TI_TANGENTIAL : str
-         *         TI component tangential to the cortical surface.
+         *     roi_pcts : list of float
+         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *     nonroi_pcts : list of float
+         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If either list is empty, if any value falls outside ``(0, 100)``,
+         *         or if any ``(roi_pct, nonroi_pct)`` combination has
+         *         ``nonroi_pct >= roi_pct``.
+         */
+        ParetoSweepConfig: {
+            /** Roi Pcts */
+            roi_pcts?: number[];
+            /** Nonroi Pcts */
+            nonroi_pcts?: number[];
+        };
+        /**
+         * OptGoal
+         * @description Optimization goal.
+         *
+         *     Attributes
+         *     ----------
+         *     MEAN : str
+         *         Maximize mean field intensity in the ROI.
+         *     MAX : str
+         *         Maximize peak field intensity in the ROI.
+         *     FOCALITY : str
+         *         Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
+         *         ROC measure (``measures.ROC``).
+         *     FOCALITY_TF : str
+         *         Maximize a threshold-free focality contrast,
+         *         ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
+         *         thresholds it avoids the threshold-selection failure mode of the
+         *         ROC goal, whose landscape flattens when the requested ROI and
+         *         non-ROI thresholds are jointly infeasible (as happens at deep
+         *         targets).  The weight ``w`` is
+         *         :attr:`FlexConfig.intensity_weight`.
          * @enum {string}
          */
-        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
+        OptGoal: "mean" | "max" | "focality" | "focality_tf";
         /**
          * Mode
          * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
@@ -6827,70 +6875,35 @@ export interface components {
             _type: "SubcorticalROI";
         };
         /**
-         * OptGoal
-         * @description Optimization goal.
+         * ElectrodeConfig
+         * @description Electrode geometry for flex-search.
+         *
+         *     Only *gel_thickness* is needed here -- the optimization leadfield
+         *     uses point electrodes; *gel_thickness* is recorded in the manifest
+         *     for downstream simulation.
          *
          *     Attributes
          *     ----------
-         *     MEAN : str
-         *         Maximize mean field intensity in the ROI.
-         *     MAX : str
-         *         Maximize peak field intensity in the ROI.
-         *     FOCALITY : str
-         *         Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
-         *         ROC measure (``measures.ROC``).
-         *     FOCALITY_TF : str
-         *         Maximize a threshold-free focality contrast,
-         *         ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
-         *         thresholds it avoids the threshold-selection failure mode of the
-         *         ROC goal, whose landscape flattens when the requested ROI and
-         *         non-ROI thresholds are jointly infeasible (as happens at deep
-         *         targets).  The weight ``w`` is
-         *         :attr:`FlexConfig.intensity_weight`.
-         * @enum {string}
+         *     shape : str
+         *         Electrode shape (``"ellipse"`` or ``"rect"``).
+         *     dimensions : list of float
+         *         Electrode dimensions in mm (``[width, height]``).
+         *     gel_thickness : float
+         *         Conductive gel thickness in mm.
          */
-        OptGoal: "mean" | "max" | "focality" | "focality_tf";
-        /**
-         * AtlasROI
-         * @description Cortical surface ROI from a FreeSurfer annotation atlas.
-         *
-         *     Each of *atlas_path*, *label*, *hemisphere* accepts either a single
-         *     value (one region) or a list (a union of several regions evaluated as
-         *     one combined target).  Because ``.annot`` files are per-hemisphere,
-         *     carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
-         *     target that spans **both** hemispheres, or even different atlases.
-         *     Scalars broadcast to the number of labels; lists must match its length.
-         *
-         *     Attributes
-         *     ----------
-         *     atlas_path : str or list of str
-         *         Path(s) to the FreeSurfer ``.annot`` annotation file(s).
-         *     label : int or list of int
-         *         Integer label index/indices within the annotation atlas.
-         *     hemisphere : str or list of str
-         *         Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
-         *         length neither equals 1 nor the number of labels.
-         */
-        FlexConfigAtlasROI: {
-            /** Atlas Path */
-            atlas_path: string | string[];
-            /** Label */
-            label: number | number[];
+        ElectrodeConfig: {
             /**
-             * Hemisphere
-             * @default lh
+             * Shape
+             * @default ellipse
              */
-            hemisphere: string | string[];
+            shape: string;
+            /** Dimensions */
+            dimensions?: number[];
             /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
+             * Gel Thickness
+             * @default 4
              */
-            _type: "AtlasROI";
+            gel_thickness: number;
         };
         /**
          * SphericalROI
@@ -6972,66 +6985,33 @@ export interface components {
             _type: "SphericalROI";
         };
         /**
-         * ElectrodeConfig
-         * @description Electrode geometry for flex-search.
-         *
-         *     Only *gel_thickness* is needed here -- the optimization leadfield
-         *     uses point electrodes; *gel_thickness* is recorded in the manifest
-         *     for downstream simulation.
+         * FieldPostproc
+         * @description Field post-processing method applied to the TI envelope.
          *
          *     Attributes
          *     ----------
-         *     shape : str
-         *         Electrode shape (``"ellipse"`` or ``"rect"``).
-         *     dimensions : list of float
-         *         Electrode dimensions in mm (``[width, height]``).
-         *     gel_thickness : float
-         *         Conductive gel thickness in mm.
+         *     MAX_TI : str
+         *         Maximum TI amplitude (direction-independent).
+         *     DIR_TI_NORMAL : str
+         *         TI component normal to the cortical surface.
+         *     DIR_TI_TANGENTIAL : str
+         *         TI component tangential to the cortical surface.
+         * @enum {string}
          */
-        ElectrodeConfig: {
-            /**
-             * Shape
-             * @default ellipse
-             */
-            shape: string;
-            /** Dimensions */
-            dimensions?: number[];
-            /**
-             * Gel Thickness
-             * @default 4
-             */
-            gel_thickness: number;
-        };
+        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
         /**
-         * ParetoSweepConfig
-         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
-         *
-         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
-         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
-         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
-         *     step-1 ``"mean"`` calibration run. See
-         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
+         * NonROIMethod
+         * @description Non-ROI specification method for focality optimization.
          *
          *     Attributes
          *     ----------
-         *     roi_pcts : list of float
-         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *     nonroi_pcts : list of float
-         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If either list is empty, if any value falls outside ``(0, 100)``,
-         *         or if any ``(roi_pct, nonroi_pct)`` combination has
-         *         ``nonroi_pct >= roi_pct``.
+         *     EVERYTHING_ELSE : str
+         *         Use all mesh elements outside the ROI.
+         *     SPECIFIC : str
+         *         Use an explicitly defined non-ROI region.
+         * @enum {string}
          */
-        ParetoSweepConfig: {
-            /** Roi Pcts */
-            roi_pcts?: number[];
-            /** Nonroi Pcts */
-            nonroi_pcts?: number[];
-        };
+        NonROIMethod: "everything_else" | "specific";
         /**
          * AdaptiveFocalityConfig
          * @description Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.
@@ -7070,41 +7050,46 @@ export interface components {
             nonroi_percentage: number;
         };
         /**
-         * NonROIMethod
-         * @description Non-ROI specification method for focality optimization.
-         *
-         *     Attributes
-         *     ----------
-         *     EVERYTHING_ELSE : str
-         *         Use all mesh elements outside the ROI.
-         *     SPECIFIC : str
-         *         Use an explicitly defined non-ROI region.
-         * @enum {string}
-         */
-        NonROIMethod: "everything_else" | "specific";
-        /**
          * AtlasROI
-         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
+         * @description Cortical surface ROI from a FreeSurfer annotation atlas.
+         *
+         *     Each of *atlas_path*, *label*, *hemisphere* accepts either a single
+         *     value (one region) or a list (a union of several regions evaluated as
+         *     one combined target).  Because ``.annot`` files are per-hemisphere,
+         *     carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
+         *     target that spans **both** hemispheres, or even different atlases.
+         *     Scalars broadcast to the number of labels; lists must match its length.
          *
          *     Attributes
          *     ----------
-         *     atlas_path : str
-         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
-         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
-         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
-         *     label : int or None
-         *         Integer label to select within the atlas (elements are
-         *         included where the voxel value equals *label*).  ``None``
-         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         *     atlas_path : str or list of str
+         *         Path(s) to the FreeSurfer ``.annot`` annotation file(s).
+         *     label : int or list of int
+         *         Integer label index/indices within the annotation atlas.
+         *     hemisphere : str or list of str
+         *         Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
+         *         length neither equals 1 nor the number of labels.
          */
-        ExConfigAtlasROI: {
+        FlexConfigAtlasROI: {
             /** Atlas Path */
-            atlas_path: string;
+            atlas_path: string | string[];
+            /** Label */
+            label: number | number[];
             /**
-             * Label
-             * @default null
+             * Hemisphere
+             * @default lh
              */
-            label: number | null;
+            hemisphere: string | string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "AtlasROI";
         };
         /**
          * BucketElectrodes
@@ -7137,6 +7122,30 @@ export interface components {
             _type: "BucketElectrodes";
         };
         /**
+         * AtlasROI
+         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
+         *
+         *     Attributes
+         *     ----------
+         *     atlas_path : str
+         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
+         *     label : int or None
+         *         Integer label to select within the atlas (elements are
+         *         included where the voxel value equals *label*).  ``None``
+         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         */
+        ExConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
+        };
+        /**
          * PoolElectrodes
          * @description Single electrode pool -- all positions draw from the same set.
          *
@@ -7146,6 +7155,24 @@ export interface components {
          *         List of electrode names available for any channel position.
          */
         ExConfigPoolElectrodes: {
+            /** Electrodes */
+            electrodes: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "PoolElectrodes";
+        };
+        /**
+         * PoolElectrodes
+         * @description Single electrode pool -- all eight positions draw from the same set.
+         *
+         *     Attributes
+         *     ----------
+         *     electrodes : list of str
+         *         List of electrode names available for any pair position.
+         */
+        MExConfigPoolElectrodes: {
             /** Electrodes */
             electrodes: string[];
             /**
@@ -7211,23 +7238,18 @@ export interface components {
             label: number | null;
         };
         /**
-         * PoolElectrodes
-         * @description Single electrode pool -- all eight positions draw from the same set.
+         * AnalyzerSpace
+         * @description Where the field is read from.
          *
          *     Attributes
          *     ----------
-         *     electrodes : list of str
-         *         List of electrode names available for any pair position.
+         *     MESH : str
+         *         SimNIBS surface/volume mesh.
+         *     VOXEL : str
+         *         MNI-space NIfTI volume.
+         * @enum {string}
          */
-        MExConfigPoolElectrodes: {
-            /** Electrodes */
-            electrodes: string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "PoolElectrodes";
-        };
+        AnalyzerSpace: "mesh" | "voxel";
         /**
          * AnalysisMode
          * @description Which entry-point branch handles this config.
@@ -7270,19 +7292,6 @@ export interface components {
          * @enum {string}
          */
         AnalyzerCoordinateSpace: "subject" | "mni";
-        /**
-         * AnalyzerSpace
-         * @description Where the field is read from.
-         *
-         *     Attributes
-         *     ----------
-         *     MESH : str
-         *         SimNIBS surface/volume mesh.
-         *     VOXEL : str
-         *         MNI-space NIfTI volume.
-         * @enum {string}
-         */
-        AnalyzerSpace: "mesh" | "voxel";
         /**
          * QSIReconSettings
          * @description Subject-independent QSIRecon resource and pipeline settings.
@@ -7484,11 +7493,28 @@ export interface components {
             omp_threads: number;
         };
         /**
+         * _ClusterStat
+         * @enum {string}
+         */
+        _ClusterStat: "mass" | "size";
+        /**
+         * _AnalysisSpace
+         * @description Where the group statistics run: MNI volume or fsaverage surface.
+         * @enum {string}
+         */
+        _AnalysisSpace: "mni" | "fsaverage";
+        /**
          * Alternative
          * @description Sidedness of the test hypothesis.
          * @enum {string}
          */
         Alternative: "two-sided" | "greater" | "less";
+        /**
+         * TestType
+         * @description Type of statistical test for group comparison.
+         * @enum {string}
+         */
+        TestType: "unpaired" | "paired";
         /**
          * Subject
          * @description A single subject in a group comparison analysis.
@@ -7515,23 +7541,6 @@ export interface components {
          * @enum {string}
          */
         _TissueType: "grey" | "white" | "all";
-        /**
-         * _AnalysisSpace
-         * @description Where the group statistics run: MNI volume or fsaverage surface.
-         * @enum {string}
-         */
-        _AnalysisSpace: "mni" | "fsaverage";
-        /**
-         * _ClusterStat
-         * @enum {string}
-         */
-        _ClusterStat: "mass" | "size";
-        /**
-         * TestType
-         * @description Type of statistical test for group comparison.
-         * @enum {string}
-         */
-        TestType: "unpaired" | "paired";
         /**
          * Subject
          * @description A single subject in a correlation analysis.
@@ -7567,23 +7576,6 @@ export interface components {
          * @enum {string}
          */
         CorrelationType: "pearson" | "spearman";
-        /**
-         * SourcePair
-         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
-         *
-         *     Attributes
-         *     ----------
-         *     subject_id : str
-         *         Subject identifier (without ``sub-`` prefix).
-         *     simulation : str
-         *         Simulation (montage) folder name.
-         */
-        SourcePair: {
-            /** Subject Id */
-            subject_id: string;
-            /** Simulation */
-            simulation: string;
-        };
         /**
          * FsavgMapConfig
          * @description Parameters for projecting simulation field outputs onto fsaverage.
@@ -7674,6 +7666,23 @@ export interface components {
             overwrite: boolean;
         };
         /**
+         * SourcePair
+         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
+         *
+         *     Attributes
+         *     ----------
+         *     subject_id : str
+         *         Subject identifier (without ``sub-`` prefix).
+         *     simulation : str
+         *         Simulation (montage) folder name.
+         */
+        SourcePair: {
+            /** Subject Id */
+            subject_id: string;
+            /** Simulation */
+            simulation: string;
+        };
+        /**
          * Length
          * @description Arrow length mapping mode.
          * @enum {string}
@@ -7704,6 +7713,12 @@ export interface components {
          */
         Surface: "central" | "pial" | "white";
         /**
+         * NiftiAverageSpace
+         * @description Which per-subject NIfTI space the group average is computed in.
+         * @enum {string}
+         */
+        NiftiAverageSpace: "subject" | "mni";
+        /**
          * NiftiAverageSubject
          * @description One subject/simulation/group assignment row.
          *
@@ -7727,12 +7742,6 @@ export interface components {
              */
             group: string;
         };
-        /**
-         * NiftiAverageSpace
-         * @description Which per-subject NIfTI space the group average is computed in.
-         * @enum {string}
-         */
-        NiftiAverageSpace: "subject" | "mni";
         /**
          * NilearnSubjectSimulation
          * @description One subject/simulation pair to group-average before visualising.

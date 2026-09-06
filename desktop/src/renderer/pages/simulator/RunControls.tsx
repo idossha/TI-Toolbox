@@ -64,7 +64,7 @@ export function useSimPlan(
   const queries = useQueries({
     queries: debouncedRows.map((row) => {
       const config = buildSimulationConfig(row, debouncedParams);
-      const montageSources = buildMontageSources(row);
+      const montageSources = buildMontageSources();
       return {
         queryKey: ["plan-sim", config, montageSources],
         queryFn: () => planSim(config, [row.subjectId], false, montageSources),

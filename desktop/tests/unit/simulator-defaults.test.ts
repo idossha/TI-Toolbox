@@ -20,6 +20,8 @@ import {
   parseMontageOptionValue,
 } from "../../src/renderer/pages/simulator/MontageManager";
 import { eligibleSubjectsFor, seedWithShellSubject } from "../../src/renderer/pages/simulator/index";
+import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
+import type { FlexRun } from "../../src/renderer/pages/simulator/api";
 
 // contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
@@ -102,6 +104,29 @@ describe("Simulator page configs validate against contracts/schema.json", () => 
       currents: "1.0,1.0,1.0,1.0",
     };
     const config = buildSimulationConfig(row, baseParams);
+    expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
+  });
+
+  it("a flex-search-source row with no net (free XYZ) builds a valid flex_free SimulationConfig", async () => {
+    const row: SelectedRow = {
+      id: "flex:ernie:flex_Thalamus_20260810_101500",
+      subjectId: "ernie",
+      source: "flex",
+      name: "flex_Thalamus_20260810_101500",
+      xyzPairs: [
+        [
+          [81.0, 13.3, 38.1],
+          [-74.4, 43.7, 6.1],
+        ],
+        [
+          [-77.2, 11.8, 3.9],
+          [80.8, 14.2, 3.8],
+        ],
+      ],
+      currents: "1.0,1.0",
+    };
+    const config = buildSimulationConfig(row, baseParams);
+    expect((config.montages as { mode: string }[])[0]?.mode).toBe("flex_free");
     expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
   });
 
@@ -257,5 +282,59 @@ describe("montage pairs come in groups of two", () => {
     expect(currentSlotsReserved([2, 4])).toBe(4);
     expect(currentSlotsReserved([])).toBe(4);
     expect(currentSlotsReserved([2, 6])).toBe(6);
+  });
+});
+
+/**
+ * The defect this guards: a flex run's `flex_meta.json` carries no electrodes at all, so the tab's
+ * old `manifest.electrodes` read made every row ineligible and the whole "Flex result" mode
+ * unclickable. The electrodes come from the run's own files, surfaced by the catalog.
+ */
+describe("Flex result placements", () => {
+  const run = (extra: Partial<FlexRun>): FlexRun =>
+    ({
+      name: "flex_Thalamus_20260810_101500",
+      path: "/p",
+      goal: "mean",
+      roi: {},
+      created: "2026-08-10T10:15:00Z",
+      manifest: {},
+      artifacts: [],
+      ...extra,
+    }) as FlexRun;
+
+  it("offers one placement per mapped net, then the free XYZ one", () => {
+    const options = placementsFor(
+      run({
+        mappings: [{ eeg_net: "GSN-HydroCel-185.csv", pairs: [["E1", "E2"], ["E3", "E4"]] }],
+        optimized: [
+          [
+            [1, 2, 3],
+            [4, 5, 6],
+          ],
+        ],
+      }),
+    );
+    expect(options.map((o) => o.value)).toEqual(["GSN-HydroCel-185.csv", OPTIMIZED]);
+    expect(options.map((o) => placementSummary(o))).toEqual(["E1→E2, E3→E4", "2 optimised coordinates"]);
+  });
+
+  it("a run that was never mapped is still selectable through its free positions", () => {
+    const options = placementsFor(
+      run({
+        mappings: [],
+        optimized: [
+          [
+            [1, 2, 3],
+            [4, 5, 6],
+          ],
+        ],
+      }),
+    );
+    expect(options.map((o) => o.value)).toEqual([OPTIMIZED]);
+  });
+
+  it("a manifest alone offers nothing — which is exactly what used to disable every row", () => {
+    expect(placementsFor(run({ manifest: { goal: "mean", best_score: 0.5 } }))).toEqual([]);
   });
 });

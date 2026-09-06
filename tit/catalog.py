@@ -814,6 +814,108 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
 # ── flex-search runs ─────────────────────────────────────────────────────────
 
 
+def _pair_by_channel(electrodes: list, channel_array_indices: list | None) -> list[list]:
+    """Group *electrodes* into ``[a, b]`` pairs, one pair per stimulation channel.
+
+    ``channel_array_indices`` is flex-search's own ``[[channel, array], ...]``
+    bookkeeping (``electrode_positions.json`` / ``electrode_mapping_*.json``):
+    entry *i* says which channel and which of that channel's two arrays
+    electrode *i* belongs to. When it is missing or unusable the electrodes are
+    paired consecutively, which is what ``resolve_flex_montage`` does.
+    """
+    if isinstance(channel_array_indices, list) and len(channel_array_indices) == len(
+        electrodes
+    ):
+        by_channel: dict = {}
+        ok = True
+        for electrode, idx in zip(electrodes, channel_array_indices):
+            if not isinstance(idx, (list, tuple)) or len(idx) != 2:
+                ok = False
+                break
+            by_channel.setdefault(idx[0], []).append((idx[1], electrode))
+        if ok:
+            pairs = []
+            for channel in sorted(by_channel):
+                members = [e for _, e in sorted(by_channel[channel], key=lambda t: t[0])]
+                if len(members) != 2:
+                    pairs = []
+                    break
+                pairs.append(list(members))
+            if pairs:
+                return pairs
+    return [
+        [electrodes[i], electrodes[i + 1]] for i in range(0, len(electrodes) - 1, 2)
+    ]
+
+
+def _read_json(path: str) -> dict | None:
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _flex_mappings(run_dir: str) -> list[dict]:
+    """EEG-label pairs already mapped for this run, one entry per net.
+
+    Reads the ``electrode_mapping_<net>.json`` files
+    :func:`tit.sim.montage_sources.resolve_flex_montage` writes; purely
+    read-only, so a run that has never been mapped simply reports none.
+    """
+    out: list[dict] = []
+    try:
+        names = sorted(os.listdir(run_dir))
+    except OSError:
+        return out
+    for name in names:
+        if not (name.startswith("electrode_mapping_") and name.endswith(".json")):
+            continue
+        data = _read_json(os.path.join(run_dir, name))
+        if data is None:
+            continue
+        labels = [
+            label
+            for label in data.get("mapped_labels") or []
+            if isinstance(label, str)
+        ]
+        if len(labels) < 4:
+            continue
+        net = data.get("eeg_net")
+        if not isinstance(net, str) or not net:
+            net = name[len("electrode_mapping_") : -len(".json")] + ".csv"
+        out.append(
+            {
+                "eeg_net": net,
+                "pairs": _pair_by_channel(labels, data.get("channel_array_indices")),
+            }
+        )
+    return out
+
+
+def _flex_optimized_pairs(run_dir: str) -> list[list] | None:
+    """The run's free (un-mapped) XYZ electrode pairs, or ``None``.
+
+    ``electrode_positions.json`` is written by every flex-search run, which is
+    what makes a run selectable in the Simulator even when it has never been
+    mapped onto an EEG net (``Montage.Mode.FLEX_FREE``).
+    """
+    data = _read_json(os.path.join(run_dir, "electrode_positions.json"))
+    if data is None:
+        return None
+    positions = [
+        p
+        for p in data.get("optimized_positions") or []
+        if isinstance(p, (list, tuple)) and len(p) == 3
+    ]
+    if len(positions) < 4:
+        return None
+    return _pair_by_channel(
+        [list(p) for p in positions], data.get("channel_array_indices")
+    )
+
+
 def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
     """Flex-search runs for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
@@ -834,6 +936,11 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
                 "roi": manifest.get("roi") or {},
                 "created": manifest.get("created") or _mtime_iso(run_dir),
                 "manifest": manifest,
+                # The electrodes the run actually produced. `flex_meta.json` records
+                # none of them, so a client that reads only `manifest` has no way to
+                # turn a run into a `Montage` for submission (simulator PARITY.md #4).
+                "mappings": _flex_mappings(run_dir),
+                "optimized": _flex_optimized_pairs(run_dir),
                 "artifacts": _dir_artifacts(run_dir),
             }
         )

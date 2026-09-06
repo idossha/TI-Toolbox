@@ -379,6 +379,91 @@ def test_flex_runs_ignores_incomplete(client: TestClient) -> None:
     assert body[0]["created"] == "2026-01-01T00:00:00"
 
 
+def test_flex_run_electrodes_come_from_the_run_not_the_manifest(
+    client: TestClient,
+) -> None:
+    """``flex_meta.json`` records no electrodes, so the run's own files must.
+
+    Without this the Simulator's "Flex result" tab had nothing to build a
+    ``Montage`` from and disabled every row.
+    """
+    pm = get_path_manager()
+    run_dir = pm.flex_search_run("ernie", "20260101_000000")
+    Path(run_dir, "electrode_positions.json").write_text(
+        json.dumps(
+            {
+                "optimized_positions": [
+                    [1.0, 2.0, 3.0],
+                    [4.0, 5.0, 6.0],
+                    [7.0, 8.0, 9.0],
+                    [10.0, 11.0, 12.0],
+                ],
+                "channel_array_indices": [[0, 0], [0, 1], [1, 0], [1, 1]],
+            }
+        )
+    )
+    Path(run_dir, "electrode_mapping_GSN-HydroCel-185.json").write_text(
+        json.dumps(
+            {
+                "mapped_labels": ["E001", "E002", "E003", "E004"],
+                "channel_array_indices": [[0, 0], [0, 1], [1, 0], [1, 1]],
+                "eeg_net": "GSN-HydroCel-185.csv",
+            }
+        )
+    )
+
+    run = client.get(
+        "/api/catalog/flex-runs", params={"subject": "ernie"}, headers=BEARER
+    ).json()[0]
+    assert "electrodes" not in run["manifest"]
+    assert run["mappings"] == [
+        {
+            "eeg_net": "GSN-HydroCel-185.csv",
+            "pairs": [["E001", "E002"], ["E003", "E004"]],
+        }
+    ]
+    assert run["optimized"] == [
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+        [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],
+    ]
+
+
+def test_flex_run_without_a_mapping_still_offers_free_positions(
+    client: TestClient,
+) -> None:
+    pm = get_path_manager()
+    run_dir = pm.flex_search_run("ernie", "20260101_000000")
+    Path(run_dir, "electrode_positions.json").write_text(
+        json.dumps(
+            {
+                "optimized_positions": [
+                    [1.0, 2.0, 3.0],
+                    [4.0, 5.0, 6.0],
+                    [7.0, 8.0, 9.0],
+                    [10.0, 11.0, 12.0],
+                ]
+            }
+        )
+    )
+    run = client.get(
+        "/api/catalog/flex-runs", params={"subject": "ernie"}, headers=BEARER
+    ).json()[0]
+    assert run["mappings"] == []
+    # No channel_array_indices: consecutive pairing, as resolve_flex_montage does.
+    assert run["optimized"] == [
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+        [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],
+    ]
+
+
+def test_flex_run_with_no_positions_reports_none(client: TestClient) -> None:
+    run = client.get(
+        "/api/catalog/flex-runs", params={"subject": "ernie"}, headers=BEARER
+    ).json()[0]
+    assert run["mappings"] == []
+    assert run["optimized"] is None
+
+
 def test_ex_runs_ignores_incomplete_and_derives_net(client: TestClient) -> None:
     body = client.get(
         "/api/catalog/ex-runs", params={"subject": "ernie"}, headers=BEARER

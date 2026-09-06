@@ -5935,12 +5935,55 @@
             "type": "object",
             "additionalProperties": true
           },
+          "mappings": {
+            "type": "array",
+            "description": "EEG-label electrode pairs already mapped for this run, one entry per net (from its electrode_mapping_<net>.json files). Empty when the run has never been mapped onto a net; `optimized` is then the only way to simulate it.",
+            "items": {
+              "$ref": "#/components/schemas/FlexMapping"
+            }
+          },
+          "optimized": {
+            "type": "array",
+            "nullable": true,
+            "description": "The run's free XYZ electrode pairs (Montage mode flex_free), from electrode_positions.json; null when the run wrote no usable positions.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
           "artifacts": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Artifact"
             },
             "description": "run outputs (Pareto-front/convergence PNGs, CSVs, manifests) to list, not just reveal-in-folder"
+          }
+        }
+      },
+      "FlexMapping": {
+        "type": "object",
+        "required": [
+          "eeg_net",
+          "pairs"
+        ],
+        "properties": {
+          "eeg_net": {
+            "type": "string"
+          },
+          "pairs": {
+            "type": "array",
+            "description": "one [anode, cathode] EEG-label pair per stimulation channel",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       },
@@ -9757,14 +9800,37 @@
         "title": "MontageMode",
         "type": "string"
       },
-      "FieldPostproc": {
-        "description": "Field post-processing method applied to the TI envelope.\n\nAttributes\n----------\nMAX_TI : str\n    Maximum TI amplitude (direction-independent).\nDIR_TI_NORMAL : str\n    TI component normal to the cortical surface.\nDIR_TI_TANGENTIAL : str\n    TI component tangential to the cortical surface.",
+      "ParetoSweepConfig": {
+        "description": "Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.\n\nThe driver runs one ``\"focality\"`` optimization per (roi_pct, nonroi_pct)\ncombination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --\n``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single\nstep-1 ``\"mean\"`` calibration run. See\n:func:`tit.opt.flex.pareto.compute_sweep_grid`.\n\nAttributes\n----------\nroi_pcts : list of float\n    ROI threshold percentages to sweep (each in ``(0, 100)``).\nnonroi_pcts : list of float\n    Non-ROI threshold percentages to sweep (each in ``(0, 100)``).\n\nRaises\n------\nValueError\n    If either list is empty, if any value falls outside ``(0, 100)``,\n    or if any ``(roi_pct, nonroi_pct)`` combination has\n    ``nonroi_pct >= roi_pct``.",
+        "properties": {
+          "roi_pcts": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Roi Pcts",
+            "type": "array"
+          },
+          "nonroi_pcts": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Nonroi Pcts",
+            "type": "array"
+          }
+        },
+        "title": "ParetoSweepConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "OptGoal": {
+        "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize peak field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
         "enum": [
-          "max_TI",
-          "dir_TI_normal",
-          "dir_TI_tangential"
+          "mean",
+          "max",
+          "focality",
+          "focality_tf"
         ],
-        "title": "FieldPostproc",
+        "title": "OptGoal",
         "type": "string"
       },
       "Mode": {
@@ -9835,73 +9901,28 @@
         "type": "object",
         "additionalProperties": false
       },
-      "OptGoal": {
-        "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize peak field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
-        "enum": [
-          "mean",
-          "max",
-          "focality",
-          "focality_tf"
-        ],
-        "title": "OptGoal",
-        "type": "string"
-      },
-      "FlexConfigAtlasROI": {
-        "description": "Cortical surface ROI from a FreeSurfer annotation atlas.\n\nEach of *atlas_path*, *label*, *hemisphere* accepts either a single\nvalue (one region) or a list (a union of several regions evaluated as\none combined target).  Because ``.annot`` files are per-hemisphere,\ncarrying a per-region *hemisphere* (and matching *atlas_path*) allows a\ntarget that spans **both** hemispheres, or even different atlases.\nScalars broadcast to the number of labels; lists must match its length.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the FreeSurfer ``.annot`` annotation file(s).\nlabel : int or list of int\n    Integer label index/indices within the annotation atlas.\nhemisphere : str or list of str\n    Hemisphere(s) to use (``\"lh\"`` or ``\"rh\"``), one per label.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path*/*hemisphere* is a list whose\n    length neither equals 1 nor the number of labels.",
+      "ElectrodeConfig": {
+        "description": "Electrode geometry for flex-search.\n\nOnly *gel_thickness* is needed here -- the optimization leadfield\nuses point electrodes; *gel_thickness* is recorded in the manifest\nfor downstream simulation.\n\nAttributes\n----------\nshape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\ndimensions : list of float\n    Electrode dimensions in mm (``[width, height]``).\ngel_thickness : float\n    Conductive gel thickness in mm.",
         "properties": {
-          "atlas_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            ],
-            "title": "Atlas Path"
+          "shape": {
+            "default": "ellipse",
+            "title": "Shape",
+            "type": "string"
           },
-          "label": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              }
-            ],
-            "title": "Label"
+          "dimensions": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Dimensions",
+            "type": "array"
           },
-          "hemisphere": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            ],
-            "default": "lh",
-            "title": "Hemisphere"
-          },
-          "_type": {
-            "const": "AtlasROI"
+          "gel_thickness": {
+            "default": 4.0,
+            "title": "Gel Thickness",
+            "type": "number"
           }
         },
-        "required": [
-          "atlas_path",
-          "label",
-          "_type"
-        ],
-        "title": "AtlasROI",
+        "title": "ElectrodeConfig",
         "type": "object",
         "additionalProperties": false
       },
@@ -9994,52 +10015,24 @@
         "type": "object",
         "additionalProperties": false
       },
-      "ElectrodeConfig": {
-        "description": "Electrode geometry for flex-search.\n\nOnly *gel_thickness* is needed here -- the optimization leadfield\nuses point electrodes; *gel_thickness* is recorded in the manifest\nfor downstream simulation.\n\nAttributes\n----------\nshape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\ndimensions : list of float\n    Electrode dimensions in mm (``[width, height]``).\ngel_thickness : float\n    Conductive gel thickness in mm.",
-        "properties": {
-          "shape": {
-            "default": "ellipse",
-            "title": "Shape",
-            "type": "string"
-          },
-          "dimensions": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Dimensions",
-            "type": "array"
-          },
-          "gel_thickness": {
-            "default": 4.0,
-            "title": "Gel Thickness",
-            "type": "number"
-          }
-        },
-        "title": "ElectrodeConfig",
-        "type": "object",
-        "additionalProperties": false
+      "FieldPostproc": {
+        "description": "Field post-processing method applied to the TI envelope.\n\nAttributes\n----------\nMAX_TI : str\n    Maximum TI amplitude (direction-independent).\nDIR_TI_NORMAL : str\n    TI component normal to the cortical surface.\nDIR_TI_TANGENTIAL : str\n    TI component tangential to the cortical surface.",
+        "enum": [
+          "max_TI",
+          "dir_TI_normal",
+          "dir_TI_tangential"
+        ],
+        "title": "FieldPostproc",
+        "type": "string"
       },
-      "ParetoSweepConfig": {
-        "description": "Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.\n\nThe driver runs one ``\"focality\"`` optimization per (roi_pct, nonroi_pct)\ncombination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --\n``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single\nstep-1 ``\"mean\"`` calibration run. See\n:func:`tit.opt.flex.pareto.compute_sweep_grid`.\n\nAttributes\n----------\nroi_pcts : list of float\n    ROI threshold percentages to sweep (each in ``(0, 100)``).\nnonroi_pcts : list of float\n    Non-ROI threshold percentages to sweep (each in ``(0, 100)``).\n\nRaises\n------\nValueError\n    If either list is empty, if any value falls outside ``(0, 100)``,\n    or if any ``(roi_pct, nonroi_pct)`` combination has\n    ``nonroi_pct >= roi_pct``.",
-        "properties": {
-          "roi_pcts": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Roi Pcts",
-            "type": "array"
-          },
-          "nonroi_pcts": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Nonroi Pcts",
-            "type": "array"
-          }
-        },
-        "title": "ParetoSweepConfig",
-        "type": "object",
-        "additionalProperties": false
+      "NonROIMethod": {
+        "description": "Non-ROI specification method for focality optimization.\n\nAttributes\n----------\nEVERYTHING_ELSE : str\n    Use all mesh elements outside the ROI.\nSPECIFIC : str\n    Use an explicitly defined non-ROI region.",
+        "enum": [
+          "everything_else",
+          "specific"
+        ],
+        "title": "NonROIMethod",
+        "type": "string"
       },
       "AdaptiveFocalityConfig": {
         "description": "Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.\n\nBoth percentages are applied to the achievable mean ROI intensity found by\nthe driver's own step-1 ``\"mean\"`` optimization run -- never to a value the\ncaller supplies directly, since that intensity is subject- and ROI-specific\nand cannot be known ahead of time.\n\nAttributes\n----------\nroi_percentage : float\n    ROI focality threshold, as a percentage (0-100 exclusive) of the\n    achievable mean ROI intensity.\nnonroi_percentage : float\n    Non-ROI focality threshold, as a percentage (0-100 exclusive) of the\n    same achievable intensity. Must be strictly less than\n    *roi_percentage*.\n\nRaises\n------\nValueError\n    If either percentage is outside ``(0, 100)``, or if\n    *nonroi_percentage* is not strictly less than *roi_percentage*.",
@@ -10059,21 +10052,22 @@
         "type": "object",
         "additionalProperties": false
       },
-      "NonROIMethod": {
-        "description": "Non-ROI specification method for focality optimization.\n\nAttributes\n----------\nEVERYTHING_ELSE : str\n    Use all mesh elements outside the ROI.\nSPECIFIC : str\n    Use an explicitly defined non-ROI region.",
-        "enum": [
-          "everything_else",
-          "specific"
-        ],
-        "title": "NonROIMethod",
-        "type": "string"
-      },
-      "ExConfigAtlasROI": {
-        "description": "Volumetric atlas or mask ROI, unioned with the spherical center(s).\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
+      "FlexConfigAtlasROI": {
+        "description": "Cortical surface ROI from a FreeSurfer annotation atlas.\n\nEach of *atlas_path*, *label*, *hemisphere* accepts either a single\nvalue (one region) or a list (a union of several regions evaluated as\none combined target).  Because ``.annot`` files are per-hemisphere,\ncarrying a per-region *hemisphere* (and matching *atlas_path*) allows a\ntarget that spans **both** hemispheres, or even different atlases.\nScalars broadcast to the number of labels; lists must match its length.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the FreeSurfer ``.annot`` annotation file(s).\nlabel : int or list of int\n    Integer label index/indices within the annotation atlas.\nhemisphere : str or list of str\n    Hemisphere(s) to use (``\"lh\"`` or ``\"rh\"``), one per label.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path*/*hemisphere* is a list whose\n    length neither equals 1 nor the number of labels.",
         "properties": {
           "atlas_path": {
-            "title": "Atlas Path",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Atlas Path"
           },
           "label": {
             "anyOf": [
@@ -10081,15 +10075,37 @@
                 "type": "integer"
               },
               {
-                "type": "null"
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
               }
             ],
-            "default": null,
             "title": "Label"
+          },
+          "hemisphere": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "default": "lh",
+            "title": "Hemisphere"
+          },
+          "_type": {
+            "const": "AtlasROI"
           }
         },
         "required": [
-          "atlas_path"
+          "atlas_path",
+          "label",
+          "_type"
         ],
         "title": "AtlasROI",
         "type": "object",
@@ -10141,8 +10157,57 @@
         "type": "object",
         "additionalProperties": false
       },
+      "ExConfigAtlasROI": {
+        "description": "Volumetric atlas or mask ROI, unioned with the spherical center(s).\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
+        "properties": {
+          "atlas_path": {
+            "title": "Atlas Path",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          }
+        },
+        "required": [
+          "atlas_path"
+        ],
+        "title": "AtlasROI",
+        "type": "object",
+        "additionalProperties": false
+      },
       "ExConfigPoolElectrodes": {
         "description": "Single electrode pool -- all positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any channel position.",
+        "properties": {
+          "electrodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Electrodes",
+            "type": "array"
+          },
+          "_type": {
+            "const": "PoolElectrodes"
+          }
+        },
+        "required": [
+          "electrodes",
+          "_type"
+        ],
+        "title": "PoolElectrodes",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "MExConfigPoolElectrodes": {
+        "description": "Single electrode pool -- all eight positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any pair position.",
         "properties": {
           "electrodes": {
             "items": {
@@ -10268,27 +10333,14 @@
         "type": "object",
         "additionalProperties": false
       },
-      "MExConfigPoolElectrodes": {
-        "description": "Single electrode pool -- all eight positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any pair position.",
-        "properties": {
-          "electrodes": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Electrodes",
-            "type": "array"
-          },
-          "_type": {
-            "const": "PoolElectrodes"
-          }
-        },
-        "required": [
-          "electrodes",
-          "_type"
+      "AnalyzerSpace": {
+        "description": "Where the field is read from.\n\nAttributes\n----------\nMESH : str\n    SimNIBS surface/volume mesh.\nVOXEL : str\n    MNI-space NIfTI volume.",
+        "enum": [
+          "mesh",
+          "voxel"
         ],
-        "title": "PoolElectrodes",
-        "type": "object",
-        "additionalProperties": false
+        "title": "AnalyzerSpace",
+        "type": "string"
       },
       "AnalysisMode": {
         "description": "Which entry-point branch handles this config.\n\nAttributes\n----------\nSINGLE : str\n    One subject, via :class:`tit.analyzer.Analyzer`.\nGROUP : str\n    Multiple subjects, via :func:`tit.analyzer.run_group_analysis`.",
@@ -10316,15 +10368,6 @@
           "mni"
         ],
         "title": "AnalyzerCoordinateSpace",
-        "type": "string"
-      },
-      "AnalyzerSpace": {
-        "description": "Where the field is read from.\n\nAttributes\n----------\nMESH : str\n    SimNIBS surface/volume mesh.\nVOXEL : str\n    MNI-space NIfTI volume.",
-        "enum": [
-          "mesh",
-          "voxel"
-        ],
-        "title": "AnalyzerSpace",
         "type": "string"
       },
       "QSIReconSettings": {
@@ -10500,6 +10543,23 @@
         "type": "object",
         "additionalProperties": false
       },
+      "_ClusterStat": {
+        "enum": [
+          "mass",
+          "size"
+        ],
+        "title": "_ClusterStat",
+        "type": "string"
+      },
+      "_AnalysisSpace": {
+        "description": "Where the group statistics run: MNI volume or fsaverage surface.",
+        "enum": [
+          "mni",
+          "fsaverage"
+        ],
+        "title": "_AnalysisSpace",
+        "type": "string"
+      },
       "Alternative": {
         "description": "Sidedness of the test hypothesis.",
         "enum": [
@@ -10508,6 +10568,15 @@
           "less"
         ],
         "title": "Alternative",
+        "type": "string"
+      },
+      "TestType": {
+        "description": "Type of statistical test for group comparison.",
+        "enum": [
+          "unpaired",
+          "paired"
+        ],
+        "title": "TestType",
         "type": "string"
       },
       "GroupComparisonConfigSubject": {
@@ -10542,32 +10611,6 @@
           "all"
         ],
         "title": "_TissueType",
-        "type": "string"
-      },
-      "_AnalysisSpace": {
-        "description": "Where the group statistics run: MNI volume or fsaverage surface.",
-        "enum": [
-          "mni",
-          "fsaverage"
-        ],
-        "title": "_AnalysisSpace",
-        "type": "string"
-      },
-      "_ClusterStat": {
-        "enum": [
-          "mass",
-          "size"
-        ],
-        "title": "_ClusterStat",
-        "type": "string"
-      },
-      "TestType": {
-        "description": "Type of statistical test for group comparison.",
-        "enum": [
-          "unpaired",
-          "paired"
-        ],
-        "title": "TestType",
         "type": "string"
       },
       "CorrelationConfigSubject": {
@@ -10608,26 +10651,6 @@
         ],
         "title": "CorrelationType",
         "type": "string"
-      },
-      "SourcePair": {
-        "description": "One (subject, simulation) pair for the ``fsavg_map`` pipeline.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation : str\n    Simulation (montage) folder name.",
-        "properties": {
-          "subject_id": {
-            "title": "Subject Id",
-            "type": "string"
-          },
-          "simulation": {
-            "title": "Simulation",
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject_id",
-          "simulation"
-        ],
-        "title": "SourcePair",
-        "type": "object",
-        "additionalProperties": false
       },
       "FsavgMapConfig": {
         "description": "Parameters for projecting simulation field outputs onto fsaverage.\n\nAttributes\n----------\nfields : tuple of str\n    Which field quantities to project.  Any of\n    :data:`VALID_FSAVG_FIELDS` (``\"TI_max\"``, ``\"TI_normal\"``,\n    ``\"hf_peak\"``, ``\"hf_sar\"``).\nfsaverage_spacing : int\n    fsaverage subdivision factor (5, 6, or 7) to morph onto.\nworkers : int\n    Number of subjects projected in parallel (1 = serial).\noverwrite : bool\n    Re-project even when a cached ``.npz`` already exists.",
@@ -10696,6 +10719,26 @@
         "type": "object",
         "additionalProperties": false
       },
+      "SourcePair": {
+        "description": "One (subject, simulation) pair for the ``fsavg_map`` pipeline.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation : str\n    Simulation (montage) folder name.",
+        "properties": {
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "simulation": {
+            "title": "Simulation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "simulation"
+        ],
+        "title": "SourcePair",
+        "type": "object",
+        "additionalProperties": false
+      },
       "Length": {
         "description": "Arrow length mapping mode.",
         "enum": [
@@ -10742,6 +10785,15 @@
         "title": "Surface",
         "type": "string"
       },
+      "NiftiAverageSpace": {
+        "description": "Which per-subject NIfTI space the group average is computed in.",
+        "enum": [
+          "subject",
+          "mni"
+        ],
+        "title": "NiftiAverageSpace",
+        "type": "string"
+      },
       "NiftiAverageSubject": {
         "description": "One subject/simulation/group assignment row.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without the ``sub-`` prefix).\nsimulation_name : str\n    Simulation folder name whose NIfTI is averaged.\ngroup : str, optional\n    Group label this subject belongs to. Default is ``\"Group1\"``.",
         "properties": {
@@ -10766,15 +10818,6 @@
         "title": "NiftiAverageSubject",
         "type": "object",
         "additionalProperties": false
-      },
-      "NiftiAverageSpace": {
-        "description": "Which per-subject NIfTI space the group average is computed in.",
-        "enum": [
-          "subject",
-          "mni"
-        ],
-        "title": "NiftiAverageSpace",
-        "type": "string"
       },
       "NilearnSubjectSimulation": {
         "description": "One subject/simulation pair to group-average before visualising.",

@@ -55,6 +55,47 @@
         "label": "focality_maxTI_subcortical-labeling-17",
         "eeg_net": "GSN-HydroCel-185.csv"
       },
+      "mappings": [
+        {
+          "eeg_net": "GSN-HydroCel-185.csv",
+          "pairs": [
+            [
+              "E020",
+              "E074"
+            ],
+            [
+              "E101",
+              "E133"
+            ]
+          ]
+        }
+      ],
+      "optimized": [
+        [
+          [
+            81.0,
+            13.3,
+            38.1
+          ],
+          [
+            -74.4,
+            43.7,
+            6.1
+          ]
+        ],
+        [
+          [
+            -77.2,
+            11.8,
+            3.9
+          ],
+          [
+            80.8,
+            14.2,
+            3.8
+          ]
+        ]
+      ],
       "artifacts": [
         {
           "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/convergence.png",

@@ -91,15 +91,16 @@ previous `xyz`/`label` guess (keyed off whether any position had a label) no lon
    (`{flex: [{subject, run, electrode_type, eeg_net}]}` / `{freehand: [{subject, name}]}`, per
    `_montage_sources_for_request`'s own docstring), with the old nested-in-`config` shape kept only
    as a one-release fallback. No client-side change needed for planning any more.
-   **Submission gap still open**: `FlexRun.manifest` is untyped (`{[key: string]: unknown}`); this
-   page reads `manifest.electrodes` as EEG-label pairs (`FLEX_MAPPED`, matching the PyQt tab's
-   "mapped" variant) and has no way to know whether a run also has a free/optimized XYZ result (the
-   PyQt tab's "optimized" variant, `Montage.Mode.FLEX_FREE`) — a real submitted job still needs a
-   fully resolved `Montage` embedded in `config.montages` (`POST /api/jobs`'s `JobSpec` has no
-   `montage_sources` field), so this client-side manifest read is still the only path to pairs for
-   *submission*. **Needs**: `FlexRun.manifest`'s shape (or a sibling field) documented well enough
-   to tell mapped from free-coordinate results for submission, from whichever lane owns flex-search
-   run manifests (B2/P3).
+   **Submission gap RESOLVED 2026-09-06** — `flex_meta.json` records no electrodes at all, so the
+   old `manifest.electrodes` read here was always empty: every row's checkbox was disabled and the
+   whole "Flex result" mode was unclickable (maintainer report, reproduced against Dataset 000).
+   `tit/catalog.py::flex_runs` now surfaces the electrodes from the run's own files as `FlexRun`
+   fields — `mappings` (one per `electrode_mapping_<net>.json`, i.e. `FLEX_MAPPED`) and `optimized`
+   (`electrode_positions.json`, i.e. `FLEX_FREE`, which every flex run writes) — so the tab can tell
+   mapped from free and resolve either into the `Montage` a submitted job must embed. The plan no
+   longer sends `montage_sources` alongside an already-resolved config either: the server resolved
+   the run a *second* time from it, planning one job as two.
+
 5. **Montage CRUD without any subject selected has no electrode-label source.** `GET
    /api/catalog/eeg-nets` is subject-scoped (`?subject=`); creating a montage before picking any
    subject leaves the pair editor's electrode dropdowns empty. Low priority (montages are
