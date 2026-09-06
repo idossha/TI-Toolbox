@@ -17,6 +17,15 @@ Tetravox **desktop app**, installed on the host, which signs, notarises and upda
 is the honest consequence of D3: a container with no display cannot draw, and an embed baked into
 an image is a viewer release tied to a toolbox release.
 
+Installing the Tetravox *desktop app* into the image was considered as well, so that users would
+not have to install it themselves, and rejected for the same reason one layer up: this image has
+no display and no GPU, and since Chromium 137 Electron has no software-WebGL fallback, so an
+Electron app started here has nothing to draw on — and forwarding X11 to the host would trade one
+install for a worse one (XQuartz, an X server on Windows) while streaming an interactive 3-D
+viewer over a socket. The viewer runs on the host's GPU, and the **desktop app installs and
+updates it there by itself** (`desktop/src/main/tetravoxInstall.ts`, V6): nothing in this image
+downloads, ships or knows the viewer's version.
+
 Two recipes:
 
 | File | What it does | When to use it |

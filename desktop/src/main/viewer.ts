@@ -36,9 +36,12 @@
  *
  * ## Discovery
  *
- * A path the user set in Settings wins; then the platform's conventional install locations. There
- * is deliberately no download, no bundling and no version pin: the app updates itself, and this
- * one has no business deciding when.
+ * **Managed install → user override → system locations.** The managed copy
+ * (`./tetravoxInstall.ts`, `<userData>/tetravox/<version>/`) comes first because it is the one
+ * TI-Toolbox is responsible for: it exists without the user doing anything, and it is the version
+ * this app knows how to update. A Settings override still beats every *discovery* below it — a
+ * user who names a path means it — and a system-installed copy is honoured last, so someone who
+ * already had Tetravox before installing the managed one is not surprised by which opens.
  */
 import { spawn } from "node:child_process";
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
@@ -58,8 +61,11 @@ export interface TetravoxLocation {
   path: string;
   /** `CFBundleShortVersionString` on macOS; `null` everywhere the platform does not say cheaply. */
   version: string | null;
-  /** `"override"` when it came from the user's own setting, else `"discovered"`. */
-  source: "override" | "discovered";
+  /**
+   * `"managed"` — installed and maintained by TI-Toolbox itself (`./tetravoxInstall.ts`);
+   * `"override"` — the path the user set in Settings; `"discovered"` — a copy the user installed.
+   */
+  source: "managed" | "override" | "discovered";
 }
 
 /**
@@ -118,9 +124,16 @@ export function findTetravox(
   env: NodeJS.ProcessEnv,
   home: string,
   override: string | null,
+  managed: { path: string; version: string | null } | null = null,
 ): TetravoxLocation | null {
+  // A user who typed a path meant it, so an override outranks the managed copy; but an override
+  // that no longer exists is not allowed to disable the viewer — it falls through, like any other
+  // stale candidate.
   if (override && isUsable(override, platform)) {
     return { path: override, version: platform === "darwin" ? readMacBundleVersion(override) : null, source: "override" };
+  }
+  if (managed && isUsable(managed.path, platform)) {
+    return { path: managed.path, version: managed.version, source: "managed" };
   }
   for (const candidate of tetravoxCandidates(platform, env, home)) {
     if (!isUsable(candidate, platform)) continue;
@@ -175,6 +188,10 @@ export function launchTetravox(platform: HostPlatform, appPath: string, scenePat
 }
 
 /** `findTetravox` against the live host. */
-export function probeTetravox(platform: HostPlatform, override: string | null): TetravoxLocation | null {
-  return findTetravox(platform, process.env, homedir(), override);
+export function probeTetravox(
+  platform: HostPlatform,
+  override: string | null,
+  managed: { path: string; version: string | null } | null = null,
+): TetravoxLocation | null {
+  return findTetravox(platform, process.env, homedir(), override, managed);
 }

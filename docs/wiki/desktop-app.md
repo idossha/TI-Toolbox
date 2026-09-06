@@ -94,7 +94,8 @@ detected and refused by name).
 
 The 3D/volume viewer is not part of this app and is not served by the container — it is
 [Tetravox](https://github.com/idossha/tetravox), an ordinary signed, notarised desktop
-application that auto-updates itself. TI-Toolbox's part is one file
+application. **You do not have to install it.** TI-Toolbox installs and maintains it for you
+(`dev/notes/v3-native-panes-external-viewer/TI.md`, decision V6); its part is then one file
 (`dev/notes/v3-native-panes-external-viewer-plan.md`, decisions V1-V4):
 
 - **The Viewer page is a selector.** Pick a subject, a simulation, an analysis, a group result or
@@ -110,16 +111,34 @@ application that auto-updates itself. TI-Toolbox's part is one file
   (`open -a Tetravox <scene>` on macOS, the resolved binary elsewhere). A second Open is a second
   spawn: Tetravox holds a single-instance lock and routes the file into the window already on
   screen instead of opening another one.
-- **Discovery, and one override.** `/Applications/Tetravox.app` and `~/Applications` on macOS,
+- **The managed install.** The first **Open in Tetravox** on a machine that has no viewer
+  downloads one — one click, no dialog, progress while it runs — into
+  `<userData>/tetravox/<version>/`, and then opens the scene. TI-Toolbox picks the newest
+  non-prerelease GitHub release, takes the single asset for the platform
+  (`…-mac-arm64.zip` / `…-mac-x64.zip` / `…-win-x64.exe` / `…-linux-x86_64.AppImage`) and
+  **verifies it against the SHA-512 the release's own `latest*.yml` states** before anything is
+  moved into place. On macOS the bundle is unpacked with `ditto`, and the quarantine attribute is
+  removed *only* if `codesign --verify` passes — an unsigned or damaged download keeps it and
+  meets Gatekeeper.
+- **Updates never interrupt you.** The release index is checked at most once a day, in the
+  background, and never on the path to a launch: an offline machine opens the version it has. A
+  newer version is downloaded and verified, then becomes active the *next* time you start
+  TI-Toolbox, so nothing is swapped underneath an open window. The last two versions are kept.
+- **Discovery, and one override.** Managed install first, then a path you set yourself, then a
+  copy already on the machine: `/Applications/Tetravox.app` and `~/Applications` on macOS,
   `%LOCALAPPDATA%\Programs\Tetravox\Tetravox.exe` on Windows, `tetravox` on `PATH` (or
-  `~/.local/bin`, `/usr/bin`, `/usr/local/bin`) on Linux. *Settings → Viewer* shows the resolved
-  path and version, offers a path override for an AppImage outside `PATH`, and links to the
-  download when nothing is found.
-- **In a browser**, where there is no main process to spawn anything, the button downloads the
-  scene file instead; open it with **File ▸ Open Scene…**.
+  `~/.local/bin`, `/usr/bin`, `/usr/local/bin`) on Linux. *Settings → Viewer* shows the installed
+  version, that TI-Toolbox installed it, when it last checked, and its disk usage, with
+  **Check for updates**, **Use a different Tetravox…** (the path override) and **Remove**.
+- **In a browser**, where there is no main process to spawn or install anything, the button
+  downloads the scene file instead; open it with **File ▸ Open Scene…**. This is unchanged.
 
 Nothing about the viewer is a server capability any more: the container has no display, ships no
-viewer, and `GET /api/capabilities` says nothing about one.
+viewer, and `GET /api/capabilities` says nothing about one. Putting Tetravox *inside* the image
+was considered and rejected for the same reason — a headless container has no display and no GPU,
+and since Chromium 137 there is no software-WebGL fallback to stand in for one, so the viewer has
+to run on the host's own hardware. Something therefore has to put it there, and that something is
+this app rather than the person using it.
 
 ## Launch Workflow
 

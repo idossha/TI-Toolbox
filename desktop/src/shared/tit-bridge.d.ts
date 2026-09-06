@@ -43,7 +43,8 @@
  *                             `start` is launcher-only (ra_14 finding 4); `status` (read-only) and
  *                             `stop` (ends only the caller's own container) are not.
  *
- * 13. `viewer`               — the external-viewer sub-bridge (`probe`/`open`/`setPath`), counted
+ * 13. `viewer`               — the external-viewer sub-bridge (`probe`/`open`/`setPath`/`install`/
+ *                             `checkUpdates`/`remove`/`onEvent`), counted
  *                             as one entry like `stack`. Added by V2/V3
  *                             (`dev/notes/v3-native-panes-external-viewer-plan.md`) when the
  *                             in-app Tetravox embed was retired: opening a viewer became a host
@@ -81,13 +82,50 @@ export interface TitViewerInfo {
   path: string | null;
   /** macOS `CFBundleShortVersionString`; null where the platform does not say cheaply. */
   version: string | null;
-  /** "override" when it came from `TitSettings.tetravoxPath`, "discovered" otherwise. */
-  source: "override" | "discovered" | null;
+  /**
+   * Where the found copy came from: `"managed"` (installed and maintained by TI-Toolbox),
+   * `"override"` (`TitSettings.tetravoxPath`), `"discovered"` (already on this computer).
+   */
+  source: "managed" | "override" | "discovered" | null;
   /** The user's own override as stored, so Settings can render the field it owns. */
   override: string | null;
-  /** GitHub releases page, shown when `available` is false. */
+  /** GitHub releases page — a manual escape hatch, not the normal route any more. */
   downloadUrl: string;
+  /** The state of the install TI-Toolbox maintains itself (V6). */
+  managed: TitViewerManaged;
 }
+
+/**
+ * The managed Tetravox install — what TI-Toolbox put on this computer, and when it last looked
+ * for a newer one (V6, `dev/notes/v3-native-panes-external-viewer/TI.md`).
+ */
+export interface TitViewerManaged {
+  /** false where Tetravox publishes no build (Linux arm64, 32-bit) — an honest "not here". */
+  supported: boolean;
+  /** The active managed version, or null when nothing is installed yet. */
+  version: string | null;
+  /** A verified download waiting for the next launch of this app to become `version`. */
+  pending: string | null;
+  /** ISO timestamp of the last release-index check, successful or not. */
+  lastCheckedAt: string | null;
+  /** Bytes the managed install occupies, for the Settings card's disk row. */
+  bytes: number;
+  /** `<userData>/tetravox`, shown so a person can find it themselves. */
+  root: string | null;
+  /** true while a download/install is in flight, so the UI disables its own trigger. */
+  busy: boolean;
+}
+
+/** Progress of a managed install, pushed live while one runs. */
+export type TitViewerEvent =
+  | { phase: "checking" }
+  | { phase: "downloading"; version: string; received: number; total: number }
+  | { phase: "verifying"; version: string }
+  | { phase: "installing"; version: string }
+  | { phase: "done"; version: string; pending: boolean }
+  | { phase: "error"; message: string };
+
+export type TitViewerInstallResult = { ok: true; version: string; pending: boolean } | { ok: false; reason: string };
 
 export type TitViewerOpenResult =
   | { ok: true; command: string; args: string[] }
@@ -105,6 +143,17 @@ export interface TitViewerBridge {
   open(containerScenePath: string): Promise<TitViewerOpenResult>;
   /** Set (or, with `""`, clear) the Settings path override; answers the re-probed state. */
   setPath(path: string): Promise<TitViewerInfo>;
+  /**
+   * Install the newest Tetravox into `<userData>/tetravox`, now. Idempotent while one is running
+   * (a second call joins the first rather than starting a second download).
+   */
+  install(): Promise<TitViewerInstallResult>;
+  /** Look for a newer release right now, ignoring the once-a-day rule; answers the new state. */
+  checkUpdates(): Promise<TitViewerInfo>;
+  /** Delete the managed install entirely. A user's own copy, if any, is untouched. */
+  remove(): Promise<TitViewerInfo>;
+  /** Subscribe to install progress; returns an unsubscribe function. */
+  onEvent(callback: (event: TitViewerEvent) => void): () => void;
 }
 
 export interface TitConnectArgs {

@@ -63,6 +63,38 @@ describe("tetravoxCandidates", () => {
   });
 });
 
+describe("discovery order (V6: managed install → override → system)", () => {
+  it("prefers the copy TI-Toolbox manages over one the user happens to have", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tvx-managed-"));
+    const managedApp = join(dir, "0.3.11", "Tetravox.app");
+    mkdirSync(join(managedApp, "Contents"), { recursive: true });
+    // A system copy exists too — `/Applications/Tetravox.app` on this Mac — but the managed one is
+    // the version this app knows how to update, so it is the one that opens.
+    const found = findTetravox("darwin", {}, "/Users/nobody", null, { path: managedApp, version: "0.3.11" });
+    expect(found?.path).toBe(managedApp);
+    expect(found?.source).toBe("managed");
+    expect(found?.version).toBe("0.3.11");
+  });
+
+  it("still lets an override win — a user who typed a path meant it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tvx-both-"));
+    const managedApp = join(dir, "managed", "Tetravox.app");
+    const chosen = join(dir, "chosen", "Tetravox.app");
+    for (const app of [managedApp, chosen]) mkdirSync(join(app, "Contents"), { recursive: true });
+    const found = findTetravox("darwin", {}, "/Users/nobody", chosen, { path: managedApp, version: "0.3.11" });
+    expect(found?.path).toBe(chosen);
+    expect(found?.source).toBe("override");
+  });
+
+  it("falls through a managed install that is not there — a deleted directory is not a viewer", () => {
+    const found = findTetravox("linux", { PATH: "" }, "/home/nobody", null, {
+      path: "/nowhere/0.3.11/Tetravox.AppImage",
+      version: "0.3.11",
+    });
+    expect(found).toBeNull();
+  });
+});
+
 describe("findTetravox", () => {
   it("prefers a usable override, and labels it as one", () => {
     const dir = mkdtempSync(join(tmpdir(), "tvx-"));

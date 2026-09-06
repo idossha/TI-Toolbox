@@ -91,21 +91,30 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
-test("Settings shows where Tetravox is on this computer", async () => {
-  // V3 (dev/notes/v3-native-panes-external-viewer-plan.md). The card that used to install,
-  // activate, roll back and remove an embed bundle inside the container is gone with the embed:
-  // the viewer is an ordinary desktop application that updates itself. What is left is the one
-  // thing this app knows and the user needs — is it there, where, and how to get it.
+test("Settings shows the Tetravox install TI-Toolbox manages", async () => {
+  // V3 made the viewer an ordinary desktop app; V6 (dev/notes/v3-native-panes-external-viewer/TI.md)
+  // made TI-Toolbox the thing that installs and updates it, so the card's subject is the *managed*
+  // install: which version is here, that this app put it here, when it last looked for a newer
+  // one, and what it costs on disk.
   await connect();
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("tit:viewer:probe");
     ipcMain.handle("tit:viewer:probe", () => ({
       available: true,
-      path: "/Applications/Tetravox.app",
+      path: "/Users/tester/Library/Application Support/TI-Toolbox/tetravox/0.3.11/Tetravox.app",
       version: "0.3.11",
-      source: "discovered",
+      source: "managed",
       override: null,
       downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
+      managed: {
+        supported: true,
+        version: "0.3.11",
+        pending: null,
+        lastCheckedAt: "2026-09-06T12:00:00.000Z",
+        bytes: 420_000_000,
+        root: "/Users/tester/Library/Application Support/TI-Toolbox/tetravox",
+        busy: false,
+      },
     }));
   });
   await openSettings();
@@ -113,18 +122,53 @@ test("Settings shows where Tetravox is on this computer", async () => {
   const card = page.getByTestId("viewer-card");
   await expect(card).toBeVisible();
   await page.getByTestId("viewer-card-refresh").click();
-  await expect(page.getByTestId("viewer-card-path")).toHaveText("/Applications/Tetravox.app");
+  await expect(page.getByTestId("viewer-card-path")).toContainText("tetravox/0.3.11/Tetravox.app");
   await expect(page.getByTestId("viewer-card-version")).toHaveText("0.3.11");
   await expect(page.getByTestId("viewer-card-status")).toBeVisible();
-  // The path override is the card's one control, and it is a field, not a dialog.
+  // The sentence the whole lane exists to make true: the user installed nothing.
+  await expect(page.getByTestId("viewer-card-source")).toHaveText("Installed by TI-Toolbox");
+  await expect(page.getByTestId("viewer-card-checked")).not.toHaveText("Never");
+  await expect(page.getByTestId("viewer-card-disk")).toHaveText("401 MB");
+  await expect(page.getByTestId("viewer-card-check-updates")).toBeVisible();
+  await expect(page.getByTestId("viewer-card-remove")).toBeVisible();
+  // The override is a field, not a dialog, and it is now framed as an alternative to the managed
+  // copy rather than the only way to have a viewer at all.
   await expect(page.getByTestId("viewer-card-override-input")).toBeVisible();
 
-  // Nothing about the viewer is a server capability any more, so the About card must not claim
-  // one. (It listed "Viewer bundle vX · protocol N · baked" until V4.)
+  // Nothing about the viewer is a server capability, so the About card must not claim one.
+  // (It listed "Viewer bundle vX · protocol N · baked" until V4.)
   await expect(page.locator(".card", { hasText: "About the server" })).not.toContainText("Viewer bundle");
 });
 
-test("offers the download when Tetravox is not installed", async () => {
+test("shows an update that is downloaded and waiting for the next launch", async () => {
+  await connect();
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:viewer:probe");
+    ipcMain.handle("tit:viewer:probe", () => ({
+      available: true,
+      path: "/managed/0.3.11/Tetravox.app",
+      version: "0.3.11",
+      source: "managed",
+      override: null,
+      downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
+      managed: {
+        supported: true,
+        version: "0.3.11",
+        pending: "0.3.12",
+        lastCheckedAt: "2026-09-06T12:00:00.000Z",
+        bytes: 800_000_000,
+        root: "/managed",
+        busy: false,
+      },
+    }));
+  });
+  await openSettings();
+  // A new version never replaces a running one; the card says so rather than the app doing it.
+  await expect(page.getByTestId("viewer-card-pending")).toContainText("0.3.12");
+  await expect(page.getByTestId("viewer-card-pending")).toContainText("next time you start");
+});
+
+test("offers to install Tetravox when nothing is there yet", async () => {
   await connect();
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("tit:viewer:probe");
@@ -135,9 +179,32 @@ test("offers the download when Tetravox is not installed", async () => {
       source: null,
       override: null,
       downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
+      managed: { supported: true, version: null, pending: null, lastCheckedAt: null, bytes: 0, root: "/managed", busy: false },
     }));
   });
   await openSettings();
+  // Not an error and not a dead end: one button, and the Viewer page's Open does it anyway.
   await expect(page.getByTestId("viewer-card-missing")).toBeVisible();
-  await expect(page.getByTestId("viewer-card-download")).toBeVisible();
+  await expect(page.getByTestId("viewer-card-install")).toBeVisible();
+  await expect(page.getByTestId("viewer-card-checked")).toHaveCount(0);
+});
+
+test("says so honestly on a platform Tetravox does not publish a build for", async () => {
+  await connect();
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:viewer:probe");
+    ipcMain.handle("tit:viewer:probe", () => ({
+      available: false,
+      path: null,
+      version: null,
+      source: null,
+      override: null,
+      downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
+      managed: { supported: false, version: null, pending: null, lastCheckedAt: null, bytes: 0, root: null, busy: false },
+    }));
+  });
+  await openSettings();
+  await expect(page.getByTestId("viewer-card-unsupported")).toBeVisible();
+  // No Install button that could not work: the card does not offer what it cannot do.
+  await expect(page.getByTestId("viewer-card-install")).toHaveCount(0);
 });

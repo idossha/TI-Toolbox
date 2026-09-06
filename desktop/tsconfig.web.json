@@ -49,6 +49,10 @@
     // viewer.ts (V2/V3) is unit-tested directly (tests/unit/viewer-launch.test.ts) — its exported
     // helpers are pure and import nothing from "electron", same rationale as window.ts above.
     "src/main/viewer.ts",
+    // tetravoxInstall.ts (V6) is unit-tested directly (tests/unit/tetravox-install.test.ts) — the
+    // managed install is pure node builtins plus `fetch`, and imports nothing from "electron",
+    // same rationale as viewer.ts above.
+    "src/main/tetravoxInstall.ts",
     "src/main/userConfig.ts",
     // scripts/dev*.ts: the dev-mode entry point and the two pure modules tests/unit/dev-*.test.ts
     // exercise (the dotenv/env resolution and the Vite proxy factory). Composite projects require
