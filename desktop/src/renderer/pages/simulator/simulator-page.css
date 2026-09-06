@@ -82,6 +82,23 @@
   min-width: 0;
 }
 
+/* A flex row's placement, in the EEG-net column: the `Optimised · Map to net` choice, and the net
+   itself underneath only when "Map to net" is chosen. Stacked rather than side by side because the
+   column's width is fixed for every row — a taller cell changes this row's height, never anyone
+   else's column. */
+.placement-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.placement-cell > .segmented,
+.placement-cell > .select-trigger {
+  min-width: 0;
+  width: 100%;
+}
+
 /* The currents cell is a grid of `--slots` equal columns — the widest polarity the table holds,
    never fewer than 4 (`currentSlotsReserved`). A row that gains two more pairs fills reserved
    slots rather than resizing the inputs already there, and the column itself never changes width

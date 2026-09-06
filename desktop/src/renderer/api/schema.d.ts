@@ -4225,11 +4225,22 @@ export interface components {
             /** @description Replace existing output instead of skipping it, for every job in the pipeline. */
             overwrite?: boolean;
         };
+        /** @description One validation finding. `message` is for a human; `code` is what a client keys on, so the canvas can tell an "it runs on its own" note (stated once for the whole graph) from a real blocker, and can render a `missing_input` as a chip on the node's own card that opens its editor at `port`. */
         PipelineIssue: {
             /** @enum {string} */
             level: "error" | "warning";
             /** @description one sentence the UI shows verbatim */
             message: string;
+            /**
+             * @description stable machine-readable name of the finding (`tit.pipeline.validate.ISSUE_CODES`)
+             * @enum {string}
+             */
+            code?: "empty" | "duplicate_id" | "edge_unknown_node" | "self_edge" | "bad_output" | "bad_input" | "double_bound" | "cycle" | "missing_input" | "unconfigured" | "unconnected";
+            /**
+             * @description the port a `missing_input`/`bad_input`/`bad_output`/`double_bound` is about
+             * @enum {string}
+             */
+            port?: "subjects" | "montages" | "simulation" | "roi" | "leadfield";
             node_id?: string;
             edge?: components["schemas"]["PipelineEdge"];
         };

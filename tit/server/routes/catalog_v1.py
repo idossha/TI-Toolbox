@@ -197,6 +197,37 @@ def flex_runs(subject: str = Query(...)) -> list[dict]:
 
 
 @router.get(
+    "/api/catalog/flex-runs/{run}/mapping",
+    summary="Map one flex-search run's optimised positions onto an EEG net",
+)
+def flex_run_mapping(
+    run: str, subject: str = Query(...), eeg_net: str = Query(...)
+) -> dict:
+    """Return the run's electrodes as *eeg_net*'s labels, mapping if needed.
+
+    A flex run only carries ``electrode_mapping_<net>.json`` for the nets it
+    was already mapped onto, so the Simulator's "Map to net" choice would
+    otherwise be limited to those. :func:`resolve_flex_montage` maps the
+    optimiser's XYZ onto *any* net of the subject (Hungarian assignment) and
+    caches the result beside the run, so the first request for a new net
+    computes the mapping and every later one -- including ``flex_runs``'
+    ``mappings`` list -- reads the file it wrote.
+    """
+    from tit.sim import montage_sources
+
+    try:
+        montage = montage_sources.resolve_flex_montage(
+            _pm(), subject, run, "mapped", eeg_net=eeg_net
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "eeg_net": eeg_net,
+        "pairs": [list(pair) for pair in montage.electrode_pairs],
+    }
+
+
+@router.get(
     "/api/catalog/ex-runs", summary="Ex-search (or mEx-search) runs for a subject"
 )
 def ex_runs(subject: str = Query(...), kind: str = Query("ex")) -> list[dict]:

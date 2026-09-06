@@ -1668,6 +1668,28 @@ route("GET", "/api/catalog/flex-runs", (ctx) => {
   if (!(subject in flexRuns)) return json(ctx.res, 404, { detail: "unknown subject" });
   json(ctx.res, 200, flexRuns[subject]);
 });
+/**
+ * `GET /api/catalog/flex-runs/:run/mapping` — the run's electrodes as one net's labels. The real
+ * server maps the optimiser's XYZ onto *any* net the subject has (Hungarian assignment,
+ * `tit/sim/montage_sources.py`) and caches the result beside the run; this mock returns the
+ * precomputed mapping when the fixture has one and otherwise takes the first four electrodes of
+ * the net, which is all a UI test can tell apart.
+ */
+route("GET", "/api/catalog/flex-runs/:run/mapping", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const net = ctx.url.searchParams.get("eeg_net");
+  const run = (flexRuns[subject] ?? []).find((r) => r.name === ctx.params.run);
+  if (!run) return json(ctx.res, 404, { detail: "unknown run" });
+  const detail = subjectDetail(subject);
+  if (!net || !detail?.eeg_nets.some((n) => n.replace(/\.csv$/, "") === net.replace(/\.csv$/, ""))) return json(ctx.res, 404, { detail: "unknown net" });
+  const stem = (n) => n.replace(/\.csv$/, "");
+  const known = (run.mappings ?? []).find((m) => stem(m.eeg_net) === stem(net));
+  if (known) return json(ctx.res, 200, known);
+  const labels = electrodesFor(net);
+  const pairs = [];
+  for (let i = 0; i + 1 < labels.length && pairs.length < 2; i += 2) pairs.push([labels[i], labels[i + 1]]);
+  json(ctx.res, 200, { eeg_net: net, pairs });
+});
 route("GET", "/api/catalog/ex-runs", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const entry = exRuns[subject];
@@ -2392,32 +2414,32 @@ function pipeTopo(doc) {
 function pipeValidate(doc) {
   const issues = [];
   const byId = new Map(doc.nodes.map((n) => [n.id, n]));
-  if (!doc.nodes.length) issues.push({ level: "error", message: "a pipeline needs at least one node" });
+  if (!doc.nodes.length) issues.push({ level: "error", message: "a pipeline needs at least one node", code: "empty" });
   const bound = new Set();
   for (const e of doc.edges) {
     const src = byId.get(e.from);
     const dst = byId.get(e.to);
-    if (!src || !dst) { issues.push({ level: "error", message: "edge refers to a node that is not on the canvas", edge: e }); continue; }
-    if (e.from === e.to) { issues.push({ level: "error", message: "a node cannot feed itself", edge: e }); continue; }
-    if (!PIPE_PORTS[src.kind].outputs.includes(e.port)) { issues.push({ level: "error", message: `${pipeName(src)} does not produce ${PIPE_PORT_LABEL[e.port]}`, edge: e }); continue; }
-    if (!PIPE_PORTS[dst.kind].inputs.includes(e.port)) { issues.push({ level: "error", message: `${pipeName(dst)} does not take ${PIPE_PORT_LABEL[e.port]}`, edge: e }); continue; }
+    if (!src || !dst) { issues.push({ level: "error", message: "edge refers to a node that is not on the canvas", edge: e, code: "edge_unknown_node" }); continue; }
+    if (e.from === e.to) { issues.push({ level: "error", message: "a node cannot feed itself", edge: e, code: "self_edge" }); continue; }
+    if (!PIPE_PORTS[src.kind].outputs.includes(e.port)) { issues.push({ level: "error", message: `${pipeName(src)} does not produce ${PIPE_PORT_LABEL[e.port]}`, edge: e, code: "bad_output", port: e.port }); continue; }
+    if (!PIPE_PORTS[dst.kind].inputs.includes(e.port)) { issues.push({ level: "error", message: `${pipeName(dst)} does not take ${PIPE_PORT_LABEL[e.port]}`, edge: e, code: "bad_input", port: e.port }); continue; }
     const key = `${e.to} ${e.port}`;
-    if (bound.has(key)) { issues.push({ level: "error", message: `${pipeName(dst)} has ${PIPE_PORT_LABEL[e.port]} wired twice`, edge: e }); continue; }
+    if (bound.has(key)) { issues.push({ level: "error", message: `${pipeName(dst)} has ${PIPE_PORT_LABEL[e.port]} wired twice`, edge: e, code: "double_bound", port: e.port }); continue; }
     bound.add(key);
   }
   let order = pipeTopo(doc);
-  if (order === null) { issues.push({ level: "error", message: "the pipeline has a cycle" }); order = []; }
+  if (order === null) { issues.push({ level: "error", message: "the pipeline has a cycle", code: "cycle" }); order = []; }
   for (const node of doc.nodes) {
     for (const port of PIPE_PORTS[node.kind].required) {
       if (bound.has(`${node.id} ${port}`)) continue;
       if (pipeSatisfied(port, node.config)) continue;
-      issues.push({ level: "error", message: `${pipeName(node)} needs ${PIPE_PORT_LABEL[port]}: wire it from an upstream node or set it in the node's form`, node_id: node.id });
+      issues.push({ level: "error", message: `${pipeName(node)} needs ${PIPE_PORT_LABEL[port]}: wire it from an upstream node or set it in the node's form`, node_id: node.id, code: "missing_input", port });
     }
-    if (!node.config || !Object.keys(node.config).length) issues.push({ level: "warning", message: `${pipeName(node)} has no configuration yet`, node_id: node.id });
+    if (!node.config || !Object.keys(node.config).length) issues.push({ level: "warning", message: `${pipeName(node)} has no configuration yet`, node_id: node.id, code: "unconfigured" });
   }
   if (doc.nodes.length > 1) {
     const wired = new Set(doc.edges.flatMap((e) => [e.from, e.to]));
-    for (const node of doc.nodes) if (!wired.has(node.id)) issues.push({ level: "warning", message: `${pipeName(node)} is not connected to anything; it will run on its own`, node_id: node.id });
+    for (const node of doc.nodes) if (!wired.has(node.id)) issues.push({ level: "warning", message: `${pipeName(node)} is not connected to anything; it will run on its own`, node_id: node.id, code: "unconnected" });
   }
   return { ok: !issues.some((i) => i.level === "error"), issues, order };
 }

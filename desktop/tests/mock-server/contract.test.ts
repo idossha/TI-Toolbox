@@ -206,6 +206,11 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     await call("/api/catalog/rois/{name}", "DELETE", "/api/catalog/rois/contract_test_roi?subject=ernie");
     await call("/api/catalog/leadfields", "GET", "/api/catalog/leadfields?subject=ernie");
     await call("/api/catalog/flex-runs", "GET", "/api/catalog/flex-runs?subject=ernie");
+    await call(
+      "/api/catalog/flex-runs/{run}/mapping",
+      "GET",
+      "/api/catalog/flex-runs/flex_Thalamus_20260810_101500/mapping?subject=ernie&eeg_net=EGI_template",
+    );
     await call("/api/catalog/ex-runs", "GET", "/api/catalog/ex-runs?subject=ernie&kind=ex");
     await call("/api/catalog/ex-runs/{run}/results", "GET", "/api/catalog/ex-runs/ex_L_Insula_20260812_090000/results?subject=ernie&kind=ex");
     await call("/api/catalog/analyses", "GET", "/api/catalog/analyses?subject=ernie&simulation=Thalamus");

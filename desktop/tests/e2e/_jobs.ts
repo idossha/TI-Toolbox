@@ -29,10 +29,21 @@ export async function setJobSource(page: Page, row: Locator, label: string): Pro
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-/** Sets a row's EEG net (montage source) or placement (flex source). */
+/** Sets a row's EEG net — the montage source's net select. */
 export async function setJobNet(page: Page, row: Locator, option: string): Promise<void> {
   await cell(row, "net").getByRole("combobox").click();
   await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/** A flex row's placement: the optimiser's own coordinates, or an EEG net's labels. */
+export async function setJobPlacement(page: Page, row: Locator, mode: "Optimised" | "Map to net"): Promise<void> {
+  await cell(row, "net").getByRole("radio", { name: mode, exact: true }).click();
+}
+
+/** The net a flex row is mapped onto — only present once "Map to net" is chosen. */
+export async function setJobMappedNet(page: Page, row: Locator, net: string): Promise<void> {
+  await cell(row, "net").getByRole("combobox").click();
+  await page.getByRole("option", { name: net, exact: true }).click();
 }
 
 /** Sets a row's montage / flex run / free-hand set — the fourth column, whatever the source. */

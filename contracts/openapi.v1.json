@@ -6682,6 +6682,7 @@
       },
       "PipelineIssue": {
         "type": "object",
+        "description": "One validation finding. `message` is for a human; `code` is what a client keys on, so the canvas can tell an \"it runs on its own\" note (stated once for the whole graph) from a real blocker, and can render a `missing_input` as a chip on the node's own card that opens its editor at `port`.",
         "required": [
           "level",
           "message"
@@ -6698,6 +6699,34 @@
             "type": "string",
             "description": "one sentence the UI shows verbatim"
           },
+          "code": {
+              "type": "string",
+              "description": "stable machine-readable name of the finding (`tit.pipeline.validate.ISSUE_CODES`)",
+              "enum": [
+                "empty",
+                "duplicate_id",
+                "edge_unknown_node",
+                "self_edge",
+                "bad_output",
+                "bad_input",
+                "double_bound",
+                "cycle",
+                "missing_input",
+                "unconfigured",
+                "unconnected"
+              ]
+            },
+          "port": {
+              "type": "string",
+              "enum": [
+                "subjects",
+                "montages",
+                "simulation",
+                "roi",
+                "leadfield"
+              ],
+              "description": "the port a `missing_input`/`bad_input`/`bad_output`/`double_bound` is about"
+            },
           "node_id": {
             "type": "string"
           },

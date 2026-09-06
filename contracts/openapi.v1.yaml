@@ -633,6 +633,38 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: unknown subject
+  /api/catalog/flex-runs/{run}/mapping:
+    get:
+      tags: [catalog]
+      summary: Map one flex-search run's optimised positions onto an EEG net
+      description: >-
+        The run's electrodes as `eeg_net`'s labels. A run only carries
+        `electrode_mapping_<net>.json` for nets it was already mapped onto; this maps the
+        optimised XYZ onto any net the subject has (Hungarian assignment) and caches the
+        result beside the run, so the answer is identical to a precomputed mapping.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: run
+          required: true
+          schema: { type: string }
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+        - in: query
+          name: eeg_net
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FlexMapping" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: unknown subject, run or net
   /api/catalog/ex-runs:
     get:
       tags: [catalog]
@@ -3278,10 +3310,36 @@ components:
           description: Replace existing output instead of skipping it, for every job in the pipeline.
     PipelineIssue:
       type: object
+      description: >-
+        One validation finding. `message` is for a human; `code` is what a client keys on, so the
+        canvas can tell an "it runs on its own" note (stated once for the whole graph) from a real
+        blocker, and can render a `missing_input` as a chip on the node's own card that opens its
+        editor at `port`.
       required: [level, message]
       properties:
         level: { type: string, enum: [error, warning] }
         message: { type: string, description: one sentence the UI shows verbatim }
+        code:
+          type: string
+          description: stable machine-readable name of the finding (`tit.pipeline.validate.ISSUE_CODES`)
+          enum:
+            [
+              empty,
+              duplicate_id,
+              edge_unknown_node,
+              self_edge,
+              bad_output,
+              bad_input,
+              double_bound,
+              cycle,
+              missing_input,
+              unconfigured,
+              unconnected,
+            ]
+        port:
+          type: string
+          enum: [subjects, montages, simulation, roi, leadfield]
+          description: the port a `missing_input`/`bad_input`/`bad_output`/`double_bound` is about
         node_id: { type: string }
         edge: { $ref: "#/components/schemas/PipelineEdge" }
     PipelineJobPreview:

@@ -464,6 +464,121 @@ def test_flex_run_with_no_positions_reports_none(client: TestClient) -> None:
     assert run["optimized"] is None
 
 
+@pytest.fixture()
+def real_mapping_stack(monkeypatch: pytest.MonkeyPatch):
+    """Give the mapping code real implementations of its two mocked externals.
+
+    ``conftest`` mocks ``scipy`` and ``simnibs`` because neither installs on
+    the host, but the mapping this endpoint performs is exactly those two
+    calls plus a distance matrix. Both are replaced here by independent
+    implementations -- an exhaustive-permutation assignment (correct for the
+    four electrodes a TI montage has) and a plain CSV parse -- so the test
+    exercises ``resolve_flex_montage``'s real arithmetic and its real file
+    output rather than a stubbed return value.
+    """
+    import itertools
+    import sys
+
+    import numpy as np
+
+    def brute_force_assignment(cost):
+        cost = np.asarray(cost)
+        n = cost.shape[0]
+        best = min(
+            itertools.permutations(range(cost.shape[1]), n),
+            key=lambda cols: sum(cost[i, c] for i, c in enumerate(cols)),
+        )
+        return np.arange(n), np.array(best)
+
+    def read_csv(path):
+        types, coords, names = [], [], []
+        with open(path) as f:
+            for line in f:
+                parts = [p.strip() for p in line.strip().split(",")]
+                if len(parts) < 5:
+                    continue
+                types.append(parts[0])
+                coords.append([float(parts[1]), float(parts[2]), float(parts[3])])
+                names.append(parts[4])
+        return types, np.array(coords), None, names, None, None
+
+    monkeypatch.setattr(
+        sys.modules["scipy.optimize"], "linear_sum_assignment", brute_force_assignment
+    )
+    monkeypatch.setattr(
+        "tit.tools.map_electrodes.linear_sum_assignment", brute_force_assignment
+    )
+    csv_reader = sys.modules.setdefault("simnibs.utils.csv_reader", None)
+    if csv_reader is None:  # pragma: no cover - depends on import order
+        import types as _types
+
+        csv_reader = _types.ModuleType("simnibs.utils.csv_reader")
+        sys.modules["simnibs.utils.csv_reader"] = csv_reader
+    monkeypatch.setattr(csv_reader, "read_csv_positions", read_csv, raising=False)
+
+
+def test_flex_run_mapping_maps_onto_a_net_the_run_never_saw(
+    client: TestClient, real_mapping_stack: None
+) -> None:
+    """The Simulator's "Map to net" must reach every net, not only pre-mapped ones.
+
+    The run below has no ``electrode_mapping_*.json`` at all. Each optimised
+    position sits on top of one electrode of ``EGI_template.csv`` and far from
+    the others, so the nearest-electrode assignment is unambiguous without
+    re-deriving it here; the endpoint must return those four labels and leave
+    the mapping cached beside the run.
+    """
+    pm = get_path_manager()
+    Path(pm.eeg_positions("ernie"), "EGI_template.csv").write_text(
+        "Electrode,0.0,0.0,0.0,A1\n"
+        "Electrode,100.0,0.0,0.0,A2\n"
+        "Electrode,0.0,100.0,0.0,A3\n"
+        "Electrode,0.0,0.0,100.0,A4\n"
+        "Electrode,100.0,100.0,100.0,A5\n"
+    )
+    run_dir = pm.flex_search_run("ernie", "20260101_000000")
+    Path(run_dir, "electrode_positions.json").write_text(
+        json.dumps(
+            {
+                "optimized_positions": [
+                    [1.0, 0.0, 0.0],
+                    [99.0, 0.0, 0.0],
+                    [0.0, 99.0, 0.0],
+                    [0.0, 0.0, 99.0],
+                ],
+                "channel_array_indices": [[0, 0], [0, 1], [1, 0], [1, 1]],
+            }
+        )
+    )
+    assert not os.path.exists(Path(run_dir, "electrode_mapping_EGI_template.json"))
+
+    r = client.get(
+        "/api/catalog/flex-runs/20260101_000000/mapping",
+        params={"subject": "ernie", "eeg_net": "EGI_template.csv"},
+        headers=BEARER,
+    )
+    assert r.status_code == 200
+    assert r.json() == {
+        "eeg_net": "EGI_template.csv",
+        "pairs": [["A1", "A2"], ["A3", "A4"]],
+    }
+    # Cached beside the run, so `flex-runs` now lists it like any pre-mapped net.
+    assert os.path.isfile(Path(run_dir, "electrode_mapping_EGI_template.json"))
+    run = client.get(
+        "/api/catalog/flex-runs", params={"subject": "ernie"}, headers=BEARER
+    ).json()[0]
+    assert {m["eeg_net"] for m in run["mappings"]} == {"EGI_template.csv"}
+
+
+def test_flex_run_mapping_unknown_net_is_404(client: TestClient) -> None:
+    r = client.get(
+        "/api/catalog/flex-runs/20260101_000000/mapping",
+        params={"subject": "ernie", "eeg_net": "Nope.csv"},
+        headers=BEARER,
+    )
+    assert r.status_code == 404
+
+
 def test_ex_runs_ignores_incomplete_and_derives_net(client: TestClient) -> None:
     body = client.get(
         "/api/catalog/ex-runs", params={"subject": "ernie"}, headers=BEARER

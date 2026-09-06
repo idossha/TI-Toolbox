@@ -12,6 +12,7 @@ export type Montages = components["schemas"]["Montages"];
 export type MontagePairs = components["schemas"]["MontagePairs"];
 export type EegNet = components["schemas"]["EegNet"];
 export type FlexRun = components["schemas"]["FlexRun"];
+export type FlexMapping = components["schemas"]["FlexMapping"];
 export type FreehandConfig = components["schemas"]["FreehandConfig"];
 export type ElectrodePosition = components["schemas"]["ElectrodePosition"];
 export type PlanResult = components["schemas"]["PlanResult"];
@@ -60,6 +61,19 @@ export async function getEegNets(subject: string): Promise<EegNet[]> {
 
 export async function getFlexRuns(subject: string): Promise<FlexRun[]> {
   return unwrap(await api.GET("/api/catalog/flex-runs", { params: { query: { subject } } }), "/api/catalog/flex-runs");
+}
+
+/**
+ * The run's electrodes as one EEG net's labels, mapping them if the run has never been mapped onto
+ * that net: the server maps the optimiser's XYZ onto *any* net the subject has (Hungarian
+ * assignment in `tit/sim/montage_sources.py`) and caches the result beside the run, so a net the
+ * user picks here is as usable as one the optimiser pre-mapped.
+ */
+export async function getFlexMapping(subject: string, run: string, eegNet: string): Promise<FlexMapping> {
+  return unwrap(
+    await api.GET("/api/catalog/flex-runs/{run}/mapping", { params: { path: { run }, query: { subject, eeg_net: eegNet } } }),
+    `/api/catalog/flex-runs/${run}/mapping`,
+  );
 }
 
 export async function getFreehand(subject: string): Promise<FreehandConfig[]> {

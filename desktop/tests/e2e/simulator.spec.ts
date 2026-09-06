@@ -5,7 +5,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
-import { addJobRow, clearJobRows, configureMontageJob, jobCurrents, jobRows, setJobMontage, setJobNet, setJobSource, setJobSubject } from "./_jobs";
+import { addJobRow, clearJobRows, configureMontageJob, jobCurrents, jobRows, setJobMappedNet, setJobMontage, setJobNet, setJobPlacement, setJobSource, setJobSubject } from "./_jobs";
 
 /**
  * Simulator (DESIGN.md v3 §2 shape A, wireframes §3), against the mock server. DOM state and
@@ -329,9 +329,19 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await expect(page.getByTestId("run-button")).toBeEnabled();
 
   // The optimiser's own coordinates are the other placement a run can be simulated in — and the
-  // only one a run that was never mapped onto a net has. It is the row's EEG-net cell.
-  await setJobNet(page, row, "Optimised positions (XYZ)");
+  // only one a run that was never mapped onto a net has. It is the row's EEG-net cell, stated as a
+  // choice rather than as a truncated option label.
+  await setJobPlacement(page, row, "Optimised");
   await expect(row.locator('td[data-cell="pairs"]')).toHaveText("4 XYZ coordinates");
+  await expect(row).toHaveAttribute("data-runnable", "true");
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+
+  // Back to a net — and not only the net the run happens to carry a mapping file for: every net
+  // the subject has is offered, and the server maps the optimised positions onto it on demand.
+  await setJobPlacement(page, row, "Map to net");
+  await setJobMappedNet(page, row, "EGI_template");
+  await expect(row.locator('td[data-cell="pairs"]')).not.toHaveText("4 XYZ coordinates");
+  await expect(row.locator('td[data-cell="pairs"]')).toHaveText(/–/, { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
 });

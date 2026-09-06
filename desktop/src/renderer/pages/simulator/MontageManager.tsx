@@ -31,13 +31,14 @@ import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
+import { SegmentedControl } from "../../ui/SegmentedControl";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
-import { deleteMontage, getEegNets, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
+import { deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import "./simulator-page.css";
 import {
@@ -163,15 +164,17 @@ export const ACTIONS_W = 96;
 export const COLUMN_MIN: Record<keyof Omit<ColumnWidths, "actions">, number> = {
   subject: 56,
   source: 72,
-  net: 64,
+  net: 96,
   montage: 80,
   pairs: 28,
   currents: 80,
 };
 
 /** Shares of the resizable area when nothing is stored — sized so a subject id, a source label, a
- *  net name and a montage name all fit at the 608px work column the run shape gives at 1280. */
-const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.16, net: 0.17, montage: 0.21, pairs: 0.07 } as const;
+ *  net name and a montage name all fit at the 608px work column the run shape gives at 1280. The
+ *  net column carries the widest control on a flex row (the `Optimised · Map to net` pair over its
+ *  net select), so it takes the share the montage column can spare. */
+const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.15, net: 0.22, montage: 0.17, pairs: 0.07 } as const;
 
 /** New key: the columns are not the ones `tit-montage-columns-v1` stored. */
 export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v1";
@@ -487,6 +490,13 @@ export function JobsTable({
     onError: (err: unknown) => notify.error("Could not delete the montage.", err instanceof Error ? err.message : undefined),
   });
 
+  // The mapping fetch resolves after other edits may have landed; the continuation must patch the
+  // rows as they are then, not as they were when the request went out.
+  const rowsRef = useRef(rows);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+
   const patch = useCallback(
     (id: string, next: Partial<SelectedRow>) => onRowsChange(rows.map((r) => (r.id === id ? { ...r, ...next } : r))),
     [rows, onRowsChange],
@@ -548,6 +558,65 @@ export function JobsTable({
       xyzPairs: placement.xyzPairs,
       currents: defaultCurrents(numPairs),
     });
+  }
+
+  /** EEG nets are named by their CSV filename on a real project and by their stem in some
+   *  catalogs; a placement's net and the subject's net list must still compare equal. */
+  const netStem = (net: string) => net.replace(/\.csv$/, "");
+
+  /**
+   * The row's mapped net, whether or not the run was ever mapped onto it.
+   *
+   * Maintainer, 2026-09-06: *"allow users to choose if they want to run the job with the fully
+   * optimised locations or map them to a certain net."* A run only writes
+   * `electrode_mapping_<net>.json` for the nets it was already mapped onto, so offering only those
+   * would hide most of the subject's caps. The server maps the optimised XYZ onto any net
+   * (`tit/sim/montage_sources.py`, Hungarian assignment) and caches the file it writes, so a net
+   * picked here resolves to real labels — which is what the row must carry, since `POST /api/jobs`
+   * takes a fully-resolved `Montage`.
+   */
+  async function mapRowToNet(row: SelectedRow, net: string) {
+    const known = placementsForRow(row).find((p) => p.value !== OPTIMIZED && netStem(p.value) === netStem(net));
+    if (known) {
+      applyFlexPlacement(row, known);
+      return;
+    }
+    // Optimistic: the cell shows the net at once, the pairs land when the mapping comes back.
+    patch(row.id, { eegNet: net, pairs: undefined, xyzPairs: undefined });
+    try {
+      const mapping = await queryClient.fetchQuery({
+        queryKey: ["flex-mapping", row.subjectId, row.name, net],
+        queryFn: () => getFlexMapping(row.subjectId, row.name, net),
+        staleTime: 60_000,
+      });
+      const pairs = (mapping.pairs ?? []).filter((p) => p.length === 2).map((p) => [p[0], p[1]] as [string, string]);
+      onRowsChange(
+        rowsRef.current.map((r) =>
+          r.id === row.id && r.eegNet === net
+            ? { ...r, pairs, xyzPairs: undefined, currents: defaultCurrents(pairs.length) }
+            : r,
+        ),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["flex-runs", row.subjectId] });
+    } catch (err) {
+      notify.error(`Could not map ${row.name} onto ${net}.`, err instanceof Error ? err.message : undefined);
+    }
+  }
+
+  /** Switches a flex row between the optimiser's own coordinates and a net's labels. */
+  function setRowPlacementMode(row: SelectedRow, mode: "optimised" | "mapped") {
+    if (mode === "optimised") {
+      const free = placementsForRow(row).find((p) => p.value === OPTIMIZED);
+      if (free) applyFlexPlacement(row, free);
+      return;
+    }
+    if (row.eegNet) return;
+    // The net the run was already mapped onto is the natural first choice; otherwise the subject's
+    // first cap, which the server will map on demand.
+    const nets = netsForSubject(row.subjectId);
+    const mapped = placementsForRow(row).find((p) => p.value !== OPTIMIZED);
+    const net = (mapped && nets.find((n) => netStem(n) === netStem(mapped.value))) ?? mapped?.value ?? nets[0];
+    if (net) void mapRowToNet(row, net);
   }
 
   function setRowFlexRun(row: SelectedRow, name: string) {
@@ -695,19 +764,33 @@ export function JobsTable({
       );
     }
     if (row.source === "flex") {
+      if (!row.name) return <span className="field-help">—</span>;
       const options = placementsForRow(row);
-      if (options.length === 0) return <span className="field-help">—</span>;
-      const current = row.eegNet ?? OPTIMIZED;
+      const hasOptimised = options.some((o) => o.value === OPTIMIZED);
+      const nets = netsForSubject(row.subjectId);
+      const mapped = !!row.eegNet;
       return (
-        <Select
-          value={options.some((o) => o.value === current) ? current : options[0]!.value}
-          onValueChange={(v) => {
-            const next = options.find((o) => o.value === v);
-            if (next) applyFlexPlacement(row, next);
-          }}
-          options={options.map((o) => ({ value: o.value, label: o.label }))}
-          aria-label="Placement"
-        />
+        <div className="placement-cell">
+          <SegmentedControl
+            size="sm"
+            aria-label="Placement"
+            value={mapped ? "mapped" : "optimised"}
+            options={[
+              { value: "optimised", label: "Optimised", disabled: !hasOptimised, title: "The optimiser's own electrode coordinates (no EEG net)." },
+              { value: "mapped", label: "Map to net", disabled: nets.length === 0, title: "Snap the optimised positions onto the nearest electrodes of an EEG net." },
+            ]}
+            onValueChange={(v) => setRowPlacementMode(row, v as "optimised" | "mapped")}
+          />
+          {mapped && (
+            <Select
+              value={nets.find((n) => netStem(n) === netStem(row.eegNet!))}
+              onValueChange={(v) => void mapRowToNet(row, v)}
+              options={nets.map((n) => ({ value: n, label: n.replace(/\.csv$/, "") }))}
+              placeholder="EEG net"
+              aria-label="Mapped EEG net"
+            />
+          )}
+        </div>
       );
     }
     return <span className="field-help">own XYZ</span>;
