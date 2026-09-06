@@ -25,11 +25,23 @@
  *    and the first receives `second-instance`, which restores/focuses the window and routes the
  *    argv through `sendOpened` → `sendOpenScene`. So "Open" twice is two spawns and one window,
  *    and this module needs no notion of a running instance at all.
- * 4. **macOS also has `open-file`.** Launching by document (`open -a Tetravox <scene>`, or the
- *    Finder) fires `open-file`, handled before *and* after ready — before, it fills the startup
- *    scene slot; after, it goes down the same `sendOpened` path. `open -a` is preferred on macOS
- *    because it hands the file to LaunchServices rather than starting a second copy of the
- *    binary, which is what the app's own single-instance handling expects of a GUI app.
+ * 4. **macOS also has `open-file`, and it is not enough on its own.** Launching by document
+ *    (`open -a Tetravox <scene>`, or the Finder) fires `open-file`, handled before *and* after
+ *    ready. `open -a` is still the right call — it hands the file to LaunchServices rather than
+ *    starting a second copy of the binary — but there is a third state besides "not running" and
+ *    "running with a window": **running with no window**, which is the normal state of a macOS
+ *    app whose window you closed with ⌘W. In that state Tetravox's `open-file` handler finds
+ *    `mainWindow === null` and *stores* the scene in its `startupScene` slot
+ *    (`packages/app/src/main/index.ts`) without creating a window to drain it — so `open` exits 0,
+ *    we report success, and nothing appears on screen. That was measured, not guessed
+ *    (`dev/notes/v3-native-panes-external-viewer/TI.md` §7).
+ *
+ *    The fix is one more LaunchServices call: a plain `open -a Tetravox`, with no document, right
+ *    after the one carrying the scene. That is an *activation*, which fires Electron's `activate`
+ *    — and Tetravox's `activate` handler does create a window when there are none, which then
+ *    pulls the `startupScene` the first call just set. With a window already open the second call
+ *    only brings the app forward, which is what a person pressing "Open in Tetravox" wants
+ *    anyway. Both orders were tried; this one is the one that works from all three states.
  * 5. **8 MB cap.** `MAX_SCENE_BYTES = 8 * 1024 * 1024` in `scene-io.ts`. Our scenes are a few KB
  *    of paths and windows — the volumes are referenced, never inlined — so this is headroom, not
  *    a constraint, but it is the number to remember if a scene ever grows a payload.
@@ -44,6 +56,7 @@
  * already had Tetravox before installing the managed one is not surprised by which opens.
  */
 import { spawn } from "node:child_process";
+import { runCommand } from "./tetravoxInstall";
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { homedir } from "node:os";
@@ -163,25 +176,73 @@ export function tetravoxSpawnPlan(platform: HostPlatform, appPath: string, scene
   return { command: appPath, args: [scenePath] };
 }
 
-export type LaunchResult = { ok: true; command: string; args: string[] } | { ok: false; reason: string };
+/** Bring the app forward (and, with no window, make it create one). See point 4 above. */
+export function tetravoxActivatePlan(platform: HostPlatform, appPath: string): SpawnPlan | null {
+  return platform === "darwin" ? { command: "/usr/bin/open", args: ["-a", appPath] } : null;
+}
+
+export type LaunchResult =
+  | { ok: true; command: string; args: string[]; activated: boolean }
+  | { ok: false; reason: string };
+
+/** How long a spawn is watched for an immediate failure (ENOENT, EACCES) before it is let go. */
+const SPAWN_ERROR_GRACE_MS = 400;
 
 /**
- * Spawn detached and forget.
+ * Open `scenePath` in the app at `appPath`, and **report what actually happened**.
  *
- * Detached with stdio ignored and `unref()` because Tetravox outlives this app: a user who quits
- * TI-Toolbox with a scene open should keep the scene open, and an inherited stdio pipe would tie
- * the two processes' lifetimes together for no benefit. Errors after the spawn call are therefore
- * not observable here — which is correct, since a GUI app that fails to start says so on screen.
+ * The first version of this spawned and forgot. That is right for the *app* — Tetravox outlives
+ * TI-Toolbox, and an inherited stdio pipe would tie their lifetimes together — but it was wrong
+ * for the *launcher*: on macOS the thing spawned is `/usr/bin/open`, a short-lived helper whose
+ * exit code is the only signal that LaunchServices refused (a moved bundle, a damaged app, a
+ * quarantined download). Swallowing it meant reporting "Opened …" for a launch that never
+ * happened, which is exactly the bug this lane was sent to fix. So: `open` is awaited, and its
+ * exit code and stderr are the result. Elsewhere the binary *is* the app, so it stays detached —
+ * but the spawn is watched for `SPAWN_ERROR_GRACE_MS`, which is long enough for the errors that
+ * arrive immediately (`ENOENT`, `EACCES`) and short enough not to delay a window.
+ *
+ * `run` is injectable so a test can assert the exact argv of both calls without launching a GUI
+ * application on the machine running the suite.
  */
-export function launchTetravox(platform: HostPlatform, appPath: string, scenePath: string): LaunchResult {
+export async function launchTetravox(
+  platform: HostPlatform,
+  appPath: string,
+  scenePath: string,
+  run: (command: string, args: string[]) => Promise<{ ok: boolean; stderr: string }> = runCommand,
+): Promise<LaunchResult> {
   if (!scenePath.endsWith(SCENE_EXTENSION)) {
     return { ok: false, reason: `a Tetravox scene must end in ${SCENE_EXTENSION}` };
   }
   const plan = tetravoxSpawnPlan(platform, appPath, scenePath);
+
+  if (platform === "darwin") {
+    const opened = await run(plan.command, plan.args);
+    if (!opened.ok) {
+      return { ok: false, reason: opened.stderr.trim() || `${plan.command} could not open ${appPath}` };
+    }
+    // The activation kick (point 4). A failure here is not a failed open: the scene has already
+    // been handed over, and the worst case is an app that did not come to the front.
+    const activate = tetravoxActivatePlan(platform, appPath);
+    const activated = activate ? (await run(activate.command, activate.args)).ok : false;
+    return { ok: true, command: plan.command, args: plan.args, activated };
+  }
+
   try {
     const child = spawn(plan.command, plan.args, { detached: true, stdio: "ignore" });
+    const failure = await new Promise<string | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), SPAWN_ERROR_GRACE_MS);
+      child.once("error", (error: Error) => {
+        clearTimeout(timer);
+        resolve(error.message);
+      });
+      child.once("spawn", () => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+    });
+    if (failure !== null) return { ok: false, reason: failure };
     child.unref();
-    return { ok: true, command: plan.command, args: plan.args };
+    return { ok: true, command: plan.command, args: plan.args, activated: false };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error) };
   }

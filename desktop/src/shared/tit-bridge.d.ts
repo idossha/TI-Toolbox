@@ -128,7 +128,14 @@ export type TitViewerEvent =
 export type TitViewerInstallResult = { ok: true; version: string; pending: boolean } | { ok: false; reason: string };
 
 export type TitViewerOpenResult =
-  | { ok: true; command: string; args: string[] }
+  /**
+   * `activated` records the second macOS LaunchServices call — the plain `open -a <app>` that
+   * follows the one carrying the scene. Without it, a Tetravox left running with **no window**
+   * (the normal state after ⌘W on macOS) stores the scene and never draws anything, while `open`
+   * still exits 0: the launch reported success and nothing appeared. See `src/main/viewer.ts`.
+   */
+  | { ok: true; command: string; args: string[]; activated: boolean }
+  /** `reason` is safe to show a user: it is `open`'s own stderr, or the spawn error. */
   | { ok: false; reason: string };
 
 export interface TitViewerBridge {

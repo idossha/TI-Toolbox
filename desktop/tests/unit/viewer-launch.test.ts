@@ -21,6 +21,7 @@ import {
   launchTetravox,
   readMacBundleVersion,
   tetravoxCandidates,
+  tetravoxActivatePlan,
   tetravoxSpawnPlan,
 } from "../../src/main/viewer";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -170,9 +171,77 @@ describe("tetravoxSpawnPlan", () => {
 });
 
 describe("launchTetravox", () => {
-  it("refuses a file the app would not treat as a scene, without spawning anything", () => {
-    const result = launchTetravox("darwin", "/Applications/Tetravox.app", "/data/x.tvx.json");
+  /** Records what would have run, and answers what the test tells it to. Nothing is spawned. */
+  function recorder(results: { ok: boolean; stderr: string }[] = []) {
+    const calls: string[][] = [];
+    let index = 0;
+    return {
+      calls,
+      run: async (command: string, args: string[]) => {
+        calls.push([command, ...args]);
+        return results[index++] ?? { ok: true, stderr: "" };
+      },
+    };
+  }
+
+  it("refuses a file the app would not treat as a scene, without spawning anything", async () => {
+    const spy = recorder();
+    const result = await launchTetravox("darwin", "/Applications/Tetravox.app", "/data/x.tvx.json", spy.run);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain(".tetravox.json");
+    expect(spy.calls).toEqual([]);
+  });
+
+  it("hands the scene to LaunchServices and then activates the app", async () => {
+    // The second call is the fix for the bug this lane was sent to find: a Tetravox running with
+    // no window (the normal state after ⌘W on macOS) stores the scene from `open-file` and never
+    // creates a window to draw it. A plain `open -a` fires Electron's `activate`, which does.
+    const spy = recorder();
+    const result = await launchTetravox("darwin", "/Applications/Tetravox.app", "/p/subject.tetravox.json", spy.run);
+    expect(result).toEqual({
+      ok: true,
+      command: "/usr/bin/open",
+      args: ["-a", "/Applications/Tetravox.app", "/p/subject.tetravox.json"],
+      activated: true,
+    });
+    expect(spy.calls).toEqual([
+      ["/usr/bin/open", "-a", "/Applications/Tetravox.app", "/p/subject.tetravox.json"],
+      ["/usr/bin/open", "-a", "/Applications/Tetravox.app"],
+    ]);
+  });
+
+  it("reports what `open` said instead of claiming success", async () => {
+    // The whole defect, in one assertion: `open` exiting non-zero used to be invisible, because
+    // the spawn was detached and its result never looked at. The page then said "Opened …".
+    const spy = recorder([{ ok: false, stderr: "Unable to find application named 'Tetravox'\n" }]);
+    const result = await launchTetravox("darwin", "/Applications/Tetravox.app", "/p/subject.tetravox.json", spy.run);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("Unable to find application named 'Tetravox'");
+    // and it does not go on to activate an app it could not hand the scene to
+    expect(spy.calls).toHaveLength(1);
+  });
+
+  it("still opens when only the activation fails — the scene was already handed over", async () => {
+    const spy = recorder([{ ok: true, stderr: "" }, { ok: false, stderr: "could not activate" }]);
+    const result = await launchTetravox("darwin", "/Applications/Tetravox.app", "/p/subject.tetravox.json", spy.run);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.activated).toBe(false);
+  });
+
+  it("surfaces a spawn that cannot start at all, off macOS", async () => {
+    // Windows and Linux spawn the app itself, detached — but an ENOENT arrives immediately, and
+    // it is the difference between "the viewer opened" and "there is no such file".
+    const result = await launchTetravox("linux", "/nowhere/Tetravox.AppImage", "/p/subject.tetravox.json");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/ENOENT|no such file/i);
+  });
+
+  it("activates only on macOS — elsewhere the binary is the app", () => {
+    expect(tetravoxActivatePlan("darwin", "/Applications/Tetravox.app")).toEqual({
+      command: "/usr/bin/open",
+      args: ["-a", "/Applications/Tetravox.app"],
+    });
+    expect(tetravoxActivatePlan("linux", "/usr/bin/tetravox")).toBeNull();
+    expect(tetravoxActivatePlan("win32", "C:\\Tetravox.exe")).toBeNull();
   });
 });

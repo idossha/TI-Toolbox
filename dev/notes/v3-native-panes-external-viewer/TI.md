@@ -149,3 +149,96 @@ Fresh machine, no Tetravox: open a simulation, press **Open in Tetravox**. A pro
 the scene opens. Nothing was installed by hand, no dialog was answered, and no release page was
 visited. Offline with a viewer already installed: it opens, immediately, and the app does not
 mention the network. Offline with none: one honest sentence and a retry.
+
+## 7. The follow-up bug: "it writes the scene and Tetravox never opens"
+
+Reported from the screenshot of a `cd desktop && pnpm run dev` session: **Open in Tetravox** wrote
+`subject.tetravox.json`, the page said *Opened … — /Users/idohaber/datasets/000/code/ti-toolbox/
+viewer/subject.tetravox.json*, and no Tetravox window ever appeared. No error anywhere.
+
+### Root cause (measured on this Mac, not inferred)
+
+**A Tetravox left running with no window swallows the scene, and `open` still exits 0.**
+
+At the moment the report arrived, `pgrep` found Tetravox running (pid 24512) and
+`System Events` reported it had **zero windows** — the ordinary state of a macOS app whose window
+was closed with ⌘W. From that state, every launch is silently inert:
+
+| What was run, from a shell, against the windowless instance | `open` exit | windows after |
+|---|---|---|
+| `open -a /Applications/Tetravox.app <scene>` (what this app did) | 0 | **0** |
+| `open -n -a /Applications/Tetravox.app <scene>` (a *new* instance) | 0 | **0** |
+| `open -a /Applications/Tetravox.app` (no document) | 0 | **1**, showing the scene from the call above |
+
+The upstream mechanism, read out of `packages/app/src/main/index.ts` at 0.3.11: `open -a <app>
+<doc>` on a running app fires `open-file`; the handler is `if (mainWindow) sendOpened(…) else {
+startupScene = scene }` — with the window closed, `mainWindow` is `null` (its `closed` handler
+nulls it), so the scene goes into `startupScene` and **nothing creates a window to drain it**.
+`-n` does not help either: the single-instance lock quits the new process and the old one takes
+the same dead path through `second-instance`. What does work is Tetravox's own `activate` handler,
+which *does* call `createWindow()` when `BrowserWindow.getAllWindows().length === 0` — and an
+activation is exactly what a document-less `open -a` produces.
+
+Two defects on this side made it invisible rather than merely broken:
+
+1. **The launch was fire-and-forget.** `spawn(…, { detached: true, stdio: "ignore" })` on
+   `/usr/bin/open` — a short-lived helper, not the app — so its exit code was never read. Every
+   launch reported `{ ok: true }`, including ones that could not happen at all.
+2. **There was no second call**, so the third state above (running, windowless) had no route to a
+   window.
+
+The three suspects raised with the report were checked and cleared: the preload bridge **is**
+attached in `pnpm run dev` (the page took the Electron branch — the browser branch says
+"Downloaded", not "Opened"), discovery **did** resolve `/Applications/Tetravox.app`, and the path
+handed to `open` **was** the host path (`resolveHostPathStrict` had already mapped it; the same
+path is what the page printed). The cause was the fourth thing: the state of the app being opened.
+
+### The fix
+
+`launchTetravox` is now async and honest (`desktop/src/main/viewer.ts`):
+
+- macOS: `await run("/usr/bin/open", ["-a", app, scene])` — **a non-zero exit is a failure with
+  `open`'s own stderr as the reason** — then `run("/usr/bin/open", ["-a", app])`, the activation
+  kick. `activated` is reported in the result; a failed activation does not fail the open, because
+  the scene was already handed over.
+- Windows/Linux: the binary *is* the app, so it stays detached — but the spawn is now watched for
+  400 ms, long enough for `ENOENT`/`EACCES` to surface instead of being reported as a launch.
+- `src/main/index.ts` logs the resolved copy and its source before the launch, and the exact argv
+  (or the failure) after it.
+
+### Proof
+
+Reproduced and fixed on this Mac, in that order:
+
+```
+before: windows=0 → open -a <app> <scene>  → exit 0 → windows=0     (the bug)
+        windows=0 → open -n -a <app> <scene> → exit 0 → windows=0   (not the fix)
+after : windows=0 → launchTetravox(...)     → {"ok":true,"activated":true}
+                                            → windows=1, title "simulation.tetravox.json — Tetravox"
+```
+
+The last line is the real `launchTetravox` from `src/main/viewer.ts`, run against
+`/Applications/Tetravox.app` and a real scene in `/Users/idohaber/datasets/000`, with the window
+count read from `System Events` before and after. The maintainer asked for one real launch on his
+machine; that is it, and the Tetravox window was left open showing the scene.
+
+### Tests added
+
+- `tests/unit/viewer-launch.test.ts` (+6): the two-call argv, the failure carrying `open`'s
+  stderr, activation failing without failing the open, an off-macOS `ENOENT` surfacing, and
+  `tetravoxActivatePlan` being macOS-only.
+- `tests/unit/preload-bridge.test.ts` (**new**): the preload exposes `tit` once, `viewer` is one
+  entry carrying all seven methods, each routed to the channel main handles — the silent
+  "renderer fell back to browser mode" failure mode, which in `pnpm run dev` is the plausible one.
+- `tests/e2e/viewer-launch.spec.ts` (**new**, mock server, offscreen): the bridge really arrives in
+  a page served over HTTP with every method, `probe` answers from main, and a launch that cannot
+  happen (a path outside every mount; a path that is not a `.tetravox.json`) comes back as a
+  failure **with a reason** rather than as success. The happy path ends in another application's
+  window, so it is asserted by argv in the unit tests and by the one real launch above.
+
+### Left upstream
+
+The real defect is Tetravox's: `open-file` after ready with no window should create one rather
+than fill a slot nobody drains. Worth a one-line fix there (`if (mainWindow) … else { create it }`
+or an `activate()` from the handler); this lane's workaround is correct regardless, since the
+activation is also what brings the app to the front.

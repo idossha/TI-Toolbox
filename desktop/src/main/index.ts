@@ -731,8 +731,16 @@ function registerIpc(): void {
     if (!info.available || info.path === null) {
       return { ok: false, reason: "Tetravox is not installed on this computer" };
     }
-    const result = launchTetravox(toHostPlatform(process.platform), info.path, resolved.path);
-    log(result.ok ? "info" : "warn", result.ok ? `viewer: ${result.command} ${result.args.join(" ")}` : `viewer: ${result.reason}`);
+    // Logged before and after, because every field here has been the cause of a silent "nothing
+    // happened": which copy discovery chose, what was spawned, and what it said.
+    log("info", `viewer: opening ${resolved.path} with ${info.path} (${info.source ?? "none"})`);
+    const result = await launchTetravox(toHostPlatform(process.platform), info.path, resolved.path);
+    log(
+      result.ok ? "info" : "warn",
+      result.ok
+        ? `viewer: ${result.command} ${result.args.join(" ")}${result.activated ? " (+activate)" : ""}`
+        : `viewer: launch failed — ${result.reason}`,
+    );
     return result;
   });
 

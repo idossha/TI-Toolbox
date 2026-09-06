@@ -53,6 +53,9 @@
     // managed install is pure node builtins plus `fetch`, and imports nothing from "electron",
     // same rationale as viewer.ts above.
     "src/main/tetravoxInstall.ts",
+    // The preload's own contract is unit-tested (tests/unit/preload-bridge.test.ts) with
+    // "electron" mocked — the only way to exercise a sandboxed CJS preload outside Electron.
+    "src/preload/index.ts",
     "src/main/userConfig.ts",
     // scripts/dev*.ts: the dev-mode entry point and the two pure modules tests/unit/dev-*.test.ts
     // exercise (the dotenv/env resolution and the Vite proxy factory). Composite projects require
