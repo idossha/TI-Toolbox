@@ -144,6 +144,9 @@
   border-left: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-panes);
+  /* The tabs below manage their own scrolling, one tab at a time, so the pane itself must not
+     also scroll — otherwise the Raw log console can never know how tall it is allowed to be. */
+  overflow: hidden;
 }
 .job-detail-head {
   flex: none;
@@ -174,6 +177,55 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+.job-detail[data-density="page"] .job-detail-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The tab strip and the active tab's body form one flex column that fills the pane, so the Raw
+   log's console reaches the pane's bottom edge (maintainer, Sep 2026: it was a ~40-line box in
+   the top third of a tall pane). Radix renders Root > List + Content; the Root has no class of
+   its own, hence the `[data-orientation]` child selector. */
+.job-detail-tabs,
+.job-detail-tabs > [data-orientation] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.job-detail-tabs .tabs-list {
+  flex: none;
+}
+.job-detail-tabs .tabs-content[data-state="active"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Scrolling belongs to the tab's own body (`.job-detail-tab-scroll`) or, for the Raw log, to the
+     console's virtual list — never to this wrapper, which only distributes the height. */
+  overflow: hidden;
+}
+/* A tab whose content is ordinary flow: it scrolls, and its own children keep their heights. */
+.job-detail-tab-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+/* The Summary tab's body is a `Stack` — itself a flex column — so its children would otherwise
+   SHRINK to the pane's height now that the tab has one, squeezing the 40-line console excerpt
+   back down and putting the dead space this pane's density budget measures straight back. They
+   keep their natural heights and the tab scrolls instead. */
+.job-detail-tab-scroll > * {
+  flex: none;
+}
+/* The Raw log: the console fills what is left, with no inner fixed height anywhere. */
+.job-detail-rawlog {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .job-detail-log {
   margin: 0;

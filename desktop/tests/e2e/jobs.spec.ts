@@ -617,3 +617,75 @@ test("hits its density numbers with the detail pane open, at 1280x800 and 1440x9
   const worst = rows.reduce((a, b) => (a.deadSpaceRatio > b.deadSpaceRatio ? a : b));
   expect(worst.deadSpaceRatio, `worst: ${worst.theme} ${worst.width}x${worst.height}`).toBeLessThanOrEqual(0.33);
 });
+
+/**
+ * The Raw log tab (maintainer's screenshot, Sep 2026): it was a fixed-height `<pre>` of ~40 lines
+ * in the top third of a tall pane, with "Load more · Reveal log file" under it and roughly 60% of
+ * the pane empty below. It is now the SAME console the run pages host (`ui/Jobs.tsx`'s
+ * `JobConsole`, via `app/jobs-rail/JobRawLog.tsx`): the whole transcript, virtualised, filling the
+ * pane to its bottom edge, with Follow / filter / Clear / Reveal log file in its own toolbar and
+ * no paging control anywhere.
+ *
+ * Every claim below is measured, not eyeballed: where the log's bottom edge is relative to the
+ * pane's, and whether the box really scrolls.
+ */
+for (const size of [
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+]) {
+  test(`the Raw log fills the detail pane and scrolls the whole log at ${size.width}x${size.height}`, async () => {
+    // 400 filler lines (mock `__mock_log_lines`) is taller than any pane this app draws, so
+    // `scrollHeight > clientHeight` below is proving the console scrolls, not that the fixture
+    // happened to be long enough.
+    await submitJob({
+      kind: "sim",
+      config: { __mock_fast: true, __mock_log_lines: 400 },
+      subject_ids: ["rawlogger"],
+      tags: ["e2e-rawlog"],
+    });
+
+    await connect();
+    await page.setViewportSize(size);
+    await openJobs();
+    const row = page.getByTestId("jobs-table").getByRole("row", { name: /rawlogger/ });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.click();
+
+    const detail = page.getByTestId("job-detail");
+    await expect(detail).toBeVisible();
+    await detail.getByRole("tab", { name: "Raw log", exact: true }).click();
+
+    const console_ = detail.getByTestId("job-detail-rawlog");
+    await expect(console_).toBeVisible();
+    const lines = console_.locator(".job-console-lines");
+    await expect(lines.getByText(/filler line \d+ of 400/).first()).toBeVisible({ timeout: 20_000 });
+
+    // 1. It reaches the bottom of the pane — the whole point of the report.
+    const pane = (await detail.boundingBox())!;
+    const box = (await lines.boundingBox())!;
+    const paneBottom = pane.y + pane.height;
+    const logBottom = box.y + box.height;
+    expect(
+      logBottom,
+      `raw log bottom ${logBottom} vs pane bottom ${paneBottom} at ${size.width}x${size.height}`,
+    ).toBeGreaterThanOrEqual(paneBottom - 16);
+
+    // 2. It scrolls the whole log rather than showing a fixed slice of it.
+    const scroll = await lines.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    expect(scroll.scrollHeight, JSON.stringify(scroll)).toBeGreaterThan(scroll.clientHeight);
+
+    // 3. The shared console's controls, in the tab's own toolbar — and no paging control.
+    const follow = console_.getByRole("switch", { name: "Follow tail" });
+    await expect(follow).toBeVisible();
+    await expect(follow).toHaveAttribute("data-state", "checked");
+    await follow.click();
+    await expect(follow).toHaveAttribute("data-state", "unchecked");
+    await follow.click();
+    await expect(follow).toHaveAttribute("data-state", "checked");
+    await expect(console_.getByRole("button", { name: "Clear terminal" })).toBeVisible();
+    await expect(console_.getByRole("button", { name: "Reveal log file" })).toBeVisible();
+    await expect(detail.getByRole("button", { name: "Load more" })).toHaveCount(0);
+
+    if (size.width === 1280) await page.screenshot({ path: join(ARTIFACTS, "jobs-rawlog.png") });
+  });
+}

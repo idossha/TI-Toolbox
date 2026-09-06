@@ -30,6 +30,7 @@ import {
   type JobStatus,
 } from "./api";
 import { elapsedLabel, errorLabel, failureReason } from "./format";
+import { JobRawLog } from "./JobRawLog";
 import { openNative, reveal } from "./reveal";
 
 type ConfirmKind = "stop" | "force" | "delete";
@@ -56,7 +57,6 @@ export interface JobDetailPaneProps {
 export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = "page", headerControls }: JobDetailPaneProps) {
   const queryClient = useQueryClient();
   const [confirm, setConfirm] = useState<ConfirmKind | null>(null);
-  const [logTail, setLogTail] = useState(400);
   const [tab, setTab] = useState("summary");
   const [now, setNow] = useState(() => Date.now());
   const jobId = job?.id;
@@ -66,7 +66,6 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
   const [resetForJobId, setResetForJobId] = useState(jobId);
   if (jobId !== resetForJobId) {
     setResetForJobId(jobId);
-    setLogTail(400);
     setTab("summary");
   }
 
@@ -75,11 +74,6 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
     return () => clearInterval(t);
   }, []);
 
-  const logQuery = useQuery({
-    queryKey: ["job-log", jobId, logTail],
-    queryFn: () => getJobLog(jobId!, logTail),
-    enabled: !!jobId && tab === "log",
-  });
   // The Summary tab's own console excerpt (§3.2 finding, B6 → this lane): at `page` density the
   // Summary tab was just the definition list, leaving ~30% of a 736px pane blank — the wireframe's
   // own Jobs design (dev/notes/v3-ui-program/wireframes.md §8) fills that with the tail of the same
@@ -146,7 +140,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
   const logPath = job.log_path ?? undefined;
 
   const summary = (
-    <Stack gap={2}>
+    <Stack gap={2} className="job-detail-tab job-detail-tab-scroll">
       <ErrorTaxonomyPanel job={job} onOpenJob={onOpenJob} />
       <DefinitionList
         entries={[
@@ -174,26 +168,6 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
           )}
         </div>
       )}
-    </Stack>
-  );
-
-  const rawLog = (
-    <Stack gap={2}>
-      {logQuery.isLoading && <Skeleton rows={6} />}
-      {logQuery.isError && (
-        <InlineError message="Could not load the log tail." onAction={() => void logQuery.refetch()} />
-      )}
-      {logQuery.data !== undefined && <pre className="job-detail-log mono text-caption">{logQuery.data || "(empty)"}</pre>}
-      <Cluster gap={2}>
-        <Button variant="secondary" size="sm" onClick={() => setLogTail((t) => t * 2)}>
-          Load more
-        </Button>
-        {logPath && (
-          <Button variant="ghost" size="sm" icon={<FolderOpen size={14} />} onClick={() => reveal(logPath)}>
-            Reveal log file
-          </Button>
-        )}
-      </Cluster>
     </Stack>
   );
 
@@ -241,26 +215,32 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
         {density === "panel" ? (
           summary
         ) : (
-          <Tabs
-            value={tab}
-            onValueChange={setTab}
-            items={[
-              { id: "summary", label: "Summary", content: summary },
-              { id: "log", label: "Raw log", content: rawLog },
-              {
-                id: "artifacts",
-                label: `Artifacts${artifacts.length > 0 ? ` (${artifacts.length})` : ""}`,
-                content: (
-                  <ArtifactList
-                    artifacts={artifacts}
-                    onView={(a) => window.open(artifactUrl(a.path), "_blank", "noopener")}
-                    onOpen={(a) => openNative(a.path)}
-                    onReveal={(a) => reveal(a.path)}
-                  />
-                ),
-              },
-            ]}
-          />
+          /* The tabs own the pane's remaining height, not just their natural height: the Raw log
+             tab is a full console that has to reach the pane's bottom edge (`.job-detail-tabs`). */
+          <div className="job-detail-tabs">
+            <Tabs
+              value={tab}
+              onValueChange={setTab}
+              items={[
+                { id: "summary", label: "Summary", content: summary },
+                { id: "log", label: "Raw log", content: <JobRawLog job={job} /> },
+                {
+                  id: "artifacts",
+                  label: `Artifacts${artifacts.length > 0 ? ` (${artifacts.length})` : ""}`,
+                  content: (
+                    <div className="job-detail-tab job-detail-tab-scroll">
+                      <ArtifactList
+                        artifacts={artifacts}
+                        onView={(a) => window.open(artifactUrl(a.path), "_blank", "noopener")}
+                        onOpen={(a) => openNative(a.path)}
+                        onReveal={(a) => reveal(a.path)}
+                      />
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
         )}
       </div>
 

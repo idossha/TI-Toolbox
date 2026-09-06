@@ -12,6 +12,8 @@
 // Events with increasing `seq`. Two mock-only escape hatches on the request `config`:
 //   - `config.__mock_fail === true`   -> the job ends in `failed` instead of `succeeded`.
 //   - `config.__mock_fast === true`   -> the run timeline takes ~300-500ms instead of ~6-10s
+//   - `config.__mock_log_lines = N`   -> N extra log lines up front, for specs that need a log
+//                                        taller than the pane showing it (jobs.spec.ts's Raw log).
 //                                        (used by the contract self-test so it doesn't sleep).
 //
 // "/" serves out/renderer if built, so the real bundle can be exercised end to end. Port 8790
@@ -1197,6 +1199,23 @@ function runTimeline(job) {
   const perStage = totalMs / stages.length;
   const timers = [];
   const subjectLabel = job.status.subject_ids.join(",") || "(no subject)";
+  // `__mock_log_lines` (see the file header): a log longer than any pane, emitted at once, so a
+  // spec can prove a console really scrolls rather than hoping the stage lines overflow.
+  const filler = Number(cfg.__mock_log_lines ?? 0);
+  for (let i = 0; i < filler; i++) {
+    timers.push(
+      setTimeout(
+        () =>
+          emitEvent(job, {
+            type: "log",
+            level: "info",
+            logger: loggerFor(job.status.kind),
+            msg: `filler line ${i + 1} of ${filler} (${subjectLabel})`,
+          }),
+        10,
+      ),
+    );
+  }
   stages.forEach((stage, si) => {
     const stageStart = si * perStage;
     timers.push(setTimeout(() => emitEvent(job, { type: "stage", stage }), stageStart));
@@ -1362,6 +1381,10 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
       artifacts: [],
       cpu_percent: null,
       rss: null,
+      // The real server records where the runner's log file is written (`JobStatus.log_path` in
+      // contracts/openapi.v1.yaml), and the UI's "Reveal log file" actions exist only when it is
+      // set -- so the mock sets it too, at the path `tit.jobs` uses.
+      log_path: `${PROJECT_ROOT}/derivatives/ti-toolbox/logs/${(subject_ids ?? []).length === 1 ? `sub-${subject_ids[0]}` : "group"}/${kind}_${id}.log`,
     },
     events: [],
     timers: [],
@@ -2652,13 +2675,94 @@ route("POST", "/api/view/open", async (ctx) => {
       for (const key of ["path", "absPath"]) if (sidecar[key]) sidecar[key] = localise(sidecar[key]);
     }
   }
+  // VM: extras add layers, overrides edit the finished scene, dry_run writes nothing. A deliberate
+  // mirror of tit/viewspec.py::apply_scene_overrides -- the page's controls have to be provably
+  // reaching the document, and the spec asserts that against this response.
+  const overrides = body.overrides && typeof body.overrides === "object" ? body.overrides : null;
+  if (overrides) {
+    const byId = new Map((scene.layers ?? []).map((l) => [l.id, l]));
+    for (const [id, patch] of Object.entries(overrides.layers ?? {})) {
+      const layer = byId.get(id);
+      if (!layer || !patch || typeof patch !== "object") continue;
+      for (const key of ["visible", "showIn3D", "showColorbar", "contoursIn2D"]) {
+        if (key in patch && key in layer) layer[key] = Boolean(patch[key]);
+      }
+      if ("opacity" in patch) layer.opacity = Math.min(1, Math.max(0, Number(patch.opacity) || 0));
+      if (typeof patch.colormap === "string" && patch.colormap) layer.colormap = patch.colormap;
+      if (patch.threshold && typeof patch.threshold === "object" && layer.threshold) {
+        for (const bound of ["lo", "hi"]) {
+          if (!(bound in patch.threshold)) continue;
+          layer.threshold[bound] = patch.threshold[bound] === null ? null : Number(patch.threshold[bound]);
+        }
+      }
+      if (layer.kind === "mesh" && "clip" in patch) {
+        for (const plane of layer.clip?.planes ?? []) plane.enabled = Boolean(patch.clip);
+      }
+    }
+    const LAYOUTS = {
+      "1x1": ["axial"],
+      "1+3": ["view3d", "axial", "coronal", "sagittal"],
+      "2x2": ["axial", "coronal", "sagittal", "view3d"],
+      "3d-only": ["view3d"],
+    };
+    if (typeof overrides.layout === "string" && LAYOUTS[overrides.layout]) {
+      scene.layout = { kind: overrides.layout, cells: [...LAYOUTS[overrides.layout]] };
+    }
+    const CAMERAS = {
+      A: [0, 0, 0, 1],
+      P: [0, 1, 0, 0],
+      L: [0, -0.7071067811865476, 0, 0.7071067811865476],
+      R: [0, 0.7071067811865476, 0, 0.7071067811865476],
+      S: [-0.7071067811865476, 0, 0, 0.7071067811865476],
+      I: [0.7071067811865476, 0, 0, 0.7071067811865476],
+    };
+    const preset = typeof overrides.camera === "string" ? overrides.camera.toUpperCase() : null;
+    if (preset && CAMERAS[preset] && scene.view3d?.camera) scene.view3d.camera.rotation = [...CAMERAS[preset]];
+    if ("radiological" in overrides) scene.radiological = Boolean(overrides.radiological);
+    const BACKGROUNDS = {
+      dark: [0.058823529411764705, 0.06666666666666667, 0.08627450980392157, 1],
+      black: [0, 0, 0, 1],
+      light: [0.94, 0.95, 0.96, 1],
+    };
+    if (typeof overrides.background === "string" && BACKGROUNDS[overrides.background]) {
+      scene.background = [...BACKGROUNDS[overrides.background]];
+    }
+    const visible = (scene.layers ?? []).filter((l) => l.visible).map((l) => l.id);
+    if (visible.length && !visible.includes(scene.activeLayerId)) scene.activeLayerId = visible[0];
+  }
   const name = `${kind}.tetravox.json`;
   json(ctx.res, 200, {
     name,
     path: `${PROJECT_ROOT}/code/ti-toolbox/viewer/${name}`,
     host_path: `${MOCK_HOST_ROOT}/code/ti-toolbox/viewer/${name}`,
     scene,
+    files: (scene.datasets ?? []).map((d, index) => ({
+      id: d.id,
+      kind: d.kind,
+      name: d.name ?? String(d.path ?? "").split("/").pop(),
+      path: d.path,
+      // Deterministic stand-in sizes: the mock has no files on disk, and a preview strip that
+      // showed nothing here would make "the strip lists what will open" untestable.
+      bytes: d.kind === "mesh" ? 24_117_248 + index : 4_194_304 + index,
+    })),
+    dry_run: Boolean(body.dry_run),
   });
+});
+// VM: saved Viewer compositions. In-memory here (the mock has no project on disk); the real
+// server writes <project>/code/ti-toolbox/viewer/presets/<slug>.json.
+const VIEWER_PRESETS = new Map();
+route("GET", "/api/viewer/presets", (ctx) => json(ctx.res, 200, { presets: [...VIEWER_PRESETS.values()] }));
+route("PUT", "/api/viewer/presets/:name", async (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!name.trim()) return json(ctx.res, 422, { detail: `Unusable preset name: ${name}` });
+  const document = { ...((await ctx.body()) ?? {}), name };
+  VIEWER_PRESETS.set(name, document);
+  json(ctx.res, 200, document);
+});
+route("DELETE", "/api/viewer/presets/:name", (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!VIEWER_PRESETS.delete(name)) return json(ctx.res, 404, { detail: `No preset named ${name}` });
+  json(ctx.res, 200, { name, deleted: true });
 });
 route("POST", "/api/view/args", async (ctx) => {
   const body = await ctx.body();
