@@ -22,6 +22,12 @@ import { SCENE_PALETTE } from "../../../src/renderer/scene/palette";
 
 // The option label is the net's real filename, as everywhere else in the app.
 const NET = process.env.TIT_E2E_NET ?? "GSN-HydroCel-185.csv";
+/**
+ * What the net's option is *labelled* in the job row, which since 2026-09-06 is the file's stem
+ * rather than its name: `MontageManager`'s net cell renders `netStem(n)`, so the row reads
+ * "GSN-HydroCel-185" while every id on the wire is still "GSN-HydroCel-185.csv".
+ */
+const NET_LABEL = NET.replace(/\.csv$/i, "");
 /** Every probe was measured to sit within this of the palette colour: the marker shader's own
  *  centre term is exactly 1.0, so the only slack is the 8-bit round trip and the alpha edge. */
 const COLOUR_TOLERANCE = 12;
@@ -129,7 +135,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     const panel = page.locator('[data-page-panel="simulator"]');
     // One row is one job since 2026-09-06; the net is the row's own cell.
     await panel.locator("tr[data-job-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
-    await page.getByRole("option", { name: NET, exact: true }).click();
+    await page.getByRole("option", { name: NET_LABEL, exact: true }).click();
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await settled(page);
 

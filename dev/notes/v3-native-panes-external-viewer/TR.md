@@ -140,14 +140,55 @@ exactly that.
 |---|---|
 | at rest | the atlas hue **desaturated to 55 % towards its own luma and dimmed to 86 %**, so a parcellated cortex still reads as a cortex rather than as a pie chart |
 | hover | the same hue mixed 45 % towards white — brightened, never renamed |
-| selected | the hue at **full saturation**, plus an **achromatic outline** on the rim of the patch |
+| selected | the hue at **full saturation**, raised opacity, plus a **thin darkened outline** on the rim of the patch |
 | no atlas colour (label 0, or a legend without one) | the part's flat tint and the palette blue, exactly as before |
 
-The outline is the colour-blind safeguard: hue is never the only signal. It costs no second draw —
-`SURFACE_VS` samples the label-state texture and writes a **non-`flat` `vSelect` varying**, 1 at a
-selected vertex and 0 at an unselected one, so a fragment with `0 < vSelect < 1` is on a triangle
-that straddles the boundary of the selection, i.e. on the rim, in screen space. (`vLabel` cannot
-give this: it is `flat` by necessity for picking, so it has no derivative.)
+### The outline, and the defect the first version of it caused
+
+Selection is carried by three signals — full saturation, raised opacity and the outline — so hue is
+never doing the work on its own.
+
+**The first version was wrong and the maintainer caught it in a screenshot**: every selected DK40
+label had a *jagged white border of uncoloured triangles* around it. `SURFACE_VS` writes a non-`flat`
+`vSelect` varying (1 at a selected vertex, 0 otherwise), and the shader treated `0 < vSelect < 1` as
+"on the rim". That is not the rim — it is **the whole of every triangle that straddles the rim**, and
+a decimated cortex has long thin ones. On a 200 000-triangle surface that is a band of shards
+several triangles thick, painted 85 % of the way to white.
+
+The fix keeps the varying but reads it as what it is — **a signed field whose 0.5 contour is the
+boundary**, not a membership test:
+
+```glsl
+float width = fwidth(vSelect);
+float edge  = width > 1.0e-5 ? 1.0 - smoothstep(0.0, width * 1.2, abs(vSelect - 0.5)) : 0.0;
+shaded = mix(shaded, shaded * 0.12, edge);   // darkened, never whitened
+a      = max(a, edge * 0.95);
+```
+
+`fwidth` converts "how far am I from the contour, in field units" into "…in pixels", so the line is
+**~2.4 px wide on screen whatever the triangle size**, and it cannot swallow a boundary triangle.
+The guard handles the constant-field cases (nothing selected, or everything) where `fwidth` is 0.
+
+Two further points, both from the maintainer's note:
+
+* **Darkened, not whitened.** `shaded * 0.12` reads as a border against every atlas colour including
+  the light ones, where white was indistinguishable from a specular highlight and, being lighter
+  than most of the palette, is what made the shards so loud.
+* **A boundary triangle is never a mixed colour.** The *colour* of a fragment has always come from
+  `vLabel`, which is `flat` — the provoking vertex's label wins for the whole triangle — so a
+  triangle is entirely one region's colour and never a blend of two. Only the discarded rim test
+  ever read the interpolated value for colour.
+
+`desktop/tests/e2e/scene-selection-edge.spec.ts` is the regression test, on the gallery's banded
+fixture whose legend gives every band a distinct mid-lightness hue:
+
+| | old rim | `fwidth` outline |
+|---|---|---|
+| white pixels (all channels ≥ 220) in a 100×100 px window round the click | **40 of 441** | **0 of 441** |
+| pixels inside the patch not carrying the label's hue | — | **0 of 21** |
+| repainted pixels that are outline | — | **4 of 439** (0.9 %) |
+
+Screenshot: `desktop/tests/e2e/artifacts/region-selection-after.png`.
 
 Subcortical volume labels take the same path — `volume_legend` emits `color` from the LUT with the
 same parser the optimizer's ROI picker uses.
@@ -177,7 +218,8 @@ The two-way RoiPicker ↔ pane selection model is untouched.
 **Pane / picker** — `pages/_shared/scene/ScenePane.tsx`, `pages/_shared/roi/RoiPicker.tsx`,
 `ui/SelectionList.tsx`, `ui/selection.css`.
 **Tests** — `tests/unit/scene-label-colors.test.ts` (new), `tests/e2e/scene-transparency.spec.ts`
-(new), `tests/e2e/scene.spec.ts` (draw calls 7 → 13), `tests/e2e/real/scene-electrodes.spec.ts`,
+(new), `tests/e2e/scene-selection-edge.spec.ts` (new), `tests/e2e/scene.spec.ts` (draw calls
+7 → 13), `tests/e2e/real/scene-electrodes.spec.ts`,
 `tests/test_scene_guide.py` (two new colour-table tests).
 **Unchanged, and checked rather than assumed** — `tit/scene/build.py`, `tit/scene/guide_build.py`,
 `tit/server/routes/{scene,guide}.py`, `contracts/openapi.v1.*`, the packaged guide.

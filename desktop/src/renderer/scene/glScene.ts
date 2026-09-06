@@ -137,11 +137,15 @@ uniform highp usampler2D uLabelState;
 out vec3 vNormalView;
 out vec3 vViewDir;
 flat out highp uint vLabel;
-// 1 at a selected vertex, 0 at an unselected one -- and, because it is NOT flat-qualified,
-// anything in between across a triangle that straddles the boundary of the selection. That
-// interpolation is the selection outline: a fragment with 0 < vSelect < 1 is on the rim of the
-// selected patch, in screen space, at no cost and with no second draw. vLabel cannot give this --
-// it is flat by necessity (see "Picking"), so it has no derivative to read.
+// 1 at a selected vertex, 0 at an unselected one, interpolated across a triangle that straddles
+// the boundary of the selection. It is a SIGNED FIELD whose 0.5 contour is the boundary, not a
+// membership test: what reads it is fwidth(), which turns the contour into a line of constant
+// SCREEN width. The colour of a fragment never comes from it -- that is vLabel's job, and vLabel
+// is flat, so a boundary triangle is entirely one region's colour and never a blend of two.
+//
+// The distinction cost a defect on 2026-09-06. Treating 0 < vSelect < 1 as "on the rim" paints the
+// WHOLE of every boundary triangle, and a decimated cortex has long thin ones: the maintainer saw
+// a jagged white border of uncoloured shards around every selected label, not an outline.
 out float vSelect;
 void main() {
   vec4 viewPos = uView * vec4(aPos, 1.0);
@@ -184,6 +188,16 @@ const SHEET_EPS = "1.0e-5";
 const REST_SATURATION = "0.55";
 /** …and how far it is dimmed towards the background at rest. */
 const REST_VALUE = "0.86";
+
+/**
+ * Half-width, in pixels, of the selection outline — so the drawn line is ~2.4 px, which is one
+ * clean edge at dpr 2 and a visible one at dpr 1.
+ *
+ * It is a screen-space width by construction (see the `fwidth` use below), which is the whole
+ * correction: the outline this replaced was "every fragment of a triangle that straddles the
+ * boundary", whose width on screen was the width of whatever triangle it landed on.
+ */
+const EDGE_PX = "1.2";
 
 /**
  * The surface fragment shader, in two variants.
@@ -237,7 +251,6 @@ ${
   vec3 color = uBaseColor;
   float alpha = uOpacity;
   bool solid = false;
-  bool outline = false;
   if (uUseLabels) {
     ivec2 uv = ivec2(int(vLabel & 255u), int(vLabel >> 8u));
     uint s = texelFetch(uLabelState, uv, 0).r;
@@ -254,12 +267,9 @@ ${
     }
     if ((s & 4u) != 0u) color = uDimColor;
     if ((s & 1u) != 0u) {
-      // Selected: the label's OWN colour at full saturation, never a uniform blue — plus the
-      // outline below, so the signal is not carried by hue alone (a deuteranope has to be able to
-      // see which regions are chosen).
+      // Selected: the label's OWN colour at full saturation, never a uniform blue.
       color = tinted ? atlas : uSelectedColor;
       solid = true;
-      outline = vSelect > 0.03 && vSelect < 0.97;
     }
     if ((s & 2u) != 0u) {
       // Hover: the same colour, brightened. An atlas colour brightened towards white stays the
@@ -274,11 +284,26 @@ ${
   float fresnel = pow(1.0 - abs(dot(N, V)), 1.6);
   vec3 shaded = color * (0.30 + 0.70 * lambert) + vec3(0.09) * fresnel;
   float a = solid ? max(alpha, 0.92) : clamp(alpha * (0.42 + 0.58 * fresnel), 0.0, 1.0);
-  if (outline) {
-    // The rim of a selected patch, in screen space: achromatic and opaque, so selection survives
-    // any colour vision and any atlas colour that happens to match its neighbour.
-    shaded = mix(shaded, vec3(0.97), 0.85);
-    a = 1.0;
+  if (uUseLabels) {
+    // The selection outline: the 0.5 contour of vSelect, drawn EDGE_PX wide in screen space.
+    //
+    // fwidth(vSelect) is how much the field changes across one pixel, so dividing the distance to
+    // the contour by it converts "how far am I from the boundary, in field units" into "how far am
+    // I from the boundary, in pixels" — which is why the line is the same weight on a huge triangle
+    // and on a sliver, and why it cannot swallow a boundary triangle whole the way a plain
+    // 0 < vSelect < 1 test did. Where nothing is selected, or everything is, the field is constant,
+    // fwidth is 0, and the guard leaves the line off entirely.
+    float width = fwidth(vSelect);
+    float edge = width > 1.0e-5
+      ? 1.0 - smoothstep(0.0, width * ${EDGE_PX}, abs(vSelect - 0.5))
+      : 0.0;
+    // DARKENED, not whitened. A dark line reads as a border against every atlas colour, including
+    // the light ones; the white it replaced was indistinguishable from a specular highlight and,
+    // being lighter than most of the palette, is what made the shards so loud. Selection is
+    // therefore carried by three signals — full saturation, raised opacity and this line — so it
+    // survives any colour vision without hue doing the work.
+    shaded = mix(shaded, shaded * 0.12, edge);
+    a = max(a, edge * 0.95);
   }
   outColor = vec4(shaded, a);
 }`;
