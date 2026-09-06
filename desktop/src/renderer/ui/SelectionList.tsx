@@ -87,6 +87,12 @@ export interface SelectionItem {
   search?: string;
   /** Middle column — presence chips, coordinates, a job's state. */
   detail?: ReactNode;
+  /**
+   * A `"#rrggbb"` colour dot before the label — the atlas colour an ROI row is painted in, so the
+   * picker and the 3D pane name the same region with the same colour. Omitted for every list that
+   * has no colour of its own, which is all of them but the region lists.
+   */
+  swatch?: string;
   /** The row's own object, for `columns[].cell` to read. */
   value?: unknown;
   /** "Why not" text. The row stays selectable (its reason is what Run then prints). */
@@ -594,7 +600,17 @@ export function SelectionList({
                         aria-label={typeof item.label === "string" ? item.label : item.id}
                       />
                     </td>
-                    <td className="selection-label">{typeof item.label === "string" ? <span className="mono">{item.label}</span> : item.label}</td>
+                    <td className="selection-label">
+                      {item.swatch ? (
+                        <span
+                          className="selection-swatch"
+                          style={{ background: item.swatch }}
+                          aria-hidden
+                          data-testid="selection-swatch"
+                        />
+                      ) : null}
+                      {typeof item.label === "string" ? <span className="mono">{item.label}</span> : item.label}
+                    </td>
                     {extra.length > 0
                       ? extra.map((c) => (
                           <td key={c.id} className={c.numeric ? "selection-detail numeric" : "selection-detail"}>

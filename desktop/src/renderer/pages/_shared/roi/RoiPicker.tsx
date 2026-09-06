@@ -29,6 +29,7 @@ import { SelectionPicker, type SelectionItem } from "../../../ui/SelectionList";
 import { Checkbox } from "../../../ui/Toggle";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { regionKey } from "../scene/model";
+import { useGuideRegions } from "../scene/queries";
 import { Button, IconButton } from "../../../ui/Button";
 import { Skeleton, Callout } from "../../../ui/Feedback";
 import { Dialog, AlertDialog } from "../../../ui/Overlay";
@@ -428,8 +429,34 @@ function CorticalPanel({
     return [...lh, ...rh];
   }, [lhRegions.data, rhRegions.data]);
 
+  /**
+   * The atlas colour of each region, for the row's swatch.
+   *
+   * It comes from the *guide* legend rather than from `GET /api/catalog/atlases/regions`, which
+   * carries no colour: the 3D pane on the same page has already fetched exactly this under exactly
+   * this react-query key, so the picker reads it out of the cache and issues no request of its own.
+   * `legend[].id` is the `.annot` row index within the hemisphere, which is what `regionKey` keys
+   * on, so the swatch beside a row and the patch the pane paints are the same colour by
+   * construction. No guide atlas, no colour, no swatch — the rows read exactly as before.
+   */
+  const guideLegend = useGuideRegions(value.atlas ?? null);
+  const swatches = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const row of guideLegend.data?.legend ?? []) {
+      if (typeof row.color === "string" && /^#[0-9a-fA-F]{6}$/.test(row.color)) {
+        out.set(`${row.hemi}:${row.id}`, row.color.toLowerCase());
+      }
+    }
+    return out;
+  }, [guideLegend.data]);
+
   const selectedKeys = value.regions.map(regionKey);
-  const regionItems: SelectionItem[] = options.map((o) => ({ id: o.value, label: o.label, search: o.label }));
+  const regionItems: SelectionItem[] = options.map((o) => ({
+    id: o.value,
+    label: o.label,
+    search: o.label,
+    ...(swatches.get(o.value) ? { swatch: swatches.get(o.value) as string } : {}),
+  }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

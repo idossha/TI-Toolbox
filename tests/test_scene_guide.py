@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import pytest
 
@@ -173,6 +174,80 @@ def test_electrode_and_region_payloads_carry_names_a_form_can_use(manifest: dict
     assert len(legend) == manifest["atlases"][0]["regions"]
     assert {row["hemi"] for row in legend} <= {"lh", "rh"}
     assert all(row["label"] > 0 and row["name"] for row in legend)
+
+
+def test_every_packaged_atlas_carries_its_annot_colour_table() -> None:
+    """Each legend row names the colour the ``.annot`` colour table gives that region.
+
+    The 3D pane paints a region in *its own* colour rather than in one flat blue, and the swatch
+    beside it in the legend and in the ROI picker is the same value -- so the colour is not
+    decoration, it is the region's identity on screen. Everything below is a property of a real
+    FreeSurfer colour table, so a legend that failed one of them was not built from an annotation.
+    """
+    for entry in guide.manifest()["atlases"]:
+        legend = guide.legend(entry["id"])["legend"]
+        assert legend, f"{entry['id']} has an empty legend"
+
+        # 1. Every row has a colour, in the one form the renderer and the CSS swatch both parse.
+        for row in legend:
+            assert re.fullmatch(r"#[0-9a-f]{6}", row["color"]), (
+                f"{entry['id']} {row['hemi']}.{row['name']}: {row['color']!r} is not '#rrggbb'"
+            )
+
+        # 2. Within one hemisphere the colours are distinct. This is the assertion that would have
+        #    caught the defect the change is for: 70 regions all rendered in one blue.
+        for hemi in ("lh", "rh"):
+            rows = [row for row in legend if row["hemi"] == hemi]
+            colours = {row["color"] for row in rows}
+            assert len(colours) == len(rows), (
+                f"{entry['id']} {hemi}: {len(rows)} regions share {len(colours)} colours"
+            )
+
+        # 3. A region has the same colour in both hemispheres -- a FreeSurfer colour table is keyed
+        #    by parcel, not by side, and a pane that coloured lh and rh differently would be
+        #    inventing an anatomical distinction the atlas does not make.
+        by_name: dict[str, set[str]] = {}
+        for row in legend:
+            by_name.setdefault(row["name"], set()).add(row["color"])
+        mismatched = {name: cols for name, cols in by_name.items() if len(cols) > 1}
+        assert not mismatched, f"{entry['id']}: {mismatched} differ between hemispheres"
+
+
+def test_the_legend_colour_is_read_from_the_colour_table_and_not_invented(tmp_path) -> None:
+    """``build._load_reference_labels`` takes ``color`` from the ``.annot`` ctab, byte for byte.
+
+    The guide's legends are files, so the test above can only check that they *look* like a colour
+    table. This one drives the builder that wrote them over an annotation whose ctab this test
+    chose, which is the only way to say the mapping row -> colour is the right way round.
+    """
+    fsio = pytest.importorskip("nibabel.freesurfer.io")
+    numpy = pytest.importorskip("numpy")
+
+    names = [b"unknown", b"alpha", b"beta"]
+    ctab = numpy.array(
+        [
+            [25, 5, 25, 0, 1639705],
+            [0x19, 0x64, 0x28, 0, 0],
+            [0x7D, 0x64, 0xA0, 0, 0],
+        ],
+        dtype=numpy.int64,
+    )
+    # Six vertices: two of each row, so every named row appears in the payload.
+    labels = numpy.array([0, 0, 1, 1, 2, 2], dtype=numpy.int32)
+    annot = tmp_path / "lh.subj_TESTATLAS.annot"
+    fsio.write_annot(str(annot), labels, ctab, [n.decode() for n in names], fill_ctab=True)
+
+    read_labels, read_ctab, read_names = fsio.read_annot(str(annot))
+    del read_labels
+    hexes = {
+        (n.decode() if isinstance(n, bytes) else str(n)): "#%02x%02x%02x"
+        % (int(read_ctab[row][0]), int(read_ctab[row][1]), int(read_ctab[row][2]))
+        for row, n in enumerate(read_names)
+    }
+    # The two named rows keep the RGB this test put in, and `unknown` is dropped by the builder.
+    assert hexes["alpha"] == "#196428"
+    assert hexes["beta"] == "#7d64a0"
+    assert "unknown" in hexes
 
 
 def test_a_missing_guide_says_how_to_regenerate_it(tmp_path, monkeypatch) -> None:

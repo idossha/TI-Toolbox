@@ -229,16 +229,42 @@ test("a selected atlas region is painted in the ROI tint, and the pane holds its
     await expect.poll(() => page.evaluate(() => (window.__scenePane?.selectedRegions ?? []).length)).toBeGreaterThan(0);
     await page.waitForTimeout(150);
     const after = await pixelAt(page, cx, cy);
-    const tint = rgb255(SCENE_PALETTE.selected as number[]);
     expect(delta(before, after), "selecting a region repainted nothing").toBeGreaterThan(10);
-    // The selected region is drawn towards the ROI tint: closer to it than the unselected cortex
-    // was. Not "equal to it" — the surface shader lights and blends, and pinning an exact value
-    // here would pin the lighting term rather than the colour anyone chose.
-    expect(delta(after, tint)).toBeLessThan(delta(before, tint));
+
+    // **The selected region is painted in its OWN atlas colour**, the one the `.annot` colour table
+    // gives it — not in one flat blue for all 70 regions. The expected value is read from the
+    // pane's own legend, which is the same `legend[].color` the shader's colour texture was packed
+    // from, so this closes the loop from the annotation file to the pixel.
     const picked = await page.evaluate(() => window.__scenePane?.selectedRegions[0] ?? null);
+    expect(picked, "nothing was selected").not.toBeNull();
+    const hex = await page.evaluate(
+      (region) =>
+        window.__scenePane?.legend.find((row) => row.id === region!.id && row.hemi === region!.hemi)?.color ?? null,
+      picked,
+    );
+    expect(hex, `the legend has no colour for ${picked?.name}/${picked?.hemi}`).toMatch(/^#[0-9a-f]{6}$/);
+    const own = [1, 3, 5].map((i) => parseInt((hex as string).slice(i, i + 2), 16));
+
+    // "Closer to its own colour than the unselected cortex was", not "equal to it": the surface
+    // shader lights the fragment (a lambert term and a fresnel silhouette boost) and blends it
+    // under a translucent scalp, so an exact equality here would pin the lighting rather than the
+    // colour anyone chose. What it does pin is the *identity* of the colour.
+    expect(delta(after, own), `selected pixel ${JSON.stringify(after)} vs its atlas colour ${hex}`).toBeLessThan(
+      delta(before, own),
+    );
+
+    // …and it is that colour rather than the old flat ROI blue, which is the whole point of the
+    // change. Skipped for the handful of parcels whose ctab entry happens to be a blue close to the
+    // accent — asserting there would be asserting a coincidence, not a behaviour.
+    const flat = rgb255(SCENE_PALETTE.selected as number[]);
+    if (delta(own, flat) > 60) {
+      expect(delta(after, own), "the region was painted in the flat ROI blue, not in its own colour").toBeLessThan(
+        delta(after, flat),
+      );
+    }
     console.log(
       `REAL-SCENE region ${picked?.name}/${picked?.hemi}: ${JSON.stringify(before)} -> ${JSON.stringify(after)} ` +
-        `(ROI tint ${JSON.stringify(tint)}), warm first paint ${firstPaint} ms`,
+        `(atlas colour ${hex} = ${JSON.stringify(own)}), warm first paint ${firstPaint} ms`,
     );
 
     // Orbit at 1280: a drag across the canvas, then the renderer's own frame counter.

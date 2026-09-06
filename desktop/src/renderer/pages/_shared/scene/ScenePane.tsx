@@ -30,6 +30,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   SCENE_DEBUG,
   SceneCanvas,
+  buildLabelColors,
+  labelSwatchColor,
   type Bounds,
   type LegendEntry,
   type PickTarget,
@@ -142,6 +144,13 @@ declare global {
     __scenePane?: ScenePaneDebug;
   }
 }
+
+/** `"#rrggbb"` -> the numeric triple a legend swatch and the shader both use. */
+const hexToRgb = (hex: string): [number, number, number] => [
+  parseInt(hex.slice(1, 3), 16) / 255,
+  parseInt(hex.slice(3, 5), 16) / 255,
+  parseInt(hex.slice(5, 7), 16) / 255,
+];
 
 const NO_PARTS: ScenePart[] = [];
 const NO_MARKERS: SceneMarker[] = [];
@@ -416,21 +425,33 @@ export function ScenePane({
     [formRegions, legend],
   );
 
+  /**
+   * The per-label colour texture the canvas paints regions with: the `.annot` colour table's own
+   * RGB for a cortical parcellation, `labeling_LUT.txt`'s for a subcortical volume label. Both
+   * already arrive on `legend[].color` — the server has emitted them since the legend existed —
+   * so this is only the packing, and it is memoised on the legend because it is an upload.
+   */
+  const labelColors = useMemo(() => buildLabelColors(legend), [legend]);
+
   const paneLegend = useMemo<LegendEntry[]>(() => {
     const rows: LegendEntry[] = [];
     if (gesture !== "electrode" && effectiveAtlas && legend.length > 0) {
       rows.push({ key: "atlas", label: effectiveAtlas, color: SCENE_PALETTE.dim, detail: `${legend.length} regions` });
       for (const region of selectedRegionRows) {
+        // The swatch is the colour the region is actually painted in — its own, not one blue for
+        // all of them. A legend whose swatches all match cannot tell a user which patch is which.
+        const row = legend.find((entry) => entry.id === region.id && entry.hemi === region.hemi);
+        const hex = row ? labelSwatchColor(legend, row.label) : null;
         rows.push({
           key: `roi-${region.hemi ?? ""}-${region.id}`,
           label: region.name,
-          color: SCENE_PALETTE.selected,
+          color: hex ? hexToRgb(hex) : SCENE_PALETTE.selected,
           detail: region.hemi ?? undefined,
         });
       }
     }
     return rows;
-  }, [gesture, effectiveAtlas, legend.length, selectedRegionRows]);
+  }, [gesture, effectiveAtlas, legend, selectedRegionRows]);
 
   /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
   const hint = ((): string => {
@@ -532,6 +553,7 @@ export function ScenePane({
             bounds={bounds}
             focus={focus}
             legend={paneLegend}
+            labelColors={labelColors}
             label={`${guideId ?? "guide"} head model`}
           />
         ) : (

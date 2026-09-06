@@ -97,6 +97,17 @@
 .selection-table .selection-label .mono {
   font-family: var(--font-mono);
 }
+/* The atlas colour of a region row, in the same colour the 3D pane paints it. `aria-hidden`, and
+   the label beside it carries the same information in words — the dot is never the only signal. */
+.selection-table .selection-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  border-radius: 2px;
+  vertical-align: baseline;
+  border: 1px solid var(--line);
+}
 .selection-table .selection-detail {
   color: var(--ink-2);
 }
