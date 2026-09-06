@@ -380,7 +380,14 @@ test("hidden tabs cannot take focus or respond to the active pane's shortcut", a
 
   const nav = page.getByTestId("nav-item-simulator");
   await nav.focus();
-  await optimizer.locator("#optimizer-run-name").evaluate((input: HTMLInputElement) => input.focus());
+  // Addressed structurally, not by a named control: the Optimizer's page-level `#optimizer-run-name`
+  // became a per-row `#opt-run-name-<row>` inside the 2026-09-06 jobs table's row editor, and what
+  // this test measures is that a control in a HIDDEN panel cannot take focus — not which one.
+  const hiddenFocusable = optimizer
+    .locator('button, input, select, textarea, [tabindex="0"]')
+    .first();
+  await expect(hiddenFocusable).toHaveCount(1);
+  await hiddenFocusable.evaluate((el: HTMLElement) => el.focus());
   await expect(nav).toBeFocused();
 
   const currentPane = activePage().locator(".page-layout-body");
@@ -448,8 +455,14 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   const input = current.getByPlaceholder("e.g. custom_4electrode", { exact: true });
   const inputNode = await input.elementHandle();
   const scroller = current.locator("[data-page-work-scroll]");
+  // Half the available range, not a fixed 80 px. Collapsing the pane gives the work column the
+  // whole window, its content re-flows shorter, and the browser CLAMPS scrollTop to the new
+  // maximum on the spot — a loss no app code can undo on the way back. A fixed 80 was inside the
+  // range when it was written and is outside it now that the Simulator's page-level sections
+  // became a jobs table (max is 66 px here), so the test was measuring the clamp rather than the
+  // retention. Half the range is inside both widths' range and still nonzero.
   const scrollBefore = await scroller.evaluate((el) => {
-    el.scrollTop = Math.min(80, el.scrollHeight - el.clientHeight);
+    el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2);
     return el.scrollTop;
   });
   expect(scrollBefore, "the expanded work test must start at a nonzero scroll offset").toBeGreaterThan(0);

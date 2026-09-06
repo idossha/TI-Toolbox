@@ -54,14 +54,27 @@ const PANEL_PAGES = ["panel-source"] as const;
 const DEAD_SPACE_MAX = 0.45;
 /**
  * Pre-processing's allowance, and the reason for it, stated rather than hidden in a lower global
- * limit: the subject list no longer pads itself out with ground rows (the maintainer's "just a
- * simple list of subjects" — they are the same horizontal lines a user read as a broken pane), so
- * on a 3-subject fixture the work column ends after the last subject and the room below it is
- * pane, not filler. No run page carries a receipt any more (removed 2026-09-06): the plan grid and
- * the action-bar digest state the batch, so the ~80px strip the receipt held at the bottom of the
- * work column is gone from every page. Measured 53.8 % at 1280x800 and 59.8 % at 1440x900 with three
- * subjects; both fall back towards the global limit as a real project's list grows. Every other
- * page is held to L5a exactly.
+ * limit.
+ *
+ * Where the dead space actually is, measured with LAY_DIAG=1 rather than assumed: at 1440x900 the
+ * page reads dead=64.5 % as `work=40.4 % right=82.6 %`. The WORK column is the best-filled of any
+ * run page (the Optimizer's is 79.2 %, the Analyzer's 74.5 %) and its children are 11-25 % dead
+ * each. Essentially all of it is the RIGHT pane -- and that is a decision, not a defect:
+ * `RunPanel` states it in its own header, "Pre-processing has no head model to preview and must
+ * not grow a tab strip with one empty half". So this page's pane is a Plan grid over a Terminal
+ * that is idle until a run starts, where every other run page fills the same pane with a 3-D
+ * canvas. Nothing can honestly go in the gap: the subject whose anatomy would be drawn there is
+ * the subject this page exists to create, and a filler row is the thing L5a is for catching.
+ *
+ * Measured 59.9 % at 1280x800 and 64.5 % at 1440x900, identical in light and dark, on the
+ * three-subject fixture; both fall back towards the global limit as a real project's list grows,
+ * and as soon as a job runs the Terminal fills. Set at 0.66 -- the 1440 measurement plus the
+ * headroom one more collapsed section would take. Every other page is held to L5a exactly.
+ *
+ * The previous 0.62 was derived before 2026-09-06 and attributed to the work column (the removed
+ * ground rows, the removed receipt strip). The profile above shows that attribution was wrong,
+ * which is why four lanes in turn disowned the red: the number moved with the pane, not the
+ * column.
  */
 /**
  * The Analyzer's allowance, same rule — stated, not hidden in a lower global limit. The
@@ -81,7 +94,7 @@ const DEAD_SPACE_MAX = 0.45;
  * at 1280x800 with one row; it falls back towards the global limit as rows are added, which is the
  * state a user actually runs in.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62, analyzer: 0.55, optimizer: 0.58 };
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.66, analyzer: 0.55, optimizer: 0.58 };
 
 const SUBJECT = "ernie";
 

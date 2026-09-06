@@ -132,9 +132,15 @@ export async function useThePage(target: Page, settleOpts: { skeletonMs?: number
     await settle(target, settleOpts);
   }
 
-  // Something typed, where the page has a free-text field of its own.
-  const runName = activePage(target).locator("#optimizer-run-name");
-  if ((await runName.count()) > 0) await runName.fill("n2-probe");
+  // Something typed, where the page has a free-text field of its own. Addressed structurally: the
+  // Optimizer's `#optimizer-run-name` became a per-row field inside the jobs table's row editor,
+  // so a named id here would silently stop typing anything (`count() === 0` is not a failure).
+  const typable = activePage(target)
+    .locator('[data-page-work-scroll] input[type="text"]:not([readonly]), [data-page-work-scroll] input:not([type]):not([readonly])')
+    .first();
+  if ((await typable.count()) > 0 && (await typable.isEnabled()) && (await typable.isVisible())) {
+    await typable.fill("n2-probe");
+  }
 
   // Scroll the work pane as far as it goes; 0 would not be a change.
   await activePage(target).evaluate((root) => {
