@@ -199,6 +199,11 @@ The NR gate's two mock clauses, by name:
   ```
 * **The mock server was also broken mid-lane** (`ReferenceError: route is not defined` — lane VX rewriting
   `tests/mock-server/server.mjs`), which is why the mock e2e results in §3 were taken after waiting it out.
+* **`tests/e2e/{simulator,simulator-table,optimizer,analyzer}.spec.ts` were not run.** They exercise pages lane JB is
+  rewriting right now (the Simulator source section into a per-job table, the Analyzer job list), and both files have
+  typecheck errors from those in-flight edits at the time of writing, so a run would report JB's state rather than
+  this lane's. `roi-idiom.spec.ts` — the one of the four that this lane's `RoiPicker` change could break — **was** run
+  and is green (3/3).
 * **`AnalyzerPage.tsx` and `simulator/index.tsx` are being rewritten by lane JB concurrently.** This lane touched only
   the `<ScenePane …>` call-site lines in them (per the coordinator's message) and made no change to
   `MontageManager.tsx`, `FlexTab.tsx`, `RunControls.tsx` or `buildConfig.ts`. At the time of writing both files have
