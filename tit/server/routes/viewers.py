@@ -300,6 +300,45 @@ def localise_scene_paths(
     return out
 
 
+def _scene_files(spec: dict[str, Any], localised: dict[str, Any]) -> list[dict[str, Any]]:
+    """One row per dataset the scene references: its host-facing path and its size.
+
+    The Viewer page's preview strip.  Sizes are read from the *container's*
+    own paths (``spec["layers"]``), because that is where the bytes are;
+    the path reported back is the localised one, because that is the name a
+    person can check on their own machine.  A file that cannot be stat'ed
+    reports ``bytes: null`` rather than 0 -- "unknown" and "empty" are
+    different answers and only one of them is a problem.
+    """
+    sizes: dict[str, int | None] = {}
+    for layer in spec.get("layers", []):
+        raw = layer.get("path")
+        if not isinstance(raw, str):
+            continue
+        try:
+            sizes[os.path.basename(raw)] = os.path.getsize(raw)
+        except OSError:
+            sizes[os.path.basename(raw)] = None
+    rows: list[dict[str, Any]] = []
+    for dataset in localised.get("datasets", []):
+        if not isinstance(dataset, dict):
+            continue
+        path = dataset.get("path")
+        if not isinstance(path, str):
+            continue
+        base = path.replace("\\", "/").rsplit("/", 1)[-1]
+        rows.append(
+            {
+                "id": dataset.get("id"),
+                "kind": dataset.get("kind"),
+                "name": dataset.get("name") or base,
+                "path": path,
+                "bytes": sizes.get(base),
+            }
+        )
+    return rows
+
+
 @router.post(
     "/api/view/open",
     summary="Write the scene file the host-installed Tetravox desktop app opens",
@@ -322,6 +361,8 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
             status_code=422,
             detail=f"kind must be one of {', '.join(sorted(_SCENE_NAMES))}",
         )
+    extras = payload.get("extras")
+    overrides = payload.get("overrides")
     spec = viewspec.build_view(
         kind,
         subject=payload.get("subject"),
@@ -332,6 +373,8 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
         atlas=payload.get("atlas"),
         roi=payload.get("roi"),
         path=payload.get("path"),
+        extras=list(extras) if isinstance(extras, list) else None,
+        overrides=overrides if isinstance(overrides, dict) else None,
     )
     if spec is None:
         raise HTTPException(
@@ -348,15 +391,18 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
     localised = localise_scene_paths(scene, container_root, host_root)
 
     directory = viewer_scene_dir()
-    os.makedirs(directory, exist_ok=True)
     name = f"{_SCENE_NAMES[kind]}{_SCENE_SUFFIX}"
     target = os.path.join(directory, name)
-    # Written whole, then renamed: the app may be watching this exact path from
-    # a previous Open, and half a JSON document is a parse error on screen.
-    tmp = f"{target}.partial"
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(localised, handle, indent=1)
-    os.replace(tmp, target)
+    dry_run = bool(payload.get("dry_run"))
+    if not dry_run:
+        os.makedirs(directory, exist_ok=True)
+        # Written whole, then renamed: the app may be watching this exact path
+        # from a previous Open, and half a JSON document is a parse error on
+        # screen.
+        tmp = f"{target}.partial"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(localised, handle, indent=1)
+        os.replace(tmp, target)
 
     return {
         "name": name,
@@ -365,4 +411,6 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
             _to_host(target, container_root, host_root) if host_root else None
         ),
         "scene": localised,
+        "files": _scene_files(spec, localised),
+        "dry_run": dry_run,
     }

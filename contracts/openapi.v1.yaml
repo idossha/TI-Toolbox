@@ -1354,6 +1354,35 @@ paths:
                 atlas: { type: [string, "null"] }
                 roi: { type: [string, "null"] }
                 path: { type: [string, "null"] }
+                dry_run:
+                  type: boolean
+                  default: false
+                  description: >-
+                    VM. Resolve the selection and answer with the scene and its file list, but
+                    write nothing -- the Viewer page's preview strip, which must be able to show
+                    what a selection resolves to without leaving a file behind or launching
+                    anything.
+                extras:
+                  type: array
+                  items: { type: string, enum: [t1, atlas, electrodes, gm_mesh] }
+                  description: >-
+                    VM. Extra layers to add to whatever this view type already builds ("Also
+                    open"). Each reuses the layer builder the server already trusted for that
+                    file, and one this view already opens is a no-op rather than a second copy.
+                    Absent adds nothing, which is what every caller before VM did.
+                overrides:
+                  type: object
+                  additionalProperties: true
+                  description: >-
+                    VM. Additive, optional edits to the finished ViewSpec -- per-layer
+                    `{visible, opacity, colormap, showIn3D, showColorbar, contoursIn2D,
+                    threshold:{lo,hi}, colorMode, clip}` keyed by layer id, plus `layout`
+                    (1x1 | 1+3 | 2x2 | 3d-only), `camera` (A|P|L|R|S|I), `radiological` and
+                    `background` (dark|black|light, or an [r,g,b,a] vec4). Values the engine's
+                    own type would not accept are dropped rather than written. Absent means the
+                    document is byte-identical to what this endpoint returned before overrides
+                    existed (tit/viewspec.py::apply_scene_overrides,
+                    tests/test_viewspec_overrides.py).
       responses:
         "200":
           content:
@@ -2514,6 +2543,27 @@ components:
             the ViewSpec v2 document that was written, with every dataset/sidecar path rewritten
             from an /api/files/raw URL to the host's own absolute path -- the desktop app reads
             files, not URLs. Validated by contracts/tetravox-viewspec-v2.schema.json.
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerSceneFile" }
+          description: >-
+            VM. One row per dataset the scene references, so the Viewer page can show what a
+            selection resolves to -- and how big it is -- before another application's window
+            opens on top of someone's work.
+        dry_run:
+          type: boolean
+          description: true when the request asked to resolve only; nothing was written
+    ViewerSceneFile:
+      type: object
+      required: [name, path]
+      properties:
+        id: { type: [string, "null"] }
+        kind: { type: [string, "null"], description: '"volume" or "mesh"' }
+        name: { type: string }
+        path: { type: string, description: the path written into the scene (host-facing) }
+        bytes:
+          type: [integer, "null"]
+          description: size on disk, or null when the file could not be stat'ed
     Project:
       type: object
       required: [container_path, name]

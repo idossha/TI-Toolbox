@@ -1230,3 +1230,40 @@ fields.
 Mirrored in `desktop/tests/mock-server/server.mjs` (its planner is a deliberate
 mirror of `tit/pipeline/*`), asserted in `tests/test_pipeline_validate.py` and
 `desktop/tests/unit/pipeline-graph.test.ts`.
+
+## 2026-09-06 — feat:viewer-composition — `POST /api/view/open` gains `extras`, `overrides`, `dry_run`; `ViewerOpen` gains `files`, `dry_run`
+
+The Viewer page became a composition panel (VM,
+`dev/notes/v3-native-panes-external-viewer/VM.md`), so the request that writes
+the scene had to be able to carry what the panel composes. All three request
+fields are **optional and additive**, and `tests/test_viewspec_overrides.py`
+pins the guarantee that matters: with none of them given, the document this
+endpoint returns and writes is *byte-identical* to what it produced before they
+existed.
+
+1. **`overrides`** — per-layer `{visible, opacity, colormap, showIn3D,
+   showColorbar, contoursIn2D, threshold:{lo,hi}, colorMode, clip}` keyed by
+   layer id, plus `layout` (`1x1 · 1+3 · 2x2 · 3d-only`), `camera`
+   (`A·P·L·R·S·I`), `radiological` and `background`. Every knob is one the
+   engine's own `ViewSpec` v2 type already has — the page exposes exactly what
+   the server can write, because a control whose value does not reach the file
+   is a lie. Values the type would not accept (an unknown layout, an opacity of
+   4, a colour name we do not define) are dropped or clamped rather than
+   written: a stale saved preset must not produce a scene the app refuses to
+   open. `tit/viewspec.py::apply_scene_overrides`.
+2. **`extras`** — `t1 · atlas · electrodes · gm_mesh`, the "Also open"
+   checkboxes. Each reuses the layer builder the server already trusted for
+   that file, and one the view already opens is a no-op rather than a second,
+   differently-configured description of the same volume. There is deliberately
+   **no electrode-*points* extra**: ViewSpec v2 has no points layer, so the
+   page offers the electrode overlay *volume*, which exists.
+3. **`dry_run`** — resolve and answer, write nothing. The preview strip needs
+   to say what a selection resolves to without leaving a file behind, and
+   reusing the real endpoint means the preview and the Open cannot disagree.
+4. **`ViewerOpen.files`** (`ViewerSceneFile[]`) — one row per dataset the scene
+   references, with its host-facing path and its size on disk. `bytes: null`
+   where the file could not be stat'ed: "unknown" and "empty" are different
+   answers and only one is a problem.
+
+`contracts/tetravox-viewspec-v2.schema.json` is **unchanged** — nothing here
+emits a field it did not already allow.

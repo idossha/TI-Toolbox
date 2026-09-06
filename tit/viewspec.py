@@ -346,6 +346,53 @@ def _analysis_layer(
     return None
 
 
+#: What the Viewer page's "Also open" checkboxes name, and the only extra
+#: layers ``build_view`` will add on request.  Each one reuses the layer
+#: builder the server already trusted for that file, so an extra is the same
+#: layer it would have been had the view type produced it -- never a
+#: second, differently-configured description of the same volume.
+EXTRA_LAYERS = ("t1", "atlas", "electrodes", "gm_mesh")
+
+
+def _extra_layers(
+    pm,
+    existing: list[dict[str, Any]],
+    *,
+    subject: str | None,
+    simulation: str | None,
+    space: str,
+    atlas: str | None,
+    extras: list[str] | None,
+) -> list[dict[str, Any]]:
+    """The requested *extras* that resolve to a file this view does not already have.
+
+    Additive and de-duplicated by path: asking for the T1 on a view that
+    already opens the T1 changes nothing, which is what makes the checkbox
+    safe to leave ticked.
+    """
+    if not extras:
+        return []
+    seen = {layer["path"] for layer in existing}
+    out: list[dict[str, Any]] = []
+    for name in extras:
+        if name not in EXTRA_LAYERS:
+            continue
+        layer: dict[str, Any] | None = None
+        if name == "t1" and subject:
+            layer = _subject_t1_layer(pm, subject, space)
+        elif name == "atlas" and subject:
+            layer = _subject_atlas_layer(pm, subject, space, atlas)
+        elif name == "electrodes" and subject and simulation:
+            layer = _electrode_overlay_layer(pm, subject, simulation)
+        elif name == "gm_mesh" and subject and simulation and space == "subject":
+            layer = _grey_mesh_layer(pm.simulation(subject, simulation), simulation)
+        if layer is None or layer["path"] in seen:
+            continue
+        seen.add(layer["path"])
+        out.append(layer)
+    return out
+
+
 def _scene_title(
     subject: str | None, simulation: str | None, field: str | None
 ) -> str | None:
@@ -386,6 +433,183 @@ def _analysis_cursor(pm, sid: str, sim: str, analysis_name: str) -> list[float] 
     return None
 
 
+# ---------------------------------------------------------------------------
+# Scene overrides (VM) -- the Viewer page's composition panel, on the wire.
+#
+# Everything the page exposes has to land in the scene file, or the control is
+# a lie.  So the knobs below are exactly the ones this server can *write*: the
+# per-layer fields ``to_tetravox_viewspec`` already emits, the four layouts the
+# schema's ``Layout.kind`` enum offers that make sense without a per-file
+# camera fit, six anatomical camera presets, the radiological flag and the
+# background.  Nothing here invents a field the engine does not have -- there
+# is no points layer in ViewSpec v2, for instance, so the page offers no
+# electrode-points checkbox and offers the electrode *overlay volume* instead.
+#
+# Applied to the finished ``scene`` rather than to ``spec["layers"]`` because
+# that is where these words exist: opacity on a layer spec is the *input* to a
+# scale/threshold decision, opacity on a scene layer is the number the engine
+# reads.
+# ---------------------------------------------------------------------------
+
+#: ``kind`` -> the cells that kind's panes are, in order.  A subset of the
+#: schema's ``Layout.kind`` enum: the ones a person can ask for without the
+#: server knowing anything about the data's own extent.
+SCENE_LAYOUTS: dict[str, list[str]] = {
+    "1x1": ["axial"],
+    "1+3": ["view3d", "axial", "coronal", "sagittal"],
+    "2x2": ["axial", "coronal", "sagittal", "view3d"],
+    "3d-only": ["view3d"],
+}
+
+#: Six anatomical camera presets, as ``view3d.camera.rotation`` quaternions
+#: ``[x, y, z, w]``.  ``A`` is the engine's own identity framing, and the other
+#: five are quarter- and half-turns from it about the up and right axes; this
+#: is a rotation of the default view, not a claim about the engine's world
+#: axes, which the server cannot see.
+CAMERA_PRESETS: dict[str, list[float]] = {
+    "A": [0.0, 0.0, 0.0, 1.0],
+    "P": [0.0, 1.0, 0.0, 0.0],
+    "L": [0.0, -0.7071067811865476, 0.0, 0.7071067811865476],
+    "R": [0.0, 0.7071067811865476, 0.0, 0.7071067811865476],
+    "S": [-0.7071067811865476, 0.0, 0.0, 0.7071067811865476],
+    "I": [0.7071067811865476, 0.0, 0.0, 0.7071067811865476],
+}
+
+#: The scene ground every scene has always had.  Defined here rather than
+#: beside the other ``_DEFAULT_*`` rig constants only because
+#: :data:`SCENE_BACKGROUNDS` needs it and that block comes later in the file.
+_DEFAULT_BACKGROUND = [
+    0.058823529411764705,
+    0.06666666666666667,
+    0.08627450980392157,
+    1.0,
+]
+
+#: Named backgrounds.  ``dark`` is the default every scene has always had.
+SCENE_BACKGROUNDS: dict[str, list[float]] = {
+    "dark": list(_DEFAULT_BACKGROUND),
+    "black": [0.0, 0.0, 0.0, 1.0],
+    "light": [0.94, 0.95, 0.96, 1.0],
+}
+
+#: The per-layer keys a client may set, and the type each is coerced to.
+_LAYER_NUMBER_KEYS = ("opacity",)
+_LAYER_BOOL_KEYS = ("visible", "showIn3D", "showColorbar", "contoursIn2D")
+
+
+def _clamp01(value: Any, fallback: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return 0.0 if number < 0.0 else 1.0 if number > 1.0 else number
+
+
+def _apply_layer_override(layer: dict[str, Any], patch: dict[str, Any]) -> None:
+    for key in _LAYER_BOOL_KEYS:
+        if key in patch and key in layer:
+            layer[key] = bool(patch[key])
+    for key in _LAYER_NUMBER_KEYS:
+        if key in patch:
+            layer[key] = _clamp01(patch[key], layer.get(key, 1.0))
+    if isinstance(patch.get("colormap"), str) and patch["colormap"]:
+        layer["colormap"] = patch["colormap"]
+    threshold = patch.get("threshold")
+    if isinstance(threshold, dict):
+        for bound in ("lo", "hi"):
+            if bound not in threshold:
+                continue
+            value = threshold[bound]
+            if value is None:
+                layer["threshold"][bound] = None
+            else:
+                try:
+                    layer["threshold"][bound] = float(value)
+                except (TypeError, ValueError):
+                    pass
+    if layer["kind"] != "mesh":
+        return
+    if isinstance(patch.get("colorMode"), str) and patch["colorMode"] in (
+        "tag",
+        "field",
+        "solid",
+        "label",
+    ):
+        layer["colorMode"] = patch["colorMode"]
+    if "clip" in patch:
+        enabled = bool(patch["clip"])
+        for plane in layer["clip"]["planes"]:
+            plane["enabled"] = enabled
+
+
+def apply_scene_overrides(
+    scene: dict[str, Any], overrides: dict[str, Any] | None
+) -> dict[str, Any]:
+    """*scene*, edited in place by *overrides*; unknown keys are ignored.
+
+    The accepted document::
+
+        {
+          "layers": {"<layerId>": {"visible": bool, "opacity": 0..1,
+                                   "colormap": str, "showIn3D": bool,
+                                   "showColorbar": bool, "contoursIn2D": bool,
+                                   "threshold": {"lo": num|null, "hi": num|null},
+                                   "colorMode": "tag|field|solid|label",
+                                   "clip": bool}},
+          "layout": "1x1|1+3|2x2|3d-only",
+          "camera": "A|P|L|R|S|I",
+          "radiological": bool,
+          "background": "dark|black|light" | [r, g, b, a]
+        }
+
+    Every value is validated against what the engine's own type accepts and
+    silently dropped otherwise: a stale preset from a saved selection must
+    not turn into a scene the app refuses to open.  ``None`` returns *scene*
+    untouched, which is the whole compatibility guarantee -- absent
+    overrides means byte-identical output.
+    """
+    if not overrides:
+        return scene
+    by_id = {layer["id"]: layer for layer in scene.get("layers", [])}
+    layers = overrides.get("layers")
+    if isinstance(layers, dict):
+        for layer_id, patch in layers.items():
+            layer = by_id.get(str(layer_id))
+            if layer is not None and isinstance(patch, dict):
+                _apply_layer_override(layer, patch)
+    layout = overrides.get("layout")
+    if isinstance(layout, str) and layout in SCENE_LAYOUTS:
+        scene["layout"] = {"kind": layout, "cells": list(SCENE_LAYOUTS[layout])}
+    camera = overrides.get("camera")
+    if isinstance(camera, str) and camera.upper() in CAMERA_PRESETS:
+        scene["view3d"]["camera"]["rotation"] = list(CAMERA_PRESETS[camera.upper()])
+    if "radiological" in overrides:
+        scene["radiological"] = bool(overrides["radiological"])
+    background = overrides.get("background")
+    if isinstance(background, str) and background in SCENE_BACKGROUNDS:
+        scene["background"] = list(SCENE_BACKGROUNDS[background])
+    elif isinstance(background, (list, tuple)) and len(background) == 4:
+        try:
+            scene["background"] = [float(c) for c in background]
+        except (TypeError, ValueError):
+            pass
+    # The active layer must still be one that exists and is visible, or the
+    # app opens with its inspector pointed at a layer nobody can see.
+    visible = [la["id"] for la in scene.get("layers", []) if la["visible"]]
+    if visible and scene.get("activeLayerId") not in visible:
+        scene["activeLayerId"] = visible[0]
+    return scene
+
+
+def _apply(
+    spec: dict[str, Any] | None, overrides: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """:func:`apply_scene_overrides` on a finished spec's ``scene``, or a no-op."""
+    if spec is not None and overrides:
+        apply_scene_overrides(spec["scene"], overrides)
+    return spec
+
+
 def build_view(
     kind: str,
     *,
@@ -397,11 +621,23 @@ def build_view(
     atlas: str | None = None,
     roi: str | None = None,
     path: str | None = None,
+    extras: list[str] | None = None,
+    overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Build a ``ViewSpec`` dict, or ``None`` when the request cannot resolve.
 
     ``None`` means "unknown subject/simulation/analysis" (the route turns
     that into a 404); an unrecognised *kind* also returns ``None``.
+
+    *extras* and *overrides* are **additive and optional** (VM,
+    ``dev/notes/v3-native-panes-external-viewer/VM.md``).  With neither
+    given -- which is every caller that existed before them -- this function
+    returns exactly the document it returned before: *extras* adds no layer
+    and :func:`apply_scene_overrides` is not called at all.  *extras* names
+    files to add to the layer list (:data:`EXTRA_LAYERS`); *overrides*
+    edits the finished ``scene`` (per-layer appearance, layout, camera,
+    convention, background) and is documented on
+    :func:`apply_scene_overrides`.
     """
     if kind not in _VIEW_KINDS:
         return None
@@ -418,10 +654,13 @@ def build_view(
             return None
         resolved_str = str(resolved)
         layer_kind = "label" if resolved_str.endswith(".msh") else "volume"
-        return _finish(
-            space,
-            [_layer(resolved_str, kind=layer_kind)],
-            title=os.path.basename(resolved_str),
+        return _apply(
+            _finish(
+                space,
+                [_layer(resolved_str, kind=layer_kind)],
+                title=os.path.basename(resolved_str),
+            ),
+            overrides,
         )
 
     if kind == "subject":
@@ -434,7 +673,20 @@ def build_view(
         atlas_layer = _subject_atlas_layer(pm, subject, space, atlas)
         if atlas_layer:
             layers.append(atlas_layer)
-        return _finish(space, layers, title=_scene_title(subject, None, None))
+        layers.extend(
+            _extra_layers(
+                pm,
+                layers,
+                subject=subject,
+                simulation=None,
+                space=space,
+                atlas=atlas,
+                extras=extras,
+            )
+        )
+        return _apply(
+            _finish(space, layers, title=_scene_title(subject, None, None)), overrides
+        )
 
     if kind == "simulation":
         if not subject or not simulation:
@@ -463,11 +715,25 @@ def build_view(
             if analysis_layer:
                 layers.append(analysis_layer)
                 cursor = _analysis_cursor(pm, subject, simulation, analysis)
-        return _finish(
-            space,
-            layers,
-            title=_scene_title(subject, simulation, analysis or field or "TI_max"),
-            cursor=cursor,
+        layers.extend(
+            _extra_layers(
+                pm,
+                layers,
+                subject=subject,
+                simulation=simulation,
+                space=space,
+                atlas=atlas,
+                extras=extras,
+            )
+        )
+        return _apply(
+            _finish(
+                space,
+                layers,
+                title=_scene_title(subject, simulation, analysis or field or "TI_max"),
+                cursor=cursor,
+            ),
+            overrides,
         )
 
     if kind == "analysis":
@@ -483,11 +749,25 @@ def build_view(
         if t1:
             layers.append(t1)
         layers.append(layer)
-        return _finish(
-            "subject",
-            layers,
-            title=_scene_title(subject, simulation, analysis),
-            cursor=_analysis_cursor(pm, subject, simulation, analysis),
+        layers.extend(
+            _extra_layers(
+                pm,
+                layers,
+                subject=subject,
+                simulation=simulation,
+                space="subject",
+                atlas=atlas,
+                extras=extras,
+            )
+        )
+        return _apply(
+            _finish(
+                "subject",
+                layers,
+                title=_scene_title(subject, simulation, analysis),
+                cursor=_analysis_cursor(pm, subject, simulation, analysis),
+            ),
+            overrides,
         )
 
     if kind == "group":
@@ -512,7 +792,10 @@ def build_view(
             and simulation in pm.list_simulations(subject)
         ):
             layers.extend(_ti_max_layers(pm.simulation(subject, simulation), "mni"))
-        return _finish("mni", layers, title=_scene_title(subject, simulation, "group"))
+        return _apply(
+            _finish("mni", layers, title=_scene_title(subject, simulation, "group")),
+            overrides,
+        )
 
     return None  # pragma: no cover - _VIEW_KINDS guards this
 
@@ -674,12 +957,6 @@ _DEFAULT_ANNOTATIONS: dict[str, Any] = {
     "crosshair": True,
     "orientationCube": True,
 }
-_DEFAULT_BACKGROUND = [
-    0.058823529411764705,
-    0.06666666666666667,
-    0.08627450980392157,
-    1.0,
-]
 _DEFAULT_LIGHTING = {"ambient": 0.25, "headlight": True}
 _DEFAULT_TRANSPARENCY = {"mode": "twoPhase"}
 _ZERO_THRESHOLD = {

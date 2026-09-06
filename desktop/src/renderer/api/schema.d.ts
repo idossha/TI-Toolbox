@@ -2264,6 +2264,17 @@ export interface paths {
                         atlas?: string | null;
                         roi?: string | null;
                         path?: string | null;
+                        /**
+                         * @description VM. Resolve the selection and answer with the scene and its file list, but write nothing -- the Viewer page's preview strip, which must be able to show what a selection resolves to without leaving a file behind or launching anything.
+                         * @default false
+                         */
+                        dry_run?: boolean;
+                        /** @description VM. Extra layers to add to whatever this view type already builds ("Also open"). Each reuses the layer builder the server already trusted for that file, and one this view already opens is a no-op rather than a second copy. Absent adds nothing, which is what every caller before VM did. */
+                        extras?: ("t1" | "atlas" | "electrodes" | "gm_mesh")[];
+                        /** @description VM. Additive, optional edits to the finished ViewSpec -- per-layer `{visible, opacity, colormap, showIn3D, showColorbar, contoursIn2D, threshold:{lo,hi}, colorMode, clip}` keyed by layer id, plus `layout` (1x1 | 1+3 | 2x2 | 3d-only), `camera` (A|P|L|R|S|I), `radiological` and `background` (dark|black|light, or an [r,g,b,a] vec4). Values the engine's own type would not accept are dropped rather than written. Absent means the document is byte-identical to what this endpoint returned before overrides existed (tit/viewspec.py::apply_scene_overrides, tests/test_viewspec_overrides.py). */
+                        overrides?: {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
@@ -3812,6 +3823,20 @@ export interface components {
             scene: {
                 [key: string]: unknown;
             };
+            /** @description VM. One row per dataset the scene references, so the Viewer page can show what a selection resolves to -- and how big it is -- before another application's window opens on top of someone's work. */
+            files?: components["schemas"]["ViewerSceneFile"][];
+            /** @description true when the request asked to resolve only; nothing was written */
+            dry_run?: boolean;
+        };
+        ViewerSceneFile: {
+            id?: string | null;
+            /** @description "volume" or "mesh" */
+            kind?: string | null;
+            name: string;
+            /** @description the path written into the scene (host-facing) */
+            path: string;
+            /** @description size on disk, or null when the file could not be stat'ed */
+            bytes?: number | null;
         };
         Project: {
             container_path: string;
@@ -4319,14 +4344,14 @@ export interface components {
             jobs: components["schemas"]["JobStatus"][];
         };
         PipelineListEntry: {
-            /** @description How many steps the saved document has, so the Saved list can state a pipeline's size without loading it. Absent when the file could not be parsed as a document. */
-            nodes?: number;
-            /** @description How many wires the saved document has. Absent when it could not be parsed. */
-            edges?: number;
             name: string;
             /** @description unix seconds */
             modified_at: number;
             size: number;
+            /** @description How many steps the saved document has, so the Saved list can state a pipeline's size without loading it. Absent when the file could not be parsed as a document. */
+            nodes?: number;
+            /** @description How many wires the saved document has. Absent when it could not be parsed. */
+            edges?: number;
         };
         PipelineKinds: {
             port_types: string[];
@@ -6507,51 +6532,6 @@ export interface components {
          */
         MontageMode: "net" | "flex_mapped" | "flex_free" | "freehand";
         /**
-         * FieldPostproc
-         * @description Field post-processing method applied to the TI envelope.
-         *
-         *     Attributes
-         *     ----------
-         *     MAX_TI : str
-         *         Maximum TI amplitude (direction-independent).
-         *     DIR_TI_NORMAL : str
-         *         TI component normal to the cortical surface.
-         *     DIR_TI_TANGENTIAL : str
-         *         TI component tangential to the cortical surface.
-         * @enum {string}
-         */
-        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
-        /**
-         * ParetoSweepConfig
-         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
-         *
-         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
-         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
-         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
-         *     step-1 ``"mean"`` calibration run. See
-         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
-         *
-         *     Attributes
-         *     ----------
-         *     roi_pcts : list of float
-         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *     nonroi_pcts : list of float
-         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If either list is empty, if any value falls outside ``(0, 100)``,
-         *         or if any ``(roi_pct, nonroi_pct)`` combination has
-         *         ``nonroi_pct >= roi_pct``.
-         */
-        ParetoSweepConfig: {
-            /** Roi Pcts */
-            roi_pcts?: number[];
-            /** Nonroi Pcts */
-            nonroi_pcts?: number[];
-        };
-        /**
          * ElectrodeConfig
          * @description Electrode geometry for flex-search.
          *
@@ -6582,6 +6562,79 @@ export interface components {
              */
             gel_thickness: number;
         };
+        /**
+         * OptGoal
+         * @description Optimization goal.
+         *
+         *     Attributes
+         *     ----------
+         *     MEAN : str
+         *         Maximize mean field intensity in the ROI.
+         *     MAX : str
+         *         Maximize peak field intensity in the ROI.
+         *     FOCALITY : str
+         *         Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
+         *         ROC measure (``measures.ROC``).
+         *     FOCALITY_TF : str
+         *         Maximize a threshold-free focality contrast,
+         *         ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
+         *         thresholds it avoids the threshold-selection failure mode of the
+         *         ROC goal, whose landscape flattens when the requested ROI and
+         *         non-ROI thresholds are jointly infeasible (as happens at deep
+         *         targets).  The weight ``w`` is
+         *         :attr:`FlexConfig.intensity_weight`.
+         * @enum {string}
+         */
+        OptGoal: "mean" | "max" | "focality" | "focality_tf";
+        /**
+         * Mode
+         * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
+         *     maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
+         *     ``tit.opt.flex.__main__`` dispatches on this field to pick the driver).
+         *
+         *     Attributes
+         *     ----------
+         *     FLEX : str
+         *         A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).
+         *     FLEX_ADAPTIVE : str
+         *         Two-step adaptive focality: a ``"mean"`` run to find the achievable ROI
+         *         intensity, then a ``"focality"`` run with thresholds derived from
+         *         :attr:`FlexConfig.adaptive`. Requires ``goal="focality"``.
+         *     FLEX_PARETO : str
+         *         A ``"mean"`` calibration run followed by a grid of ``"focality"`` runs
+         *         over :attr:`FlexConfig.pareto`'s threshold percentages. Requires
+         *         ``goal="focality"``.
+         * @enum {string}
+         */
+        Mode: "flex" | "flex_adaptive" | "flex_pareto";
+        /**
+         * NonROIMethod
+         * @description Non-ROI specification method for focality optimization.
+         *
+         *     Attributes
+         *     ----------
+         *     EVERYTHING_ELSE : str
+         *         Use all mesh elements outside the ROI.
+         *     SPECIFIC : str
+         *         Use an explicitly defined non-ROI region.
+         * @enum {string}
+         */
+        NonROIMethod: "everything_else" | "specific";
+        /**
+         * FieldPostproc
+         * @description Field post-processing method applied to the TI envelope.
+         *
+         *     Attributes
+         *     ----------
+         *     MAX_TI : str
+         *         Maximum TI amplitude (direction-independent).
+         *     DIR_TI_NORMAL : str
+         *         TI component normal to the cortical surface.
+         *     DIR_TI_TANGENTIAL : str
+         *         TI component tangential to the cortical surface.
+         * @enum {string}
+         */
+        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
         /**
          * SubcorticalROI
          * @description Subcortical volume ROI from a volumetric atlas.
@@ -6633,64 +6686,6 @@ export interface components {
              */
             _type: "SubcorticalROI";
         };
-        /**
-         * Mode
-         * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
-         *     maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
-         *     ``tit.opt.flex.__main__`` dispatches on this field to pick the driver).
-         *
-         *     Attributes
-         *     ----------
-         *     FLEX : str
-         *         A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).
-         *     FLEX_ADAPTIVE : str
-         *         Two-step adaptive focality: a ``"mean"`` run to find the achievable ROI
-         *         intensity, then a ``"focality"`` run with thresholds derived from
-         *         :attr:`FlexConfig.adaptive`. Requires ``goal="focality"``.
-         *     FLEX_PARETO : str
-         *         A ``"mean"`` calibration run followed by a grid of ``"focality"`` runs
-         *         over :attr:`FlexConfig.pareto`'s threshold percentages. Requires
-         *         ``goal="focality"``.
-         * @enum {string}
-         */
-        Mode: "flex" | "flex_adaptive" | "flex_pareto";
-        /**
-         * OptGoal
-         * @description Optimization goal.
-         *
-         *     Attributes
-         *     ----------
-         *     MEAN : str
-         *         Maximize mean field intensity in the ROI.
-         *     MAX : str
-         *         Maximize peak field intensity in the ROI.
-         *     FOCALITY : str
-         *         Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
-         *         ROC measure (``measures.ROC``).
-         *     FOCALITY_TF : str
-         *         Maximize a threshold-free focality contrast,
-         *         ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
-         *         thresholds it avoids the threshold-selection failure mode of the
-         *         ROC goal, whose landscape flattens when the requested ROI and
-         *         non-ROI thresholds are jointly infeasible (as happens at deep
-         *         targets).  The weight ``w`` is
-         *         :attr:`FlexConfig.intensity_weight`.
-         * @enum {string}
-         */
-        OptGoal: "mean" | "max" | "focality" | "focality_tf";
-        /**
-         * NonROIMethod
-         * @description Non-ROI specification method for focality optimization.
-         *
-         *     Attributes
-         *     ----------
-         *     EVERYTHING_ELSE : str
-         *         Use all mesh elements outside the ROI.
-         *     SPECIFIC : str
-         *         Use an explicitly defined non-ROI region.
-         * @enum {string}
-         */
-        NonROIMethod: "everything_else" | "specific";
         /**
          * AdaptiveFocalityConfig
          * @description Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.
@@ -6850,6 +6845,54 @@ export interface components {
             _type: "AtlasROI";
         };
         /**
+         * ParetoSweepConfig
+         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
+         *
+         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
+         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
+         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
+         *     step-1 ``"mean"`` calibration run. See
+         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
+         *
+         *     Attributes
+         *     ----------
+         *     roi_pcts : list of float
+         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *     nonroi_pcts : list of float
+         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If either list is empty, if any value falls outside ``(0, 100)``,
+         *         or if any ``(roi_pct, nonroi_pct)`` combination has
+         *         ``nonroi_pct >= roi_pct``.
+         */
+        ParetoSweepConfig: {
+            /** Roi Pcts */
+            roi_pcts?: number[];
+            /** Nonroi Pcts */
+            nonroi_pcts?: number[];
+        };
+        /**
+         * PoolElectrodes
+         * @description Single electrode pool -- all positions draw from the same set.
+         *
+         *     Attributes
+         *     ----------
+         *     electrodes : list of str
+         *         List of electrode names available for any channel position.
+         */
+        ExConfigPoolElectrodes: {
+            /** Electrodes */
+            electrodes: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "PoolElectrodes";
+        };
+        /**
          * AtlasROI
          * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
          *
@@ -6872,24 +6915,6 @@ export interface components {
              * @default null
              */
             label: number | null;
-        };
-        /**
-         * PoolElectrodes
-         * @description Single electrode pool -- all positions draw from the same set.
-         *
-         *     Attributes
-         *     ----------
-         *     electrodes : list of str
-         *         List of electrode names available for any channel position.
-         */
-        ExConfigPoolElectrodes: {
-            /** Electrodes */
-            electrodes: string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "PoolElectrodes";
         };
         /**
          * BucketElectrodes
@@ -6920,6 +6945,30 @@ export interface components {
              * @enum {string}
              */
             _type: "BucketElectrodes";
+        };
+        /**
+         * AtlasROI
+         * @description Volumetric atlas or mask ROI, unioned with the spherical center.
+         *
+         *     Attributes
+         *     ----------
+         *     atlas_path : str
+         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
+         *     label : int or None
+         *         Integer label to select within the atlas (elements are
+         *         included where the voxel value equals *label*).  ``None``
+         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         */
+        MExConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
         };
         /**
          * PoolElectrodes
@@ -6972,29 +7021,18 @@ export interface components {
             _type: "BucketElectrodes";
         };
         /**
-         * AtlasROI
-         * @description Volumetric atlas or mask ROI, unioned with the spherical center.
+         * AnalyzerCoordinateSpace
+         * @description Space of *center* for a spherical ROI.
          *
          *     Attributes
          *     ----------
-         *     atlas_path : str
-         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
-         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
-         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
-         *     label : int or None
-         *         Integer label to select within the atlas (elements are
-         *         included where the voxel value equals *label*).  ``None``
-         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         *     SUBJECT : str
+         *         Native subject-space coordinates (mm).
+         *     MNI : str
+         *         MNI coordinates, transformed to subject space before analysis.
+         * @enum {string}
          */
-        MExConfigAtlasROI: {
-            /** Atlas Path */
-            atlas_path: string;
-            /**
-             * Label
-             * @default null
-             */
-            label: number | null;
-        };
+        AnalyzerCoordinateSpace: "subject" | "mni";
         /**
          * AnalysisMode
          * @description Which entry-point branch handles this config.
@@ -7008,6 +7046,19 @@ export interface components {
          * @enum {string}
          */
         AnalysisMode: "single" | "group";
+        /**
+         * AnalyzerSpace
+         * @description Where the field is read from.
+         *
+         *     Attributes
+         *     ----------
+         *     MESH : str
+         *         SimNIBS surface/volume mesh.
+         *     VOXEL : str
+         *         MNI-space NIfTI volume.
+         * @enum {string}
+         */
+        AnalyzerSpace: "mesh" | "voxel";
         /**
          * AnalysisType
          * @description Region-of-interest shape.
@@ -7025,31 +7076,85 @@ export interface components {
          */
         AnalysisType: "spherical" | "cortical" | "subcortical";
         /**
-         * AnalyzerCoordinateSpace
-         * @description Space of *center* for a spherical ROI.
+         * QSIReconSettings
+         * @description Subject-independent QSIRecon resource and pipeline settings.
+         *
+         *     Flat by design: mirrors exactly the keyword arguments
+         *     :func:`tit.pre.qsi.qsirecon.run_qsirecon` reads off ``recon_cfg.get(...)``
+         *     inside :func:`tit.pre.structural.run_pipeline`. See
+         *     :class:`QSIPrepSettings` for why this is a distinct, subject-less,
+         *     flat-resource shape from :class:`tit.pre.qsi.config.QSIReconConfig`.
          *
          *     Attributes
          *     ----------
-         *     SUBJECT : str
-         *         Native subject-space coordinates (mm).
-         *     MNI : str
-         *         MNI coordinates, transformed to subject space before analysis.
-         * @enum {string}
-         */
-        AnalyzerCoordinateSpace: "subject" | "mni";
-        /**
-         * AnalyzerSpace
-         * @description Where the field is read from.
+         *     recon_specs : list of str
+         *         Reconstruction specs to run.
+         *     atlases : list of str or None
+         *         Atlases for connectivity analysis. ``None`` = no connectivity.
+         *     use_gpu : bool
+         *         Enable GPU acceleration (requires NVIDIA Docker runtime).
+         *     cpus : int or None
+         *         Number of CPUs to allocate. ``None`` inherits from the current
+         *         container.
+         *     memory_gb : int or None
+         *         Memory limit in GB. ``None`` inherits from the current container.
+         *     omp_threads : int
+         *         Threads per process.
+         *     image_tag : str
+         *         Docker image tag for QSIRecon.
+         *     skip_odf_reports : bool
+         *         Skip ODF report generation.
          *
-         *     Attributes
-         *     ----------
-         *     MESH : str
-         *         SimNIBS surface/volume mesh.
-         *     VOXEL : str
-         *         MNI-space NIfTI volume.
-         * @enum {string}
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *recon_specs* is empty or contains an unknown spec, or *atlases*
+         *         contains an unknown atlas.
+         *
+         *     See Also
+         *     --------
+         *     tit.pre.qsi.qsirecon.run_qsirecon : Consumes these values as keyword
+         *         arguments (not this dataclass).
          */
-        AnalyzerSpace: "mesh" | "voxel";
+        QSIReconSettings: {
+            /** Recon Specs */
+            recon_specs?: string[];
+            /**
+             * Atlases
+             * @default null
+             */
+            atlases: string[] | null;
+            /**
+             * Use Gpu
+             * @default false
+             */
+            use_gpu: boolean;
+            /**
+             * Cpus
+             * @default null
+             */
+            cpus: number | null;
+            /**
+             * Memory Gb
+             * @default null
+             */
+            memory_gb: number | null;
+            /**
+             * Omp Threads
+             * @default 8
+             */
+            omp_threads: number;
+            /**
+             * Image Tag
+             * @default 26.0.0
+             */
+            image_tag: string;
+            /**
+             * Skip Odf Reports
+             * @default true
+             */
+            skip_odf_reports: boolean;
+        };
         /**
          * QSIPrepSettings
          * @description Subject-independent QSIPrep resource and pipeline settings.
@@ -7141,86 +7246,6 @@ export interface components {
             unringing_method: string;
         };
         /**
-         * QSIReconSettings
-         * @description Subject-independent QSIRecon resource and pipeline settings.
-         *
-         *     Flat by design: mirrors exactly the keyword arguments
-         *     :func:`tit.pre.qsi.qsirecon.run_qsirecon` reads off ``recon_cfg.get(...)``
-         *     inside :func:`tit.pre.structural.run_pipeline`. See
-         *     :class:`QSIPrepSettings` for why this is a distinct, subject-less,
-         *     flat-resource shape from :class:`tit.pre.qsi.config.QSIReconConfig`.
-         *
-         *     Attributes
-         *     ----------
-         *     recon_specs : list of str
-         *         Reconstruction specs to run.
-         *     atlases : list of str or None
-         *         Atlases for connectivity analysis. ``None`` = no connectivity.
-         *     use_gpu : bool
-         *         Enable GPU acceleration (requires NVIDIA Docker runtime).
-         *     cpus : int or None
-         *         Number of CPUs to allocate. ``None`` inherits from the current
-         *         container.
-         *     memory_gb : int or None
-         *         Memory limit in GB. ``None`` inherits from the current container.
-         *     omp_threads : int
-         *         Threads per process.
-         *     image_tag : str
-         *         Docker image tag for QSIRecon.
-         *     skip_odf_reports : bool
-         *         Skip ODF report generation.
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If *recon_specs* is empty or contains an unknown spec, or *atlases*
-         *         contains an unknown atlas.
-         *
-         *     See Also
-         *     --------
-         *     tit.pre.qsi.qsirecon.run_qsirecon : Consumes these values as keyword
-         *         arguments (not this dataclass).
-         */
-        QSIReconSettings: {
-            /** Recon Specs */
-            recon_specs?: string[];
-            /**
-             * Atlases
-             * @default null
-             */
-            atlases: string[] | null;
-            /**
-             * Use Gpu
-             * @default false
-             */
-            use_gpu: boolean;
-            /**
-             * Cpus
-             * @default null
-             */
-            cpus: number | null;
-            /**
-             * Memory Gb
-             * @default null
-             */
-            memory_gb: number | null;
-            /**
-             * Omp Threads
-             * @default 8
-             */
-            omp_threads: number;
-            /**
-             * Image Tag
-             * @default 26.0.0
-             */
-            image_tag: string;
-            /**
-             * Skip Odf Reports
-             * @default true
-             */
-            skip_odf_reports: boolean;
-        };
-        /**
          * ResourceConfig
          * @description Resource allocation configuration for QSI containers.
          *
@@ -7251,29 +7276,6 @@ export interface components {
             omp_threads: number;
         };
         /**
-         * TestType
-         * @description Type of statistical test for group comparison.
-         * @enum {string}
-         */
-        TestType: "unpaired" | "paired";
-        /**
-         * _AnalysisSpace
-         * @description Where the group statistics run: MNI volume or fsaverage surface.
-         * @enum {string}
-         */
-        _AnalysisSpace: "mni" | "fsaverage";
-        /**
-         * _TissueType
-         * @enum {string}
-         */
-        _TissueType: "grey" | "white" | "all";
-        /**
-         * Alternative
-         * @description Sidedness of the test hypothesis.
-         * @enum {string}
-         */
-        Alternative: "two-sided" | "greater" | "less";
-        /**
          * Subject
          * @description A single subject in a group comparison analysis.
          *
@@ -7295,10 +7297,39 @@ export interface components {
             response: number;
         };
         /**
+         * Alternative
+         * @description Sidedness of the test hypothesis.
+         * @enum {string}
+         */
+        Alternative: "two-sided" | "greater" | "less";
+        /**
+         * TestType
+         * @description Type of statistical test for group comparison.
+         * @enum {string}
+         */
+        TestType: "unpaired" | "paired";
+        /**
          * _ClusterStat
          * @enum {string}
          */
         _ClusterStat: "mass" | "size";
+        /**
+         * _AnalysisSpace
+         * @description Where the group statistics run: MNI volume or fsaverage surface.
+         * @enum {string}
+         */
+        _AnalysisSpace: "mni" | "fsaverage";
+        /**
+         * _TissueType
+         * @enum {string}
+         */
+        _TissueType: "grey" | "white" | "all";
+        /**
+         * CorrelationType
+         * @description Type of correlation coefficient to compute.
+         * @enum {string}
+         */
+        CorrelationType: "pearson" | "spearman";
         /**
          * Subject
          * @description A single subject in a correlation analysis.
@@ -7327,29 +7358,6 @@ export interface components {
              * @default 1
              */
             weight: number;
-        };
-        /**
-         * CorrelationType
-         * @description Type of correlation coefficient to compute.
-         * @enum {string}
-         */
-        CorrelationType: "pearson" | "spearman";
-        /**
-         * SourcePair
-         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
-         *
-         *     Attributes
-         *     ----------
-         *     subject_id : str
-         *         Subject identifier (without ``sub-`` prefix).
-         *     simulation : str
-         *         Simulation (montage) folder name.
-         */
-        SourcePair: {
-            /** Subject Id */
-            subject_id: string;
-            /** Simulation */
-            simulation: string;
         };
         /**
          * FsavgMapConfig
@@ -7387,6 +7395,20 @@ export interface components {
              */
             overwrite: boolean;
         };
+        /**
+         * SourceMode
+         * @description Which :mod:`tit.source` pipeline a :class:`SourceConfig` drives.
+         *
+         *     Attributes
+         *     ----------
+         *     FORWARD : str
+         *         Rebuild an EEG forward solution per subject (:class:`ForwardConfig`).
+         *     FSAVG_MAP : str
+         *         Project existing simulation fields onto fsaverage for
+         *         (subject, simulation) pairs (:class:`FsavgMapConfig`).
+         * @enum {string}
+         */
+        SourceMode: "forward" | "fsavg_map";
         /**
          * ForwardConfig
          * @description Parameters for rebuilding a SimNIBS/MNE EEG forward solution.
@@ -7427,25 +7449,22 @@ export interface components {
             overwrite: boolean;
         };
         /**
-         * SourceMode
-         * @description Which :mod:`tit.source` pipeline a :class:`SourceConfig` drives.
+         * SourcePair
+         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
          *
          *     Attributes
          *     ----------
-         *     FORWARD : str
-         *         Rebuild an EEG forward solution per subject (:class:`ForwardConfig`).
-         *     FSAVG_MAP : str
-         *         Project existing simulation fields onto fsaverage for
-         *         (subject, simulation) pairs (:class:`FsavgMapConfig`).
-         * @enum {string}
+         *     subject_id : str
+         *         Subject identifier (without ``sub-`` prefix).
+         *     simulation : str
+         *         Simulation (montage) folder name.
          */
-        SourceMode: "forward" | "fsavg_map";
-        /**
-         * Anchor
-         * @description Which end of the arrow touches the surface barycenter.
-         * @enum {string}
-         */
-        Anchor: "tail" | "head";
+        SourcePair: {
+            /** Subject Id */
+            subject_id: string;
+            /** Simulation */
+            simulation: string;
+        };
         /**
          * Color
          * @description Color mapping strategy for vector-field arrows.
@@ -7458,6 +7477,12 @@ export interface components {
          * @enum {string}
          */
         Length: "linear" | "visual";
+        /**
+         * Anchor
+         * @description Which end of the arrow touches the surface barycenter.
+         * @enum {string}
+         */
+        Anchor: "tail" | "head";
         /**
          * Surface
          * @description Cortical surface type for msh2cortex extraction.

@@ -85,6 +85,19 @@ class ViewSpec(BaseModel):
     )
 
 
+class ViewerSceneFile(BaseModel):
+    """One dataset a scene references, as the Viewer page's preview strip shows it."""
+
+    id: str | None = None
+    kind: str | None = Field(default=None, description='"volume" or "mesh"')
+    name: str
+    path: str = Field(description="the path written into the scene (host-facing)")
+    bytes: int | None = Field(
+        default=None,
+        description="size on disk, or null when the file could not be stat'ed",
+    )
+
+
 class ViewerOpen(BaseModel):
     """``POST /api/view/open`` -- where the scene file was written, in both path languages.
 
@@ -101,6 +114,21 @@ class ViewerOpen(BaseModel):
         description="absolute container path, under <project>/code/ti-toolbox/viewer/"
     )
     host_path: str | None = None
+    files: list[ViewerSceneFile] = Field(
+        default_factory=list,
+        description=(
+            "one row per dataset the scene references -- the Viewer page's preview "
+            "strip, so a person can see what a selection resolves to (and how big it "
+            "is) before another application's window opens on top of their work"
+        ),
+    )
+    dry_run: bool = Field(
+        default=False,
+        description=(
+            "true when the request asked for the resolution only: the response is "
+            "identical except that nothing was written to disk"
+        ),
+    )
     scene: dict[str, Any] = Field(
         description=(
             "the ViewSpec v2 document that was written, with every dataset/sidecar path "
