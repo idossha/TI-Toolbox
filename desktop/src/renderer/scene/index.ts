@@ -64,8 +64,6 @@ export {
   dominantAxis,
   multiply,
   orbitBy,
-  orientationCaption,
-  orientationTitle,
   panBy,
   perspective,
   presetCamera,

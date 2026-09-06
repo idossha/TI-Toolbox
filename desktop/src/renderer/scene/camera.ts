@@ -490,12 +490,11 @@ export function dominantAxis(v: Vec3): AnatomicalAxis {
  * It exists because a 3-D head view has no universal convention and the two plausible ones are
  * mirror images: from the front you are facing the subject, so their left hand is on your right
  * (this renderer, and every "look at the face" view); from above, looking down, their left is on
- * your left. A viewer that does not say which one it is showing is a viewer nobody can trust — the
- * maintainer's own report on 2026-09-04 was *"the electrode positions look wrong"*, and half of
- * answering it is being able to state, on screen, what "right" means.
+ * your left. The maintainer's own report on 2026-09-04 was *"the electrode positions look wrong"*,
+ * and half of answering it is being able to say, in a test, which convention the projection uses.
  *
- * Derived from `cameraBasis`, the same function the view matrix comes from, so the caption cannot
- * drift from the projection: change one and the other follows.
+ * Derived from `cameraBasis`, the same function the view matrix comes from, so what this reports
+ * cannot drift from the projection: change one and the other follows.
  */
 export function screenAnatomy(cam: OrbitCamera): ScreenAnatomy {
   const { right, up, forward } = cameraBasis(cam);
@@ -504,47 +503,6 @@ export function screenAnatomy(cam: OrbitCamera): ScreenAnatomy {
     up: dominantAxis(up),
     toward: dominantAxis([-forward[0], -forward[1], -forward[2]]),
   };
-}
-
-const AXIS_LABEL: Record<AnatomicalAxis, string> = {
-  left: "the subject's left",
-  right: "the subject's right",
-  anterior: "anterior",
-  posterior: "posterior",
-  superior: "superior",
-  inferior: "inferior",
-};
-
-const AXIS_SHORT: Record<AnatomicalAxis, string> = {
-  left: "subject's L",
-  right: "subject's R",
-  anterior: "anterior",
-  posterior: "posterior",
-  superior: "superior",
-  inferior: "inferior",
-};
-
-const AXIS_VIEW: Record<AnatomicalAxis, string> = {
-  left: "Left",
-  right: "Right",
-  anterior: "Anterior",
-  posterior: "Posterior",
-  superior: "Superior",
-  inferior: "Inferior",
-};
-
-/** The one line the pane puts on the canvas: which side of the head is facing the viewer, and what
- *  the right of the screen is. Short enough for a 400 px pane; `orientationTitle` is the long form
- *  for the tooltip. */
-export function orientationCaption(cam: OrbitCamera): string {
-  const { right, toward } = screenAnatomy(cam);
-  return `${AXIS_VIEW[toward]} view · right = ${AXIS_SHORT[right]}`;
-}
-
-/** The whole statement, for the caption's `title`. */
-export function orientationTitle(cam: OrbitCamera): string {
-  const { right, up, toward } = screenAnatomy(cam);
-  return `Looking at ${AXIS_LABEL[toward]} of the head. The right of the screen is ${AXIS_LABEL[right]}; the top of the screen is ${AXIS_LABEL[up]}.`;
 }
 
 export const DEFAULT_FOV_Y = (35 * Math.PI) / 180;

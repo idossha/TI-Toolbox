@@ -4,8 +4,8 @@
  *
  * The occlusion half of that report is a rendering defect and is proved offscreen with pixels
  * (`tests/e2e/scene.spec.ts`). This half is pure arithmetic and belongs here: for every camera
- * preset, where do known anatomical landmarks land on screen, and does the pane's own caption say
- * the same thing? A swapped `left`/`right` preset, a mirrored projection, or an axial view that is
+ * preset, where do known anatomical landmarks land on screen, and does `screenAnatomy` name the
+ * same axes? A swapped `left`/`right` preset, a mirrored projection, or an axial view that is
  * upside down would all read to a user exactly as "the positions look wrong", and none of them can
  * survive this file.
  *
@@ -26,8 +26,6 @@ import {
   PRESET_ANGLES,
   cameraBasis,
   dominantAxis,
-  orientationCaption,
-  orientationTitle,
   presetCamera,
   projectToCanvas,
   screenAnatomy,
@@ -215,35 +213,16 @@ describe("landmarks land on the side of the screen the convention says", () => {
   });
 });
 
-describe("the pane says which convention it is using", () => {
-  const captions: Record<CameraPreset, string> = {
-    front: "Anterior view · right = subject's L",
-    left: "Left view · right = posterior",
-    right: "Right view · right = anterior",
-    top: "Superior view · right = subject's R",
-    reset: "Anterior view · right = subject's L",
-  };
-
-  for (const preset of Object.keys(captions) as CameraPreset[]) {
-    it(`${preset}`, () => {
-      const camera = presetCamera(preset, boundsOf(ERNIE_10_20), WIDTH / HEIGHT);
-      expect(orientationCaption(camera)).toBe(captions[preset]);
-    });
-  }
-
-  it("the long form names both screen axes and the side facing the viewer", () => {
-    const camera = presetCamera("front", boundsOf(ERNIE_10_20), WIDTH / HEIGHT);
-    expect(orientationTitle(camera)).toBe(
-      "Looking at anterior of the head. The right of the screen is the subject's left; the top of the screen is superior.",
-    );
-  });
-
-  it("the caption follows the camera, not the preset button", () => {
-    // Orbiting 180 degrees from the front lands behind the head, and the caption has to say so —
-    // it is derived from `cameraBasis`, the same function the view matrix comes from.
+describe("the convention follows the camera, not the preset button", () => {
+  it("orbiting 180 degrees from the front lands behind the head", () => {
+    // `screenAnatomy` is derived from `cameraBasis`, the same function the view matrix comes from,
+    // so it tracks the live camera rather than the last preset pressed. (The pane no longer prints
+    // this on the canvas; the convention itself is still the thing under test, and e2e reads the
+    // camera back through the `window.__scene` debug handle.)
     const front = presetCamera("front", boundsOf(ERNIE_10_20), WIDTH / HEIGHT);
+    expect(screenAnatomy(front)).toEqual({ right: "left", up: "superior", toward: "anterior" });
     const behind = { ...front, yaw: front.yaw + Math.PI };
-    expect(orientationCaption(behind)).toBe("Posterior view · right = subject's R");
+    expect(screenAnatomy(behind)).toEqual({ right: "right", up: "superior", toward: "posterior" });
     expect(PRESET_ANGLES.front.yaw).toBe(0);
   });
 });

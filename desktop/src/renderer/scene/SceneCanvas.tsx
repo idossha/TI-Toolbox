@@ -28,8 +28,6 @@ import {
   dampCamera,
   frameDistance,
   orbitBy,
-  orientationCaption,
-  orientationTitle,
   panBy,
   presetCamera,
   projectToCanvas,
@@ -281,13 +279,6 @@ export function SceneCanvas({
   const [hover, setHover] = useState<PickTarget | null>(null);
   const [opacities, setOpacities] = useState<Record<string, number>>({});
   const [preset, setPreset] = useState<CameraPreset | "">("reset");
-  /**
-   * The laterality statement under the preset buttons, kept in React state because the camera
-   * itself lives in a ref driven by rAF. Written only when the STRING changes, which for an orbit
-   * is once or twice in a whole drag rather than once per frame.
-   */
-  const [orientation, setOrientation] = useState<{ caption: string; title: string } | null>(null);
-
   const rules = MODE_RULES[mode];
   const activeSelection = selection ?? internalSelection;
   const selectionRef = useRef(activeSelection);
@@ -403,11 +394,6 @@ export function SceneCanvas({
       settledRef.current = damped.settled;
       scene.render(damped.camera);
       frameRef.current += 1;
-      const caption = orientationCaption(damped.camera);
-      setOrientation((current) =>
-        current?.caption === caption ? current : { caption, title: orientationTitle(damped.camera) },
-      );
-
       const fps = fpsRef.current;
       fps.windowFrames += 1;
       if (fps.windowStart === 0) fps.windowStart = time;
@@ -987,16 +973,6 @@ export function SceneCanvas({
           Reset
         </Button>
       </div>
-
-      {/* Which way round the subject is. A 3-D head view has no universal convention — from the
-          front you face the subject, so their left is on your right; from above, looking down, it
-          is on your left — and a viewer that does not state which one it is showing is a viewer
-          nobody can trust. Derived from the live camera, so it cannot drift from the projection. */}
-      {orientation && (
-        <p className="scene-orientation" data-testid="scene-orientation" title={orientation.title}>
-          {orientation.caption}
-        </p>
-      )}
 
       <div className="scene-chrome scene-chrome-bottom">
         <ul className="scene-legend" data-testid="scene-legend">

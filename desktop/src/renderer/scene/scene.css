@@ -68,24 +68,6 @@
   justify-content: space-between;
 }
 
-/* The laterality statement, top-left, opposite the preset buttons. `pointer-events: none` because
-   it is a label, not a control: a drag that starts on it must still orbit the head. */
-.scene-orientation {
-  position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  margin: 0;
-  padding: 2px var(--space-2);
-  font-size: 11px;
-  line-height: 16px;
-  border-radius: var(--radius-control);
-  background: rgba(11, 13, 16, 0.72);
-  border: 1px solid rgba(230, 235, 241, 0.14);
-  color: rgba(230, 235, 241, 0.78);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
 .scene-legend {
   margin: 0;
   padding: var(--space-2);
