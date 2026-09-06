@@ -11,7 +11,9 @@ import {
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
+import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
+  currentSlotsReserved,
   currentValues,
   formatPairs,
   montageOptionValue,
@@ -224,5 +226,36 @@ describe("montage table derivations", () => {
     expect(montageOptionValue("multi_polar", "mTI:odd")).toBe("multi_polar:mTI:odd");
     expect(parseMontageOptionValue("multi_polar:mTI:odd")).toEqual({ kind: "multi_polar", name: "mTI:odd" });
     expect(parseMontageOptionValue(montageOptionValue("uni_polar", "F3_F4"))).toEqual({ kind: "uni_polar", name: "F3_F4" });
+  });
+});
+
+
+// A montage is built in channels — two pairs (four electrodes) at a time — so the form can never
+// produce an odd pair count, and the polarity that follows from it is always a legal one
+// (`Montage.simulation_mode`: 2, or 4+).
+describe("montage pairs come in groups of two", () => {
+  it("adds and removes whole channels, never a single pair", () => {
+    const pairs = [["A1", "A2"], ["B1", "B2"], ["A3", "A4"], ["B3", "B4"]];
+    // Removing any pair of the first channel removes both of them.
+    expect(removeGroup(pairs, 0, 2)).toEqual([["A3", "A4"], ["B3", "B4"]]);
+    expect(removeGroup(pairs, 1, 2)).toEqual([["A3", "A4"], ["B3", "B4"]]);
+    expect(removeGroup(pairs, 2, 2)).toEqual([["A1", "A2"], ["B1", "B2"]]);
+    // `step = 1` is the plain per-row remove every other caller gets.
+    expect(removeGroup(pairs, 1, 1)).toEqual([["A1", "A2"], ["A3", "A4"], ["B3", "B4"]]);
+  });
+
+  it("every reachable pair count is a legal polarity", () => {
+    for (const count of [2, 4, 6, 8]) {
+      expect(count === 2 || count >= 4).toBe(true);
+      expect(inferMontageKind(count)).toBe(count === 2 ? "uni_polar" : "multi_polar");
+    }
+  });
+
+  it("reserves the currents column for the widest polarity, and at least 4 slots", () => {
+    // A table of only TI rows still reserves 4, so switching one row to mTI moves nothing.
+    expect(currentSlotsReserved([2, 2])).toBe(4);
+    expect(currentSlotsReserved([2, 4])).toBe(4);
+    expect(currentSlotsReserved([])).toBe(4);
+    expect(currentSlotsReserved([2, 6])).toBe(6);
   });
 });

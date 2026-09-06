@@ -187,6 +187,56 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 simulations");
 });
 
+test("nothing moves while a row is edited: fixed columns and fixed row heights", async () => {
+  await clearMontageRows();
+  const first = montageRows().first();
+  await pickNet(first, "GSN-HydroCel-185");
+  await pickMontage(first, "F3_F4 · TI");
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const second = montageRows().nth(1);
+  await pickNet(second, "GSN-HydroCel-185");
+  await pickMontage(second, "Thalamus_target · TI");
+  await expect(montageRows()).toHaveCount(2);
+
+  // Every cell of the table, by row and column — the geometry the maintainer's "no layout
+  // movement" rule is about.
+  const boxes = async () =>
+    page.locator("tr[data-montage-row] td").evaluateAll((cells) =>
+      cells.map((cell) => {
+        const r = cell.getBoundingClientRect();
+        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+      }),
+    );
+
+  const before = await boxes();
+  // 1. Change the SECOND row's montage, and with it its polarity (TI -> mTI, 2 -> 4 currents).
+  await pickMontage(second, "mTI_F3F4_P3P4 · mTI");
+  await expect(second).toHaveAttribute("data-polarity", "multi_polar");
+  await expect(second.getByRole("spinbutton")).toHaveCount(4);
+  expect(await boxes(), "polarity switch moved a cell").toEqual(before);
+
+  // 2. Change the second row's NET (which empties its montage back to a pending row).
+  await pickNet(second, "EGI_template");
+  expect(await boxes(), "net change moved a cell").toEqual(before);
+
+  // 3. And back to a montage on the new net.
+  await pickMontage(second, "mTI_Cz_Oz_F3_F4 · mTI");
+  expect(await boxes(), "montage change moved a cell").toEqual(before);
+});
+
+test("clicking a row makes it the one the 3-D pane draws, and up/down moves it", async () => {
+  const rows = montageRows();
+  await rows.nth(1).locator("td.mono").click();
+  await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
+  await expect(rows.first()).not.toHaveAttribute("data-active", "true");
+
+  await rows.nth(1).press("ArrowUp");
+  await expect(rows.first()).toHaveAttribute("data-active", "true");
+  await expect(rows.nth(1)).not.toHaveAttribute("data-active", "true");
+  await rows.first().press("ArrowDown");
+  await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
+});
+
 test("collapsed sections state their own values (§4.2 rule 5)", async () => {
   // FXU1: sections auto-expand to fill the pane, so the summary is asserted on a section the user
   // has collapsed by hand — which is the state the rule is actually about ("a collapsed section
@@ -231,12 +281,11 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.58) /* measured 0.62–0.75 (pre) / 0.42–0.55 (sim) across rounds; +0.05 margin so a few-thousandths drift at 1440 light is not a failure — this is a regression guard, not the design target */;
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-    // 36 % of the window, not a fixed 360/400 (commit 25d00d52) — `preprocess.spec.ts` already
-    // carries the same two numbers.
-    expect(row.panes.right).toBe(row.width >= 1440 ? 504 : 461);
-    // The 36 %-wide run pane is ceilinged so the work pane keeps its >=660 px floor at both
-    // sizes (`preprocess.spec.ts` states the same rule).
-    expect(row.panes.work).toBeGreaterThanOrEqual(660);
+    // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the
+    // window, ceilinged so the work pane keeps its >=560 px floor. 576 at 1280; at 1440 the
+    // ceiling binds, not the 45 %, so 610.
+    expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
+    expect(row.panes.work).toBeGreaterThanOrEqual(560);
   }
 
   const first = rows.find((r) => r.width === 1280 && r.theme === "light");
@@ -263,6 +312,7 @@ test("records the montage table (uni-polar + multi-polar rows) as an artifact", 
 
   const chord = process.platform === "darwin" ? "Meta+Shift+i" : "Control+Shift+i";
   await page.setViewportSize({ width: 1800, height: 900 });
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.keyboard.press(chord);
-  await page.locator("table.data-table").first().screenshot({ path: "tests/e2e/artifacts/montage-table.png" });
+  await page.locator("table.data-table").first().screenshot({ path: "tests/e2e/artifacts/montage-table-v2.png" });
 });

@@ -1,0 +1,85 @@
+/*
+ * The montage table's geometry.
+ *
+ * Every column is a FIXED width and every row a fixed height (`table-layout: fixed` + an explicit
+ * `<colgroup>`), because this table is a form: changing a row's net, its montage, or its polarity
+ * must not move any other cell on the page. The currents column is sized for the widest polarity
+ * the table can hold (at least 4 slots, so the common TI <-> mTI switch never reflows), and the
+ * pairs cell clips with an ellipsis rather than growing — the full text is its `title`.
+ */
+.montage-table {
+  table-layout: fixed;
+}
+
+.montage-table th,
+.montage-table td {
+  overflow: hidden;
+}
+
+/* One line, one height — a cell's content can never make its row taller. */
+.montage-table tbody tr {
+  height: 40px;
+}
+
+.montage-table td > * {
+  vertical-align: middle;
+}
+
+/* The pairs cell: fixed width, one line, ellipsis, full text in the title. */
+.montage-pairs {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chips sit in fixed-width slots that are present even when empty, so a warning appearing (or a
+   polarity changing from TI to mTI) never shifts the cell beside it. */
+.montage-chip-slot {
+  flex: 0 0 var(--slot, 40px);
+  width: var(--slot, 40px);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.montage-chip-slot > .chip {
+  width: 100%;
+  justify-content: center;
+}
+
+.montage-cell {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.montage-cell > .select-trigger {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* One current input per required current, each a fixed width — a row that gains two more pairs
+   fills reserved space rather than widening the column. */
+.montage-currents {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.montage-currents > * {
+  flex: 0 0 104px;
+}
+
+/* The active row: what the 3-D pane is drawing. A quiet tint plus an accent edge — never a colour
+   that competes with a job state. */
+.montage-table tbody tr[data-active="true"] {
+  background: var(--surface-2, rgb(0 0 0 / 4%));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.montage-table tbody tr[data-montage-row]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

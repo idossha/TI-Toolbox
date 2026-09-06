@@ -219,9 +219,11 @@ test("two pairs are two hues, and a legend chip decides which pair the next clic
   // has exactly one chip per pair, whatever that number is.
   const chips = simulator.getByTestId("channel-legend").locator(".channel-chip");
   const before = await chips.count();
-  await simulator.getByRole("button", { name: "Add pair" }).first().click();
-  await expect(chips).toHaveCount(before + 1);
-  await expect(simulator.locator(".electrode-pair-row")).toHaveCount(before + 1);
+  // A montage grows by a channel — two pairs (four electrodes) — at a time, so an odd pair count
+  // is not reachable from the form.
+  await simulator.getByRole("button", { name: "Add 2 pairs" }).first().click();
+  await expect(chips).toHaveCount(before + 2);
+  await expect(simulator.locator(".electrode-pair-row")).toHaveCount(before + 2);
 
   // The chip is the control: clicking it makes pair 2 the active one without touching the form.
   await simulator.getByTestId("channel-chip-1").click();

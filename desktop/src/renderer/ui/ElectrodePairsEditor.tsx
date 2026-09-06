@@ -8,6 +8,17 @@ import { channelCss } from "../pages/_shared/scene/model";
 export type ElectrodePair = [string, string];
 
 /**
+ * Removes the whole group of `step` pairs that pair `index` belongs to, so a montage built in
+ * two-pair channels can never be left with an odd number of pairs. `step === 1` is the plain
+ * "remove this row".
+ */
+export function removeGroup<T>(pairs: T[], index: number, step: number): T[] {
+  if (step <= 1) return pairs.filter((_, i) => i !== index);
+  const start = Math.floor(index / step) * step;
+  return pairs.filter((_, i) => i < start || i >= start + step);
+}
+
+/**
  * Basic pairs editor: electrode-net mode picks two labels from `electrodes` per pair; free-hand
  * mode collects a coordinate per side. Page agents extend this for montage-specific chrome
  * (per-pair current, save/load) — this covers the shared shape only.
@@ -23,6 +34,7 @@ export function ElectrodePairsEditor({
   activeSlot,
   onActiveSlotChange,
   disabled,
+  pairStep = 1,
 }: {
   mode: "net" | "freehand";
   /**
@@ -44,6 +56,13 @@ export function ElectrodePairsEditor({
   activeSlot?: number;
   onActiveSlotChange?: (slot: number) => void;
   disabled?: boolean;
+  /**
+   * How many pairs one "add" adds and one "remove" removes. A TI/mTI montage is built out of
+   * *channels* — two pairs (four electrodes) at a time — so the Simulator passes 2 and an odd
+   * number of pairs can never be produced by the buttons (`Montage.simulation_mode` accepts 2 or
+   * 4+, never 3). Defaults to 1 for every other caller.
+   */
+  pairStep?: number;
 }) {
   /* One grammar (plan C2): each slot of a pair opens the SAME list every other picker on the page
      opens, in single-select mode — filter, keyboard, `N of M`. It was a `Select` combo, which is a
@@ -52,6 +71,8 @@ export function ElectrodePairsEditor({
      The pairs model itself is unchanged: `[a, b]` strings, which is what lane EL's scene pane and
      `buildConfig` both read. */
   const options: SelectionItem[] = electrodes.map((e) => ({ id: e, label: e }));
+  const removeLabel = (i: number) =>
+    pairStep > 1 ? `Remove pairs ${i + 1}\u2013${i + pairStep}` : `Remove pair ${i + 1}`;
 
   return (
     <div className="electrode-pairs">
@@ -108,10 +129,10 @@ export function ElectrodePairsEditor({
                 disabled={disabled}
               />
               <IconButton
-                aria-label={`Remove pair ${i + 1}`}
+                aria-label={removeLabel(i)}
                 icon={<Trash2 size={14} />}
-                disabled={disabled}
-                onClick={() => onPairsChange(pairs.filter((_, idx) => idx !== i))}
+                disabled={disabled || (pairStep > 1 && i % pairStep !== 0)}
+                onClick={() => onPairsChange(removeGroup(pairs, i, pairStep))}
               />
             </div>
           ))
@@ -139,7 +160,7 @@ export function ElectrodePairsEditor({
         disabled={disabled}
         onClick={() =>
           mode === "net"
-            ? onPairsChange([...pairs, ["", ""]])
+            ? onPairsChange([...pairs, ...Array.from({ length: pairStep }, () => ["", ""] as ElectrodePair)])
             : onFreehandPairsChange([
                 ...freehandPairs,
                 [
@@ -149,7 +170,7 @@ export function ElectrodePairsEditor({
               ])
         }
       >
-        Add pair
+        {pairStep > 1 ? `Add ${pairStep} pairs` : "Add pair"}
       </Button>
     </div>
   );

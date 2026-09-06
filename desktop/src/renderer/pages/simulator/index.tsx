@@ -111,6 +111,13 @@ function SimulatorPage() {
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
   const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
+  // Which placement each flex run is being simulated in (an EEG net's mapping, or the optimiser's
+  // free coordinates) — the user's decision, so it outlives a navigation like every other one here.
+  const [flexPlacement, setFlexPlacement] = usePageSession<Record<string, string>>("flexPlacement", {});
+  // Click-to-visualise: the montage row the user clicked, drawn on the guide pane as its net's
+  // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
+  // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
+  const [montagePreview, setMontagePreview] = useState<{ net: string; pairs: [string, string][] } | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
 
   const subjectsWithModel = useMemo(() => subjects.filter((s) => s.has_m2m).map((s) => s.id), [subjects]);
@@ -211,8 +218,8 @@ function SimulatorPage() {
             scene={
               <ScenePane
                 mode="montage"
-                net={montageNet ?? null}
-                pairs={montageDraft?.pairs}
+                net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
+                pairs={montageDraft?.pairs ?? (tab === "montage" ? montagePreview?.pairs : undefined)}
                 onPairsChange={tab === "montage" ? setDraftPairs : undefined}
                 onRequestPairs={tab === "montage" ? startDraftFromScene : undefined}
                 note={tab === "montage" ? undefined : "Flex and free-hand sources carry their own electrode positions — the preview shows the net, not the run."}
@@ -295,10 +302,18 @@ function SimulatorPage() {
                         draft={montageDraft}
                         onDraftChange={setMontageDraft}
                         onNetChange={setMontageNet}
+                        onPreviewChange={setMontagePreview}
                       />
                     )}
                     {tab === "flex" && (
-                      <FlexTab selectedSubjects={eligible} selectedRows={rows} onAddRow={addRow} onRemoveRow={removeRow} />
+                      <FlexTab
+                        selectedSubjects={eligible}
+                        selectedRows={rows}
+                        onAddRow={addRow}
+                        onRemoveRow={removeRow}
+                        placement={flexPlacement}
+                        onPlacementChange={(id, value) => setFlexPlacement((prev) => ({ ...prev, [id]: value }))}
+                      />
                     )}
                     {tab === "freehand" && (
                       <FreehandTab selectedSubjects={eligible} selectedRows={rows} onAddRow={addRow} onRemoveRow={removeRow} />

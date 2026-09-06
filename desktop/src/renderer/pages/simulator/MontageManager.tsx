@@ -11,6 +11,7 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { deleteMontage, getEegNets, getMontages, putMontage } from "./api";
+import "./simulator-page.css";
 import {
   currentsCount,
   defaultCurrentsFor,
@@ -59,6 +60,15 @@ export function currentValues(currents: string, count: number): number[] {
   });
 }
 
+/**
+ * The currents column's reserved width, in slots: the widest polarity the table can hold, never
+ * fewer than 4 — so the common TI <-> mTI switch (2 <-> 4 currents) changes nothing but the
+ * number of inputs *inside* the reserved cell, and no other cell moves.
+ */
+export function currentSlotsReserved(counts: number[]): number {
+  return Math.max(4, ...counts, 0);
+}
+
 /** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string. */
 function CurrentsCell({
   rows,
@@ -75,7 +85,7 @@ function CurrentsCell({
   if (!first) return <span className="field-help">—</span>;
   const values = currentValues(first.currents, count);
   return (
-    <div style={{ display: "flex", gap: "var(--space-1)" }}>
+    <div className="montage-currents">
       {values.map((v, i) => (
         <NumberInput
           key={i}
@@ -84,7 +94,6 @@ function CurrentsCell({
           step={0.1}
           min={0}
           unit="mA"
-          style={{ width: 84 }}
           aria-label={`${label} pair ${i + 1} current`}
         />
       ))}
@@ -136,6 +145,7 @@ export function MontageManager({
   draft,
   onDraftChange,
   onNetChange,
+  onPreviewChange,
 }: {
   selectedSubjects: string[];
   /** subjectId -> eeg net names it has (from SubjectDetail.eeg_nets). */
@@ -148,6 +158,12 @@ export function MontageManager({
   onDraftChange: (draft: MontageDraft | null) => void;
   /** The resolved net, reported upward so the scene pane draws the same one's electrodes. */
   onNetChange?: (net: string | undefined) => void;
+  /**
+   * The row the user clicked, reported upward so the 3-D pane draws THAT montage (its net's
+   * electrodes as idle dots, its own pairs coloured by channel) — visual confirmation of a row
+   * that is already chosen, not an editor. `null` when no row is active.
+   */
+  onPreviewChange?: (preview: { net: string; pairs: [string, string][] } | null) => void;
   /**
    * Per-pair currents, edited in this table's own row (v3): the v2 page carried a second
    * "Selected jobs" card below the montage list that repeated every ticked row purely to hold
@@ -180,6 +196,8 @@ export function MontageManager({
   const editing = draft;
   const setEditing = onDraftChange;
   const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
+  /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
+  const [activeKey, setActiveKey] = useState<string | null>(null);
 
   // The scene pane draws the net the editor is on. Reported in an effect, not during render: it
   // is the parent's state.
@@ -270,8 +288,18 @@ export function MontageManager({
     return out;
   }, [selectedRows]);
 
+  const activeRow = chosen.find((c) => c.key === activeKey) ?? null;
+  const activeNet = activeRow?.montage.net;
+  const activePairs = activeRow?.montage.pairs;
+  // Reported in an effect, not during render: it is the page's state (which then hands it to the
+  // shared scene pane exactly the way the montage draft is handed over).
+  useEffect(() => {
+    onPreviewChange?.(activeNet && activePairs ? { net: activeNet, pairs: activePairs } : null);
+  }, [activeNet, activePairs, onPreviewChange]);
+
   function dropSelection(m: { net: string; kind: MontageKind; name: string }) {
     const id = rowId(m);
+    if (activeKey === id) setActiveKey(null);
     for (const subject of selectedSubjects) onRemoveRow(`${id}:${subject}`);
     // Belt and braces: a subject that has since left the selection still owns rows with this id.
     for (const r of selectedRows) if (r.id.startsWith(`${id}:`)) onRemoveRow(r.id);
@@ -335,6 +363,22 @@ export function MontageManager({
   const emptyRow: PendingRow[] = chosen.length === 0 && pendingRows.length === 0 ? [{ key: "row-1", net: editorNet }] : [];
   const displayed = chosen.length + pendingRows.length + emptyRow.length;
 
+  /** Reserved so a row switching TI <-> mTI never widens (or narrows) the column. */
+  const currentsWidth = currentSlotsReserved(chosen.map((c) => currentsCount(c.montage.kind, c.montage.pairs.length))) * 100 + 24;
+
+  /** Up/Down moves the active row — the one the 3-D pane is drawing. */
+  function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (chosen.length === 0) return;
+    e.preventDefault();
+    const at = chosen.findIndex((c) => c.key === activeKey);
+    const next = e.key === "ArrowDown" ? Math.min(chosen.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
+    const key = chosen[next]?.key ?? null;
+    setActiveKey(key);
+    const row = e.currentTarget.querySelector<HTMLElement>(`tbody tr:nth-of-type(${next + 1})`);
+    row?.focus();
+  }
+
   function renderNetCell(rowKey: string, net: string | undefined, label: string) {
     return (
       <Select
@@ -365,7 +409,16 @@ export function MontageManager({
       )}
       {montages.data && availableNets.length > 0 && (
         <div className="data-table-container scroll-x">
-          <table className="data-table run-table-min-rows">
+          {/* Fixed geometry: an explicit `<colgroup>` plus `table-layout: fixed` (simulator-page.css).
+              Nothing a user does to one row — net, montage, polarity — may move a cell in another. */}
+          <table className="data-table run-table-min-rows montage-table" onKeyDown={onTableKeyDown}>
+            <colgroup>
+              <col style={{ width: 210 }} />
+              <col style={{ width: 300 }} />
+              <col style={{ width: 300 }} />
+              <col style={{ width: currentsWidth }} />
+              <col style={{ width: 120 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>EEG net</th>
@@ -380,10 +433,23 @@ export function MontageManager({
                 const count = currentsCount(montage.kind, montage.pairs.length);
                 const missing = selectedSubjects.length - eligibleFor(montage.net).length;
                 return (
-                  <tr key={key} data-montage-row={montage.name} data-polarity={montage.kind}>
+                  <tr
+                    key={key}
+                    data-montage-row={montage.name}
+                    data-polarity={montage.kind}
+                    data-active={activeKey === key ? "true" : undefined}
+                    aria-selected={activeKey === key}
+                    tabIndex={0}
+                    onClick={(e) => {
+                      // A click on a control in the row is that control's, not the row's.
+                      if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                      setActiveKey(key);
+                    }}
+                    onFocus={() => setActiveKey(key)}
+                  >
                     <td>{renderNetCell(key, montage.net, montage.name)}</td>
                     <td>
-                      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                      <div className="montage-cell">
                         <Select
                           value={montageOptionValue(montage.kind, montage.name)}
                           onValueChange={(v) => pickMontage(key, montage.net, v)}
@@ -391,17 +457,27 @@ export function MontageManager({
                           placeholder="Choose a montage"
                           aria-label={`Montage for ${montage.net}`}
                         />
-                        <span className="chip chip-neutral" title={montage.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
-                          {polarityLabel(montage.kind)}
-                        </span>
-                        {missing > 0 && (
-                          <span className="chip chip-warning" title={`${missing} selected subject(s) do not have the "${montage.net}" net`}>
-                            {missing} skipped
+                        {/* Fixed-width slots, drawn even when empty: a chip appearing must not
+                            push the select beside it. */}
+                        <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
+                          <span className="chip chip-neutral" title={montage.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
+                            {polarityLabel(montage.kind)}
                           </span>
-                        )}
+                        </span>
+                        <span className="montage-chip-slot" style={{ "--slot": "76px" } as React.CSSProperties}>
+                          {missing > 0 && (
+                            <span className="chip chip-warning" title={`${missing} selected subject(s) do not have the "${montage.net}" net`}>
+                              {missing} skipped
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </td>
-                    <td className="mono text-dense">{formatPairs(montage.pairs)}</td>
+                    <td className="mono text-dense">
+                      <span className="montage-pairs" title={formatPairs(montage.pairs)}>
+                        {formatPairs(montage.pairs)}
+                      </span>
+                    </td>
                     <td>
                       <CurrentsCell
                         rows={rows}
@@ -486,30 +562,31 @@ export function MontageManager({
           <CardHeader title={editing.name ? `Edit montage "${editing.name}"` : "New montage"} />
           <CardBody>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              <div className="field-row-inline">
-                <Field label="EEG net" help="The net whose electrode labels the pairs are picked from.">
-                  <Select
-                    value={editorNet}
-                    onValueChange={setNetChoice}
-                    options={availableNets.map((n) => ({ value: n, label: n }))}
-                    placeholder="Choose a net"
-                  />
-                </Field>
-                {/* Polarity is not a choice any more (maintainer call): it follows from how many
-                    pairs the user picked, and the label states which bucket the save will land in. */}
-                <Field label="Polarity" help="Set by the number of pairs: 2 pairs is TI, more is mTI.">
-                  <div data-testid="montage-draft-polarity" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", minHeight: 28 }}>
-                    <span className="chip chip-neutral">{polarityLabel(draftKind)}</span>
-                    <span className="field-help">
-                      {draftKind === "uni_polar"
-                        ? "Uni-polar — saved as uni_polar_montages"
-                        : "Multi-polar — saved as multi_polar_montages"}
-                    </span>
-                  </div>
-                </Field>
-              </div>
+              {/* One label column: net, name and the polarity readout stack under each other in
+                  the standard label-left `Field` grid, so their labels align with each other and
+                  with the pair rows below. */}
+              <Field label="EEG net">
+                <Select
+                  value={editorNet}
+                  onValueChange={setNetChoice}
+                  options={availableNets.map((n) => ({ value: n, label: n }))}
+                  placeholder="Choose a net"
+                />
+              </Field>
               <Field label="Montage name" required>
                 <TextInput value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. F3_F4" />
+              </Field>
+              {/* Polarity is a readout, not a choice: it follows from the pairs picked. One line —
+                  a chip and a short sentence, no storage detail and no (i). */}
+              <Field label="Polarity">
+                <div data-testid="montage-draft-polarity" className="montage-cell" style={{ minHeight: 28 }}>
+                  <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
+                    <span className="chip chip-neutral">{polarityLabel(draftKind)}</span>
+                  </span>
+                  <span className="field-help">
+                    {editing.pairs.length} pairs · {draftKind === "uni_polar" ? "uni-polar" : "multi-polar"}
+                  </span>
+                </div>
               </Field>
               <Field label="Electrode pairs" help="Selected from the net's electrode labels.">
                 {netElectrodes.isFetching && <Skeleton height={32} />}
@@ -519,6 +596,10 @@ export function MontageManager({
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
                     onPairsChange={(pairs) => setEditing({ ...editing, pairs })}
+                    // A montage is built in channels: two pairs (four electrodes) at a time, so
+                    // "Add 2 pairs" / a remove that takes the whole group. 2 pairs is TI, 4+ mTI —
+                    // an odd pair count is not reachable from the form at all.
+                    pairStep={2}
                     freehandPairs={[]}
                     onFreehandPairsChange={() => {}}
                   />

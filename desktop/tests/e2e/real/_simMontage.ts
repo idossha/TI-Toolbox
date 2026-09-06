@@ -30,8 +30,8 @@ export async function createAndSelectMontage(
   await field(page, "Montage name").getByRole("textbox").fill(name);
 
   const editor = page.locator(".electrode-pairs");
-  // A fresh draft starts with 2 empty pair rows; an mTI montage adds the rest.
-  for (let i = 2; i < pairs.length; i++) await page.getByRole("button", { name: "Add pair", exact: true }).click();
+  // A fresh draft starts with 2 empty pair rows and grows two pairs (one channel) at a time.
+  for (let i = 2; i < pairs.length; i += 2) await page.getByRole("button", { name: "Add 2 pairs", exact: true }).click();
   for (let i = 0; i < pairs.length; i++) {
     const row = editor.locator(".electrode-pair-row").nth(i);
     const [a, b] = pairs[i] as [string, string];
