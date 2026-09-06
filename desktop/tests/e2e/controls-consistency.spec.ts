@@ -6,12 +6,15 @@ const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const RUN_PAGES = ["preprocess", "simulator", "optimizer", "analyzer"] as const;
 /**
- * Pages whose first control is a page-level subject selector. Since the 2026-09-06 jobs rework the
- * Simulator and the Analyzer have none — the subject is a cell of a job row — so their "first
- * control" clause is asserted on the Jobs table instead (below).
+ * Pages whose first control is a page-level subject selector. Since the 2026-09-06 jobs rework
+ * that is Pre-processing alone among the run pages (and the optional Source panel elsewhere): the
+ * Simulator, the Analyzer and — from the same day's Optimizer pass — the Optimizer have none,
+ * because the subject is a cell of a job row. Their "first control" clause is asserted on the Jobs
+ * table instead (below).
  */
-const SUBJECT_FIELD_PAGES = new Set<string>(["preprocess", "optimizer"]);
-const JOBS_CONTAINER = '[data-testid="sim-jobs-table-container"], [data-testid="analysis-jobs-table-container"]';
+const SUBJECT_FIELD_PAGES = new Set<string>(["preprocess"]);
+const JOBS_CONTAINER =
+  '[data-testid="sim-jobs-table-container"], [data-testid="analysis-jobs-table-container"], [data-testid="opt-jobs-table-container"]';
 const FIRST_CONTROL = `.subjects-field, ${JOBS_CONTAINER}`;
 
 let app: ElectronApplication;
@@ -97,7 +100,11 @@ for (const theme of ["light", "dark"] as const) {
         // The first section that is NOT the one holding that control: on a jobs page the table
         // lives inside its own `Jobs` section, so "the subject control comes first" is a claim
         // about the sections that follow it.
-        const firstSection = Array.from(element.querySelectorAll(".form-section")).find((s) => !s.contains(subject))!;
+        // `null` where the page has no OTHER section: the Optimizer's 2026-09-06 pass dissolved
+        // target, objective/electrodes, solver and the subject table into the row, leaving the
+        // Jobs table as the only section on the page. "The first control comes first" has nothing
+        // to order against there, and is reported as such rather than as a passing claim.
+        const firstSection = Array.from(element.querySelectorAll(".form-section")).find((s) => !s.contains(subject)) ?? null;
         const bar = element.querySelector(".action-bar")!.getBoundingClientRect();
         const button = element.querySelector('[data-testid="run-button"]')!.getBoundingClientRect();
         // The digest is absent while a run is blocked (the disabled primary carries the reason),
@@ -105,7 +112,10 @@ for (const theme of ["light", "dark"] as const) {
         const digest = element.querySelector(".action-bar-digest")?.getBoundingClientRect() ?? null;
         const pane = element.getBoundingClientRect();
         return {
-          subjectsFirst: !!(subject.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING),
+          subjectsFirst: firstSection
+            ? !!(subject.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+            : null,
+          sectionsAfterFirstControl: firstSection !== null,
           primaryHeight: button.height,
           actionHeight: bar.height,
           primaryRight: button.right,
@@ -117,7 +127,9 @@ for (const theme of ["light", "dark"] as const) {
         };
       }, FIRST_CONTROL);
       measured.push({ page: id, ...geometry });
-      expect(geometry.subjectsFirst, id).toBe(true);
+      // Only where there is a section to come after it; see `firstSection` above.
+      if (geometry.sectionsAfterFirstControl) expect(geometry.subjectsFirst, id).toBe(true);
+      else expect(geometry.subjectsFirst, `${id}: single-section page`).toBeNull();
       expect(geometry.primaryHeight, id).toBe(32);
       expect(geometry.actionHeight, id).toBeGreaterThanOrEqual(44);
       expect(geometry.primaryRight, id).toBeLessThan(geometry.paneRight);
