@@ -6,7 +6,7 @@
  *
  *  - changing the selected subjects re-keyed the pane's queries and reloaded the embed, so ticking
  *    a second subject cost a cold 184 MB mesh extraction and a remount → **zero guide-manifest
- *    requests and zero iframe remounts after the initial load**;
+ *    requests and zero canvas remounts after the initial load**;
  *  - a manifest that advertises an atlas or a net the package does not have gives the user a
  *    selectable option that 404s → **manifest ids equal the packaged catalog ids and every
  *    referenced asset resolves**;
@@ -37,12 +37,6 @@ const api = (path: string) =>
   fetch(`${SERVER_URL}${path}`, { headers: { authorization: `Bearer ${TOKEN}` } });
 
 test.beforeAll(async () => {
-  const installed = await fetch(`${SERVER_URL}/api/tetravox/install`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify({ version: "0.4.0" }),
-  });
-  if (!installed.ok) throw new Error(`mock could not activate protocol 2: HTTP ${installed.status}`);
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-guide-")) });
   page = await app.firstWindow();
   page.on("request", (request) => {
@@ -69,14 +63,6 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (TOKEN === "mock-token") {
-    await fetch(`${SERVER_URL}/api/tetravox/activate`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify({ version: "baked" }),
-    }).catch(() => undefined);
-    await fetch(`${SERVER_URL}/api/tetravox/0.4.0`, { method: "DELETE", headers: { authorization: `Bearer ${TOKEN}` } }).catch(() => undefined);
-  }
   await app?.close();
 });
 
@@ -95,9 +81,8 @@ test("the pane draws the guide, and says so rather than naming the subject", asy
 
 test("changing the selected subjects costs zero guide requests and zero remounts", async () => {
   const simulator = page.locator('[data-page-panel="simulator"]');
-  const frameElement = simulator.getByTestId("scene-pane-tetravox-frame");
-  const original = await frameElement.elementHandle();
-  if (!original) throw new Error("the Simulator scene frame is missing");
+  const original = await simulator.getByTestId("scene-canvas").elementHandle();
+  if (!original) throw new Error("the Simulator scene canvas is missing");
 
   guideRequests = [];
   // Every way a page changes its subject set: the palette's global subject, and the page's own
@@ -112,10 +97,12 @@ test("changing the selected subjects costs zero guide requests and zero remounts
   await page.waitForTimeout(1500);
 
   expect(guideRequests).toEqual([]);
+  // The SAME canvas element — a remount would have thrown away a 145 k-triangle upload and the
+  // camera the user had orbited to.
   expect(await original.evaluate((node) => node.isConnected)).toBe(true);
   expect(
     await original.evaluate(
-      (node) => node === document.querySelector('[data-page-panel="simulator"] [data-testid="scene-pane-tetravox-frame"]'),
+      (node) => node === document.querySelector('[data-page-panel="simulator"] [data-testid="scene-canvas"]'),
     ),
   ).toBe(true);
   await expect(simulator.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
@@ -172,9 +159,42 @@ test("an electrode pick writes a NAME into the montage form", async () => {
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
   await expectRunPaneTab(page, "scene");
-  const fake = page.frameLocator('[data-testid="scene-pane-tetravox-frame"]');
-  await fake.locator("body").dispatchEvent("click", { bubbles: true });
-  await expect(page.locator(".electrode-pair-row").first().getByRole("combobox").first()).toContainText("E1", { timeout: 10_000 });
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+
+  // Aimed by the renderer's OWN projection of the marker nearest the eye — an electrode round the
+  // back of the head is behind the scalp by design and clicking where it projects selects nothing.
+  const aim = await page.evaluate(() => {
+    const scene = window.__scene;
+    if (!scene) throw new Error("window.__scene is absent — build out/ with VITE_SCENE_HOOKS=1");
+    const cam = scene.camera as { target: number[]; distance: number; yaw: number; pitch: number };
+    const cp = Math.cos(cam.pitch);
+    const eye = [
+      (cam.target[0] as number) + cam.distance * cp * Math.sin(cam.yaw),
+      (cam.target[1] as number) + cam.distance * cp * Math.cos(cam.yaw),
+      (cam.target[2] as number) + cam.distance * Math.sin(cam.pitch),
+    ];
+    const best = scene.markers
+      .map((marker) => ({
+        id: marker.id,
+        projection: scene.project(marker.world),
+        d: Math.hypot(
+          marker.world[0] - (eye[0] as number),
+          marker.world[1] - (eye[1] as number),
+          marker.world[2] - (eye[2] as number),
+        ),
+      }))
+      .filter((c) => c.projection.inFront)
+      .sort((a, b) => a.d - b.d)[0];
+    if (!best) throw new Error("no marker in front of the camera");
+    return { id: best.id, x: best.projection.x, y: best.projection.y };
+  });
+  const box = await page.getByTestId("scene-canvas").boundingBox();
+  if (!box) throw new Error("the scene canvas has no bounding box");
+  await page.mouse.click(box.x + aim.x, box.y + aim.y);
+
+  await expect(page.locator(".electrode-pair-row").first().getByRole("combobox").first()).toContainText(aim.id, {
+    timeout: 10_000,
+  });
 });
 
 test("a guide click can never update a subject-RAS coordinate", async () => {
@@ -186,18 +206,22 @@ test("a guide click can never update a subject-RAS coordinate", async () => {
   const panel = page.locator('[data-page-panel="optimizer"]');
   await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
 
-  // The gesture the pane offers in spherical mode used to be "sphere": a click placed a centre in
+  // The gesture the pane offered in spherical mode used to be "sphere": a click placed a centre in
   // the SUBJECT's RAS millimetres. On the guide those millimetres belong to another head, so the
-  // gesture does not exist — not "exists and is approximately transformed".
+  // gesture does not exist — not "exists and is approximately transformed". `SceneGesture` no
+  // longer contains the word at all, which is what makes this checkable by attribute.
   await expect(panel.getByTestId("scene-pane-host")).not.toHaveAttribute("data-gesture", "sphere");
-  const coords = panel.getByRole("spinbutton").filter({ hasNotText: "" });
-  const before = await panel.locator("input[type=number]").evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+  const before = await panel
+    .locator("input[type=number]")
+    .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
 
-  const fake = panel.frameLocator('[data-testid="scene-pane-tetravox-frame"]');
-  await fake.locator("body").dispatchEvent("click", { bubbles: true });
+  const box = await panel.getByTestId("scene-canvas").boundingBox();
+  if (!box) throw new Error("the scene canvas has no bounding box");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);
 
-  const after = await panel.locator("input[type=number]").evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+  const after = await panel
+    .locator("input[type=number]")
+    .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
   expect(after).toEqual(before);
-  void coords;
 });

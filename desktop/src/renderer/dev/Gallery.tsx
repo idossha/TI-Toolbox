@@ -28,6 +28,7 @@ import { VirtualList } from "../ui/VirtualList";
 import { DataTable, type DataTableColumn } from "../ui/DataTable";
 import { LineChart, Sparkline } from "../ui/Chart";
 import { ArtifactList, JobConsole, JobTrace, JobsTable, type JobLogLine, type JobSummary } from "../ui/Jobs";
+import { SceneGallery } from "./SceneGallery";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -682,8 +683,9 @@ export function Gallery() {
         </Swatch>
       </Section>
 
-      {/* The slim 3D scene (lane SCB). Mounted on a click, not on load: a WebGL2 context and a
+      {/* The slim 3D scene. Mounted on a click, not on load: a WebGL2 context and a
           150k-triangle upload are not what the rest of this page's screenshots should pay for. */}
+      <SceneGallery />
     </div>
   );
 }

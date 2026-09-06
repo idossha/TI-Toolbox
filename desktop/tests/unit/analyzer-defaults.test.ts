@@ -8,7 +8,14 @@ import {
   buildConfig,
 } from "../../src/renderer/pages/analyzer/buildConfig";
 import { EMPTY_SPHERE } from "../../src/renderer/pages/analyzer/SphereRows";
-import { effectiveSubjectIdsFor, seedWithShellSubject } from "../../src/renderer/pages/analyzer/AnalyzerPage";
+import { blockedReasonFor, cohortSubjects, groupMismatchReason } from "../../src/renderer/pages/analyzer/AnalyzerPage";
+import {
+  analyzerJobsSummary,
+  emptyAnalyzerRow,
+  isRunnableAnalyzerRow,
+  quickAddRows,
+  type AnalyzerRow,
+} from "../../src/renderer/pages/analyzer/JobRows";
 
 // contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(
@@ -209,28 +216,73 @@ describe("Analyzer page configs validate against contracts/schema.json", () => {
   });
 });
 
-// U16: Analyzer's own page-owned Subjects table (`useSubject().batch` lost its only writer when
-// U11 removed the context bar's switcher) — a multi-subject Group-mode run must be reachable from
-// this page alone.
-describe("Analyzer's page-owned subject selection (U16)", () => {
-  it("seedWithShellSubject prepends the shell's primary subject when it is not already ticked", () => {
-    expect(seedWithShellSubject([], "ernie")).toEqual(["ernie"]);
-    expect(seedWithShellSubject(["101"], "ernie")).toEqual(["ernie", "101"]);
+/*
+ * 2026-09-06 jobs rework: the page-level Subjects table and the Scope segment are gone — a ROW is
+ * a (subject, simulation, space, field) job, which is 2.5.0's Subject × Simulation pair table
+ * (maintainer: "we need a list of jobs in a table that allows users flexibility in what they input
+ * to the job").
+ */
+describe("the Analyzer's job rows", () => {
+  const row = (subjectId: string, simulation: string, over: Partial<AnalyzerRow> = {}): AnalyzerRow => ({
+    ...emptyAnalyzerRow({ subjectId, simulation }),
+    ...over,
   });
 
-  it("seedWithShellSubject never duplicates an already-ticked subject or re-adds an unticked one", () => {
-    expect(seedWithShellSubject(["ernie", "101"], "ernie")).toEqual(["ernie", "101"]);
-    expect(seedWithShellSubject([], null)).toEqual([]);
+  it("a row is a job once it names a subject and a simulation", () => {
+    expect(isRunnableAnalyzerRow(emptyAnalyzerRow())).toBe(false);
+    expect(isRunnableAnalyzerRow(row("ernie", ""))).toBe(false);
+    expect(isRunnableAnalyzerRow(row("", "Thalamus"))).toBe(false);
+    expect(isRunnableAnalyzerRow(row("ernie", "Thalamus"))).toBe(true);
   });
 
-  it("Subject mode analyzes only the first ticked subject, however many are ticked", () => {
-    expect(effectiveSubjectIdsFor("single", [])).toEqual([]);
-    expect(effectiveSubjectIdsFor("single", ["ernie"])).toEqual(["ernie"]);
-    expect(effectiveSubjectIdsFor("single", ["ernie", "101"])).toEqual(["ernie"]);
+  it("the cohort is the distinct subjects the complete rows name, in row order", () => {
+    expect(cohortSubjects([row("ernie", "Thalamus"), row("101", "Thalamus"), row("ernie", "Thalamus")])).toEqual([
+      "ernie",
+      "101",
+    ]);
+    // A half-filled row is never part of the cohort.
+    expect(cohortSubjects([row("ernie", "Thalamus"), row("101", "")])).toEqual(["ernie"]);
   });
 
-  it("Group mode analyzes every ticked subject — the two-subject, two-job plan case", () => {
-    expect(effectiveSubjectIdsFor("group", [])).toEqual([]);
-    expect(effectiveSubjectIdsFor("group", ["ernie", "101"])).toEqual(["ernie", "101"]);
+  it("Quick add fills in every subject that has run the simulation, and never a duplicate", () => {
+    const rows = [row("ernie", "Thalamus")];
+    const added = quickAddRows(rows, "Thalamus", ["ernie", "101", "MNI152"]);
+    expect(added.map((r) => r.subjectId)).toEqual(["101", "MNI152"]);
+    expect(added.every((r) => r.simulation === "Thalamus")).toBe(true);
+    // A subject already in the table under a DIFFERENT simulation is still added for this one.
+    expect(quickAddRows([row("101", "Motor")], "Thalamus", ["101"]).map((r) => r.subjectId)).toEqual(["101"]);
+  });
+
+  it("group mode refuses rows that disagree about the one thing a cohort job runs", () => {
+    expect(groupMismatchReason([row("ernie", "Thalamus"), row("101", "Thalamus")])).toBeNull();
+    expect(groupMismatchReason([row("ernie", "Thalamus"), row("101", "Motor")])).toMatch(/one simulation/);
+    expect(
+      groupMismatchReason([row("ernie", "Thalamus"), row("101", "Thalamus", { space: "voxel" })]),
+    ).toMatch(/one space/);
+    expect(
+      groupMismatchReason([row("ernie", "Thalamus"), row("101", "Thalamus", { field: "TI_max" })]),
+    ).toMatch(/one field/);
+  });
+
+  it("the Jobs summary counts jobs per row, or one cohort job in group mode", () => {
+    const rows = [row("ernie", "Thalamus"), row("101", "Thalamus")];
+    expect(analyzerJobsSummary([], false)).toBe("no rows yet");
+    expect(analyzerJobsSummary(rows, false)).toBe("2 analysis jobs · 2 subjects");
+    expect(analyzerJobsSummary(rows, true)).toBe("one group analysis over 2 subjects");
+    expect(analyzerJobsSummary([...rows, emptyAnalyzerRow()], false)).toBe("2 analysis jobs · 2 subjects · 1 incomplete");
+  });
+
+  it("the disabled Run states what is missing, and the empty table comes first", () => {
+    expect(blockedReasonFor({ subjectsBlocked: null, rowCount: 0, targetReady: false })).toBe(
+      "Add a row with a subject and a simulation.",
+    );
+    expect(blockedReasonFor({ subjectsBlocked: "101 cannot run — no simulations.", rowCount: 1, targetReady: true })).toMatch(
+      /^101 cannot run/,
+    );
+    expect(blockedReasonFor({ subjectsBlocked: null, rowCount: 2, groupMismatch: "mixed", targetReady: true })).toBe("mixed");
+    expect(blockedReasonFor({ subjectsBlocked: null, rowCount: 1, targetReady: false })).toBe(
+      "Complete the target before running.",
+    );
+    expect(blockedReasonFor({ subjectsBlocked: null, rowCount: 1, targetReady: true })).toBeNull();
   });
 });

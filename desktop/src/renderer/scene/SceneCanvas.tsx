@@ -243,7 +243,6 @@ export function SceneCanvas({
   /** In a ref so a caller may pass an inline callback without tearing down the pointer handlers
    *  (which would drop a drag in progress). */
   const onHoverChangeRef = useRef(onHoverChange);
-  onHoverChangeRef.current = onHoverChange;
   const lastPickRef = useRef<ScenePick | null>(null);
   const dragRef = useRef<{ mode: "orbit" | "pan"; startX: number; startY: number; x: number; y: number } | null>(null);
   /** What the current camera should be framed on, mirrored into a ref so the ResizeObserver can
@@ -252,6 +251,10 @@ export function SceneCanvas({
   /** False once the user has moved the camera themselves. A resize re-frames only while this is
    *  true: re-framing a view somebody has just orbited to is the pane moving under their hand. */
   const framedRef = useRef(true);
+
+  useEffect(() => {
+    onHoverChangeRef.current = onHoverChange;
+  }, [onHoverChange]);
 
   const [webgl2, setWebgl2] = useState<boolean | null>(null);
   const [contextLost, setContextLost] = useState(false);
