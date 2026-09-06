@@ -68,7 +68,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the columns fill the container exactly, with a fixed 124px actions column and no slack", async () => {
+test("the columns fill the container exactly, with a fixed 96px actions column and no slack", async () => {
   const box = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box.scrollWidth, "the montage table scrolls sideways").toBeLessThanOrEqual(box.clientWidth);
 
@@ -76,11 +76,11 @@ test("the columns fill the container exactly, with a fixed 124px actions column 
   console.log("MONTAGE-COLS 1280", JSON.stringify(widths), "container", box.clientWidth);
   // Subject · Source · EEG net · Montage · Pairs · Currents · actions.
   expect(widths).toHaveLength(7);
-  // Actions is the only fixed column, and it is exactly the four icon buttons wide.
-  expect(widths[6]).toBe(124);
+  // Actions is the only fixed column, and it is exactly the three icon buttons wide.
+  expect(widths[6]).toBe(96);
   // Every other column got room for its content — no 40px sliver, and nothing left over.
-  expect(widths[0]).toBeGreaterThanOrEqual(72);
-  expect(widths[3]).toBeGreaterThanOrEqual(100);
+  expect(widths[0]).toBeGreaterThanOrEqual(56);
+  expect(widths[3]).toBeGreaterThanOrEqual(80);
   expect(widths.reduce((a, b) => a + b, 0)).toBe(box.clientWidth);
 });
 
@@ -100,7 +100,7 @@ test("a header boundary can be dragged, and the width is remembered", async () =
   const box2 = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box2.scrollWidth).toBeLessThanOrEqual(box2.clientWidth);
   expect(after.reduce((a, b) => a + b, 0)).toBe(box2.clientWidth);
-  expect(after[6]).toBe(124);
+  expect(after[6]).toBe(96);
 
   const stored = await page.evaluate(() => window.localStorage.getItem("tit-sim-jobs-columns-v1"));
   expect(stored, "the drag was not persisted").toBeTruthy();

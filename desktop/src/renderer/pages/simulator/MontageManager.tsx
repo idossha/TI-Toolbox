@@ -148,22 +148,30 @@ export interface ColumnWidths {
   actions: number;
 }
 
-/** Four 28px icon buttons, 2px apart, inside a cell with --space-1 of padding. No slack column. */
-export const ACTIONS_W = 124;
+/**
+ * Three 28px icon buttons (duplicate · edit · remove), 2px apart, inside a cell with --space-1 of
+ * padding. No slack column.
+ *
+ * A fourth — "delete this montage from the catalog" — used to sit here and does not any more: six
+ * content columns plus 124px of actions left every column pinned at its minimum in the 560px work
+ * pane, which is a table nobody can resize. Deleting a *catalog entry* is also not an operation on
+ * a job row; it lives in the montage editor the row's pencil opens.
+ */
+export const ACTIONS_W = 96;
 
 /** Below these a column stops being a control and becomes a sliver. */
 export const COLUMN_MIN: Record<keyof Omit<ColumnWidths, "actions">, number> = {
-  subject: 72,
-  source: 84,
-  net: 80,
-  montage: 100,
-  pairs: 40,
-  currents: 96,
+  subject: 56,
+  source: 72,
+  net: 64,
+  montage: 80,
+  pairs: 28,
+  currents: 80,
 };
 
 /** Shares of the resizable area when nothing is stored — sized so a subject id, a source label, a
  *  net name and a montage name all fit at the 608px work column the run shape gives at 1280. */
-const COLUMN_DEFAULT_FRACTION = { subject: 0.15, source: 0.16, net: 0.18, montage: 0.22, pairs: 0.07 } as const;
+const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.16, net: 0.17, montage: 0.21, pairs: 0.07 } as const;
 
 /** New key: the columns are not the ones `tit-montage-columns-v1` stored. */
 export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v1";
@@ -914,9 +922,6 @@ export function JobsTable({
                           }}
                         />
                       )}
-                      {montage && (
-                        <IconButton aria-label={`Delete ${montage.name}`} icon={<Trash2 size={14} />} onClick={() => setDeleteTarget(montage)} />
-                      )}
                       <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
                     </td>
                   </tr>
@@ -990,6 +995,18 @@ export function JobsTable({
                 )}
               </Field>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
+                {/* Deleting a catalog entry is an act on the CATALOG, so it lives with the editor
+                    rather than in a job row's actions. Only offered for a montage that exists. */}
+                {editing.savedAs && editorNet && (
+                  <Button
+                    variant="secondary"
+                    icon={<Trash2 size={14} />}
+                    style={{ marginRight: "auto" }}
+                    onClick={() => setDeleteTarget({ net: editorNet, kind: editing.savedAs as MontageKind, name: editing.name.trim(), pairs: [] })}
+                  >
+                    Delete montage
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={() => setEditing(null)}>
                   Cancel
                 </Button>
@@ -1026,7 +1043,11 @@ export function JobsTable({
         title={`Delete montage "${deleteTarget?.name ?? ""}"?`}
         description="This removes the montage definition for this net. Simulations already run from it are unaffected."
         confirmLabel="Delete montage"
-        onConfirm={() => deleteTarget && removeMontage.mutate(deleteTarget)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          setEditing(null);
+          removeMontage.mutate(deleteTarget);
+        }}
       />
     </div>
   );

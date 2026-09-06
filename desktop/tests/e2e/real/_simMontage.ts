@@ -70,11 +70,17 @@ export async function createAndSelectMontage(
   });
 }
 
-/** Deletes the montage this spec created, through the UI, at teardown. */
+/**
+ * Deletes the montage this spec created, through the UI, at teardown.
+ *
+ * Deleting a catalog entry is an act on the CATALOG, so since the 2026-09-06 jobs rework it lives
+ * in the montage editor the row's pencil opens, not in the job row's own actions.
+ */
 export async function deleteMontage(page: Page, name: string): Promise<void> {
   const row = page.locator(`tr[data-job-row][data-montage-row="${name}"]`);
   if ((await row.count()) === 0) return;
-  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await page.getByRole("button", { name: "Delete montage", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete montage" }).click();
   await expect(page.getByText(`Deleted montage "${name}".`)).toBeVisible({ timeout: 10_000 });
 }
