@@ -72,6 +72,12 @@ export function jobDetail(row: Locator): Locator {
   return row.locator("xpath=following-sibling::tr[1]");
 }
 
+/** The empty first cell of line 2 — the one place in a job that is not a control, so a test can
+ *  click the row itself. */
+export function jobBlank(row: Locator): Locator {
+  return jobDetail(row).locator('td[data-cell="detail-pad"], td[data-cell="detail"]').first();
+}
+
 /** The row's electrode-pairs text, on line 2. */
 export function jobPairs(row: Locator): Locator {
   return jobDetail(row).locator('[data-cell="pairs"]');

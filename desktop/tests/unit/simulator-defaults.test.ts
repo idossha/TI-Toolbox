@@ -15,11 +15,12 @@ import {
 } from "../../src/renderer/pages/simulator/types";
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
-  currentSlotsReserved,
   currentValues,
   formatPairs,
   montageOptionValue,
   parseMontageOptionValue,
+  resolveColumnWidths,
+  rowPairsText,
 } from "../../src/renderer/pages/simulator/MontageManager";
 import { jobSubjectsFrom, jobsSummary, runLabelFor } from "../../src/renderer/pages/simulator/index";
 import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
@@ -300,12 +301,32 @@ describe("montage pairs come in groups of two", () => {
     }
   });
 
-  it("reserves the currents column for the widest polarity, and at least 4 slots", () => {
-    // A table of only TI rows still reserves 4, so switching one row to mTI moves nothing.
-    expect(currentSlotsReserved([2, 2])).toBe(4);
-    expect(currentSlotsReserved([2, 4])).toBe(4);
-    expect(currentSlotsReserved([])).toBe(4);
-    expect(currentSlotsReserved([2, 6])).toBe(6);
+  it("the four content columns always sum to the container, never below their minimums", () => {
+    // The invariant the table's "never scrolls sideways" rests on, at the pane widths the run
+    // shape actually produces and at one narrower than every minimum put together.
+    for (const container of [608, 560, 900, 300]) {
+      const w = resolveColumnWidths(container, {});
+      expect(w.actions).toBe(96);
+      expect(w.subject + w.source + w.net + w.montage).toBe(container - 96);
+    }
+    // A stored drag is honoured as far as the other columns' minimums allow: 512 of content minus
+    // the 334px the other three cannot go below leaves 178 for the net, so a 220px drag stops
+    // there rather than pushing the table into a sideways scroll.
+    const dragged = resolveColumnWidths(608, { net: 220 });
+    expect(dragged.net).toBe(178);
+    expect(resolveColumnWidths(608, { net: 170 }).net).toBe(170);
+    expect(dragged.subject + dragged.source + dragged.net + dragged.montage).toBe(608 - 96);
+    // At 1280's default pane no column is below what its longest real value needs: a net name
+    // (`GSN-HydroCel-185`, 113px) and a montage or flex-run name (`VAL_lhipp_flex_focality`,
+    // 137px), each plus ~36px of select chrome.
+    const defaults = resolveColumnWidths(608, {});
+    expect(defaults.net).toBeGreaterThanOrEqual(149);
+    expect(defaults.montage).toBeGreaterThanOrEqual(173);
+  });
+
+  it("a row with nothing configured shows no pairs text at all", () => {
+    // Rule 4 of the 2026-09-06 row redesign: no "–" placeholders; the cell's own select says it.
+    expect(rowPairsText(emptyRow("ernie"))).toBe("");
   });
 });
 

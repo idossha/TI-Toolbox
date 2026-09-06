@@ -24,7 +24,7 @@
  * This file also keeps the montage **editor** (the "New montage" draft card, whose state is lifted
  * to the page so the 3-D pane and the pairs form edit one draft) and the delete confirmation.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, X, Copy } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
@@ -83,11 +83,12 @@ export function formatPairs(pairs: [string, string][]): string {
   return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
 }
 
-/** The Pairs cell for any row, whichever form its electrodes came in. */
+/** The Pairs text for any row, whichever form its electrodes came in. Empty — not a dash — for a
+ *  row that has none yet: an unconfigured cell shows its own placeholder and nothing else. */
 export function rowPairsText(row: SelectedRow): string {
   if (row.pairs && row.pairs.length > 0) return formatPairs(row.pairs);
   const n = row.xyzPairs?.length ?? 0;
-  return n > 0 ? `${n * 2} XYZ coordinates` : "—";
+  return n > 0 ? `${n * 2} XYZ coordinates` : "";
 }
 
 /** The row's currents, normalised to the count its polarity requires (extra values dropped, a
@@ -111,32 +112,28 @@ export function rowCurrentsCount(row: SelectedRow): number {
   return currentsCount(row.kind ?? inferMontageKind(pairs), pairs);
 }
 
-/**
- * The currents column's reserved width, in slots: the widest polarity the table can hold, never
- * fewer than 4 — so the common TI <-> mTI switch (2 <-> 4 currents) changes nothing but the
- * number of inputs *inside* the reserved cell, and no other cell moves.
- */
-export function currentSlotsReserved(counts: number[]): number {
-  return Math.max(4, ...counts, 0);
-}
-
 /* ------------------------------------------------------------------------------------------------
  * Column widths.
  *
  * The table must never scroll sideways (its container's scrollWidth == clientWidth is asserted),
- * which rules out a pixel colgroup: the actions column is fixed and the other five share what is
- * left, resolved to exact pixels that sum to the container. The user can drag the first four
- * boundaries; `currents` absorbs the remainder, and if it cannot the shrink walks back up the row.
- * The final proportional pass is what makes "sums to the container" true even when every column is
- * already at its minimum.
+ * which rules out a pixel colgroup: the actions column is fixed and the four content columns share
+ * what is left, resolved to exact pixels that sum to the container.
  *
- * The reservation is also what makes a **source switch** free of layout movement: a Flex row's
- * placement select and a Montage row's net select are two contents of one fixed-width column.
+ * **Why four and not six** (maintainer, 2026-09-06, on a screenshot of the six-column table):
+ * *"Montage select truncated to 'Ch…', nets 'BioSemi-128-A1…', Pairs 'E09…'"*. Measured in the app
+ * at 1280 with the default pane, the table container is 608px and its content needs
+ * `GSN-HydroCel-185` 113px, `VAL_lhipp_flex_focality` 137px, `Flex result` 61px, a subject id 30px
+ * — plus 36px of select chrome each (the table's own compact trigger padding, simulator-page.css)
+ * and the 96px actions column. Six columns of controls cannot
+ * hold that; four can, with 512px to share. So the job is **two lines**: line 1 is what the job
+ * *is* (subject, source, net, montage/run) and line 2 is what it will *do* (placement, electrode
+ * pairs in full, one current per pair). Line 2 is one `colspan` cell with its own flex layout, so
+ * it never has to agree with line 1's column boundaries.
  * --------------------------------------------------------------------------------------------- */
 
-export type ColumnKey = "subject" | "source" | "net" | "montage" | "pairs";
+export type ColumnKey = "subject" | "source" | "net" | "montage";
 
-/** The four widths a user can set (`pairs` absorbs nothing; `currents` does). */
+/** The widths a user can set. */
 export type StoredColumns = Partial<Record<ColumnKey, number>>;
 
 export interface ColumnWidths {
@@ -144,40 +141,30 @@ export interface ColumnWidths {
   source: number;
   net: number;
   montage: number;
-  pairs: number;
-  currents: number;
   actions: number;
 }
 
 /**
  * Three 28px icon buttons (duplicate · edit · remove), 2px apart, inside a cell with --space-1 of
- * padding. No slack column.
- *
- * A fourth — "delete this montage from the catalog" — used to sit here and does not any more: six
- * content columns plus 124px of actions left every column pinned at its minimum in the 560px work
- * pane, which is a table nobody can resize. Deleting a *catalog entry* is also not an operation on
- * a job row; it lives in the montage editor the row's pencil opens.
+ * padding. No slack column: the cell spans both lines of the job and its buttons sit on line 1.
  */
 export const ACTIONS_W = 96;
 
 /** Below these a column stops being a control and becomes a sliver. */
-export const COLUMN_MIN: Record<keyof Omit<ColumnWidths, "actions">, number> = {
-  subject: 56,
-  source: 72,
-  net: 96,
-  montage: 80,
-  pairs: 28,
-  currents: 80,
+export const COLUMN_MIN: Record<ColumnKey, number> = {
+  subject: 70,
+  source: 96,
+  net: 148,
+  montage: 168,
 };
 
-/** Shares of the resizable area when nothing is stored — sized so a subject id, a source label, a
- *  net name and a montage name all fit at the 608px work column the run shape gives at 1280. The
- *  net column carries the widest control on a flex row (the `Optimised · Map to net` pair over its
- *  net select), so it takes the share the montage column can spare. */
-const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.15, net: 0.22, montage: 0.17, pairs: 0.07 } as const;
+/** Shares of the resizable area when nothing is stored — the measured widths above, in order:
+ *  a subject id, a source label, a net name and a montage or flex-run name, none truncated at the
+ *  608px the default 1280 pane gives. */
+const COLUMN_DEFAULT_FRACTION = { subject: 0.15, source: 0.19, net: 0.30, montage: 0.36 } as const;
 
-/** New key: the columns are not the ones `tit-montage-columns-v1` stored. */
-export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v1";
+/** New key: the columns are not the ones `tit-sim-jobs-columns-v1` stored. */
+export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v2";
 
 /**
  * Exact pixel widths for a table `container` px wide. Total is always `container`, so a colgroup
@@ -185,41 +172,38 @@ export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v1";
  */
 export function resolveColumnWidths(container: number, stored: StoredColumns): ColumnWidths {
   const avail = Math.max(0, Math.round(container) - ACTIONS_W);
-  const pick = (k: ColumnKey) =>
-    Math.max(COLUMN_MIN[k], Math.round(stored[k] ?? avail * COLUMN_DEFAULT_FRACTION[k]));
+  const keys = ["subject", "source", "net", "montage"] as const;
   const w = {
-    subject: pick("subject"),
-    source: pick("source"),
-    net: pick("net"),
-    montage: pick("montage"),
-    pairs: pick("pairs"),
-    currents: 0,
+    subject: 0,
+    source: 0,
+    net: 0,
+    montage: 0,
   };
-  const rest = () => avail - w.subject - w.source - w.net - w.montage - w.pairs;
-  w.currents = rest();
-
-  // Not enough left for the currents inputs: take it back widest-first, never below a min.
-  if (w.currents < COLUMN_MIN.currents) {
-    let need = COLUMN_MIN.currents - w.currents;
-    for (const k of ["pairs", "montage", "net", "source", "subject"] as const) {
+  for (const k of keys) {
+    w[k] = Math.max(COLUMN_MIN[k], Math.round(stored[k] ?? avail * COLUMN_DEFAULT_FRACTION[k]));
+  }
+  // The montage column absorbs what the others leave, then the shrink walks back up the row, then
+  // — when even the minimums do not fit — everything scales and the residue lands on `montage`.
+  const total = () => keys.reduce((sum, k) => sum + w[k], 0);
+  if (total() !== avail) {
+    w.montage = Math.max(COLUMN_MIN.montage, avail - w.subject - w.source - w.net);
+  }
+  if (total() > avail) {
+    let need = total() - avail;
+    // The column the user just dragged gives last: a drag that does not fit takes its room from
+    // the others first, and only then stops growing.
+    for (const k of ["montage", "subject", "source", "net"] as const) {
       const give = Math.min(w[k] - COLUMN_MIN[k], need);
       w[k] -= give;
       need -= give;
       if (need <= 0) break;
     }
-    w.currents = rest();
   }
-
-  // Even the minimums may not fit a very narrow pane. Scale, then put the rounding residue on
-  // `currents` so the five still add up to `avail` exactly.
-  const total = w.subject + w.source + w.net + w.montage + w.pairs + Math.max(0, w.currents);
-  if (total > 0 && total !== avail) {
-    const scale = avail / total;
-    for (const k of ["subject", "source", "net", "montage", "pairs"] as const) {
-      w[k] = Math.max(1, Math.floor(w[k] * scale));
-    }
+  if (total() > avail && total() > 0) {
+    const scale = avail / total();
+    for (const k of keys) w[k] = Math.max(1, Math.floor(w[k] * scale));
   }
-  w.currents = Math.max(0, rest());
+  w.montage = Math.max(1, w.montage + (avail - total()));
   return { ...w, actions: ACTIONS_W };
 }
 
@@ -233,7 +217,7 @@ export function readStoredColumns(storage: Pick<Storage, "getItem"> | undefined)
     if (!parsed || typeof parsed !== "object") return {};
     const rec = parsed as Record<string, unknown>;
     const out: StoredColumns = {};
-    for (const k of ["subject", "source", "net", "montage", "pairs"] as const) {
+    for (const k of ["subject", "source", "net", "montage"] as const) {
       const v = rec[k];
       if (typeof v === "number" && Number.isFinite(v)) out[k] = Math.max(COLUMN_MIN[k], Math.round(v));
     }
@@ -285,22 +269,15 @@ function ColumnHandle({ label, width, onResize }: { label: string; width: number
   );
 }
 
-/** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string. */
-function CurrentsCell({
-  row,
-  slots,
-  onChange,
-}: {
-  row: SelectedRow;
-  /** Slots the column reserves — see `currentSlotsReserved`. */
-  slots: number;
-  onChange: (currents: string) => void;
-}) {
+/** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string.
+ *  An unconfigured row shows nothing at all here — a placeholder dash is not a value (rule 4 of the
+ *  2026-09-06 row redesign). */
+function CurrentsCell({ row, onChange }: { row: SelectedRow; onChange: (currents: string) => void }) {
   const count = rowCurrentsCount(row);
-  if (count === 0 || !row.name) return <span className="field-help">—</span>;
+  if (count === 0 || !row.name) return null;
   const values = currentValues(row.currents, count);
   return (
-    <div className="montage-currents" style={{ "--slots": slots } as React.CSSProperties}>
+    <div className="job-currents">
       {values.map((v, i) => (
         <NumberInput
           key={i}
@@ -311,6 +288,7 @@ function CurrentsCell({
           aria-label={`${row.name || "row"} pair ${i + 1} current (mA)`}
         />
       ))}
+      <span className="montage-unit">mA</span>
     </div>
   );
 }
@@ -707,8 +685,6 @@ export function JobsTable({
     });
   }, []);
 
-  const currentSlots = currentSlotsReserved(rows.map(rowCurrentsCount));
-
   /** Up/Down moves the active row — the one the 3-D pane is drawing. */
   function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -717,7 +693,7 @@ export function JobsTable({
     const at = rows.findIndex((r) => r.id === activeId);
     const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
     setActiveId(rows[next]?.id ?? null);
-    const row = e.currentTarget.querySelector<HTMLElement>(`tbody tr:nth-of-type(${next + 1})`);
+    const row = e.currentTarget.querySelectorAll<HTMLElement>("tbody tr[data-job-row]")[next];
     row?.focus();
   }
 
@@ -749,73 +725,74 @@ export function JobsTable({
     return own.length > 0 ? own : availableNets;
   }
 
-  /** The EEG net column: a net for a montage row, the placement for a flex row, nothing else. */
+  /**
+   * The EEG net column (line 1): the net a *montage* row's electrodes are labels of. A flex row's
+   * net is part of its placement and lives on line 2 beside the pairs it produces; a free-hand row
+   * carries its own coordinates and has none. Neither draws a placeholder dash here.
+   */
   function renderNetCell(row: SelectedRow) {
-    if (row.source === "montage") {
-      const nets = netsForSubject(row.subjectId);
-      return (
-        <Select
-          value={row.eegNet && nets.includes(row.eegNet) ? row.eegNet : undefined}
-          onValueChange={(v) => setRowNet(row, v)}
-          options={nets.map((n) => ({ value: n, label: n }))}
-          placeholder="EEG net"
-          aria-label="EEG net"
+    if (row.source !== "montage") return null;
+    const nets = netsForSubject(row.subjectId);
+    return (
+      <Select
+        value={nets.find((n) => n === row.eegNet)}
+        onValueChange={(v) => setRowNet(row, v)}
+        options={nets.map((n) => ({ value: n, label: netStem(n) }))}
+        placeholder="Choose a net"
+        aria-label="EEG net"
+      />
+    );
+  }
+
+  /**
+   * A flex row's placement, on line 2: `Optimised · Map to net` side by side with the net it maps
+   * onto (never stacked — maintainer, 2026-09-06). Line 2 has the room line 1's four columns do
+   * not, and the placement belongs with the electrodes it determines.
+   */
+  function renderPlacementControls(row: SelectedRow) {
+    if (!row.name) return null;
+    const options = placementsForRow(row);
+    const hasOptimised = options.some((o) => o.value === OPTIMIZED);
+    const nets = netsForSubject(row.subjectId);
+    const mapped = !!row.eegNet;
+    return (
+      <span className="job-placement">
+        <SegmentedControl
+          size="sm"
+          aria-label="Placement"
+          value={mapped ? "mapped" : "optimised"}
+          options={[
+            { value: "optimised", label: "Optimised", disabled: !hasOptimised, title: "The optimiser's own electrode coordinates (no EEG net)." },
+            { value: "mapped", label: "Map to net", disabled: nets.length === 0, title: "Snap the optimised positions onto the nearest electrodes of an EEG net." },
+          ]}
+          onValueChange={(v) => setRowPlacementMode(row, v as "optimised" | "mapped")}
         />
-      );
-    }
-    if (row.source === "flex") {
-      if (!row.name) return <span className="field-help">—</span>;
-      const options = placementsForRow(row);
-      const hasOptimised = options.some((o) => o.value === OPTIMIZED);
-      const nets = netsForSubject(row.subjectId);
-      const mapped = !!row.eegNet;
-      return (
-        <div className="placement-cell">
-          <SegmentedControl
-            size="sm"
-            aria-label="Placement"
-            value={mapped ? "mapped" : "optimised"}
-            options={[
-              { value: "optimised", label: "Optimised", disabled: !hasOptimised, title: "The optimiser's own electrode coordinates (no EEG net)." },
-              { value: "mapped", label: "Map to net", disabled: nets.length === 0, title: "Snap the optimised positions onto the nearest electrodes of an EEG net." },
-            ]}
-            onValueChange={(v) => setRowPlacementMode(row, v as "optimised" | "mapped")}
+        {mapped && (
+          <Select
+            value={nets.find((n) => netStem(n) === netStem(row.eegNet!))}
+            onValueChange={(v) => void mapRowToNet(row, v)}
+            options={nets.map((n) => ({ value: n, label: netStem(n) }))}
+            placeholder="EEG net"
+            aria-label="Mapped EEG net"
           />
-          {mapped && (
-            <Select
-              value={nets.find((n) => netStem(n) === netStem(row.eegNet!))}
-              onValueChange={(v) => void mapRowToNet(row, v)}
-              options={nets.map((n) => ({ value: n, label: n.replace(/\.csv$/, "") }))}
-              placeholder="EEG net"
-              aria-label="Mapped EEG net"
-            />
-          )}
-        </div>
-      );
-    }
-    return <span className="field-help">own XYZ</span>;
+        )}
+      </span>
+    );
   }
 
   /** The Montage column: catalog montage, flex run, or saved free-hand configuration. */
   function renderMontageCell(row: SelectedRow) {
     if (row.source === "montage") {
       return (
-        <div className="montage-cell">
-          <Select
-            value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
-            onValueChange={(v) => setRowMontage(row, v)}
-            options={montageOptions(row.eegNet)}
-            placeholder="Choose a montage"
-            aria-label="Montage"
-          />
-          <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
-            {row.kind && (
-              <span className="chip chip-neutral" title={row.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
-                {polarityLabel(row.kind)}
-              </span>
-            )}
-          </span>
-        </div>
+        // The polarity chip is on line 2, beside the pairs it describes: the select gets the whole
+        // column, which is what a montage name needs to be readable (maintainer's "Ch…").
+        <Select
+          value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
+          onValueChange={(v) => setRowMontage(row, v)}
+          options={montageOptions(row.eegNet)}
+          placeholder="Choose a montage"
+          aria-label="Montage"
+        />
       );
     }
     if (row.source === "flex") {
@@ -870,12 +847,10 @@ export function JobsTable({
               container, so the table cannot scroll sideways at any pane width. */}
           <table className="data-table montage-table sim-jobs-table" onKeyDown={onTableKeyDown} data-testid="sim-jobs-table">
             <colgroup>
-              <col style={{ width: tableWidth ? cols.subject : "14%" }} />
-              <col style={{ width: tableWidth ? cols.source : "15%" }} />
-              <col style={{ width: tableWidth ? cols.net : "17%" }} />
-              <col style={{ width: tableWidth ? cols.montage : "21%" }} />
-              <col style={{ width: tableWidth ? cols.pairs : "7%" }} />
-              <col style={{ width: tableWidth ? cols.currents : "16%" }} />
+              <col style={{ width: tableWidth ? cols.subject : "16%" }} />
+              <col style={{ width: tableWidth ? cols.source : "18%" }} />
+              <col style={{ width: tableWidth ? cols.net : "30%" }} />
+              <col style={{ width: tableWidth ? cols.montage : "26%" }} />
               <col style={{ width: tableWidth ? cols.actions : "10%" }} />
             </colgroup>
             <thead>
@@ -896,89 +871,113 @@ export function JobsTable({
                   Montage
                   <ColumnHandle label="Montage" width={cols.montage} onResize={(w) => setColumn("montage", w)} />
                 </th>
-                <th data-column="pairs">
-                  Pairs
-                  <ColumnHandle label="Pairs" width={cols.pairs} onResize={(w) => setColumn("pairs", w)} />
-                </th>
-                <th data-column="currents">
-                  Currents <span className="montage-unit">mA</span>
-                </th>
                 <th data-column="actions" />
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
                 const montage = catalogMontageOf(row);
+                const active = activeId === row.id;
+                const pairsText = rowPairsText(row);
+                // A click on a control is that control's, not the row's.
+                const claim = (e: React.MouseEvent) => {
+                  if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                  setActiveId(row.id);
+                };
                 return (
-                  <tr
-                    key={row.id}
-                    data-job-row={row.id}
-                    data-subject={row.subjectId || undefined}
-                    data-source={row.source}
-                    data-montage-row={row.name || ""}
-                    data-polarity={row.kind ?? ""}
-                    data-runnable={isRunnableRow(row) ? "true" : "false"}
-                    data-active={activeId === row.id ? "true" : undefined}
-                    aria-selected={activeId === row.id}
-                    tabIndex={0}
-                    onClick={(e) => {
-                      // A click on a control in the row is that control's, not the row's.
-                      if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
-                      setActiveId(row.id);
-                    }}
-                    onFocus={() => setActiveId(row.id)}
-                  >
-                    <td data-cell="subject">
-                      <SelectionPicker
-                        mode="single"
-                        label="Subject"
-                        items={subjectItems}
-                        value={row.subjectId ? [row.subjectId] : []}
-                        onChange={(v) => v[0] && setRowSubject(row, v[0])}
-                        placeholder="Subject"
-                        headers={{ label: "Subject", reason: "Why not" }}
-                        hideBulk
-                        idPrefix={`job-subject-${row.id}`}
-                        triggerTestId={`job-subject-${row.id}`}
-                      />
-                    </td>
-                    <td data-cell="source">
-                      <Select
-                        value={row.source}
-                        onValueChange={(v) => setRowSource(row, v as MontageSource)}
-                        options={SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                        aria-label="Source"
-                      />
-                    </td>
-                    <td data-cell="net">{renderNetCell(row)}</td>
-                    <td data-cell="montage">{renderMontageCell(row)}</td>
-                    <td data-cell="pairs" className="mono text-dense">
-                      <span className="montage-pairs" title={rowPairsText(row)}>
-                        {rowPairsText(row)}
-                      </span>
-                    </td>
-                    <td data-cell="currents">
-                      <CurrentsCell row={row} slots={currentSlots} onChange={(currents) => patch(row.id, { currents })} />
-                    </td>
-                    <td data-cell="actions" className="montage-actions">
-                      <IconButton
-                        aria-label={`Duplicate job ${rows.indexOf(row) + 1}`}
-                        icon={<Copy size={14} />}
-                        onClick={() => duplicateRow(row)}
-                      />
-                      {montage && (
-                        <IconButton
-                          aria-label={`Edit ${montage.name}`}
-                          icon={<Pencil size={14} />}
-                          onClick={() => {
-                            setNetChoice(montage.net);
-                            setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
-                          }}
+                  <Fragment key={row.id}>
+                    <tr
+                      data-job-row={row.id}
+                      data-subject={row.subjectId || undefined}
+                      data-source={row.source}
+                      data-montage-row={row.name || ""}
+                      data-polarity={row.kind ?? ""}
+                      data-runnable={isRunnableRow(row) ? "true" : "false"}
+                      data-active={active ? "true" : undefined}
+                      aria-selected={active}
+                      tabIndex={0}
+                      onClick={claim}
+                      onFocus={() => setActiveId(row.id)}
+                    >
+                      <td data-cell="subject">
+                        <SelectionPicker
+                          mode="single"
+                          label="Subject"
+                          items={subjectItems}
+                          value={row.subjectId ? [row.subjectId] : []}
+                          onChange={(v) => v[0] && setRowSubject(row, v[0])}
+                          placeholder="Subject"
+                          headers={{ label: "Subject", reason: "Why not" }}
+                          hideBulk
+                          idPrefix={`job-subject-${row.id}`}
+                          triggerTestId={`job-subject-${row.id}`}
                         />
+                      </td>
+                      <td data-cell="source">
+                        <Select
+                          value={row.source}
+                          onValueChange={(v) => setRowSource(row, v as MontageSource)}
+                          options={SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                          aria-label="Source"
+                        />
+                      </td>
+                      <td data-cell="net">{renderNetCell(row)}</td>
+                      <td data-cell="montage">{renderMontageCell(row)}</td>
+                      {/* One actions cell for the whole two-line job, its buttons on line 1. */}
+                      <td data-cell="actions" className="montage-actions" rowSpan={2}>
+                        <IconButton
+                          aria-label={`Duplicate job ${rows.indexOf(row) + 1}`}
+                          icon={<Copy size={14} />}
+                          onClick={() => duplicateRow(row)}
+                        />
+                        {montage && (
+                          <IconButton
+                            aria-label={`Edit ${montage.name}`}
+                            icon={<Pencil size={14} />}
+                            onClick={() => {
+                              setNetChoice(montage.net);
+                              setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
+                            }}
+                          />
+                        )}
+                        <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
+                      </td>
+                    </tr>
+                    {/*
+                      Line 2: what the job will DO, on the same column grid as line 1 — the
+                      polarity chip under Source, the placement and the electrode pairs under EEG
+                      net, the currents right-aligned to the Montage column's right edge. An
+                      unconfigured job says so in one muted line, at the same height, so picking a
+                      montage never makes the table jump (maintainer, 2026-09-06).
+                    */}
+                    <tr data-job-detail={row.id} data-active={active ? "true" : undefined} onClick={claim}>
+                      {row.name ? (
+                        <>
+                          <td data-cell="detail-pad" />
+                          <td data-cell="polarity">
+                            {row.kind && (
+                              <span className="chip chip-neutral" title={row.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
+                                {polarityLabel(row.kind)}
+                              </span>
+                            )}
+                          </td>
+                          <td colSpan={2} data-cell="detail">
+                            <div className="job-line2">
+                              <span className="job-placement-slot">{row.source === "flex" && renderPlacementControls(row)}</span>
+                              <span className="job-pairs mono text-dense" data-cell="pairs">
+                                {pairsText}
+                              </span>
+                              <CurrentsCell row={row} onChange={(currents) => patch(row.id, { currents })} />
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <td colSpan={4} data-cell="detail">
+                          <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
+                        </td>
                       )}
-                      <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
-                    </td>
-                  </tr>
+                    </tr>
+                  </Fragment>
                 );
               })}
             </tbody>

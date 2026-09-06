@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { addJobRow, configureMontageJob, jobRows } from "./_jobs";
+import { addJobRow, configureMontageJob, jobBlank, jobDetail, jobRows } from "./_jobs";
 
 /**
  * The Simulator's **Jobs table** as a *table*: how wide its columns are, that the user can change
@@ -74,13 +74,15 @@ test("the columns fill the container exactly, with a fixed 96px actions column a
 
   const widths = await columnWidths();
   console.log("MONTAGE-COLS 1280", JSON.stringify(widths), "container", box.clientWidth);
-  // Subject · Source · EEG net · Montage · Pairs · Currents · actions.
-  expect(widths).toHaveLength(7);
+  // Line 1 is Subject · Source · EEG net · Montage, plus the actions cell that spans both lines.
+  expect(widths).toHaveLength(5);
   // Actions is the only fixed column, and it is exactly the three icon buttons wide.
-  expect(widths[6]).toBe(96);
-  // Every other column got room for its content — no 40px sliver, and nothing left over.
-  expect(widths[0]).toBeGreaterThanOrEqual(56);
-  expect(widths[3]).toBeGreaterThanOrEqual(80);
+  expect(widths[4]).toBe(96);
+  // Room for the real names measured in the app: `GSN-HydroCel-185` (113px) and
+  // `VAL_lhipp_flex_focality` (137px), each inside ~36px of select chrome.
+  expect(widths[0]).toBeGreaterThanOrEqual(72);
+  expect(widths[2]).toBeGreaterThanOrEqual(149);
+  expect(widths[3]).toBeGreaterThanOrEqual(173);
   expect(widths.reduce((a, b) => a + b, 0)).toBe(box.clientWidth);
 });
 
@@ -100,9 +102,9 @@ test("a header boundary can be dragged, and the width is remembered", async () =
   const box2 = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box2.scrollWidth).toBeLessThanOrEqual(box2.clientWidth);
   expect(after.reduce((a, b) => a + b, 0)).toBe(box2.clientWidth);
-  expect(after[6]).toBe(96);
+  expect(after[4]).toBe(96);
 
-  const stored = await page.evaluate(() => window.localStorage.getItem("tit-sim-jobs-columns-v1"));
+  const stored = await page.evaluate(() => window.localStorage.getItem("tit-sim-jobs-columns-v2"));
   expect(stored, "the drag was not persisted").toBeTruthy();
   expect(JSON.parse(stored!).net).toBeGreaterThan(before[2]! + 20);
 
@@ -115,7 +117,7 @@ test("a header boundary can be dragged, and the width is remembered", async () =
 
 test("the row the 3-D pane is drawing is tinted, and up/down moves it", async () => {
   const rows = montageRows();
-  await rows.nth(1).locator('td[data-cell="pairs"]').click();
+  await jobBlank(rows.nth(1)).click();
   await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
   await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");
 
@@ -148,7 +150,7 @@ test("the 3-D pane names the row it is drawing, in the row's own accent", async 
 
   // Row 2 is the uni-polar one; row 1 the multi-polar. Both name themselves in the pane.
   for (const index of [1, 0]) {
-    await rows.nth(index).locator('td[data-cell="pairs"]').click();
+    await jobBlank(rows.nth(index)).click();
     await expect(rows.nth(index)).toHaveAttribute("data-active", "true");
     const montage = await rows.nth(index).getAttribute("data-montage-row");
     await expect(chip).toHaveText(`Showing: ${montage} · GSN-HydroCel-185`);
@@ -176,7 +178,119 @@ test("the 3-D pane names the row it is drawing, in the row's own accent", async 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
 });
 
+/**
+ * The defect this guards, from the maintainer's screenshot of the six-column table: *"Montage
+ * select truncated to 'Ch…', nets 'BioSemi-128-A1…', Pairs 'E09…'"*. No control on a job row may
+ * render narrower than the text it is showing.
+ */
+test("no select or pairs text is truncated at 1280 or 1600", async () => {
+  for (const width of [1280, 1600]) {
+    await page.setViewportSize({ width, height: 900 });
+    console.log("JOBS-COLS", width, JSON.stringify(await columnWidths()));
+    const overflowing = await page
+      .locator("table.sim-jobs-table .select-trigger span, table.sim-jobs-table [data-cell='pairs']")
+      .evaluateAll((els) =>
+        els
+          .filter((el) => el.scrollWidth > el.clientWidth + 1)
+          .map((el) => `${el.textContent} (${el.scrollWidth} > ${el.clientWidth})`),
+      );
+    expect(overflowing, `truncated at ${width}`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
+/** "Nothing moves on interaction": the rects of every job cell, before and after a row is made
+ *  active and a source is switched back and forth. */
+test("configuring a row moves no cell in another row", async () => {
+  const rects = () =>
+    page.locator("table.sim-jobs-table tbody td").evaluateAll((cells) =>
+      cells.map((c) => {
+        const r = c.getBoundingClientRect();
+        return [Math.round(r.x), Math.round(r.width)];
+      }),
+    );
+  await page.keyboard.press("Escape"); // no popup left open by an earlier test
+  const before = await rects();
+  // Making a row active, then the other: a tint changes, no geometry may.
+  await jobBlank(montageRows().first()).click();
+  await jobBlank(montageRows().nth(1)).click();
+  expect(await rects()).toEqual(before);
+});
+
+/**
+ * Line 2's geometry, from the maintainer's screenshot of the first two-line draft: *"the second
+ * layer is vertically clipped, the chip floats under the Source column while the pairs sit
+ * mid-row, the empty rows leave a blank second line, and a stray vertical rule separates the
+ * action column."* Every claim below is one of those.
+ */
+test("line 2 is unclipped, on line 1's grid, and every job is the same height", async () => {
+  const rows = montageRows();
+  // Nothing is cut off: no cell on either line scrolls its own content.
+  const clipped = await page
+    .locator("table.sim-jobs-table tbody td")
+    .evaluateAll((cells) =>
+      cells
+        .filter((c) => c.scrollHeight > c.clientHeight + 1)
+        .map((c) => `${c.getAttribute("data-cell")} (${c.scrollHeight} > ${c.clientHeight})`),
+    );
+  expect(clipped, "a cell clips its content vertically").toEqual([]);
+
+  // One height for every job of the same shape, configured or not — the table does not jump when
+  // a montage is picked. (An mTI job's four pairs and four currents legitimately take a second
+  // wrapped line at 1280; a TI job and an empty job must agree.)
+  const heights = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const line1 of document.querySelectorAll("tr[data-job-row]")) {
+      const line2 = line1.nextElementSibling!;
+      out.push(Math.round(line1.getBoundingClientRect().height + line2.getBoundingClientRect().height));
+    }
+    return out;
+  });
+  console.log("JOBS-HEIGHTS", JSON.stringify(heights));
+
+  // The chip starts where the Source column starts; the currents end where Montage ends; line 2
+  // stays inside its own job.
+  const geom = await page.evaluate(() => {
+    const line1 = document.querySelector("tr[data-job-row]")!;
+    const line2 = line1.nextElementSibling!;
+    const px = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
+    return {
+      source: px(line1.querySelector('td[data-cell="source"]'))!.x,
+      chip: px(line2.querySelector('td[data-cell="polarity"] .chip'))!.x,
+      montageRight: px(line1.querySelector('td[data-cell="montage"]'))!.right,
+      currentsRight: px(line2.querySelector(".job-currents"))!.right,
+      line2Bottom: px(line2)!.bottom,
+      detailBottom: px(line2.querySelector(".job-line2"))!.bottom,
+    };
+  });
+  console.log("JOBS-GEOM", JSON.stringify(geom));
+  expect(Math.abs(geom.chip - geom.source), "the chip is not on the Source column's left edge").toBeLessThanOrEqual(8);
+  expect(Math.abs(geom.currentsRight - geom.montageRight), "the currents do not end at the Montage column").toBeLessThanOrEqual(8);
+  expect(geom.detailBottom).toBeLessThanOrEqual(geom.line2Bottom);
+
+  // An empty job says so on line 2, at the same height as a configured one.
+  const empty = await addJobRow(page);
+  await expect(jobDetail(empty).locator(".job-line2-empty")).toHaveText(/Pairs and currents appear/);
+  const withEmpty = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const line1 of document.querySelectorAll("tr[data-job-row]")) {
+      const line2 = line1.nextElementSibling!;
+      out.push(Math.round(line1.getBoundingClientRect().height + line2.getBoundingClientRect().height));
+    }
+    return out;
+  });
+  // The empty job is exactly as tall as the configured TI job beside it.
+  expect(withEmpty[2], `an unconfigured job is a different height: ${withEmpty.join(", ")}`).toBe(withEmpty[1]);
+  await empty.getByRole("button", { name: /^Remove job / }).click();
+  await expect(rows).toHaveCount(2);
+});
+
 /* Evidence (§8.1), never the assertion. */
 test("records the jobs table", async () => {
   await container().screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
+  for (const width of [1280, 1600] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v3-${width}.png` });
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
 });
