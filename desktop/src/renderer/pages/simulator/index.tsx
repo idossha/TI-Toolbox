@@ -247,14 +247,6 @@ function SimulatorPage() {
               eligibility={eligibility}
               mode="per-subject"
               defaultOpen
-              help={
-                <Popover trigger={<IconButton aria-label="About subject selection" icon={<Info size={13} />} variant="ghost" size="sm" />}>
-                  <div style={{ maxWidth: 320 }} className="text-dense">
-                    Every ticked subject runs the same source(s) below as its own job. A subject with no head model
-                    (m2m) cannot be simulated — build one on Pre-processing first.
-                  </div>
-                </Popover>
-              }
             />
           </div>
 
@@ -325,26 +317,30 @@ function SimulatorPage() {
                 changed={electrodeShape !== "ellipse" || dimensions[0] !== 8 || dimensions[1] !== 8 || gelThickness !== 4}
                 summary={electrodeSummary(electrodeShape, dimensions, gelThickness)}
               >
-                <Field label="Shape">
-                  <SegmentedControl
-                    value={electrodeShape}
-                    onValueChange={(v) => setElectrodeShape(v as "ellipse" | "rect")}
-                    options={[
-                      { value: "ellipse", label: "Ellipse" },
-                      { value: "rect", label: "Rectangle" },
-                    ]}
-                    aria-label="Electrode shape"
-                  />
-                </Field>
-                <Field label="Dimensions">
-                  <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                    <NumberInput value={dimensions[0]} onValueChange={(v) => setDimensions([v ?? 8, dimensions[1]])} unit="w" step={0.5} min={0} aria-label="Electrode width" />
-                    <NumberInput value={dimensions[1]} onValueChange={(v) => setDimensions([dimensions[0], v ?? 8])} unit="h" step={0.5} min={0} aria-label="Electrode height" />
-                  </div>
-                </Field>
-                <Field label="Gel thickness">
-                  <NumberInput value={gelThickness} onValueChange={(v) => setGelThickness(v ?? 4)} step={0.5} min={0} unit="mm" />
-                </Field>
+                {/* Shape, dimensions and gel thickness are one decision about one object, and
+                    three narrow controls; `.field-row-inline` keeps them on a single line. */}
+                <div className="field-row-inline">
+                  <Field label="Shape">
+                    <SegmentedControl
+                      value={electrodeShape}
+                      onValueChange={(v) => setElectrodeShape(v as "ellipse" | "rect")}
+                      options={[
+                        { value: "ellipse", label: "Ellipse" },
+                        { value: "rect", label: "Rectangle" },
+                      ]}
+                      aria-label="Electrode shape"
+                    />
+                  </Field>
+                  <Field label="Dimensions">
+                    <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <NumberInput value={dimensions[0]} onValueChange={(v) => setDimensions([v ?? 8, dimensions[1]])} unit="w" step={0.5} min={0} aria-label="Electrode width" />
+                      <NumberInput value={dimensions[1]} onValueChange={(v) => setDimensions([dimensions[0], v ?? 8])} unit="h" step={0.5} min={0} aria-label="Electrode height" />
+                    </div>
+                  </Field>
+                  <Field label="Gel thickness">
+                    <NumberInput value={gelThickness} onValueChange={(v) => setGelThickness(v ?? 4)} step={0.5} min={0} unit="mm" />
+                  </Field>
+                </div>
               </FormSection>
 
               <FormSection

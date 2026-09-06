@@ -2306,3 +2306,28 @@ kbd.kbd {
   padding: 0 var(--space-2);
   font-size: 11px;
 }
+
+/*
+ * One-line group of short fields inside a `FormSection`'s `.form-grid` (DESIGN.md §4.2).
+ * A 160px label gutter per field is what forces three narrow controls — a segmented control and
+ * two number inputs — onto three grid cells and leaves one of them orphaned on its own row. Inside
+ * this wrapper each `Field` keeps the label-left shape but sizes its gutter to the label, so the
+ * group reads as one line. It wraps (never truncates) below the width it needs, which at the
+ * 1024px floor with the right pane open still leaves balanced rows rather than an orphan.
+ */
+.field-row-inline {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-5);
+  min-width: 0;
+}
+.field-row-inline > .field {
+  grid-template-columns: auto minmax(0, auto);
+  min-height: var(--row-h);
+  min-width: 0;
+}
+.field-row-inline > .field .field-label {
+  white-space: nowrap;
+}
