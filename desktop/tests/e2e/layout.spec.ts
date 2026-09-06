@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { setSectionOpen, expectPage, gotoPage, launchElectronApp, openPalette, setTheme, type Theme } from "./_helpers";
+import { analysisRows, setAnalysisCell } from "./_jobs";
 import {
   actionBarReach,
   deadSpaceByChild,
@@ -233,8 +234,12 @@ test("the fill controller settles after the content grows (lane UC's second find
         .join(","),
     );
 
-  await page.locator("#analyzer-simulation").click();
-  await page.getByRole("option", { name: "Thalamus" }).first().click();
+  // Since the 2026-09-06 jobs rework the Analyzer's simulation is a *row* cell, not a page-level
+  // combobox. `ResultsPanel` — the content whose growth this test is about — populates from the
+  // row, so the growth trigger is the same; only the control that fires it moved.
+  const analysisRow = analysisRows(page).first();
+  await expect(analysisRow).toBeVisible();
+  await setAnalysisCell(page, analysisRow, "simulation", "Thalamus");
   // Open "Output" by hand rather than waiting for the fill controller to open it: at 1280x800 the
   // Analyzer does not reliably have the 96px of slack the controller needs to open a fifth section
   // on its own, and this test is not about the controller's threshold. The

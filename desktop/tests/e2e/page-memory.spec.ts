@@ -409,8 +409,17 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
   await current.getByRole("button", { name: "Add position", exact: true }).click();
   await waitForScene(page);
-  await current.getByRole("spinbutton", { name: "Skin opacity value" }).fill("31");
-  await current.getByRole("spinbutton", { name: "Grey matter opacity value" }).fill("46");
+  // The native canvas carries its own opacity chrome: two sliders, no number input (the embed's
+  // spinbuttons went with the embed). Nudge each off its default with the keyboard and remember
+  // what it became — the point of the test is that collapsing the pane does not reset it.
+  const skin = current.getByRole("slider", { name: "Skin opacity" });
+  const grey = current.getByRole("slider", { name: "Grey matter opacity" });
+  await skin.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowLeft");
+  await grey.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
+  const skinValue = await skin.getAttribute("aria-valuenow");
+  const greyValue = await grey.getAttribute("aria-valuenow");
   await settle(page);
 
   const pane = current.getByTestId("page-right-pane");
@@ -459,15 +468,15 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await expect(input).toHaveValue("pane_draft");
   await expect(current.getByLabel("Position 1 X", { exact: true })).toHaveValue("12.5");
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(scrollBefore);
-  await expect(current.getByRole("spinbutton", { name: "Skin opacity value" })).toHaveValue("31");
-  await expect(current.getByRole("spinbutton", { name: "Grey matter opacity value" })).toHaveValue("46");
+  await expect(skin).toHaveAttribute("aria-valuenow", skinValue!);
+  await expect(grey).toHaveAttribute("aria-valuenow", greyValue!);
   await settle(page);
   expect(await frameLocator.evaluate((currentFrame, previous) => currentFrame === previous, frameNode)).toBe(true);
   // The context is live, not lost-and-restored, and nothing was re-fetched to redraw it.
   await expect(current.getByTestId("scene-context-lost")).toHaveCount(0);
   await expect(current.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
   expect(guideRequests, `the retained canvas re-fetched the guide: ${guideRequests.join(", ")}`).toEqual([]);
-  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} canvas=same guide-requests=0`);
+  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} canvas=same opacity=${skinValue}/${greyValue} guide-requests=0`);
 });
 
 test("the free-hand draft survives a navigation away and back", async () => {
@@ -482,7 +491,10 @@ test("the free-hand draft survives a navigation away and back", async () => {
    * another page and back must not discard it.
    */
   await setSectionOpen(page, "Free-hand placements", true);
-  await current.getByRole("button", { name: "New placement", exact: true }).click();
+  // The editor may already be open — an earlier test in this file opens it, and the page is
+  // retained for the whole file on purpose. "New placement" only exists while it is closed.
+  const newPlacement = current.getByRole("button", { name: "New placement", exact: true });
+  if (await newPlacement.isVisible()) await newPlacement.click();
   const subject = current.locator(".field", { hasText: /^Subject/ }).getByRole("combobox");
   const draftSubject = (await subject.textContent())?.trim() === "101" ? "ernie" : "101";
   await subject.click();
@@ -497,7 +509,10 @@ test("the free-hand draft survives a navigation away and back", async () => {
   }
   await current.getByRole("button", { name: "Add position", exact: true }).click();
   await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
-  await expect(current.locator(".field-error")).toContainText("Use 4 positions");
+  // Scoped to *this* field's error: the page carries whatever other validation the earlier tests
+  // in this file left behind (an emptied output-field list, say), and an unscoped `.field-error`
+  // then resolves to two nodes and fails on strict mode rather than on the rule under test.
+  await expect(current.locator(".field-error", { hasText: "Use 4 positions" })).toBeVisible();
 
   await gotoPage(page, "analyzer");
   await expectPage(page, "analyzer");
@@ -511,6 +526,6 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await expect(back.getByLabel("Position 1 Y", { exact: true })).toHaveValue("-23.5");
   await expect(back.getByLabel("Position 1 Z", { exact: true })).toHaveValue("67.5");
   await expect(back.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
-  await expect(back.locator(".field-error")).toContainText("Use 4 positions");
+  await expect(back.locator(".field-error", { hasText: "Use 4 positions" })).toBeVisible();
   await expect(back.getByRole("button", { name: "Save configuration", exact: true })).toBeDisabled();
 });
