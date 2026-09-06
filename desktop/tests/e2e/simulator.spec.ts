@@ -237,6 +237,47 @@ test("clicking a row makes it the one the 3-D pane draws, and up/down moves it",
   await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
 });
 
+/**
+ * The reported defect: "the Flex result mode opens up the table selection very nicely, but it does
+ * not allow me to click or select any of the options." Every row's checkbox was disabled because
+ * the tab looked for the electrodes in `flex_meta.json`, which never records any. This walks the
+ * whole path the user did: switch mode, tick a row, see it become a planned job.
+ */
+test("a flex result row can be ticked and becomes a planned job", async () => {
+  await clearMontageRows();
+  const sourceTabs = page.getByRole("radiogroup", { name: "Montage source" });
+  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
+
+  const flexRows = page.getByTestId("flex-run-row");
+  await expect(flexRows).toHaveCount(1);
+  const row = page.locator('tr[data-run="flex_Thalamus_20260810_101500"]');
+
+  const box = row.getByRole("checkbox");
+  await expect(box).toBeEnabled();
+  await box.click();
+  await expect(box).toBeChecked();
+  await expect(row).toContainText("E020→E074, E101→E133");
+
+  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
+  await expect(cell).toBeVisible({ timeout: 15_000 });
+  // One job, not two: the plan is built from the resolved config alone. Sending `montage_sources`
+  // alongside it made the server resolve the same run a second time.
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+  await expect(page.getByTestId("run-button")).toBeEnabled();
+
+  // The optimiser's own coordinates are the other placement a run can be simulated in — and the
+  // only one a run that was never mapped onto a net has.
+  await row.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Optimised positions (XYZ)", exact: true }).click();
+  await expect(row).toContainText("4 optimised coordinates");
+  await expect(box).toBeChecked();
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+
+  await box.click();
+  await expect(box).not.toBeChecked();
+  await sourceTabs.getByRole("radio", { name: "Montage", exact: true }).click();
+});
+
 test("collapsed sections state their own values (§4.2 rule 5)", async () => {
   // FXU1: sections auto-expand to fill the pane, so the summary is asserted on a section the user
   // has collapsed by hand — which is the state the rule is actually about ("a collapsed section

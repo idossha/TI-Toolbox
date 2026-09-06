@@ -1979,15 +1979,16 @@ kbd.kbd {
 .page-layout-run .page-layout-body {
   gap: 0;
 }
-/* The run shape's default pane width (§2.1). The maintainer measured the old fixed 360/400 px
- * column at ~26 % of a 2000 px window and asked for a pane "thicker by default", ~36-37 %: the
- * PLAN grid and the TERMINAL are documents, not a control column, so the pane scales with the
- * window like the Results preview does rather than sitting at a fixed px. `vw` (not `%`) because
- * the ask is a fraction of the WINDOW; the ceiling keeps the work pane at the >=660 px floor
- * §12.3 states (work = 100% - 6 px handle - pane, so 672 px of reserve is 666 px of work).
+/* The run shape's default pane width (§2.1). The old fixed 360/400 px column was ~26 % of a
+ * 2000 px window; the maintainer asked for 45 % by default, 36 % as the floor and 70 % as the
+ * stretch ceiling. The PLAN grid and the TERMINAL are documents, not a control column, so the pane
+ * scales with the window like the Results preview does rather than sitting at a fixed px. `vw`
+ * (not `%`) because the ask is a fraction of the WINDOW; the ceiling keeps the work pane at the
+ * >=560 px floor §12.3 now states (work = 100% - 6 px handle - pane, so 566 px of reserve is
+ * 560 px of work) — it binds only at 1440, where the labelled nav rail costs 216 px.
  * `:not([data-pane-width])` so a dragged width and the expanded state still win. */
 .page-layout-run .page-layout-panel:not([data-pane-width]) {
-  width: clamp(320px, 36vw, calc(100% - 672px));
+  width: clamp(320px, 45vw, calc(100% - 566px));
 }
 /* The handle is 6px of grab strip with a 1px rule inside it, which leaves the pane's own content
  * about 4px from that rule — measured on `preprocess-dark-1280x800.png`, round 2. The gutter

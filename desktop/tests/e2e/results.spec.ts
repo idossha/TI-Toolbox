@@ -391,7 +391,9 @@ test("the preview pane stretches, collapses, expands and remembers its width", a
   const handle = page.getByTestId("inspector-handle");
   await expect(handle).toHaveAttribute("role", "separator");
   await expect(handle).toHaveAttribute("aria-valuenow", "490");
-  await expect(handle).toHaveAttribute("aria-valuemax", "880");
+  // 70 vw of the 1280 px window (DESIGN.md §2.1) — the ceiling is window-relative now, not a flat
+  // 880, so it can never sit below a pane's own default.
+  await expect(handle).toHaveAttribute("aria-valuemax", "896");
   const box = (await handle.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -429,8 +431,8 @@ test("the preview pane stretches, collapses, expands and remembers its width", a
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
   await openResults();
   expect((await paneWidths(page)).right).toBe(dragged.right);
-  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v2-results"))).toContain(`"width":${dragged.right}`);
-  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v2-jobs"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v3-results"))).toContain(`"width":${dragged.right}`);
+  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v3-jobs"))).toBeNull();
 });
 
 test("⌘⇧I collapses the preview, and a subject with no outputs does not swallow it", async () => {

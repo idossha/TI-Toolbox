@@ -23,6 +23,32 @@ export interface PaneLimits {
   max: number;
 }
 
+/**
+ * The run pane's drag range as fractions of the WINDOW (DESIGN.md §2.1).
+ *
+ * The maintainer's numbers, measured on a 2000 px screen: the pane opens at 45 % and may be
+ * stretched to 70 % or pulled back to 36 % — the width that used to be the *default* is now the
+ * floor. Fractions rather than px because the ask was always stated as a share of the screen, and
+ * a flat px ceiling is what produced the defect this replaces (see `PANE_MIN_VW` users).
+ */
+export const PANE_MIN_VW = 0.36;
+export const PANE_DEFAULT_VW = 0.45;
+export const PANE_MAX_VW = 0.7;
+
+/**
+ * The drag limits for a window `viewportWidth` px wide.
+ *
+ * `minOverride` is how Jobs' 360 px detail column and the Results preview keep the narrower floor
+ * DESIGN.md §2.1 pins for them while still gaining the wide ceiling.
+ */
+export function paneLimitsForViewport(viewportWidth: number, minOverride?: number): PaneLimits {
+  const w = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 1280;
+  return {
+    min: minOverride ?? Math.round(w * PANE_MIN_VW),
+    max: Math.round(w * PANE_MAX_VW),
+  };
+}
+
 export interface PaneState {
   /**
    * `null` = the user has never sized this pane, so the design's own CSS width still applies (the
@@ -82,14 +108,15 @@ export function paneReducer(state: PaneState, action: PaneAction, limits: PaneLi
 /**
  * One key per page id — Jobs' 360 px column and Results' 490 px preview are different decisions.
  *
- * The `v2` segment is a one-time reset, not decoration: the run pane's default grew from a fixed
- * 360/400 px column to `clamp(320px, 36vw, …)` (DESIGN.md §2.1), and every machine that had ever
- * touched the old divider held a stored width sized against the old default. Reading those back
- * would pin exactly the users who use the pane most to the narrow pane the maintainer asked us to
- * widen. A new key means the new default applies once; the very next drag persists as before.
+ * The version segment is a one-time reset, not decoration: the run pane's default grew from a
+ * fixed 360/400 px column to 36 vw (`v2`) and then to 45 vw (`v3`, DESIGN.md §2.1), and every
+ * machine that had ever touched the old divider held a stored width sized against the old default.
+ * Reading those back would pin exactly the users who use the pane most to the narrow pane the
+ * maintainer asked us to widen. A new key means the new default applies once; the very next drag
+ * persists as before.
  */
 export function paneStorageKey(pageId: string): string {
-  return `tit-pane-v2-${pageId}`;
+  return `tit-pane-v3-${pageId}`;
 }
 
 /** The subset of `Storage` this module needs, so a unit test passes a `Map` instead of a jsdom. */

@@ -297,3 +297,55 @@ test("the panel pages are reachable end to end at 1280x800", async () => {
     expect(overflow.page, `${id}: the page scrolls horizontally`).toBe(0);
   }
 });
+
+/**
+ * The run pane's range, in the one form that catches the defect the maintainer reported: a DRAG,
+ * measured.
+ *
+ * What he saw was "the pane cannot be widened past its default". The cause was not the CSS default
+ * but the divider: Pre-processing and Source pass no `paneController`, so they got the legacy
+ * `InspectorHandle`, whose ceiling was a flat 560 px — *below* the run pane's own default on a
+ * 2000 px screen, so dragging wider snapped it narrower. A test that only reads the default width
+ * cannot see that; this one drags to both ends and reads what the pane measures.
+ */
+test("the run pane opens at 45 vw and drags between 36 vw and 70 vw", async () => {
+  test.setTimeout(180_000);
+  await setTheme(page, "light");
+  const dragHandleBy = async (dx: number): Promise<number> => {
+    const box = (await page.locator(String.raw`[data-page-active="true"]`).getByTestId("inspector-handle").boundingBox())!;
+    await page.mouse.move(box.x + 3, box.y + Math.min(300, box.height / 2));
+    await page.mouse.down();
+    // Dragging LEFT widens the pane, so a negative dx is the "stretch" gesture.
+    await page.mouse.move(box.x + 3 + dx, box.y + Math.min(300, box.height / 2), { steps: 20 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    return (await paneWidths(page)).right;
+  };
+
+  for (const width of [1280, 1440, 2000]) {
+    await page.setViewportSize({ width, height: 1250 });
+    // A width stored by an earlier step would hide the default this asserts.
+    await page.evaluate(() => {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("tit-pane"))
+        .forEach((k) => localStorage.removeItem(k));
+    });
+    await page.reload();
+    await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
+    await gotoPage(page, "preprocess", "Pre-processing");
+    await expectPage(page, "preprocess");
+    await settle(page);
+
+    // Default: 45 vw, ceilinged at `100% - 566px` so the work pane keeps its >=560 px floor. That
+    // ceiling binds at 1440 and only at 1440 (the labelled nav rail costs 216 px there).
+    const panes = await paneWidths(page);
+    const expected = width === 1440 ? 610 : Math.round(width * 0.45);
+    expect(panes.right, `default pane width at ${width}`).toBe(expected);
+    expect(panes.work, `work pane at ${width}`).toBeGreaterThanOrEqual(560);
+
+    // Stretch: 70 vw, reached by dragging further than the ceiling so the clamp is what stops it.
+    expect(await dragHandleBy(-1200), `stretched pane at ${width}`).toBe(Math.round(width * 0.7));
+    // Pull back: 36 vw is the FLOOR now, not the default — the pane never gets narrow again.
+    expect(await dragHandleBy(1600), `narrowed pane at ${width}`).toBe(Math.round(width * 0.36));
+  }
+});

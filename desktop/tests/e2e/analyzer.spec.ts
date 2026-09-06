@@ -165,12 +165,17 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
   console.log("analyzer metrics:", JSON.stringify(rows, null, 1));
 
   for (const row of rows) {
-    // See preprocess.spec.ts for why this is not §12.3's 25 %.
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.65);
+    // See preprocess.spec.ts for why this is not §12.3's 25 %. Raised from 0.65 to 0.70 when the
+    // run panel went to 45 vw: at 1440 the pane is 610 px of PLAN + TERMINAL, and before a run the
+    // terminal is empty by definition — measured 0.6716 light and dark, 0.6154 at 1280.
+    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.7);
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-    expect(row.panes.right).toBe(row.width >= 1440 ? 400 : 360);
-    expect(row.panes.work).toBeGreaterThanOrEqual(row.width >= 1440 ? 760 : 660);
+    // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the
+    // window, ceilinged so the work pane keeps its >=560 px floor. 576 at 1280; at 1440 the
+    // ceiling binds, not the 45 %, so 610.
+    expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
+    expect(row.panes.work).toBeGreaterThanOrEqual(560);
   }
 
   const first = rows.find((r) => r.width === 1280 && r.theme === "light");

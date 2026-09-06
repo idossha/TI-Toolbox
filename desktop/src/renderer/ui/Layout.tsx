@@ -18,6 +18,7 @@ import { Popover } from "./Overlay";
 import { PageActivityContext, usePageActive } from "../app/pageActivity";
 import {
   clampPaneWidth,
+  paneLimitsForViewport,
   paneReducer,
   readPaneState,
   writePaneState,
@@ -444,8 +445,9 @@ export interface PaneControllerOptions {
   /** Storage key scope. Use the page's registry id (`"jobs"`, `"results"`). */
   pageId: string;
   name: string;
+  /** Floor. Defaults to 36 vw; Jobs and Results pass 320 to keep the narrower columns §2.1 pins. */
   minWidth?: number;
-  /** Stretch ceiling. Defaults to `max(880px, 68vw)` — see `PANE_MAX_VW`. */
+  /** Stretch ceiling. Defaults to 70 vw. */
   maxWidth?: number;
   /**
    * `false` while the page has nothing to put in the pane. The keyboard chords go quiet (a page
@@ -455,27 +457,36 @@ export interface PaneControllerOptions {
   enabled?: boolean;
 }
 
-export function usePaneController({
-  pageId,
-  name,
-  minWidth = 320,
-  maxWidth,
-  enabled = true,
-}: PaneControllerOptions): PaneController {
-  const active = usePageActive();
-  // The ceiling is a fraction of the WINDOW, not a constant: the old flat 880 px was a stretch of
-  // only ~150 px past a 730 px default on a 2000 px screen, which is not a gesture. 68 vw leaves
-  // the work pane a third of the window at full stretch, and the user has to drag there by hand.
-  const [viewport, setViewport] = useState<number>(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
+/**
+ * The window's width, tracked. The pane's limits are fractions of the window (DESIGN.md §2.1), so
+ * they have to answer a resize — a ceiling computed once at mount is a ceiling the user's next
+ * window resize invalidates.
+ */
+function useViewportWidth(): number {
+  const [width, setWidth] = useState<number>(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onResize = () => setViewport(window.innerWidth);
+    const onResize = () => setWidth(window.innerWidth);
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  const resolvedMax = maxWidth ?? Math.max(880, Math.round(viewport * PANE_MAX_VW));
-  const limits = useMemo<PaneLimits>(() => ({ min: minWidth, max: resolvedMax }), [minWidth, resolvedMax]);
+  return width;
+}
+
+export function usePaneController({
+  pageId,
+  name,
+  minWidth,
+  maxWidth,
+  enabled = true,
+}: PaneControllerOptions): PaneController {
+  const active = usePageActive();
+  const viewport = useViewportWidth();
+  const limits = useMemo<PaneLimits>(() => {
+    const vw = paneLimitsForViewport(viewport, minWidth);
+    return { min: vw.min, max: maxWidth ?? vw.max };
+  }, [viewport, minWidth, maxWidth]);
   const [state, dispatch] = useReducer(
     (current: PaneState, action: PaneAction) => paneReducer(current, action, limits),
     undefined,
@@ -577,12 +588,6 @@ export function usePaneController({
     restore: useCallback(() => dispatch({ type: "restore" }), [dispatch]),
   };
 }
-
-/**
- * The pane's stretch ceiling as a fraction of the window (DESIGN.md §2.1). Floored at the old flat
- * 880 px so no window ever gets a *smaller* range than it had before.
- */
-const PANE_MAX_VW = 0.68;
 
 /** Arrow-key step, and the coarse step with Shift held. */
 const PANE_STEP = 16;
@@ -793,8 +798,8 @@ export function PageLayout({
   rightPaneKind,
   rightPaneWidth,
   onRightPaneWidthChange,
-  rightPaneMinWidth = 320,
-  rightPaneMaxWidth = 560,
+  rightPaneMinWidth,
+  rightPaneMaxWidth,
   rightPaneCollapsible,
   rightPaneDefaultCollapsed = false,
   paneController,
@@ -864,8 +869,15 @@ export function PageLayout({
   // responsive default still applies — the controller does not freeze 490 px into local storage
   // just because a page mounted at 1280.
   const width = paneController ? (paneController.width ?? undefined) : (rightPaneWidth ?? inspectorWidth ?? draggedWidth ?? undefined);
-  const minWidth = rightPaneMinWidth ?? inspectorMinWidth ?? 320;
-  const maxWidth = rightPaneMaxWidth ?? inspectorMaxWidth ?? 560;
+  // THE defect the maintainer hit: Pre-processing and Source pass no `paneController`, so their
+  // divider is the legacy `InspectorHandle` below — and its ceiling was a flat 560 px, *narrower*
+  // than the run pane's own 36 vw default on a 2000 px screen. Dragging the pane wider therefore
+  // snapped it NARROWER and looked like "the pane cannot go past its default". Both paths now read
+  // the same window-relative limits (DESIGN.md §2.1).
+  const viewport = useViewportWidth();
+  const viewportLimits = paneLimitsForViewport(viewport, kind === "preview" ? 320 : undefined);
+  const minWidth = rightPaneMinWidth ?? inspectorMinWidth ?? viewportLimits.min;
+  const maxWidth = rightPaneMaxWidth ?? inspectorMaxWidth ?? viewportLimits.max;
 
   const main = (
     <div

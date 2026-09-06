@@ -72,7 +72,7 @@ above it**; the browser and embed shapes negate it.
 |---|---|---|
 | nav rail (icons below 1440; labels at ≥ 1440 — Q1, §9; program §0) | 56 | 216 |
 | content box | 1224 × 704 | 1224 × 804 |
-| **A** work pane / handle / run panel | 765 / 6 / **461** | 666 / 6 / **504** |
+| **A** work pane / handle / run panel | 610 / 6 / **576** | 560 / 6 / **610** |
 | **A** form grid columns | 1 or 2 (container ≥ 760 either size — see §4.2) | 2 (770 ≥ 760) |
 | **B** list / tree / preview | 200 / 534 / 490 | 200 / 534 / 490 |
 | **B** two-pane degenerate (Subjects, Jobs) | 1224 / 0 (no selection) | 1224 / 0 (no selection) |
@@ -82,7 +82,7 @@ The nav rail's 160 px of labels at ≥ 1440 is funded by the window's own 160 px
 (1440 − 1280), so the content box is **1224 px wide at both sizes** — every page but the run shape
 (A) sees identical horizontal room whether the window is 1280 or 1440 wide; only its height and
 `--page-pad` change. The run panel and page padding grow at 1440 (400 px / 24 px vs. 360 px / 16 px),
-which is why the work pane is *narrower* at 1440 (666) than at 1280 (765) despite the wider window.
+which is why the work pane is *narrower* at 1440 (560) than at 1280 (610) despite the wider window.
 
 The 760 px number is not arbitrary: it is the container width below which a label-left row
 (`--field-label-w` 160 + a 240 px control + gutter) stops being honest two-up (§4.2). With the work
@@ -92,19 +92,24 @@ rule, so the exact column count depends on each section's own padding chain; ver
 current `screens.spec.ts` capture rather than this table before relying on either count.
 
 - **Right-pane sizing.** The **run panel** (A: Pre-processing, Simulator, Optimizer, Analyzer,
-  Source) is a percentage of the *window*, not a fixed column: `clamp(320px, 36vw, calc(100% - 672px))`
-  — ~461 px at 1280, ~504 px at 1440, ~720 px at 2000. The PLAN grid and the TERMINAL are documents
-  like the Results preview, and the old fixed 360/400 px read as ~26 % of a wide window. The ceiling
-  is the ≥ 660 px work-pane floor of §12.3 (work = 100 % − 6 px handle − pane).
-- **Right-pane range.** Resizable **320 px to `max(880px, 68vw)`** by drag or arrow keys, collapsible
-  to a 16 px rail with `⌘⇧I`, expandable to the full content box, persisted per machine per page
-  kind under `tit-pane-v2-<pageId>` (the `v2` reset is what stops a width stored against the old
-  360/400 default from pinning a user to the narrow pane).
+  Source) is a fraction of the *window*, not a fixed column: `clamp(320px, 45vw, calc(100% - 566px))`
+  — 576 px at 1280, 610 px at 1440 (where the ceiling binds, not the 45 %), 900 px at 2000. The PLAN
+  grid and the TERMINAL are documents like the Results preview, and the old fixed 360/400 px read as
+  ~26 % of a wide window. The ceiling is the ≥ 560 px work-pane floor of §12.3
+  (work = 100 % − 6 px handle − pane).
+- **Right-pane range.** Resizable **36 vw to 70 vw** by drag or arrow keys — 461–896 at 1280,
+  518–1008 at 1440, 720–1400 at 2000 (measured) — collapsible to a 16 px rail with `⌘⇧I`, expandable
+  to the full content box, persisted per machine per page kind under `tit-pane-v3-<pageId>` (the
+  version bump is what stops a width stored against an older default from pinning a user to the
+  narrow pane). Both dividers read these limits: the `usePaneController` separator **and** the
+  legacy `InspectorHandle` a page without a controller gets. They must not diverge — a legacy
+  ceiling of 560 px, *below* the run pane's own default, is what made the pane snap narrower when
+  the user dragged it wider.
 - **Pages that pin a different default.** Jobs' detail column stays the fixed **360 below 1440 / 400
   at or above** (`rightPaneWidth`, a control column, not a document) and the Results preview stays
   `clamp(380px, 40%, 560px)` of the content box — both browse-shape (B) panes, both listed in the
-  table above. They share the primitive, its wider drag range and the `v2` key; only the run shape's
-  *default* changed.
+  table above. They pass `minWidth: 320` so their own floors survive; they share the primitive, the
+  70 vw ceiling and the `v3` key. Only the run shape's *default* and *floor* changed.
 - **Never an empty pane.** A right pane whose model is empty is not rendered and the work pane takes
   its width — Jobs with nothing selected is one full-width table, not a table plus 360 px of
   "Select a job". This is the U1 rule in its enforceable form.
@@ -1094,10 +1099,10 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 | page | dead space | panes at 1280 | first-screen Tier 1 |
 |---|---|---|---|
 | `subjects` | ≤ 25 % populated · ≤ 30 % with no row selected | nav 216 · work ≥ 704 · right 360 or **0** | n/a |
-| `preprocess` | ≤ 22 % | work ≥ 660 · right 360 | `hidden` empty |
-| `simulator` | ≤ 22 % | work ≥ 660 · right 360 | `hidden` empty |
-| `optimizer` | ≤ 22 % | work ≥ 660 · right 360 | `hidden` empty |
-| `analyzer` | ≤ 25 % | work ≥ 660 · right 360 | `hidden` empty |
+| `preprocess` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
+| `simulator` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
+| `optimizer` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
+| `analyzer` | ≤ 25 % | work ≥ 560 · right 576 | `hidden` empty |
 | `results` | ≤ 20 % | list 200 · tree ≥ 400 · preview 426 ± 8 | n/a |
 | `viewer` | ≤ 12 % | nav **56** · embed ≥ 1200 × ≥ 640 | n/a |
 | `jobs` | ≤ 25 % with history · ≤ 30 % empty | work ≥ 704 · right 360 or **0** | n/a |
