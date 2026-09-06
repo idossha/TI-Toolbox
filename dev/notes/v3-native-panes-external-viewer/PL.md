@@ -206,3 +206,34 @@ Per DESIGN.md §3.2/§3.3, now recorded as **§9.1.1–§9.1.4**:
    issues without it — the receipt then shows the errors and omits the chips and the "run
    independently" line rather than misreporting. The container in use during this lane was started
    before the change and still had the pre-change module in memory.
+
+## 8. Gate
+
+| Command | Where | Result |
+| --- | --- | --- |
+| `pnpm run typecheck` | `desktop/` | clean (both projects) |
+| `npx eslint src tests` | `desktop/` | **0 errors**, 3 warnings — all pre-existing `react-hooks/incompatible-library` on `ui/DataTable.tsx`, `ui/VirtualList.tsx`, `pages/preprocess/index.tsx` |
+| `npx vitest run` | `desktop/` | **90 files, 1048 tests passed** (was 949 before this program; +2 are this lane's token guard and its self-test, +1 the new node-summary test) |
+| `npx vitest run tests/mock-server` | `desktop/` | **33 passed** — the contract test asserts every declared path is exercised |
+| `pnpm run pree2e && npx playwright test pipeline-ux pipeline pipeline-shots smoke` | `desktop/` | **39 passed, 0 failed** (1.0 min), offscreen |
+| `python3 -m pytest tests/test_pipeline*.py -q` | root | **67 passed** |
+| `python3 -m pytest tests/ -q --ignore=tests/smoke` | root | **3590 passed, 47 skipped**, 1 failure in `tests/test_scene_guide.py` that is the scene lane's own (`c0fa0cc1`, "paint every region in its own atlas colour") and unrelated to this one |
+| `python3 dev/route_import_guard.py` | root | `20 route module(s) clean` |
+| `pnpm run build` | `desktop/` | `✓ built in 2.42s` |
+| real server (`TIT_E2E_SERVER_URL=http://127.0.0.1:8765`) | `desktop/` | `/api/jobs` idle first; `npx playwright test --project=real pipeline.spec.ts` — the page loads, `validate` binds the Analyzer's simulation to the Simulator's montage with no resolve step and `after: ["sim1:0"]`, and the 2-node sim → analyzer pipeline on `sub-ernie` submits as **one group** (sim `running`, analyzer `queued` behind it, confirmed on `/api/jobs`). Never two FEM sims at once |
+| screenshots | `desktop/tests/e2e/artifacts/` | `pipeline-before.png`, `pipeline-after.png`, both at 1440 |
+
+### A note on the shared worktree
+
+Three other lanes were editing this worktree throughout. Two things worth recording:
+
+1. A concurrent commit swept this lane's uncommitted `contracts/` and mock-server edits into its own
+   (`670822a8`, a Simulator commit). The content is right and on the branch; only the attribution is
+   wrong.
+2. Recovering from that, a `git checkout contracts/openapi.v1.json` in this lane dropped that same
+   commit's `/api/catalog/flex-runs/{run}/mapping` path from the JSON. Found and restored in
+   `d0904234` — the JSON now has it again, and `schema.d.ts` and the fixture were regenerated from
+   it. Worth knowing that `dev/build_contract.py` is **not** safe to run for a small edit here: a
+   full rebuild of `openapi.v1.json` from the current YAML produces ~560 lines of unrelated drift,
+   because the committed JSON is stale against the committed YAML + `schema.json`. Both of this
+   lane's schema additions were spliced in by hand instead.
