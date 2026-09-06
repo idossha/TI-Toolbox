@@ -438,7 +438,13 @@ function PipelineCanvas() {
   const actionBar = (
       <ActionBar
         primary={
-          <Button variant="primary" disabled={!runnable} onClick={() => run.mutate()} data-testid="pipeline-run">
+          <Button
+            variant="primary"
+            disabled={!runnable}
+            title={doc.nodes.length === 0 ? "Add a step to the pipeline." : (errors[0]?.message ?? undefined)}
+            onClick={() => run.mutate()}
+            data-testid="pipeline-run"
+          >
             <Play size={14} aria-hidden /> Run pipeline
           </Button>
         }

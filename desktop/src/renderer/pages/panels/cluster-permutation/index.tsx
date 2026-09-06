@@ -234,7 +234,15 @@ function ClusterPermutationPanel() {
           digest={digest}
           blocked={clientErrors.length > 0}
           primary={
-            <Button variant="primary" icon={<Play size={14} />} loading={submitting} onClick={handleRunClick} data-testid="run-button">
+            <Button
+              variant="primary"
+              icon={<Play size={14} />}
+              loading={submitting}
+              disabled={clientErrors.length > 0}
+              onClick={handleRunClick}
+              data-testid="run-button"
+              title={clientErrors[0] ?? undefined}
+            >
               Run analysis
             </Button>
           }
@@ -441,7 +449,6 @@ function ClusterPermutationPanel() {
             loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
             error={planQuery.error ? "Could not compute the plan." : undefined}
             serverErrors={serverErrors}
-            problems={clientErrors}
             idleMessage="Complete the analysis configuration above to see its plan."
           />
         </CardBody>

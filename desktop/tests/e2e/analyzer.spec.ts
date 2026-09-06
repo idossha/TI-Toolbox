@@ -78,8 +78,9 @@ test("shape A, no page header, no subject Select — the shared subject control 
   await expect(pane.getByTestId("job-terminal")).toBeVisible();
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
 
-  // §4.2 rule 8: the reason, not a dead button.
-  await expect(page.locator(".action-bar-digest")).toHaveText("Pick a simulation to analyze.");
+  // The disabled primary is the only signal that the run cannot start; the reason is its tooltip.
+  await expect(page.locator(".action-bar-digest")).toHaveCount(0);
+  await expect(page.getByTestId("run-button")).toBeDisabled();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Pick a simulation to analyze.");
 });
 
@@ -89,7 +90,7 @@ test("scope, space and target are segments, and the plan resolves once the targe
 
   await page.locator("#analyzer-simulation").click();
   await page.getByRole("option", { name: "Thalamus" }).first().click();
-  await expect(page.locator(".action-bar-digest")).toHaveText("Complete the target before running.");
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Complete the target before running.");
 
   // Spherical target: the fixture's Thalamus coordinates.
   await page.getByLabel("Sphere 1 X").fill("-10");

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Waves, Play, Info } from "lucide-react";
+import { Waves, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
@@ -12,9 +12,9 @@ import { Field } from "../../../ui/Field";
 import { Select } from "../../../ui/Select";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Checkbox } from "../../../ui/Toggle";
-import { Button, IconButton } from "../../../ui/Button";
+import { Button } from "../../../ui/Button";
 import { EmptyState } from "../../../ui/Feedback";
-import { AlertDialog, Tooltip } from "../../../ui/Overlay";
+import { AlertDialog } from "../../../ui/Overlay";
 import { notify } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
@@ -126,6 +126,13 @@ function SourcePanel() {
   const forwardConfig: SourceConfig | null =
     selected.length > 0 && net ? buildForwardConfig({ subjectIds: selected, eegNet: net, fsaverageSpacing: Number(fwdSpacing), cpus: cpus ?? 1, overwrite: false }) : null;
 
+  /** The one signal that this run cannot start: the disabled button, with this as its tooltip. */
+  const forwardBlocked = forwardConfig
+    ? null
+    : selected.length === 0
+      ? "Select at least one subject first."
+      : "No EEG net available for the selected subject.";
+
   function handleForwardClick() {
     if (!forwardConfig) {
       notify.error(selected.length === 0 ? "Select at least one subject first." : "No EEG net available for the selected subject.");
@@ -164,6 +171,12 @@ function SourcePanel() {
 
   const fsavgConfig: SourceConfig | null =
     pairs.length > 0 && fields.length > 0 ? buildFsavgConfig({ pairs, fields, fsaverageSpacing: Number(fsavgSpacing), workers: workers ?? 1, overwrite: false }) : null;
+
+  const fsavgBlocked = fsavgConfig
+    ? null
+    : pairs.length === 0
+      ? "Select at least one subject with a simulation."
+      : "Pick at least one field to project.";
 
   function handleFsavgClick() {
     if (!fsavgConfig) {
@@ -211,11 +224,6 @@ function SourcePanel() {
             defaultOpen
             fill
             loading={subjectsQuery.isPending}
-            help={
-              <Tooltip label="Build EEG forward solutions and map simulation fields to fsaverage.">
-                <IconButton icon={<Info size={13} />} aria-label="About this page" variant="ghost" size="sm" />
-              </Tooltip>
-            }
           />
           {subjectsQuery.data && subjectsWithModel.length === 0 && (
             <EmptyState icon={<Waves size={24} />} message="No subjects with a head model yet." actionLabel="Run pre-processing" onAction={() => navigate("/preprocess")} />
@@ -242,7 +250,7 @@ function SourcePanel() {
                     <NumberInput id="source-fwd-cpus" value={cpus} onValueChange={setCpus} min={1} step={1} />
                   </Field>
                   <SourcePlan config={forwardConfig} subjectIds={selected} />
-                  <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fwdRunning} onClick={handleForwardClick} disabled={selected.length === 0}>
+                  <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fwdRunning} onClick={handleForwardClick} disabled={!!forwardBlocked} title={forwardBlocked ?? undefined}>
                     Build forward
                   </Button>
                 </div>
@@ -283,7 +291,7 @@ function SourcePanel() {
                     <NumberInput id="source-fsavg-workers" value={workers} onValueChange={setWorkers} min={1} step={1} />
                   </Field>
                   <SourcePlan config={fsavgConfig} subjectIds={pairs.map((p) => p.subject_id)} />
-                  <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fsavgRunning} onClick={handleFsavgClick} disabled={selected.length === 0}>
+                  <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fsavgRunning} onClick={handleFsavgClick} disabled={!!fsavgBlocked} title={fsavgBlocked ?? undefined}>
                     Map to fsaverage
                   </Button>
                 </div>

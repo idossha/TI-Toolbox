@@ -576,7 +576,14 @@ function OptimizerPage() {
           digest={digest}
           blocked={!!blockedReason}
           primary={
-            <Button variant="primary" loading={submit.isPending} onClick={handleRunClick} data-testid="run-button" title={blockedReason ?? undefined}>
+            <Button
+              variant="primary"
+              loading={submit.isPending}
+              disabled={!!blockedReason}
+              onClick={handleRunClick}
+              data-testid="run-button"
+              title={blockedReason ?? undefined}
+            >
               {runLabel}
             </Button>
           }

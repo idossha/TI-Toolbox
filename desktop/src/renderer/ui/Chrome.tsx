@@ -58,12 +58,15 @@ export function CrumbSeparator() {
 
 export interface ActionBarProps {
   /**
-   * The plan's one-line digest: "2 jobs · 8 CPU · 16 GB · 1 overwrite". When the plan cannot be
-   * resolved this reads the blocking reason instead ("Pick a subject and an ROI") — never a
-   * silently disabled button.
+   * The plan's one-line digest: "2 jobs · 8 CPU · 16 GB · 1 overwrite". Shown only while the run
+   * is startable — when it is not, the digest is **not** rendered at all.
    */
   digest?: ReactNode;
-  /** Renders the digest in `--warning`: the plan is blocked, not merely empty. */
+  /**
+   * The plan cannot be resolved. The bar then prints no digest: the single signal that a run
+   * cannot start is the primary itself — disabled, in the disabled treatment, with the reason as
+   * its `title` (maintainer call, 2026-09; supersedes the older "never a silent disabled button").
+   */
   blocked?: boolean;
   /** Problem count, shown as a chip. Clicking it jumps to the first problem. */
   warningCount?: number;
@@ -94,11 +97,8 @@ export function ActionBar({
 }: ActionBarProps) {
   return (
     <div className={cn("action-bar", className)}>
-      {digest !== undefined && (
-        <span
-          className={cn("action-bar-digest", blocked && "action-bar-digest-blocked")}
-          title={typeof digest === "string" ? digest : undefined}
-        >
+      {digest !== undefined && !blocked && (
+        <span className="action-bar-digest" title={typeof digest === "string" ? digest : undefined}>
           {digest}
         </span>
       )}

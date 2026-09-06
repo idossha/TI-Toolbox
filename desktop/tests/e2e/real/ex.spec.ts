@@ -185,7 +185,7 @@ test("a second subject is planned as its own row, and blocks the run by name whe
   await expect(page.locator('[data-testid^="plan-cell-101-"]').first()).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('[data-testid^="plan-cell-ernie-"]').first()).toBeVisible();
 
-  // …and the run is blocked by a sentence that names the subject that cannot run.
-  await expect(page.locator(".action-bar-digest")).toContainText("101", { timeout: 15_000 });
+  // …and the run is blocked: the primary is disabled, its tooltip naming the subject that cannot run.
+  await expect(page.getByTestId("run-button")).toBeDisabled({ timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /101/);
 });

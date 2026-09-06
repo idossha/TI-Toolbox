@@ -81,7 +81,9 @@ for (const theme of ["light", "dark"] as const) {
         const firstSection = element.querySelector(".form-section")!;
         const bar = element.querySelector(".action-bar")!.getBoundingClientRect();
         const button = element.querySelector('[data-testid="run-button"]')!.getBoundingClientRect();
-        const digest = element.querySelector(".action-bar-digest")!.getBoundingClientRect();
+        // The digest is absent while a run is blocked (the disabled primary carries the reason),
+        // so it is measured only when it is there.
+        const digest = element.querySelector(".action-bar-digest")?.getBoundingClientRect() ?? null;
         const pane = element.getBoundingClientRect();
         return {
           subjectsFirst: !!(subject.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -90,7 +92,7 @@ for (const theme of ["light", "dark"] as const) {
           primaryRight: button.right,
           paneRight: pane.right,
           primaryLeft: button.left,
-          digestRight: digest.right,
+          digestRight: digest ? digest.right : null,
           overlap: button.bottom > bar.bottom || button.top < bar.top,
           overflow: element.scrollWidth - element.clientWidth,
         };
@@ -100,7 +102,7 @@ for (const theme of ["light", "dark"] as const) {
       expect(geometry.primaryHeight, id).toBe(32);
       expect(geometry.actionHeight, id).toBeGreaterThanOrEqual(44);
       expect(geometry.primaryRight, id).toBeLessThan(geometry.paneRight);
-      expect(geometry.digestRight, id).toBeLessThan(geometry.primaryLeft);
+      if (geometry.digestRight !== null) expect(geometry.digestRight, id).toBeLessThan(geometry.primaryLeft);
       expect(geometry.overlap, id).toBe(false);
       expect(geometry.overflow, id).toBe(0);
     }

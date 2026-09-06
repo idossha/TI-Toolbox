@@ -26,6 +26,16 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* A disabled action is the ONLY signal that a run cannot start (DESIGN.md §4.4, §5), so it has to
+   read as a different control, not as a dimmed copy of the enabled one: flat surface, hairline,
+   `--ink-3` (the token reserved for placeholders and disabled). `aria-busy` buttons keep the plain
+   dimming — a loading primary must still look like the primary that was pressed. */
+.btn:disabled:not([aria-busy="true"]):not(.btn-ghost) {
+  opacity: 1;
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
 .btn-sm {
   height: var(--control-height-sm);
   padding: 0 var(--space-2);
@@ -1969,6 +1979,16 @@ kbd.kbd {
 .page-layout-run .page-layout-body {
   gap: 0;
 }
+/* The run shape's default pane width (§2.1). The maintainer measured the old fixed 360/400 px
+ * column at ~26 % of a 2000 px window and asked for a pane "thicker by default", ~36-37 %: the
+ * PLAN grid and the TERMINAL are documents, not a control column, so the pane scales with the
+ * window like the Results preview does rather than sitting at a fixed px. `vw` (not `%`) because
+ * the ask is a fraction of the WINDOW; the ceiling keeps the work pane at the >=660 px floor
+ * §12.3 states (work = 100% - 6 px handle - pane, so 672 px of reserve is 666 px of work).
+ * `:not([data-pane-width])` so a dragged width and the expanded state still win. */
+.page-layout-run .page-layout-panel:not([data-pane-width]) {
+  width: clamp(320px, 36vw, calc(100% - 672px));
+}
 /* The handle is 6px of grab strip with a 1px rule inside it, which leaves the pane's own content
  * about 4px from that rule — measured on `preprocess-dark-1280x800.png`, round 2. The gutter
  * belongs to the pane (shell furniture), not to whatever a page renders inside it, so it is
@@ -2191,11 +2211,6 @@ kbd.kbd {
   font-size: 12px;
   line-height: 16px;
   color: var(--ink-2);
-}
-.action-bar-digest-blocked {
-  color: var(--warning);
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 .action-bar-warnings {
   flex: none;

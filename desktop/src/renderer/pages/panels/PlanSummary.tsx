@@ -16,7 +16,6 @@ export function PlanSummary({
   error,
   idleMessage = "Configure the run to see its plan.",
   serverErrors = [],
-  problems = [],
 }: {
   plan: PlanResult | null | undefined;
   loading: boolean;
@@ -25,23 +24,9 @@ export function PlanSummary({
   idleMessage?: string;
   /** `/api/validate/{kind}` field errors — shown above the plan, not by disabling Run (DESIGN.md §6.3). */
   serverErrors?: string[];
-  /**
-   * What the page still needs before it can run, in full. The action bar prints the FIRST of these
-   * as its digest (`panelDigest`); the whole list belongs here, beside the plan it is blocking —
-   * the same division of labour the run pages have between their action bar and their PlanGrid.
-   */
-  problems?: string[];
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      {problems.length > 0 && (
-        <Callout kind="info">
-          {problems.map((e) => (
-            <div key={e}>{e}</div>
-          ))}
-        </Callout>
-      )}
-
       {serverErrors.length > 0 && (
         <Callout kind="danger">
           {serverErrors.map((e) => (

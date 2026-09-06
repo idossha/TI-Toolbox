@@ -72,7 +72,7 @@ above it**; the browser and embed shapes negate it.
 |---|---|---|
 | nav rail (icons below 1440; labels at ≥ 1440 — Q1, §9; program §0) | 56 | 216 |
 | content box | 1224 × 704 | 1224 × 804 |
-| **A** work pane / handle / run panel | 826 / 6 / **360** | 770 / 6 / **400** |
+| **A** work pane / handle / run panel | 765 / 6 / **461** | 666 / 6 / **504** |
 | **A** form grid columns | 1 or 2 (container ≥ 760 either size — see §4.2) | 2 (770 ≥ 760) |
 | **B** list / tree / preview | 200 / 534 / 490 | 200 / 534 / 490 |
 | **B** two-pane degenerate (Subjects, Jobs) | 1224 / 0 (no selection) | 1224 / 0 (no selection) |
@@ -82,7 +82,7 @@ The nav rail's 160 px of labels at ≥ 1440 is funded by the window's own 160 px
 (1440 − 1280), so the content box is **1224 px wide at both sizes** — every page but the run shape
 (A) sees identical horizontal room whether the window is 1280 or 1440 wide; only its height and
 `--page-pad` change. The run panel and page padding grow at 1440 (400 px / 24 px vs. 360 px / 16 px),
-which is why the work pane is *narrower* at 1440 (770) than at 1280 (826) despite the wider window.
+which is why the work pane is *narrower* at 1440 (666) than at 1280 (765) despite the wider window.
 
 The 760 px number is not arbitrary: it is the container width below which a label-left row
 (`--field-label-w` 160 + a 240 px control + gutter) stops being honest two-up (§4.2). With the work
@@ -91,10 +91,20 @@ already clear 760 px at 1280 as well as 1440 — this is a **container** query, 
 rule, so the exact column count depends on each section's own padding chain; verify against a
 current `screens.spec.ts` capture rather than this table before relying on either count.
 
-- **Right-pane sizing.** `rightPaneWidth` defaults to 360 below 1440 and 400 at or above it,
-  resizable 320–560, collapsible with `⌘⇧I`, persisted per machine per page kind. The Results
-  preview is a percentage (40 % of the content box, floor 380, ceiling 560) because its content is a
-  document, not a fixed control column.
+- **Right-pane sizing.** The **run panel** (A: Pre-processing, Simulator, Optimizer, Analyzer,
+  Source) is a percentage of the *window*, not a fixed column: `clamp(320px, 36vw, calc(100% - 672px))`
+  — ~461 px at 1280, ~504 px at 1440, ~720 px at 2000. The PLAN grid and the TERMINAL are documents
+  like the Results preview, and the old fixed 360/400 px read as ~26 % of a wide window. The ceiling
+  is the ≥ 660 px work-pane floor of §12.3 (work = 100 % − 6 px handle − pane).
+- **Right-pane range.** Resizable **320 px to `max(880px, 68vw)`** by drag or arrow keys, collapsible
+  to a 16 px rail with `⌘⇧I`, expandable to the full content box, persisted per machine per page
+  kind under `tit-pane-v2-<pageId>` (the `v2` reset is what stops a width stored against the old
+  360/400 default from pinning a user to the narrow pane).
+- **Pages that pin a different default.** Jobs' detail column stays the fixed **360 below 1440 / 400
+  at or above** (`rightPaneWidth`, a control column, not a document) and the Results preview stays
+  `clamp(380px, 40%, 560px)` of the content box — both browse-shape (B) panes, both listed in the
+  table above. They share the primitive, its wider drag range and the `v2` key; only the run shape's
+  *default* changed.
 - **Never an empty pane.** A right pane whose model is empty is not rendered and the work pane takes
   its width — Jobs with nothing selected is one full-width table, not a table plus 360 px of
   "Select a job". This is the U1 rule in its enforceable form.
@@ -122,8 +132,8 @@ current `screens.spec.ts` capture rather than this table before relying on eithe
   Subjects section is the first to have one) — scope is chosen where the work is, not in a rail.
   `dev/notes/v3-pipelines-program.md` §6 U11 is the record of the decision.
 - **The action bar owns commitment.** 44 px at the bottom of the *work pane*, on shape A only.
-  Left: the plan digest (`planDigest(plan)`, §4.5) and, when the run is blocked, the reason (L3 —
-  a disabled button always says why, and it names the subject). Right: at most one secondary and
+  Left: the plan digest (`planDigest(plan)`, §4.5), shown only while the run can start — when it is
+  blocked the bar prints nothing and the disabled primary carries the reason as its tooltip (L3). Right: at most one secondary and
   exactly one primary, labelled from the plan. `⌘⏎` fires it from anywhere on the page.
   **It reserves its own height**: the work pane is not the scroller — its scroll child
   (`.page-layout-main-scroll`, `[data-page-work-scroll]`) is — so the bar is a `flex: none` sibling
@@ -501,9 +511,11 @@ model:
 
 `jobs`, `cpus` and `memoryGb` come from the stats strip; `overwrites` counts cells resolving to
 `overwrite`, `waits` counts `lock_conflicts`. When `jobs === 0` the digest is the plan's
-`blockedReason` instead ("Select at least one montage.") and the primary is disabled **with that
-string as its tooltip** — never a silent disabled button. The digest and the strip cannot disagree
-because they read one object.
+`blockedReason` — but that string is **not printed anywhere**: the digest and the receipt are both
+suppressed, and the single signal that a run cannot start is the primary itself, `disabled`, in the
+disabled treatment (§5), **with that string as its tooltip** (maintainer call, 2026-09; supersedes
+the earlier "never a silent disabled button"). The digest and the strip cannot disagree because they
+read one object.
 
 ### 4.6 Terminal
 
@@ -677,8 +689,10 @@ The exact props, file paths and "must keep working" lists for every v3 addition 
 
 
 **Buttons.** `primary` (accent fill), `secondary` (surface + `--line`), `ghost`, `destructive`.
-States: hover, active, focus-visible ring, disabled, **loading** (spinner replaces the icon, label
-and width stay). Sizes sm/md/lg = 24/28/32. `IconButton` requires `aria-label`. Primary actions are
+States: hover, active, focus-visible ring, **disabled** (not a dimmed copy of the enabled control:
+flat `--surface-2`, `--line` hairline, `--ink-3` label, `cursor: not-allowed` — it is the only
+signal that an action is unavailable, so it must read as a different control), **loading** (spinner
+replaces the icon, label and width stay — a busy primary keeps its accent fill). Sizes sm/md/lg = 24/28/32. `IconButton` requires `aria-label`. Primary actions are
 verbs: "Run simulation", "Queue 3 jobs", "Stop", "Save montage".
 
 **Status.** `StatusDot`, `Chip` (kinds neutral/accent/success/warning/danger/field/lost, optional

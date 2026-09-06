@@ -334,9 +334,9 @@ describe("ActionBar / StatusBar / RefetchBar", () => {
     expect(onWarningsClick).toHaveBeenCalled();
   });
 
-  it("a blocked plan states the reason instead of showing a silently disabled button", () => {
+  it("a blocked plan prints no digest — the disabled primary is the only signal", () => {
     render(<ActionBar digest="Pick a subject and an ROI" blocked primary={<button type="button">Run</button>} />);
-    expect(container.querySelector(".action-bar-digest")!.className).toContain("action-bar-digest-blocked");
+    expect(container.querySelector(".action-bar-digest")).toBeNull();
   });
 
   it("the problem chip is hidden at zero, and singular/plural is correct", () => {

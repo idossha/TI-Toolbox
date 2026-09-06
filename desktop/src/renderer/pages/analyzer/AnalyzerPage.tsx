@@ -25,10 +25,8 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { Combobox } from "../../ui/Combobox";
-import { Button, IconButton } from "../../ui/Button";
-import { Popover } from "../../ui/Overlay";
+import { Button } from "../../ui/Button";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
-import { Info } from "lucide-react";
 import { notify } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
@@ -406,7 +404,14 @@ export function AnalyzerPage() {
           digest={digest}
           blocked={!!blockedReason}
           primary={
-            <Button variant="primary" loading={running} onClick={handleRunClick} data-testid="run-button" title={blockedReason ?? undefined}>
+            <Button
+              variant="primary"
+              loading={running}
+              disabled={!!blockedReason}
+              onClick={handleRunClick}
+              data-testid="run-button"
+              title={blockedReason ?? undefined}
+            >
               {runLabel}
             </Button>
           }
@@ -437,14 +442,6 @@ export function AnalyzerPage() {
                job over the whole cohort and a single-subject analysis is one job, so there is
                nothing to run N-at-a-time. */
             defaultOpen
-            help={
-              <Popover trigger={<IconButton aria-label="About subject selection" icon={<Info size={13} />} variant="ghost" size="sm" />}>
-                <div style={{ maxWidth: 320 }} className="text-dense">
-                  Subject scope analyzes one subject; Group scope analyzes every ticked one as a single job. A subject
-                  that has not run the chosen simulation cannot be analyzed.
-                </div>
-              </Popover>
-            }
           />
         </div>
 

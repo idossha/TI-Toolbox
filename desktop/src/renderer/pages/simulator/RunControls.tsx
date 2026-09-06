@@ -186,6 +186,7 @@ export function RunButton({
         icon={<Play size={14} />}
         loading={submitting}
         onClick={handleRun}
+        disabled={!!plan.blockedReason}
         data-testid="run-button"
         title={plan.blockedReason ?? undefined}
       >

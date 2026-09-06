@@ -73,13 +73,13 @@ test("shape A, no page header, and the shared subject control (J1)", async () =>
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
 });
 
-test("with nothing ticked the digest states the reason and the primary carries it as a tooltip", async () => {
-  await expect(page.locator(".action-bar-digest")).toHaveText("Select at least one montage.");
-  // §4.2 rule 8: enabled, with the reason on it — never a silent disabled button.
+test("with nothing ticked the primary is disabled, with the reason as its tooltip and no banner", async () => {
+  // The disabled button is the ONLY signal: no digest line, no receipt callout (maintainer call).
+  await expect(page.locator(".action-bar-digest")).toHaveCount(0);
+  await expect(page.getByTestId("run-receipt")).toHaveCount(0);
   const run = page.getByTestId("run-button");
-  await expect(run).toBeEnabled();
+  await expect(run).toBeDisabled();
   await expect(run).toHaveAttribute("title", "Select at least one montage.");
-  await expect(page.getByTestId("plan-grid")).toContainText("Select at least one montage.");
 });
 
 test("ticking a montage builds a subject x montage matrix and a derived digest", async () => {
@@ -108,7 +108,7 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   // rather than additive on top of whatever state the suite left behind.
   const firstRow = page.locator(".data-table tbody tr").first();
   await firstRow.getByRole("checkbox").click();
-  await expect(page.locator(".action-bar-digest")).toHaveText("Select at least one montage.");
+  await expect(page.getByTestId("run-button")).toBeDisabled();
 
   // Tick a second subject in this page's own Subjects table (U16) — ernie is already ticked
   // (seeded from the context bar's primary subject in `beforeAll`); the previous test left the

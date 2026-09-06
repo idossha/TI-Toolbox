@@ -132,6 +132,10 @@ export function Receipt({
 }) {
   const [open, setOpen] = usePageSession("receipt.open", defaultOpen);
   const receipt = receiptFrom(plan);
+  // Nothing to confirm, and no banner explaining why: when the configuration is incomplete the one
+  // signal is the disabled primary with its `title` (maintainer call, 2026-09). A receipt that
+  // printed the blocking sentence was the second of three places saying the same thing.
+  if (plan?.blockedReason || (!plan && blockedReason)) return null;
   const shown = receipt.rows.slice(0, SHOWN);
   const more = receipt.rows.length - shown.length;
   const existingLine = receiptExistingLine(receipt, policy);
