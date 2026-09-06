@@ -90,7 +90,9 @@ async function connect(target: Page): Promise<void> {
   await target.fill("#token", TOKEN);
   await target.click("#connect");
   await expect(target).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
-  await expect(target.getByTestId("subjects-table")).toBeVisible({ timeout: 20_000 });
+  // `nav-rail`, not the old `subjects-table`: the Overview's subject table was replaced during
+  // the 2026-09 UI work, and this helper only needs to know the shell is up.
+  await expect(target.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
 }
 
 async function openGalleryScene(target: Page): Promise<void> {

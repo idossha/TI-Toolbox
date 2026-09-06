@@ -48,11 +48,17 @@ async function readScene(): Promise<PaneScene> {
   });
 }
 
-/** The canvas's box, re-read after any scroll: `boundingBox` is viewport-relative and a stale one
- *  puts every synthetic click somewhere else entirely. */
+/**
+ * The ACTIVE page's canvas box, re-read after any scroll.
+ *
+ * Scoped to `[data-page-active="true"]` because the app retains a mounted panel per page: three
+ * panes are alive at once, and an unscoped `getByTestId("scene-canvas")` resolves to the hidden
+ * 1x1 one as readily as to the one on screen. `boundingBox` is viewport-relative, so a stale one
+ * puts every synthetic click somewhere else entirely.
+ */
 async function canvasBox(): Promise<{ x: number; y: number; width: number; height: number }> {
-  const box = await page.getByTestId("scene-canvas").boundingBox();
-  if (!box) throw new Error("the scene canvas has no bounding box");
+  const box = await page.locator('[data-page-active="true"]').getByTestId("scene-canvas").boundingBox();
+  if (!box) throw new Error("the active page has no scene canvas");
   return box;
 }
 
@@ -124,10 +130,10 @@ test.afterAll(async () => {
 
 test("the pane draws the packaged guide with our own renderer — no iframe anywhere", async () => {
   await expectRunPaneTab(page, "scene");
-  const host = page.getByTestId("scene-pane-host");
+  const host = page.locator('[data-page-panel="simulator"]').getByTestId("scene-pane-host");
   await expect(host).toHaveAttribute("data-renderer", "native");
   await expect(host).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
-  await expect(page.getByTestId("scene-canvas")).toBeVisible();
+  await expect(page.locator('[data-page-active="true"]').getByTestId("scene-canvas")).toBeVisible();
   // N4: the pane is our code end to end. An iframe here is the embed coming back.
   await expect(page.locator("iframe")).toHaveCount(0);
 

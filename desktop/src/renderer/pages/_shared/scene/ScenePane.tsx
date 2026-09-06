@@ -36,6 +36,7 @@ import {
   type ScenePart,
   type SceneSelection,
 } from "../../../scene";
+import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
 import { Select } from "../../../ui/Select";
@@ -172,6 +173,9 @@ export function ScenePane({
   showing = null,
   className,
 }: ScenePaneProps) {
+  // Three panes are mounted at once (one per retained run page). Only the visible one publishes the
+  // `window.__scene` / `window.__scenePane` handles, so a spec never reads a hidden pane's state.
+  const pageActive = usePageActive();
   const gesture: SceneGesture = mode === "montage" ? "electrode" : onRegionsChange ? "region" : "none";
 
   const manifest = useGuideManifest();
@@ -444,7 +448,7 @@ export function ScenePane({
 
   // ---- the debug handle ----------------------------------------------------------------------
   useEffect(() => {
-    if (!SCENE_DEBUG) return;
+    if (!SCENE_DEBUG || !pageActive) return;
     const handle: ScenePaneDebug = {
       mode,
       gesture,
@@ -475,7 +479,7 @@ export function ScenePane({
     return () => {
       if (window.__scenePane === handle) delete window.__scenePane;
     };
-  }, [mode, gesture, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
+  }, [pageActive, mode, gesture, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
 
   const atlasOptions = useMemo(
     () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: String(entry.id) })),
@@ -521,6 +525,7 @@ export function ScenePane({
             markers={markers}
             /* Electrodes lie on the scalp, so the scalp hides the ones round the back. */
             markersOccluded
+            publishDebugHandle={pageActive}
             selection={selection}
             onPick={onPick}
             onHoverChange={onHoverChange}

@@ -14,6 +14,7 @@ import { createAndSelectMontage, deleteMontage } from "./_simMontage";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "real";
+const SUBJECT = "101";
 const NET = "BioSemi-128-A1.csv";
 const TI_NAME = `smoke-ui-${RUN_ID}-shape-ti`;
 const MTI_NAME = `smoke-ui-${RUN_ID}-shape-mti`;
@@ -34,7 +35,7 @@ test.beforeAll(async () => {
     if (body?.config) planned.push(body.config);
   });
   await connectReal(page, { url: SERVER_URL, token: TOKEN });
-  await selectSubject(page, "101");
+  await selectSubject(page, SUBJECT);
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
 });
@@ -57,6 +58,7 @@ function lastConfigFor(name: string): Record<string, unknown> {
 test("a uni-polar montage plans as a 2-pair, 2-current SimulationConfig", async () => {
   test.setTimeout(180_000);
   await createAndSelectMontage(page, {
+    subject: SUBJECT,
     net: NET,
     name: TI_NAME,
     pairs: [
@@ -98,8 +100,12 @@ test("a uni-polar montage plans as a 2-pair, 2-current SimulationConfig", async 
 
 test("a multi-polar montage plans as a 4-pair, 4-current SimulationConfig", async () => {
   test.setTimeout(180_000);
-  for (const button of await page.getByRole("button", { name: /^Remove row / }).all()) await button.click().catch(() => undefined);
+  // Reuse the one seeded job row rather than leaving the TI job in the table beside it.
+  for (const button of (await page.getByRole("button", { name: /^Remove job / }).all()).slice(1)) {
+    await button.click().catch(() => undefined);
+  }
   await createAndSelectMontage(page, {
+    subject: SUBJECT,
     net: NET,
     name: MTI_NAME,
     pairs: [

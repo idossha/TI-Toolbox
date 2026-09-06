@@ -7,13 +7,19 @@
  * Why this needs the real project and not the mock: the failure was in the *shape of the data*.
  * Every one of `sub-ernie`'s flex runs writes a `flex_meta.json` with no electrodes in it at all —
  * so the tab's `manifest.electrodes` read came back empty for every row and disabled every
- * checkbox. A fixture can be written to have any shape; only the real derivatives prove the tab
+ * checkbox. A fixture can be written to have any shape; only the real derivatives prove the page
  * reads what flex-search actually produces.
+ *
+ * Since the 2026-09-06 jobs rework there is no flex *tab* and no checkbox: a job row picks
+ * `Flex result` in its own Source cell and the run in its Montage cell. The claim is the same —
+ * every real run must be offered and must resolve to electrodes — so it is asserted on the run
+ * options the cell lists and on the row each of them makes runnable.
  *
  * Reads and plans only — no job is submitted, so nothing is written to the project.
  */
 import { expect, test } from "@playwright/test";
 import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_helpers";
+import { jobRows, setJobMontage, setJobSource, setJobSubject } from "../_jobs";
 
 test("every real flex-search run is selectable, and a ticked one plans a job", async () => {
   test.setTimeout(120_000);
@@ -25,29 +31,33 @@ test("every real flex-search run is selectable, and a ticked one plans a job", a
     await selectSubject(page, process.env.TIT_E2E_SUBJECT ?? "ernie");
     await gotoPage(page, "simulator");
 
-    await page.getByRole("radiogroup", { name: "Montage source" }).getByRole("radio", { name: "Flex result", exact: true }).click();
+    const row = jobRows(page).first();
+    await setJobSubject(page, row, process.env.TIT_E2E_SUBJECT ?? "ernie");
+    await setJobSource(page, row, "Flex result");
 
-    const rows = page.getByTestId("flex-run-row");
-    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
-    const count = await rows.count();
-    expect(count, "sub-ernie has flex-search runs under derivatives/SimNIBS").toBeGreaterThan(0);
+    // Every run the catalog knows is offered in the row's Montage cell.
+    await row.locator('td[data-cell="montage"]').getByRole("combobox").click();
+    const options = page.getByRole("option");
+    await expect(options.first()).toBeVisible({ timeout: 30_000 });
+    const runs = await options.allTextContents();
+    expect(runs.length, "sub-ernie has flex-search runs under derivatives/SimNIBS").toBeGreaterThan(0);
+    await page.keyboard.press("Escape");
 
-    // The defect, stated as an assertion: not one row was clickable.
-    for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i).getByRole("checkbox"), `row ${i} must be selectable`).toBeEnabled();
+    // The defect, stated as an assertion: not one run resolved to electrodes, so no row could ever
+    // become a job. Each is checked in turn, in the one row.
+    for (const name of runs) {
+      await setJobMontage(page, row, name);
+      await expect(row, `run ${name} must resolve to electrodes`).toHaveAttribute("data-runnable", "true");
     }
 
-    const first = rows.first();
-    await first.getByRole("checkbox").click();
-    await expect(first.getByRole("checkbox")).toBeChecked();
-
-    // It reaches the plan as exactly one job — the server resolving the run a second time from
-    // `montage_sources` used to make it two.
+    // And the last one reaches the plan as exactly one job — the server resolving the run a second
+    // time from `montage_sources` used to make it two.
     await expect(page.locator('[data-testid^="plan-cell-"]').first()).toBeVisible({ timeout: 30_000 });
     await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 30_000 });
     await expect(page.getByTestId("run-button")).toBeEnabled();
+    const count = runs.length;
 
-    console.log(`REAL-FLEX: ${count} flex runs, all selectable, one ticked run plans one job`);
+    console.log(`REAL-FLEX: ${count} flex runs, all resolvable, one selected run plans one job`);
   } finally {
     await app.close();
   }

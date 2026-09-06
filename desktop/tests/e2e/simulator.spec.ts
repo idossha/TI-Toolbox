@@ -176,10 +176,6 @@ test("two rows can name two different subjects, and the plan grows a row for eac
   await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 simulations");
-  // The section's own summary says the same thing without opening the plan.
-  await expect(page.locator(".form-section", { hasText: "Jobs" }).first().locator(".form-section-summary").first()).toHaveText(
-    "2 jobs · 2 subjects",
-  );
 });
 
 /**

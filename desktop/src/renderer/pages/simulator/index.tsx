@@ -176,7 +176,9 @@ function SimulatorPage() {
       params={params}
       plan={plan}
       parallelSubjects={parallelSubjects}
-      onSubmitted={() => setRows([])}
+      /* 2.5.0 kept its job cards after a run, and so does the table: the rows are what the user
+         built, and a queued batch is very often the thing you then tweak and run again. */
+      onSubmitted={() => undefined}
       label={runLabelFor(runnableRows.length)}
     />
   );

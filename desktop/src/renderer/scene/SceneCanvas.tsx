@@ -175,6 +175,15 @@ export interface SceneCanvasProps {
    * hit and not where.
    */
   onHoverChange?: (target: PickTarget | null) => void;
+  /**
+   * Whether THIS canvas publishes `window.__scene`. Default `true`.
+   *
+   * The app retains a mounted panel per page, so three panes can be alive at once and the last one
+   * to run its effect wins the single global handle — measured: a spec on the Optimizer read the
+   * Simulator's hidden 1x1 canvas. The caller says which one is on screen; a canvas that is not
+   * publishes nothing rather than racing for the name.
+   */
+  publishDebugHandle?: boolean;
   /** Scene bounds; computed from the parts when omitted. */
   bounds?: Bounds;
   /**
@@ -220,6 +229,7 @@ export function SceneCanvas({
   onPick,
   onPickAt,
   onHoverChange,
+  publishDebugHandle = true,
   bounds,
   focus,
   legend,
@@ -785,7 +795,7 @@ export function SceneCanvas({
 
   // --- the dev/e2e handle ---------------------------------------------------------------------
   useEffect(() => {
-    if (!SCENE_DEBUG) return;
+    if (!SCENE_DEBUG || !publishDebugHandle) return;
     const handle: SceneDebugHandle = {
       get ready() {
         return sceneRef.current !== null && cameraRef.current !== null && frameRef.current > 0;
@@ -878,7 +888,7 @@ export function SceneCanvas({
     return () => {
       if (window.__scene === handle) delete window.__scene;
     };
-  }, [markers, mode, opacities, parts, sceneBounds]);
+  }, [markers, mode, opacities, parts, sceneBounds, publishDebugHandle]);
 
   // --- render ---------------------------------------------------------------------------------
   const legendRows = useMemo<LegendEntry[]>(() => {
