@@ -24,17 +24,39 @@ export const PRESENCE_COLUMNS = [
 
 export type PresenceColumn = (typeof PRESENCE_COLUMNS)[number];
 
-/** Short column heads for the matrix — the row is a table cell, not prose. */
+/**
+ * Short column heads for the matrix — the row is a table cell, not prose.
+ *
+ * One word per column, and no word that has to wrap: the previous heads put `fs`/`fsr` next to
+ * each other (two different surface reconstructions, told apart by one letter) and let the `lf`
+ * head sit under the neighbouring "Leadfield" column, which read as one clipped two-line label.
+ * `fast`/`free` name the two reconstructions the way their tools are named, and `COLUMN_TITLE`
+ * carries the long form as the header's tooltip.
+ */
 export const COLUMN_LABEL: Record<PresenceColumn, string> = {
   raw: "raw",
-  fastsurfer: "fs",
-  freesurfer: "fsr",
+  fastsurfer: "fast",
+  freesurfer: "free",
   m2m: "m2m",
   dwi: "dwi",
   ct: "ct",
   leadfield: "lf",
   eeg_net: "net",
 };
+
+/** The long form of each head, as its `title` — a four-letter column still has to be answerable. */
+export const COLUMN_TITLE: Record<PresenceColumn, string> = {
+  raw: "Raw MRI, converted into the BIDS tree",
+  fastsurfer: "FastSurfer surface reconstruction",
+  freesurfer: "FreeSurfer surface reconstruction",
+  m2m: "SimNIBS head model (m2m directory)",
+  dwi: "Diffusion-weighted images",
+  ct: "CT volume",
+  leadfield: "Leadfield matrix, per EEG net",
+  eeg_net: "EEG net definition",
+};
+
+
 
 export interface PresenceCell {
   key: PresenceColumn;
@@ -66,6 +88,11 @@ const STATE_WORD: Record<PresenceState, string> = {
   failed: "last run failed",
   absent: "missing",
 };
+
+/** The dot vocabulary, spelled out once under the matrix rather than learned by hovering. */
+export const PRESENCE_LEGEND: { state: PresenceState; kind: SemanticKind; word: string }[] = (
+  ["present", "partial", "pending", "failed", "absent"] as const
+).map((state) => ({ state, kind: STATE_KIND[state], word: STATE_WORD[state] }));
 
 export function presenceCells(row: OverviewSubject): PresenceCell[] {
   return PRESENCE_COLUMNS.map((key) => {
@@ -99,41 +126,22 @@ export interface Stage {
   /** The button's verb, sentence case. */
   verb: string;
   route: string;
-  ready: string[];
-  blocked: { subject: string; reason: string }[];
-  /** The stage's project-wide output line, from the server's own totals. */
-  summary: string;
 }
 
-const STAGES: { id: StageId; label: string; verb: string; route: string }[] = [
+/**
+ * The four workflows a selected subject can be sent into, from the detail pane's verb row.
+ *
+ * This used to also drive a readiness board of four cards on the page itself — per-stage ready
+ * counts, output totals and a chip per subject. That board is gone: it restated what the matrix
+ * already shows, one chip at a time, and the empty chip wells owned most of the page. The rail
+ * reaches every workflow; the verbs here reach one scoped to the selected subject.
+ */
+export const STAGES: Stage[] = [
   { id: "preprocess", label: "Pre-processing", verb: "Pre-process", route: "/preprocess" },
   { id: "simulator", label: "Simulator", verb: "Simulate", route: "/simulator" },
   { id: "optimizer", label: "Optimizer", verb: "Optimize", route: "/optimizer" },
   { id: "analyzer", label: "Analyzer", verb: "Analyze", route: "/analyzer" },
 ];
-
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
-/** The readiness board: who can run what next, and what each stage has produced so far. */
-export function stages(data: Overview): Stage[] {
-  const m2m = data.totals.coverage.find((c) => c.id === "m2m")?.have ?? 0;
-  const summaries: Record<StageId, string> = {
-    preprocess: `${plural(m2m, "head model")} built`,
-    simulator: `${plural(data.totals.simulations, "simulation")} so far`,
-    optimizer: `${plural(data.totals.optimizations, "search run")} so far`,
-    analyzer: `${plural(data.totals.analyses, "analysis", "analyses")} so far`,
-  };
-  return STAGES.map((s) => ({
-    ...s,
-    summary: summaries[s.id],
-    ready: data.subjects.filter((r) => readyFor(r, s.id)).map((r) => r.id),
-    blocked: data.subjects
-      .filter((r) => !readyFor(r, s.id))
-      .map((r) => ({ subject: r.id, reason: blockedReason(r, s.id) ?? "not ready" })),
-  }));
-}
 
 /** Has this subject everything a simulation needs? Drives the Ready/Incomplete filter. */
 export function isReady(row: OverviewSubject): boolean {

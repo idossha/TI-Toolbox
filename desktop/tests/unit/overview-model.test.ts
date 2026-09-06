@@ -12,14 +12,17 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Overview, OverviewSubject } from "../../src/renderer/pages/overview/api";
 import {
+  COLUMN_LABEL,
+  COLUMN_TITLE,
   PRESENCE_COLUMNS,
+  PRESENCE_LEGEND,
+  STAGES,
   blockedReason,
   isReady,
   notConverted,
   overviewStatusValue,
   presenceCells,
   readyFor,
-  stages,
 } from "../../src/renderer/pages/overview/model";
 
 const data = JSON.parse(
@@ -54,6 +57,21 @@ describe("presence", () => {
     expect(kinds.size).toBe(4);
   });
 
+  it("gives every column a one-word head and a long form for its tooltip", () => {
+    // No head wraps and none repeats: `fs`/`fsr` used to differ by a letter and `lf` used to read
+    // as a second line of the neighbouring Leadfield column.
+    const heads = PRESENCE_COLUMNS.map((k) => COLUMN_LABEL[k]);
+    expect(heads).toEqual(["raw", "fast", "free", "m2m", "dwi", "ct", "lf", "net"]);
+    expect(new Set(heads).size).toBe(heads.length);
+    for (const head of heads) expect(head).not.toContain(" ");
+    for (const key of PRESENCE_COLUMNS) expect(COLUMN_TITLE[key].length).toBeGreaterThan(COLUMN_LABEL[key].length);
+  });
+
+  it("spells the five dot colours out in one legend line", () => {
+    expect(PRESENCE_LEGEND.map((l) => l.state)).toEqual(["present", "partial", "pending", "failed", "absent"]);
+    expect(new Set(PRESENCE_LEGEND.map((l) => l.kind)).size).toBe(5);
+  });
+
   it("titles every dot with its column and its state", () => {
     expect(presenceCells(row("MNI152")).find((c) => c.key === "raw")!.title).toBe("raw missing");
     expect(presenceCells(row("ernie")).find((c) => c.key === "leadfield")!.title).toBe("leadfield partial");
@@ -67,18 +85,9 @@ describe("readiness", () => {
     expect(blockedReason(row("ernie"), "optimizer")).toBeUndefined();
   });
 
-  it("builds the four stage cards from the response's totals", () => {
-    const board = stages(data);
-    expect(board.map((s) => s.id)).toEqual(["preprocess", "simulator", "optimizer", "analyzer"]);
-    const optimizer = board.find((s) => s.id === "optimizer")!;
-    expect(optimizer.ready).toEqual(["ernie"]);
-    expect(optimizer.blocked).toEqual([
-      { subject: "101", reason: "no leadfield" },
-      { subject: "MNI152", reason: "no leadfield" },
-    ]);
-    expect(optimizer.summary).toBe("2 search runs so far");
-    expect(board.find((s) => s.id === "preprocess")!.summary).toBe("3 head models built");
-    expect(board.find((s) => s.id === "analyzer")!.summary).toBe("4 analyses so far");
+  it("names the four workflows a selected subject can be sent into", () => {
+    expect(STAGES.map((s) => s.id)).toEqual(["preprocess", "simulator", "optimizer", "analyzer"]);
+    expect(STAGES.map((s) => s.verb)).toEqual(["Pre-process", "Simulate", "Optimize", "Analyze"]);
   });
 });
 

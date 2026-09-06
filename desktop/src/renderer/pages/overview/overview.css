@@ -112,8 +112,11 @@
   outline: none;
 }
 
+/* The matrix owns the page now that the readiness board is gone. `0 1 auto` is the shape that
+ * makes the legend hug it: three rows and the table is three rows tall with the legend under them,
+ * thirty and the table takes the pane and scrolls. */
 .overview-table {
-  flex: none;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
   display: flex;
@@ -127,7 +130,7 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  height: 32px;
+  height: 36px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -140,8 +143,11 @@
 
 /* A table header carries the column vocabulary, so it is drawn as a header rather than as a gap. */
 .overview-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   cursor: default;
-  height: 24px;
+  height: 28px;
   background: var(--surface-2);
   color: var(--ink-2);
   font-size: 11px;
@@ -161,16 +167,18 @@
 
 .overview-id {
   font-family: var(--font-mono);
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Six columns, one per derivative, each with its own header: a single "Presence" heading over six
- * identical dots makes the row a hover-to-find-out puzzle. */
+/* Eight columns, one per derivative, each with its own single-line header: a single "Presence"
+ * heading over eight identical dots makes the row a hover-to-find-out puzzle — and a header grid
+ * of six over eight dots (what this was) put every label under the wrong column. */
 .overview-presence {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: center;
 }
 
@@ -183,6 +191,34 @@
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A touch larger than the 8 px default: at 36 px rows these dots are the row's only content in
+ * eight of its columns, so they carry the reading. */
+.overview-presence .status-dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* One line, no card: what the five colours mean, said once. */
+.overview-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.overview-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .overview-num {
@@ -196,87 +232,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink-2);
-}
-
-/* ---------------------------------------------------------------- readiness */
-
-/* The readiness board takes the height the short subject table leaves. The four cards are the
- * page's answer to "what can run next", so the remaining space belongs to those cards rather than
- * to bare app ground. Keeping two columns at both accepted sizes gives each stage enough width for
- * the ready/blocked chips while the rows stretch to the pane; no fake subjects or screenshots are
- * involved, just measured row geometry. */
-.overview-readiness {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: var(--space-2);
-}
-
-.overview-section-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 24px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  flex: none;
-}
-
-.overview-stage {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-}
-
-.overview-stage-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 28px;
-  flex: none;
-}
-
-.overview-stage-head > .btn {
-  margin-left: auto;
-}
-
-.overview-stage-name {
-  font-weight: 600;
-}
-
-.overview-stage-ready {
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-
-.overview-stage-summary {
-  margin: 0;
-  flex: none;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.overview-stage-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: var(--space-1);
-  min-width: 0;
-  flex: 1;
-  padding: var(--space-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-2);
-  overflow: auto;
 }
 
 /* ---------------------------------------------------------------- detail pane */

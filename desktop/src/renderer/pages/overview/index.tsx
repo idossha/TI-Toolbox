@@ -3,8 +3,12 @@
  * `desktop/IMPLEMENTATION_PLAN.md`; DESIGN.md §2 shape B, wireframes §1).
  *
  * It began as the Subjects page and keeps everything that page answered well — the coverage strip,
- * the presence matrix, the filters, the readiness rows, the workflow links — but it asks the
- * question at project scale: *what is on disk across this project, and what can run next?*
+ * the presence matrix, the filters, the per-subject workflow verbs — but it asks the question at
+ * project scale: *what is on disk across this project, and what can run next?*
+ *
+ * The readiness board of four stage cards is gone (Sep 2026). It restated the matrix one chip at a
+ * time and its four chip wells, mostly empty, owned the lower half of the page; the matrix now
+ * takes that height, and a workflow is reached from the rail or from the detail pane's verbs.
  *
  * Two things changed with the rename:
  *
@@ -35,18 +39,24 @@ import { Chip, StatusDot } from "../../ui/Status";
 import { getOverview, type OverviewSubject } from "./api";
 import {
   COLUMN_LABEL,
+  COLUMN_TITLE,
   PRESENCE_COLUMNS,
+  PRESENCE_LEGEND,
+  STAGES,
   blockedReason,
   isReady,
   notConverted,
   overviewStatusValue,
   presenceCells,
   readyFor,
-  stages as stagesOf,
 } from "./model";
 import "./overview.css";
 
-const COLUMNS = "minmax(88px, 1fr) 264px minmax(96px, 1fr) 44px 44px 44px";
+/**
+ * The matrix owns the page now, so the presence block — eight columns of one dot — is the part
+ * that grows, and the subject id takes the width an id needs rather than a share of the surplus.
+ */
+const COLUMNS = "minmax(140px, 260px) minmax(300px, 440px) minmax(140px, 1fr) 52px 52px 52px";
 
 type Scope = "all" | "ready" | "incomplete";
 
@@ -60,7 +70,6 @@ function OverviewPage() {
 
   const data = overviewQuery.data;
   const rows: OverviewSubject[] = useMemo(() => data?.subjects ?? [], [data]);
-  const stages = useMemo(() => (data ? stagesOf(data) : []), [data]);
 
   const q = query.trim().toLowerCase();
   const visible = rows.filter((r) => {
@@ -158,7 +167,7 @@ function OverviewPage() {
         </Button>
       </div>
       <div className="overview-verbs">
-        {stages.map((s) => (
+        {STAGES.map((s) => (
           <Button
             key={s.id}
             variant="secondary"
@@ -266,7 +275,9 @@ function OverviewPage() {
             <span role="columnheader">Subject</span>
             <span role="columnheader" className="overview-presence overview-presence-head">
               {PRESENCE_COLUMNS.map((key) => (
-                <span key={key}>{COLUMN_LABEL[key]}</span>
+                <span key={key} title={COLUMN_TITLE[key]}>
+                  {COLUMN_LABEL[key]}
+                </span>
               ))}
             </span>
             <span role="columnheader">Leadfield</span>
@@ -311,51 +322,14 @@ function OverviewPage() {
           )}
         </div>
 
-        <p className="overview-section-head">Readiness · who can run what next</p>
-        <div className="overview-readiness" data-testid="overview-readiness">
-          {stages.map((s) => (
-            <div key={s.id} className="overview-stage" data-testid={`overview-stage-${s.id}`}>
-              <div className="overview-stage-head">
-                <span className="overview-stage-name">{s.label}</span>
-                <span className="overview-stage-ready">
-                  {s.ready.length} of {rows.length} ready
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid={`overview-run-${s.id}`}
-                  disabled={s.ready.length === 0}
-                  onClick={() => navigate(s.route)}
-                >
-                  {s.verb}
-                </Button>
-              </div>
-              <p className="overview-stage-summary">{s.summary}</p>
-              <div className="overview-stage-chips">
-                {s.ready.map((id) => {
-                  // "ready" for Pre-processing also covers a sourcedata-only subject: still worth
-                  // flagging, since only the DICOM stage is runnable until it converts.
-                  const row = rows.find((r) => r.id === id);
-                  const staged = s.id === "preprocess" && row !== undefined && notConverted(row);
-                  return (
-                    <Chip
-                      key={id}
-                      kind={staged ? "warning" : "success"}
-                      title={staged ? `${id}: not converted -- DICOM staged under sourcedata/` : `${id} can run ${s.label.toLowerCase()}`}
-                    >
-                      {staged ? `${id} — not converted` : id}
-                    </Chip>
-                  );
-                })}
-                {s.blocked.map((b) => (
-                  <Chip key={b.subject} kind="warning" title={`${b.subject}: ${b.reason}`}>
-                    {b.subject} — {b.reason}
-                  </Chip>
-                ))}
-              </div>
-            </div>
+        <p className="overview-legend" data-testid="overview-legend">
+          {PRESENCE_LEGEND.map((l) => (
+            <span key={l.state}>
+              <StatusDot kind={l.kind} />
+              {l.word}
+            </span>
           ))}
-        </div>
+        </p>
       </div>
     </PageLayout>
   );
