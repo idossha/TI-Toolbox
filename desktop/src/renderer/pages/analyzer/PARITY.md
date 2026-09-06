@@ -6,6 +6,23 @@ Harvested from `tit/gui/analyzer_tab.py` (2731 lines) and `tit/constants.py`
 
 Legend: [x] built · [~] built with a deliberate simplification (noted) · [ ] not built (gap, noted)
 
+## 2026-09-06 — the target is a job's, not the page's
+
+Maintainer: *"The TARGET section must become per-job — each row of the jobs table owns its own
+analysis target so we can modify our analysis input per job."* Two page sections went away:
+
+- **TARGET** — the ROI is a cell of a job row (`JobRows.tsx`), stated in words and edited in a
+  dialog holding the shared `pages/_shared/roi` picker scoped to that row. The page's own
+  `SphereRows.tsx` is no longer mounted here (the picker's spherical mode is what a row uses; the
+  file survives because `pages/pipeline/editors.ts` imports its `Sphere`/`EMPTY_SPHERE`).
+- **OUTPUT** — `pages/results` owns a simulation's existing analyses; `ResultsPanel.tsx` deleted.
+
+What a row expands to is unchanged from 2.5.0's `build_single_analysis_commands`: one config per
+row, except that N sphere rows are N separate analyses (`center`/`radius` are a single point, never
+a union), and with "Combine regions into one ROI" unchecked each selected region is its own
+analysis. A group run needs every row to agree about the target as well as the simulation, space
+and field — refused on the Run button, never silently resolved to the first row's answer.
+
 ## Mode
 
 - [x] Single / Group radio (`is_group_mode`, default single) → `SegmentedControl` (DESIGN.md §4.2
