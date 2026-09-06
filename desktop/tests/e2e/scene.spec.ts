@@ -308,9 +308,16 @@ test("uploads the fixture's triangles and selects the marker the camera module a
   expect(state.stats.triangles).toBe(2 * SMALL_TRIANGLES);
   expect(state.stats.vertices).toBe(2 * SMALL_VERTICES);
   expect(state.stats.markers).toBe(MARKER_COUNT);
-  // Front and back faces of each surface, then the depth-only pre-pass over each, then one
-  // instanced marker draw: 2 + 2 + 2 + 1 (`glScene.ts` §"Draw order").
-  expect(state.stats.drawCalls).toBe(7);
+  // Per surface, per frame (`glScene.ts` §"Resolving sheets"): the far phase resolves two depth
+  // sheets and draws one colour pass (3), the near phase resolves one and draws one (2) — 5 each.
+  // Then the marker-occlusion depth pre-pass over each surface (2) and one instanced marker draw:
+  // 5 + 5 + 2 + 1 = 13.
+  //
+  // It was 7 while the transparent pass was a back-face draw and a front-face draw per surface.
+  // The extra six are the price of deciding which sheet a pixel shows from DEPTH rather than from
+  // winding, which is what stopped the folded grey matter from showing its buried triangles; the
+  // fps test below is the one that says the price is affordable, and it measured no change.
+  expect(state.stats.drawCalls).toBe(13);
   expect(state.frames).toBeGreaterThan(0);
 
   const target = chooseMarker(state);

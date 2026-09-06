@@ -184,6 +184,14 @@ export interface SceneCanvasProps {
    * publishes nothing rather than racing for the name.
    */
   publishDebugHandle?: boolean;
+  /**
+   * Per-label RGB, packed by `buildLabelColors` from the atlas legend — three bytes per `uint16`
+   * label id, the label's own colour from the `.annot` colour table or the volume LUT.
+   *
+   * Omitted (or all-zero) means no atlas colours: every region renders in the part's flat tint and
+   * the palette's selection blue, which is what a scene with no legend looked like before.
+   */
+  labelColors?: Uint8Array;
   /** Scene bounds; computed from the parts when omitted. */
   bounds?: Bounds;
   /**
@@ -230,6 +238,7 @@ export function SceneCanvas({
   onPickAt,
   onHoverChange,
   publishDebugHandle = true,
+  labelColors,
   bounds,
   focus,
   legend,
@@ -586,6 +595,13 @@ export function SceneCanvas({
     scene.setMarkerStates(states);
     requestFrame();
   }, [markers, activeSelection, hover, requestFrame]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !labelColors) return;
+    scene.setLabelColors(labelColors);
+    requestFrame();
+  }, [labelColors, parts, requestFrame]);
 
   useEffect(() => {
     const scene = sceneRef.current;

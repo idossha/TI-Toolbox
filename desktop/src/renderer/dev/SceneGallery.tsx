@@ -19,9 +19,23 @@ import { SCENE_PALETTE } from "../scene/palette";
 import { encodeTvsc1, parseTvsc1 } from "../scene/tvsc";
 import type { SceneMode, SceneSelection } from "../scene/selection";
 import type { ScenePart, SceneMarker } from "../scene/types";
-import { FIXTURE_BUDGET, FIXTURE_GM, FIXTURE_SKIN, ellipsoidGrid, fixtureMarkers } from "./sceneFixtures";
+import { buildLabelColors } from "../scene/glScene";
+import {
+  FIXTURE_BUDGET,
+  FIXTURE_GM,
+  FIXTURE_SKIN,
+  ellipsoidGrid,
+  fixtureLegend,
+  fixtureMarkers,
+  foldedFixtureGrid,
+} from "./sceneFixtures";
 
-type FixtureSize = "small" | "budget";
+/**
+ * `folded` is the transparency fixture: the inner sheet with half its triangles wound inward, which
+ * is what a real folded cortex looks like to a renderer and the case the old back-face/front-face
+ * split composited in the wrong order (`glScene.ts` §"Resolving sheets").
+ */
+type FixtureSize = "small" | "budget" | "folded";
 
 /** Builds a part the long way round: grid -> TVSC1 bytes -> parser -> arrays. */
 function part(
@@ -31,8 +45,9 @@ function part(
   color: [number, number, number],
   opacity: number,
   withLabels: boolean,
+  folded = false,
 ): ScenePart {
-  const grid = ellipsoidGrid(spec);
+  const grid = folded ? foldedFixtureGrid() : ellipsoidGrid(spec);
   const buffer = encodeTvsc1({
     positions: grid.positions,
     indices: grid.indices,
@@ -59,10 +74,15 @@ export function SceneGallery() {
   const parts = useMemo<ScenePart[]>(() => {
     if (!mounted) return [];
     return [
-      part("gm", "Grey matter", FIXTURE_GM, SCENE_PALETTE.gm, 0.55, true),
-      part("skin", "Skin", size === "budget" ? FIXTURE_BUDGET : FIXTURE_SKIN, SCENE_PALETTE.skin, 0.22, false),
+      size === "folded"
+        ? part("gm", "Grey matter", FIXTURE_GM, SCENE_PALETTE.gm, 0.6, false, true)
+        : part("gm", "Grey matter", FIXTURE_GM, SCENE_PALETTE.gm, 0.55, true),
+      part("skin", "Skin", size === "budget" ? FIXTURE_BUDGET : FIXTURE_SKIN, SCENE_PALETTE.skin, 0.25, false),
     ];
   }, [mounted, size]);
+
+  /** The fixture atlas' own colours, in the shape the real legend arrives in. */
+  const labelColors = useMemo(() => buildLabelColors(fixtureLegend()), []);
 
   const markers = useMemo<SceneMarker[]>(() => {
     if (!mounted) return [];
@@ -114,6 +134,7 @@ export function SceneGallery() {
           options={[
             { value: "small", label: "4k tri", title: "64x32 grid per surface" },
             { value: "budget", label: "150k tri", title: "the plan's per-surface budget (S3)" },
+            { value: "folded", label: "folded", title: "inner sheet half-wound inward — the transparency fixture" },
           ]}
         />
         <span className="field-help" data-testid="scene-gallery-triangles">
@@ -127,6 +148,7 @@ export function SceneGallery() {
             mode={mode}
             parts={parts}
             markers={markers}
+            labelColors={labelColors}
             selection={selection}
             onSelectionChange={setSelection}
             label="Scene gallery fixture"

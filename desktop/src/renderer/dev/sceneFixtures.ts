@@ -135,3 +135,124 @@ export function fixtureMarkers(spec: EllipsoidSpec, rings = 3, perRing = 12): Fi
 /** The grid resolution that lands on the plan's 150 k-triangle budget for one surface (S3):
  *  `2 * 400 * 190 = 152 000` triangles from 76 591 vertices. Used for the fps measurement. */
 export const FIXTURE_BUDGET: EllipsoidSpec = { radii: [78, 98, 88], u: 400, v: 190 };
+
+/**
+ * The folded-winding fixture: two nested translucent sheets whose inner one is NOT consistently
+ * wound, which is the case the `.annot`-labelled grey matter really is and the one the old
+ * back-face/front-face split got wrong.
+ *
+ * Unlabelled on purpose. The invariant the pixel test asserts is *"a scanline across the inner
+ * sheet has no colour discontinuity"*, and a banded surface has real colour steps at every band
+ * boundary, which would make the assertion untestable. With no bands the only variation across the
+ * sheet is the shading gradient, so any step in the scanline is a compositing defect and nothing
+ * else.
+ */
+export const FIXTURE_FOLDED: EllipsoidSpec = { radii: [64, 82, 70], u: 64, v: 32 };
+
+/** The second shell of the folded fixture, inside the first: the extra pair of sheets a camera ray
+ *  crosses. Together they make four crossings per pixel over most of the silhouette, which is the
+ *  median a real gyrified grey matter presents (Tetravox ARCHITECTURE §7.2 measures 4-6). */
+export const FIXTURE_FOLDED_INNER: EllipsoidSpec = { radii: [42, 54, 46], u: 64, v: 32 };
+
+/**
+ * The folded-winding fixture: **one surface, four sheets, mixed winding** — the case the old
+ * back-face/front-face split composited in the wrong order, and the reason the maintainer's
+ * Optimizer pane showed shards of cortex through the scalp.
+ *
+ * Two concentric ellipsoids are concatenated into a single part, so a camera ray through the middle
+ * of the frame crosses that one surface four times. That is what a real grey matter is: SimNIBS'
+ * `gm` tag is one buffer holding both hemispheres, folded, and `orient_surface` marks it open — a
+ * ray down a sulcus crosses it four to six times. `foldInnerHalf` then reverses the winding of
+ * every triangle on the `x < 0` half, which is the other half of the truth: a folded surface has no
+ * globally consistent "front face", so a renderer that decides which sheet to show from
+ * `gl_FrontFacing` composites the two halves in different orders.
+ *
+ * Neither shell carries region bands. The invariant the pixel test asserts is *"a scanline across
+ * the sheet has no colour discontinuity"*, and a banded surface has real colour steps at every band
+ * boundary; with no bands the only variation is the shading gradient of two smooth ellipsoids, so
+ * any step in the scanline is a compositing defect and nothing else.
+ */
+export function foldedFixtureGrid(): Grid {
+  return foldInnerHalf(concatGrids(ellipsoidGrid(FIXTURE_FOLDED), ellipsoidGrid(FIXTURE_FOLDED_INNER)));
+}
+
+/** Two grids as one buffer, with the second's indices rebased. */
+export function concatGrids(a: Grid, b: Grid): Grid {
+  const positions = new Float32Array(a.positions.length + b.positions.length);
+  positions.set(a.positions);
+  positions.set(b.positions, a.positions.length);
+  const offset = a.positions.length / 3;
+  const indices = new Uint32Array(a.indices.length + b.indices.length);
+  indices.set(a.indices);
+  for (let i = 0; i < b.indices.length; i += 1) indices[a.indices.length + i] = (b.indices[i] as number) + offset;
+  const labels = new Uint16Array(positions.length / 3);
+  labels.set(a.labels);
+  labels.set(b.labels, offset);
+  return { positions, indices, labels };
+}
+
+/**
+ * Reverses the winding of every triangle whose centroid is on the `x < 0` half.
+ *
+ * The result is a surface with a vertical seam down the middle: to the right of it the triangles
+ * face outward, to the left they face inward. `cullFace(FRONT)` therefore keeps different sheets on
+ * the two halves, so a renderer that reads the winding composites them in different orders and
+ * leaves a step at the seam — the artefact this fixture exists to catch. A renderer that resolves
+ * the sheet by depth (`glScene.ts` §"Resolving sheets") is indifferent to the flip.
+ *
+ * Lighting is unaffected: the fragment shader flips the normal for a back-facing fragment, so a
+ * flipped triangle is shaded exactly as its unflipped twin would be.
+ */
+export function foldInnerHalf(grid: Grid): Grid {
+  const { positions, indices } = grid;
+  const out = Uint32Array.from(indices);
+  for (let t = 0; t < out.length; t += 3) {
+    const a = out[t] as number;
+    const b = out[t + 1] as number;
+    const c = out[t + 2] as number;
+    const cx = ((positions[a * 3] as number) + (positions[b * 3] as number) + (positions[c * 3] as number)) / 3;
+    if (cx < 0) {
+      out[t + 1] = c;
+      out[t + 2] = b;
+    }
+  }
+  return { positions: grid.positions, indices: out, labels: grid.labels };
+}
+/**
+ * A legend for the banded grey-matter fixture, in the shape `GET /api/scene/regions` returns:
+ * `label` is the `uint16` in the payload and `color` is the region's own `"#rrggbb"`.
+ *
+ * The colours are a deterministic hue sweep rather than a real `.annot` colour table — the point is
+ * that every band has a *different* colour and that a test can compute which one, which is what
+ * makes "the selected region is painted in its own atlas colour" an arithmetic assertion.
+ */
+export function fixtureLegend(spec: EllipsoidSpec = FIXTURE_GM): { label: number; id: number; hemi: "lh" | "rh"; name: string; color: string }[] {
+  const bands = (spec.thetaBands ?? 0) * (spec.phiBands ?? 0);
+  const rows = [];
+  for (let i = 0; i < bands; i += 1) {
+    const hue = (i * 360) / Math.max(1, bands);
+    rows.push({
+      label: i + 1,
+      id: i + 1,
+      hemi: (i % 2 === 0 ? "lh" : "rh") as "lh" | "rh",
+      name: `band-${i + 1}`,
+      color: hslHex(hue, 0.62, 0.45),
+    });
+  }
+  return rows;
+}
+
+/** HSL -> `"#rrggbb"`, so `fixtureLegend`'s colours are one line of arithmetic a test can repeat. */
+export function hslHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r1, g1, b1] =
+    hp < 1 ? [c, x, 0] : hp < 2 ? [x, c, 0] : hp < 3 ? [0, c, x] : hp < 4 ? [0, x, c] : hp < 5 ? [x, 0, c] : [c, 0, x];
+  const m = l - c / 2;
+  const hex = (v: number): string =>
+    Math.round(Math.min(255, Math.max(0, (v + m) * 255)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${hex(r1)}${hex(g1)}${hex(b1)}`;
+}

@@ -127,6 +127,8 @@ export {
 export { DEFAULT_OPACITY, MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
 export {
   buildLabelStates,
+  buildLabelColors,
+  labelSwatchColor,
   createGlScene,
   decodePackedDepth,
   type GlScene,

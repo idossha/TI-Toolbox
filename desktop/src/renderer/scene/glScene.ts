@@ -10,11 +10,45 @@
  *
  * Two nested translucent shells and a set of markers that sit ON the outer one:
  *
- *  1. **Back faces** of every surface, outermost first, depth test on, depth write OFF.
- *  2. **Front faces** of every surface, innermost first, depth test on, depth write OFF.
+ *  1. The **second-nearest sheet** of every surface, outermost first, depth test on, write OFF.
+ *  2. The **nearest sheet** of every surface, innermost first, depth test on, write OFF.
  *  3. A **depth-only pre-pass** of every surface, both faces, colour writes off and depth writes
  *     on, pushed `MARKER_OCCLUSION_BIAS_MM` away from the eye.
  *  4. **Markers**, depth-tested against that, depth write on.
+ *
+ * ## Resolving sheets before blending (2026-09-06)
+ *
+ * Steps 1 and 2 used to be *"back faces, then front faces"* — `cullFace(FRONT)` then
+ * `cullFace(BACK)`, which is exact only for a closed shell whose triangles are all wound outward.
+ * Neither of ours is: SimNIBS' grey matter is a folded, partly inward-wound open surface, so a
+ * single culled draw rasterises **every** triangle the ray crosses inside a gyrus and blends them
+ * in triangle-buffer order. That is the artefact the maintainer photographed on the Optimizer pane:
+ * shards of cortex showing through the scalp and jagged holes where skin, GM and a tinted region
+ * overlap, changing shape as the camera moves because the order is the buffer's, not the eye's.
+ *
+ * The fix is Tetravox's, ported (their `packages/engine/src/render/surface-depth.ts`,
+ * `render/passes/mesh.ts` and `shaders/mesh.ts` at `829cd08`, ARCHITECTURE §7.2): **resolve which
+ * depth sheet a pixel shows before blending anything into it.** Per surface, per phase:
+ *
+ *   a. render the surface depth-only into an off-screen `DEPTH_COMPONENT24` texture with culling
+ *      disabled — that texture now holds the depth of the **nearest** sheet at every pixel;
+ *   b. for the far phase, render it depth-only again, discarding every fragment at or in front of
+ *      that first depth — a one-layer depth peel, giving the **second-nearest** sheet;
+ *   c. render the surface for colour with culling still disabled, discarding every fragment whose
+ *      `gl_FragCoord.z` differs from the resolved sheet by more than one depth24 step.
+ *
+ * Exactly one fragment per pixel per sheet therefore survives, so a translucent surface composites
+ * as two smooth sheets — the near wall of the fold and the far one — with no dependence on winding
+ * and with no triangle ever sorted on the CPU. It is a *bounded* two-sheet approximation, exactly
+ * as §7.2 says: a third crossing deeper inside a sulcus is dropped rather than mis-ordered, which
+ * is the trade a translucent anatomical shell wants.
+ *
+ * Ordering between surfaces is unchanged and is what the two phases are for: far sheets outermost
+ * first, near sheets innermost first, which is back-to-front for nested shells.
+ *
+ * The cost is one extra rasterisation of each surface per frame (three depth-only passes and one
+ * colour pass per surface, against two colour passes before) plus two screen-sized depth textures,
+ * reallocated only on resize.
  *
  * Steps 1 and 2 are back-to-front for nested closed shells without sorting a single triangle. Depth
  * writes stay off there because a translucent fragment that writes depth rejects everything behind
@@ -98,22 +132,73 @@ layout(location=1) in vec3 aNormal;
 layout(location=2) in uint aLabel;
 uniform mat4 uViewProj;
 uniform mat4 uView;
+uniform bool uUseLabels;
+uniform highp usampler2D uLabelState;
 out vec3 vNormalView;
 out vec3 vViewDir;
 flat out highp uint vLabel;
+// 1 at a selected vertex, 0 at an unselected one -- and, because it is NOT flat-qualified,
+// anything in between across a triangle that straddles the boundary of the selection. That
+// interpolation is the selection outline: a fragment with 0 < vSelect < 1 is on the rim of the
+// selected patch, in screen space, at no cost and with no second draw. vLabel cannot give this --
+// it is flat by necessity (see "Picking"), so it has no derivative to read.
+out float vSelect;
 void main() {
   vec4 viewPos = uView * vec4(aPos, 1.0);
   vNormalView = mat3(uView) * aNormal;
   vViewDir = -viewPos.xyz;
   vLabel = aLabel;
+  float sel = 0.0;
+  if (uUseLabels) {
+    uint s = texelFetch(uLabelState, ivec2(int(aLabel & 255u), int(aLabel >> 8u)), 0).r;
+    sel = ((s & 1u) != 0u) ? 1.0 : 0.0;
+  }
+  vSelect = sel;
   gl_Position = uViewProj * vec4(aPos, 1.0);
 }`;
 
-const SURFACE_FS = `#version 300 es
+/**
+ * The tolerance on a resolved sheet depth, as a fraction of the window-depth range.
+ *
+ * Tetravox compares for *equality* within one depth24 step (`1/16777215`), which works because its
+ * pre-pass and its colour pass rasterise into buffers of the same sample count. Ours do not: the
+ * canvas is created with `antialias: true`, so the colour pass writes into a **multisampled**
+ * buffer while the pre-pass writes into a single-sampled depth texture. At a triangle edge a
+ * multisample fragment is shaded once for partial coverage and its `gl_FragCoord.z` is the pixel
+ * centre's, which can sit a long way from the depth the single-sampled pre-pass recorded for the
+ * same pixel — measured on the folded fixture, up to 19/255 of colour error appearing as a dropped
+ * fragment at every facet edge of the 64x32 grid.
+ *
+ * So the test is a **bound**, not an equality: keep what is at or in front of the resolved sheet
+ * and drop what is behind it. The pre-pass recorded the minimum depth over the surface, so nothing
+ * can be meaningfully in front of it, and the bound admits exactly one sheet while being blind to
+ * the sub-pixel disagreement multisampling introduces. `1e-5` of the [0, 1] window range is about
+ * 170 depth24 steps — three orders of magnitude above the quantisation, and (at the near/far
+ * planes `projection` sets for a head) three orders of magnitude below the millimetres that
+ * separate one wall of a gyrus from the next.
+ */
+const SHEET_EPS = "1.0e-5";
+
+/** Rest saturation of an atlas colour: enough hue to name the region, muted enough that the
+ *  cortex still reads as anatomy rather than as a pie chart. */
+const REST_SATURATION = "0.55";
+/** …and how far it is dimmed towards the background at rest. */
+const REST_VALUE = "0.86";
+
+/**
+ * The surface fragment shader, in two variants.
+ *
+ * `sheet` compiles in the §"Resolving sheets" discard: keep this fragment only if it is the sheet
+ * the pre-pass resolved for this pixel. The opaque and pick paths do not want it, so it is a
+ * compile-time branch rather than a uniform — a `discard` behind a runtime `if` costs every
+ * fragment of every pass the early-z it would otherwise keep.
+ */
+const surfaceFs = (sheet: "none" | "near" | "peeled"): string => `#version 300 es
 precision highp float;
 precision highp int;
 in vec3 vNormalView;
 in vec3 vViewDir;
+in float vSelect;
 flat in highp uint vLabel;
 uniform vec3 uBaseColor;
 uniform vec3 uSelectedColor;
@@ -122,8 +207,27 @@ uniform vec3 uDimColor;
 uniform float uOpacity;
 uniform bool uUseLabels;
 uniform highp usampler2D uLabelState;
+uniform sampler2D uLabelColor;
+${sheet === "none" ? "" : "uniform highp sampler2D uSheetDepth;"}
+${sheet === "peeled" ? "uniform highp sampler2D uSheetPeel;" : ""}
 out vec4 outColor;
 void main() {
+${
+  sheet === "none"
+    ? ""
+    : `  // One sheet per pixel: anything behind the depth the pre-pass resolved is a buried
+  // triangle, whatever its winding.
+  float sheetZ = texelFetch(uSheetDepth, ivec2(gl_FragCoord.xy), 0).r;
+  if (gl_FragCoord.z > sheetZ + ${SHEET_EPS}) discard;`
+}
+${
+  sheet === "peeled"
+    ? `  // …and, for the second sheet, anything at or in front of the FIRST one, which the near
+  // phase has already drawn.
+  float firstZ = texelFetch(uSheetPeel, ivec2(gl_FragCoord.xy), 0).r;
+  if (gl_FragCoord.z <= firstZ + ${SHEET_EPS}) discard;`
+    : ""
+}
   vec3 N = normalize(vNormalView);
   if (!gl_FrontFacing) N = -N;
   vec3 V = normalize(vViewDir);
@@ -133,11 +237,36 @@ void main() {
   vec3 color = uBaseColor;
   float alpha = uOpacity;
   bool solid = false;
+  bool outline = false;
   if (uUseLabels) {
-    uint s = texelFetch(uLabelState, ivec2(int(vLabel & 255u), int(vLabel >> 8u)), 0).r;
+    ivec2 uv = ivec2(int(vLabel & 255u), int(vLabel >> 8u));
+    uint s = texelFetch(uLabelState, uv, 0).r;
+    // The label's own colour, straight out of the .annot colour table (or the volume LUT), which
+    // setLabelColors uploaded at the same index as its state. Label 0 is "no region" and its
+    // texel is left black, which is how a fragment says it has no atlas colour of its own.
+    vec3 atlas = texelFetch(uLabelColor, uv, 0).rgb;
+    bool tinted = vLabel != 0u && any(greaterThan(atlas, vec3(0.0)));
+    if (tinted) {
+      // At rest: the atlas hue, desaturated towards its own luma and dimmed a little, so a
+      // parcellated cortex still reads as a cortex.
+      float luma = dot(atlas, vec3(0.2126, 0.7152, 0.0722));
+      color = mix(vec3(luma), atlas, ${REST_SATURATION}) * ${REST_VALUE};
+    }
     if ((s & 4u) != 0u) color = uDimColor;
-    if ((s & 1u) != 0u) { color = uSelectedColor; solid = true; }
-    if ((s & 2u) != 0u) { color = uHoverColor; solid = true; }
+    if ((s & 1u) != 0u) {
+      // Selected: the label's OWN colour at full saturation, never a uniform blue — plus the
+      // outline below, so the signal is not carried by hue alone (a deuteranope has to be able to
+      // see which regions are chosen).
+      color = tinted ? atlas : uSelectedColor;
+      solid = true;
+      outline = vSelect > 0.03 && vSelect < 0.97;
+    }
+    if ((s & 2u) != 0u) {
+      // Hover: the same colour, brightened. An atlas colour brightened towards white stays the
+      // same hue, so hovering never renames a region.
+      color = tinted ? mix(atlas, vec3(1.0), 0.45) : uHoverColor;
+      solid = true;
+    }
   }
   float lambert = max(dot(N, L), 0.0);
   // Silhouette boost: a constant-alpha shell reads as fog, a fresnel-weighted one reads as a
@@ -145,7 +274,35 @@ void main() {
   float fresnel = pow(1.0 - abs(dot(N, V)), 1.6);
   vec3 shaded = color * (0.30 + 0.70 * lambert) + vec3(0.09) * fresnel;
   float a = solid ? max(alpha, 0.92) : clamp(alpha * (0.42 + 0.58 * fresnel), 0.0, 1.0);
+  if (outline) {
+    // The rim of a selected patch, in screen space: achromatic and opaque, so selection survives
+    // any colour vision and any atlas colour that happens to match its neighbour.
+    shaded = mix(shaded, vec3(0.97), 0.85);
+    a = 1.0;
+  }
   outColor = vec4(shaded, a);
+}`;
+
+/**
+ * The depth-only pre-pass (§"Resolving sheets" step a). It writes no colour at all: the framebuffer
+ * it renders into has `drawBuffers([NONE])` and only a depth attachment, so the fragment shader has
+ * no output and the whole pass costs the vertex work plus depth writes.
+ *
+ * It must produce *exactly* the depth the colour pass will compute, which it does by construction —
+ * same vertex shader, same uniforms, and no `discard` anywhere in the surface colour path.
+ */
+const SHEET_DEPTH_FS = `#version 300 es
+precision highp float;
+void main() {}`;
+
+/** The same, peeling one layer: keep only what is strictly behind the sheet already resolved, so
+ *  the result is the second-nearest sheet (§"Resolving sheets" step b). */
+const SHEET_PEEL_FS = `#version 300 es
+precision highp float;
+uniform highp sampler2D uSheetDepth;
+void main() {
+  float first = texelFetch(uSheetDepth, ivec2(gl_FragCoord.xy), 0).r;
+  if (gl_FragCoord.z <= first + ${SHEET_EPS}) discard;
 }`;
 
 const SURFACE_PICK_FS = `#version 300 es
@@ -310,6 +467,14 @@ export interface GlScene {
   setMarkerStates(states: Uint32Array): void;
   /** 65 536 bytes, indexed by label id: `LABEL_SELECTED | LABEL_HOVER | LABEL_DIMMED`. */
   setLabelStates(states: Uint8Array): void;
+  /**
+   * Three bytes per label id — the label's own RGB from the `.annot` colour table or the volume
+   * LUT (`legend[].color` of `GET /api/{scene,guide}/regions`), packed by `buildLabelColors`.
+   *
+   * A label whose texel is black has no atlas colour and falls back to the part's flat tint and the
+   * palette's selection blue, which is what a scene with no legend renders as.
+   */
+  setLabelColors(colors: Uint8Array): void;
   setOpacity(partId: string, opacity: number): void;
   /**
    * Whether the markers are hidden by the surfaces (default `true`, §"Draw order" step 3).
@@ -421,6 +586,9 @@ const SURFACE_UNIFORMS = [
   "uOpacity",
   "uUseLabels",
   "uLabelState",
+  "uLabelColor",
+  "uSheetDepth",
+  "uSheetPeel",
 ];
 const SURFACE_PICK_UNIFORMS = ["uViewProj", "uView", "uKind"];
 const MARKER_UNIFORMS = [
@@ -474,6 +642,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let markers: SceneMarker[] = [];
   let markerStates: Uint32Array = new Uint32Array(0);
   let labelStates: Uint8Array = new Uint8Array(LABEL_STATE_SIZE);
+  let labelColors: Uint8Array = new Uint8Array(LABEL_STATE_SIZE * 3);
   const opacity = new Map<string, number>();
 
   let drawWidth = Math.max(1, canvas.width);
@@ -482,7 +651,19 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let cssHeight = drawHeight;
   let devicePixelRatioValue = 1;
 
-  let surfaceProgram = link(gl, SURFACE_VS, SURFACE_FS, SURFACE_UNIFORMS);
+  let surfaceProgram = link(gl, SURFACE_VS, surfaceFs("none"), SURFACE_UNIFORMS);
+  /** The same shader with the resolved-sheet bound compiled in (§"Resolving sheets" step c), for
+   *  the nearest sheet and for the peeled second one. */
+  let surfaceNearProgram = link(gl, SURFACE_VS, surfaceFs("near"), SURFACE_UNIFORMS);
+  let surfacePeelProgram = link(gl, SURFACE_VS, surfaceFs("peeled"), SURFACE_UNIFORMS);
+  let sheetDepthProgram = link(gl, SURFACE_VS, SHEET_DEPTH_FS, ["uViewProj", "uView", "uUseLabels", "uLabelState"]);
+  let sheetPeelProgram = link(gl, SURFACE_VS, SHEET_PEEL_FS, [
+    "uViewProj",
+    "uView",
+    "uUseLabels",
+    "uLabelState",
+    "uSheetDepth",
+  ]);
   let surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
   let surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
   let markerProgram = link(gl, MARKER_VS, MARKER_FS, MARKER_UNIFORMS);
@@ -490,6 +671,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let markerDepthProgram = link(gl, MARKER_VS, MARKER_DEPTH_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
 
   let labelTexture = createLabelTexture(gl);
+  let labelColorTexture = createLabelColorTexture(gl);
+  let sheets = createSheetTargets(gl, drawWidth, drawHeight);
   let quad = createQuadBuffer(gl);
   let markerVao: WebGLVertexArrayObject | null = null;
   let markerBuffers: WebGLBuffer[] = [];
@@ -512,6 +695,49 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
     context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
     return tex;
+  }
+
+  /**
+   * One RGB texel per label id, at the same index as its state byte: the label's own colour from
+   * the `.annot` colour table (or the subcortical volume LUT). All black until `setLabelColors`
+   * says otherwise, which is a scene with no atlas colours and the flat-tint behaviour of before.
+   */
+  function createLabelColorTexture(context: WebGL2RenderingContext): WebGLTexture {
+    const tex = context.createTexture();
+    if (!tex) throw new Error("scene: gl.createTexture returned null");
+    context.bindTexture(context.TEXTURE_2D, tex);
+    context.texStorage2D(context.TEXTURE_2D, 1, context.RGB8, LABEL_TEX_SIDE, LABEL_TEX_SIDE);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.NEAREST);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.NEAREST);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+    context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
+    return tex;
+  }
+
+  /**
+   * The two screen-sized `DEPTH_COMPONENT24` textures the sheet resolution writes into, and the one
+   * framebuffer that carries them (§"Resolving sheets"). `drawBuffers([NONE])` — there is no colour
+   * attachment, so no colour is written and the canvas' own multisampled buffer is never touched.
+   */
+  function createSheetTargets(context: WebGL2RenderingContext, width: number, height: number) {
+    const framebuffer = context.createFramebuffer();
+    const near = context.createTexture();
+    const far = context.createTexture();
+    if (!framebuffer || !near || !far) throw new Error("scene: sheet depth allocation failed");
+    for (const tex of [near, far]) {
+      context.bindTexture(context.TEXTURE_2D, tex);
+      context.texStorage2D(context.TEXTURE_2D, 1, context.DEPTH_COMPONENT24, width, height);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.NEAREST);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.NEAREST);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+      context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
+    }
+    context.bindTexture(context.TEXTURE_2D, null);
+    context.bindFramebuffer(context.FRAMEBUFFER, framebuffer);
+    context.drawBuffers([context.NONE]);
+    context.readBuffer(context.NONE);
+    context.bindFramebuffer(context.FRAMEBUFFER, null);
+    return { framebuffer, near, far };
   }
 
   function createQuadBuffer(context: WebGL2RenderingContext): WebGLBuffer {
@@ -686,6 +912,64 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     stats.drawCalls += 1;
   }
 
+  /** Texture units, fixed so no pass has to remember what another one bound. */
+  const UNIT_LABEL_STATE = 0;
+  const UNIT_LABEL_COLOR = 1;
+  const UNIT_SHEET_DEPTH = 2;
+  const UNIT_SHEET_PEEL = 3;
+
+  /**
+   * Draws one surface as exactly one resolved depth sheet (§"Resolving sheets").
+   *
+   * `level` is which sheet: 0 the nearest, 1 the second-nearest. Culling is disabled throughout —
+   * that is the point, since neither of our surfaces is reliably wound — so the sheet a pixel gets
+   * is decided by depth alone and a folded, inward-wound gyrus behaves exactly like a closed shell.
+   *
+   * The caller has already bound both sheet programs' per-surface uniforms; this restores the
+   * blended state and the default framebuffer before it returns, so the loop above it reads as the
+   * plain sequence of draws it was before.
+   */
+  function drawResolvedSheet(uploaded: UploadedPart, level: 0 | 1, vp: Mat4, view: Mat4): void {
+    // (a) nearest sheet, depth only, into `sheets.near`.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sheets.framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sheets.near, 0);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+    gl.clearDepth(1);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    bindSurfaceCommon(sheetDepthProgram, vp, view);
+    setUniform1i(sheetDepthProgram, "uUseLabels", 0);
+    drawSurface(uploaded, sheetDepthProgram, null);
+
+    if (level === 1) {
+      // (b) peel one layer: what is strictly behind the nearest sheet, into `sheets.far`.
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sheets.far, 0);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      bindSurfaceCommon(sheetPeelProgram, vp, view);
+      setUniform1i(sheetPeelProgram, "uUseLabels", 0);
+      gl.activeTexture(gl.TEXTURE0 + UNIT_SHEET_DEPTH);
+      gl.bindTexture(gl.TEXTURE_2D, sheets.near);
+      setUniform1i(sheetPeelProgram, "uSheetDepth", UNIT_SHEET_DEPTH);
+      drawSurface(uploaded, sheetPeelProgram, null);
+    }
+
+    // (c) colour, keeping only the fragments the resolved depth bounds admit.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.enable(gl.BLEND);
+    gl.depthMask(false);
+    const program = level === 1 ? surfacePeelProgram : surfaceNearProgram;
+    gl.useProgram(program.program);
+    gl.activeTexture(gl.TEXTURE0 + UNIT_SHEET_DEPTH);
+    gl.bindTexture(gl.TEXTURE_2D, level === 1 ? sheets.far : sheets.near);
+    setUniform1i(program, "uSheetDepth", UNIT_SHEET_DEPTH);
+    if (level === 1) {
+      gl.activeTexture(gl.TEXTURE0 + UNIT_SHEET_PEEL);
+      gl.bindTexture(gl.TEXTURE_2D, sheets.near);
+      setUniform1i(program, "uSheetPeel", UNIT_SHEET_PEEL);
+    }
+    drawSurface(uploaded, program, null);
+  }
+
   function bindMarkerCommon(program: Program, vp: Mat4): void {
     gl.useProgram(program.program);
     setUniformMatrix(program, "uViewProj", vp);
@@ -814,6 +1098,25 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       );
     },
 
+    setLabelColors(colors) {
+      labelColors =
+        colors.length === LABEL_STATE_SIZE * 3 ? colors : padLabelColors(colors);
+      gl.bindTexture(gl.TEXTURE_2D, labelColorTexture);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        LABEL_TEX_SIDE,
+        LABEL_TEX_SIDE,
+        gl.RGB,
+        gl.UNSIGNED_BYTE,
+        labelColors,
+      );
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    },
+
     setOpacity(partId, value) {
       opacity.set(partId, Math.min(1, Math.max(0, value)));
     },
@@ -837,6 +1140,13 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.deleteTexture(pick.color);
       gl.deleteRenderbuffer(pick.depth);
       pick = createPickTarget(gl, w, h);
+      // The sheet textures are read by `texelFetch(…, ivec2(gl_FragCoord.xy))`, so they have to be
+      // exactly the size of the drawing buffer or a resolved depth would be read from the wrong
+      // pixel — `texStorage2D` is immutable, hence a reallocation rather than a resize.
+      gl.deleteFramebuffer(sheets.framebuffer);
+      gl.deleteTexture(sheets.near);
+      gl.deleteTexture(sheets.far);
+      sheets = createSheetTargets(gl, w, h);
     },
 
     render(camera) {
@@ -859,25 +1169,41 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       //        depth buffer and writing none, so every shell shows through every other one.
       const list = ordered();
       gl.depthMask(false);
-      bindSurfaceCommon(surfaceProgram, vp, view);
-      gl.activeTexture(gl.TEXTURE0);
+      gl.activeTexture(gl.TEXTURE0 + UNIT_LABEL_STATE);
       gl.bindTexture(gl.TEXTURE_2D, labelTexture);
-      setUniform1i(surfaceProgram, "uLabelState", 0);
-      setUniform3f(surfaceProgram, "uSelectedColor", palette.selected);
-      setUniform3f(surfaceProgram, "uHoverColor", palette.hover);
-      setUniform3f(surfaceProgram, "uDimColor", palette.dim);
-      const passes: Array<{ items: UploadedPart[]; cull: number }> = [
-        { items: [...list].reverse(), cull: gl.FRONT },
-        { items: list, cull: gl.BACK },
+      gl.activeTexture(gl.TEXTURE0 + UNIT_LABEL_COLOR);
+      gl.bindTexture(gl.TEXTURE_2D, labelColorTexture);
+      // Both surface programs read the same units and the same palette; the sheet one is the only
+      // one that draws here, and the plain one is bound so a caller that reads its uniforms (or a
+      // future opaque path) sees the same state.
+      for (const program of [surfaceProgram, surfaceNearProgram, surfacePeelProgram]) {
+        bindSurfaceCommon(program, vp, view);
+        setUniform1i(program, "uLabelState", UNIT_LABEL_STATE);
+        setUniform1i(program, "uLabelColor", UNIT_LABEL_COLOR);
+        setUniform3f(program, "uSelectedColor", palette.selected);
+        setUniform3f(program, "uHoverColor", palette.hover);
+        setUniform3f(program, "uDimColor", palette.dim);
+      }
+      // Phase 1 — the far sheet of every surface, outermost first; phase 2 — the near sheet,
+      // innermost first. Back-to-front for nested shells, with the sheet itself resolved by depth
+      // rather than by winding (§"Resolving sheets").
+      const phases: Array<{ items: UploadedPart[]; level: 0 | 1 }> = [
+        { items: [...list].reverse(), level: 1 },
+        { items: list, level: 0 },
       ];
-      for (const pass of passes) {
-        for (const uploaded of pass.items) {
-          setUniform3f(surfaceProgram, "uBaseColor", uploaded.part.color);
-          setUniform1f(surfaceProgram, "uOpacity", opacity.get(uploaded.part.id) ?? uploaded.part.opacity);
-          setUniform1i(surfaceProgram, "uUseLabels", uploaded.hasLabels ? 1 : 0);
-          drawSurface(uploaded, surfaceProgram, pass.cull);
+      for (const phase of phases) {
+        for (const uploaded of phase.items) {
+          for (const program of [surfaceNearProgram, surfacePeelProgram]) {
+            gl.useProgram(program.program);
+            setUniform3f(program, "uBaseColor", uploaded.part.color);
+            setUniform1f(program, "uOpacity", opacity.get(uploaded.part.id) ?? uploaded.part.opacity);
+            setUniform1i(program, "uUseLabels", uploaded.hasLabels ? 1 : 0);
+          }
+          drawResolvedSheet(uploaded, phase.level, vp, view);
         }
       }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, drawWidth, drawHeight);
 
       // 3. depth-only pre-pass: no colour, depth on, both faces, pushed away from the eye. The head
       //    is already composited, so this only decides what the markers are allowed to cover. It is
@@ -996,13 +1322,25 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     restore() {
       // Every GL object died with the context; the CPU-side data did not, which is the whole point
       // of keeping `parts`/`markers`/`labelStates` here rather than only on the GPU.
-      surfaceProgram = link(gl, SURFACE_VS, SURFACE_FS, SURFACE_UNIFORMS);
+      surfaceProgram = link(gl, SURFACE_VS, surfaceFs("none"), SURFACE_UNIFORMS);
+      surfaceNearProgram = link(gl, SURFACE_VS, surfaceFs("near"), SURFACE_UNIFORMS);
+      surfacePeelProgram = link(gl, SURFACE_VS, surfaceFs("peeled"), SURFACE_UNIFORMS);
+      sheetDepthProgram = link(gl, SURFACE_VS, SHEET_DEPTH_FS, ["uViewProj", "uView", "uUseLabels", "uLabelState"]);
+      sheetPeelProgram = link(gl, SURFACE_VS, SHEET_PEEL_FS, [
+        "uViewProj",
+        "uView",
+        "uUseLabels",
+        "uLabelState",
+        "uSheetDepth",
+      ]);
       surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
       surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
       markerProgram = link(gl, MARKER_VS, MARKER_FS, MARKER_UNIFORMS);
       markerPickProgram = link(gl, MARKER_VS, MARKER_PICK_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
       markerDepthProgram = link(gl, MARKER_VS, MARKER_DEPTH_FS, ["uViewProj", "uViewportPx", "uSizePx"]);
       labelTexture = createLabelTexture(gl);
+      labelColorTexture = createLabelColorTexture(gl);
+      sheets = createSheetTargets(gl, drawWidth, drawHeight);
       quad = createQuadBuffer(gl);
       pick = createPickTarget(gl, drawWidth, drawHeight);
       const sourceParts = parts.map((uploaded) => uploaded.part);
@@ -1014,6 +1352,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       scene.setMarkers(markers);
       if (savedStates.length === markers.length) scene.setMarkerStates(savedStates);
       scene.setLabelStates(labelStates);
+      scene.setLabelColors(labelColors);
     },
 
     dispose() {
@@ -1028,11 +1367,19 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       for (const buf of markerBuffers) gl.deleteBuffer(buf);
       gl.deleteBuffer(quad);
       gl.deleteTexture(labelTexture);
+      gl.deleteTexture(labelColorTexture);
       gl.deleteFramebuffer(pick.framebuffer);
       gl.deleteTexture(pick.color);
       gl.deleteRenderbuffer(pick.depth);
+      gl.deleteFramebuffer(sheets.framebuffer);
+      gl.deleteTexture(sheets.near);
+      gl.deleteTexture(sheets.far);
       for (const program of [
         surfaceProgram,
+        surfaceNearProgram,
+        surfacePeelProgram,
+        sheetDepthProgram,
+        sheetPeelProgram,
         surfacePickProgram,
         surfaceDepthProgram,
         markerProgram,
@@ -1052,6 +1399,59 @@ function padLabels(states: Uint8Array): Uint8Array {
   const padded = new Uint8Array(LABEL_STATE_SIZE);
   padded.set(states.subarray(0, Math.min(states.length, LABEL_STATE_SIZE)));
   return padded;
+}
+
+function padLabelColors(colors: Uint8Array): Uint8Array {
+  const padded = new Uint8Array(LABEL_STATE_SIZE * 3);
+  padded.set(colors.subarray(0, Math.min(colors.length, LABEL_STATE_SIZE * 3)));
+  return padded;
+}
+
+/**
+ * The per-label RGB texture payload from a legend, for `GlScene.setLabelColors`.
+ *
+ * One entry per legend row: `label` is the `uint16` that appears in the payload the surface was
+ * built with, and `color` is the row's `"#rrggbb"` — the `.annot` colour table's own RGB for a
+ * cortical parcellation, the `labeling_LUT.txt` RGB for a subcortical volume label. Both arrive on
+ * `legend[].color` of `GET /api/scene/regions` and `GET /api/guide/regions` already; this is only
+ * the packing.
+ *
+ * Rows with no colour, an unparseable colour, or a label outside the 16-bit range are skipped, and
+ * their texels stay black — which the shader reads as "this label has no atlas colour", falling
+ * back to the part tint and the palette blue. Pure, so the mapping is unit-testable with no GPU.
+ */
+export function buildLabelColors(
+  legend: ReadonlyArray<{ label?: number | null; color?: string | null }>,
+): Uint8Array {
+  const colors = new Uint8Array(LABEL_STATE_SIZE * 3);
+  for (const row of legend) {
+    const label = row.label;
+    if (typeof label !== "number" || !Number.isInteger(label) || label <= 0 || label >= LABEL_STATE_SIZE) {
+      continue;
+    }
+    const hex = typeof row.color === "string" ? row.color.trim() : "";
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) continue;
+    const at = label * 3;
+    colors[at] = parseInt(hex.slice(1, 3), 16);
+    colors[at + 1] = parseInt(hex.slice(3, 5), 16);
+    colors[at + 2] = parseInt(hex.slice(5, 7), 16);
+  }
+  return colors;
+}
+
+/** The `"#rrggbb"` one label renders as, for a legend swatch or a picker row — the same value the
+ *  shader draws, so a swatch and the anatomy under it can never disagree. `null` when the legend
+ *  carries no colour for that label. */
+export function labelSwatchColor(
+  legend: ReadonlyArray<{ label?: number | null; color?: string | null }>,
+  label: number,
+): string | null {
+  for (const row of legend) {
+    if (row.label !== label) continue;
+    const hex = typeof row.color === "string" ? row.color.trim() : "";
+    return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toLowerCase() : null;
+  }
+  return null;
 }
 
 /** Builds the label-state array a highlighted region set implies: selected regions marked, every
