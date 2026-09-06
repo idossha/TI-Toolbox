@@ -164,7 +164,11 @@ def merge(openapi: dict, schema_doc: dict) -> dict:
         type_const = _type_const(defs_name, defs)
         if type_const is not None:
             type_by_key[target_key] = type_const
-        for ref_name in referenced - copied:
+        # `sorted`, not the set's own order: set-of-str iteration order depends on
+        # PYTHONHASHSEED, and this loop decides the insertion order of
+        # ``components.schemas``. Without it every rebuild reshuffles a few hundred
+        # lines of the generated JSON and the file's diff says nothing.
+        for ref_name in sorted(referenced - copied):
             copied.add(ref_name)
             copy_in(ref_name, rename.get(ref_name, ref_name))
 
