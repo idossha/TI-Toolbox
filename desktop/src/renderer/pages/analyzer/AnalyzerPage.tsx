@@ -31,7 +31,7 @@ import { notify } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { SubjectsField, blockedSubjects, subjectsBlockedReason, type SubjectColumn } from "../_shared/subjects";
-import { ExistingOutputsDialog, Receipt, receiptFrom, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, useRunStatusCells, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
+import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, useRunStatusCells, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import {
   RoiPicker,
   emptyRoi,
@@ -306,7 +306,7 @@ export function AnalyzerPage() {
     }
     // The one existing-outputs question (C3) — this page used to have none of its own wording at
     // all past a two-button overwrite alert, and no way to run only the new jobs.
-    if (!overwrite && receipt.existing > 0) {
+    if (!overwrite && counts.existing > 0) {
       setConfirmOpen(true);
       return;
     }
@@ -340,7 +340,7 @@ export function AnalyzerPage() {
     return planModelFrom("analyzer", plan.data as unknown as SharedPlanResult, subjectsKey ? subjectsKey.split(",") : []);
   }, [blockedReason, plan.data, subjectsKey]);
 
-  const receipt = receiptFrom(planModel);
+  const counts = planCounts(planModel);
 
   useRunShortcut(handleRunClick);
   useRunStatusCells("analyzer", effectiveSubjectIds, planModel);
@@ -398,7 +398,6 @@ export function AnalyzerPage() {
           }
         />
       }
-      receipt={<Receipt plan={planModel} policy={overwrite ? "replace" : "skip"} blockedReason={blockedReason} />}
       actionBar={
         <ActionBar
           digest={digest}
@@ -590,8 +589,8 @@ export function AnalyzerPage() {
       <ExistingOutputsDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        existing={receipt.existing}
-        total={receipt.jobs}
+        existing={counts.existing}
+        total={counts.jobs}
         noun="analysis output"
         busy={running}
         onDecide={(decision) => {

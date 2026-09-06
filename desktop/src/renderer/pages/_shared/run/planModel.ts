@@ -270,3 +270,42 @@ export function mergePlanResults(results: PlanResult[]): PlanResult {
   }
   return { jobs, lock_conflicts: [...conflicts.values()], cost: { cpus, mem_gb: memGb }, warnings, resolved: null };
 }
+
+/** The counts every run page needs to decide whether the existing-outputs dialog has anything to
+ *  ask about. Derived from the same `PlanModel` the grid and the digest draw, so the three cannot
+ *  disagree. (This is what is left of the run receipt, removed 2026-09-06: the plan grid in the
+ *  run pane and the action-bar digest are the confirmation now, so only the *numbers* survived.) */
+export interface PlanCounts {
+  /** Planned jobs — the number the button and the digest also print. */
+  jobs: number;
+  /** Jobs whose output directory already exists (`skip` + `overwrite`). */
+  existing: number;
+  /** Of those, the ones that would be replaced rather than skipped. */
+  overwrites: number;
+  blocked: number;
+  waits: number;
+}
+
+/**
+ * Count the planned jobs, in the page's own display order. A `null` chip means "this stage is not
+ * part of this subject's run" and is not counted, because a job that will not run is not a job.
+ */
+export function planCounts(plan: PlanModel | null): PlanCounts {
+  let jobs = 0;
+  let existing = 0;
+  let overwrites = 0;
+  let blocked = 0;
+  for (const subject of plan?.subjects ?? []) {
+    for (const cell of subject.cells) {
+      if (cell.chip === null) continue;
+      jobs += 1;
+      if (cell.chip === "skip") existing += 1;
+      if (cell.chip === "overwrite") {
+        existing += 1;
+        overwrites += 1;
+      }
+      if (cell.chip === "blocked") blocked += 1;
+    }
+  }
+  return { jobs, existing, overwrites, blocked, waits: plan?.stats.waits ?? 0 };
+}

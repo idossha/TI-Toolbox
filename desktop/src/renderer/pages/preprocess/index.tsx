@@ -24,7 +24,7 @@ import {
   planDigest,
   planModelFrom,
   stepsFor,
-  receiptFrom,
+  planCounts,
   ExistingOutputsDialog,
   useRunShortcut,
   useRunStatusCells,
@@ -303,7 +303,7 @@ function PreprocessPage() {
     }
     // One question, one wording, on all four run pages (C3): if anything already has output, the
     // shared dialog asks — it is never decided silently by whatever the segmented control says.
-    if (receipt.existing > 0) {
+    if (counts.existing > 0) {
       setExistingOpen(true);
       return;
     }
@@ -313,7 +313,7 @@ function PreprocessPage() {
   useRunShortcut(handleRunClick);
   useRunStatusCells("pre", selected, plan);
 
-  const receipt = receiptFrom(plan);
+  const counts = planCounts(plan);
   const digest = plan ? planDigest(plan) : (blockedReason ?? "Resolving the plan…");
   const jobCount = plan?.stats.jobs ?? 0;
 
@@ -464,8 +464,8 @@ function PreprocessPage() {
       <ExistingOutputsDialog
         open={existingOpen}
         onOpenChange={setExistingOpen}
-        existing={receipt.existing}
-        total={receipt.jobs}
+        existing={counts.existing}
+        total={counts.jobs}
         noun="pre-processing output"
         busy={submit.isPending}
         onDecide={(decision) => {

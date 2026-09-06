@@ -56,9 +56,9 @@ const DEAD_SPACE_MAX = 0.45;
  * limit: the subject list no longer pads itself out with ground rows (the maintainer's "just a
  * simple list of subjects" — they are the same horizontal lines a user read as a broken pane), so
  * on a 3-subject fixture the work column ends after the last subject and the room below it is
- * pane, not filler. This page also drops the run receipt (2026-09-06): its plan grid and the
- * action-bar digest already state the batch, so the ~80px strip the receipt held at the bottom of
- * the work column is now empty too. Measured 53.8 % at 1280x800 and 59.8 % at 1440x900 with three
+ * pane, not filler. No run page carries a receipt any more (removed 2026-09-06): the plan grid and
+ * the action-bar digest state the batch, so the ~80px strip the receipt held at the bottom of the
+ * work column is gone from every page. Measured 53.8 % at 1280x800 and 59.8 % at 1440x900 with three
  * subjects; both fall back towards the global limit as a real project's list grows. Every other
  * page is held to L5a exactly.
  */
@@ -263,9 +263,9 @@ test("the fill controller settles after the content grows (lane UC's second find
 
   await page.locator("#analyzer-simulation").click();
   await page.getByRole("option", { name: "Thalamus" }).first().click();
-  // Open "Output" by hand rather than waiting for the fill controller to open it: since the run
-  // receipt (plan C3) took its ~80px at the bottom of the work column, the Analyzer at 1280x800
-  // no longer has the 96px of slack the controller needs to open a fifth section on its own. The
+  // Open "Output" by hand rather than waiting for the fill controller to open it: at 1280x800 the
+  // Analyzer does not reliably have the 96px of slack the controller needs to open a fifth section
+  // on its own, and this test is not about the controller's threshold. The
   // growth this test is about — `ResultsPanel` going from an empty table to a populated one — is
   // the same either way, and the assertions below (react once, then STOP) are unchanged.
   await setSectionOpen(page, "Output", true);

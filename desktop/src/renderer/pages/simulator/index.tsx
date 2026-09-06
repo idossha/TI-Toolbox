@@ -25,7 +25,7 @@ import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import { useSimPlan, RunButton } from "./RunControls";
 import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, OUTPUT_FIELDS_HELP, type SelectedRow } from "./types";
-import { Receipt, RunPanel, RunWork, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
+import { RunPanel, RunWork, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 
@@ -227,7 +227,6 @@ function SimulatorPage() {
             }
           />
         }
-          receipt={<Receipt plan={plan.model} blockedReason={plan.blockedReason} />}
           actionBar={<ActionBar digest={digest} blocked={!!plan.blockedReason} primary={runButton} />}
       >
         <RunWork>

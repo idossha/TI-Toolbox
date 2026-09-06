@@ -100,7 +100,7 @@ test("shape A, no page header, and the shared subject control (J1)", async () =>
 });
 
 test("with nothing ticked the primary is disabled, with the reason as its tooltip and no banner", async () => {
-  // The disabled button is the ONLY signal: no digest line, no receipt callout (maintainer call).
+  // The disabled button is the ONLY signal: no digest line, no banner (maintainer call).
   await expect(page.locator(".action-bar-digest")).toHaveCount(0);
   await expect(page.getByTestId("run-receipt")).toHaveCount(0);
   const run = page.getByTestId("run-button");

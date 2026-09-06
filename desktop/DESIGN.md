@@ -511,8 +511,8 @@ model:
 
 `jobs`, `cpus` and `memoryGb` come from the stats strip; `overwrites` counts cells resolving to
 `overwrite`, `waits` counts `lock_conflicts`. When `jobs === 0` the digest is the plan's
-`blockedReason` — but that string is **not printed anywhere**: the digest and the receipt are both
-suppressed, and the single signal that a run cannot start is the primary itself, `disabled`, in the
+`blockedReason` — but that string is **not printed anywhere**: the digest is suppressed and the
+single signal that a run cannot start is the primary itself, `disabled`, in the
 disabled treatment (§5), **with that string as its tooltip** (maintainer call, 2026-09; supersedes
 the earlier "never a silent disabled button"). The digest and the strip cannot disagree because they
 read one object.
@@ -653,13 +653,14 @@ Anything chosen out of a set — subjects, montages, ROI regions, electrodes, pa
   multi-column table (the Jobs page). Both are keyboard-navigable with a roving
   `aria-activedescendant`. Virtualised past 150 visible rows.
 
-**The receipt.** Every run page ends its work column with `pages/_shared/run/Receipt` — "This will
-run N jobs:", the first 15, "… and K more", and the existing-outputs line — derived from the same
-`PlanModel` as the plan grid and the action bar's digest. It is passed to `PageLayout`'s `receipt`
-slot, which renders it **outside** the work scroller, between it and the action bar: a sticky strip
-inside the scroller floats over the form, and the layout hit-test caught it answering clicks meant
-for 12 of the Optimizer's controls. The grid is the detail view; the receipt is the confirmation, and
-it is adjacent to the button.
+**No receipt.** A run page states its batch **twice and no more**: the plan grid in the run pane
+(subject × stage, one cell per job) and the action bar's digest ("1 job · 2 CPU · 6 GB"). Both are
+renderings of one `PlanModel`, so they cannot disagree, and the grid is a click away from the Run
+button it confirms. A third rendering — the run receipt, a strip above Run repeating the count, the
+first 15 rows and the existing-outputs line — was removed 2026-09-06 (maintainer: "we have enough
+info overlapping on the right planning window"). What survived it is `planCounts()` in
+`pages/_shared/run/planModel`, which the pages use for the number the existing-outputs dialog asks
+about.
 
 **Existing outputs** are one question with three answers, on every run page:
 `pages/_shared/run/ExistingOutputsDialog` — Skip (default, its label counting the batch: "Skip 3, run

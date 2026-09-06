@@ -7,9 +7,9 @@
  *   1. every subject-taking page renders the same control, with the same testids and the same two
  *      bulk buttons — so a page that grows a second idiom fails here and nowhere else;
  *   2. ⇧-click selects a range, ⌘-click toggles, and a plain click selects exactly one;
- *   3. the receipt sits above Run on the run pages that carry one, its count equals the plan's
- *      rows, and it updates live as the selection changes (Pre-processing deliberately has no
- *      receipt: its plan grid and action-bar digest already state the batch);
+ *   3. no run page carries a receipt any more (removed 2026-09-06): the plan grid in the run pane
+ *      and the action-bar digest are the confirmation, they agree on the count, and they update
+ *      live as the selection changes;
  *   4. the shared existing-outputs dialog opens from all four run pages with the same three
  *      buttons;
  *   5. the Jobs page's rows are selectable and its bulk cancel sends exactly the selected ids.
@@ -152,10 +152,9 @@ test("the filter narrows the rows, and the header box only takes what is visible
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
 });
 
-test("the receipt sits above Run, counts the plan's jobs, and updates live", async () => {
-  // On the Simulator, not Pre-processing: Pre-processing has no receipt (its plan grid and the
-  // action-bar digest already state the batch), so the shared component is checked where it is
-  // actually rendered.
+test("the plan grid and the digest state the batch, with no receipt, and update live", async () => {
+  // On the Simulator, where the receipt used to sit above Run: the confirmation is now the plan
+  // grid in the run pane plus the action-bar digest, and neither overlays the form it confirms.
   await gotoPage(page, "simulator", "Simulator");
   await openSubjects(page);
   await selectSubjects(page, ["ernie"]);
@@ -171,34 +170,28 @@ test("the receipt sits above Run, counts the plan's jobs, and updates live", asy
   await montageRow.getByRole("combobox").nth(1).click();
   await page.getByRole("option", { name: "F3_F4 · TI", exact: true }).click();
 
-  const receipt = page.locator('[data-page-active="true"]').getByTestId("run-receipt");
-  await expect(receipt).toBeVisible();
-  await expect(receipt.getByTestId("run-receipt-headline")).toHaveText(/This will run \d+ jobs?:/, { timeout: 20_000 });
-
-  // The count IS the plan's rows: both are `planModelFrom` output, so they cannot disagree.
-  const jobs = Number(await receipt.getAttribute("data-jobs"));
-  expect(jobs).toBeGreaterThan(0);
+  await expect(active.getByTestId("run-receipt")).toHaveCount(0);
   // Scoped to the active page: other pages stay mounted, so an unscoped `plan-grid` would count
   // another page's cells.
-  const cells = await page.locator('[data-page-active="true"]').getByTestId("plan-grid").locator(".plan-cell-button").count();
-  expect(jobs).toBe(cells);
+  const cells = active.getByTestId("plan-grid").locator(".plan-cell-button");
+  await expect(cells.first()).toBeVisible({ timeout: 20_000 });
+  const jobs = await cells.count();
+  expect(jobs).toBeGreaterThan(0);
+  // The digest IS the same `PlanModel` the grid draws, so the two cannot disagree on the count.
+  await expect(active.locator(".action-bar-digest")).toHaveText(
+    new RegExp(`\\b${jobs} job`),
+    { timeout: 20_000 },
+  );
 
-  // It is above the action bar, not in the other pane.
-  const receiptBox = await receipt.boundingBox();
-  const barBox = await page.locator('[data-page-active="true"] .action-bar').boundingBox();
-  expect(receiptBox).not.toBeNull();
-  expect(barBox).not.toBeNull();
-  expect((receiptBox as { y: number }).y).toBeLessThan((barBox as { y: number }).y);
-
-  // Live: deselecting removes the receipt entirely — the disabled primary carries the reason.
+  // Live: deselecting empties the plan, and the disabled primary carries the reason.
   await selectSubjects(page, []);
-  await expect(receipt).toHaveCount(0);
-  const run = page.locator('[data-page-active="true"]').getByTestId("run-button");
+  await expect(active.locator(".action-bar-digest")).toHaveCount(0);
+  const run = active.getByTestId("run-button");
   await expect(run).toBeDisabled();
   await expect(run).toHaveAttribute("title", "Select at least one subject.");
 });
 
-test("Pre-processing states its batch in the plan and the digest, without a receipt", async () => {
+test("Pre-processing states its batch in the plan and the digest", async () => {
   await gotoPage(page, "preprocess", "Pre-processing");
   await openSubjects(page);
   await selectSubjects(page, ["ernie"]);
@@ -251,7 +244,7 @@ test("the shared existing-outputs dialog is one question with three answers", as
   await openSubjects(page);
   await selectOnlyErnie();
 
-  // Pre-processing carries no receipt: the plan grid is what states the batch here. Wait for it
+  // The plan grid is what states the batch here. Wait for it
   // to resolve — these subjects have output already, so pressing Run then asks the shared
   // question rather than submitting silently.
   await expect(

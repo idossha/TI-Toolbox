@@ -32,8 +32,7 @@ import { SubjectsField, blockedSubjects, presenceColumns, subjectsBlockedReason,
 import {
   RunPanel,
   RunWork,
-  Receipt,
-  receiptFrom,
+  planCounts,
   ExistingOutputsDialog,
   planDigest,
   planModelFrom,
@@ -389,7 +388,7 @@ function OptimizerPage() {
   }
 
   const costLine = method === "flex" ? flexCost(flexForm).line : method === "ex" ? exCost(exForm).line : mexCost(mexForm).line;
-  const receipt = receiptFrom(plan);
+  const counts = planCounts(plan);
   const digest = plan ? `${planDigest(plan)}${plan.blockedReason ? "" : ` · ${costLine}`}` : (blockedReason ?? "Resolving the plan…");
 
   const lastJob = useMemo(() => {
@@ -486,7 +485,7 @@ function OptimizerPage() {
     }
     // The one existing-outputs question (C3): asked whenever anything already has output, with
     // Skip as a real answer — before, "Cancel" was the only alternative to overwriting.
-    if (!overwrite && receipt.existing > 0) {
+    if (!overwrite && counts.existing > 0) {
       setConfirmOverwrite(true);
       return;
     }
@@ -570,7 +569,6 @@ function OptimizerPage() {
           }
         />
       }
-      receipt={<Receipt plan={plan} policy={overwrite ? "replace" : "skip"} blockedReason={blockedReason} />}
       actionBar={
         <ActionBar
           digest={digest}
@@ -687,8 +685,8 @@ function OptimizerPage() {
       <ExistingOutputsDialog
         open={confirmOverwrite}
         onOpenChange={setConfirmOverwrite}
-        existing={receipt.existing}
-        total={receipt.jobs}
+        existing={counts.existing}
+        total={counts.jobs}
         noun="search output"
         busy={submit.isPending}
         onDecide={(decision) => {
