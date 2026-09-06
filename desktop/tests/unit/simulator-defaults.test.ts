@@ -22,6 +22,7 @@ import {
 import { eligibleSubjectsFor, seedWithShellSubject } from "../../src/renderer/pages/simulator/index";
 import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
 import type { FlexRun } from "../../src/renderer/pages/simulator/api";
+import { SIM_PLAN_STAGES, sourceOfJob } from "../../src/renderer/pages/simulator/RunControls";
 
 // contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
@@ -336,5 +337,31 @@ describe("Flex result placements", () => {
 
   it("a manifest alone offers nothing — which is exactly what used to disable every row", () => {
     expect(placementsFor(run({ manifest: { goal: "mean", best_score: 0.5 } }))).toEqual([]);
+  });
+});
+
+/**
+ * The Simulator's plan grid is a per-subject *summary* (maintainer, 2026-09-06): three fixed
+ * columns — Montage · Flex · Free-hand — rather than one column per selected simulation.
+ */
+describe("the Simulator's plan columns", () => {
+  it("are the three sources, fixed and in order", () => {
+    expect(SIM_PLAN_STAGES.map((s) => s.id)).toEqual(["montage", "flex", "freehand"]);
+    expect(SIM_PLAN_STAGES.map((s) => s.label)).toEqual(["Montage", "Flex", "Free-hand"]);
+  });
+
+  it("maps a merged job index back to the row that planned it", () => {
+    // Row 0 (montage) planned 2 jobs, row 1 (flex) 1, row 2 (free-hand) 1 — the concatenation
+    // `mergePlanResults` produces.
+    const resolved = [
+      { data: { jobs: [{}, {}] }, row: { source: "montage" as const } },
+      { data: { jobs: [{}] }, row: { source: "flex" as const } },
+      { data: { jobs: [{}] }, row: { source: "freehand" as const } },
+    ];
+    expect([0, 1, 2, 3].map((i) => sourceOfJob(resolved, i))).toEqual(["montage", "montage", "flex", "freehand"]);
+  });
+
+  it("falls back to the montage column rather than dropping a job it cannot place", () => {
+    expect(sourceOfJob([], 0)).toBe("montage");
   });
 });

@@ -22,7 +22,19 @@ import {
 } from "../_shared/run";
 import { planSim, type PlanResult } from "./api";
 import { buildMontageSources, buildSimulationConfig, type GlobalParams } from "./buildConfig";
-import type { SelectedRow } from "./types";
+import type { MontageSource, SelectedRow } from "./types";
+
+/**
+ * The Simulator's plan columns are the three *sources* a run can come from, not one column per
+ * selected montage (maintainer, 2026-09-06: "per subject, show X for montage, X for flex mode, X
+ * for freehand — a high-level summary … instead of saturating it with the specific simulations").
+ * Fixed and always all three, so the grid does not reflow as rows are added.
+ */
+export const SIM_PLAN_STAGES: PlanStage[] = [
+  { id: "montage", label: "Montage" },
+  { id: "flex", label: "Flex" },
+  { id: "freehand", label: "Free-hand" },
+];
 
 /** Debounces plan requests as the form changes (DESIGN.md §2: "on debounce"). */
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -72,7 +84,12 @@ export function useSimPlan(
     }),
   });
 
-  const results = queries.map((q) => q.data).filter((d): d is PlanResult => !!d);
+  // Kept paired with the row that produced it: a still-pending row drops out of `results`, so an
+  // index into the merged job list can only be mapped back to a source through this pairing.
+  const resolved = queries
+    .map((q, i) => ({ data: q.data, row: debouncedRows[i] }))
+    .filter((e): e is { data: PlanResult; row: SelectedRow } => !!e.data && !!e.row);
+  const results = resolved.map((e) => e.data);
   const loading = rows.length > 0 && queries.some((q) => q.isPending);
   const refetching = queries.some((q) => q.isRefetching);
   const failed = queries.some((q) => q.error);
@@ -87,13 +104,12 @@ export function useSimPlan(
     blockedReason || results.length === 0
       ? null
       : planModelFrom("sim", mergePlanResults(results as unknown as SharedPlanResult[]), subjects, {
-          // Columns = one per selected montage, in the order they were picked (FXU1). The plan
-          // itself would only produce a column for a montage whose `output_dir` came back, so a
-          // row still resolving would silently drop out of the matrix.
-          stages: debouncedRows.reduce<PlanStage[]>((acc, row) => {
-            if (!acc.some((s) => s.id === row.name)) acc.push({ id: row.name, label: row.name });
-            return acc;
-          }, []),
+          stages: SIM_PLAN_STAGES,
+          // Every job folds onto its row's source column. `results` is `useQueries`' array in
+          // `debouncedRows` order and each row plans exactly its own jobs, so the i-th job's row is
+          // found by walking the same per-row job counts rather than by matching names (two rows
+          // can carry the same montage name under different sources).
+          stageFor: (_job, i) => sourceOfJob(resolved, i),
         });
 
   return {
@@ -105,6 +121,20 @@ export function useSimPlan(
     blockedReason,
     existingCount: results.reduce((n, r) => n + r.jobs.filter((j) => j.exists).length, 0),
   };
+}
+
+/**
+ * Which source column job `i` of the merged plan belongs to: `mergePlanResults` concatenates the
+ * per-row results in order, so the job index falls inside exactly one row's block. Falls back to
+ * `"montage"` if the arrays ever disagree, so a job is never dropped from the grid.
+ */
+export function sourceOfJob(resolved: { data: { jobs: unknown[] }; row: { source: MontageSource } }[], index: number): MontageSource {
+  let seen = 0;
+  for (const entry of resolved) {
+    seen += entry.data.jobs.length;
+    if (index < seen) return entry.row.source;
+  }
+  return "montage";
 }
 
 export function RunButton({

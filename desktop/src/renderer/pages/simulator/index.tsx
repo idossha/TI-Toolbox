@@ -205,6 +205,8 @@ function SimulatorPage() {
           <RunPanel
             kind="sim"
             plan={plan.model}
+            /* Summary columns (Montage · Flex · Free-hand), so a cell counts its jobs. */
+            cellDetail="counts"
             loading={plan.loading}
             refetching={plan.refetching}
             error={plan.error}

@@ -6,12 +6,14 @@
  * subject in prose. The matrix says the same thing in one 24px row per subject with no repeated
  * labels, which is what lets a four-subject plan sit in a 360px pane above a live terminal.
  */
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { IconButton } from "../../../ui/Button";
 import { RefetchBar } from "../../../ui/Chrome";
 import { Callout, EmptyState, InlineError, Skeleton } from "../../../ui/Feedback";
+import { Popover } from "../../../ui/Overlay";
 import { Chip, type SemanticKind } from "../../../ui/Status";
-import type { PlanCell, PlanChip, PlanModel } from "./planModel";
+import { cellChipCounts, type PlanCell, type PlanChip, type PlanModel } from "./planModel";
 import "./run.css";
 
 export type ChipKind = SemanticKind;
@@ -39,9 +41,20 @@ const CHIP_MEANING: Record<PlanChip, string> = {
 /** The chips actually present in the matrix, in vocabulary order. */
 export function chipsPresent(plan: PlanModel): PlanChip[] {
   const seen = new Set<PlanChip>();
-  for (const row of plan.subjects) for (const cell of row.cells) if (cell.chip) seen.add(cell.chip);
+  for (const row of plan.subjects) for (const cell of row.cells) for (const job of cell.jobs) seen.add(job.chip);
   return CHIP_ORDER.filter((c) => seen.has(c));
 }
+
+/**
+ * How a cell renders.
+ *
+ * - `"chip"` (default) — one chip per cell, the one-job-per-stage matrix Pre-processing, the
+ *   Optimizer and the Analyzer draw.
+ * - `"counts"` — a compact count with its state breakdown ("3 new", "2 new · 1 skip"), for a
+ *   column that is a *category* holding many jobs: the Simulator's Montage · Flex · Free-hand
+ *   summary. An empty cell is an em dash rather than a middle dot.
+ */
+export type PlanCellDetail = "chip" | "counts";
 
 export interface PlanGridProps {
   plan: PlanModel | null;
@@ -56,6 +69,22 @@ export interface PlanGridProps {
   emptyMessage?: string;
   onEmptyAction?: () => void;
   onSelectRow?: (subject: string, cell: PlanCell) => void;
+  /** Column-set parameter: `"counts"` for a summary grid whose cells hold many jobs. */
+  cellDetail?: PlanCellDetail;
+}
+
+/** The cell's own content in `"counts"` mode: "2 new · 1 skip", one chip per state present. */
+function CountsCell({ cell }: { cell: PlanCell }) {
+  return (
+    <span className="plan-cell-counts">
+      {cellChipCounts(cell).map(({ chip, count }, i) => (
+        <span key={chip}>
+          {i > 0 && <span className="plan-legend-sep"> · </span>}
+          <Chip kind={PLAN_CHIP_KIND[chip]}>{`${count} ${chip}`}</Chip>
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function StatTile({ id, label, value, tone }: { id: string; label: string; value: string; tone?: "warning" }) {
@@ -64,6 +93,53 @@ function StatTile({ id, label, value, tone }: { id: string; label: string; value
       <span className="plan-stat-label">{label}</span>
       <span className={tone === "warning" ? "plan-stat-value plan-stat-value-warning" : "plan-stat-value"}>{value}</span>
     </div>
+  );
+}
+
+/**
+ * A summary cell standing for several jobs. The click cannot pin one of them by itself, so it
+ * opens the list and each entry pins its own job — then the popover closes, because a pin that
+ * leaves its own menu covering the terminal has not finished.
+ */
+function SummaryCell({
+  subject,
+  cell,
+  onSelectRow,
+}: {
+  subject: string;
+  cell: PlanCell;
+  onSelectRow?: (subject: string, cell: PlanCell) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <button type="button" className="plan-cell-button" title={`${cell.jobs.length} jobs`}>
+          <CountsCell cell={cell} />
+        </button>
+      }
+    >
+      <ul className="plan-cell-jobs" data-testid={`plan-cell-jobs-${subject}-${cell.stageId}`}>
+        {cell.jobs.map((job) => (
+          <li key={job.jobIndex}>
+            <button
+              type="button"
+              className="plan-cell-job"
+              title={job.outputDir || undefined}
+              onClick={() => {
+                onSelectRow?.(subject, { ...cell, chip: job.chip, jobIndex: job.jobIndex, outputDir: job.outputDir });
+                setOpen(false);
+              }}
+            >
+              <span className="mono plan-cell-job-name">{job.label}</span>
+              <Chip kind={PLAN_CHIP_KIND[job.chip]}>{job.chip}</Chip>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Popover>
   );
 }
 
@@ -77,6 +153,7 @@ export function PlanGrid({
   emptyMessage = "Select a subject to see the plan.",
   onEmptyAction,
   onSelectRow,
+  cellDetail = "chip",
 }: PlanGridProps) {
   return (
     <section className="plan-grid" data-testid="plan-grid">
@@ -143,19 +220,22 @@ export function PlanGrid({
                       </th>
                       {row.cells.map((cell) => (
                         <td key={cell.stageId} data-testid={`plan-cell-${row.subject}-${cell.stageId}`} title={cell.outputDir || undefined}>
-                          {cell.chip ? (
+                          {!cell.chip ? (
+                            <span className="plan-cell-none" aria-label="not part of this run">
+                              {cellDetail === "counts" ? "—" : "·"}
+                            </span>
+                          ) : cellDetail === "counts" && cell.jobs.length > 1 ? (
+                            /* The list-and-pin cell (see `SummaryCell`). */
+                            <SummaryCell subject={row.subject} cell={cell} onSelectRow={onSelectRow} />
+                          ) : (
                             <button
                               type="button"
                               className="plan-cell-button"
                               onClick={() => onSelectRow?.(row.subject, cell)}
                               title={cell.outputDir || undefined}
                             >
-                              <Chip kind={PLAN_CHIP_KIND[cell.chip]}>{cell.chip}</Chip>
+                              {cellDetail === "counts" ? <CountsCell cell={cell} /> : <Chip kind={PLAN_CHIP_KIND[cell.chip]}>{cell.chip}</Chip>}
                             </button>
-                          ) : (
-                            <span className="plan-cell-none" aria-label="not part of this run">
-                              ·
-                            </span>
                           )}
                         </td>
                       ))}

@@ -42,13 +42,27 @@ export interface PlanStage {
   id: string;
   label: string;
 }
+/** One planned job inside a cell. A cell holds more than one whenever a column is a *category*
+ *  rather than a single stage — the Simulator's `Montage · Flex · Free-hand` summary columns, where
+ *  every montage of a subject folds into one cell. */
+export interface PlanCellJob {
+  /** Index into `PlanResult.jobs`, for pinning the terminal. */
+  jobIndex: number;
+  chip: PlanChip;
+  /** The job's own stage id (the montage / run name) — what the popover lists. */
+  label: string;
+  outputDir: string;
+}
 export interface PlanCell {
   stageId: string;
-  /** `null` = this stage is not part of this subject's run → the grid renders a `·`. */
+  /** `null` = this stage is not part of this subject's run → the grid renders a `·` / `—`. */
   chip: PlanChip | null;
   outputDir: string;
-  /** Index into `PlanResult.jobs`, for pinning the terminal. `null` for a `·` cell. */
+  /** Index into `PlanResult.jobs`, for pinning the terminal. `null` for an empty cell. */
   jobIndex: number | null;
+  /** Every job that folded into this cell, in plan order. Empty for an empty cell; exactly one
+   *  entry for the one-job-per-cell pages (Pre-processing, Optimizer, Analyzer). */
+  jobs: PlanCellJob[];
 }
 export interface SubjectPlan {
   subject: string;
@@ -170,6 +184,12 @@ export function planModelFrom(
      * this list are appended, so a server that grows a stage is never silently truncated.
      */
     stages?: PlanStage[];
+    /**
+     * Fold a job onto a column of the caller's own choosing, given the id `stageIdOf` derived.
+     * The Simulator uses it to map every montage/flex/free-hand job onto one of three fixed
+     * summary columns; every other page omits it and keeps one column per stage.
+     */
+    stageFor?: (job: PlanJob, index: number, defaultStageId: string) => string;
   },
 ): PlanModel {
   const warnings = result.warnings ?? [];
@@ -182,19 +202,29 @@ export function planModelFrom(
   const cellsBySubject = new Map<string, Map<string, PlanCell>>();
 
   result.jobs.forEach((job, i) => {
-    const stageId = stageIdOf(kind, result, i);
+    const defaultStageId = stageIdOf(kind, result, i);
+    const stageId = opts?.stageFor?.(job, i, defaultStageId) ?? defaultStageId;
     if (!stageIds.includes(stageId)) stageIds.push(stageId);
     let row = cellsBySubject.get(job.subject);
     if (!row) {
       row = new Map();
       cellsBySubject.set(job.subject, row);
     }
-    const chip = chipFor(job, conflicts, warnings, stageId);
+    const chip = chipFor(job, conflicts, warnings, defaultStageId);
+    const entry: PlanCellJob = { jobIndex: i, chip, label: defaultStageId, outputDir: job.output_dir };
     const existing = row.get(stageId);
-    // Two jobs in one cell (a re-planned stage): the more severe chip wins, matching the same
-    // precedence a single cell uses, so a matrix can never under-report.
-    if (!existing || CHIP_ORDER.indexOf(chip) < CHIP_ORDER.indexOf(existing.chip ?? "new")) {
-      row.set(stageId, { stageId, chip, outputDir: job.output_dir, jobIndex: i });
+    // Two or more jobs in one cell (a re-planned stage, or a Simulator summary column): every job
+    // is kept, and the cell's own chip is the most severe of them — the same precedence a single
+    // cell uses, so a matrix can never under-report.
+    if (!existing) {
+      row.set(stageId, { stageId, chip, outputDir: job.output_dir, jobIndex: i, jobs: [entry] });
+      return;
+    }
+    existing.jobs.push(entry);
+    if (CHIP_ORDER.indexOf(chip) < CHIP_ORDER.indexOf(existing.chip ?? "new")) {
+      existing.chip = chip;
+      existing.outputDir = job.output_dir;
+      existing.jobIndex = i;
     }
   });
 
@@ -207,7 +237,7 @@ export function planModelFrom(
     return {
       subject,
       cells: stageIds.map(
-        (stageId) => row?.get(stageId) ?? { stageId, chip: null, outputDir: "", jobIndex: null },
+        (stageId) => row?.get(stageId) ?? { stageId, chip: null, outputDir: "", jobIndex: null, jobs: [] },
       ),
     };
   });
@@ -227,9 +257,20 @@ export function planModelFrom(
   };
 }
 
-/** How many cells in the model resolve to a given chip — the digest's overwrite count. */
+/** How many planned *jobs* in the model resolve to a given chip — the digest's overwrite count.
+ *  Counted over `cell.jobs`, not over cells, so a summary column that folds several jobs into one
+ *  cell reports all of them. */
 export function countChip(plan: PlanModel, chip: PlanChip): number {
-  return plan.subjects.reduce((n, s) => n + s.cells.filter((c) => c.chip === chip).length, 0);
+  return plan.subjects.reduce((n, s) => n + s.cells.reduce((m, c) => m + c.jobs.filter((j) => j.chip === chip).length, 0), 0);
+}
+
+/** How many jobs of each chip a cell holds, in vocabulary order — what a summary cell prints
+ *  ("2 new · 1 skip"). */
+export function cellChipCounts(cell: PlanCell): { chip: PlanChip; count: number }[] {
+  return [...CHIP_ORDER]
+    .reverse()
+    .map((chip) => ({ chip, count: cell.jobs.filter((j) => j.chip === chip).length }))
+    .filter((e) => e.count > 0);
 }
 
 /**
@@ -297,14 +338,17 @@ export function planCounts(plan: PlanModel | null): PlanCounts {
   let blocked = 0;
   for (const subject of plan?.subjects ?? []) {
     for (const cell of subject.cells) {
-      if (cell.chip === null) continue;
-      jobs += 1;
-      if (cell.chip === "skip") existing += 1;
-      if (cell.chip === "overwrite") {
-        existing += 1;
-        overwrites += 1;
+      // Over the cell's jobs, not the cell: a Simulator summary column holds one cell per subject
+      // and many jobs inside it, and every one of them is a job that will run.
+      for (const cellJob of cell.jobs) {
+        jobs += 1;
+        if (cellJob.chip === "skip") existing += 1;
+        if (cellJob.chip === "overwrite") {
+          existing += 1;
+          overwrites += 1;
+        }
+        if (cellJob.chip === "blocked") blocked += 1;
       }
-      if (cell.chip === "blocked") blocked += 1;
     }
   }
   return { jobs, existing, overwrites, blocked, waits: plan?.stats.waits ?? 0 };

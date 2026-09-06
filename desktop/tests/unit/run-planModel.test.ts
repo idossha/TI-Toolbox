@@ -5,13 +5,16 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  cellChipCounts,
   chipFor,
   countChip,
+  planCounts,
   mergePlanResults,
   normalizeStageId,
   planDigest,
   planModelFrom,
   stageIdOf,
+  type PlanCell,
   type PlanJob,
   type PlanResult,
 } from "../../src/renderer/pages/_shared/run/planModel";
@@ -170,5 +173,67 @@ describe("mergePlanResults — the per-row plans the Simulator issues", () => {
     expect(merged.lock_conflicts).toHaveLength(1);
     // Not 12 CPU / 48 GB: `_plan_cost` measures one representative job, so the tiles read per job.
     expect(merged.cost).toEqual({ cpus: 8, mem_gb: 32 });
+  });
+});
+
+/**
+ * Summary columns: `opts.stageFor` folds many jobs onto one column, which is how the Simulator
+ * draws `Montage · Flex · Free-hand` instead of one column per selected simulation. Everything
+ * derived from the model — the stats strip, the digest, `planCounts` — must still count *jobs*.
+ */
+describe("stageFor — a column that is a category, not a stage", () => {
+  const SOURCES: Record<string, string> = { A: "montage", B: "montage", F: "flex" };
+  const merged = result([
+    job({ subject: "ernie", output_dir: "/o/A", stage: "A" }),
+    job({ subject: "ernie", output_dir: "/o/B", stage: "B", exists: true }),
+    job({ subject: "ernie", output_dir: "/o/F", stage: "F" }),
+    job({ subject: "101", output_dir: "/o/A", stage: "A", exists: true, will_overwrite: true }),
+  ]);
+  const plan = planModelFrom("sim", merged, ["ernie", "101"], {
+    stages: [
+      { id: "montage", label: "Montage" },
+      { id: "flex", label: "Flex" },
+      { id: "freehand", label: "Free-hand" },
+    ],
+    stageFor: (_j, _i, defaultStageId) => SOURCES[defaultStageId] ?? "montage",
+  });
+
+  /** One cell of the summary grid, by subject and column — `undefined` is a test failure. */
+  function cellOf(subject: string, stageId: string): PlanCell {
+    const cell = plan.subjects.find((s) => s.subject === subject)?.cells.find((c) => c.stageId === stageId);
+    if (!cell) throw new Error(`no cell ${subject}/${stageId}`);
+    return cell;
+  }
+
+  it("keeps the three declared columns and one row per subject", () => {
+    expect(plan.stages.map((s) => s.id)).toEqual(["montage", "flex", "freehand"]);
+    expect(plan.subjects.map((s) => s.subject)).toEqual(["ernie", "101"]);
+  });
+
+  it("folds a subject's jobs into one cell each, most severe chip first", () => {
+    expect(cellOf("ernie", "montage").jobs.map((j) => [j.label, j.chip])).toEqual([
+      ["A", "new"],
+      ["B", "skip"],
+    ]);
+    // skip is more severe than new, so that is the cell's own chip and its pin target.
+    expect(cellOf("ernie", "montage").chip).toBe("skip");
+    expect(cellOf("ernie", "flex").jobs.map((j) => j.label)).toEqual(["F"]);
+    // Free-hand: no job at all — the grid's em dash.
+    expect(cellOf("ernie", "freehand").chip).toBeNull();
+    expect(cellOf("ernie", "freehand").jobs).toEqual([]);
+  });
+
+  it("counts the folded jobs, so the cell breakdown and the footer agree", () => {
+    expect(cellChipCounts(cellOf("ernie", "montage"))).toEqual([
+      { chip: "new", count: 1 },
+      { chip: "skip", count: 1 },
+    ]);
+    expect(cellChipCounts(cellOf("101", "montage"))).toEqual([{ chip: "overwrite", count: 1 }]);
+    expect(cellChipCounts(cellOf("ernie", "freehand"))).toEqual([]);
+    // Four jobs planned, four jobs counted — the fold cannot lose one.
+    expect(planCounts(plan)).toMatchObject({ jobs: 4, existing: 2, overwrites: 1 });
+    expect(planCounts(plan).jobs).toBe(plan.stats.jobs);
+    expect(countChip(plan, "new")).toBe(2);
+    expect(planDigest(plan)).toBe("4 jobs · 8 CPU · 16 GB · 1 overwrite");
   });
 });

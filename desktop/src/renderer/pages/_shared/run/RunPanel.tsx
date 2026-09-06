@@ -10,7 +10,7 @@
  * Pre-processing has no head model to preview and must not grow a tab strip with one empty half.
  */
 import { useState, type ReactNode } from "react";
-import { PlanGrid } from "./PlanGrid";
+import { PlanGrid, type PlanCellDetail } from "./PlanGrid";
 import { JobTerminal } from "./JobTerminal";
 import { RunPaneTabs, type RunPaneTab } from "./RunPaneTabs";
 import type { PlanKind, PlanModel } from "./planModel";
@@ -45,6 +45,8 @@ export interface RunPanelProps {
   onPaneTabChange?: (tab: RunPaneTab) => void;
   /** `<PaneHeaderControls controller={…} />`, shown in the tab row. Requires `scene`. */
   paneControls?: ReactNode;
+  /** How the grid's cells read — `"counts"` for a summary column set (the Simulator's). */
+  cellDetail?: PlanCellDetail;
 }
 
 export function RunPanel({
@@ -67,6 +69,7 @@ export function RunPanel({
   scene,
   onPaneTabChange,
   paneControls,
+  cellDetail,
 }: RunPanelProps) {
   /**
    * "Clicking a row pins the Terminal to that subject's job" (§4.5). A *plan* row has no job id —
@@ -102,6 +105,7 @@ export function RunPanel({
         skeletonRows={Math.max(1, subjects.length)}
         emptyMessage={emptyMessage}
         onEmptyAction={onEmptyAction}
+        cellDetail={cellDetail}
         onSelectRow={(subject) => setRowSubject((prev) => (prev === subject ? null : subject))}
       />
       {scene ? (

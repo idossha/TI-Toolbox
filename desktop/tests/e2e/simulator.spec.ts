@@ -120,16 +120,16 @@ test("choosing a montage in a row builds a subject x montage matrix and a derive
   await expect(row.locator(".chip", { hasText: /^TI$/ })).toBeVisible();
 
   /*
-   * §4.5: for `kind="sim"` the columns are the montages of the run. They come from
-   * `basename(PlanJob.output_dir)`, and the mock's `outputDirFor("sim")` reads `config.name` —
-   * which `buildSimulationConfig` deliberately does not set (contracts/schema.json marks
-   * `SimulationConfig` `additionalProperties: false`), so every montage plans into
-   * `Simulations/NewRun` and the column is named "NewRun" rather than the montage. Reported as a
-   * mock/contract gap; the assertion is on the cell's chip, which is the part this page owns.
+   * §4.5, as the maintainer redrew it on 2026-09-06: for `kind="sim"` the columns are the three
+   * *sources* — Montage · Flex · Free-hand — and a cell is a count with its state breakdown, not
+   * one column per selected simulation. One montage row here, so: "1 new".
    */
-  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
+  const cell = page.getByTestId("plan-cell-ernie-montage");
   await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|skip|overwrite|blocked|wait)$/);
+  await expect(cell).toHaveText(/^1 (new|skip|overwrite|blocked|wait)$/);
+  await expect(page.locator(".plan-matrix thead th")).toHaveText(["Subject", "Montage", "Flex", "Free-hand"]);
+  // No job of the other two kinds, so those cells are em dashes rather than empty.
+  await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("—");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
   // The currents editor lives in the montage row itself now, not in a second "Selected jobs" card,
@@ -176,8 +176,8 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   await pickNet(montageRow, "GSN-HydroCel-185");
   await pickMontage(montageRow, "F3_F4 · TI");
 
-  const ernieCell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  const cell101 = page.locator('[data-testid^="plan-cell-101-"]').first();
+  const ernieCell = page.getByTestId("plan-cell-ernie-montage");
+  const cell101 = page.getByTestId("plan-cell-101-montage");
   await expect(ernieCell).toBeVisible({ timeout: 15_000 });
   await expect(cell101).toBeVisible({ timeout: 15_000 });
 
@@ -185,6 +185,55 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 simulations");
+});
+
+/**
+ * The plan grid is a per-subject summary (maintainer, 2026-09-06): three fixed source columns, a
+ * cell that counts its jobs and breaks them down by state, and — because a cell now stands for
+ * several jobs — a list behind the cell from which one job can be pinned.
+ */
+test("a cell counts its subject's jobs per source, and lists them for pinning", async () => {
+  // Two subjects are still ticked from the test above; add a second montage row, so ernie's
+  // Montage cell holds two jobs rather than one.
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const second = montageRows().nth(1);
+  await pickNet(second, "GSN-HydroCel-185");
+  await pickMontage(second, "Thalamus_target · TI");
+  await expect(montageRows()).toHaveCount(2);
+
+  // And a flex source, so the plan is genuinely mixed: 2 montage jobs per subject + 1 flex job.
+  const sourceTabs = page.getByRole("radiogroup", { name: "Montage source" });
+  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
+  const flexRow = page.locator('tr[data-run="flex_Thalamus_20260810_101500"]');
+  await flexRow.getByRole("checkbox").click();
+  await expect(flexRow.getByRole("checkbox")).toBeChecked();
+
+  const montageCell = page.getByTestId("plan-cell-ernie-montage");
+  await expect(montageCell).toHaveText("2 new", { timeout: 15_000 });
+  await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("1 new");
+  await expect(page.getByTestId("plan-cell-ernie-freehand")).toHaveText("—");
+  // Still three columns and one row per subject, however many simulations are selected.
+  await expect(page.locator(".plan-matrix thead th")).toHaveText(["Subject", "Montage", "Flex", "Free-hand"]);
+  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
+  // The footer keeps counting jobs, and it counts the folded ones.
+  await expect(page.getByTestId("plan-legend")).toContainText("new — 5 jobs in this plan");
+  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("5");
+
+  // Evidence (§8.1): two subjects, mixed sources.
+  await page.locator('[data-testid="plan-grid"]').screenshot({ path: "tests/e2e/artifacts/sim-plan-summary.png" });
+
+  // A cell of several jobs opens the list; picking one pins the terminal to that subject.
+  await montageCell.getByRole("button").click();
+  const jobs = page.getByTestId("plan-cell-jobs-ernie-montage");
+  await expect(jobs.locator("li")).toHaveCount(2);
+  await jobs.locator("li button").first().click();
+  await expect(jobs).toHaveCount(0);
+
+  // Leave the page as this serial file's next test expects it: montage source, no flex row.
+  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
+  await flexRow.getByRole("checkbox").click();
+  await expect(flexRow.getByRole("checkbox")).not.toBeChecked();
+  await sourceTabs.getByRole("radio", { name: "Montage", exact: true }).click();
 });
 
 test("nothing moves while a row is edited: fixed columns and fixed row heights", async () => {
@@ -275,8 +324,11 @@ test("a flex result row can be ticked and becomes a planned job", async () => {
   await expect(box).toBeChecked();
   await expect(row).toContainText("E020→E074, E101→E133");
 
-  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  await expect(cell).toBeVisible({ timeout: 15_000 });
+  // A flex source lands in the Flex column, and the montage column empties — which is the whole
+  // point of summarising by source rather than by simulation name.
+  const cell = page.getByTestId("plan-cell-ernie-flex");
+  await expect(cell).toHaveText("1 new", { timeout: 15_000 });
+  await expect(page.getByTestId("plan-cell-ernie-montage")).toHaveText("—");
   // One job, not two: the plan is built from the resolved config alone. Sending `montage_sources`
   // alongside it made the server resolve the same run a second time.
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });

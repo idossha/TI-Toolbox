@@ -133,6 +133,48 @@
   font: inherit;
   color: inherit;
 }
+/* A summary cell ("2 new · 1 skip"): the counts sit on one line and never wrap a column open. */
+.plan-cell-counts {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* The popover a multi-job summary cell opens: one row per job, click to pin the terminal to it. */
+.plan-cell-jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.plan-cell-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-control);
+}
+
+.plan-cell-job:hover {
+  background: var(--surface-2);
+}
+
+.plan-cell-job-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plan-cell-none {
   color: var(--ink-3);
   font-size: 12px;
