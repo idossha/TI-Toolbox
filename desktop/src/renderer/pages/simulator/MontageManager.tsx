@@ -207,6 +207,24 @@ export function resolveColumnWidths(container: number, stored: StoredColumns): C
   return { ...w, actions: ACTIONS_W };
 }
 
+/**
+ * What to call the two content columns, given the sources in the table: the majority wins, and a
+ * tie (or an empty table) reads as `Montage`, the source a fresh row starts on.
+ */
+export function headingsFor(sources: MontageSource[]): { pick: string; qualifier: string } {
+  const counts = { montage: 0, flex: 0, freehand: 0 };
+  for (const s of sources) counts[s] += 1;
+  const majority: MontageSource =
+    counts.flex > counts.montage && counts.flex >= counts.freehand
+      ? "flex"
+      : counts.freehand > counts.montage && counts.freehand > counts.flex
+        ? "freehand"
+        : "montage";
+  if (majority === "flex") return { pick: "Flex run", qualifier: "Placement" };
+  if (majority === "freehand") return { pick: "Free-hand set", qualifier: "Electrodes" };
+  return { pick: "EEG net", qualifier: "Montage" };
+}
+
 /** Reads the persisted widths; never throws (storage can be disabled or corrupt). */
 export function readStoredColumns(storage: Pick<Storage, "getItem"> | undefined): StoredColumns {
   if (!storage) return {};
@@ -748,69 +766,21 @@ export function JobsTable({
   }
 
   /**
-   * The EEG net column (line 1): the net a *montage* row's electrodes are labels of. A flex row's
-   * net is part of its placement and lives on line 2 beside the pairs it produces; a free-hand row
-   * carries its own coordinates and has none. Neither draws a placeholder dash here.
+   * Column 3 — **what you pick first**, whatever the source: a montage row's EEG net, a flex row's
+   * run, a free-hand row's saved set. It sits next to Source because it is the choice the rest of
+   * the row depends on (maintainer, 2026-09-06: a flex row used to leave this column empty and put
+   * its run two columns further right, past a gap).
    */
-  function renderNetCell(row: SelectedRow) {
-    if (row.source === "flex") return renderPlacementCell(row);
-    if (row.source !== "montage") return null;
-    const nets = netsForSubject(row.subjectId);
-    return (
-      <Select
-        value={nets.find((n) => n === row.eegNet)}
-        onValueChange={(v) => setRowNet(row, v)}
-        options={nets.map((n) => ({ value: n, label: netStem(n) }))}
-        placeholder="Choose a net"
-        aria-label="EEG net"
-      />
-    );
-  }
-
-  /**
-   * A flex row's placement, in the EEG-net column of line 1: the optimiser's own coordinates, or
-   * the EEG net its electrodes are mapped onto — **one** select, listing every net the subject has
-   * (the server maps on demand), not only the nets the run was pre-mapped to.
-   *
-   * Why one control and not the `Optimised · Map to net` pair plus a net select: measured in the
-   * app at 1280 with the default pane the four line-1 columns share 512px, and the two controls
-   * together need 290px in a column that can be 162px at most without starving the run name beside
-   * it. Splitting them across the two lines instead made a flex job a line taller than a montage
-   * job. One select keeps every name whole and every job exactly two lines.
-   */
-  function renderPlacementCell(row: SelectedRow) {
-    if (!row.name) return null;
-    const options = placementsForRow(row);
-    const hasOptimised = options.some((o) => o.value === OPTIMIZED);
-    const nets = netsForSubject(row.subjectId);
-    const choices = [
-      ...(hasOptimised ? [{ value: OPTIMIZED, label: "Optimised (XYZ)" }] : []),
-      ...nets.map((n) => ({ value: n, label: netStem(n) })),
-    ];
-    const current = row.eegNet ? nets.find((n) => netStem(n) === netStem(row.eegNet!)) : OPTIMIZED;
-    return (
-      <Select
-        value={choices.some((c) => c.value === current) ? current : undefined}
-        onValueChange={(v) => (v === OPTIMIZED ? setRowPlacementMode(row, "optimised") : void mapRowToNet(row, v))}
-        options={choices}
-        placeholder="Placement"
-        aria-label="Placement"
-      />
-    );
-  }
-
-  /** The Montage column: catalog montage, flex run, or saved free-hand configuration. */
-  function renderMontageCell(row: SelectedRow) {
+  function renderPickCell(row: SelectedRow) {
     if (row.source === "montage") {
+      const nets = netsForSubject(row.subjectId);
       return (
-        // The polarity chip is on line 2, beside the pairs it describes: the select gets the whole
-        // column, which is what a montage name needs to be readable (maintainer's "Ch…").
         <Select
-          value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
-          onValueChange={(v) => setRowMontage(row, v)}
-          options={montageOptions(row.eegNet)}
-          placeholder="Choose a montage"
-          aria-label="Montage"
+          value={nets.find((n) => n === row.eegNet)}
+          onValueChange={(v) => setRowNet(row, v)}
+          options={nets.map((n) => ({ value: n, label: netStem(n) }))}
+          placeholder="Choose a net"
+          aria-label="EEG net"
         />
       );
     }
@@ -840,10 +810,68 @@ export function JobsTable({
     );
   }
 
+  /**
+   * Column 4 — **what qualifies that pick**: the montage of the chosen net, or the placement the
+   * chosen flex run is simulated in. A free-hand set carries its own coordinates and has no net to
+   * qualify it, so the cell is empty rather than holding a control that would do nothing.
+   */
+  function renderQualifierCell(row: SelectedRow) {
+    if (row.source === "montage") {
+      return (
+        // The polarity chip is on line 2, beside the pairs it describes: the select gets the whole
+        // column, which is what a montage name needs to be readable (maintainer's "Ch…").
+        <Select
+          value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
+          onValueChange={(v) => setRowMontage(row, v)}
+          options={montageOptions(row.eegNet)}
+          placeholder="Choose a montage"
+          aria-label="Montage"
+        />
+      );
+    }
+    if (row.source !== "flex" || !row.name) return null;
+    /*
+     * A flex row's placement: the optimiser's own coordinates, or the EEG net its electrodes are
+     * mapped onto — **one** select, listing every net the subject has (the server maps on demand),
+     * not only the nets the run was pre-mapped to.
+     *
+     * Why one control and not an `Optimised · Map to net` pair plus a net select: measured in the
+     * app at 1280 with the default pane the four line-1 columns share 512px, and the two controls
+     * together need 290px in a column that can be ~176px at most without starving the run name
+     * beside it. Splitting them across the two lines instead made a flex job a line taller than a
+     * montage job. One select keeps every name whole and every job exactly two lines.
+     */
+    const options = placementsForRow(row);
+    const hasOptimised = options.some((o) => o.value === OPTIMIZED);
+    const nets = netsForSubject(row.subjectId);
+    const choices = [
+      ...(hasOptimised ? [{ value: OPTIMIZED, label: "Optimised (XYZ)" }] : []),
+      ...nets.map((n) => ({ value: n, label: netStem(n) })),
+    ];
+    const current = row.eegNet ? nets.find((n) => netStem(n) === netStem(row.eegNet!)) : OPTIMIZED;
+    return (
+      <Select
+        value={choices.some((c) => c.value === current) ? current : undefined}
+        onValueChange={(v) => (v === OPTIMIZED ? setRowPlacementMode(row, "optimised") : void mapRowToNet(row, v))}
+        options={choices}
+        placeholder="Placement"
+        aria-label="Placement"
+      />
+    );
+  }
+
   const catalogMontageOf = (row: SelectedRow): CatalogMontage | null =>
     row.source === "montage" && row.eegNet && row.kind && row.name
       ? { net: row.eegNet, kind: row.kind, name: row.name, pairs: row.pairs ?? [] }
       : null;
+
+  /**
+   * The two content columns hold different controls per source, so their headers name what most of
+   * the table's rows actually put there rather than a neutral word ("Selection", "Placement / net")
+   * that would be wrong for every row in a single-source table. The columns themselves never move —
+   * their widths come from the resolver — so only the words change.
+   */
+  const headings = useMemo(() => headingsFor(rows.map((r) => r.source)), [rows]);
 
   const loading = montages.isPending;
 
@@ -883,12 +911,12 @@ export function JobsTable({
                   <ColumnHandle label="Source" width={cols.source} onResize={(w) => setColumn("source", w)} />
                 </th>
                 <th data-column="net">
-                  EEG net
-                  <ColumnHandle label="EEG net" width={cols.net} onResize={(w) => setColumn("net", w)} />
+                  {headings.pick}
+                  <ColumnHandle label={headings.pick} width={cols.net} onResize={(w) => setColumn("net", w)} />
                 </th>
                 <th data-column="montage">
-                  Montage
-                  <ColumnHandle label="Montage" width={cols.montage} onResize={(w) => setColumn("montage", w)} />
+                  {headings.qualifier}
+                  <ColumnHandle label={headings.qualifier} width={cols.montage} onResize={(w) => setColumn("montage", w)} />
                 </th>
                 <th data-column="actions" />
               </tr>
@@ -939,10 +967,11 @@ export function JobsTable({
                           aria-label="Source"
                         />
                       </td>
-                      <td data-cell="net">{renderNetCell(row)}</td>
-                      <td data-cell="montage">{renderMontageCell(row)}</td>
+                      <td data-cell="net">{renderPickCell(row)}</td>
+                      <td data-cell="montage">{renderQualifierCell(row)}</td>
                       {/* One actions cell for the whole two-line job, its buttons on line 1. */}
                       <td data-cell="actions" className="montage-actions" rowSpan={2}>
+                        <div className="montage-actions-row">
                         <IconButton
                           aria-label={`Duplicate job ${rows.indexOf(row) + 1}`}
                           icon={<Copy size={14} />}
@@ -959,6 +988,7 @@ export function JobsTable({
                           />
                         )}
                         <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
+                        </div>
                       </td>
                     </tr>
                     {/*
@@ -985,7 +1015,9 @@ export function JobsTable({
                         </>
                       ) : (
                         <td colSpan={4} data-cell="detail">
-                          <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
+                          <div className="job-line2">
+                            <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
+                          </div>
                         </td>
                       )}
                     </tr>

@@ -228,26 +228,40 @@ test("nothing moves while a row is edited — including a change of SOURCE", asy
   await configureMontageJob(page, second, { subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI" });
   await expect(montageRows()).toHaveCount(2);
 
-  // Every cell of the table, by row and column — the geometry the maintainer's "no layout
-  // movement" rule is about.
+  /*
+   * Every cell of the table, by COLUMN — x and width, plus the y of the first row, which is what
+   * the rule is about: a row's own cells may get taller (an mTI job lists four channels on line 2
+   * where a TI job lists two, and four channel groups do not fit on one line at 1280), but no
+   * column may move and no row above the edited one may shift.
+   */
   const boxes = async () =>
-    page.locator("tr[data-job-row] td").evaluateAll((cells) =>
+    page.locator("tr[data-job-row]:first-of-type td, tr[data-job-row] td").evaluateAll((cells) =>
       cells.map((cell) => {
         const r = cell.getBoundingClientRect();
-        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+        return { x: Math.round(r.x), w: Math.round(r.width) };
       }),
     );
 
+  /** The first row's own geometry, which nothing done to the SECOND row may change. */
+  const firstRowBox = async () =>
+    page.locator("tr[data-job-row]").first().evaluate((tr) => {
+      const r = tr.getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+    });
+
   const before = await boxes();
+  const firstBefore = await firstRowBox();
   // 1. Change the SECOND row's montage, and with it its polarity (TI -> mTI, 2 -> 4 currents).
   await setJobMontage(page, second, "mTI_F3F4_P3P4 · mTI");
   await expect(second).toHaveAttribute("data-polarity", "multi_polar");
   await expect(jobCurrents(second)).toHaveCount(4);
   expect(await boxes(), "polarity switch moved a cell").toEqual(before);
+  expect(await firstRowBox(), "polarity switch moved the row above it").toEqual(firstBefore);
 
   // 2. Change the second row's NET (which empties its montage back to "choose one").
   await setJobNet(page, second, "EGI_template");
   expect(await boxes(), "net change moved a cell").toEqual(before);
+  expect(await firstRowBox(), "net change moved the row above it").toEqual(firstBefore);
 
   // 3. And back to a montage on the new net.
   await setJobMontage(page, second, "mTI_Cz_Oz_F3_F4 · mTI");
@@ -257,12 +271,14 @@ test("nothing moves while a row is edited — including a change of SOURCE", asy
   await expect(second).toHaveAttribute("data-polarity", "multi_polar");
   await expect(jobCurrents(second)).toHaveCount(4);
   expect(await boxes(), "montage change moved a cell").toEqual(before);
+  expect(await firstRowBox(), "montage change moved the row above it").toEqual(firstBefore);
 
   // 4. And the case the rework adds: the row's SOURCE. Its EEG-net cell becomes a placement
   //    picker and its Montage cell a flex-run picker, inside the columns they already had.
   await setJobSource(page, second, "Flex result");
   await expect(second).toHaveAttribute("data-source", "flex");
   expect(await boxes(), "source switch moved a cell").toEqual(before);
+  expect(await firstRowBox(), "source switch moved the row above it").toEqual(firstBefore);
   await setJobSource(page, second, "Free-hand");
   await expect(second).toHaveAttribute("data-source", "freehand");
   expect(await boxes(), "free-hand switch moved a cell").toEqual(before);

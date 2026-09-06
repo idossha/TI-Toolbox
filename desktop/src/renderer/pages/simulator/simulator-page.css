@@ -82,12 +82,21 @@
 
 /* Icon-only, 28px, right-aligned — three of them plus their gaps are exactly the 96px the
    actions column reserves (ACTIONS_W in MontageManager). There is no slack column after it. */
+/* The cell spans both lines of the job (`rowSpan=2`) and stays a real table cell, so its
+   background fills the whole job — a `display: flex` cell sized itself to one line's content and
+   left the bottom-right corner of an active row unpainted. The buttons are a row inside it. */
 .montage-table td.montage-actions {
+  vertical-align: top;
+  padding-top: 6px;
+  height: auto;
+}
+
+.montage-actions-row {
   display: flex;
-  height: 34px;
   gap: 2px;
   justify-content: flex-end;
   align-items: center;
+  height: 28px;
 }
 
 .montage-table td > * {
@@ -142,7 +151,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 2px var(--space-2);
-  min-height: 24px;
+  /* The same floor as the empty-state line, so a job is the same height before and after a montage
+     is picked. */
+  min-height: 28px;
 }
 
 /* One channel: its colour, its pair, its own current. The current input sits against the pair it
@@ -184,9 +195,6 @@
 }
 
 .job-line2-empty {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
   color: var(--text-secondary);
   font-size: 12px;
 }

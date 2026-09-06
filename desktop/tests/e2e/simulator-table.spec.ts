@@ -306,8 +306,9 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
     }
     return out;
   });
-  // The empty job is exactly as tall as the configured TI job beside it.
-  expect(withEmpty[2], `an unconfigured job is a different height: ${withEmpty.join(", ")}`).toBe(withEmpty[1]);
+  // The empty job is as tall as the configured TI job beside it — nothing jumps when a montage is
+  // picked. (±1px: a row of controls and a row of text round differently.)
+  expect(Math.abs(withEmpty[2]! - withEmpty[1]!), `an unconfigured job is a different height: ${withEmpty.join(", ")}`).toBeLessThanOrEqual(1);
   // A flex job is exactly as tall as a two-channel montage job: two lines, never three.
   await setJobSubject(page, empty, "ernie");
   await setJobSource(page, empty, "Flex result");
@@ -322,10 +323,62 @@ test("line 2 is unclipped, on line 1's grid, and every job is the same height", 
     return out;
   });
   console.log("JOBS-HEIGHTS-FLEX", JSON.stringify(flexHeights));
-  expect(flexHeights[2], "a flex job is not the same height as a TI montage job").toBe(flexHeights[1]);
+  expect(Math.abs(flexHeights[2]! - flexHeights[1]!), "a flex job is not the same height as a TI montage job").toBeLessThanOrEqual(1);
 
   await empty.getByRole("button", { name: /^Remove job / }).click();
   await expect(rows).toHaveCount(2);
+});
+
+/**
+ * The active row's wash is a rectangle — including the bottom-right corner under the action icons,
+ * which the maintainer's screenshot showed white because the spanning actions cell had been given
+ * one line's height.
+ */
+test("the active row's wash reaches its bottom-right corner", async () => {
+  const row = montageRows().first();
+  await jobBlank(row).click();
+  await expect(row).toHaveAttribute("data-active", "true");
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+
+  const corner = await page.evaluate(() => {
+    const line1 = document.querySelector('tr[data-job-row][data-active="true"]')!;
+    const line2 = line1.nextElementSibling!;
+    const actions = line1.querySelector("td.montage-actions")!;
+    const box = actions.getBoundingClientRect();
+    const inside = document.elementFromPoint(box.right - 3, box.bottom - 3);
+    return {
+      // The cell must span BOTH lines: its bottom is the second line's bottom.
+      spans: Math.round(box.bottom) >= Math.round(line2.getBoundingClientRect().bottom) - 1,
+      background: inside ? getComputedStyle(inside.closest("td") ?? inside).backgroundColor : null,
+      rowBackground: getComputedStyle(line1.querySelector("td")!).backgroundColor,
+    };
+  });
+  expect(corner.spans, "the actions cell does not span both lines of the job").toBe(true);
+  expect(corner.background, "the bottom-right corner is not washed like the rest of the row").toBe(corner.rowBackground);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+});
+
+/**
+ * Column order, per source (maintainer, 2026-09-06): what you choose *first* sits next to Source,
+ * and what qualifies it comes after — a flex row used to leave the third column empty and put its
+ * run in the fourth.
+ */
+test("the third column is what the source makes you pick first", async () => {
+  const row = await addJobRow(page);
+  await setJobSubject(page, row, "ernie");
+
+  await setJobSource(page, row, "Flex result");
+  await expect(page.locator("table.sim-jobs-table thead th").nth(2)).toHaveText("EEG net"); // still the majority
+  await expect(row.locator('td[data-cell="net"]').getByRole("combobox")).toHaveAttribute("aria-label", "Flex run");
+  await setJobMontage(page, row, "flex_Thalamus_20260810_101500");
+  await expect(row.locator('td[data-cell="montage"]').getByRole("combobox")).toHaveAttribute("aria-label", "Placement");
+
+  await setJobSource(page, row, "Free-hand");
+  await expect(row.locator('td[data-cell="net"]').getByRole("combobox")).toHaveAttribute("aria-label", "Free-hand configuration");
+  await expect(row.locator('td[data-cell="montage"]').getByRole("combobox")).toHaveCount(0);
+
+  await row.getByRole("button", { name: /^Remove job / }).click();
+  await expect(montageRows()).toHaveCount(2);
 });
 
 /* Evidence (§8.1), never the assertion. */
@@ -333,7 +386,7 @@ test("records the jobs table", async () => {
   await container().screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
   for (const width of [1280, 1600] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v4-${width}.png` });
+    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v5-${width}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 });
