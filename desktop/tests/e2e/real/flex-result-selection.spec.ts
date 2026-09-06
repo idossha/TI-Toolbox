@@ -19,7 +19,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_helpers";
-import { jobRows, setJobMontage, setJobSource, setJobSubject } from "../_jobs";
+import { jobRows, setJobMappedNet, setJobMontage, setJobPlacement, setJobSource, setJobSubject } from "../_jobs";
 
 test("every real flex-search run is selectable, and a ticked one plans a job", async () => {
   test.setTimeout(120_000);
@@ -48,6 +48,25 @@ test("every real flex-search run is selectable, and a ticked one plans a job", a
     for (const name of runs) {
       await setJobMontage(page, row, name);
       await expect(row, `run ${name} must resolve to electrodes`).toHaveAttribute("data-runnable", "true");
+    }
+
+    // Both placements of the last run, against the real project: the optimiser's own coordinates,
+    // and *any* net the subject has — including one the run was never mapped onto, which the
+    // server maps on demand (`GET /api/catalog/flex-runs/{run}/mapping`). Nothing is submitted.
+    await setJobPlacement(page, row, "Optimised");
+    await expect(row.locator('td[data-cell="pairs"]')).toHaveText(/XYZ coordinates$/);
+    await setJobPlacement(page, row, "Map to net");
+    const netCell = row.locator('td[data-cell="net"]');
+    await netCell.getByRole("combobox").click();
+    const nets = await page.getByRole("option").allTextContents();
+    expect(nets.length, "the subject has EEG nets to map onto").toBeGreaterThan(0);
+    await page.keyboard.press("Escape");
+    for (const net of nets) {
+      await setJobMappedNet(page, row, net);
+      await expect(row.locator('td[data-cell="pairs"]'), `mapping onto ${net} must resolve to labels`).toHaveText(/–/, {
+        timeout: 30_000,
+      });
+      await expect(row).toHaveAttribute("data-runnable", "true");
     }
 
     // And the last one reaches the plan as exactly one job — the server resolving the run a second
