@@ -110,7 +110,6 @@ export function NodeInspector({
         if (!open) onClose();
       }}
       title={`${KIND_TITLE[node.kind]} — ${node.id}`}
-      description="Edited with the same form sections the node's own page uses."
     >
       <div className="pipeline-inspector" ref={body}>
         <FormSection title="Node">

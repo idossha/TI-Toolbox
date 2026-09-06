@@ -501,9 +501,19 @@ test("the cohort node lists the project's subjects with the Overview's own readi
   for (const id of ["ernie", "101", "MNI152"]) {
     await expect(list.getByRole("row", { name: new RegExp(`^${id}\\b`) })).toBeVisible();
   }
-  // Each row says what it is ready for, so the reason arrives before the refusal does.
-  await expect(list.getByRole("row", { name: /^ernie\b/ })).toContainText("analyzer");
-  await expect(list.getByRole("row", { name: /^MNI152\b/ })).not.toContainText("analyzer");
+  // Four columns and no more: the subject and its three presence dots. What a subject is *ready
+  // for* is deliberately not spelled out here — that sentence is the drag's refusal and the
+  // receipt's, and a third copy restated a conclusion these dots already support.
+  await expect(list).toContainText("Head model");
+  await expect(list).not.toContainText("Ready for");
+  await expect(list).not.toContainText("ready for");
+
+  // The facts are still there to key on, without a column printing them.
+  await expect(list.getByRole("row", { name: /^ernie\b/ })).toHaveAttribute(
+    "data-caps",
+    "raw,m2m,leadfield,simulation",
+  );
+  await expect(list.getByRole("row", { name: /^MNI152\b/ })).toHaveAttribute("data-caps", "m2m");
   await page.keyboard.press("Escape");
 });
 
