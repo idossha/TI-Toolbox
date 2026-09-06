@@ -224,16 +224,30 @@
   color: var(--ink-2);
 }
 
+/* Two columns of controls per layer, so a layer costs two rows of height and not four. A scene is
+   commonly five layers; at one control per row that is a page of scrolling before the layout
+   section, which turns "the menu is extensive" into "the menu is long". */
 .viewer-layer-controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-5);
+}
+
+.viewer-layer-controls .viewer-row {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+@media (max-width: 820px) {
+  .viewer-layer-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .viewer-threshold {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+  max-width: 200px;
 }
 
 /* ------------------------------------------------- extras */
