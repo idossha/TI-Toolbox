@@ -13,15 +13,18 @@
  * property of the *question being asked* rather than of one job — the ROI, the tissue, the
  * coordinate space — stays global on the page, exactly as it was in 2.5.0.
  *
- * Group mode is a switch over the same rows (`Combine into one group analysis`): the rows name the
- * cohort, and one job is submitted over all of them.
+ * Group mode is a switch over the same rows (`Combine into one group analysis`), living on the
+ * table's own footer line beside `+ Add row`: the rows name the cohort, and one job is submitted
+ * over all of them. 2.5.0's "Quick Add" button is gone (maintainer, 2026-09-06) — `+ Add row`,
+ * duplicate and remove are the whole gesture set.
  */
 import { useMemo } from "react";
-import { Copy, Plus, Users, X } from "lucide-react";
+import { Copy, Info, Plus, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
+import { Popover } from "../../ui/Overlay";
+import { Switch } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
-import { notify } from "../../ui/Toast";
 import { AUTO_FIELD, type Space } from "./buildConfig";
 import { FIELD_REGISTRY } from "./fields";
 
@@ -58,23 +61,6 @@ export function isRunnableAnalyzerRow(row: AnalyzerRow): boolean {
 }
 
 /**
- * 2.5.0's **Quick Add**: one row per subject that has run `simulation`, minus the ones already in
- * the table. Pure, so the rule ("every subject having this simulation", never one that has not
- * run it) is testable without the page.
- */
-export function quickAddRows(
-  rows: AnalyzerRow[],
-  simulation: string,
-  subjectsWithSimulation: string[],
-  template: Partial<AnalyzerRow> = {},
-): AnalyzerRow[] {
-  const already = new Set(rows.filter((r) => r.simulation === simulation).map((r) => r.subjectId));
-  return subjectsWithSimulation
-    .filter((id) => !already.has(id))
-    .map((id) => emptyAnalyzerRow({ ...template, subjectId: id, simulation }));
-}
-
-/**
  * The Jobs section's summary: how many rows are jobs, over how many subjects, and — in group mode
  * — that they fold into one. The count the disabled-Run grammar and the plan grid then agree with.
  */
@@ -105,10 +91,15 @@ export function AnalyzerJobRows({
   rows,
   onRowsChange,
   fieldsFor,
+  group,
+  onGroupChange,
 }: {
   subjects: AnalyzerSubject[];
   rows: AnalyzerRow[];
   onRowsChange: (next: AnalyzerRow[]) => void;
+  /** Cohort mode — the switch lives on the table's own footer line, beside `+ Add row`. */
+  group: boolean;
+  onGroupChange: (next: boolean) => void;
   /** Fields a given (subject, simulation) actually wrote; empty falls back to the registry. */
   fieldsFor: (subjectId: string, simulation: string) => string[];
 }) {
@@ -156,22 +147,6 @@ export function AnalyzerJobRows({
     onRowsChange([...rows.slice(0, at + 1), { ...row, id: newAnalyzerRowId() }, ...rows.slice(at + 1)]);
   }
 
-  function quickAdd() {
-    const simulation = [...rows].reverse().find((r) => r.simulation)?.simulation ?? "";
-    if (!simulation) {
-      notify.error("Pick a simulation in a row first — Quick add fills in every subject that has run it.");
-      return;
-    }
-    const have = subjects.filter((s) => !s.blockedReason && s.simulations.includes(simulation)).map((s) => s.id);
-    const added = quickAddRows(rows, simulation, have, { space: rows[0]?.space, field: rows[0]?.field });
-    if (added.length === 0) {
-      notify.info(`Every subject that has run "${simulation}" is already in the table.`);
-      return;
-    }
-    onRowsChange([...rows, ...added]);
-  }
-
-  const quickAddSimulation = [...rows].reverse().find((r) => r.simulation)?.simulation;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -270,13 +245,36 @@ export function AnalyzerJobRows({
         </table>
       </div>
 
-      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+      {/* One footer line: the add gesture on the left, the cohort switch right-aligned on the same
+          row (maintainer, 2026-09-06). The switch is not a `Field` — a "Combine" label above a
+          control that already reads "Combine into one group analysis" said it twice. */}
+      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }} data-testid="analysis-jobs-footer">
         <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={addRow}>
           Add row
         </Button>
-        <Button variant="secondary" size="sm" icon={<Users size={14} />} onClick={quickAdd} disabled={!quickAddSimulation}>
-          {quickAddSimulation ? `Quick add: every subject with "${quickAddSimulation}"` : "Quick add"}
-        </Button>
+        <div
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-2)" }}
+          data-testid="analysis-combine-row"
+        >
+          {/* The help trigger sits outside the <label> on purpose — inside it, opening the popover
+              would also toggle the switch. */}
+          <label className="checkbox-label-row">
+            <Switch checked={group} onCheckedChange={onGroupChange} aria-label="Combine into one group analysis" />
+            Combine into one group analysis
+          </label>
+          <Popover
+            trigger={
+              <button type="button" className="field-help-trigger" aria-label="Help">
+                <Info size={12} aria-hidden />
+              </button>
+            }
+          >
+            <div className="field-help-popover">
+              <div className="field-help-popover-title">Combine into one group analysis</div>
+              One cohort analysis over every row&apos;s subject (run_group_analysis), instead of one job per row.
+            </div>
+          </Popover>
+        </div>
       </div>
     </div>
   );

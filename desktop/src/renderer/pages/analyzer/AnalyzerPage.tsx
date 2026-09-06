@@ -24,7 +24,6 @@ import { ActionBar } from "../../ui/Chrome";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
-import { Switch } from "../../ui/Toggle";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify } from "../../ui/Toast";
@@ -439,18 +438,16 @@ export function AnalyzerPage() {
                   onAction={() => navigate("/simulator")}
                 />
               ) : (
-                <AnalyzerJobRows subjects={jobSubjects} rows={rows} onRowsChange={setRows2} fieldsFor={fieldsFor} />
+                <AnalyzerJobRows
+                  subjects={jobSubjects}
+                  rows={rows}
+                  onRowsChange={setRows2}
+                  fieldsFor={fieldsFor}
+                  group={group}
+                  onGroupChange={setGroupMode}
+                />
               )}
             </div>
-            <Field
-              label="Combine"
-              help="One cohort analysis over every row's subject (run_group_analysis), instead of one job per row."
-            >
-              <label className="checkbox-label-row">
-                <Switch checked={group} onCheckedChange={setGroupMode} aria-label="Combine into one group analysis" />
-                Combine into one group analysis
-              </label>
-            </Field>
             {groupMismatch && (
               <div style={{ gridColumn: "1 / -1" }}>
                 <Callout kind="warning">{groupMismatch}</Callout>

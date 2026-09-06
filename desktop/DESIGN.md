@@ -714,13 +714,16 @@ row is one job**, and the row owns every input that differs between jobs. The Si
    (`isRunnableRow`) is the gate, and the disabled Run states the *table* being empty before it
    states anything about subjects.
 4. **Duplicate, not fan-out.** Repeating a job for another subject is one click on the row —
-   duplicate it and change the subject. There is no cross-product button: the table never expands
-   itself on the user's behalf.
+   duplicate it and change the subject. There is no cross-product button and no "quick add every
+   subject with this simulation" (removed 2026-09-06): the table never expands itself on the user's
+   behalf. `+ Add row`, duplicate and remove are the whole gesture set.
 5. **What is global stays global.** Properties of the *run* rather than of a job — electrode
    geometry, conductivity, output fields, the analysis ROI — remain page-level sections.
 6. **A group is a switch over the rows,** not a separate mode with its own selection: the rows name
    the cohort, and rows that disagree about what a cohort job can only do once are refused with the
-   reason on the button.
+   reason on the button. It rides the table's own footer line — `+ Add row` on the left, the switch
+   right-aligned on the same row with its label and an (i) popover, and no separate field label
+   repeating the word the switch already says (maintainer, 2026-09-06).
 7. **The table survives the run.** Submitting does not empty it.
 
 **Authoring is not choosing.** The Simulator's free-hand *editor* is its own section, opened on

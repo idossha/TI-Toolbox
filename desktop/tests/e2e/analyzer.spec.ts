@@ -5,7 +5,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
-import { analysisRows, setAnalysisCell } from "./_jobs";
+import { analysisRows, setAnalysisCell, setAnalysisSubject } from "./_jobs";
 
 /**
  * Analyzer (DESIGN.md v3 §2 shape A, wireframes §5), against the mock server. Configures a
@@ -115,15 +115,36 @@ test("a row names its own simulation, space and field, and the plan resolves onc
 });
 
 /**
- * 2.5.0's **Quick Add** — "every subject that has run this simulation" in one press — and the
- * group switch that folds the same rows into one cohort job.
+ * A second row, and the group switch that folds the same rows into one cohort job. The switch
+ * lives on the table's footer line, right of `+ Add row` (maintainer, 2026-09-06); 2.5.0's
+ * "Quick Add" button was removed in the same pass.
  */
-test("Quick add fills the table, and the group switch folds the rows into one cohort job", async () => {
-  await page.getByRole("button", { name: /^Quick add: every subject with "Thalamus"$/ }).click();
-  // The mock's fixture: ernie and 101 have run Thalamus; MNI152 has not, so it is not added.
+test("a second row plans a second job, and the group switch folds the rows into one cohort job", async () => {
+  await expect(page.getByRole("button", { name: /Quick add/ })).toHaveCount(0);
+
+  // §4.7: `+ Add row` and the Combine switch share ONE footer line, the switch right-aligned.
+  const footer = page.getByTestId("analysis-jobs-footer");
+  const addRow = footer.getByRole("button", { name: "Add row", exact: true });
+  const combine = page.getByRole("switch", { name: "Combine into one group analysis" });
+  const addBox = await addRow.boundingBox();
+  const combineBox = await combine.boundingBox();
+  expect(addBox).not.toBeNull();
+  expect(combineBox).not.toBeNull();
+  // Same row: their vertical centres agree to within a couple of pixels.
+  expect(Math.abs(addBox!.y + addBox!.height / 2 - (combineBox!.y + combineBox!.height / 2))).toBeLessThan(4);
+  // Right-aligned: the switch sits in the right half of the footer, well past the add button.
+  const footerBox = (await footer.boundingBox())!;
+  expect(combineBox!.x).toBeGreaterThan(addBox!.x + addBox!.width);
+  expect(combineBox!.x).toBeGreaterThan(footerBox.x + footerBox.width / 2);
+  // No separate "Combine" field label above it.
+  await expect(page.getByTestId("analysis-combine-row").locator(".field-label")).toHaveCount(0);
+
+  await addRow.click();
   await expect(analysisRows(page)).toHaveCount(2);
-  await expect(analysisRows(page).nth(1)).toHaveAttribute("data-subject", "101");
-  await expect(analysisRows(page).nth(1)).toHaveAttribute("data-simulation", "Thalamus");
+  const second = analysisRows(page).nth(1);
+  await setAnalysisSubject(page, second, "101");
+  await setAnalysisCell(page, second, "simulation", "Thalamus");
+  await expect(second).toHaveAttribute("data-simulation", "Thalamus");
 
   const ernieCell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   const cell101 = page.locator('[data-testid^="plan-cell-101-"]').first();
@@ -136,7 +157,7 @@ test("Quick add fills the table, and the group switch folds the rows into one co
 
   // The switch: ONE job over both subjects (`run_group_analysis` over `subject_ids`), which is why
   // the button's label drops back to one.
-  await page.getByRole("switch", { name: "Combine into one group analysis" }).click();
+  await combine.click();
   await expect(page.getByTestId("run-button")).toHaveText("Run analysis", { timeout: 15_000 });
   await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
 
@@ -147,7 +168,7 @@ test("Quick add fills the table, and the group switch folds the rows into one co
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /A group analysis runs one simulation/);
   await setAnalysisCell(page, analysisRows(page).first(), "simulation", "Thalamus");
-  await page.getByRole("switch", { name: "Combine into one group analysis" }).click();
+  await combine.click();
   await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
 
   // Evidence (§8.1).

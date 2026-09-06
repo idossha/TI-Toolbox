@@ -13,7 +13,6 @@ import {
   analyzerJobsSummary,
   emptyAnalyzerRow,
   isRunnableAnalyzerRow,
-  quickAddRows,
   type AnalyzerRow,
 } from "../../src/renderer/pages/analyzer/JobRows";
 
@@ -242,15 +241,6 @@ describe("the Analyzer's job rows", () => {
     ]);
     // A half-filled row is never part of the cohort.
     expect(cohortSubjects([row("ernie", "Thalamus"), row("101", "")])).toEqual(["ernie"]);
-  });
-
-  it("Quick add fills in every subject that has run the simulation, and never a duplicate", () => {
-    const rows = [row("ernie", "Thalamus")];
-    const added = quickAddRows(rows, "Thalamus", ["ernie", "101", "MNI152"]);
-    expect(added.map((r) => r.subjectId)).toEqual(["101", "MNI152"]);
-    expect(added.every((r) => r.simulation === "Thalamus")).toBe(true);
-    // A subject already in the table under a DIFFERENT simulation is still added for this one.
-    expect(quickAddRows([row("101", "Motor")], "Thalamus", ["101"]).map((r) => r.subjectId)).toEqual(["101"]);
   });
 
   it("group mode refuses rows that disagree about the one thing a cohort job runs", () => {
